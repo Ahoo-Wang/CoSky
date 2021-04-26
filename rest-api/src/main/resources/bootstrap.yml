@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: govern-rest-api
+  cloud:
+    govern:
+      namespace: dev
+      config:
+        config-id: ${spring.application.name}.yml
+      redis:
+        mode: standalone
+        url: redis://localhost:6379

@@ -25,7 +25,7 @@ config set notify-keyspace-events "KA"
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.5.0";
+    val governVersion = "0.6.0";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -35,7 +35,7 @@ config set notify-keyspace-events "KA"
 ```xml
 
 <properties>
-    <govern.version>0.5.0</govern.version>
+    <govern.version>0.6.0</govern.version>
 </properties>
 
 <dependencies>
@@ -74,6 +74,7 @@ spring:
 ```shell
 bin/rest-api
 ```
+> http://localhost:8080/swagger-ui/index.html#/
 
 ### Config
 

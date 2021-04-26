@@ -1,0 +1,81 @@
+package me.ahoo.govern.disvoery.spring.cloud.discovery;
+
+import org.springframework.cloud.client.ServiceInstance;
+
+import java.net.URI;
+import java.util.Map;
+
+/**
+ * @author ahoo wang
+ */
+public class GovernServiceInstance implements ServiceInstance {
+    private me.ahoo.govern.discovery.ServiceInstance serviceInstance;
+
+    public GovernServiceInstance(me.ahoo.govern.discovery.ServiceInstance serviceInstance) {
+        this.serviceInstance = serviceInstance;
+    }
+
+    /**
+     * @return The unique instance ID as registered.
+     */
+    @Override
+    public String getInstanceId() {
+        return serviceInstance.getInstanceId();
+    }
+
+    /**
+     * @return The service ID as registered.
+     */
+    @Override
+    public String getServiceId() {
+        return serviceInstance.getServiceId();
+    }
+
+    /**
+     * @return The hostname of the registered service instance.
+     */
+    @Override
+    public String getHost() {
+        return serviceInstance.getIp();
+    }
+
+    /**
+     * @return The port of the registered service instance.
+     */
+    @Override
+    public int getPort() {
+        return serviceInstance.getPort();
+    }
+
+    /**
+     * @return Whether the port of the registered service instance uses HTTPS.
+     */
+    @Override
+    public boolean isSecure() {
+        return serviceInstance.isSecure();
+    }
+
+    /**
+     * @return The service URI address.
+     */
+    @Override
+    public URI getUri() {
+        return serviceInstance.getUri();
+    }
+
+    /**
+     * @return The key / value pair metadata associated with the service instance.
+     */
+    @Override
+    public Map<String, String> getMetadata() {
+        return serviceInstance.getMetadata();
+    }
+
+    /**
+     * @return The scheme of the service instance.
+     */
+    @Override
+    public String getScheme() {
+        return serviceInstance.getSchema();
+    }
+}
