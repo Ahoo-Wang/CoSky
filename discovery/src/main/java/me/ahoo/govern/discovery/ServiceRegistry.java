@@ -1,5 +1,7 @@
 package me.ahoo.govern.discovery;
 
+import me.ahoo.govern.core.Namespaced;
+
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -7,7 +9,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * @author ahoo wang
  */
-public interface ServiceRegistry {
+public interface ServiceRegistry extends Namespaced {
 
     /**
      * 注册实例

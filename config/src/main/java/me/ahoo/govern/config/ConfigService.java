@@ -1,12 +1,14 @@
 package me.ahoo.govern.config;
 
+import me.ahoo.govern.core.Namespaced;
+
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
  */
-public interface ConfigService extends ConfigRollback {
+public interface ConfigService extends ConfigRollback, Namespaced {
 
     CompletableFuture<Set<String>> getConfigs();
 

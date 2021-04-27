@@ -1,8 +1,8 @@
 package me.ahoo.govern.config.spring.cloud;
 
-import com.google.common.base.Preconditions;
 import com.google.common.io.Files;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.config.Config;
 import me.ahoo.govern.config.ConfigService;
@@ -18,14 +18,12 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.support.SpringFactoriesLoader;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author ahoo wang
  */
+@Slf4j
 public class GovernPropertySourceLocator implements PropertySourceLocator {
     private final List<PropertySourceLoader> propertySourceLoaders;
     private final ConfigService configService;
@@ -55,8 +53,13 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
             fileExt = configProperties.getFileExtension();
         }
 
+        log.info("locate - configId:[{}] @ namespace:[{}]", configId, configService.getNamespace());
+
         var config = configService.getConfig(configId).join();
-        Preconditions.checkNotNull(config, "can not find configId:[%s]", configId);
+        if (Objects.isNull(config)) {
+            log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, configService.getNamespace());
+            return new OriginTrackedMapPropertySource(getNameOfConfigId(configId), Collections.emptyMap());
+        }
 
         var sourceLoader = ensureSourceLoader(fileExt);
         var governPropertySource = getGovernPropertySourceOfConfig(sourceLoader, config);
@@ -77,7 +80,6 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
     }
 
     /**
-     *
      * @param sourceLoader
      * @param config
      * @return
@@ -87,7 +89,7 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
         ByteArrayResource byteArrayResource = new ByteArrayResource(config.getData().getBytes());
         List<PropertySource<?>> propertySourceList = sourceLoader.load(config.getConfigId(), byteArrayResource);
         Map<String, Object> source = getMapSource(config.getConfigId(), propertySourceList);
-        return new OriginTrackedMapPropertySource(getNameOfConfigId(config.getConfigId()),source);
+        return new OriginTrackedMapPropertySource(getNameOfConfigId(config.getConfigId()), source);
     }
 
     private Map<String, Object> getMapSource(String configId, List<PropertySource<?>> propertySourceList) {

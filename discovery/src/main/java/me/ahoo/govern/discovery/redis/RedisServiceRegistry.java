@@ -128,7 +128,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
 
     @Override
-    public CompletableFuture<Boolean> setMetadata(String serviceId,String instanceId, String key, String value) {
+    public CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, String key, String value) {
         if (log.isInfoEnabled()) {
             log.info("setMetadata - instanceId:[{}] .", instanceId);
         }
@@ -137,7 +137,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
     }
 
     @Override
-    public CompletableFuture<Boolean> setMetadata(String serviceId,String instanceId, Map<String, String> metadata) {
+    public CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata) {
         if (log.isInfoEnabled()) {
             log.info("setMetadata - instanceId:[{}] .", instanceId);
         }
@@ -233,5 +233,10 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
         var serviceInstanceIdxKey = keyGenerator.getInstanceIdxKey(serviceId);
         return redisCommands.sadd(serviceInstanceIdxKey, instanceId).toCompletableFuture();
+    }
+
+    @Override
+    public String getNamespace() {
+        return keyGenerator.getNamespace();
     }
 }

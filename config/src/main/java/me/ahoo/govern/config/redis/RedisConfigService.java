@@ -9,6 +9,7 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.config.*;
+import me.ahoo.govern.core.Namespaced;
 
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
  * @author ahoo wang
  */
 @Slf4j
-public class RedisConfigService implements ConfigService{
+public class RedisConfigService implements ConfigService {
     private final ConfigKeyGenerator keyGenerator;
     private final RedisClusterAsyncCommands<String, String> redisCommands;
 
@@ -130,5 +131,10 @@ public class RedisConfigService implements ConfigService{
                     return decodeFun.apply(configData);
                 })
                 .toCompletableFuture();
+    }
+
+    @Override
+    public String getNamespace() {
+        return keyGenerator.getNamespace();
     }
 }

@@ -48,4 +48,8 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     }
 
 
+    @Override
+    public String getNamespace() {
+        return keyGenerator.getNamespace();
+    }
 }

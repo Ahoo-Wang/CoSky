@@ -38,6 +38,11 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     }
 
     @Override
+    public String getNamespace() {
+        return keyGenerator.getNamespace();
+    }
+
+    @Override
     public CompletableFuture<Set<String>> getConfigs() {
         return delegate.getConfigs();
     }
@@ -91,12 +96,13 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
         return delegate.getConfigHistory(configId, version);
     }
 
+
     private class ConfigListener implements MessageListener {
 //        private final static String RENAME_FROM = "rename_from";
 
         @Override
         public void onMessage(Topic topic, String channel, String message) {
-            if (log.isInfoEnabled()){
+            if (log.isInfoEnabled()) {
                 log.info("onMessage@ConfigListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
 

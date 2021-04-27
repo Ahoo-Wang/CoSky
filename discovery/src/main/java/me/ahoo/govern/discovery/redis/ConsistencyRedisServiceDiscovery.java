@@ -85,6 +85,11 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
         return instanceTopic;
     }
 
+    @Override
+    public String getNamespace() {
+        return keyGenerator.getNamespace();
+    }
+
     private class ServiceIdxListener implements MessageListener {
 
         @Override

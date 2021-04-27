@@ -3,6 +3,8 @@
  */
 package me.ahoo.govern.discovery;
 
+import me.ahoo.govern.core.Namespaced;
+
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -11,7 +13,7 @@ import java.util.concurrent.CompletableFuture;
  *
  * @author ahoo wang
  */
-public interface ServiceDiscovery {
+public interface ServiceDiscovery extends Namespaced {
 
     CompletableFuture<Set<String>>  getServices();
 
