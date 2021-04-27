@@ -30,6 +30,13 @@ ext {
     set("springfoxVersion", "3.0.0")
 }
 
+allprojects {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+}
+
 configure(bomProjects) {
     apply<JavaPlatformPlugin>()
     configure<JavaPlatformExtension> {
