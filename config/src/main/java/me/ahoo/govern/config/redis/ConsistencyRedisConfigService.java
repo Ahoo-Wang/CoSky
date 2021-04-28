@@ -3,6 +3,7 @@ package me.ahoo.govern.config.redis;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.config.*;
+import me.ahoo.govern.core.NamespacedContext;
 import me.ahoo.govern.core.listener.ChannelTopic;
 import me.ahoo.govern.core.listener.MessageListenable;
 import me.ahoo.govern.core.listener.MessageListener;
@@ -22,14 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ConsistencyRedisConfigService implements ConfigService, ConfigListenable {
     private final ConfigService delegate;
     private final MessageListenable messageListenable;
-    private final ConfigKeyGenerator keyGenerator;
     private final ConfigListener configListener;
 
-    private final ConcurrentHashMap<String, CompletableFuture<Config>> configMap;
-    private final ConcurrentHashMap<String, ConfigChangedListener> configMapListener;
+    private final ConcurrentHashMap<NamespacedConfigId, CompletableFuture<Config>> configMap;
+    private final ConcurrentHashMap<NamespacedConfigId, ConfigChangedListener> configMapListener;
 
-    public ConsistencyRedisConfigService(ConfigKeyGenerator keyGenerator, ConfigService delegate, MessageListenable messageListenable) {
-        this.keyGenerator = keyGenerator;
+    public ConsistencyRedisConfigService(ConfigService delegate, MessageListenable messageListenable) {
         this.configMap = new ConcurrentHashMap<>();
         this.configMapListener = new ConcurrentHashMap<>();
         this.delegate = delegate;
@@ -38,23 +37,28 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     }
 
     @Override
-    public String getNamespace() {
-        return keyGenerator.getNamespace();
-    }
-
-    @Override
     public CompletableFuture<Set<String>> getConfigs() {
         return delegate.getConfigs();
     }
 
     @Override
-    public CompletableFuture<Config> getConfig(String configId) {
-        return configMap.computeIfAbsent(configId, (_configId) -> addListener(configId).
-                thenCompose(nil -> delegate.getConfig(configId)));
+    public CompletableFuture<Set<String>> getConfigs(String namespace) {
+        return delegate.getConfigs(namespace);
     }
 
-    private CompletableFuture<Void> addListener(String configId) {
-        var topicStr = RedisKeySpaces.getTopicOfKey(keyGenerator.getConfigKey(configId));
+    @Override
+    public CompletableFuture<Config> getConfig(String configId) {
+        return getConfig(NamespacedContext.GLOBAL.getNamespace(), configId);
+    }
+
+    @Override
+    public CompletableFuture<Config> getConfig(String namespace, String configId) {
+        return configMap.computeIfAbsent(NamespacedConfigId.of(namespace, configId), (_configId) -> addListener(namespace, configId).
+                thenCompose(nil -> delegate.getConfig(namespace, configId)));
+    }
+
+    private CompletableFuture<Void> addListener(String namespace, String configId) {
+        var topicStr = RedisKeySpaces.getTopicOfKey(ConfigKeyGenerator.getConfigKey(namespace, configId));
         var configTopic = ChannelTopic.of(topicStr);
         return messageListenable.addListener(configTopic, configListener);
     }
@@ -65,19 +69,39 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     }
 
     @Override
+    public CompletableFuture<Boolean> setConfig(String namespace, String configId, String data) {
+        return delegate.setConfig(namespace, configId, data);
+    }
+
+    @Override
     public CompletableFuture<Boolean> removeConfig(String configId) {
         return delegate.removeConfig(configId);
     }
 
     @Override
+    public CompletableFuture<Boolean> removeConfig(String namespace, String configId) {
+        return delegate.removeConfig(namespace, configId);
+    }
+
+    @Override
     public CompletableFuture<Boolean> addListener(String configId, ConfigChangedListener configChangedListener) {
-        var putOk = configMapListener.putIfAbsent(configId, configChangedListener) == null;
+        return addListener(NamespacedContext.GLOBAL.getNamespace(), configId, configChangedListener);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> addListener(String namespace, String configId, ConfigChangedListener configChangedListener) {
+        var putOk = configMapListener.putIfAbsent(NamespacedConfigId.of(namespace, configId), configChangedListener) == null;
         return CompletableFuture.completedFuture(putOk);
     }
 
     @Override
     public CompletableFuture<Boolean> removeListener(String configId) {
-        var removeOk = configMapListener.remove(configId) != null;
+        return removeListener(NamespacedContext.GLOBAL.getNamespace(), configId);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeListener(String namespace, String configId) {
+        var removeOk = configMapListener.remove(NamespacedConfigId.of(namespace, configId)) != null;
         return CompletableFuture.completedFuture(removeOk);
     }
 
@@ -87,13 +111,28 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     }
 
     @Override
+    public CompletableFuture<Boolean> rollback(String namespace, String configId, int targetVersion) {
+        return delegate.rollback(namespace, configId, targetVersion);
+    }
+
+    @Override
     public CompletableFuture<List<ConfigVersion>> getConfigVersions(String configId) {
         return delegate.getConfigVersions(configId);
     }
 
     @Override
+    public CompletableFuture<List<ConfigVersion>> getConfigVersions(String namespace, String configId) {
+        return delegate.getConfigVersions(namespace, configId);
+    }
+
+    @Override
     public CompletableFuture<ConfigHistory> getConfigHistory(String configId, int version) {
         return delegate.getConfigHistory(configId, version);
+    }
+
+    @Override
+    public CompletableFuture<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
+        return delegate.getConfigHistory(namespace, configId, version);
     }
 
 
@@ -110,13 +149,13 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
              * 忽略部分消息
              */
             var key = RedisKeySpaces.getKeyOfChannel(channel);
-            var configId = keyGenerator.getConfigIdOfKey(key);
-            configMap.put(configId, delegate.getConfig(configId));
-            var configChangedListener = configMapListener.get(configId);
+            var namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(key);
+            configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()));
+            var configChangedListener = configMapListener.get(namespacedConfigId);
             if (Objects.isNull(configChangedListener)) {
                 return;
             }
-            configChangedListener.onChange(configId, message);
+            configChangedListener.onChange(namespacedConfigId, message);
         }
     }
 }

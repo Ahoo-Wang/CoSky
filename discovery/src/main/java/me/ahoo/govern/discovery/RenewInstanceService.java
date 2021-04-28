@@ -55,7 +55,7 @@ public class RenewInstanceService {
 
     private void renew() {
 
-        final Set<ServiceInstance> instances = serviceRegistry.getRegisteredEphemeralInstances();
+        final Set<NamespacedServiceInstance> instances = serviceRegistry.getRegisteredEphemeralInstances();
         log.info("renew - instances size:{}.", instances.size());
         if (instances.isEmpty()) {
             return;
@@ -64,8 +64,8 @@ public class RenewInstanceService {
         CompletableFuture<Boolean>[] renewFutures = new CompletableFuture[instances.size()];
         var instanceIterator = instances.iterator();
         for (int i = 0; i < renewFutures.length; i++) {
-            var instance = instanceIterator.next();
-            renewFutures[i] = serviceRegistry.renew(instance);
+            var namespacedServiceInstance = instanceIterator.next();
+            renewFutures[i] = serviceRegistry.renew(namespacedServiceInstance.getNamespace(), namespacedServiceInstance.getServiceInstance());
         }
         CompletableFuture.allOf(renewFutures).join();
     }

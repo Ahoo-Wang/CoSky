@@ -12,7 +12,7 @@ import java.util.Objects;
  */
 @State(Scope.Benchmark)
 public class RedisConfigServiceBenchmark {
-
+    private final static String namespace = "benchmark_cfg";
     public RedisConfigService configService;
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> redisConnection;
@@ -34,9 +34,8 @@ public class RedisConfigServiceBenchmark {
         System.out.println("\n ----- RedisConfigBenchmark setup ----- \n");
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
-        ConfigKeyGenerator keyGenerator = new ConfigKeyGenerator("benchmark_cfg");
-        configService = new RedisConfigService(keyGenerator, redisConnection.async());
-        configService.setConfig(configId, configData);
+        configService = new RedisConfigService(redisConnection.async());
+        configService.setConfig(namespace, configId, configData);
     }
 
     @TearDown
@@ -52,12 +51,12 @@ public class RedisConfigServiceBenchmark {
 
     @Benchmark
     public void setConfig() {
-        configService.setConfig(configId, configData).join();
+        configService.setConfig(namespace, configId, configData).join();
     }
 
     @Benchmark
     public void getConfig() {
-        configService.getConfig(configId).join();
+        configService.getConfig(namespace, configId).join();
     }
 
 }

@@ -9,7 +9,7 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.config.*;
-import me.ahoo.govern.core.Namespaced;
+import me.ahoo.govern.core.NamespacedContext;
 
 import java.util.List;
 import java.util.Map;
@@ -22,33 +22,41 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class RedisConfigService implements ConfigService {
-    private final ConfigKeyGenerator keyGenerator;
+
     private final RedisClusterAsyncCommands<String, String> redisCommands;
 
-    public RedisConfigService(ConfigKeyGenerator keyGenerator,
-                              RedisClusterAsyncCommands<String, String> redisCommands) {
-        this.keyGenerator = keyGenerator;
+    public RedisConfigService(RedisClusterAsyncCommands<String, String> redisCommands) {
         this.redisCommands = redisCommands;
     }
 
     @Override
     public CompletableFuture<Set<String>> getConfigs() {
+        return getConfigs(NamespacedContext.GLOBAL.getNamespace());
+    }
+
+    @Override
+    public CompletableFuture<Set<String>> getConfigs(String namespace) {
         if (log.isInfoEnabled()) {
-            log.info("getConfigs .");
+            log.info("getConfigs  @ namespace:[{}].", namespace);
         }
-        var configIdxKey = keyGenerator.getConfigIdxKey();
+        var configIdxKey = ConfigKeyGenerator.getConfigIdxKey(namespace);
         return redisCommands.smembers(configIdxKey).thenApply(configKeySet ->
                 configKeySet.stream()
-                        .map(configKey -> keyGenerator.getConfigIdOfKey(configKey)
+                        .map(configKey -> ConfigKeyGenerator.getConfigIdOfKey(configKey).getConfigId()
                         ).collect(Collectors.toSet())).toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Config> getConfig(String configId) {
+        return getConfig(NamespacedContext.GLOBAL.getNamespace(), configId);
+    }
+
+    @Override
+    public CompletableFuture<Config> getConfig(String namespace, String configId) {
         if (log.isInfoEnabled()) {
-            log.info("getConfig - configId:[{}] .", configId);
+            log.info("getConfig - configId:[{}]  @ namespace:[{}].", configId, namespace);
         }
-        var configKey = keyGenerator.getConfigKey(configId);
+        var configKey = ConfigKeyGenerator.getConfigKey(namespace, configId);
         return getAndDecodeConfig(configKey, ConfigCodec::decode);
     }
 
@@ -61,14 +69,19 @@ public class RedisConfigService implements ConfigService {
      */
     @Override
     public CompletableFuture<Boolean> setConfig(String configId, String data) {
+        return setConfig(NamespacedContext.GLOBAL.getNamespace(), configId, data);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> setConfig(String namespace, String configId, String data) {
         String hash = Hashing.sha256().hashString(data, Charsets.UTF_8).toString();
         if (log.isInfoEnabled()) {
-            log.info("setConfig - configId:[{}] - hash:[{}] .", configId, hash);
+            log.info("setConfig - configId:[{}] - hash:[{}]  @ namespace:[{}].", configId, hash, namespace);
         }
 
         return ConfigRedisScripts.loadConfigSet(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {keyGenerator.getNamespace(), configId, data, hash};
+                    String[] keys = {namespace, configId, data, hash};
                     RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
                     return redisFuture;
                 });
@@ -76,13 +89,18 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Boolean> removeConfig(String configId) {
+        return removeConfig(NamespacedContext.GLOBAL.getNamespace(), configId);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeConfig(String namespace, String configId) {
         if (log.isInfoEnabled()) {
-            log.info("removeConfig - configId:[{}] .", configId);
+            log.info("removeConfig - configId:[{}] @ namespace:[{}].", configId, namespace);
         }
 
         return ConfigRedisScripts.loadConfigRemove(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {keyGenerator.getNamespace(), configId};
+                    String[] keys = {namespace, configId};
                     RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
                     return redisFuture;
                 });
@@ -90,13 +108,18 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Boolean> rollback(String configId, int targetVersion) {
+        return rollback(NamespacedContext.GLOBAL.getNamespace(), configId, targetVersion);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> rollback(String namespace, String configId, int targetVersion) {
         if (log.isInfoEnabled()) {
-            log.info("rollback - configId:[{}] - targetVersion:[{}] .", configId, targetVersion);
+            log.info("rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].", configId, targetVersion, namespace);
         }
 
         return ConfigRedisScripts.loadConfigRollback(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {keyGenerator.getNamespace(), configId, String.valueOf(targetVersion)};
+                    String[] keys = {namespace, configId, String.valueOf(targetVersion)};
                     RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
                     return redisFuture;
                 });
@@ -106,19 +129,29 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<List<ConfigVersion>> getConfigVersions(String configId) {
-        var configHistoryIdxKey = keyGenerator.getConfigHistoryIdxKey(configId);
+        return getConfigVersions(NamespacedContext.GLOBAL.getNamespace(), configId);
+    }
+
+    @Override
+    public CompletableFuture<List<ConfigVersion>> getConfigVersions(String namespace, String configId) {
+        var configHistoryIdxKey = ConfigKeyGenerator.getConfigHistoryIdxKey(namespace, configId);
         return redisCommands.zrevrange(configHistoryIdxKey, 0, HISTORY_STOP)
                 .thenApply(configHistoryKeyList ->
                         configHistoryKeyList.stream()
                                 .map(configHistoryKey ->
-                                        keyGenerator.getConfigVersionOfHistoryKey(configHistoryKey))
+                                        ConfigKeyGenerator.getConfigVersionOfHistoryKey(namespace, configHistoryKey))
                                 .collect(Collectors.toList()))
                 .toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<ConfigHistory> getConfigHistory(String configId, int version) {
-        var configHistoryKey = keyGenerator.getConfigHistoryKey(configId, version);
+        return getConfigHistory(NamespacedContext.GLOBAL.getNamespace(), configId, version);
+    }
+
+    @Override
+    public CompletableFuture<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
+        var configHistoryKey = ConfigKeyGenerator.getConfigHistoryKey(namespace, configId, version);
         return getAndDecodeConfig(configHistoryKey, ConfigCodec::decodeHistory);
     }
 
@@ -133,8 +166,4 @@ public class RedisConfigService implements ConfigService {
                 .toCompletableFuture();
     }
 
-    @Override
-    public String getNamespace() {
-        return keyGenerator.getNamespace();
-    }
 }

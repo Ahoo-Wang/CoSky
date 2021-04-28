@@ -28,26 +28,28 @@ import org.springframework.context.annotation.Primary;
 @AutoConfigureAfter(GovernAutoConfiguration.class)
 public class GovernConfigBootstrapConfiguration {
 
-    @Bean
-    @ConditionalOnMissingBean
-    public ConfigKeyGenerator configKeyGenerator(GovernProperties configProperties) {
-        return new ConfigKeyGenerator(configProperties.getNamespace());
-    }
+
+
+//    @Bean
+//    @ConditionalOnMissingBean
+//    public ConfigKeyGenerator configKeyGenerator(GovernProperties configProperties) {
+//        return new ConfigKeyGenerator(configProperties.getNamespace());
+//    }
 
     @Bean
     @ConditionalOnMissingBean
-    public RedisConfigService redisConfigService(ConfigKeyGenerator keyGenerator,
-                                                 AbstractRedisClient redisClient) {
+    public RedisConfigService redisConfigService(
+            AbstractRedisClient redisClient) {
         RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
-        return new RedisConfigService(keyGenerator, redisCommands);
+        return new RedisConfigService(redisCommands);
     }
 
     @Bean
     @ConditionalOnMissingBean
     @Primary
     public ConsistencyRedisConfigService consistencyRedisConfigService(
-            ConfigKeyGenerator keyGenerator, RedisConfigService delegate, MessageListenable messageListenable) {
-        return new ConsistencyRedisConfigService(keyGenerator, delegate, messageListenable);
+            RedisConfigService delegate, MessageListenable messageListenable) {
+        return new ConsistencyRedisConfigService(delegate, messageListenable);
     }
 
     @Bean

@@ -25,7 +25,7 @@ config set notify-keyspace-events "KA"
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.6.1";
+    val governVersion = "0.7.1";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -35,7 +35,7 @@ config set notify-keyspace-events "KA"
 ```xml
 
 <properties>
-    <govern.version>0.6.1</govern.version>
+    <govern.version>0.7.1</govern.version>
 </properties>
 
 <dependencies>
@@ -76,31 +76,50 @@ bin/rest-api
 ```
 > http://localhost:8080/swagger-ui/index.html#/
 
+### Namespace
+
+![rest-api-namespace](./docs/rest-api-namespace.png)
+
+- /v1/namespaces
+  - GET
+- /v1/namespaces/{namespace}
+  - PUT
+  - GET
+- /v1/namespaces/current
+  - GET
+- /v1/namespaces/current/{namespace}
+  - PUT
+  
 ### Config
 
-- /v1/configs
+![rest-api-config](./docs/rest-api-config.png)
+
+- /v1/namespaces/{namespace}/configs
     - GET
-- /v1/configs/{configId}
+- /v1/namespaces/{namespace}/configs/{configId}
     - GET
     - PUT
     - DELETE
-- /v1/configs/{configId}/history/{version}
+- /v1/namespaces/{namespace}/configs/{configId}/versions
     - GET
-- /v1/configs/{configId}/rollback/{targetVersion}
+- /v1/namespaces/{namespace}/configs/{configId}/versions/{version}
+    - GET
+- /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}
     - PUT
-- /v1/configs/{configId}/versions
-    - GET
+
 
 ### Service
 
-- /v1/services/
+![rest-api-service](./docs/rest-api-service.png)
+
+- /v1/namespaces/{namespace}/services/
     - GET
-- /v1/services/{serviceId}/instances
+- /v1/namespaces/{namespace}/services/{serviceId}/instances
     - GET
     - PUT
-- /v1/services/{serviceId}/instances/{instanceId}
+- /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}
     - DELETE
-- /v1/services/{serviceId}/instances/{instanceId}/metadata
+- /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
     - PUT
 
 ## JMH Benchmark

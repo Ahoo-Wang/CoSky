@@ -1,9 +1,7 @@
 package me.ahoo.govern.discovery;
 
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
-import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.Assertions;
@@ -18,7 +16,7 @@ import java.util.concurrent.CountDownLatch;
  */
 @Slf4j
 public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
-
+    private final static String namespace = "test_svc";
     private RedisServiceDiscovery redisServiceDiscovery;
 
     private ServiceInstance serviceInstance;
@@ -26,30 +24,28 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
 
     @BeforeAll
     private void init() {
-        this.namespace="test_svc";
         serviceInstance = TestServiceInstance.TEST_INSTANCE;
         var registryProperties = new RegistryProperties();
-        var keyGenerator = new DiscoveryKeyGenerator(namespace);
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, keyGenerator, redisConnection.async());
-        redisServiceDiscovery = new RedisServiceDiscovery(keyGenerator, redisConnection.async());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
+        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
     }
 
     private final static int REPEATED_SIZE = 60000;
 
     @Test
     public void getServices() {
-        var serviceIds = redisServiceDiscovery.getServices().join();
+        var serviceIds = redisServiceDiscovery.getServices(namespace).join();
         Assertions.assertNotNull(serviceIds);
     }
 
     @Test
     public void getInstances() {
-        var instances = redisServiceDiscovery.getInstances("test_fixed_service").join();
+        var instances = redisServiceDiscovery.getInstances(namespace, "test_fixed_service").join();
         Assertions.assertNotNull(instances);
     }
 
 
-    @Test
+    //    @Test
     public void getServicesRepeatedAsync() {
         var futures = new CompletableFuture[REPEATED_SIZE];
         for (int i = 0; i < REPEATED_SIZE; i++) {

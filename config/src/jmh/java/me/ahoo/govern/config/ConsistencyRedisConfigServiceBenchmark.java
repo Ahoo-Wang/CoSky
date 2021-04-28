@@ -15,6 +15,7 @@ import java.util.Objects;
  */
 @State(Scope.Benchmark)
 public class ConsistencyRedisConfigServiceBenchmark {
+    private static final String namespace = "benchmark_csy_cfg";
     public ConfigService configService;
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> redisConnection;
@@ -37,11 +38,11 @@ public class ConsistencyRedisConfigServiceBenchmark {
         System.out.println("\n ----- ConsistencyRedisConfigServiceBenchmark setup ----- \n");
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
-        ConfigKeyGenerator keyGenerator = new ConfigKeyGenerator("benchmark_csy_cfg");
-        RedisConfigService redisConfigService = new RedisConfigService(keyGenerator, redisConnection.async());
+
+        RedisConfigService redisConfigService = new RedisConfigService(redisConnection.async());
         redisConfigService.setConfig(configId, configData);
         messageListenable = new RedisMessageListenable(redisClient.connectPubSub());
-        configService = new ConsistencyRedisConfigService(keyGenerator, redisConfigService, messageListenable);
+        configService = new ConsistencyRedisConfigService(redisConfigService, messageListenable);
     }
 
     @TearDown
@@ -64,6 +65,6 @@ public class ConsistencyRedisConfigServiceBenchmark {
 
     @Benchmark
     public void getConfig() {
-        configService.getConfig(configId).join();
+        configService.getConfig(namespace, configId).join();
     }
 }

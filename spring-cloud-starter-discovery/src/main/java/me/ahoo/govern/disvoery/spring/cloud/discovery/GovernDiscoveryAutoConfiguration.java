@@ -32,26 +32,19 @@ public class GovernDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public DiscoveryKeyGenerator discoveryKeyGenerator(GovernProperties governProperties) {
-        return new DiscoveryKeyGenerator(governProperties.getNamespace());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public RedisServiceDiscovery redisServiceDiscovery(DiscoveryKeyGenerator discoveryKeyGenerator,
+    public RedisServiceDiscovery redisServiceDiscovery(
                                                        AbstractRedisClient redisClient) {
         RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
-        return new RedisServiceDiscovery(discoveryKeyGenerator, redisCommands);
+        return new RedisServiceDiscovery( redisCommands);
     }
 
     @Bean
     @ConditionalOnMissingBean
     @Primary
     public ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery(
-            DiscoveryKeyGenerator discoveryKeyGenerator,
             RedisServiceDiscovery redisServiceDiscovery,
             MessageListenable messageListenable) {
-        return new ConsistencyRedisServiceDiscovery(discoveryKeyGenerator, redisServiceDiscovery, messageListenable);
+        return new ConsistencyRedisServiceDiscovery( redisServiceDiscovery, messageListenable);
     }
 
 

@@ -15,4 +15,7 @@ public class NamespacedProperties implements Namespaced {
     public void setNamespace(String namespace) {
         this.namespace = namespace;
     }
+
+
+
 }

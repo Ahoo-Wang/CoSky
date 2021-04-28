@@ -33,4 +33,6 @@ public class GovernProperties extends NamespacedProperties {
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
     }
+
+
 }

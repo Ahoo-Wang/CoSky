@@ -1,7 +1,5 @@
 package me.ahoo.govern.discovery;
 
-import me.ahoo.govern.core.Namespaced;
-
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -9,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * @author ahoo wang
  */
-public interface ServiceRegistry extends Namespaced {
+public interface ServiceRegistry {
 
     /**
      * 注册实例
@@ -18,6 +16,8 @@ public interface ServiceRegistry extends Namespaced {
      */
     CompletableFuture<Boolean> register(ServiceInstance serviceInstance);
 
+    CompletableFuture<Boolean> register(String namespace, ServiceInstance serviceInstance);
+
     /**
      * 服务实例续期
      *
@@ -25,13 +25,23 @@ public interface ServiceRegistry extends Namespaced {
      */
     CompletableFuture<Boolean> renew(ServiceInstance serviceInstance);
 
+    CompletableFuture<Boolean> renew(String namespace, ServiceInstance serviceInstance);
+
     CompletableFuture<Boolean> deregister(ServiceInstance serviceInstance);
+
+    CompletableFuture<Boolean> deregister(String namespace, ServiceInstance serviceInstance);
 
     CompletableFuture<Boolean> deregister(String serviceId, String instanceId);
 
-    Set<ServiceInstance> getRegisteredEphemeralInstances();
+    CompletableFuture<Boolean> deregister(String namespace, String serviceId, String instanceId);
 
-    CompletableFuture<Boolean> setMetadata(String serviceId,String instanceId, String key, String value);
+    Set<NamespacedServiceInstance> getRegisteredEphemeralInstances();
 
-    CompletableFuture<Boolean> setMetadata(String serviceId,String instanceId, Map<String, String> metadata);
+    CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, String key, String value);
+
+    CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value);
+
+    CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata);
+
+    CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata);
 }

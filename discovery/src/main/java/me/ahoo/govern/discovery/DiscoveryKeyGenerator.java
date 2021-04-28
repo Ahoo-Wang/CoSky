@@ -1,67 +1,66 @@
 package me.ahoo.govern.discovery;
 
 import com.google.common.base.Strings;
+import lombok.var;
+import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.Namespaced;
 
 /**
  * @author ahoo wang
  */
-public class DiscoveryKeyGenerator implements Namespaced {
+public final class DiscoveryKeyGenerator {
+
+    private DiscoveryKeyGenerator() {
+    }
+
     private final static String SERVICE_IDX = "svc_idx";
     private final static String SERVICE_INSTANCE_IDX = "svc_itc_idx";
     private final static String SERVICE_INSTANCE = "svc_itc";
 
-    private final String namespace;
     /**
      * {namespace}:{@link #SERVICE_IDX}
      */
-    private final String serviceIdxKey;
+    private static final String serviceIdxKeyFormat = "%s:" + SERVICE_IDX;
     /**
      * {namespace}:{@link #SERVICE_INSTANCE_IDX}:{serviceId}
      */
-    private final String instanceIdxKeyFormat;
+    private static final String instanceIdxKeyFormat = "%s:" + SERVICE_INSTANCE_IDX + ":%s";
+    ;
 
     /**
      * {namespace}:{@link #SERVICE_INSTANCE}:{instanceId}
      */
-    private final String instanceKeyFormat;
+    private static final String instanceKeyFormat = "%s:" + SERVICE_INSTANCE + ":%s";
     /**
      * {namespace}:{@link #SERVICE_INSTANCE}:
      */
-    private final String instanceKeyPrefix;
-    private final String instanceKeyPatternOfServiceFormat;
+    private static final String instanceKeyPrefixFormat = "%s:svc_itc:";
 
-    public DiscoveryKeyGenerator(String namespace) {
-        this.namespace = namespace;
-        this.serviceIdxKey = namespace + ":" + SERVICE_IDX;
-        this.instanceIdxKeyFormat = namespace + ":" + SERVICE_INSTANCE_IDX + ":%s";
-        this.instanceKeyFormat = namespace + ":" + SERVICE_INSTANCE + ":%s";
-        this.instanceKeyPrefix = namespace + ":svc_itc:";
-        this.instanceKeyPatternOfServiceFormat = instanceKeyPrefix + "%s@*";
+    private static final String instanceKeyPatternOfServiceFormat = instanceKeyPrefixFormat + "%s@*";
+
+    public static String getServiceIdxKey(String namespace) {
+        return Strings.lenientFormat(serviceIdxKeyFormat, namespace);
     }
 
-    @Override
-    public String getNamespace() {
-        return this.namespace;
+    public static String getNamespaceOfKey(String key) {
+        var firstSplitIdx = key.indexOf(Consts.KEY_SEPARATOR);
+        return key.substring(0, firstSplitIdx);
     }
 
-    public String getServiceIdxKey() {
-        return this.serviceIdxKey;
+    public static String getInstanceIdxKey(String namespace, String serviceId) {
+        return Strings.lenientFormat(instanceIdxKeyFormat, namespace, serviceId);
     }
 
-    public String getInstanceIdxKey(String serviceId) {
-        return Strings.lenientFormat(instanceIdxKeyFormat, serviceId);
+    public static String getInstanceKey(String namespace, String instanceId) {
+        return Strings.lenientFormat(instanceKeyFormat, namespace, instanceId);
     }
 
-    public String getInstanceKey(String instanceId) {
-        return Strings.lenientFormat(instanceKeyFormat, instanceId);
+    public static String getInstanceKeyPatternOfService(String namespace, String serviceId) {
+        return Strings.lenientFormat(instanceKeyPatternOfServiceFormat, namespace, serviceId);
     }
 
-    public String getInstanceKeyPatternOfService(String serviceId) {
-        return Strings.lenientFormat(instanceKeyPatternOfServiceFormat, serviceId);
-    }
-
-    public String getInstanceIdOfKey(String instanceKey) {
+    public static String getInstanceIdOfKey(String namespace, String instanceKey) {
+        var instanceKeyPrefix = Strings.lenientFormat(instanceKeyPrefixFormat, namespace);
         return instanceKey.substring(instanceKeyPrefix.length());
     }
 

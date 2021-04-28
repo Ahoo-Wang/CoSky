@@ -15,7 +15,6 @@ import java.util.Objects;
 public class BaseOnRedisClientTest {
     protected RedisClient redisClient;
     protected StatefulRedisConnection<String, String> redisConnection;
-    protected String namespace;
 
     @BeforeAll
     private void initRedis() {
@@ -24,7 +23,7 @@ public class BaseOnRedisClientTest {
         redisConnection = redisClient.connect();
     }
 
-    protected void clearTestData() {
+    protected void clearTestData(String namespace) {
         RedisScripts.clearTestData(namespace, redisConnection.async()).join();
     }
 

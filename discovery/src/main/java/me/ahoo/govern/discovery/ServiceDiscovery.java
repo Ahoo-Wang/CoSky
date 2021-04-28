@@ -10,13 +10,16 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- *
  * @author ahoo wang
  */
-public interface ServiceDiscovery extends Namespaced {
+public interface ServiceDiscovery {
 
-    CompletableFuture<Set<String>>  getServices();
+    CompletableFuture<Set<String>> getServices(String namespace);
+
+    CompletableFuture<Set<String>> getServices();
 
     CompletableFuture<List<ServiceInstance>> getInstances(String serviceId);
+
+    CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId);
 
 }

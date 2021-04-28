@@ -1,5 +1,6 @@
 package me.ahoo.govern.config.spring.cloud;
 
+import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -7,6 +8,7 @@ import lombok.var;
 import me.ahoo.govern.config.Config;
 import me.ahoo.govern.config.ConfigService;
 import me.ahoo.govern.core.Consts;
+import me.ahoo.govern.core.NamespacedContext;
 import me.ahoo.govern.spring.cloud.support.AppSupport;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.env.OriginTrackedMapPropertySource;
@@ -52,12 +54,13 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
         if (Strings.isBlank(fileExt)) {
             fileExt = configProperties.getFileExtension();
         }
+        var namespace = NamespacedContext.GLOBAL.getNamespace();
 
-        log.info("locate - configId:[{}] @ namespace:[{}]", configId, configService.getNamespace());
+        log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
 
         var config = configService.getConfig(configId).join();
         if (Objects.isNull(config)) {
-            log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, configService.getNamespace());
+            log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);
             return new OriginTrackedMapPropertySource(getNameOfConfigId(configId), Collections.emptyMap());
         }
 
@@ -86,7 +89,7 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
      */
     @SneakyThrows
     public OriginTrackedMapPropertySource getGovernPropertySourceOfConfig(PropertySourceLoader sourceLoader, Config config) {
-        ByteArrayResource byteArrayResource = new ByteArrayResource(config.getData().getBytes());
+        ByteArrayResource byteArrayResource = new ByteArrayResource(config.getData().getBytes(Charsets.UTF_8));
         List<PropertySource<?>> propertySourceList = sourceLoader.load(config.getConfigId(), byteArrayResource);
         Map<String, Object> source = getMapSource(config.getConfigId(), propertySourceList);
         return new OriginTrackedMapPropertySource(getNameOfConfigId(config.getConfigId()), source);

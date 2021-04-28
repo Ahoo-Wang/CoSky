@@ -2,7 +2,6 @@ package me.ahoo.govern.discovery;
 
 import lombok.SneakyThrows;
 import lombok.var;
-import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -14,6 +13,7 @@ import java.util.concurrent.TimeUnit;
  * @author ahoo wang
  */
 public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
+    private final static String namespace = "test_renew";
     private ServiceInstance testInstance;
     private ServiceInstance testFixedInstance;
     private RedisServiceRegistry redisServiceRegistry;
@@ -21,13 +21,11 @@ public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
 
     @BeforeAll
     private void init() {
-        this.namespace="test_renew";
         testInstance = TestServiceInstance.TEST_INSTANCE;
         testFixedInstance = TestServiceInstance.TEST_FIXED_INSTANCE;
         var registryProperties = new RegistryProperties();
         registryProperties.setInstanceTtl(15);
-        var keyGenerator = new DiscoveryKeyGenerator(namespace);
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, keyGenerator, redisConnection.async());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
         var renewProperties = new RenewProperties();
         renewService = new RenewInstanceService(renewProperties, redisServiceRegistry);
     }
@@ -36,8 +34,8 @@ public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
     @Test
     public void start() {
         renewService.start();
-        redisServiceRegistry.register(testInstance);
-        redisServiceRegistry.register(testFixedInstance);
+        redisServiceRegistry.register(namespace, testInstance);
+        redisServiceRegistry.register(namespace, testFixedInstance);
         TimeUnit.SECONDS.sleep(20);
     }
 

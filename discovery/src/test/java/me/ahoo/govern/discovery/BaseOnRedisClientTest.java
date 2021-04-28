@@ -16,17 +16,16 @@ import java.util.Objects;
 public class BaseOnRedisClientTest {
     protected RedisClient redisClient;
     protected StatefulRedisConnection<String, String> redisConnection;
-    protected String namespace;
+
 
     @BeforeAll
     private void initRedis() {
-        this.namespace = Consts.GOVERN;
         System.out.println("--- initRedis ---");
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
     }
 
-    protected void clearTestData() {
+    protected void clearTestData(String namespace) {
          RedisScripts.clearTestData(namespace,redisConnection.async()).join();
     }
 

@@ -18,6 +18,8 @@ public final class RedisKeySpaces {
      * TODO just use DB-0
      */
     public static final String KEY_SPACE_TOPIC_PREFIX = "__keyspace@0__:";
+    public static final String KEY_SPACE_TOPIC_PREFIX_FORMAT = "__keyspace@%s__:";
+    public static final String KEY_SPACE_TOPIC_FORMAT = KEY_SPACE_TOPIC_PREFIX_FORMAT + "%s";
     private final static String NOTIFY_KEYSPACE_EVENTS = "notify-keyspace-events";
     /**
      * ############################# EVENT NOTIFICATION ##############################
@@ -74,13 +76,23 @@ public final class RedisKeySpaces {
     private final static String KEY_EVENT_TYPE = "E";
     private final static String ALL_DATA_TYPE = "A";
     private final static String[] DATA_TYPES = {"g", "$", "s", "h", "x"};
+    private final static int DEFAULT_DB = 0;
 
     public static String getTopicOfKey(String key) {
-        return KEY_SPACE_TOPIC_PREFIX + key;
+        return getTopicOfKey(DEFAULT_DB, key);
+    }
+
+    public static String getTopicOfKey(int db, String key) {
+        return Strings.lenientFormat(KEY_SPACE_TOPIC_FORMAT, db, key);
     }
 
     public static String getKeyOfChannel(String channel) {
-        return channel.substring(KEY_SPACE_TOPIC_PREFIX.length());
+        return getKeyOfChannel(DEFAULT_DB, channel);
+    }
+
+    public static String getKeyOfChannel(int db, String channel) {
+        var keyspaceTopicPrefix = Strings.lenientFormat(KEY_SPACE_TOPIC_PREFIX_FORMAT, db);
+        return channel.substring(keyspaceTopicPrefix.length());
     }
 
     public static void ensureEnableKeyspace(String notifyKeySpaceEventsConfigValue) {

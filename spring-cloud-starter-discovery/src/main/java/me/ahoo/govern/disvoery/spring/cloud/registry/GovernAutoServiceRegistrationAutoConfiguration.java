@@ -43,10 +43,10 @@ public class GovernAutoServiceRegistrationAutoConfiguration {
 
     @Bean
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
-                                                     DiscoveryKeyGenerator keyGenerator,
+
                                                      AbstractRedisClient redisClient) {
         RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
-        return new RedisServiceRegistry(registryProperties, keyGenerator, redisCommands);
+        return new RedisServiceRegistry(registryProperties,  redisCommands);
     }
 
     @Bean

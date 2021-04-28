@@ -5,6 +5,7 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
+import me.ahoo.govern.core.NamespacedContext;
 import me.ahoo.govern.discovery.*;
 
 import java.util.Map;
@@ -18,22 +19,19 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @Slf4j
 public class RedisServiceRegistry implements ServiceRegistry {
 
-    private final DiscoveryKeyGenerator keyGenerator;
-
     private final RegistryProperties registryProperties;
     private final RedisClusterAsyncCommands<String, String> redisCommands;
-    private final CopyOnWriteArraySet<ServiceInstance> registeredEphemeralInstances;
+    private final CopyOnWriteArraySet<NamespacedServiceInstance> registeredEphemeralInstances;
 
     public RedisServiceRegistry(RegistryProperties registryProperties,
-                                DiscoveryKeyGenerator keyGenerator,
                                 RedisClusterAsyncCommands<String, String> redisCommands) {
         this.registeredEphemeralInstances = new CopyOnWriteArraySet<>();
-        this.keyGenerator = keyGenerator;
+
         this.registryProperties = registryProperties;
         this.redisCommands = redisCommands;
     }
 
-    private CompletableFuture<Boolean> register(String scriptSha, ServiceInstance serviceInstance) {
+    private CompletableFuture<Boolean> register0(String namespace, String scriptSha, ServiceInstance serviceInstance) {
         /**
          * KEYS[1]
          */
@@ -42,7 +40,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
                         /**
                          * local namespace = KEYS[1];
                         */
-                        keyGenerator.getNamespace(),
+                        namespace,
                         /**
                          * local instanceTtl = KEYS[2];
                         */
@@ -83,114 +81,124 @@ public class RedisServiceRegistry implements ServiceRegistry {
     }
 
     /**
-     * 1. 注册服务索引 {@link #registerServiceIdx(String)}
-     * 2. 注册服务实例索引 {@link #registerInstanceIdx(String, String)}
-     * 3. 注册服务实例 {@link #registerInstance(ServiceInstance)}
-     *
      * @param serviceInstance 服务实例
      */
     @Override
     public CompletableFuture<Boolean> register(ServiceInstance serviceInstance) {
-        if (log.isInfoEnabled()) {
-            log.info("register - instanceId:[{}] .", serviceInstance.getInstanceId());
-        }
-
-        addEphemeralInstance(serviceInstance);
-        return DiscoveryRedisScripts.loadRegistryRegister(redisCommands)
-                .thenCompose(sha -> register(sha, serviceInstance));
+        return register(NamespacedContext.GLOBAL.getNamespace(), serviceInstance);
     }
 
-    private void addEphemeralInstance(ServiceInstance serviceInstance) {
+    @Override
+    public CompletableFuture<Boolean> register(String namespace, ServiceInstance serviceInstance) {
+        if (log.isInfoEnabled()) {
+            log.info("register - instanceId:[{}]  @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
+        }
+
+        addEphemeralInstance(namespace, serviceInstance);
+        return DiscoveryRedisScripts.loadRegistryRegister(redisCommands)
+                .thenCompose(sha -> register0(namespace, sha, serviceInstance));
+    }
+
+    private void addEphemeralInstance(String namespace, ServiceInstance serviceInstance) {
         if (!serviceInstance.isEphemeral()) {
             return;
         }
-        registeredEphemeralInstances.add(serviceInstance);
+        registeredEphemeralInstances.add(NamespacedServiceInstance.of(namespace, serviceInstance));
     }
 
-    private void removeEphemeralInstance(String instanceId) {
-        var serviceInstanceOp = registeredEphemeralInstances.stream().filter(instance -> instanceId.equals(instance.getInstanceId())).findFirst();
+    private void removeEphemeralInstance(String namespace, String instanceId) {
+        var serviceInstanceOp = registeredEphemeralInstances.stream()
+                .filter(namespacedServiceInstance -> namespacedServiceInstance.getNamespace().equals(namespace) &&
+                        instanceId.equals(namespacedServiceInstance.getServiceInstance().getInstanceId()))
+                .findFirst();
         if (serviceInstanceOp.isPresent()) {
             registeredEphemeralInstances.remove(serviceInstanceOp.get());
         }
     }
 
-    private void removeEphemeralInstance(ServiceInstance serviceInstance) {
+    private void removeEphemeralInstance(String namespace, ServiceInstance serviceInstance) {
         if (!serviceInstance.isEphemeral()) {
             return;
         }
-        registeredEphemeralInstances.remove(serviceInstance);
+
+        registeredEphemeralInstances.remove(NamespacedServiceInstance.of(namespace, serviceInstance));
     }
 
     @Override
-    public Set<ServiceInstance> getRegisteredEphemeralInstances() {
+    public Set<NamespacedServiceInstance> getRegisteredEphemeralInstances() {
         return registeredEphemeralInstances;
     }
 
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, String key, String value) {
+        return setMetadata(NamespacedContext.GLOBAL.getNamespace(), serviceId, instanceId, key, value);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value) {
         if (log.isInfoEnabled()) {
-            log.info("setMetadata - instanceId:[{}] .", instanceId);
+            log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
         }
-        var instanceKey = keyGenerator.getInstanceKey(instanceId);
+        var instanceKey = DiscoveryKeyGenerator.getInstanceKey(namespace, instanceId);
         return redisCommands.hset(instanceKey, key, value).toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata) {
+        return setMetadata(NamespacedContext.GLOBAL.getNamespace(), serviceId, instanceId, metadata);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata) {
         if (log.isInfoEnabled()) {
-            log.info("setMetadata - instanceId:[{}] .", instanceId);
+            log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
         }
-        var instanceKey = keyGenerator.getInstanceKey(instanceId);
+        var instanceKey = DiscoveryKeyGenerator.getInstanceKey(namespace, instanceId);
         return redisCommands.hset(instanceKey, metadata)
                 .thenApply(setResult -> setResult > 0)
                 .toCompletableFuture();
     }
 
-    /**
-     * 注册服务实例
-     *
-     * @param serviceInstance
-     */
-    public CompletableFuture<Boolean> registerInstance(ServiceInstance serviceInstance) {
-        if (log.isInfoEnabled()) {
-            log.info("register - instanceId:[{}] .", serviceInstance.getInstanceId());
-        }
-
-        addEphemeralInstance(serviceInstance);
-        return DiscoveryRedisScripts.loadRegistryRegisterInstance(redisCommands)
-                .thenCompose(sha -> register(sha, serviceInstance));
+    @Override
+    public CompletableFuture<Boolean> renew(ServiceInstance serviceInstance) {
+        return renew(NamespacedContext.GLOBAL.getNamespace(), serviceInstance);
     }
 
     @Override
-    public CompletableFuture<Boolean> renew(ServiceInstance serviceInstance) {
+    public CompletableFuture<Boolean> renew(String namespace, ServiceInstance serviceInstance) {
         if (log.isInfoEnabled()) {
-            log.info("renew - instanceId:[{}] .", serviceInstance.getInstanceId());
+            log.info("renew - instanceId:[{}] @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
         }
 
         if (!serviceInstance.isEphemeral()) {
-            log.warn("renew - instanceId:[{}] is not ephemeral, can not renew.", serviceInstance.getInstanceId());
+            log.warn("renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.", serviceInstance.getInstanceId(), namespace);
             return CompletableFuture.completedFuture(Boolean.FALSE);
         }
-        var instanceIdKey = keyGenerator.getInstanceKey(serviceInstance.getInstanceId());
+        var instanceIdKey = DiscoveryKeyGenerator.getInstanceKey(namespace, serviceInstance.getInstanceId());
         return redisCommands.expire(instanceIdKey, registryProperties.getInstanceTtl()).toCompletableFuture();
     }
 
 
     @Override
     public CompletableFuture<Boolean> deregister(String serviceId, String instanceId) {
-        if (log.isInfoEnabled()) {
-            log.info("deregister - instanceId:[{}] .", instanceId);
-        }
-        removeEphemeralInstance(instanceId);
-
-        return deregister0(serviceId, instanceId);
+        return deregister(NamespacedContext.GLOBAL.getNamespace(), serviceId, instanceId);
     }
 
-    private CompletableFuture<Boolean> deregister0(String serviceId, String instanceId) {
+    @Override
+    public CompletableFuture<Boolean> deregister(String namespace, String serviceId, String instanceId) {
+        if (log.isInfoEnabled()) {
+            log.info("deregister - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
+        }
+        removeEphemeralInstance(namespace, instanceId);
+
+        return deregister0(namespace, serviceId, instanceId);
+    }
+
+    private CompletableFuture<Boolean> deregister0(String namespace, String serviceId, String instanceId) {
         return DiscoveryRedisScripts.loadRegistryDeregister(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {keyGenerator.getNamespace(), serviceId, instanceId};
+                    String[] keys = {namespace, serviceId, instanceId};
                     RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
                     return redisFuture;
                 });
@@ -198,45 +206,16 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> deregister(ServiceInstance serviceInstance) {
-        if (log.isInfoEnabled()) {
-            log.info("deregister - instanceId:[{}] .", serviceInstance.getInstanceId());
-        }
-
-        removeEphemeralInstance(serviceInstance);
-        return deregister0(serviceInstance.getServiceId(), serviceInstance.getInstanceId());
-    }
-
-    /**
-     * 注册服务索引
-     *
-     * @param serviceId
-     */
-    public CompletableFuture<Long> registerServiceIdx(String serviceId) {
-        if (log.isInfoEnabled()) {
-            log.info("registerServiceIdx - serviceId:[{}] .", serviceId);
-        }
-
-        var serviceIdxKey = keyGenerator.getServiceIdxKey();
-        return redisCommands.sadd(serviceIdxKey, serviceId).toCompletableFuture();
-    }
-
-    /**
-     * 注册服务实例索引
-     *
-     * @param serviceId
-     * @param instanceId
-     */
-    public CompletableFuture<Long> registerInstanceIdx(String serviceId, String instanceId) {
-        if (log.isInfoEnabled()) {
-            log.info("registerInstanceIdx - serviceId:[{}] - instanceId:[{}].", serviceId, instanceId);
-        }
-
-        var serviceInstanceIdxKey = keyGenerator.getInstanceIdxKey(serviceId);
-        return redisCommands.sadd(serviceInstanceIdxKey, instanceId).toCompletableFuture();
+        return deregister(NamespacedContext.GLOBAL.getNamespace(), serviceInstance);
     }
 
     @Override
-    public String getNamespace() {
-        return keyGenerator.getNamespace();
+    public CompletableFuture<Boolean> deregister(String namespace, ServiceInstance serviceInstance) {
+        if (log.isInfoEnabled()) {
+            log.info("deregister - instanceId:[{}] @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
+        }
+
+        removeEphemeralInstance(namespace, serviceInstance);
+        return deregister0(namespace, serviceInstance.getServiceId(), serviceInstance.getInstanceId());
     }
 }

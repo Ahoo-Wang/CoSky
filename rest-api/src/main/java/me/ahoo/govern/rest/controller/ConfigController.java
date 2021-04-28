@@ -4,6 +4,7 @@ import me.ahoo.govern.config.Config;
 import me.ahoo.govern.config.ConfigHistory;
 import me.ahoo.govern.config.ConfigService;
 import me.ahoo.govern.config.ConfigVersion;
+import me.ahoo.govern.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -13,7 +14,7 @@ import java.util.Set;
  * @author ahoo wang
  */
 @RestController
-@RequestMapping("/v1/configs")
+@RequestMapping(RequestPathPrefix.CONFIGS_PREFIX)
 public class ConfigController {
     private final ConfigService configService;
 
@@ -21,40 +22,39 @@ public class ConfigController {
         this.configService = configService;
     }
 
-
     @GetMapping
-    public Set<String> getConfigs() {
-        return configService.getConfigs().join();
+    public Set<String> getConfigs(@PathVariable String namespace) {
+        return configService.getConfigs(namespace).join();
     }
 
-    @PutMapping("/{configId}")
-    public Boolean setConfig(@PathVariable String configId, @RequestBody String data) {
-        return configService.setConfig(configId, data).join();
+    @PutMapping(RequestPathPrefix.CONFIGS_CONFIG)
+    public Boolean setConfig(@PathVariable String namespace, @PathVariable String configId, @RequestBody String data) {
+        return configService.setConfig(namespace, configId, data).join();
     }
 
-    @DeleteMapping("/{configId}")
-    public Boolean removeConfig(@PathVariable String configId) {
-        return configService.removeConfig(configId).join();
+    @DeleteMapping(RequestPathPrefix.CONFIGS_CONFIG)
+    public Boolean removeConfig(@PathVariable String namespace, @PathVariable String configId) {
+        return configService.removeConfig(namespace, configId).join();
     }
 
-    @GetMapping("/{configId}")
-    public Config getConfig(@PathVariable String configId) {
-        return configService.getConfig(configId).join();
+    @GetMapping(RequestPathPrefix.CONFIGS_CONFIG)
+    public Config getConfig(@PathVariable String namespace, @PathVariable String configId) {
+        return configService.getConfig(namespace, configId).join();
     }
 
-    @PutMapping("/{configId}/rollback/{targetVersion}")
-    public Boolean rollback(@PathVariable String configId, @PathVariable int targetVersion) {
-        return configService.rollback(configId, targetVersion).join();
+    @PutMapping(RequestPathPrefix.CONFIGS_CONFIG_TO)
+    public Boolean rollback(@PathVariable String namespace, @PathVariable String configId, @PathVariable int targetVersion) {
+        return configService.rollback(namespace, configId, targetVersion).join();
     }
 
-    @GetMapping("/{configId}/versions")
-    public List<ConfigVersion> getConfigVersions(@PathVariable String configId) {
-        return configService.getConfigVersions(configId).join();
+    @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS)
+    public List<ConfigVersion> getConfigVersions(@PathVariable String namespace, @PathVariable String configId) {
+        return configService.getConfigVersions(namespace, configId).join();
     }
 
-    @GetMapping("/{configId}/history/{version}")
-    public ConfigHistory getConfigHistory(@PathVariable String configId, @PathVariable int version) {
-        return configService.getConfigHistory(configId, version).join();
+    @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS_VERSION)
+    public ConfigHistory getConfigHistory(@PathVariable String namespace, @PathVariable String configId, @PathVariable int version) {
+        return configService.getConfigHistory(namespace, configId, version).join();
     }
 
 }

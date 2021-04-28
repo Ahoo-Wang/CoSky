@@ -2,81 +2,84 @@ package me.ahoo.govern.config;
 
 import com.google.common.base.Strings;
 import lombok.var;
+import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.Namespaced;
+import me.ahoo.govern.core.NamespacedContext;
 
 /**
  * @author ahoo wang
  */
-public class ConfigKeyGenerator implements Namespaced {
+public final class ConfigKeyGenerator {
+
+    private ConfigKeyGenerator() {
+    }
+
     private final static String CONFIG_IDX = "cfg_idx";
     private final static String CONFIG_HISTORY_IDX = "cfg_htr_idx";
     private final static String CONFIG_HISTORY = "cfg_htr";
     private final static String CONFIG = "cfg";
 
-    private final String namespace;
     /**
      * {namespace}:{@link #CONFIG_IDX}
      */
-    private final String configIdxKey;
+    private static final String configIdxKeyFormat = "%s:" + CONFIG_IDX;
     /**
      * {namespace}:{@link #CONFIG_HISTORY_IDX}:{configId}
      */
-    private final String configHistoryIdxKeyFormat;
+    private static final String configHistoryIdxKeyFormat = "%s:" + CONFIG_HISTORY_IDX + ":%s";
     /**
      * {namespace}:{@link #CONFIG_HISTORY}:
      */
-    private final String configHistoryKeyPrefix;
+    private static final String configHistoryKeyPrefixFormat = "%s:" + CONFIG_HISTORY + ":";
+
     /**
      * {namespace}:{@link #CONFIG_HISTORY}:{configId}:{version}
      */
-    private final String configHistoryKeyFormat;
+    private static final String configHistoryKeyFormat = configHistoryKeyPrefixFormat + "%s:%s";
     /**
      * {namespace}:{@link #CONFIG}:
      */
-    private final String configKeyPrefix;
+    private static final String configKeyPrefixFormat = "%s:" + CONFIG + ":";
+
     /**
      * {namespace}:{@link #CONFIG}:{configId}
      */
-    private final String configKeyFormat;
+    private static final String configKeyFormat = configKeyPrefixFormat + "%s";
 
-    public ConfigKeyGenerator(String namespace) {
-        this.namespace = namespace;
-        this.configIdxKey = namespace + ":" + CONFIG_IDX;
-        this.configHistoryIdxKeyFormat = namespace + ":" + CONFIG_HISTORY_IDX + ":%s";
-        this.configHistoryKeyPrefix = namespace + ":" + CONFIG_HISTORY + ":";
-        this.configHistoryKeyFormat = configHistoryKeyPrefix + "%s:%s";
-        this.configKeyPrefix = namespace + ":" + CONFIG + ":";
-        this.configKeyFormat = configKeyPrefix + "%s";
+    /**
+     * {namespace}:{@link #CONFIG_IDX}
+     *
+     * @param namespace
+     * @return
+     */
+    public static String getConfigIdxKey(String namespace) {
+        return namespace + ":" + CONFIG_IDX;
     }
 
-    @Override
-    public String getNamespace() {
-        return this.namespace;
+    public static String getConfigHistoryIdxKey(String namespace, String configId) {
+        return Strings.lenientFormat(configHistoryIdxKeyFormat, namespace, configId);
     }
 
-    public String getConfigIdxKey() {
-        return this.configIdxKey;
+    public static String getConfigHistoryKey(String namespace, String configId, Integer version) {
+        return Strings.lenientFormat(configHistoryKeyFormat, namespace, configId, version);
     }
 
-    public String getConfigHistoryIdxKey(String configId) {
-        return Strings.lenientFormat(configHistoryIdxKeyFormat, configId);
+    public static String getConfigKey(String namespace, String configId) {
+        return Strings.lenientFormat(configKeyFormat, namespace, configId);
     }
 
-    public String getConfigHistoryKey(String configId, Integer version) {
-        return Strings.lenientFormat(configHistoryKeyFormat, configId, version);
+    public static NamespacedConfigId getConfigIdOfKey(String configKey) {
+        var firstSplitIdx = configKey.indexOf(Consts.KEY_SEPARATOR);
+        var namespace = configKey.substring(0, firstSplitIdx);
+        var configKeyPrefix = Strings.lenientFormat(configKeyPrefixFormat, namespace);
+        var configId = configKey.substring(configKeyPrefix.length());
+        return NamespacedConfigId.of(namespace, configId);
     }
 
-    public String getConfigKey(String configId) {
-        return Strings.lenientFormat(configKeyFormat, configId);
-    }
-
-    public String getConfigIdOfKey(String configKey) {
-        return configKey.substring(configKeyPrefix.length());
-    }
-
-    public ConfigVersion getConfigVersionOfHistoryKey(String configHistoryKey) {
+    public static ConfigVersion getConfigVersionOfHistoryKey(String namespace, String configHistoryKey) {
+        var configHistoryKeyPrefix = Strings.lenientFormat(configHistoryKeyPrefixFormat, namespace);
         var configIdWithVersion = configHistoryKey.substring(configHistoryKeyPrefix.length());
-        var configIdWithVersionSplit = configIdWithVersion.split(":");
+        var configIdWithVersionSplit = configIdWithVersion.split(Consts.KEY_SEPARATOR);
         if (configIdWithVersionSplit.length != 2) {
             throw new IllegalArgumentException(Strings.lenientFormat("configHistoryKey:[%s] format error.", configHistoryKey));
         }

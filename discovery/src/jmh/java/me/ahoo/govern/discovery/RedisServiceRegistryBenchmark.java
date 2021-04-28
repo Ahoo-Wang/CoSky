@@ -13,6 +13,7 @@ import java.util.Objects;
  */
 @State(Scope.Benchmark)
 public class RedisServiceRegistryBenchmark {
+    private final static String namespace = "benchmark_svc";
     public ServiceRegistry serviceRegistry;
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> redisConnection;
@@ -23,8 +24,8 @@ public class RedisServiceRegistryBenchmark {
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
         RegistryProperties registryProperties = new RegistryProperties();
-        DiscoveryKeyGenerator keyGenerator = new DiscoveryKeyGenerator("benchmark_svc");
-        serviceRegistry = new RedisServiceRegistry(registryProperties, keyGenerator, redisConnection.async());
+
+        serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
         serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
     }
 
@@ -41,17 +42,17 @@ public class RedisServiceRegistryBenchmark {
 
     @Benchmark
     public void register() {
-        serviceRegistry.register(TestServiceInstance.TEST_INSTANCE).join();
+        serviceRegistry.register(namespace, TestServiceInstance.TEST_INSTANCE).join();
     }
 
     @Benchmark
     public void deregister() {
-        serviceRegistry.deregister(TestServiceInstance.TEST_INSTANCE).join();
+        serviceRegistry.deregister(namespace, TestServiceInstance.TEST_INSTANCE).join();
     }
 
     @Benchmark
     public void renew() {
-        serviceRegistry.renew(TestServiceInstance.TEST_INSTANCE).join();
+        serviceRegistry.renew(namespace, TestServiceInstance.TEST_INSTANCE).join();
     }
 
 }

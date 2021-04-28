@@ -16,6 +16,7 @@ import java.util.Objects;
  */
 @State(Scope.Benchmark)
 public class ConsistencyRedisServiceDiscoveryBenchmark {
+    private final static String namespace = "benchmark_csy_svc_dvy";
     public ServiceDiscovery serviceDiscovery;
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> redisConnection;
@@ -26,13 +27,13 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
         System.out.println("\n ----- RedisServiceDiscoveryBenchmark setup ----- \n");
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
-        DiscoveryKeyGenerator keyGenerator = new DiscoveryKeyGenerator("benchmark_csy_svc_dvy");
+
         RegistryProperties registryProperties = new RegistryProperties();
-        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, keyGenerator, redisConnection.async());
+        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
         serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
-        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(keyGenerator, redisConnection.async());
+        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
         messageListenable = new RedisMessageListenable(redisClient.connectPubSub());
-        serviceDiscovery = new ConsistencyRedisServiceDiscovery(keyGenerator, redisServiceDiscovery, messageListenable);
+        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable);
     }
 
     @TearDown
@@ -55,11 +56,11 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
 
     @Benchmark
     public void getServices() {
-        serviceDiscovery.getServices().join();
+        serviceDiscovery.getServices(namespace).join();
     }
 
     @Benchmark
     public void getInstances() {
-        serviceDiscovery.getInstances(TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).join();
+        serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).join();
     }
 }
