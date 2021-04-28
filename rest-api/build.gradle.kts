@@ -2,10 +2,26 @@ plugins {
     application
 }
 
-application {
-    applicationDefaultJvmArgs = listOf("-Dspring.cloud.bootstrap.enabled=true")
-    mainClass.set("me.ahoo.govern.rest.RestApiServer")
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    }
 }
+
+application {
+    mainClass.set("me.ahoo.govern.rest.RestApiServer")
+
+    applicationDefaultJvmArgs = listOf(
+        "-Xms512M",
+        "-Xmx512M",
+        "-server",
+        "-XX:+UseG1GC",
+        "-Xlog:gc*:file=logs/rest-api-gc.log:time,tags:filecount=10,filesize=100M",
+        "-Dspring.cloud.bootstrap.enabled=true",
+        "-Dspring.cloud.bootstrap.location=config/bootstrap.yml"
+    )
+}
+
 
 dependencies {
     implementation(platform(project(":dependencies")))

@@ -1,0 +1,6 @@
+spring:
+  cloud:
+    govern:
+      discovery:
+        registry:
+          weight: 8
