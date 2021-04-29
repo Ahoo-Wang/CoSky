@@ -20,6 +20,7 @@ application {
         "-Dspring.cloud.bootstrap.enabled=true",
         "-Dspring.cloud.bootstrap.location=config/bootstrap.yml"
     )
+
 }
 
 

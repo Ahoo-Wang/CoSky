@@ -1,15 +1,14 @@
 spring:
   application:
-    name: govern-rest-api
+    name: ${service.name:govern-rest-api}
   cloud:
     govern:
-      namespace: dev
+      namespace: ${govern.namespace:dev}
       config:
         config-id: ${spring.application.name}.yml
       redis:
-        mode: standalone
-        url: redis://localhost:6379
+        mode: ${govern.mode:standalone}
+        url: ${govern.redis.uri:redis://localhost:6379}
 logging:
   file:
     name: logs/${spring.application.name}.log
-
