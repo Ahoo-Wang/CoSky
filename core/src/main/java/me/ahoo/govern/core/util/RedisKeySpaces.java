@@ -7,17 +7,12 @@ import lombok.var;
 import me.ahoo.govern.core.GovernException;
 
 /**
- * TODO 不再使用 __keyspace 来管理通知。服务注册心跳比较频繁，订阅太多 expire 事件
  *
  * @author ahoo wang
  * Creation time 2021/2/27 11:45
  **/
 public final class RedisKeySpaces {
 
-    /**
-     * TODO just use DB-0
-     */
-    public static final String KEY_SPACE_TOPIC_PREFIX = "__keyspace@0__:";
     public static final String KEY_SPACE_TOPIC_PREFIX_FORMAT = "__keyspace@%s__:";
     public static final String KEY_SPACE_TOPIC_FORMAT = KEY_SPACE_TOPIC_PREFIX_FORMAT + "%s";
     private final static String NOTIFY_KEYSPACE_EVENTS = "notify-keyspace-events";

@@ -61,7 +61,6 @@ public class RedisConfigService implements ConfigService {
     }
 
     /**
-     * TODO 禁止添加已删除的KEY？
      *
      * @param configId
      * @param data
