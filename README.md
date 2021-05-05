@@ -25,7 +25,7 @@ config set notify-keyspace-events "KA"
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.7.1";
+    val governVersion = "0.7.2";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -35,7 +35,7 @@ config set notify-keyspace-events "KA"
 ```xml
 
 <properties>
-    <govern.version>0.7.1</govern.version>
+  <govern.version>0.7.2</govern.version>
 </properties>
 
 <dependencies>
