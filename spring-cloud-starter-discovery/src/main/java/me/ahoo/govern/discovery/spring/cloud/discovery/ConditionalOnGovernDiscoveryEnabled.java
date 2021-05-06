@@ -1,4 +1,4 @@
-package me.ahoo.govern.disvoery.spring.cloud.discovery;
+package me.ahoo.govern.discovery.spring.cloud.discovery;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 

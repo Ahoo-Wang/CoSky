@@ -1,11 +1,9 @@
-package me.ahoo.govern.disvoery.spring.cloud.registry;
+package me.ahoo.govern.discovery.spring.cloud.registry;
 
 import lombok.var;
 import me.ahoo.govern.discovery.InstanceIdGenerator;
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration;
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties;
-import org.springframework.cloud.client.serviceregistry.Registration;
-import org.springframework.cloud.client.serviceregistry.ServiceRegistry;
 
 /**
  * @author ahoo wang

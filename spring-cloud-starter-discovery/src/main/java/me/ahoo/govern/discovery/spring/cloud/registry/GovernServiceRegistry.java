@@ -1,8 +1,8 @@
-package me.ahoo.govern.disvoery.spring.cloud.registry;
+package me.ahoo.govern.discovery.spring.cloud.registry;
 
 import lombok.var;
 import me.ahoo.govern.discovery.RenewInstanceService;
-import me.ahoo.govern.disvoery.spring.cloud.support.StatusConstants;
+import me.ahoo.govern.discovery.spring.cloud.support.StatusConstants;
 import org.springframework.cloud.client.serviceregistry.ServiceRegistry;
 import org.springframework.cloud.client.serviceregistry.endpoint.ServiceRegistryEndpoint;
 

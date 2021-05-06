@@ -1,12 +1,12 @@
-package me.ahoo.govern.disvoery.spring.cloud.registry;
+package me.ahoo.govern.discovery.spring.cloud.registry;
 
 import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.var;
 import me.ahoo.govern.discovery.*;
 import me.ahoo.govern.discovery.redis.RedisServiceRegistry;
-import me.ahoo.govern.disvoery.spring.cloud.discovery.ConditionalOnGovernDiscoveryEnabled;
-import me.ahoo.govern.disvoery.spring.cloud.discovery.GovernDiscoveryAutoConfiguration;
+import me.ahoo.govern.discovery.spring.cloud.discovery.ConditionalOnGovernDiscoveryEnabled;
+import me.ahoo.govern.discovery.spring.cloud.discovery.GovernDiscoveryAutoConfiguration;
 import me.ahoo.govern.spring.cloud.support.AppSupport;
 import me.ahoo.govern.spring.cloud.support.RedisClientSupport;
 import org.apache.logging.log4j.util.Strings;

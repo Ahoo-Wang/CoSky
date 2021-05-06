@@ -1,4 +1,4 @@
-package me.ahoo.govern.disvoery.spring.cloud.registry;
+package me.ahoo.govern.discovery.spring.cloud.registry;
 
 import me.ahoo.govern.discovery.ServiceInstance;
 import org.springframework.cloud.client.serviceregistry.Registration;

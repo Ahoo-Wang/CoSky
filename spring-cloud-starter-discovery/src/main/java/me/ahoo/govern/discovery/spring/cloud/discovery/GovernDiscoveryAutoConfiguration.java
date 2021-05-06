@@ -1,14 +1,12 @@
-package me.ahoo.govern.disvoery.spring.cloud.discovery;
+package me.ahoo.govern.discovery.spring.cloud.discovery;
 
 import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import me.ahoo.govern.core.listener.MessageListenable;
-import me.ahoo.govern.discovery.DiscoveryKeyGenerator;
 import me.ahoo.govern.discovery.ServiceDiscovery;
 import me.ahoo.govern.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.govern.spring.cloud.GovernAutoConfiguration;
-import me.ahoo.govern.spring.cloud.GovernProperties;
 import me.ahoo.govern.spring.cloud.support.RedisClientSupport;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;

@@ -1,15 +1,14 @@
-package me.ahoo.govern.disvoery.spring.cloud.registry;
+package me.ahoo.govern.discovery.spring.cloud.registry;
 
 import me.ahoo.govern.discovery.RenewProperties;
-import me.ahoo.govern.disvoery.spring.cloud.discovery.GovernDiscoveryProperties;
-import me.ahoo.govern.disvoery.spring.cloud.support.StatusConstants;
+import me.ahoo.govern.discovery.spring.cloud.discovery.GovernDiscoveryProperties;
+import me.ahoo.govern.discovery.spring.cloud.support.StatusConstants;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.commons.util.InetUtils;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author ahoo wang

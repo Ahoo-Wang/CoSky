@@ -1,5 +1,5 @@
 # Auto Configuration
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-me.ahoo.govern.disvoery.spring.cloud.discovery.GovernDiscoveryAutoConfiguration,\
-me.ahoo.govern.disvoery.spring.cloud.registry.GovernAutoServiceRegistrationAutoConfiguration
+me.ahoo.govern.discovery.spring.cloud.discovery.GovernDiscoveryAutoConfiguration,\
+me.ahoo.govern.discovery.spring.cloud.registry.GovernAutoServiceRegistrationAutoConfiguration
 

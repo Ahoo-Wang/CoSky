@@ -1,4 +1,4 @@
-package me.ahoo.govern.disvoery.spring.cloud.discovery;
+package me.ahoo.govern.discovery.spring.cloud.discovery;
 
 import me.ahoo.govern.discovery.ServiceDiscovery;
 import org.springframework.cloud.client.ServiceInstance;

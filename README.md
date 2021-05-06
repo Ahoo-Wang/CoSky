@@ -25,7 +25,7 @@ config set notify-keyspace-events "KA"
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.7.2";
+    val governVersion = "0.7.3";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -35,19 +35,19 @@ config set notify-keyspace-events "KA"
 ```xml
 
 <properties>
-  <govern.version>0.7.2</govern.version>
+  <govern.version>0.7.3</govern.version>
 </properties>
 
 <dependencies>
 <dependency>
-    <groupId>me.ahoo.govern</groupId>
-    <artifactId>spring-cloud-starter-config</artifactId>
-    <version>${govern.version}</version>
+  <groupId>me.ahoo.govern</groupId>
+  <artifactId>spring-cloud-starter-config</artifactId>
+  <version>${govern.version}</version>
 </dependency>
 <dependency>
-    <groupId>me.ahoo.govern</groupId>
-    <artifactId>spring-cloud-starter-discovery</artifactId>
-    <version>${govern.version}</version>
+  <groupId>me.ahoo.govern</groupId>
+  <artifactId>spring-cloud-starter-discovery</artifactId>
+  <version>${govern.version}</version>
 </dependency>
 </dependencies>
 
@@ -178,4 +178,5 @@ RedisServiceRegistryBenchmark.renew                     thrpt            67116.1
 
 ## TODO
 
-1. Dashboard - UI
+1. Dashboard
+2. Grayscale Publishing

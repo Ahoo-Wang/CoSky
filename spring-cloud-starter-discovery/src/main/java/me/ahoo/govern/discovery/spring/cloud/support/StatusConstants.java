@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package me.ahoo.govern.disvoery.spring.cloud.support;
+package me.ahoo.govern.discovery.spring.cloud.support;
 
 
 /**
