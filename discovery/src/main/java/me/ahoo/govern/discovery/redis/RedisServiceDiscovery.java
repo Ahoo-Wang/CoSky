@@ -50,12 +50,26 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
-        return null;
+        return DiscoveryRedisScripts.loadDiscoveryGetInstance(redisCommands)
+                .thenCompose(sha -> {
+                    RedisFuture<List<String>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, namespace, serviceId, instanceId);
+                    return redisFuture;
+                })
+                .thenApply(instanceData -> {
+                    if (Objects.isNull(instanceData)) {
+                        return null;
+                    }
+                    return ServiceInstanceCodec.decode(instanceData);
+                });
     }
 
     @Override
     public CompletableFuture<Integer> getInstanceTtl(String namespace, String serviceId, String instanceId) {
-        return null;
+        return DiscoveryRedisScripts.loadDiscoveryGetInstance(redisCommands)
+                .thenCompose(sha -> {
+                    RedisFuture<Integer> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.INTEGER, namespace, serviceId, instanceId);
+                    return redisFuture;
+                });
     }
 
     @Override
