@@ -12,8 +12,8 @@ end
 local function ensureNotExpired(instanceIdxKey, instanceId)
     local instanceKey = getInstanceKey(instanceId);
     local instanceTtl = redis.call("ttl", instanceKey);
-
-    if instanceTtl < 0 then
+    -- -2: The key doesn't exist | -1: The key is fixed | >0: ttl(second)
+    if instanceTtl == -2 then
         redis.call("srem", instanceIdxKey, instanceId);
         redis.call("del", instanceKey);
         redis.call("publish", instanceKey, "expired");
@@ -37,7 +37,7 @@ local function statService(serviceId)
 
     for index, instanceId in ipairs(instanceIds) do
         local instanceTtl = ensureNotExpired(instanceIdxKey, instanceId);
-        if instanceTtl > 0 then
+        if instanceTtl ~= -2 then
             instanceCount = instanceCount + 1;
         end
     end

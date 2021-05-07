@@ -67,6 +67,16 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                         .collect(Collectors.toList()));
     }
 
+    @Override
+    public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
+        return delegate.getInstance(namespace, serviceId, instanceId);
+    }
+
+    @Override
+    public CompletableFuture<Integer> getInstanceTtl(String namespace, String serviceId, String instanceId) {
+        return delegate.getInstanceTtl(namespace, serviceId, instanceId);
+    }
+
     @VisibleForTesting
     public CompletableFuture<Void> addListener(String namespace, String serviceId) {
         PatternTopic instanceTopic = getPatternTopic(namespace, serviceId);

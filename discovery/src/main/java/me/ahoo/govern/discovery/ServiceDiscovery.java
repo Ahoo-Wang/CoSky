@@ -20,4 +20,8 @@ public interface ServiceDiscovery {
 
     CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId);
 
+    CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId);
+
+    CompletableFuture<Integer> getInstanceTtl(String namespace, String serviceId, String instanceId);
+
 }

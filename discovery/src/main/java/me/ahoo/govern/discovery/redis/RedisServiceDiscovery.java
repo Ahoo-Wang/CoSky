@@ -49,6 +49,16 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     }
 
     @Override
+    public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Integer> getInstanceTtl(String namespace, String serviceId, String instanceId) {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<Set<String>> getServices(String namespace) {
         var serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
         return redisCommands.smembers(serviceIdxKey).toCompletableFuture();
