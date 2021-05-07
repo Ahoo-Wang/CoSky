@@ -26,7 +26,6 @@ public class RedisServiceRegistry implements ServiceRegistry {
     public RedisServiceRegistry(RegistryProperties registryProperties,
                                 RedisClusterAsyncCommands<String, String> redisCommands) {
         this.registeredEphemeralInstances = new CopyOnWriteArraySet<>();
-
         this.registryProperties = registryProperties;
         this.redisCommands = redisCommands;
     }
@@ -137,11 +136,8 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value) {
-        if (log.isInfoEnabled()) {
-            log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
-        }
-        var instanceKey = DiscoveryKeyGenerator.getInstanceKey(namespace, instanceId);
-        return redisCommands.hset(instanceKey, key, value).toCompletableFuture();
+        String[] values = {key, value};
+        return setMetadata0(namespace, instanceId, values);
     }
 
     @Override
@@ -151,14 +147,20 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata) {
+        String[] values = ServiceInstanceCodec.encodeMetadata(metadata);
+        return setMetadata0(namespace, instanceId, values);
+    }
+
+    private CompletableFuture<Boolean> setMetadata0(String namespace, String instanceId, String[] metadata) {
         if (log.isInfoEnabled()) {
             log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
         }
-        var instanceKey = DiscoveryKeyGenerator.getInstanceKey(namespace, instanceId);
-        return redisCommands.hset(instanceKey, metadata)
-                .thenApply(setResult -> setResult > 0)
-                .toCompletableFuture();
+        String[] keys = new String[]{namespace, instanceId};
+        return DiscoveryRedisScripts.loadRegistrySetMetadata(redisCommands)
+                .thenCompose(sha ->
+                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, metadata));
     }
+
 
     @Override
     public CompletableFuture<Boolean> renew(ServiceInstance serviceInstance) {
@@ -175,8 +177,10 @@ public class RedisServiceRegistry implements ServiceRegistry {
             log.warn("renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.", serviceInstance.getInstanceId(), namespace);
             return CompletableFuture.completedFuture(Boolean.FALSE);
         }
-        var instanceIdKey = DiscoveryKeyGenerator.getInstanceKey(namespace, serviceInstance.getInstanceId());
-        return redisCommands.expire(instanceIdKey, registryProperties.getInstanceTtl()).toCompletableFuture();
+        String[] keys = new String[]{namespace, serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl())};
+        return DiscoveryRedisScripts.loadRegistryRenew(redisCommands)
+                .thenCompose(sha ->
+                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys));
     }
 
 

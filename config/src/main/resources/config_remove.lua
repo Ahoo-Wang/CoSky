@@ -25,7 +25,11 @@ end
 
 local preVersion = redis.call("hget", configKey, versionField)
 if preVersion then
-    return addHistory(preVersion, configKey);
+    local result = addHistory(preVersion, configKey);
+    redis.call("publish", configKey, "remove");
+    return result;
+else
+    return 0;
 end
 
-return 0;
+

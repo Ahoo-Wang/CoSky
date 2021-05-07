@@ -3,10 +3,8 @@ package me.ahoo.govern.core.listener;
 import io.lettuce.core.cluster.models.partitions.RedisClusterNode;
 import io.lettuce.core.cluster.pubsub.RedisClusterPubSubListener;
 import io.lettuce.core.cluster.pubsub.StatefulRedisClusterPubSubConnection;
-import io.lettuce.core.cluster.pubsub.api.async.NodeSelectionPubSubAsyncCommands;
+import io.lettuce.core.cluster.pubsub.api.async.RedisClusterPubSubAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
-import me.ahoo.govern.core.util.RedisKeySpaces;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -19,13 +17,11 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
 
     private final RedisClusterPubSubListenerAdapter listenerAdapter;
     private final StatefulRedisClusterPubSubConnection<String, String> pubSubConnection;
-    private final NodeSelectionPubSubAsyncCommands<String, String> pubSubCommands;
+    private final RedisClusterPubSubAsyncCommands<String, String> pubSubCommands;
 
     public RedisClusterMessageListenable(StatefulRedisClusterPubSubConnection<String, String> pubSubConnection) {
-        RedisKeySpaces.ensureNotifyKeyspaceEvents(pubSubConnection.sync());
         this.pubSubConnection = pubSubConnection;
-        this.pubSubConnection.setNodeMessagePropagation(true);
-        this.pubSubCommands = pubSubConnection.async().upstream().commands();
+        this.pubSubCommands = pubSubConnection.async();
         this.listenerAdapter = new RedisClusterPubSubListenerAdapter();
         this.pubSubConnection.addListener(listenerAdapter);
     }
@@ -33,26 +29,22 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
 
     @Override
     protected CompletableFuture<Void> subscribe(ChannelTopic channelTopic) {
-        var asyncExecutions = pubSubCommands.subscribe(channelTopic.getTopic());
-        return CompletableFuture.allOf(asyncExecutions.futures());
+        return pubSubCommands.subscribe(channelTopic.getTopic()).toCompletableFuture();
     }
 
     @Override
     protected CompletableFuture<Void> subscribe(PatternTopic patternTopic) {
-        var asyncExecutions = pubSubCommands.psubscribe(patternTopic.getTopic());
-        return CompletableFuture.allOf(asyncExecutions.futures());
+        return pubSubCommands.psubscribe(patternTopic.getTopic()).toCompletableFuture();
     }
 
     @Override
     protected CompletableFuture<Void> unsubscribe(ChannelTopic topic) {
-        var asyncExecutions = pubSubCommands.unsubscribe(topic.getTopic());
-        return CompletableFuture.allOf(asyncExecutions.futures());
+        return pubSubCommands.unsubscribe(topic.getTopic()).toCompletableFuture();
     }
 
     @Override
     protected CompletableFuture<Void> unsubscribe(PatternTopic topic) {
-        var asyncExecutions = pubSubCommands.punsubscribe(topic.getTopic());
-        return CompletableFuture.allOf(asyncExecutions.futures());
+        return pubSubCommands.punsubscribe(topic.getTopic()).toCompletableFuture();
     }
 
     @Override
@@ -116,7 +108,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void psubscribed(RedisClusterNode node, String pattern, long count) {
             if (log.isInfoEnabled()){
-                log.info("Subscribed to a pattern - RedisNode[{}]  | pattern[{}] | {}.", node.getUri(), pattern, count);
+                log.info("PSubscribed to a pattern - RedisNode[{}]  | pattern[{}] | {}.", node.getUri(), pattern, count);
             }
         }
 
@@ -145,7 +137,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void punsubscribed(RedisClusterNode node, String pattern, long count) {
             if (log.isInfoEnabled()){
-                log.info("Unsubscribed from a pattern - RedisNode[{}] | pattern[{}] | {}.", node.getUri(), pattern, count);
+                log.info("PUnsubscribed from a pattern - RedisNode[{}] | pattern[{}] | {}.", node.getUri(), pattern, count);
             }
 
         }

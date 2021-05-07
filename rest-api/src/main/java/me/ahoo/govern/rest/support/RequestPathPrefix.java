@@ -55,6 +55,11 @@ public interface RequestPathPrefix {
      * /v1/namespaces/{namespace}/services/
      */
     String SERVICES_PREFIX = NAMESPACES_NAMESPACE_PREFIX + "/services";
+
+    /**
+     * /v1/namespaces/{namespace}/services/stats
+     */
+    String SERVICES_STATS = "/stats";
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances
      */

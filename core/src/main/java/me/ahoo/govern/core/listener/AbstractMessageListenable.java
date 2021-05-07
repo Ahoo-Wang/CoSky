@@ -8,6 +8,7 @@ import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -16,7 +17,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 public abstract class AbstractMessageListenable implements MessageListenable {
 
-    private final ConcurrentHashMap<Topic, MessageListener> topicMapListener;
+    private final ConcurrentHashMap<Topic, CopyOnWriteArraySet<MessageListener>> topicMapListener;
 
     protected AbstractMessageListenable() {
         this.topicMapListener = new ConcurrentHashMap<>();
@@ -24,19 +25,29 @@ public abstract class AbstractMessageListenable implements MessageListenable {
 
     @Override
     public CompletableFuture<Void> addListener(Topic topic, MessageListener messageListener) {
-
-        AtomicReference<CompletableFuture<Void>> futureRef = new AtomicReference<>();
-        var currentValue = topicMapListener.computeIfAbsent(topic, _topic -> {
-            futureRef.set(subscribe(topic));
-            if (log.isInfoEnabled()) {
-                log.info("addListener - topic[{}] : Success.", topic);
+        AtomicReference<CompletableFuture> resultFuture = new AtomicReference<>(CompletableFuture.completedFuture(null));
+        topicMapListener.compute(topic, (key, val) -> {
+            var messageListeners = val;
+            if (Objects.isNull(messageListeners)) {
+                messageListeners = new CopyOnWriteArraySet<>();
             }
-            return messageListener;
+            if (messageListeners.isEmpty()) {
+                resultFuture.set(subscribe(topic));
+            }
+            boolean succeeded = messageListeners.add(messageListener);
+            if (!succeeded) {
+                if (log.isInfoEnabled()) {
+                    log.info("addListener - topic[{}] | messageListener:[{}] existed - Failure.", topic, messageListener);
+                }
+            } else {
+                if (log.isInfoEnabled()) {
+                    log.info("addListener - topic[{}] | messageListener:[{}] - Success.", topic, messageListener);
+                }
+            }
+            return messageListeners;
         });
-        if (!messageListener.equals(currentValue) && log.isInfoEnabled()) {
-            log.info("addListener - topic[{}] : Failure,existed.", topic);
-        }
-        return Objects.nonNull(futureRef.get()) ? futureRef.get() : CompletableFuture.completedFuture(null);
+
+        return resultFuture.get();
     }
 
     protected CompletableFuture<Void> subscribe(Topic topic) {
@@ -54,16 +65,34 @@ public abstract class AbstractMessageListenable implements MessageListenable {
     protected abstract CompletableFuture<Void> subscribe(PatternTopic patternTopic);
 
     @Override
-    public CompletableFuture<Void> removeListener(Topic topic) {
-        var preValue = topicMapListener.remove(topic);
-        if (Objects.isNull(preValue) && log.isInfoEnabled()) {
-            log.info("removeListener - topic[{}] : Failure,not existed.", topic);
-        }
-        if (log.isInfoEnabled()) {
-            log.info("removeListener - topic[{}] : Success.", topic);
-        }
+    public CompletableFuture<Void> removeListener(Topic topic, MessageListener messageListener) {
+        AtomicReference<CompletableFuture> resultFuture = new AtomicReference<>(CompletableFuture.completedFuture(null));
+        var messageListeners = topicMapListener.compute(topic, (key, val) -> {
+            if (Objects.isNull(val)) {
+                if (log.isInfoEnabled()) {
+                    log.info("removeListener - topic[{}] not existed - Failure.", topic);
+                }
+                return null;
+            }
 
-        return unsubscribe(topic);
+            if (!val.remove(messageListener)) {
+                if (log.isInfoEnabled()) {
+                    log.info("removeListener - topic[{}] | messageListener:[{}] not existed - Failure.", topic, messageListener);
+                }
+                return val;
+            }
+            if (val.isEmpty()) {
+                resultFuture.set(unsubscribe(topic));
+            }
+
+            if (log.isInfoEnabled()) {
+                log.info("removeListener - topic[{}] | messageListener:[{}] - Success.", topic, messageListener);
+            }
+
+            return val;
+        });
+
+        return resultFuture.get();
     }
 
     private CompletableFuture<Void> unsubscribe(Topic topic) {
@@ -88,15 +117,15 @@ public abstract class AbstractMessageListenable implements MessageListenable {
         } else {
             topic = ChannelTopic.of(channel);
         }
-        var messageListener = topicMapListener.get(topic);
-        if (Objects.nonNull(messageListener)) {
-            messageListener.onMessage(topic, channel, message);
+        var messageListeners = topicMapListener.get(topic);
+        if (Objects.nonNull(messageListeners) && !messageListeners.isEmpty()) {
+            messageListeners.forEach(messageListener -> messageListener.onMessage(topic, channel, message));
             if (log.isInfoEnabled()) {
-                log.info("onMessage - topic[{}] : Success.", topic);
+                log.info("onMessage - topic[{}] - Success.", topic);
             }
         } else {
             if (log.isInfoEnabled()) {
-                log.info("onMessage - topic[{}] : Failure,messageListener not existed.", topic);
+                log.info("onMessage - topic[{}] messageListener not existed - Failure.", topic);
             }
         }
     }

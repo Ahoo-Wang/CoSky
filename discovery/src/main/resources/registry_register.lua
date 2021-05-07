@@ -17,9 +17,13 @@ local serviceIdxKey = namespace .. ":svc_idx";
 local instanceIdxKey = namespace .. ":svc_itc_idx:" .. serviceId;
 local instanceKey = namespace .. ":svc_itc:" .. instanceId;
 
-redis.call("sadd", serviceIdxKey, serviceId);
-redis.call("sadd", instanceIdxKey, instanceId);
+local added = redis.call("sadd", instanceIdxKey, instanceId);
+if added == 1 then
+    redis.call("publish", serviceIdxKey, "register");
+    redis.call("sadd", serviceIdxKey, serviceId);
+end
 redis.call("hmset", instanceKey, "instanceId", instanceId, "serviceId", serviceId, "schema", schema, "ip", ip, "port", port, "weight", weight, "ephemeral", ephemeral, unpack(ARGV));
+redis.call("publish", instanceKey, "register");
 if not fixed then
     return redis.call("expire", instanceKey, instanceTtl);
 end

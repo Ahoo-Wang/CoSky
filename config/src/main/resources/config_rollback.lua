@@ -50,4 +50,7 @@ local version = preVersion + 1;
 addHistory(preVersion, configKey)
 local data = targetHistoryConfig["data"];
 local createTime = redis.call('time')[1];
-return redis.call("hmset", configKey, "configId", configId, "data", data, "hash", hash, "version", version, "createTime", createTime);
+
+local result = redis.call("hmset", configKey, "configId", configId, "data", data, "hash", hash, "version", version, "createTime", createTime);
+redis.call("publish", configKey, "rollback");
+return result;

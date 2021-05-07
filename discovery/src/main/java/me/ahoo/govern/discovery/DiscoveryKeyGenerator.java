@@ -3,7 +3,6 @@ package me.ahoo.govern.discovery;
 import com.google.common.base.Strings;
 import lombok.var;
 import me.ahoo.govern.core.Consts;
-import me.ahoo.govern.core.Namespaced;
 
 /**
  * @author ahoo wang
@@ -14,6 +13,7 @@ public final class DiscoveryKeyGenerator {
     }
 
     private final static String SERVICE_IDX = "svc_idx";
+    private final static String SERVICE_STAT = "svc_stat";
     private final static String SERVICE_INSTANCE_IDX = "svc_itc_idx";
     private final static String SERVICE_INSTANCE = "svc_itc";
 
@@ -21,6 +21,10 @@ public final class DiscoveryKeyGenerator {
      * {namespace}:{@link #SERVICE_IDX}
      */
     private static final String serviceIdxKeyFormat = "%s:" + SERVICE_IDX;
+    /**
+     * {namespace}:{@link #SERVICE_STAT}
+     */
+    private static final String serviceStatKeyFormat = "%s:" + SERVICE_STAT;
     /**
      * {namespace}:{@link #SERVICE_INSTANCE_IDX}:{serviceId}
      */
@@ -36,10 +40,16 @@ public final class DiscoveryKeyGenerator {
      */
     private static final String instanceKeyPrefixFormat = "%s:svc_itc:";
 
+    private static final String instanceKeyPatternOfNamespaceFormat = instanceKeyPrefixFormat + "*";
+
     private static final String instanceKeyPatternOfServiceFormat = instanceKeyPrefixFormat + "%s@*";
 
     public static String getServiceIdxKey(String namespace) {
         return Strings.lenientFormat(serviceIdxKeyFormat, namespace);
+    }
+
+    public static String getServiceStatKey(String namespace) {
+        return Strings.lenientFormat(serviceStatKeyFormat, namespace);
     }
 
     public static String getNamespaceOfKey(String key) {
@@ -53,6 +63,10 @@ public final class DiscoveryKeyGenerator {
 
     public static String getInstanceKey(String namespace, String instanceId) {
         return Strings.lenientFormat(instanceKeyFormat, namespace, instanceId);
+    }
+
+    public static String getInstanceKeyPatternOfNamespace(String namespace) {
+        return Strings.lenientFormat(instanceKeyPatternOfNamespaceFormat, namespace);
     }
 
     public static String getInstanceKeyPatternOfService(String namespace, String serviceId) {

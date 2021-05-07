@@ -13,7 +13,7 @@ public interface MessageListenable extends AutoCloseable {
 
     CompletableFuture<Void> addListener(Topic topic, MessageListener messageListener);
 
-    CompletableFuture<Void> removeListener(Topic topic);
+    CompletableFuture<Void> removeListener(Topic topic, MessageListener messageListener);
 
     @Slf4j
     class Logger implements MessageListenable {
@@ -25,7 +25,7 @@ public interface MessageListenable extends AutoCloseable {
         }
 
         @Override
-        public CompletableFuture<Void> removeListener(Topic topic) {
+        public CompletableFuture<Void> removeListener(Topic topic, MessageListener messageListener) {
             log.info("removeListener - topic:[{}].", topic);
             return CompletableFuture.completedFuture(null);
         }

@@ -5,7 +5,6 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.core.NamespacedContext;
 import me.ahoo.govern.core.listener.*;
-import me.ahoo.govern.core.util.RedisKeySpaces;
 import me.ahoo.govern.discovery.*;
 
 import java.util.List;
@@ -13,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
@@ -39,11 +39,9 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<Set<String>> getServices(String namespace) {
-
         return namespaceMapServices.computeIfAbsent(namespace, (_namespace) -> {
             var serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
-            var topicStr = RedisKeySpaces.getTopicOfKey(serviceIdxKey);
-            var serviceIdxTopic = ChannelTopic.of(topicStr);
+            var serviceIdxTopic = ChannelTopic.of(serviceIdxKey);
             return messageListenable.addListener(serviceIdxTopic, serviceIdxListener)
                     .thenCompose(nil -> delegate.getServices(namespace));
         });
@@ -61,8 +59,12 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
-        return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId), (_serviceId) -> addListener(namespace, serviceId).
-                thenCompose(nil -> delegate.getInstances(serviceId)));
+        return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId), (_serviceId) ->
+                addListener(namespace, serviceId).
+                        thenCompose(nil -> delegate.getInstances(serviceId))
+        )
+                .thenApply(serviceInstances -> serviceInstances.stream().filter(instance -> !instance.isExpired())
+                        .collect(Collectors.toList()));
     }
 
     @VisibleForTesting
@@ -74,13 +76,12 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
     @VisibleForTesting
     public Future<Void> removeListener(String namespace, String serviceId) {
         PatternTopic instanceTopic = getPatternTopic(namespace, serviceId);
-        return messageListenable.removeListener(instanceTopic);
+        return messageListenable.removeListener(instanceTopic, instanceListener);
     }
 
     private PatternTopic getPatternTopic(String namespace, String serviceId) {
         var instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
-        var topicStr = RedisKeySpaces.getTopicOfKey(instancePattern);
-        var instanceTopic = PatternTopic.of(topicStr);
+        var instanceTopic = PatternTopic.of(instancePattern);
         return instanceTopic;
     }
 
@@ -92,7 +93,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
             if (log.isInfoEnabled()) {
                 log.info("onMessage@ServiceIdxListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
-            var serviceIdxKey = RedisKeySpaces.getKeyOfChannel(channel);
+            var serviceIdxKey = channel;
             var namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
             namespaceMapServices.put(namespace, delegate.getServices(namespace));
         }
@@ -100,27 +101,19 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
 
     private class InstanceListener implements MessageListener {
 
-        private final static String MSG_EXPIRE = "expire";
-
         @Override
         public void onMessage(Topic topic, String channel, String message) {
             if (log.isInfoEnabled()) {
                 log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
 
-            if (MSG_EXPIRE.equals(message)) {
-                /**
-                 * 忽略 {@link #MSG_EXPIRE} 消息
-                 */
-                return;
-            }
-            var instanceKey = RedisKeySpaces.getKeyOfChannel(channel);
+            final var instanceKey = channel;
             var namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
             var instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
             var instance = InstanceIdGenerator.DEFAULT.of(instanceId);
             var serviceId = instance.getServiceId();
             /**
-             * TODO 目前使用的是相应ServiceId的实例整体替换，按照 message :[del,set,expire] 分解,单个实例替换
+             * TODO 目前使用的是相应ServiceId的实例整体替换，按照 message :{@link ServiceEventType} 分解,单个实例替换
              */
             serviceMapInstances.put(NamespacedServiceId.of(namespace, serviceId), delegate.getInstances(namespace, serviceId));
         }

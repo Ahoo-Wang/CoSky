@@ -6,7 +6,10 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.core.NamespacedContext;
-import me.ahoo.govern.discovery.*;
+import me.ahoo.govern.discovery.DiscoveryKeyGenerator;
+import me.ahoo.govern.discovery.ServiceDiscovery;
+import me.ahoo.govern.discovery.ServiceInstance;
+import me.ahoo.govern.discovery.ServiceInstanceCodec;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -55,5 +58,6 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     public CompletableFuture<Set<String>> getServices() {
         return getServices(NamespacedContext.GLOBAL.getNamespace());
     }
+
 
 }

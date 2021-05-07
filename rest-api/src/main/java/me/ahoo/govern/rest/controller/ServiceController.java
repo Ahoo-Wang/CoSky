@@ -1,10 +1,7 @@
 package me.ahoo.govern.rest.controller;
 
-import me.ahoo.govern.discovery.ServiceDiscovery;
-import me.ahoo.govern.discovery.ServiceInstance;
-import me.ahoo.govern.discovery.ServiceRegistry;
+import me.ahoo.govern.discovery.*;
 import me.ahoo.govern.rest.support.RequestPathPrefix;
-import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,12 +16,12 @@ import java.util.Set;
 public class ServiceController {
     private final ServiceDiscovery discoveryService;
     private final ServiceRegistry serviceRegistry;
-    private final DiscoveryClient discoveryClient;
+    private final ServiceStatistic serviceStatistic;
 
-    public ServiceController(ServiceDiscovery discoveryService, ServiceRegistry serviceRegistry, DiscoveryClient discoveryClient) {
+    public ServiceController(ServiceDiscovery discoveryService, ServiceRegistry serviceRegistry, ServiceStatistic serviceStatistic) {
         this.discoveryService = discoveryService;
         this.serviceRegistry = serviceRegistry;
-        this.discoveryClient = discoveryClient;
+        this.serviceStatistic = serviceStatistic;
     }
 
     @GetMapping
@@ -51,6 +48,11 @@ public class ServiceController {
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE_METADATA)
     public Boolean setMetadata(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId, @RequestBody Map<String, String> metadata) {
         return serviceRegistry.setMetadata(namespace, serviceId, instanceId, metadata).join();
+    }
+
+    @GetMapping(RequestPathPrefix.SERVICES_STATS)
+    public List<ServiceStat> getServiceStats(@PathVariable String namespace) {
+        return serviceStatistic.getServiceStats(namespace).join();
     }
 
 }

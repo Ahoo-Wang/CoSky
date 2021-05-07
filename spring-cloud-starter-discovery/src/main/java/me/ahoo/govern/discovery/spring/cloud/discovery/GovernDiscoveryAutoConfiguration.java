@@ -6,6 +6,7 @@ import me.ahoo.govern.core.listener.MessageListenable;
 import me.ahoo.govern.discovery.ServiceDiscovery;
 import me.ahoo.govern.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceDiscovery;
+import me.ahoo.govern.discovery.redis.RedisServiceStatistic;
 import me.ahoo.govern.spring.cloud.GovernAutoConfiguration;
 import me.ahoo.govern.spring.cloud.support.RedisClientSupport;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -31,9 +32,9 @@ public class GovernDiscoveryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RedisServiceDiscovery redisServiceDiscovery(
-                                                       AbstractRedisClient redisClient) {
+            AbstractRedisClient redisClient) {
         RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
-        return new RedisServiceDiscovery( redisCommands);
+        return new RedisServiceDiscovery(redisCommands);
     }
 
     @Bean
@@ -42,9 +43,17 @@ public class GovernDiscoveryAutoConfiguration {
     public ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery(
             RedisServiceDiscovery redisServiceDiscovery,
             MessageListenable messageListenable) {
-        return new ConsistencyRedisServiceDiscovery( redisServiceDiscovery, messageListenable);
+        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable);
     }
 
+    @Bean
+    @ConditionalOnMissingBean
+    public RedisServiceStatistic redisServiceStatistic(
+            AbstractRedisClient redisClient,
+            MessageListenable messageListenable) {
+        RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
+        return new RedisServiceStatistic(redisCommands, messageListenable);
+    }
 
     @Bean
     @ConditionalOnMissingBean

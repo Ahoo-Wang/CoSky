@@ -8,7 +8,6 @@ import me.ahoo.govern.core.listener.ChannelTopic;
 import me.ahoo.govern.core.listener.MessageListenable;
 import me.ahoo.govern.core.listener.MessageListener;
 import me.ahoo.govern.core.listener.Topic;
-import me.ahoo.govern.core.util.RedisKeySpaces;
 
 import java.util.List;
 import java.util.Objects;
@@ -58,7 +57,7 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     }
 
     private CompletableFuture<Void> addListener(String namespace, String configId) {
-        var topicStr = RedisKeySpaces.getTopicOfKey(ConfigKeyGenerator.getConfigKey(namespace, configId));
+        var topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
         var configTopic = ChannelTopic.of(topicStr);
         return messageListenable.addListener(configTopic, configListener);
     }
@@ -137,7 +136,6 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
 
 
     private class ConfigListener implements MessageListener {
-//        private final static String RENAME_FROM = "rename_from";
 
         @Override
         public void onMessage(Topic topic, String channel, String message) {
@@ -145,11 +143,8 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
                 log.info("onMessage@ConfigListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
 
-            /**
-             * 忽略部分消息
-             */
-            var key = RedisKeySpaces.getKeyOfChannel(channel);
-            var namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(key);
+            final var configkey = channel;
+            var namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
             configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()));
             var configChangedListener = configMapListener.get(namespacedConfigId);
             if (Objects.isNull(configChangedListener)) {

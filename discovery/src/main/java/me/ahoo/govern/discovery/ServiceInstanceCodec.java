@@ -21,6 +21,7 @@ public final class ServiceInstanceCodec {
     private static final String PORT = "port";
     private static final String WEIGHT = "weight";
     private static final String EPHEMERAL = "ephemeral";
+    private static final String TTL_AT = "ttl_at";
 
     @Deprecated
     public static Map<String, String> encode(ServiceInstance serviceInstance) {
@@ -86,6 +87,10 @@ public final class ServiceInstanceCodec {
                     serviceInstance.setEphemeral(Boolean.parseBoolean(value));
                     break;
                 }
+                case TTL_AT: {
+                    serviceInstance.setTtlAt(Integer.parseInt(value));
+                    break;
+                }
                 default: {
                     if (key.startsWith(METADATA_PREFIX)) {
                         var metadataKey = key.substring(METADATA_PREFIX_LENGTH);
@@ -108,6 +113,9 @@ public final class ServiceInstanceCodec {
         serviceInstance.setPort(Integer.parseInt(instanceData.get(PORT)));
         serviceInstance.setWeight(Integer.parseInt(instanceData.get(WEIGHT)));
         serviceInstance.setEphemeral(Boolean.parseBoolean(instanceData.get(EPHEMERAL)));
+        if (instanceData.containsKey(TTL_AT)) {
+            serviceInstance.setTtlAt(Integer.parseInt(instanceData.get(TTL_AT)));
+        }
         instanceData.forEach((key, value) -> {
             if (key.startsWith(METADATA_PREFIX)) {
                 var metadataKey = key.substring(METADATA_PREFIX_LENGTH);

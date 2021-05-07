@@ -29,8 +29,10 @@ redis.call("sadd", configIdxKey, configKey)
 local preVersion = redis.call("hget", configKey, versionField)
 if preVersion then
     version = preVersion + 1;
-    addHistory(preVersion,configKey);
+    addHistory(preVersion, configKey);
 end
-local createTime = redis.call('time')[1];
-return redis.call("hmset", configKey, "configId", configId, "data", data, "hash", hash, "version", version, "createTime", createTime);
 
+local createTime = redis.call('time')[1];
+local result = redis.call("hmset", configKey, "configId", configId, "data", data, "hash", hash, "version", version, "createTime", createTime);
+redis.call("publish", configKey, "set");
+return result;

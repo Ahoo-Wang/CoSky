@@ -11,6 +11,7 @@ import me.ahoo.govern.core.GovernException;
  * @author ahoo wang
  * Creation time 2021/2/27 11:45
  **/
+@Deprecated
 public final class RedisKeySpaces {
 
     public static final String KEY_SPACE_TOPIC_PREFIX_FORMAT = "__keyspace@%s__:";

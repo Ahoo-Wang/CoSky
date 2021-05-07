@@ -1,10 +1,5 @@
 package me.ahoo.govern.discovery;
 
-import lombok.Getter;
-import lombok.Setter;
-import me.ahoo.govern.core.Consts;
-import me.ahoo.govern.core.NamespacedProperties;
-
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -14,8 +9,13 @@ public class RegistryProperties {
     /**
      * instance time to live
      */
-    @Getter
-    @Setter
     private int instanceTtl = (int) TimeUnit.MINUTES.toSeconds(1);
 
+    public int getInstanceTtl() {
+        return instanceTtl;
+    }
+
+    public void setInstanceTtl(int instanceTtl) {
+        this.instanceTtl = instanceTtl;
+    }
 }

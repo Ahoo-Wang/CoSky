@@ -4,7 +4,6 @@ import io.lettuce.core.pubsub.RedisPubSubListener;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
-import me.ahoo.govern.core.util.RedisKeySpaces;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -19,7 +18,6 @@ public class RedisMessageListenable extends AbstractMessageListenable {
     private final RedisPubSubListenerAdapter listenerAdapter;
 
     public RedisMessageListenable(StatefulRedisPubSubConnection<String, String> pubSubConnection) {
-        RedisKeySpaces.ensureNotifyKeyspaceEvents(pubSubConnection.sync());
         this.pubSubConnection = pubSubConnection;
         this.pubSubCommands = pubSubConnection.async();
         this.listenerAdapter = new RedisPubSubListenerAdapter();
@@ -103,7 +101,7 @@ public class RedisMessageListenable extends AbstractMessageListenable {
         @Override
         public void psubscribed(String pattern, long count) {
             if (log.isInfoEnabled()){
-                log.info("Subscribed to a pattern - pattern[{}] | [{}]", pattern, count);
+                log.info("PSubscribed to a pattern - pattern[{}] | [{}]", pattern, count);
             }
         }
 
@@ -129,7 +127,7 @@ public class RedisMessageListenable extends AbstractMessageListenable {
         @Override
         public void punsubscribed(String pattern, long count) {
             if (log.isInfoEnabled()){
-                log.debug("Unsubscribed from a pattern - pattern[{}] | [{}]", pattern, count);
+                log.info("PUnsubscribed from a pattern - pattern[{}] | [{}]", pattern, count);
             }
         }
     }

@@ -6,26 +6,12 @@ to the operation and maintenance deployment. Cost and burden. With the high perf
 provides ultra-high TPS&QPS. *Govern Service* combines the process cache strategy + *Redis PubSub* to achieve real-time
 process cache refresh, with unparalleled QPS performance and real-time consistency between process cache and Redis.
 
-## Redis configuration requirements
-
-```
-notify-keyspace-events "Kg$shx"
-```
-> You can use the following command line (redis-cli or any other redis-client) to set `notify-keyspace-events`
-```shell
-config set notify-keyspace-events "Kg$shx"
-```
-or
-```shell
-config set notify-keyspace-events "KA"
-```
-
 ## Installation
 
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.7.3";
+    val governVersion = "0.8.0";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -33,24 +19,32 @@ config set notify-keyspace-events "KA"
 ### Maven
 
 ```xml
+<?xml version="1.0" encoding="UTF-8"?>
 
-<properties>
-  <govern.version>0.7.3</govern.version>
-</properties>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
-<dependencies>
-<dependency>
-  <groupId>me.ahoo.govern</groupId>
-  <artifactId>spring-cloud-starter-config</artifactId>
-  <version>${govern.version}</version>
-</dependency>
-<dependency>
-  <groupId>me.ahoo.govern</groupId>
-  <artifactId>spring-cloud-starter-discovery</artifactId>
-  <version>${govern.version}</version>
-</dependency>
-</dependencies>
+  <modelVersion>4.0.0</modelVersion>
+  <artifactId>demo</artifactId>
+  <properties>
+    <govern.version>0.8.0</govern.version>
+  </properties>
 
+  <dependencies>
+    <dependency>
+      <groupId>me.ahoo.govern</groupId>
+      <artifactId>spring-cloud-starter-config</artifactId>
+      <version>${govern.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>me.ahoo.govern</groupId>
+      <artifactId>spring-cloud-starter-discovery</artifactId>
+      <version>${govern.version}</version>
+    </dependency>
+  </dependencies>
+
+</project>
 ```
 
 ### bootstrap.yml (Spring-Cloud-Config)
@@ -74,6 +68,7 @@ spring:
 ```shell
 bin/rest-api
 ```
+
 > http://localhost:8080/swagger-ui/index.html#/
 
 ### Namespace
@@ -89,24 +84,23 @@ bin/rest-api
   - GET
 - /v1/namespaces/current/{namespace}
   - PUT
-  
+
 ### Config
 
 ![rest-api-config](./docs/rest-api-config.png)
 
 - /v1/namespaces/{namespace}/configs
-    - GET
+  - GET
 - /v1/namespaces/{namespace}/configs/{configId}
-    - GET
-    - PUT
+  - GET
+  - PUT
     - DELETE
 - /v1/namespaces/{namespace}/configs/{configId}/versions
-    - GET
+  - GET
 - /v1/namespaces/{namespace}/configs/{configId}/versions/{version}
     - GET
 - /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}
     - PUT
-
 
 ### Service
 
@@ -124,7 +118,7 @@ bin/rest-api
 
 ## JMH Benchmark
 
-- The development notebook : MacBook Pro (M1) 
+- The development notebook : MacBook Pro (M1)
 - All benchmark tests are carried out on the development notebook.
 - Deploying Redis with docker on the development notebook.
 

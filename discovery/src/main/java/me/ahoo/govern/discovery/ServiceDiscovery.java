@@ -3,8 +3,6 @@
  */
 package me.ahoo.govern.discovery;
 
-import me.ahoo.govern.core.Namespaced;
-
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
