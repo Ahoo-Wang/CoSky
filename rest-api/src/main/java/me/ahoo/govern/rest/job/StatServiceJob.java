@@ -31,22 +31,17 @@ public class StatServiceJob {
         }
         var currentNamespace = NamespacedContext.GLOBAL.getNamespace();
         var namespaces = namespaceService.getNamespaces().join();
-        if (namespaces.isEmpty()) {
-            if (log.isInfoEnabled()) {
-                log.info("doStatService - namespaces isEmpty.");
-            }
-            namespaceService.setNamespace(currentNamespace).join();
-            return;
-        }
-
-        if (namespaces.size() == 1 && !namespaces.contains(currentNamespace)) {
+        if (!namespaces.contains(currentNamespace)) {
             namespaceService.setNamespace(currentNamespace).join();
         }
 
-        var statFutures = namespaces.stream().map(namespace -> serviceStatistic.statService(namespace))
-                .toArray(size -> new CompletableFuture[size]);
+        if (!namespaces.isEmpty()) {
+            var statFutures = namespaces.stream().map(namespace -> serviceStatistic.statService(namespace))
+                    .toArray(size -> new CompletableFuture[size]);
 
-        CompletableFuture.allOf(statFutures).join();
+            CompletableFuture.allOf(statFutures).join();
+        }
+
         if (log.isInfoEnabled()) {
             log.info("doStatService - end.");
         }

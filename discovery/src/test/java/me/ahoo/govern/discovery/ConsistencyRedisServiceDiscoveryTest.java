@@ -3,13 +3,11 @@ package me.ahoo.govern.discovery;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
-import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.listener.RedisMessageListenable;
 import me.ahoo.govern.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,15 +43,46 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
 
     @Test
     public void getServices() {
-        var serviceIds = consistencyRedisServiceDiscovery.getServices(namespace).join();
-        Assertions.assertNotNull(serviceIds);
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            var serviceIds = consistencyRedisServiceDiscovery.getServices(namespace).join();
+            Assertions.assertNotNull(serviceIds);
+            Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
+        }));
     }
-
 
     @Test
     public void getInstances() {
-        var instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).join();
-        Assertions.assertNotNull(instances);
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            var instances = consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).join();
+            Assertions.assertNotNull(instances);
+
+            var expectedInstance = instances.stream().findFirst().get();
+            Assertions.assertNotNull(expectedInstance);
+            Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
+            Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
+        }));
+    }
+
+    @Test
+    public void getInstance() {
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            var actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).join();
+            Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
+            Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
+        }));
+    }
+
+    @Test
+    public void getInstanceWithCache() {
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).join();
+            var actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).join();
+            Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
+            Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
+
+            var cachedInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).join();
+            Assertions.assertEquals(cachedInstance, actualInstance);
+        }));
     }
 
     private final static int SLEEP_FOR_WAIT_MESSAGE = 1;

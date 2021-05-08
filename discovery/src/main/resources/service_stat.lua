@@ -14,11 +14,11 @@ local function ensureNotExpired(instanceIdxKey, instanceId)
     local instanceTtl = redis.call("ttl", instanceKey);
     -- -2: The key doesn't exist | -1: The key is fixed | >0: ttl(second)
     if instanceTtl == -2 then
-        redis.call("srem", instanceIdxKey, instanceId);
-        redis.call("del", instanceKey);
-        redis.call("publish", instanceKey, "expired");
+        local removed = redis.call("srem", instanceIdxKey, instanceId);
+        if removed > 0 then
+            redis.call("publish", instanceKey, "expired");
+        end
     end
-
     return instanceTtl;
 end
 

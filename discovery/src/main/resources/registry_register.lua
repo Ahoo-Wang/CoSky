@@ -18,6 +18,7 @@ local instanceIdxKey = namespace .. ":svc_itc_idx:" .. serviceId;
 local instanceKey = namespace .. ":svc_itc:" .. instanceId;
 
 local added = redis.call("sadd", instanceIdxKey, instanceId);
+
 if added == 1 then
     redis.call("publish", serviceIdxKey, "register");
     redis.call("sadd", serviceIdxKey, serviceId);

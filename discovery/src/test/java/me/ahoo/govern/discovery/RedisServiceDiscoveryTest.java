@@ -18,13 +18,10 @@ import java.util.concurrent.CountDownLatch;
 public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
     private final static String namespace = "test_svc";
     private RedisServiceDiscovery redisServiceDiscovery;
-
-    private ServiceInstance serviceInstance;
     private RedisServiceRegistry redisServiceRegistry;
 
     @BeforeAll
     private void init() {
-        serviceInstance = TestServiceInstance.TEST_INSTANCE;
         var registryProperties = new RegistryProperties();
         redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
         redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
@@ -34,14 +31,34 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
 
     @Test
     public void getServices() {
-        var serviceIds = redisServiceDiscovery.getServices(namespace).join();
-        Assertions.assertNotNull(serviceIds);
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            var serviceIds = redisServiceDiscovery.getServices(namespace).join();
+            Assertions.assertNotNull(serviceIds);
+            Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
+        }));
     }
 
     @Test
     public void getInstances() {
-        var instances = redisServiceDiscovery.getInstances(namespace, "test_fixed_service").join();
-        Assertions.assertNotNull(instances);
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            var instances = redisServiceDiscovery.getInstances(namespace, instance.getServiceId()).join();
+            Assertions.assertNotNull(instances);
+            Assertions.assertEquals(1, instances.size());
+
+            var expectedInstance = instances.stream().findFirst().get();
+            Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
+            Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
+        }));
+    }
+
+
+    @Test
+    public void getInstance() {
+        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
+            var actualInstance = redisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).join();
+            Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
+            Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
+        }));
     }
 
 

@@ -3,11 +3,12 @@ package me.ahoo.govern.discovery;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import lombok.var;
-import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.util.RedisScripts;
 import org.junit.jupiter.api.*;
 
 import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * @author ahoo wang
@@ -26,7 +27,26 @@ public class BaseOnRedisClientTest {
     }
 
     protected void clearTestData(String namespace) {
-         RedisScripts.clearTestData(namespace,redisConnection.async()).join();
+        RedisScripts.clearTestData(namespace, redisConnection.async()).join();
+    }
+
+    protected ServiceInstance createRandomInstance() {
+        var randomInstance = new ServiceInstance();
+        randomInstance.setServiceId(UUID.randomUUID().toString());
+        randomInstance.setSchema("http");
+        randomInstance.setIp("127.0.0.1");
+        randomInstance.setPort(8080);
+        randomInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(randomInstance));
+        randomInstance.getMetadata().put("from", "test");
+        return randomInstance;
+    }
+
+
+    protected void registerRandomInstanceFinal(String namespace, ServiceRegistry serviceRegistry, Consumer<ServiceInstance> doTest) {
+        var randomInstance = createRandomInstance();
+        serviceRegistry.register(namespace, randomInstance).join();
+        doTest.accept(randomInstance);
+        serviceRegistry.deregister(namespace, randomInstance);
     }
 
 

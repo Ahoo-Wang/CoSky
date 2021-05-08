@@ -1,14 +1,9 @@
-# Govern Service On Redis (Service Discovery and Configuration Service)
+# 基于 Redis 的服务治理平台（服务注册/发现 & 配置中心）
 
-> [中文文档](./README.zh-CN.md)
+*Govern Service* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。 借助于 Redis 的高性能， *
+Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓存策略 + *Redis PubSub*，实现实时进程缓存刷新，兼具无与伦比的QPS性能、进程缓存与 Redis 的实时一致性。
 
-*Govern Service* is a lightweight, low-cost service registration, service discovery, and configuration service SDK. By
-using Redis in the existing infrastructure (I believe you have already deployed Redis), it doesn’t need to bring extra
-to the operation and maintenance deployment. Cost and burden. With the high performance of Redis, *Govern Service*
-provides ultra-high TPS&QPS. *Govern Service* combines the process cache strategy + *Redis PubSub* to achieve real-time
-process cache refresh, with unparalleled QPS performance and real-time consistency between process cache and Redis.
-
-## Installation
+## 安装
 
 ### Gradle
 
@@ -100,25 +95,25 @@ bin/rest-api
 - /v1/namespaces/{namespace}/configs/{configId}/versions
   - GET
 - /v1/namespaces/{namespace}/configs/{configId}/versions/{version}
-    - GET
+  - GET
 - /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}
-    - PUT
+  - PUT
 
 ### Service
 
 ![rest-api-service](./docs/rest-api-service.png)
 
 - /v1/namespaces/{namespace}/services/
-    - GET
+  - GET
 - /v1/namespaces/{namespace}/services/{serviceId}/instances
-    - GET
-    - PUT
+  - GET
+  - PUT
 - /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}
-    - DELETE
+  - DELETE
 - /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
-    - PUT
+  - PUT
 
-## JMH Benchmark
+## JMH 基准测试
 
 - The development notebook : MacBook Pro (M1)
 - All benchmark tests are carried out on the development notebook.

@@ -8,8 +8,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.util.UUID;
-
 /**
  * @author ahoo wang
  */
@@ -28,13 +26,7 @@ public class RedisServiceStatisticTest extends BaseOnRedisClientTest {
 
     @Test
     void statService() {
-        var getServiceStatInstance = new ServiceInstance();
-        getServiceStatInstance.setServiceId(UUID.randomUUID().toString());
-        getServiceStatInstance.setSchema("http");
-        getServiceStatInstance.setIp("127.0.0.1");
-        getServiceStatInstance.setPort(8080);
-        getServiceStatInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(getServiceStatInstance));
-        getServiceStatInstance.getMetadata().put("from", "test_getServiceStats");
+        var getServiceStatInstance = createRandomInstance();
 
         redisServiceRegistry.register(namespace, getServiceStatInstance).join();
         redisServiceStatistic.statService(namespace).join();

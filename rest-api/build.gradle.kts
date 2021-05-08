@@ -29,6 +29,7 @@ dependencies {
     implementation("io.springfox:springfox-boot-starter")
     implementation(project(":spring-cloud-starter-config"))
     implementation(project(":spring-cloud-starter-discovery"))
+    implementation("com.google.guava:guava")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
     compileOnly("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")

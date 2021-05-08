@@ -2,7 +2,6 @@ package me.ahoo.govern.discovery;
 
 import lombok.SneakyThrows;
 import lombok.var;
-import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,7 +21,6 @@ public class RedisServiceRegistryTest extends BaseOnRedisClientTest {
 
     @BeforeAll
     private void init() {
-
         testInstance = TestServiceInstance.TEST_INSTANCE;
         testFixedInstance = TestServiceInstance.TEST_FIXED_INSTANCE;
         var registryProperties = new RegistryProperties();
@@ -64,11 +62,10 @@ public class RedisServiceRegistryTest extends BaseOnRedisClientTest {
 
     private final static int REPEATED_SIZE = 60000;
 
-    @SneakyThrows
-//    @Test
+    @Test
     public void registerRepeatedSync() {
-        for (int i = 0; i < REPEATED_SIZE; i++) {
-            redisServiceRegistry.register(testInstance).join();
+        for (int i = 0; i < 20; i++) {
+            redisServiceRegistry.register(namespace, testInstance).join();
         }
     }
 
