@@ -7,6 +7,8 @@ Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓�
 
 ### Gradle
 
+> Kotlin DSL
+
 ``` kotlin
     val governVersion = "0.9.0";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")

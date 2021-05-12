@@ -12,6 +12,8 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
 
 ### Gradle
 
+> Kotlin DSL
+
 ``` kotlin
     val governVersion = "0.9.0";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
