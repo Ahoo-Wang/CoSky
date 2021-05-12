@@ -61,6 +61,10 @@ public interface RequestPathPrefix {
      */
     String SERVICES_STATS = "/stats";
     /**
+     * /v1/namespaces/{namespace}/services/lb/{serviceId}
+     */
+    String SERVICES_LB = "/lb/{serviceId}";
+    /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances
      */
     String SERVICES_INSTANCES = "/{serviceId}/instances";

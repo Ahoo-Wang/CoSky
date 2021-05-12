@@ -95,4 +95,12 @@ public class GovernAutoServiceRegistrationAutoConfiguration {
     ) {
         return new GovernAutoServiceRegistration(serviceRegistry, registration, autoServiceRegistrationProperties);
     }
+
+    @Bean
+    public GovernAutoServiceRegistrationOfNoneWeb governAutoServiceRegistrationOfNoneWeb(
+            GovernServiceRegistry serviceRegistry,
+            GovernRegistration registration
+    ) {
+        return new GovernAutoServiceRegistrationOfNoneWeb(serviceRegistry, registration);
+    }
 }

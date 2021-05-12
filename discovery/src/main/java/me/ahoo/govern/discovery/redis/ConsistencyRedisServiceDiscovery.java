@@ -10,17 +10,14 @@ import me.ahoo.govern.discovery.*;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
  */
 @Slf4j
-public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
+public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, ServiceListenable {
 
     private final ServiceDiscovery delegate;
     private final MessageListenable messageListenable;
@@ -28,11 +25,13 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
     private final InstanceListener instanceListener;
 
     private final ConcurrentHashMap<NamespacedServiceId, CompletableFuture<CopyOnWriteArrayList<ServiceInstance>>> serviceMapInstances;
+    private final ConcurrentHashMap<NamespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener>> serviceMapListener;
     private final ConcurrentHashMap<String, CompletableFuture<Set<String>>> namespaceMapServices;
 
     public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate, MessageListenable messageListenable) {
         this.serviceMapInstances = new ConcurrentHashMap<>();
         this.namespaceMapServices = new ConcurrentHashMap<>();
+        this.serviceMapListener = new ConcurrentHashMap<>();
         this.delegate = delegate;
         this.messageListenable = messageListenable;
         this.serviceIdxListener = new ServiceIdxListener();
@@ -121,6 +120,30 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
         return messageListenable.addListener(instanceTopic, instanceListener);
     }
 
+    @Override
+    public void addListener(NamespacedServiceId namespacedServiceId, ServiceChangedListener serviceChangedListener) {
+        serviceMapListener.compute(namespacedServiceId, (key, val) -> {
+            CopyOnWriteArraySet<ServiceChangedListener> listeners = val;
+            if (Objects.isNull(val)) {
+                listeners = new CopyOnWriteArraySet<>();
+            }
+            listeners.add(serviceChangedListener);
+            return listeners;
+        });
+    }
+
+    @Override
+    public void removeListener(NamespacedServiceId namespacedServiceId, ServiceChangedListener serviceChangedListener) {
+        serviceMapListener.compute(namespacedServiceId, (key, val) -> {
+            if (Objects.isNull(val)) {
+                return null;
+            }
+            CopyOnWriteArraySet<ServiceChangedListener> listeners = val;
+            listeners.remove(serviceChangedListener);
+            return listeners;
+        });
+    }
+
     @VisibleForTesting
     public Future<Void> removeListener(String namespace, String serviceId) {
         PatternTopic instanceTopic = getPatternTopic(namespace, serviceId);
@@ -149,6 +172,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
 
     private class InstanceListener implements MessageListener {
 
+
         @Override
         public void onMessage(Topic topic, String channel, String message) {
             if (log.isInfoEnabled()) {
@@ -162,6 +186,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
             var serviceId = instance.getServiceId();
 
             var namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
+            var serviceChangedListeners = serviceMapListener.get(namespacedServiceId);
 
             var instancesFuture = serviceMapInstances.get(namespacedServiceId);
 
@@ -169,6 +194,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                 if (log.isInfoEnabled()) {
                     log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] instancesFuture is null.", topic, channel, message);
                 }
+                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
                 return;
             }
 
@@ -177,6 +203,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                 if (log.isInfoEnabled()) {
                     log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] cachedInstances is null.", topic, channel, message);
                 }
+                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
                 return;
             }
 
@@ -184,7 +211,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                     .filter(itc -> itc.getInstanceId().equals(instanceId))
                     .findFirst().orElse(ServiceInstance.NOT_FOUND);
 
-            if (ServiceEventType.REGISTER.equals(message)) {
+            if (ServiceChangedListener.REGISTER.equals(message)) {
                 if (log.isInfoEnabled()) {
                     log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] add registered Instance.", topic, channel, message);
                 }
@@ -200,6 +227,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                     cachedInstance.setWeight(registeredInstance.getWeight());
                     cachedInstance.setMetadata(registeredInstance.getMetadata());
                 }
+                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
                 return;
             }
 
@@ -207,11 +235,12 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                 if (log.isWarnEnabled()) {
                     log.warn("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] not found cached Instance.", topic, channel, message);
                 }
+                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
                 return;
             }
 
             switch (message) {
-                case ServiceEventType.RENEW: {
+                case ServiceChangedListener.RENEW: {
                     if (log.isInfoEnabled()) {
                         log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setTtlAt.", topic, channel, message);
                     }
@@ -219,7 +248,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                     cachedInstance.setTtlAt(nextTtlAt);
                     break;
                 }
-                case ServiceEventType.SET_METADATA: {
+                case ServiceChangedListener.SET_METADATA: {
                     if (log.isInfoEnabled()) {
                         log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setMetadata.", topic, channel, message);
                     }
@@ -227,8 +256,8 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                     cachedInstance.setMetadata(nextInstance.getMetadata());
                     break;
                 }
-                case ServiceEventType.DEREGISTER:
-                case ServiceEventType.EXPIRED: {
+                case ServiceChangedListener.DEREGISTER:
+                case ServiceChangedListener.EXPIRED: {
                     if (log.isInfoEnabled()) {
                         log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] remove instance.", topic, channel, message);
                     }
@@ -237,6 +266,13 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery {
                 }
                 default:
                     throw new IllegalStateException("Unexpected value: " + message);
+            }
+            invokeChanged(message, namespacedServiceId, serviceChangedListeners);
+        }
+
+        private void invokeChanged(String message, NamespacedServiceId namespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners) {
+            if (Objects.nonNull(serviceChangedListeners) && !serviceChangedListeners.isEmpty()) {
+                serviceChangedListeners.forEach(serviceChangedListener -> serviceChangedListener.onChange(namespacedServiceId, message));
             }
         }
     }

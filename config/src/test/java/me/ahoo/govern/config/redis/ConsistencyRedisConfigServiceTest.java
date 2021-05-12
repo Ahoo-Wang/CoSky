@@ -3,7 +3,7 @@ package me.ahoo.govern.config.redis;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
-import me.ahoo.govern.config.ConfigKeyGenerator;
+import me.ahoo.govern.config.ConfigChangedListener;
 import me.ahoo.govern.config.NamespacedConfigId;
 import me.ahoo.govern.core.listener.RedisMessageListenable;
 import org.junit.jupiter.api.Assertions;
@@ -121,12 +121,16 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
     void addListener() {
         CountDownLatch countDownLatch = new CountDownLatch(1);
         AtomicReference<NamespacedConfigId> changedConfigId = new AtomicReference<>();
-        var testConfig=NamespacedConfigId.of(namespace,testConfigId);
-        var addListenerResult = consistencyRedisConfigService.addListener(namespace, testConfigId, (configId, message) -> {
-            log.warn("addListener@Test - configId:[{}] - message:[{}]", configId, message);
-            changedConfigId.set(configId);
-            countDownLatch.countDown();
-        });
+        var testConfig = NamespacedConfigId.of(namespace, testConfigId);
+        var changedListener = new ConfigChangedListener() {
+            @Override
+            public void onChange(NamespacedConfigId namespacedConfigId, String op) {
+                log.warn("addListener@Test - configId:[{}] - message:[{}]", namespacedConfigId, op);
+                changedConfigId.set(namespacedConfigId);
+                countDownLatch.countDown();
+            }
+        };
+        var addListenerResult = consistencyRedisConfigService.addListener(testConfig, changedListener);
         Assertions.assertTrue(addListenerResult.join());
         getConfigChanged();
         countDownLatch.await();
@@ -135,11 +139,17 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
 
     @Test
     void removeListener() {
-        var addListenerResult = consistencyRedisConfigService.addListener(namespace, testConfigId, (configId, message) -> {
-            Assertions.fail();
-        });
+        var testConfig = NamespacedConfigId.of(namespace, testConfigId);
+        var changedListener = new ConfigChangedListener() {
+            @Override
+            public void onChange(NamespacedConfigId namespacedConfigId, String op) {
+                Assertions.fail();
+            }
+        };
+        var addListenerResult = consistencyRedisConfigService.addListener(testConfig, changedListener);
+
         Assertions.assertTrue(addListenerResult.join());
-        var removeListenerResult = consistencyRedisConfigService.removeListener(namespace, testConfigId);
+        var removeListenerResult = consistencyRedisConfigService.removeListener(testConfig, changedListener);
         Assertions.assertTrue(removeListenerResult.join());
         getConfigChanged();
     }

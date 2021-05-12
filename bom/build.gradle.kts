@@ -1,9 +1,8 @@
+val libraryProjects = rootProject.ext.get("libraryProjects") as java.util.LinkedHashSet<Project>;
+
 dependencies {
     constraints {
-        rootProject.subprojects.forEach {
-            if (it.name == "rest-api") {
-                return@forEach
-            }
+        libraryProjects.forEach {
             api(it)
         }
     }

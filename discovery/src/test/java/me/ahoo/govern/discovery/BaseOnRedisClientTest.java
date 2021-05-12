@@ -8,6 +8,7 @@ import org.junit.jupiter.api.*;
 
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
 /**
@@ -31,11 +32,15 @@ public class BaseOnRedisClientTest {
     }
 
     protected ServiceInstance createRandomInstance() {
+        return createInstance(UUID.randomUUID().toString());
+    }
+
+    protected ServiceInstance createInstance(String serviceId) {
         var randomInstance = new ServiceInstance();
-        randomInstance.setServiceId(UUID.randomUUID().toString());
+        randomInstance.setServiceId(serviceId);
         randomInstance.setSchema("http");
         randomInstance.setIp("127.0.0.1");
-        randomInstance.setPort(8080);
+        randomInstance.setPort(ThreadLocalRandom.current().nextInt(65535));
         randomInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(randomInstance));
         randomInstance.getMetadata().put("from", "test");
         return randomInstance;
@@ -46,7 +51,7 @@ public class BaseOnRedisClientTest {
         var randomInstance = createRandomInstance();
         serviceRegistry.register(namespace, randomInstance).join();
         doTest.accept(randomInstance);
-        serviceRegistry.deregister(namespace, randomInstance);
+        serviceRegistry.deregister(namespace, randomInstance).join();
     }
 
 

@@ -14,9 +14,12 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * @author ahoo wang
  */
-public class RedisScripts {
+public final class RedisScripts {
     private static final String WARN_CLEAR_TEST_DATA = "warn_clear_test_data.lua";
     public static final ConcurrentHashMap<String, CompletableFuture<String>> scriptMapSha = new ConcurrentHashMap<>();
+
+    private RedisScripts() {
+    }
 
     @SneakyThrows
     public static String getScript(String scriptName) {
@@ -26,6 +29,13 @@ public class RedisScripts {
 
     public static CompletableFuture<String> loadScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
         return scriptMapSha.computeIfAbsent(scriptName, (key) -> {
+            String script = getScript(key);
+            return scriptingCommands.scriptLoad(script).toCompletableFuture();
+        });
+    }
+
+    public static CompletableFuture<String> reloadScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
+        return scriptMapSha.compute(scriptName, (key, result) -> {
             String script = getScript(key);
             return scriptingCommands.scriptLoad(script).toCompletableFuture();
         });

@@ -28,6 +28,7 @@ ext {
     set("jmhVersion", "1.29")
     set("guavaVersion", "30.0-jre")
     set("springfoxVersion", "3.0.0")
+    set("libraryProjects", libraryProjects)
 }
 
 allprojects {

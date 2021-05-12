@@ -1,5 +1,9 @@
 package me.ahoo.govern.discovery;
 
+import lombok.var;
+
+import java.util.concurrent.ThreadLocalRandom;
+
 /**
  * @author ahoo wang
  */
@@ -22,5 +26,18 @@ public final class TestServiceInstance {
         TEST_FIXED_INSTANCE.setInstanceId(InstanceIdGenerator.DEFAULT.generate(TEST_FIXED_INSTANCE));
         TEST_FIXED_INSTANCE.setEphemeral(false);
         TEST_FIXED_INSTANCE.getMetadata().put("from", "test");
+    }
+
+
+    public static ServiceInstance createInstance(String serviceId) {
+        var instance = new ServiceInstance();
+        instance.setServiceId(serviceId);
+        instance.setSchema("http");
+        instance.setIp("127.0.0.2");
+        instance.setPort(ThreadLocalRandom.current().nextInt(65535));
+        instance.setEphemeral(false);
+        instance.getMetadata().put("from", "test");
+        instance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(instance));
+        return instance;
     }
 }

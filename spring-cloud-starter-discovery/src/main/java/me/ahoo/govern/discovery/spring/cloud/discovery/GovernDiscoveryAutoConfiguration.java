@@ -4,6 +4,8 @@ import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import me.ahoo.govern.core.listener.MessageListenable;
 import me.ahoo.govern.discovery.ServiceDiscovery;
+import me.ahoo.govern.discovery.loadbalancer.BinaryWeightRandomLoadBalancer;
+import me.ahoo.govern.discovery.loadbalancer.LoadBalancer;
 import me.ahoo.govern.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceStatistic;
@@ -60,5 +62,12 @@ public class GovernDiscoveryAutoConfiguration {
     public GovernDiscoveryClient governDiscoveryClient(
             ServiceDiscovery serviceDiscovery, GovernDiscoveryProperties governDiscoveryProperties) {
         return new GovernDiscoveryClient(serviceDiscovery, governDiscoveryProperties);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public LoadBalancer loadBalancer(
+            ConsistencyRedisServiceDiscovery serviceDiscovery) {
+        return new BinaryWeightRandomLoadBalancer(serviceDiscovery);
     }
 }

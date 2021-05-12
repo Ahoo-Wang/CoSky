@@ -1,6 +1,7 @@
 package me.ahoo.govern.rest.controller;
 
 import me.ahoo.govern.discovery.*;
+import me.ahoo.govern.discovery.loadbalancer.LoadBalancer;
 import me.ahoo.govern.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,11 +18,13 @@ public class ServiceController {
     private final ServiceDiscovery discoveryService;
     private final ServiceRegistry serviceRegistry;
     private final ServiceStatistic serviceStatistic;
+    private final LoadBalancer loadBalancer;
 
-    public ServiceController(ServiceDiscovery discoveryService, ServiceRegistry serviceRegistry, ServiceStatistic serviceStatistic) {
+    public ServiceController(ServiceDiscovery discoveryService, ServiceRegistry serviceRegistry, ServiceStatistic serviceStatistic, LoadBalancer loadBalancer) {
         this.discoveryService = discoveryService;
         this.serviceRegistry = serviceRegistry;
         this.serviceStatistic = serviceStatistic;
+        this.loadBalancer = loadBalancer;
     }
 
     @GetMapping
@@ -53,6 +56,11 @@ public class ServiceController {
     @GetMapping(RequestPathPrefix.SERVICES_STATS)
     public List<ServiceStat> getServiceStats(@PathVariable String namespace) {
         return serviceStatistic.getServiceStats(namespace).join();
+    }
+
+    @GetMapping(RequestPathPrefix.SERVICES_LB)
+    public ServiceInstance choose(@PathVariable String namespace, @PathVariable String serviceId) {
+        return loadBalancer.choose(namespace, serviceId).join();
     }
 
 }

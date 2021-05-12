@@ -8,7 +8,7 @@ Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓�
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.8.2";
+    val governVersion = "0.9.0";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -25,7 +25,7 @@ Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓�
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.8.2</govern.version>
+    <govern.version>0.9.0</govern.version>
   </properties>
 
   <dependencies>
@@ -112,7 +112,9 @@ bin/rest-api
   - DELETE
 - /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
   - PUT
-
+- /v1/namespaces/{namespace}/services/lb/{serviceId}
+  - GET
+  
 ## JMH 基准测试
 
 - The development notebook : MacBook Pro (M1)

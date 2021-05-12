@@ -10,6 +10,7 @@ import java.util.concurrent.TimeUnit;
  * @author ahoo wang
  */
 public class ServiceInstance extends Instance {
+
     public static final ServiceInstance NOT_FOUND = new ServiceInstance();
     private int weight = 1;
     private boolean ephemeral = true;

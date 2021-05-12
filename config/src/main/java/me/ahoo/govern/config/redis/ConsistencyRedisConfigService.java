@@ -14,6 +14,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * @author ahoo wang
@@ -25,7 +26,7 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     private final ConfigListener configListener;
 
     private final ConcurrentHashMap<NamespacedConfigId, CompletableFuture<Config>> configMap;
-    private final ConcurrentHashMap<NamespacedConfigId, ConfigChangedListener> configMapListener;
+    private final ConcurrentHashMap<NamespacedConfigId, CopyOnWriteArraySet<ConfigChangedListener>> configMapListener;
 
     public ConsistencyRedisConfigService(ConfigService delegate, MessageListenable messageListenable) {
         this.configMap = new ConcurrentHashMap<>();
@@ -82,26 +83,35 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
         return delegate.removeConfig(namespace, configId);
     }
 
+
     @Override
-    public CompletableFuture<Boolean> addListener(String configId, ConfigChangedListener configChangedListener) {
-        return addListener(NamespacedContext.GLOBAL.getNamespace(), configId, configChangedListener);
+    public CompletableFuture<Boolean> addListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
+        configMapListener.compute(namespacedConfigId, (key, val) -> {
+            CopyOnWriteArraySet<ConfigChangedListener> listeners = val;
+            if (Objects.isNull(val)) {
+                listeners = new CopyOnWriteArraySet<>();
+            }
+            listeners.add(configChangedListener);
+            return listeners;
+        });
+        return CompletableFuture.completedFuture(true);
     }
 
     @Override
-    public CompletableFuture<Boolean> addListener(String namespace, String configId, ConfigChangedListener configChangedListener) {
-        var putOk = configMapListener.putIfAbsent(NamespacedConfigId.of(namespace, configId), configChangedListener) == null;
-        return CompletableFuture.completedFuture(putOk);
-    }
+    public CompletableFuture<Boolean> removeListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
+        configMapListener.compute(namespacedConfigId, (key, val) -> {
+            if (Objects.isNull(val)) {
+                return null;
+            }
+            CopyOnWriteArraySet<ConfigChangedListener> listeners = val;
+            listeners.remove(configChangedListener);
+            if (listeners.isEmpty()) {
+                return null;
+            }
+            return listeners;
+        });
 
-    @Override
-    public CompletableFuture<Boolean> removeListener(String configId) {
-        return removeListener(NamespacedContext.GLOBAL.getNamespace(), configId);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> removeListener(String namespace, String configId) {
-        var removeOk = configMapListener.remove(NamespacedConfigId.of(namespace, configId)) != null;
-        return CompletableFuture.completedFuture(removeOk);
+        return CompletableFuture.completedFuture(true);
     }
 
     @Override
@@ -146,11 +156,11 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
             final var configkey = channel;
             var namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
             configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()));
-            var configChangedListener = configMapListener.get(namespacedConfigId);
-            if (Objects.isNull(configChangedListener)) {
+            var configChangedListeners = configMapListener.get(namespacedConfigId);
+            if (Objects.isNull(configChangedListeners) || configChangedListeners.isEmpty()) {
                 return;
             }
-            configChangedListener.onChange(namespacedConfigId, message);
+            configChangedListeners.forEach(configChangedListener -> configChangedListener.onChange(namespacedConfigId, message));
         }
     }
 }

@@ -13,7 +13,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
 ### Gradle
 
 ``` kotlin
-    val governVersion = "0.8.2";
+    val governVersion = "0.9.0";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -30,7 +30,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.8.2</govern.version>
+    <govern.version>0.9.0</govern.version>
   </properties>
 
   <dependencies>
@@ -109,14 +109,16 @@ bin/rest-api
 ![rest-api-service](./docs/rest-api-service.png)
 
 - /v1/namespaces/{namespace}/services/
-    - GET
+  - GET
 - /v1/namespaces/{namespace}/services/{serviceId}/instances
-    - GET
-    - PUT
+  - GET
+  - PUT
 - /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}
-    - DELETE
+  - DELETE
 - /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
-    - PUT
+  - PUT
+- /v1/namespaces/{namespace}/services/lb/{serviceId}
+  - GET
 
 ## JMH Benchmark
 
