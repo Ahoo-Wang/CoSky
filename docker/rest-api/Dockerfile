@@ -1,6 +1,6 @@
 # docker build --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.8_10-slim --build-arg GOVERN_VERSION=0.7.2 -t ahoowang/govern-service:0.7.2 .
 ARG JDK_VERSION=alpine
-ARG GOVERN_VERSION=0.9.0
+ARG GOVERN_VERSION=0.9.2
 ARG GOVERN_SERVICE_HOME=/govern-service
 FROM adoptopenjdk/openjdk11:${JDK_VERSION} AS base
 

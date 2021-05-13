@@ -4,3 +4,6 @@ spring:
       discovery:
         registry:
           weight: 8
+  web:
+    resources:
+      static-locations: file:./dashboard/

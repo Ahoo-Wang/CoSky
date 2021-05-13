@@ -13,6 +13,7 @@ import java.util.Set;
 /**
  * @author ahoo wang
  */
+@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.CONFIGS_PREFIX)
 public class ConfigController {

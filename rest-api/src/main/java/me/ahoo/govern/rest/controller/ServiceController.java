@@ -12,6 +12,7 @@ import java.util.Set;
 /**
  * @author ahoo wang
  */
+@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.SERVICES_PREFIX)
 public class ServiceController {

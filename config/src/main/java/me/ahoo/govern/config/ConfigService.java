@@ -1,7 +1,5 @@
 package me.ahoo.govern.config;
 
-import me.ahoo.govern.core.Namespaced;
-
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 

@@ -2,14 +2,15 @@ package me.ahoo.govern.rest.controller;
 
 import me.ahoo.govern.core.NamespaceService;
 import me.ahoo.govern.core.NamespacedContext;
-import org.springframework.web.bind.annotation.*;
 import me.ahoo.govern.rest.support.RequestPathPrefix;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 
 /**
  * @author ahoo wang
  */
+@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.NAMESPACES_PREFIX)
 public class NamespaceController {
