@@ -1,6 +1,6 @@
 local namespace = KEYS[1];
-local instanceId = KEYS[2];
-local instanceTtl = KEYS[3];
+local instanceId = ARGV[1];
+local instanceTtl = ARGV[2];
 
 local pubTolerance = 2;
 local lastRenewPublishTtlAtField = "__last_renew_pub_ttl_at";

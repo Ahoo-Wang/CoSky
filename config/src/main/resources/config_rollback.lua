@@ -1,6 +1,6 @@
 local namespace = KEYS[1];
-local configId = KEYS[2];
-local targetVersion = KEYS[3];
+local configId = ARGV[1];
+local targetVersion = ARGV[2];
 local versionField = "version";
 local hashField = "hash";
 local configIdxKey = namespace .. ":cfg_idx";

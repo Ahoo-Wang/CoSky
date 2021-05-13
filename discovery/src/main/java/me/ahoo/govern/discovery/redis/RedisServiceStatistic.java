@@ -59,14 +59,15 @@ public class RedisServiceStatistic implements ServiceStatistic {
         if (log.isInfoEnabled()) {
             log.info("statService  @ namespace:[{}].", namespace);
         }
-        String[] keys;
+        String[] keys = {namespace};
+        String[] values;
         if (!Strings.isNullOrEmpty(serviceId)) {
-            keys = new String[]{namespace, serviceId};
+            values = new String[]{serviceId};
         } else {
-            keys = new String[]{namespace};
+            values = new String[]{};
         }
         return DiscoveryRedisScripts.loadServiceStat(redisCommands).thenCompose(sha ->
-                redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys)
+                redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values)
         );
     }
 

@@ -44,8 +44,8 @@ local function statService(serviceId)
     setServiceStat(serviceId, instanceCount);
 end
 
-if #KEYS == 2 then
-    local serviceId = KEYS[2];
+if #ARGV == 1 then
+    local serviceId = ARGV[1];
     statService(serviceId)
     return ;
 end

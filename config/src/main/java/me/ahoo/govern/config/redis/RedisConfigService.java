@@ -61,7 +61,6 @@ public class RedisConfigService implements ConfigService {
     }
 
     /**
-     *
      * @param configId
      * @param data
      * @return
@@ -80,8 +79,9 @@ public class RedisConfigService implements ConfigService {
 
         return ConfigRedisScripts.loadConfigSet(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {namespace, configId, data, hash};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
+                    String[] keys = {namespace};
+                    String[] values = {configId, data, hash};
+                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
                     return redisFuture;
                 });
     }
@@ -99,8 +99,9 @@ public class RedisConfigService implements ConfigService {
 
         return ConfigRedisScripts.loadConfigRemove(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {namespace, configId};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
+                    String[] keys = {namespace};
+                    String[] values = {configId};
+                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
                     return redisFuture;
                 });
     }
@@ -118,8 +119,9 @@ public class RedisConfigService implements ConfigService {
 
         return ConfigRedisScripts.loadConfigRollback(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {namespace, configId, String.valueOf(targetVersion)};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
+                    String[] keys = {namespace};
+                    String[] values = {configId, String.valueOf(targetVersion)};
+                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
                     return redisFuture;
                 });
     }

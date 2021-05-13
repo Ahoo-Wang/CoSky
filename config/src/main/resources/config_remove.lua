@@ -1,5 +1,5 @@
 local namespace = KEYS[1];
-local configId = KEYS[2];
+local configId = ARGV[1];
 local versionField = "version";
 
 local configIdxKey = namespace .. ":cfg_idx";

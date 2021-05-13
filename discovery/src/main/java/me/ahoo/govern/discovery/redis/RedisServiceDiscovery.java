@@ -35,7 +35,9 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     public CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
         return DiscoveryRedisScripts.loadDiscoveryGetInstances(redisCommands)
                 .thenCompose(sha -> {
-                    RedisFuture<List<List<String>>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, namespace, serviceId);
+                    String[] keys = {namespace};
+                    String[] values = {serviceId};
+                    RedisFuture<List<List<String>>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, keys, values);
                     return redisFuture;
                 })
                 .thenApply(instanceGroups -> {
@@ -52,7 +54,9 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
         return DiscoveryRedisScripts.loadDiscoveryGetInstance(redisCommands)
                 .thenCompose(sha -> {
-                    RedisFuture<List<String>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, namespace, serviceId, instanceId);
+                    String[] keys = {namespace};
+                    String[] values = {serviceId, instanceId};
+                    RedisFuture<List<String>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, keys, values);
                     return redisFuture;
                 })
                 .thenApply(instanceData -> {
@@ -67,7 +71,9 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     public CompletableFuture<Long> getInstanceTtl(String namespace, String serviceId, String instanceId) {
         return DiscoveryRedisScripts.loadDiscoveryGetInstanceTtl(redisCommands)
                 .thenCompose(sha -> {
-                    RedisFuture<Long> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.INTEGER, namespace, serviceId, instanceId);
+                    String[] keys = {namespace};
+                    String[] values = {serviceId, instanceId};
+                    RedisFuture<Long> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.INTEGER, keys, values);
                     return redisFuture;
                 });
     }

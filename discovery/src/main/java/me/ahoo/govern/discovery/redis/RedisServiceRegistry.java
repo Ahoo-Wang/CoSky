@@ -34,46 +34,43 @@ public class RedisServiceRegistry implements ServiceRegistry {
         /**
          * KEYS[1]
          */
-        String[] keys =
-                {
-                        /**
-                         * local namespace = KEYS[1];
-                        */
-                        namespace,
-                        /**
-                         * local instanceTtl = KEYS[2];
-                        */
-                        serviceInstance.isEphemeral() ? String.valueOf(registryProperties.getInstanceTtl()) : "-1",
-                        /**
-                         * local serviceId = KEYS[3];
-                        */
-                        serviceInstance.getServiceId(),
-                        /**
-                         * local instanceId = KEYS[4];
-                        */
-                        serviceInstance.getInstanceId(),
-                        /**
-                         * local scheme = KEYS[5];
-                        */
-                        serviceInstance.getSchema(),
-                        /**
-                         * local ip = KEYS[6];
-                        */
-                        serviceInstance.getIp(),
-                        /**
-                         * local port = KEYS[7];
-                        */
-                        String.valueOf(serviceInstance.getPort()),
-                        /**
-                         * local weight = KEYS[8];
-                        */
-                        String.valueOf(serviceInstance.getWeight()),
-                };
-
+        String[] keys = {namespace};
         /**
-         * ARGV[1]
+         * ARGV
          */
-        String[] values = ServiceInstanceCodec.encodeMetadata(serviceInstance.getMetadata());
+        String[] infoArgs = {
+                /**
+                 * local instanceTtl = ARGV[1];
+                */
+                serviceInstance.isEphemeral() ? String.valueOf(registryProperties.getInstanceTtl()) : "-1",
+                /**
+                 * local serviceId = ARGV[2];
+                */
+                serviceInstance.getServiceId(),
+                /**
+                 * local instanceId = ARGV[3];
+                */
+                serviceInstance.getInstanceId(),
+                /**
+                 * local scheme = ARGV[4];
+                */
+                serviceInstance.getSchema(),
+                /**
+                 * local ip = ARGV[5];
+                */
+                serviceInstance.getIp(),
+                /**
+                 * local port = ARGV[6];
+                */
+                String.valueOf(serviceInstance.getPort()),
+                /**
+                 * local weight = ARGV[7];
+                */
+                String.valueOf(serviceInstance.getWeight())
+        };
+
+
+        String[] values = ServiceInstanceCodec.encodeMetadata(infoArgs, serviceInstance.getMetadata());
 
         RedisFuture<Boolean> redisFuture = redisCommands.evalsha(scriptSha, ScriptOutputType.BOOLEAN, keys, values);
         return redisFuture.toCompletableFuture();
@@ -136,7 +133,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value) {
-        String[] values = {key, value};
+        String[] values = {instanceId, key, value};
         return setMetadata0(namespace, instanceId, values);
     }
 
@@ -147,18 +144,18 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata) {
-        String[] values = ServiceInstanceCodec.encodeMetadata(metadata);
+        String[] values = ServiceInstanceCodec.encodeMetadata(new String[]{instanceId}, metadata);
         return setMetadata0(namespace, instanceId, values);
     }
 
-    private CompletableFuture<Boolean> setMetadata0(String namespace, String instanceId, String[] metadata) {
+    private CompletableFuture<Boolean> setMetadata0(String namespace, String instanceId, String[] args) {
         if (log.isInfoEnabled()) {
             log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
         }
-        String[] keys = new String[]{namespace, instanceId};
+        String[] keys = {namespace};
         return DiscoveryRedisScripts.loadRegistrySetMetadata(redisCommands)
                 .thenCompose(sha ->
-                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, metadata));
+                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, args));
     }
 
 
@@ -177,10 +174,11 @@ public class RedisServiceRegistry implements ServiceRegistry {
             log.warn("renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.", serviceInstance.getInstanceId(), namespace);
             return CompletableFuture.completedFuture(Boolean.FALSE);
         }
-        String[] keys = new String[]{namespace, serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl())};
+        String[] keys = {namespace};
+        String[] values = {serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl())};
         return DiscoveryRedisScripts.loadRegistryRenew(redisCommands)
                 .thenCompose(sha ->
-                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys));
+                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values));
     }
 
 
@@ -202,8 +200,9 @@ public class RedisServiceRegistry implements ServiceRegistry {
     private CompletableFuture<Boolean> deregister0(String namespace, String serviceId, String instanceId) {
         return DiscoveryRedisScripts.loadRegistryDeregister(redisCommands)
                 .thenCompose(sha -> {
-                    String[] keys = {namespace, serviceId, instanceId};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys);
+                    String[] keys = {namespace};
+                    String[] values = {serviceId, instanceId};
+                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
                     return redisFuture;
                 });
     }

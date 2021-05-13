@@ -1,6 +1,6 @@
 local namespace = KEYS[1];
-local serviceId = KEYS[2];
-local instanceId = KEYS[3];
+local serviceId = ARGV[1];
+local instanceId = ARGV[2];
 local instanceIdxKey = namespace .. ':svc_itc_idx:' .. serviceId;
 
 local function getInstanceKey(instanceId)

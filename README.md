@@ -15,7 +15,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.0";
+    val governVersion = "0.9.2";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -32,7 +32,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.0</govern.version>
+    <govern.version>0.9.2</govern.version>
   </properties>
 
   <dependencies>

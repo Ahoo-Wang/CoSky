@@ -41,12 +41,13 @@ public final class ServiceInstanceCodec {
         return serviceInstanceData;
     }
 
-    public static String[] encodeMetadata(Map<String, String> instanceMetadata) {
+    public static String[] encodeMetadata(String[] preArgs, Map<String, String> instanceMetadata) {
         if (instanceMetadata.isEmpty()) {
             return EMPTY_STRING_ARRAY;
         }
-        String[] values = new String[instanceMetadata.size() * 2];
-        var valueIdx = -1;
+        String[] values = new String[preArgs.length + instanceMetadata.size() * 2];
+        System.arraycopy(preArgs, 0, values, 0, preArgs.length);
+        var valueIdx = preArgs.length - 1;
         for (Map.Entry<String, String> metadataKV : instanceMetadata.entrySet()) {
             values[++valueIdx] = METADATA_PREFIX + metadataKV.getKey();
             values[++valueIdx] = metadataKV.getValue();

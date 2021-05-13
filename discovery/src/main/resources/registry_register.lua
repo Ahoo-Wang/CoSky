@@ -1,12 +1,12 @@
 local namespace = KEYS[1];
-local instanceTtl = KEYS[2];
+local instanceTtl = ARGV[1];
 local fixed = instanceTtl == "-1";
-local serviceId = KEYS[3];
-local instanceId = KEYS[4];
-local schema = KEYS[5];
-local ip = KEYS[6];
-local port = KEYS[7];
-local weight = KEYS[8];
+local serviceId = ARGV[2];
+local instanceId = ARGV[3];
+local schema = ARGV[4];
+local ip = ARGV[5];
+local port = ARGV[6];
+local weight = ARGV[7];
 local ephemeral;
 if fixed then
     ephemeral = "false"
@@ -23,7 +23,7 @@ if added == 1 then
     redis.call("publish", serviceIdxKey, "register");
     redis.call("sadd", serviceIdxKey, serviceId);
 end
-redis.call("hmset", instanceKey, "instanceId", instanceId, "serviceId", serviceId, "schema", schema, "ip", ip, "port", port, "weight", weight, "ephemeral", ephemeral, unpack(ARGV));
+redis.call("hmset", instanceKey, "instanceId", instanceId, "serviceId", serviceId, "schema", schema, "ip", ip, "port", port, "weight", weight, "ephemeral", ephemeral, unpack(ARGV, 8, #ARGV));
 redis.call("publish", instanceKey, "register");
 if not fixed then
     return redis.call("expire", instanceKey, instanceTtl);

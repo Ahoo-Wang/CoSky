@@ -1,5 +1,5 @@
 local namespace = KEYS[1];
-local serviceId = KEYS[2];
+local serviceId = ARGV[1];
 local instanceIdxKey = namespace .. ':svc_itc_idx:' .. serviceId;
 local instanceIds = redis.call('smembers', instanceIdxKey);
 local instances = {};
