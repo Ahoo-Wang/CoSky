@@ -11,6 +11,7 @@ import java.util.Map;
  * @author ahoo wang
  */
 public final class ServiceInstanceCodec {
+    private static final String SYSTEM_METADATA_PREFIX = "__";
     private static final String METADATA_PREFIX = "_";
     private static final int METADATA_PREFIX_LENGTH = METADATA_PREFIX.length();
     private static final String[] EMPTY_STRING_ARRAY = {};
@@ -92,6 +93,9 @@ public final class ServiceInstanceCodec {
                     break;
                 }
                 default: {
+                    if (key.startsWith(SYSTEM_METADATA_PREFIX)) {
+                        break;
+                    }
                     if (key.startsWith(METADATA_PREFIX)) {
                         var metadataKey = key.substring(METADATA_PREFIX_LENGTH);
                         serviceInstance.getMetadata().put(metadataKey, value);

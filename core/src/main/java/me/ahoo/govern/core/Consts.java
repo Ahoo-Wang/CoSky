@@ -5,5 +5,5 @@ package me.ahoo.govern.core;
  */
 public interface Consts {
     String GOVERN = "govern";
-     String KEY_SEPARATOR = ":";
+    String KEY_SEPARATOR = ":";
 }

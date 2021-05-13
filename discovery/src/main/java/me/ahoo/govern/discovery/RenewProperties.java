@@ -6,7 +6,10 @@ package me.ahoo.govern.discovery;
 public class RenewProperties {
 
     private int initialDelay = 1;
-
+    /**
+     * renew period
+     * {@link #period} must Less than {@link RegistryProperties#getInstanceTtl()}
+     */
     private int period = 10;
 
     public int getInitialDelay() {

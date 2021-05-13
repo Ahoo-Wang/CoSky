@@ -3,7 +3,7 @@ spring:
     name: ${service.name:govern-rest-api}
   cloud:
     govern:
-      namespace: ${govern.namespace:dev}
+      namespace: ${govern.namespace:govern-system}
       config:
         config-id: ${spring.application.name}.yml
       redis:

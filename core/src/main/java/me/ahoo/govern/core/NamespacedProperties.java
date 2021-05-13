@@ -5,7 +5,7 @@ package me.ahoo.govern.core;
  */
 public class NamespacedProperties implements Namespaced {
 
-    private String namespace = Consts.GOVERN;
+    private String namespace = DEFAULT;
 
     @Override
     public String getNamespace() {
@@ -15,7 +15,6 @@ public class NamespacedProperties implements Namespaced {
     public void setNamespace(String namespace) {
         this.namespace = namespace;
     }
-
 
 
 }

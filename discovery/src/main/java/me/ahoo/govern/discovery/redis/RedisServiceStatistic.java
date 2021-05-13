@@ -88,7 +88,6 @@ public class RedisServiceStatistic implements ServiceStatistic {
 
     private class InstanceListener implements MessageListener {
 
-
         @Override
         public void onMessage(Topic topic, String channel, String message) {
             if (log.isInfoEnabled()) {
