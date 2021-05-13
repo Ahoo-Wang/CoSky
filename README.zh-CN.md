@@ -62,6 +62,20 @@ spring:
         url: redis://localhost:6379
 ```
 
+## 管理平台 (beta)
+
+### 命名空间管理
+
+![dashboard-namespace](./docs/dashboard-namespace.png)
+
+### 配置管理
+
+![dashboard-config](./docs/dashboard-config.png)
+
+### 服务管理
+
+![dashboard-service](./docs/dashboard-service.png)
+
 ## REST-API Server (``Optional``)
 
 ```shell

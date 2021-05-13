@@ -67,6 +67,20 @@ spring:
         url: redis://localhost:6379
 ```
 
+## Dashboard (beta)
+
+### Namespace
+
+![dashboard-namespace](./docs/dashboard-namespace.png)
+
+### Config
+
+![dashboard-config](./docs/dashboard-config.png)
+
+### Service
+
+![dashboard-service](./docs/dashboard-service.png)
+
 ## REST-API Server (``Optional``)
 
 ```shell
