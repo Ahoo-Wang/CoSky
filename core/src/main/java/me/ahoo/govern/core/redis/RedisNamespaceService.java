@@ -1,8 +1,8 @@
 package me.ahoo.govern.core.redis;
 
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
-import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.NamespaceService;
+import me.ahoo.govern.core.Namespaced;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -12,7 +12,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public class RedisNamespaceService implements NamespaceService {
 
-    private final static String NAMESPACE_IDX_KEY = Consts.GOVERN + ":ns_idx";
+    private final static String NAMESPACE_IDX_KEY = Namespaced.SYSTEM + ":ns_idx";
+
     private final RedisClusterAsyncCommands<String, String> redisCommands;
 
     public RedisNamespaceService(RedisClusterAsyncCommands<String, String> redisCommands) {

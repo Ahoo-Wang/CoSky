@@ -5,6 +5,7 @@ package me.ahoo.govern.core;
  */
 public interface Namespaced {
     String DEFAULT = "default";
+    String SYSTEM = "govern-system";
 
     /**
      * 获取当前上下文的命名空间
