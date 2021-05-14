@@ -20,6 +20,12 @@ application {
         "-Dspring.cloud.bootstrap.enabled=true",
         "-Dspring.cloud.bootstrap.location=config/bootstrap.yml"
     )
+
+    val dashboardDistPath = "${rootDir.absolutePath}/dashboard/dist";
+
+    applicationDistribution.from(dashboardDistPath) {
+        include("**")
+    }
 }
 
 
