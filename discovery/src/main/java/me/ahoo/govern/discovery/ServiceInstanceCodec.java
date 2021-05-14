@@ -43,7 +43,7 @@ public final class ServiceInstanceCodec {
 
     public static String[] encodeMetadata(String[] preArgs, Map<String, String> instanceMetadata) {
         if (instanceMetadata.isEmpty()) {
-            return EMPTY_STRING_ARRAY;
+            return preArgs;
         }
         String[] values = new String[preArgs.length + instanceMetadata.size() * 2];
         System.arraycopy(preArgs, 0, values, 0, preArgs.length);

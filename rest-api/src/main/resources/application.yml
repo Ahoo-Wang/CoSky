@@ -6,4 +6,4 @@ spring:
           weight: 18
   web:
     resources:
-      static-locations: file:./rest-api/src/dist/dashboard
+      static-locations: file:./dashboard/

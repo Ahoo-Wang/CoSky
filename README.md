@@ -15,7 +15,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.2";
+    val governVersion = "0.9.3";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -32,7 +32,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.2</govern.version>
+    <govern.version>0.9.3</govern.version>
   </properties>
 
   <dependencies>
@@ -67,29 +67,38 @@ spring:
         url: redis://localhost:6379
 ```
 
-## Dashboard (beta)
-
-### Namespace
-
-![dashboard-namespace](./docs/dashboard-namespace.png)
-
-### Config
-
-![dashboard-config](./docs/dashboard-config.png)
-
-### Service
-
-![dashboard-service](./docs/dashboard-service.png)
-
 ## REST-API Server (``Optional``)
 
 ```shell
 bin/rest-api
 ```
 
+> http://localhost:8080/
+
+### Dashboard
+
+![dashboard-dashboard](./docs/dashboard-dashboard.png)
+
+#### Namespace
+
+![dashboard-namespace](./docs/dashboard-namespace.png)
+
+#### Config
+
+![dashboard-config](./docs/dashboard-config.png)
+![dashboard-config-edit](./docs/dashboard-config-edit.png)
+![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
+
+#### Service
+
+![dashboard-service](./docs/dashboard-service.png)
+![dashboard-service-edit](./docs/dashboard-service-edit.png)
+
+### REST-API
+
 > http://localhost:8080/swagger-ui/index.html#/
 
-### Namespace
+##### Namespace
 
 ![rest-api-namespace](./docs/rest-api-namespace.png)
 
@@ -103,7 +112,7 @@ bin/rest-api
 - /v1/namespaces/current/{namespace}
   - PUT
 
-### Config
+##### Config
 
 ![rest-api-config](./docs/rest-api-config.png)
 
@@ -120,7 +129,7 @@ bin/rest-api
 - /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}
     - PUT
 
-### Service
+#### Service
 
 ![rest-api-service](./docs/rest-api-service.png)
 
@@ -133,7 +142,7 @@ bin/rest-api
   - DELETE
 - /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
   - PUT
-- /v1/namespaces/{namespace}/services/lb/{serviceId}
+- /v1/namespaces/{namespace}/services/{serviceId}/lb
   - GET
 
 ## JMH Benchmark
@@ -192,6 +201,5 @@ RedisServiceRegistryBenchmark.renew                     thrpt            67116.1
 
 ## TODO
 
-1. Dashboard
-2. Import/Export API
-3. Grayscale Publishing
+1. Import/Export API
+2. Grayscale Publishing

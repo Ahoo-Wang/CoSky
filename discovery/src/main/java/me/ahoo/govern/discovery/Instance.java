@@ -28,7 +28,7 @@ public class Instance {
         return URI.create(uri);
     }
 
-    public URI getUri() {
+    public URI parseUri() {
         return getUri(this);
     }
 

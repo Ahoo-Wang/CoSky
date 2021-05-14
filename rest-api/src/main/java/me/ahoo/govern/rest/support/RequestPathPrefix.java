@@ -28,6 +28,12 @@ public interface RequestPathPrefix {
      */
     String NAMESPACES_CURRENT_NAMESPACE = NAMESPACES_CURRENT + "/{namespace}";
     //endregion
+
+    /**
+     * /v1/namespaces/{namespace}
+     */
+    String STAT_PREFIX = NAMESPACES_NAMESPACE_PREFIX + "/stat";
+
     //region configs
     /**
      * /v1/namespaces/{namespace}/configs
@@ -60,14 +66,20 @@ public interface RequestPathPrefix {
      * /v1/namespaces/{namespace}/services/stats
      */
     String SERVICES_STATS = "/stats";
+
     /**
-     * /v1/namespaces/{namespace}/services/lb/{serviceId}
+     * /v1/namespaces/{namespace}/services/{serviceId}
      */
-    String SERVICES_LB = "/lb/{serviceId}";
+    String SERVICES_SERVICE = "/{serviceId}";
+
+    /**
+     * /v1/namespaces/{namespace}/services/{serviceId}/lb
+     */
+    String SERVICES_LB = SERVICES_SERVICE + "/lb";
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances
      */
-    String SERVICES_INSTANCES = "/{serviceId}/instances";
+    String SERVICES_INSTANCES = SERVICES_SERVICE + "/instances";
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}
      */

@@ -76,6 +76,27 @@ public class RedisServiceRegistry implements ServiceRegistry {
         return redisFuture.toCompletableFuture();
     }
 
+    @Override
+    public CompletableFuture<Boolean> setService(String namespace, String serviceId) {
+        if (log.isInfoEnabled()) {
+            log.info("setService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
+        }
+
+        return DiscoveryRedisScripts.loadRegistrySetService(redisCommands)
+                .thenCompose(sha -> redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, new String[]{namespace}, serviceId));
+
+    }
+
+    @Override
+    public CompletableFuture<Boolean> removeService(String namespace, String serviceId) {
+        if (log.isInfoEnabled()) {
+            log.info("removeService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
+        }
+
+        return DiscoveryRedisScripts.loadRegistryRemoveService(redisCommands)
+                .thenCompose(sha -> redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, new String[]{namespace}, serviceId));
+    }
+
     /**
      * @param serviceInstance 服务实例
      */

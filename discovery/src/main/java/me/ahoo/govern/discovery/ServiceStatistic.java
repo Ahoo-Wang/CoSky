@@ -14,4 +14,6 @@ public interface ServiceStatistic {
     CompletableFuture<Void> statService(String namespace, @Nullable String serviceId);
 
     CompletableFuture<List<ServiceStat>> getServiceStats(String namespace);
+
+    CompletableFuture<Long> getInstanceCount(String namespace);
 }

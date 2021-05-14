@@ -1,5 +1,6 @@
 package me.ahoo.govern.rest.controller;
 
+import lombok.var;
 import me.ahoo.govern.discovery.*;
 import me.ahoo.govern.discovery.loadbalancer.LoadBalancer;
 import me.ahoo.govern.rest.support.RequestPathPrefix;
@@ -21,7 +22,10 @@ public class ServiceController {
     private final ServiceStatistic serviceStatistic;
     private final LoadBalancer loadBalancer;
 
-    public ServiceController(ServiceDiscovery discoveryService, ServiceRegistry serviceRegistry, ServiceStatistic serviceStatistic, LoadBalancer loadBalancer) {
+    public ServiceController(ServiceRegistry serviceRegistry,
+                             ServiceDiscovery discoveryService,
+                             ServiceStatistic serviceStatistic,
+                             LoadBalancer loadBalancer) {
         this.discoveryService = discoveryService;
         this.serviceRegistry = serviceRegistry;
         this.serviceStatistic = serviceStatistic;
@@ -33,6 +37,16 @@ public class ServiceController {
         return discoveryService.getServices(namespace).join();
     }
 
+    @PutMapping(RequestPathPrefix.SERVICES_SERVICE)
+    public Boolean setService(@PathVariable String namespace, @PathVariable String serviceId) {
+        return serviceRegistry.setService(namespace, serviceId).join();
+    }
+
+    @DeleteMapping(RequestPathPrefix.SERVICES_SERVICE)
+    public Boolean removeService(@PathVariable String namespace, @PathVariable String serviceId) {
+        return serviceRegistry.removeService(namespace, serviceId).join();
+    }
+
     @GetMapping(RequestPathPrefix.SERVICES_INSTANCES)
     public List<ServiceInstance> getInstances(@PathVariable String namespace, @PathVariable String serviceId) {
         return discoveryService.getInstances(namespace, serviceId).join();
@@ -41,6 +55,8 @@ public class ServiceController {
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES)
     public Boolean register(@PathVariable String namespace, @PathVariable String serviceId, @RequestBody ServiceInstance instance) {
         instance.setServiceId(serviceId);
+        var instanceId = InstanceIdGenerator.DEFAULT.generate(instance);
+        instance.setInstanceId(instanceId);
         return serviceRegistry.register(namespace, instance).join();
     }
 

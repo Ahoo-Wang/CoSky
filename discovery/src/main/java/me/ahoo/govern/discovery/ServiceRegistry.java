@@ -9,6 +9,11 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface ServiceRegistry {
 
+
+    CompletableFuture<Boolean> setService(String namespace, String serviceId);
+
+    CompletableFuture<Boolean> removeService(String namespace, String serviceId);
+
     /**
      * 注册实例
      *

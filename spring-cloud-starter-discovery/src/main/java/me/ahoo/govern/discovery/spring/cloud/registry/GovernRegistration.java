@@ -58,7 +58,7 @@ public class GovernRegistration implements Registration {
      */
     @Override
     public URI getUri() {
-        return serviceInstance.getUri();
+        return serviceInstance.parseUri();
     }
 
     /**

@@ -87,6 +87,12 @@ public class RedisServiceStatistic implements ServiceStatistic {
         }).collect(Collectors.toList())).toCompletableFuture();
     }
 
+    @Override
+    public CompletableFuture<Long> getInstanceCount(String namespace) {
+        return DiscoveryRedisScripts.loadInstanceCountStat(redisCommands).
+                thenCompose(sha -> redisCommands.evalsha(sha, ScriptOutputType.INTEGER, namespace));
+    }
+
     private class InstanceListener implements MessageListener {
 
         @Override

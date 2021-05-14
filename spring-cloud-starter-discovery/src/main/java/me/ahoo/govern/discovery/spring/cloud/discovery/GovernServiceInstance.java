@@ -60,7 +60,7 @@ public class GovernServiceInstance implements ServiceInstance {
      */
     @Override
     public URI getUri() {
-        return serviceInstance.getUri();
+        return serviceInstance.parseUri();
     }
 
     /**
