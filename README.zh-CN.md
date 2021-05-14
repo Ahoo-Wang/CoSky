@@ -81,12 +81,15 @@ bin/rest-api
 #### 配置管理
 
 ![dashboard-config](./docs/dashboard-config.png)
+---
 ![dashboard-config-edit](./docs/dashboard-config-edit.png)
+---
 ![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
 
 #### 服务管理
 
 ![dashboard-service](./docs/dashboard-service.png)
+---
 ![dashboard-service-edit](./docs/dashboard-service-edit.png)
 
 ### REST-API

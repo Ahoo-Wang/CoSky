@@ -86,12 +86,15 @@ bin/rest-api
 #### Config
 
 ![dashboard-config](./docs/dashboard-config.png)
+---
 ![dashboard-config-edit](./docs/dashboard-config-edit.png)
+---
 ![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
 
 #### Service
 
 ![dashboard-service](./docs/dashboard-service.png)
+---
 ![dashboard-service-edit](./docs/dashboard-service-edit.png)
 
 ### REST-API
