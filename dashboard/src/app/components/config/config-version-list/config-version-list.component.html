@@ -1,0 +1,26 @@
+<nz-table #innerTable [nzData]="configVersions" nzSize="middle" [nzShowPagination]="false">
+  <thead>
+  <tr>
+    <th>ConfigId</th>
+    <th>Version</th>
+    <th>Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let configVersion of innerTable.data">
+    <td>{{ configVersion.configId }}</td>
+    <td>{{ configVersion.version }}</td>
+    <td>
+      <nz-button-group>
+        <button
+          nz-button
+          (click)="openConfigVersionView(configVersion.configId,configVersion.version)"
+          nzType="primary"
+        >
+          <i nz-icon nzType="folder-view" nzTheme="outline"></i>
+        </button>
+      </nz-button-group>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>

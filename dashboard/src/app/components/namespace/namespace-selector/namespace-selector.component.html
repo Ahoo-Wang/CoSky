@@ -1,0 +1,5 @@
+<nz-select nzShowSearch [nzBackdrop]="true" [nzBorderless]="true" [nzDropdownMatchSelectWidth]="false"
+           nzPlaceHolder="Select a namespace" [(ngModel)]="currentNamespace"
+           (ngModelChange)="onNamespaceSelected()" nzSize="large" >
+  <nz-option *ngFor="let namespace of namespaces" nzLabel="{{namespace}}" nzValue="{{namespace}}"></nz-option>
+</nz-select>

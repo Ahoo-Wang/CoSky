@@ -1,0 +1,40 @@
+<div nz-row class="content-header">
+  <div nz-col nzOffset="16" [nzSpan]="8">
+    <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixButton">
+      <input type="text" nz-input placeholder="Namespace" #addNamespaceEle/>
+    </nz-input-group>
+    <ng-template #suffixButton>
+      <button nz-button nzType="primary" nzSize="large" (click)="addNamespace(addNamespaceEle.value)">Add namespace
+      </button>
+    </ng-template>
+  </div>
+</div>
+
+<nz-table class="content-body" #basicTable [nzFrontPagination]="false" [nzBordered]="true" [nzData]="namespaces">
+  <thead>
+  <tr>
+    <th>Namespace</th>
+    <th>Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let namespace of basicTable.data">
+    <td>{{namespace}}</td>
+    <td>
+      <button
+        nz-popconfirm
+        [nzPopconfirmTitle]="'Are you sure delete this namespace?'"
+        nzPopconfirmPlacement="top"
+        [disabled]="isSystem(namespace)"
+        nzType="dashed"
+        nz-button
+        (nzOnConfirm)="removeNamespace(namespace)"
+        nzDanger
+      >
+        <i nz-icon nzType="delete" nzTheme="outline"></i>
+      </button>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>
+

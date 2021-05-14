@@ -1,0 +1,68 @@
+<form nzLayout="horizontal" nz-form [formGroup]="validateForm" (ngSubmit)="register()">
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6">ServiceId</nz-form-label>
+    <nz-form-control [nzSpan]="18">
+      <input nz-input type="text"
+             [ngModel]="instance.serviceId" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6">InstanceId</nz-form-label>
+    <nz-form-control [nzSpan]="18">
+      <input nz-input type="text"
+             [ngModel]="instance.instanceId" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6" nzRequired>Schema</nz-form-label>
+    <nz-form-control [nzSpan]="18" nzHasFeedback nzErrorTip="Please enter the Schema!">
+      <input nz-input type="text" formControlName="schema"
+             [(ngModel)]="instance.schema"
+             placeholder="http,https..."/>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6" nzRequired>Ip</nz-form-label>
+    <nz-form-control [nzSpan]="18" nzHasFeedback nzErrorTip="Please enter the Ip!">
+      <input nz-input type="text" formControlName="ip"
+             [(ngModel)]="instance.ip"
+             placeholder="Please enter the Ip!"/>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6" nzRequired>Port</nz-form-label>
+    <nz-form-control [nzSpan]="18">
+      <nz-input-number formControlName="port" [nzMin]="1" [nzMax]="65534" [nzStep]="1"
+                       [(ngModel)]="instance.port"></nz-input-number>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6" nzRequired>Weight</nz-form-label>
+    <nz-form-control [nzSpan]="18">
+      <nz-input-number formControlName="weight" [nzMin]="1" [nzMax]="100" [nzStep]="1"
+                       [(ngModel)]="instance.weight"></nz-input-number>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6" nzRequired>Is Ephemeral?</nz-form-label>
+    <nz-form-control [nzSpan]="18">
+      <nz-switch formControlName="ephemeral" [(ngModel)]="instance.ephemeral"
+                 nzUnCheckedChildren="fixed"
+                 nzCheckedChildren="ephemeral"></nz-switch>
+    </nz-form-control>
+  </nz-form-item>
+<!--  <nz-divider nzText="Metadata"></nz-divider>-->
+  <nz-divider></nz-divider>
+  <nz-form-item>
+    <nz-form-control>
+      <button nz-button nzType="primary" [disabled]="!validateForm.valid" nzSize="large" nzBlock>Submit</button>
+    </nz-form-control>
+  </nz-form-item>
+</form>
+
+
+

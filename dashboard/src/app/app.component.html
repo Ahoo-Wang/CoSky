@@ -1,0 +1,54 @@
+<nz-layout class="app-layout">
+  <nz-sider class="menu-sidebar"
+            nzCollapsible
+            nzWidth="168px"
+            nzBreakpoint="md"
+            [(nzCollapsed)]="isCollapsed"
+  >
+    <div class="sidebar-logo">
+      <a href="https://github.com/Ahoo-Wang/govern-service" target="_blank">
+        <h1>{{title}}</h1>
+      </a>
+    </div>
+    <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
+      <li nz-menu-item nzMatchRouter>
+        <i nz-icon nzType="dashboard"></i>
+        <span><a routerLink="/dashboard">Dashboard</a></span>
+      </li>
+      <li nz-menu-item nzMatchRouter>
+        <i nz-icon nzType="file"></i>
+        <span><a routerLink="/config">Configuration</a></span>
+      </li>
+      <li nz-menu-item nzMatchRouter>
+        <i nz-icon nzType="cloud-server"></i>
+        <span><a routerLink="/service">Service</a></span>
+      </li>
+      <li nz-menu-item nzMatchRouter>
+        <i nz-icon nzType="partition"></i>
+        <span><a routerLink="/namespace">Namespace</a></span>
+      </li>
+    </ul>
+  </nz-sider>
+  <nz-layout>
+    <nz-header>
+      <div class="app-header">
+        <span class="header-trigger" (click)="isCollapsed = !isCollapsed">
+            <i class="trigger"
+               nz-icon
+               [nzType]="isCollapsed ? 'menu-unfold' : 'menu-fold'"
+            ></i>
+        </span>
+        <app-namespace-selector></app-namespace-selector>
+      </div>
+    </nz-header>
+    <nz-content>
+      <div class="inner-content">
+        <router-outlet></router-outlet>
+      </div>
+    </nz-content>
+    <nz-footer><a href="https://github.com/Ahoo-Wang/govern-service" target="_blank" title="Govern Service">Govern
+      Service</a> ©2021
+    </nz-footer>
+  </nz-layout>
+
+</nz-layout>

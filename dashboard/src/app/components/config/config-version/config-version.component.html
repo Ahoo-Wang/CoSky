@@ -1,0 +1,71 @@
+<form nzLayout="horizontal" nz-form>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">ConfigId</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="configHistory.configId" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">hash</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="configHistory.hash" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">version</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="configHistory.version" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">createTime</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="configHistory.createTime" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">op</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="configHistory.op" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">opTime</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="configHistory.opTime" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-divider nzText="Data"></nz-divider>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4">Data</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <textarea rows="16" nz-input [ngModel]="configHistory.data" disabled
+                [ngModelOptions]="{standalone: true}"></textarea>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-divider></nz-divider>
+  <nz-form-item>
+        <button nz-button nzType="primary" nzSize="large" nzDanger nzBlock (click)="rollback()">Rollback</button>
+  </nz-form-item>
+</form>
+
+
+

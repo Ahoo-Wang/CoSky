@@ -1,0 +1,45 @@
+<nz-table #innerTable [nzData]="instances" nzSize="middle" [nzShowPagination]="false">
+  <thead>
+  <tr>
+    <th>Schema</th>
+    <th>Ip</th>
+    <th>Port</th>
+    <th>Weight</th>
+    <th>Ephemeral</th>
+    <th>TtlAt</th>
+    <th>Metadata</th>
+    <th>Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let instance of innerTable.data">
+    <td>{{ instance.schema }}</td>
+    <td>{{ instance.ip }}</td>
+    <td>{{ instance.port }}</td>
+    <td>{{ instance.weight }}</td>
+    <td>{{ instance.ephemeral }}</td>
+    <td>{{ instance.ttlAt }}</td>
+    <td>{{ instance.metadata|json }}</td>
+    <td>
+      <nz-button-group>
+        <button
+          nz-popconfirm
+          [nzPopconfirmTitle]="'Are you sure delete this instance?'"
+          nzPopconfirmPlacement="top"
+          nz-button
+          (nzOnConfirm)="deregister(instance)"
+        >
+          <i nz-icon nzType="delete" nzTheme="outline"></i>
+        </button>
+
+        <button
+          nz-button
+          (click)="openEditInstance(instance.serviceId,instance)"
+        >
+          <i nz-icon nzType="edit" nzTheme="outline"></i>
+        </button>
+      </nz-button-group>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>

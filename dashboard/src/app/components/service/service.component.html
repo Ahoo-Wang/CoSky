@@ -1,0 +1,70 @@
+<div nz-row class="content-header">
+  <div nz-col nzOffset="16" [nzSpan]="8">
+    <nz-input-group nzSearch nzSize="large" [nzAddOnAfter]="suffixButton">
+      <input type="text" nz-input placeholder="Service Id" #addServiceEle/>
+    </nz-input-group>
+    <ng-template #suffixButton>
+      <button nz-button nzType="primary" nzSize="large" (click)="addService(addServiceEle.value)">Add service</button>
+    </ng-template>
+  </div>
+</div>
+
+<nz-table class="content-body" #basicTable [nzBordered]="true" [nzData]="displayServices">
+  <thead>
+  <tr>
+    <th>Service Id
+      <nz-filter-trigger [(nzVisible)]="searchVisible" [nzActive]="searchValue.length > 0"
+                         [nzDropdownMenu]="searchMenu">
+        <i nz-icon nzType="search"></i>
+      </nz-filter-trigger>
+    </th>
+    <th>Instance Count</th>
+    <th>Action</th>
+    <th>Expand all instances</th>
+  </tr>
+  </thead>
+  <tbody>
+  <ng-template ngFor let-stat [ngForOf]="basicTable.data">
+    <tr>
+      <td>{{stat.data.serviceId}}</td>
+      <td>{{stat.data.instanceCount}}</td>
+      <td>
+        <nz-button-group>
+          <button nz-button nzType="primary" (click)="openEditInstance(stat.data.serviceId)">
+            <i nz-icon nzType="appstore-add"></i>
+            Add instance
+          </button>
+          <button
+            nz-popconfirm
+            nzPopconfirmTitle="Are you sure delete this service?"
+            nzPopconfirmPlacement="top"
+            nz-button
+            (nzOnConfirm)="removeService(stat.data.serviceId)"
+            nzDanger
+          >
+            <i nz-icon nzType="delete" nzTheme="outline"></i>
+          </button>
+        </nz-button-group>
+      </td>
+      <td [(nzExpand)]="stat.expand"></td>
+    </tr>
+    <ng-template [ngIf]="stat.expand">
+      <tr [nzExpand]="stat.expand">
+        <app-service-instance-list [serviceId]="stat.data.serviceId"></app-service-instance-list>
+      </tr>
+    </ng-template>
+  </ng-template>
+  </tbody>
+</nz-table>
+
+<nz-dropdown-menu #searchMenu="nzDropdownMenu">
+  <div class="ant-table-filter-dropdown">
+    <div class="search-box">
+      <input type="text" nz-input placeholder="Search name" [(ngModel)]="searchValue"/>
+      <button nz-button nzSize="small" nzType="primary" (click)="search()" class="search-button">
+        Search
+      </button>
+      <button nz-button nzSize="small" (click)="reset()">Reset</button>
+    </div>
+  </div>
+</nz-dropdown-menu>

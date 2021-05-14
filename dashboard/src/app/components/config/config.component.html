@@ -1,0 +1,68 @@
+<div nz-row class="content-header">
+  <div nz-col [nzOffset]="21" [nzSpan]="3">
+    <button nz-button nzType="primary" nzSize="large" (click)="openEditConfig()" nzBlock>
+      <i nz-icon nzType="file-add" nzTheme="outline"></i>Add config
+    </button>
+  </div>
+</div>
+
+<nz-table class="content-body" #basicTable [nzBordered]="true" [nzData]="displayConfigs">
+  <thead>
+  <tr>
+    <th>Config Id
+      <nz-filter-trigger [(nzVisible)]="searchVisible" [nzActive]="searchValue.length > 0"
+                         [nzDropdownMenu]="searchMenu">
+        <i nz-icon nzType="search"></i>
+      </nz-filter-trigger>
+    </th>
+    <th>Action</th>
+    <th>Expand all versions</th>
+  </tr>
+  </thead>
+  <tbody>
+  <ng-template ngFor let-config [ngForOf]="basicTable.data">
+    <tr>
+      <td>{{config.data}}</td>
+      <td>
+        <nz-button-group>
+          <button
+            nz-popconfirm
+            [nzPopconfirmTitle]="'Are you sure delete this config?'"
+            nzPopconfirmPlacement="top"
+            nzType="dashed"
+            nz-button
+            (nzOnConfirm)="removeConfig(config.data)"
+            nzDanger
+          >
+            <i nz-icon nzType="delete" nzTheme="outline"></i>
+          </button>
+          <button
+            nz-button
+            (click)="openEditConfig(config.data)"
+          >
+            <i nz-icon nzType="edit" nzTheme="outline"></i>
+          </button>
+        </nz-button-group>
+      </td>
+      <td [(nzExpand)]="config.expand"></td>
+    </tr>
+    <ng-template [ngIf]="config.expand">
+      <tr [nzExpand]="config.expand">
+        <app-config-version-list [configId]="config.data"></app-config-version-list>
+      </tr>
+    </ng-template>
+  </ng-template>
+  </tbody>
+</nz-table>
+
+<nz-dropdown-menu #searchMenu="nzDropdownMenu">
+  <div class="ant-table-filter-dropdown">
+    <div class="search-box">
+      <input type="text" nz-input placeholder="Search name" [(ngModel)]="searchValue"/>
+      <button nz-button nzSize="small" nzType="primary" (click)="search()" class="search-button">
+        Search
+      </button>
+      <button nz-button nzSize="small" (click)="reset()">Reset</button>
+    </div>
+  </div>
+</nz-dropdown-menu>

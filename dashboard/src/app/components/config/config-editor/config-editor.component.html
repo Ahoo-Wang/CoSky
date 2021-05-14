@@ -1,0 +1,63 @@
+<form nzLayout="horizontal" nz-form [formGroup]="validateForm" (ngSubmit)="setConfig()">
+  <ng-template [ngIf]="isAdd">
+    <nz-form-item>
+      <nz-form-label [nzSpan]="4" nzRequired>ConfigId</nz-form-label>
+      <nz-form-control [nzSpan]="20" nzHasFeedback nzErrorTip="Please enter the ConfigId!">
+        <input nz-input type="text" formControlName="configId" [(ngModel)]="config.configId"/>
+      </nz-form-control>
+    </nz-form-item>
+  </ng-template>
+  <ng-template [ngIf]="!isAdd">
+    <nz-form-item>
+      <nz-form-label [nzSpan]="4">ConfigId</nz-form-label>
+      <nz-form-control [nzSpan]="20">
+        <input nz-input type="text"
+               [ngModel]="config.configId" disabled
+               [ngModelOptions]="{standalone: true}"
+        />
+      </nz-form-control>
+    </nz-form-item>
+  </ng-template>
+  <nz-form-item *ngIf="!isAdd">
+    <nz-form-label [nzSpan]="4">hash</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="config.hash" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item *ngIf="!isAdd">
+    <nz-form-label [nzSpan]="4">version</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="config.version" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item *ngIf="!isAdd">
+    <nz-form-label [nzSpan]="4">createTime</nz-form-label>
+    <nz-form-control [nzSpan]="20">
+      <input nz-input type="text"
+             [ngModel]="config.createTime" disabled
+             [ngModelOptions]="{standalone: true}"
+      />
+    </nz-form-control>
+  </nz-form-item>
+  <nz-divider nzText="Data"></nz-divider>
+  <nz-form-item>
+    <nz-form-label [nzSpan]="4" nzRequired>Data</nz-form-label>
+    <nz-form-control [nzSpan]="20" nzHasFeedback nzErrorTip="Please enter the Data!">
+      <textarea rows="16" formControlName="data" nz-input [(ngModel)]="config.data"
+                placeholder="Please enter the Data!"></textarea>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-divider></nz-divider>
+  <nz-form-item>
+    <button nz-button nzType="primary" [disabled]="!validateForm.valid" nzSize="large" nzBlock>Submit</button>
+  </nz-form-item>
+</form>
+
+
+
