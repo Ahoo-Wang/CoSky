@@ -142,22 +142,6 @@ bin/rest-api
   - PUT
 - /v1/namespaces/{namespace}/services/{serviceId}/lb
   - GET
-
-### Service
-
-![rest-api-service](./docs/rest-api-service.png)
-
-- /v1/namespaces/{namespace}/services/
-  - GET
-- /v1/namespaces/{namespace}/services/{serviceId}/instances
-  - GET
-  - PUT
-- /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}
-  - DELETE
-- /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
-  - PUT
-- /v1/namespaces/{namespace}/services/lb/{serviceId}
-  - GET
   
 ## JMH 基准测试
 
