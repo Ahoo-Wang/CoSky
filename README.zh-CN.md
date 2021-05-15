@@ -51,24 +51,57 @@ Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓�
 ```yaml
 spring:
   application:
-    name: govern-rest-api
+    name: ${service.name:govern-rest-api}
   cloud:
     govern:
-      namespace: dev
+      namespace: ${govern.namespace:govern-{system}}
       config:
         config-id: ${spring.application.name}.yml
       redis:
-        mode: standalone
-        url: redis://localhost:6379
+        mode: ${govern.mode:standalone}
+        url: ${govern.redis.uri:redis://localhost:6379}
+logging:
+  file:
+    name: logs/${spring.application.name}.log
+
 ```
 
 ## REST-API Server (``Optional``)
 
+### 安装 REST-API Server
+
+#### 方式一：下载可执行文件
+
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.3/rest-api-0.9.3.tar)
+
+> 解压 rest-api-0.9.3.tar
+
 ```shell
-bin/rest-api
+cd rest-api-0.9.3
+# 工作目录: rest-api-0.9.3
+bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
-> http://localhost:8080/
+#### 方式二：Docker run
+
+```shell
+docker pull ahoowang/govern-service:0.9.3
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.3
+```
+
+---
+> MacBook Pro (M1)
+>
+> 请使用 ahoowang/govern-service:0.9.3-armv7
+
+```shell
+docker pull ahoowang/govern-service:0.9.3-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.3-armv7
+```
+
+---
+
+> [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
 ### Dashboard
 
