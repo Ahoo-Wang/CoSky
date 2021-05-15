@@ -104,7 +104,6 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
 
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
-> http://localhost:8080/
 
 ### Dashboard
 
