@@ -1,21 +1,21 @@
 <nz-row class="content" [nzGutter]="16">
   <nz-col [nzSpan]="6">
-    <nz-card>
+    <nz-card routerLink="/namespace">
       <nz-statistic [nzValue]="(stat.namespaces | number)!" nzTitle="Namespaces"></nz-statistic>
     </nz-card>
   </nz-col>
   <nz-col [nzSpan]="6">
-    <nz-card>
+    <nz-card routerLink="/service">
       <nz-statistic [nzValue]="(stat.services | number)!" nzTitle="Services"></nz-statistic>
     </nz-card>
   </nz-col>
   <nz-col [nzSpan]="6">
-    <nz-card>
+    <nz-card routerLink="/service">
       <nz-statistic [nzValue]="(stat.instances | number)!" nzTitle="Instances"></nz-statistic>
     </nz-card>
   </nz-col>
   <nz-col [nzSpan]="6">
-    <nz-card>
+    <nz-card routerLink="/config">
       <nz-statistic [nzValue]="(stat.configs | number)!" nzTitle="Configs"></nz-statistic>
     </nz-card>
   </nz-col>

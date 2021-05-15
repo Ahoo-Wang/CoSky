@@ -5,10 +5,9 @@ import me.ahoo.govern.config.ConfigService;
 import me.ahoo.govern.core.NamespaceService;
 import me.ahoo.govern.discovery.ServiceDiscovery;
 import me.ahoo.govern.discovery.ServiceStatistic;
+import me.ahoo.govern.rest.dto.GetStatResponse;
 import me.ahoo.govern.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
 
 /**
  * @author ahoo wang
@@ -31,12 +30,12 @@ public class StatController {
     }
 
     @GetMapping
-    public HashMap<String, Integer> getStat(@PathVariable String namespace) {
-        var stat = new HashMap<String, Integer>(6);
-        stat.put("namespaces", namespaceService.getNamespaces().join().size());
-        stat.put("services", serviceDiscovery.getServices(namespace).join().size());
-        stat.put("instances", serviceStatistic.getInstanceCount(namespace).join().intValue());
-        stat.put("configs", configService.getConfigs(namespace).join().size());
-        return stat;
+    public GetStatResponse getStat(@PathVariable String namespace) {
+        var statResponse = new GetStatResponse();
+        statResponse.setNamespaces(namespaceService.getNamespaces().join().size());
+        statResponse.setServices(serviceDiscovery.getServices(namespace).join().size());
+        statResponse.setInstances(serviceStatistic.getInstanceCount(namespace).join().intValue());
+        statResponse.setConfigs(configService.getConfigs(namespace).join().size());
+        return statResponse;
     }
 }

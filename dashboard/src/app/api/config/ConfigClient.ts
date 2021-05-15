@@ -6,6 +6,8 @@ import {ConfigHistoryDto} from './ConfigHistoryDto';
 import {ConfigVersionDto} from './ConfigVersionDto';
 import {ConfigDto} from './ConfigDto';
 
+export type ImportPolicy = 'skip' | 'overwrite';
+
 @Injectable({providedIn: 'root'})
 export class ConfigClient {
 
@@ -15,12 +17,20 @@ export class ConfigClient {
   }
 
   getConfigs(namespace: string): Observable<string[]> {
-    const apiUrl = `${this.apiPrefix}/${namespace}/configs`;
+    const apiUrl = this.getConfigsUrl(namespace);
     return this.httpClient.get<string[]>(apiUrl);
   }
 
+  getConfigsUrl(namespace: string): string {
+    return `${this.apiPrefix}/${namespace}/configs`;
+  }
+
+  getImportUrl(namespace: string): string {
+    return this.getConfigsUrl(namespace);
+  }
+
   getConfigApiUrl(namespace: string, configId: string): string {
-    return `${this.apiPrefix}/${namespace}/configs/${configId}`;
+    return `${this.getConfigsUrl(namespace)}/${configId}`;
   }
 
   getConfig(namespace: string, configId: string): Observable<ConfigDto> {
@@ -39,17 +49,17 @@ export class ConfigClient {
   }
 
   rollback(namespace: string, configId: string, targetVersion: number): Observable<boolean> {
-    const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/to/${targetVersion}`;
+    const apiUrl = `${this.getConfigApiUrl(namespace, configId)} / to /${targetVersion}`;
     return this.httpClient.put<boolean>(apiUrl, null);
   }
 
   getConfigVersions(namespace: string, configId: string): Observable<ConfigVersionDto[]> {
-    const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/versions`;
+    const apiUrl = `${this.getConfigApiUrl(namespace, configId)} / versions`;
     return this.httpClient.get<ConfigVersionDto[]>(apiUrl);
   }
 
   getConfigHistory(namespace: string, configId: string, version: number): Observable<ConfigHistoryDto> {
-    const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/versions/${version}`;
+    const apiUrl = `${this.getConfigApiUrl(namespace, configId)} / versions /${version}`;
     return this.httpClient.get<ConfigHistoryDto>(apiUrl);
   }
 

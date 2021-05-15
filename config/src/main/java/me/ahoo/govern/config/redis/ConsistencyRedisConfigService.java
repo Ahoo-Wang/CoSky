@@ -83,6 +83,11 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
         return delegate.removeConfig(namespace, configId);
     }
 
+    @Override
+    public CompletableFuture<Boolean> containsConfig(String namespace, String configId) {
+        return delegate.containsConfig(namespace, configId);
+    }
+
 
     @Override
     public CompletableFuture<Boolean> addListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {

@@ -2,6 +2,7 @@ import {Injectable} from '@angular/core';
 import {NzDrawerService} from 'ng-zorro-antd/drawer';
 import {ConfigEditorComponent} from './config-editor/config-editor.component';
 import {ConfigVersionComponent} from './config-version/config-version.component';
+import {ConfigImporterComponent} from './config-importer/config-importer.component';
 
 interface OpenEditConfigParams {
   configId?: string;
@@ -34,6 +35,27 @@ export class ConfigEditorService {
         drawerRef.close('Operation successful');
         if (afterSet) {
           afterSet(result);
+        }
+      });
+    });
+  }
+
+  openImportConfig(afterImport: (result: boolean) => void): void {
+    const editorTitle = 'Import config';
+
+    const drawerRef = this.drawerService.create<ConfigImporterComponent, {}, string>({
+      nzTitle: editorTitle,
+      nzWidth: '40%',
+      nzContent: ConfigImporterComponent,
+      nzContentParams: {}
+    });
+    drawerRef.afterOpen.subscribe(() => {
+      drawerRef.getContentComponent()?.afterImport.subscribe(result => {
+        if (result) {
+          drawerRef.close('Operation successful');
+        }
+        if (afterImport) {
+          afterImport(result);
         }
       });
     });

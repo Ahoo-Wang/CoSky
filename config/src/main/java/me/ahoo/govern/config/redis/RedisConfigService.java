@@ -107,6 +107,12 @@ public class RedisConfigService implements ConfigService {
     }
 
     @Override
+    public CompletableFuture<Boolean> containsConfig(String namespace, String configId) {
+        var configKey = ConfigKeyGenerator.getConfigKey(namespace, configId);
+        return redisCommands.exists(configKey).thenApply(count -> count > 0).toCompletableFuture();
+    }
+
+    @Override
     public CompletableFuture<Boolean> rollback(String configId, int targetVersion) {
         return rollback(NamespacedContext.GLOBAL.getNamespace(), configId, targetVersion);
     }

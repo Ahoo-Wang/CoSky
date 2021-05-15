@@ -53,6 +53,15 @@ export class ConfigComponent implements OnInit {
     });
   }
 
+  openImportConfig(): void {
+    this.configEditorService.openImportConfig((result) => {
+      if (result) {
+        this.getConfigs();
+      }
+    });
+  }
+
+
   search(): void {
     this.searchVisible = false;
     if (this.searchValue.length === 0) {

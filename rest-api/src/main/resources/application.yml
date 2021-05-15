@@ -7,3 +7,6 @@ spring:
   web:
     resources:
       static-locations: file:./dashboard/dist/dashboard
+  servlet:
+    multipart:
+      max-file-size: 10MB

@@ -24,4 +24,6 @@ public interface ConfigService extends ConfigRollback {
 
     CompletableFuture<Boolean> removeConfig(String namespace, String configId);
 
+
+    CompletableFuture<Boolean> containsConfig(String namespace, String configId);
 }

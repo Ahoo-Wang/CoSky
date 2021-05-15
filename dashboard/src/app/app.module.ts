@@ -26,6 +26,7 @@ import {NzInputNumberModule} from 'ng-zorro-antd/input-number';
 import {NzSwitchModule} from 'ng-zorro-antd/switch';
 import {NzDropDownModule} from 'ng-zorro-antd/dropdown';
 import {NzStatisticModule} from 'ng-zorro-antd/statistic';
+import {NzUploadModule} from 'ng-zorro-antd/upload';
 
 import {NamespaceSelectorComponent} from './components/namespace/namespace-selector/namespace-selector.component';
 import {NamespaceComponent} from './components/namespace/namespace.component';
@@ -38,6 +39,7 @@ import {NzMessageModule} from 'ng-zorro-antd/message';
 import {ConfigVersionListComponent} from './components/config/config-version-list/config-version-list.component';
 import {ConfigVersionComponent} from './components/config/config-version/config-version.component';
 import {DashboardComponent} from './components/dashboard/dashboard.component';
+import {ConfigImporterComponent} from './components/config/config-importer/config-importer.component';
 
 registerLocaleData(zh);
 
@@ -53,7 +55,8 @@ registerLocaleData(zh);
     InstanceEditorComponent,
     ConfigVersionListComponent,
     ConfigVersionComponent,
-    DashboardComponent
+    DashboardComponent,
+    ConfigImporterComponent
   ],
   imports: [
     BrowserModule,
@@ -78,7 +81,8 @@ registerLocaleData(zh);
     NzInputNumberModule,
     NzSwitchModule,
     NzDropDownModule,
-    NzStatisticModule
+    NzStatisticModule,
+    NzUploadModule
   ],
   providers: [{provide: NZ_I18N, useValue: zh_CN}],
   bootstrap: [AppComponent]
