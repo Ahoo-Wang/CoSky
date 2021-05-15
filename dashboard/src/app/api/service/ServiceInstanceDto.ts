@@ -7,6 +7,6 @@ export interface ServiceInstanceDto {
   weight: number;
   ephemeral: boolean;
   ttlAt?: number;
-  metadata: Map<string, string>;
+  metadata: object;
 
 }

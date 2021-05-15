@@ -55,7 +55,13 @@
                  nzCheckedChildren="ephemeral"></nz-switch>
     </nz-form-control>
   </nz-form-item>
-<!--  <nz-divider nzText="Metadata"></nz-divider>-->
+  <nz-form-item>
+    <nz-form-label [nzSpan]="6" nzRequired>Metadata (JSON)</nz-form-label>
+    <nz-form-control [nzSpan]="18">
+  <textarea rows="6" formControlName="metadata" nz-input [(ngModel)]="metadata"
+            placeholder="Please enter the metadata!"></textarea>
+    </nz-form-control>
+  </nz-form-item>
   <nz-divider></nz-divider>
   <nz-form-item>
     <nz-form-control>

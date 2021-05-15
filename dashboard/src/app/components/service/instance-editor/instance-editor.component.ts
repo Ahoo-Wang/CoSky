@@ -14,6 +14,7 @@ export class InstanceEditorComponent implements OnInit {
   validateForm!: FormGroup;
   @Input() instance!: ServiceInstanceDto;
   @Output() afterRegister: EventEmitter<boolean> = new EventEmitter<boolean>();
+  metadata!: string;
 
   constructor(private namespaceContext: NamespaceContext,
               private serviceClient: ServiceClient,
@@ -23,6 +24,10 @@ export class InstanceEditorComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (this.instance) {
+      this.metadata = JSON.stringify(this.instance.metadata);
+    }
+
     this.validateForm = this.formBuilder.group({
       serviceId: [this.instance.serviceId],
       instanceId: [this.instance.instanceId],
@@ -30,18 +35,27 @@ export class InstanceEditorComponent implements OnInit {
       ip: [this.instance.ip, [Validators.required]],
       port: [this.instance.port, [Validators.required]],
       weight: [this.instance.weight, [Validators.required]],
-      ephemeral: [this.instance.ephemeral, [Validators.required]]
+      ephemeral: [this.instance.ephemeral, [Validators.required]],
+      metadata: [this.metadata]
     });
   }
 
 
   register(): void {
+    try {
+      const objMetadata = JSON.parse(this.metadata);
+      this.instance.metadata = objMetadata;
+    } catch (e) {
+      this.messageService.error(`Metadata format error.\n${e}`);
+      return;
+    }
+
     this.serviceClient.register(this.namespaceContext.ensureCurrentNamespace(), this.instance.serviceId, this.instance)
       .subscribe(result => {
-        this.messageService.success('Instance added successfull!');
+        this.messageService.success('Instance saved successfull!');
         this.afterRegister.emit(result);
       }, error => {
-        this.messageService.error(`Instance add failed!\n${error}`);
+        this.messageService.error(`Instance saved failed!\n${error}`);
         this.afterRegister.emit(false);
       });
   }
