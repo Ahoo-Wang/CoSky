@@ -23,6 +23,16 @@ if added == 1 then
     redis.call("publish", serviceIdxKey, "register");
     redis.call("sadd", serviceIdxKey, serviceId);
 end
+
+local instanceKeys = redis.call("hkeys", instanceKey)
+if #instanceKeys > 0 then
+    for i, key in ipairs(instanceKeys) do
+        if string.find(key, '_', 1) == 1 and string.find(key, '__', 1) == nil then
+            redis.call("hdel", instanceKey, key);
+        end
+    end
+end
+
 redis.call("hmset", instanceKey, "instanceId", instanceId, "serviceId", serviceId, "schema", schema, "ip", ip, "port", port, "weight", weight, "ephemeral", ephemeral, unpack(ARGV, 8, #ARGV));
 redis.call("publish", instanceKey, "register");
 if not fixed then

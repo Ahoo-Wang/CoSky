@@ -9,7 +9,6 @@ import me.ahoo.govern.config.Config;
 import me.ahoo.govern.config.ConfigService;
 import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.NamespacedContext;
-import me.ahoo.govern.spring.cloud.support.AppSupport;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.env.OriginTrackedMapPropertySource;
 import org.springframework.boot.env.PropertySourceLoader;
@@ -46,9 +45,6 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
     @Override
     public PropertySource<?> locate(Environment environment) {
         var configId = configProperties.getConfigId();
-        if (Strings.isBlank(configId)) {
-            configId = AppSupport.getAppName(environment) + "." + configProperties.getFileExtension();
-        }
 
         var fileExt = Files.getFileExtension(configId);
         if (Strings.isBlank(fileExt)) {
@@ -59,6 +55,7 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
         log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
 
         var config = configService.getConfig(configId).join();
+
         if (Objects.isNull(config)) {
             log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);
             return new OriginTrackedMapPropertySource(getNameOfConfigId(configId), Collections.emptyMap());
