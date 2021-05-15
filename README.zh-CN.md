@@ -10,7 +10,7 @@ Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓�
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.5";
+    val governVersion = "0.9.6";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -27,7 +27,7 @@ Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓�
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.5</govern.version>
+    <govern.version>0.9.6</govern.version>
   </properties>
 
   <dependencies>
@@ -72,31 +72,31 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.5/rest-api-0.9.5.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.6/rest-api-0.9.6.tar)
 
-> 解压 *rest-api-0.9.5.tar*
+> 解压 *rest-api-0.9.6.tar*
 
 ```shell
-cd rest-api-0.9.5
-# 工作目录: rest-api-0.9.5
+cd rest-api-0.9.6
+# 工作目录: rest-api-0.9.6
 bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：Docker run
 
 ```shell
-docker pull ahoowang/govern-service:0.9.5
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.5
+docker pull ahoowang/govern-service:0.9.6
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.6
 ```
 
 ---
 > MacBook Pro (M1)
 >
-> 请使用 *ahoowang/govern-service:0.9.5-armv7*
+> 请使用 *ahoowang/govern-service:0.9.6-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.5-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.5-armv7
+docker pull ahoowang/govern-service:0.9.6-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.6-armv7
 ```
 
 ---

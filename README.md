@@ -15,7 +15,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.5";
+    val governVersion = "0.9.6";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -32,7 +32,7 @@ process cache refresh, with unparalleled QPS performance and real-time consisten
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.5</govern.version>
+    <govern.version>0.9.6</govern.version>
   </properties>
 
   <dependencies>
@@ -73,31 +73,31 @@ spring:
 
 #### Option 1：Download the executable file
 
-> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.5/rest-api-0.9.5.tar)
+> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.6/rest-api-0.9.6.tar)
 
-> tar *rest-api-0.9.5.tar*
+> tar *rest-api-0.9.6.tar*
 
 ```shell
-cd rest-api-0.9.5
-# Working directory: rest-api-0.9.5
+cd rest-api-0.9.6
+# Working directory: rest-api-0.9.6
 bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Docker run
 
 ```shell
-docker pull ahoowang/govern-service:0.9.5
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.5
+docker pull ahoowang/govern-service:0.9.6
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.6
 ```
 
 ---
 > MacBook Pro (M1)
 >
-> Please use *ahoowang/govern-service:0.9.5-armv7*
+> Please use *ahoowang/govern-service:0.9.6-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.5-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.5-armv7
+docker pull ahoowang/govern-service:0.9.6-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.6-armv7
 ```
 
 ---
