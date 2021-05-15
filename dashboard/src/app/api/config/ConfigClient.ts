@@ -49,17 +49,17 @@ export class ConfigClient {
   }
 
   rollback(namespace: string, configId: string, targetVersion: number): Observable<boolean> {
-    const apiUrl = `${this.getConfigApiUrl(namespace, configId)} / to /${targetVersion}`;
+    const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/to/${targetVersion}`;
     return this.httpClient.put<boolean>(apiUrl, null);
   }
 
   getConfigVersions(namespace: string, configId: string): Observable<ConfigVersionDto[]> {
-    const apiUrl = `${this.getConfigApiUrl(namespace, configId)} / versions`;
+    const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/versions`;
     return this.httpClient.get<ConfigVersionDto[]>(apiUrl);
   }
 
   getConfigHistory(namespace: string, configId: string, version: number): Observable<ConfigHistoryDto> {
-    const apiUrl = `${this.getConfigApiUrl(namespace, configId)} / versions /${version}`;
+    const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/versions/${version}`;
     return this.httpClient.get<ConfigHistoryDto>(apiUrl);
   }
 
