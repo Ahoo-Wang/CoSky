@@ -74,7 +74,7 @@ logging:
 
 > 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.3/rest-api-0.9.3.tar)
 
-> 解压 rest-api-0.9.3.tar
+> 解压 *rest-api-0.9.3.tar*
 
 ```shell
 cd rest-api-0.9.3
@@ -92,7 +92,7 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
 ---
 > MacBook Pro (M1)
 >
-> 请使用 ahoowang/govern-service:0.9.3-armv7
+> 请使用 *ahoowang/govern-service:0.9.3-armv7*
 
 ```shell
 docker pull ahoowang/govern-service:0.9.3-armv7

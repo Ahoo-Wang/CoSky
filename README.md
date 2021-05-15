@@ -69,9 +69,40 @@ spring:
 
 ## REST-API Server (``Optional``)
 
+### Installation REST-API Server
+
+#### Option 1：Download the executable file
+
+> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.3/rest-api-0.9.3.tar)
+
+> tar *rest-api-0.9.3.tar*
+
 ```shell
-bin/rest-api
+cd rest-api-0.9.3
+# Working directory: rest-api-0.9.3
+bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
+
+#### Option 2：Docker run
+
+```shell
+docker pull ahoowang/govern-service:0.9.3
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.3
+```
+
+---
+> MacBook Pro (M1)
+>
+> Please use *ahoowang/govern-service:0.9.3-armv7*
+
+```shell
+docker pull ahoowang/govern-service:0.9.3-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.3-armv7
+```
+
+---
+
+> [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
 > http://localhost:8080/
 
