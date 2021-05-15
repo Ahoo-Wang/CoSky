@@ -1,0 +1,30 @@
+<div nz-row>
+  <div nz-col [nzSpan]="4" style="font-size: 14px;height: 32px;line-height: 32px;">
+    <label>Import Policy :</label>
+  </div>
+  <div nz-col [nzSpan]="16">
+    <nz-select [(ngModel)]="importPolicy">
+      <nz-option nzValue="skip" nzLabel="skip"></nz-option>
+      <nz-option nzValue="overwrite" nzLabel="overwrite"></nz-option>
+    </nz-select>
+  </div>
+</div>
+
+<nz-card>
+  <nz-upload
+    nzAccept="application/zip"
+    nzType="drag"
+    nzFileType="application/zip"
+    [nzData]="getImportData"
+    nzName="importZip"
+    [nzAction]="getImportUrl()"
+    (nzChange)="handleChange($event)"
+  >
+    <p class="ant-upload-drag-icon">
+      <i nz-icon nzType="inbox"></i>
+    </p>
+    <p class="ant-upload-text">Click or drag ZIP-file to this area to upload</p>
+  </nz-upload>
+</nz-card>
+
+
