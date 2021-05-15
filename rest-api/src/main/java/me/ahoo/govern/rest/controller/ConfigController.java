@@ -43,14 +43,15 @@ public class ConfigController {
     }
 
     @GetMapping
-    public Set<String> getConfigs(@PathVariable String namespace) {
-        return configService.getConfigs(namespace).join();
+    public CompletableFuture<Set<String>> getConfigs(@PathVariable String namespace) {
+        return configService.getConfigs(namespace);
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ImportResponse importZip(@PathVariable String namespace, @RequestParam String policy, @RequestPart MultipartFile importZip) throws IOException {
+    public CompletableFuture<ImportResponse> importZip(@PathVariable String namespace, @RequestParam String policy, @RequestPart MultipartFile importZip) throws IOException {
+        var importResponse = new ImportResponse();
         if (Objects.isNull(importZip) || importZip.isEmpty()) {
-            return new ImportResponse(0, 0);
+            return CompletableFuture.completedFuture(importResponse);
         }
         var importFilename = importZip.getOriginalFilename();
         var importFileExt = Files.getFileExtension(importFilename).toLowerCase();
@@ -58,8 +59,6 @@ public class ConfigController {
         var prefixPath = Strings.lenientFormat("govern-service-%s-%s", System.currentTimeMillis(), importFilename);
         var importFile = File.createTempFile(prefixPath, ".temp");
         importZip.transferTo(importFile);
-
-        var importResponse = new ImportResponse();
 
         try (ZipFile zipFile = new ZipFile(importFile)) {
             importResponse.setTotal(zipFile.size());
@@ -105,51 +104,51 @@ public class ConfigController {
                             throw new IllegalStateException("Unexpected policy[skip,overwrite] value: " + policy);
                     }
                     importFutures.add(setFuture);
-                    setFuture.thenApply(result -> {
+                    setFuture.thenAccept(result -> {
                         if (result) {
                             importResponse.accSucceeded();
                         }
-                        return null;
                     });
                 }
             }
             if (!importFutures.isEmpty()) {
-                CompletableFuture.allOf(importFutures.toArray(new CompletableFuture[importFutures.size()])).join();
+                return CompletableFuture.allOf(importFutures.toArray(new CompletableFuture[importFutures.size()])).thenApply((nil) ->
+                        importResponse);
             }
-            return importResponse;
+            return CompletableFuture.completedFuture(importResponse);
         }
 
     }
 
     @PutMapping(RequestPathPrefix.CONFIGS_CONFIG)
-    public Boolean setConfig(@PathVariable String namespace, @PathVariable String configId, @RequestBody String data) {
-        return configService.setConfig(namespace, configId, data).join();
+    public CompletableFuture<Boolean> setConfig(@PathVariable String namespace, @PathVariable String configId, @RequestBody String data) {
+        return configService.setConfig(namespace, configId, data);
     }
 
 
     @DeleteMapping(RequestPathPrefix.CONFIGS_CONFIG)
-    public Boolean removeConfig(@PathVariable String namespace, @PathVariable String configId) {
-        return configService.removeConfig(namespace, configId).join();
+    public CompletableFuture<Boolean> removeConfig(@PathVariable String namespace, @PathVariable String configId) {
+        return configService.removeConfig(namespace, configId);
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG)
-    public Config getConfig(@PathVariable String namespace, @PathVariable String configId) {
-        return configService.getConfig(namespace, configId).join();
+    public CompletableFuture<Config> getConfig(@PathVariable String namespace, @PathVariable String configId) {
+        return configService.getConfig(namespace, configId);
     }
 
     @PutMapping(RequestPathPrefix.CONFIGS_CONFIG_TO)
-    public Boolean rollback(@PathVariable String namespace, @PathVariable String configId, @PathVariable int targetVersion) {
-        return configService.rollback(namespace, configId, targetVersion).join();
+    public CompletableFuture<Boolean> rollback(@PathVariable String namespace, @PathVariable String configId, @PathVariable int targetVersion) {
+        return configService.rollback(namespace, configId, targetVersion);
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS)
-    public List<ConfigVersion> getConfigVersions(@PathVariable String namespace, @PathVariable String configId) {
-        return configService.getConfigVersions(namespace, configId).join();
+    public CompletableFuture<List<ConfigVersion>> getConfigVersions(@PathVariable String namespace, @PathVariable String configId) {
+        return configService.getConfigVersions(namespace, configId);
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS_VERSION)
-    public ConfigHistory getConfigHistory(@PathVariable String namespace, @PathVariable String configId, @PathVariable int version) {
-        return configService.getConfigHistory(namespace, configId, version).join();
+    public CompletableFuture<ConfigHistory> getConfigHistory(@PathVariable String namespace, @PathVariable String configId, @PathVariable int version) {
+        return configService.getConfigHistory(namespace, configId, version);
     }
 
 }

@@ -9,6 +9,8 @@ import me.ahoo.govern.rest.dto.GetStatResponse;
 import me.ahoo.govern.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.concurrent.CompletableFuture;
+
 /**
  * @author ahoo wang
  */
@@ -30,12 +32,12 @@ public class StatController {
     }
 
     @GetMapping
-    public GetStatResponse getStat(@PathVariable String namespace) {
+    public CompletableFuture<GetStatResponse> getStat(@PathVariable String namespace) {
         var statResponse = new GetStatResponse();
-        statResponse.setNamespaces(namespaceService.getNamespaces().join().size());
-        statResponse.setServices(serviceDiscovery.getServices(namespace).join().size());
-        statResponse.setInstances(serviceStatistic.getInstanceCount(namespace).join().intValue());
-        statResponse.setConfigs(configService.getConfigs(namespace).join().size());
-        return statResponse;
+        var setNamespacesFuture = namespaceService.getNamespaces().thenAccept(namespaces -> statResponse.setNamespaces(namespaces.size()));
+        var setServicesFuture = serviceDiscovery.getServices(namespace).thenAccept(services -> statResponse.setServices(services.size()));
+        var setInstancesFuture = serviceStatistic.getInstanceCount(namespace).thenAccept(count -> statResponse.setInstances(count.intValue()));
+        var setConfigsFuture = configService.getConfigs(namespace).thenAccept(configs -> statResponse.setConfigs(configs.size()));
+        return CompletableFuture.allOf(setNamespacesFuture, setServicesFuture, setInstancesFuture, setConfigsFuture).thenApply((nil) -> statResponse);
     }
 }

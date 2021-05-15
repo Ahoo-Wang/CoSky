@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -33,51 +34,51 @@ public class ServiceController {
     }
 
     @GetMapping
-    public Set<String> getServices(@PathVariable String namespace) {
-        return discoveryService.getServices(namespace).join();
+    public CompletableFuture<Set<String>> getServices(@PathVariable String namespace) {
+        return discoveryService.getServices(namespace);
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_SERVICE)
-    public Boolean setService(@PathVariable String namespace, @PathVariable String serviceId) {
-        return serviceRegistry.setService(namespace, serviceId).join();
+    public CompletableFuture<Boolean> setService(@PathVariable String namespace, @PathVariable String serviceId) {
+        return serviceRegistry.setService(namespace, serviceId);
     }
 
     @DeleteMapping(RequestPathPrefix.SERVICES_SERVICE)
-    public Boolean removeService(@PathVariable String namespace, @PathVariable String serviceId) {
-        return serviceRegistry.removeService(namespace, serviceId).join();
+    public CompletableFuture<Boolean> removeService(@PathVariable String namespace, @PathVariable String serviceId) {
+        return serviceRegistry.removeService(namespace, serviceId);
     }
 
     @GetMapping(RequestPathPrefix.SERVICES_INSTANCES)
-    public List<ServiceInstance> getInstances(@PathVariable String namespace, @PathVariable String serviceId) {
-        return discoveryService.getInstances(namespace, serviceId).join();
+    public CompletableFuture<List<ServiceInstance>> getInstances(@PathVariable String namespace, @PathVariable String serviceId) {
+        return discoveryService.getInstances(namespace, serviceId);
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES)
-    public Boolean register(@PathVariable String namespace, @PathVariable String serviceId, @RequestBody ServiceInstance instance) {
+    public CompletableFuture<Boolean> register(@PathVariable String namespace, @PathVariable String serviceId, @RequestBody ServiceInstance instance) {
         instance.setServiceId(serviceId);
         var instanceId = InstanceIdGenerator.DEFAULT.generate(instance);
         instance.setInstanceId(instanceId);
-        return serviceRegistry.register(namespace, instance).join();
+        return serviceRegistry.register(namespace, instance);
     }
 
     @DeleteMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE)
-    public Boolean deregister(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId) {
-        return serviceRegistry.deregister(namespace, serviceId, instanceId).join();
+    public CompletableFuture<Boolean> deregister(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId) {
+        return serviceRegistry.deregister(namespace, serviceId, instanceId);
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE_METADATA)
-    public Boolean setMetadata(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId, @RequestBody Map<String, String> metadata) {
-        return serviceRegistry.setMetadata(namespace, serviceId, instanceId, metadata).join();
+    public CompletableFuture<Boolean> setMetadata(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId, @RequestBody Map<String, String> metadata) {
+        return serviceRegistry.setMetadata(namespace, serviceId, instanceId, metadata);
     }
 
     @GetMapping(RequestPathPrefix.SERVICES_STATS)
-    public List<ServiceStat> getServiceStats(@PathVariable String namespace) {
-        return serviceStatistic.getServiceStats(namespace).join();
+    public CompletableFuture<List<ServiceStat>> getServiceStats(@PathVariable String namespace) {
+        return serviceStatistic.getServiceStats(namespace);
     }
 
     @GetMapping(RequestPathPrefix.SERVICES_LB)
-    public ServiceInstance choose(@PathVariable String namespace, @PathVariable String serviceId) {
-        return loadBalancer.choose(namespace, serviceId).join();
+    public CompletableFuture<ServiceInstance> choose(@PathVariable String namespace, @PathVariable String serviceId) {
+        return loadBalancer.choose(namespace, serviceId);
     }
 
 }

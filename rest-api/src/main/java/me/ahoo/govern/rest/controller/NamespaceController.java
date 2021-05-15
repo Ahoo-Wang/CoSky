@@ -6,6 +6,7 @@ import me.ahoo.govern.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -23,8 +24,8 @@ public class NamespaceController {
 
 
     @GetMapping
-    public Set<String> getNamespaces() {
-        return namespaceService.getNamespaces().join();
+    public CompletableFuture<Set<String>> getNamespaces() {
+        return namespaceService.getNamespaces();
     }
 
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
@@ -38,12 +39,12 @@ public class NamespaceController {
     }
 
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
-    public Boolean setNamespace(@PathVariable String namespace) {
-        return namespaceService.setNamespace(namespace).join();
+    public CompletableFuture<Boolean> setNamespace(@PathVariable String namespace) {
+        return namespaceService.setNamespace(namespace);
     }
 
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
-    public Boolean removeNamespace(@PathVariable String namespace) {
-        return namespaceService.removeNamespace(namespace).join();
+    public CompletableFuture<Boolean> removeNamespace(@PathVariable String namespace) {
+        return namespaceService.removeNamespace(namespace);
     }
 }

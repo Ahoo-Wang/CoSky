@@ -198,76 +198,71 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                 return;
             }
 
-            var cachedInstances = instancesFuture.join();
-            if (Objects.isNull(cachedInstances)) {
-                if (log.isInfoEnabled()) {
-                    log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] cachedInstances is null.", topic, channel, message);
+            instancesFuture.thenCompose(cachedInstances -> {
+                if (Objects.isNull(cachedInstances)) {
+                    if (log.isInfoEnabled()) {
+                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] cachedInstances is null.", topic, channel, message);
+                    }
+                    return CompletableFuture.completedFuture(null);
                 }
-                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
-                return;
-            }
 
-            var cachedInstance = cachedInstances.stream()
-                    .filter(itc -> itc.getInstanceId().equals(instanceId))
-                    .findFirst().orElse(ServiceInstance.NOT_FOUND);
+                var cachedInstance = cachedInstances.stream()
+                        .filter(itc -> itc.getInstanceId().equals(instanceId))
+                        .findFirst().orElse(ServiceInstance.NOT_FOUND);
 
-            if (ServiceChangedListener.REGISTER.equals(message)) {
-                if (log.isInfoEnabled()) {
-                    log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] add registered Instance.", topic, channel, message);
+                if (ServiceChangedListener.REGISTER.equals(message)) {
+                    if (log.isInfoEnabled()) {
+                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] add registered Instance.", topic, channel, message);
+                    }
+                    return delegate.getInstance(namespace, serviceId, instanceId).thenAccept(registeredInstance -> {
+                        if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
+                            cachedInstances.add(registeredInstance);
+                        } else {
+                            cachedInstance.setSchema(registeredInstance.getSchema());
+                            cachedInstance.setIp(registeredInstance.getIp());
+                            cachedInstance.setPort(registeredInstance.getPort());
+                            cachedInstance.setEphemeral(registeredInstance.isEphemeral());
+                            cachedInstance.setTtlAt(registeredInstance.getTtlAt());
+                            cachedInstance.setWeight(registeredInstance.getWeight());
+                            cachedInstance.setMetadata(registeredInstance.getMetadata());
+                        }
+                    });
                 }
-                var registeredInstance = delegate.getInstance(namespace, serviceId, instanceId).join();
+
+
                 if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
-                    cachedInstances.add(registeredInstance);
-                } else {
-                    cachedInstance.setSchema(registeredInstance.getSchema());
-                    cachedInstance.setIp(registeredInstance.getIp());
-                    cachedInstance.setPort(registeredInstance.getPort());
-                    cachedInstance.setEphemeral(registeredInstance.isEphemeral());
-                    cachedInstance.setTtlAt(registeredInstance.getTtlAt());
-                    cachedInstance.setWeight(registeredInstance.getWeight());
-                    cachedInstance.setMetadata(registeredInstance.getMetadata());
+                    if (log.isWarnEnabled()) {
+                        log.warn("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] not found cached Instance.", topic, channel, message);
+                    }
+                    return CompletableFuture.completedFuture(null);
                 }
-                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
-                return;
-            }
 
-            if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
-                if (log.isWarnEnabled()) {
-                    log.warn("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] not found cached Instance.", topic, channel, message);
+                switch (message) {
+                    case ServiceChangedListener.RENEW: {
+                        if (log.isInfoEnabled()) {
+                            log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setTtlAt.", topic, channel, message);
+                        }
+                        return delegate.getInstanceTtl(namespace, serviceId, instanceId).thenAccept(nextTtlAt -> cachedInstance.setTtlAt(nextTtlAt));
+                    }
+                    case ServiceChangedListener.SET_METADATA: {
+                        if (log.isInfoEnabled()) {
+                            log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setMetadata.", topic, channel, message);
+                        }
+                        return delegate.getInstance(namespace, serviceId, instanceId).thenAccept(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
+                    }
+                    case ServiceChangedListener.DEREGISTER:
+                    case ServiceChangedListener.EXPIRED: {
+                        if (log.isInfoEnabled()) {
+                            log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] remove instance.", topic, channel, message);
+                        }
+                        cachedInstances.remove(cachedInstance);
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    default:
+                        throw new IllegalStateException("Unexpected value: " + message);
                 }
-                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
-                return;
-            }
 
-            switch (message) {
-                case ServiceChangedListener.RENEW: {
-                    if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setTtlAt.", topic, channel, message);
-                    }
-                    var nextTtlAt = delegate.getInstanceTtl(namespace, serviceId, instanceId).join();
-                    cachedInstance.setTtlAt(nextTtlAt);
-                    break;
-                }
-                case ServiceChangedListener.SET_METADATA: {
-                    if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setMetadata.", topic, channel, message);
-                    }
-                    var nextInstance = delegate.getInstance(namespace, serviceId, instanceId).join();
-                    cachedInstance.setMetadata(nextInstance.getMetadata());
-                    break;
-                }
-                case ServiceChangedListener.DEREGISTER:
-                case ServiceChangedListener.EXPIRED: {
-                    if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] remove instance.", topic, channel, message);
-                    }
-                    cachedInstances.remove(cachedInstance);
-                    break;
-                }
-                default:
-                    throw new IllegalStateException("Unexpected value: " + message);
-            }
-            invokeChanged(message, namespacedServiceId, serviceChangedListeners);
+            }).thenAccept(nil -> invokeChanged(message, namespacedServiceId, serviceChangedListeners));
         }
 
         private void invokeChanged(String message, NamespacedServiceId namespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners) {

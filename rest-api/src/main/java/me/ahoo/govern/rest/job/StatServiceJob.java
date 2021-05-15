@@ -8,8 +8,6 @@ import me.ahoo.govern.discovery.ServiceStatistic;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * @author ahoo wang
  */
@@ -36,10 +34,7 @@ public class StatServiceJob {
         }
 
         if (!namespaces.isEmpty()) {
-            var statFutures = namespaces.stream().map(namespace -> serviceStatistic.statService(namespace))
-                    .toArray(size -> new CompletableFuture[size]);
-
-            CompletableFuture.allOf(statFutures).join();
+            namespaces.forEach(serviceStatistic::statService);
         }
 
         if (log.isInfoEnabled()) {
