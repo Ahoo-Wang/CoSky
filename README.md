@@ -187,11 +187,11 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
 - All benchmark tests are carried out on the development notebook.
 - Deploying Redis on the development notebook.
 
+### ConfigService
+
 ``` shell
 gradle config:jmh
 ```
-
-### ConfigService
 
 ```
 # JMH version: 1.29

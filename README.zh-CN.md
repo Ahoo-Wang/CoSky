@@ -185,11 +185,11 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
 - 所有基准测试都在开发笔记本上执行。
 - Redis 部署环境也在该笔记本开发机上。
 
+### ConfigService
+
 ``` shell
 gradle config:jmh
 ```
-
-### ConfigService
 
 ```
 # JMH version: 1.29
