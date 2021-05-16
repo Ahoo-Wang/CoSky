@@ -24,7 +24,7 @@ export class ConfigEditorService {
     }
     const drawerRef = this.drawerService.create<ConfigEditorComponent, { configId?: string }, string>({
       nzTitle: editorTitle,
-      nzWidth: '40%',
+      nzWidth: '880px',
       nzContent: ConfigEditorComponent,
       nzContentParams: {
         configId
@@ -65,7 +65,7 @@ export class ConfigEditorService {
 
     const drawerRef = this.drawerService.create<ConfigVersionComponent, { configId: string, version: number }, string>({
       nzTitle: `Config [${configId}] Version [${version}]`,
-      nzWidth: '40%',
+      nzWidth: '880px',
       nzContent: ConfigVersionComponent,
       nzContentParams: {
         configId,

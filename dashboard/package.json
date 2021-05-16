@@ -19,7 +19,9 @@
     "@angular/platform-browser": "~11.2.13",
     "@angular/platform-browser-dynamic": "~11.2.13",
     "@angular/router": "~11.2.13",
+    "monaco-editor": "^0.24.0",
     "ng-zorro-antd": "^11.4.1",
+    "ngx-monaco-editor": "^9.0.0",
     "rxjs": "~6.6.0",
     "tslib": "^2.0.0",
     "zone.js": "~0.11.3"

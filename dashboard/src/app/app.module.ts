@@ -27,6 +27,7 @@ import {NzSwitchModule} from 'ng-zorro-antd/switch';
 import {NzDropDownModule} from 'ng-zorro-antd/dropdown';
 import {NzStatisticModule} from 'ng-zorro-antd/statistic';
 import {NzUploadModule} from 'ng-zorro-antd/upload';
+import {MonacoEditorModule} from 'ngx-monaco-editor';
 
 import {NamespaceSelectorComponent} from './components/namespace/namespace-selector/namespace-selector.component';
 import {NamespaceComponent} from './components/namespace/namespace.component';
@@ -82,7 +83,9 @@ registerLocaleData(zh);
     NzSwitchModule,
     NzDropDownModule,
     NzStatisticModule,
-    NzUploadModule
+    NzUploadModule,
+    MonacoEditorModule,
+    MonacoEditorModule.forRoot()
   ],
   providers: [{provide: NZ_I18N, useValue: zh_CN}],
   bootstrap: [AppComponent]

@@ -23,7 +23,7 @@ export class InstanceEditorService {
     editInstance.ephemeral = false;
     const drawerRef = this.drawerService.create<InstanceEditorComponent, { instance: ServiceInstanceDto }, string>({
       nzTitle: `Managing service[${serviceId}] instances`,
-      nzWidth: '40%',
+      nzWidth: '550px',
       nzContent: InstanceEditorComponent,
       nzContentParams: {
         instance: editInstance

@@ -4,7 +4,8 @@ import {ConfigDto} from '../../../api/config/ConfigDto';
 import {NamespaceContext} from '../../../core/NamespaceContext';
 import {NzMessageService} from 'ng-zorro-antd/message';
 import {ConfigClient} from '../../../api/config/ConfigClient';
-import {Configs} from '../../../api/config/Configs';
+import {ConfigName, Configs} from '../../../api/config/Configs';
+
 
 @Component({
   selector: 'app-config-editor',
@@ -15,40 +16,48 @@ export class ConfigEditorComponent implements OnInit {
   validateForm!: FormGroup;
   @Input() configId?: string;
   @Output() afterSet: EventEmitter<boolean> = new EventEmitter<boolean>();
-  config: ConfigDto;
+  config!: ConfigDto;
   isAdd = true;
+  editorOptions = {theme: 'vs-dark', language: 'yaml'};
+  configName!: ConfigName;
 
   constructor(private namespaceContext: NamespaceContext,
               private configClient: ConfigClient,
               private messageService: NzMessageService,
               private formBuilder: FormBuilder) {
-    this.config = Configs.of();
+
   }
 
   ngOnInit(): void {
+    this.config = Configs.of();
+    this.configName = ConfigName.of('.yaml');
+
     if (this.configId) {
       this.isAdd = false;
       this.configClient.getConfig(this.namespaceContext.ensureCurrentNamespace(), this.configId)
         .subscribe(config => {
           this.config = config;
+          this.configName = ConfigName.of(config.configId);
+          this.onExtChanged(this.configName.ext);
         });
     }
 
     const controlsConfig = {
-      configId: [this.config.configId, [Validators.required]],
+      configName: [this.configName.name, [Validators.required]],
       version: [this.config.version],
       hash: [this.config.hash],
-      data: [this.config.data, [Validators.required]],
+      data: [this.config.data],
       createTime: [this.config.createTime]
     };
     if (!this.isAdd) {
-      controlsConfig.configId = [this.config.configId];
+      controlsConfig.configName = [this.configName.name];
     }
 
     this.validateForm = this.formBuilder.group(controlsConfig);
   }
 
   setConfig(): void {
+    this.config.configId = this.configName.toId();
     this.configClient.setConfig(this.namespaceContext.ensureCurrentNamespace(), this.config.configId, this.config.data)
       .subscribe(result => {
         this.messageService.success(`Config[${this.config.configId}] added successfull!`);
@@ -59,4 +68,9 @@ export class ConfigEditorComponent implements OnInit {
       });
   }
 
+  onExtChanged(configExt: string): void {
+    this.configName.ext = configExt;
+    const language = Configs.extAsLang(configExt);
+    this.editorOptions = Object.assign({}, this.editorOptions, {language});
+  }
 }

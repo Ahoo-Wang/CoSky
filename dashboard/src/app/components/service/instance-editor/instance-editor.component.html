@@ -1,4 +1,4 @@
-<form nzLayout="horizontal" nz-form [formGroup]="validateForm" (ngSubmit)="register()">
+<form #formElement nzLayout="horizontal" nz-form [formGroup]="validateForm" (ngSubmit)="register()">
   <nz-form-item>
     <nz-form-label [nzSpan]="6">ServiceId</nz-form-label>
     <nz-form-control [nzSpan]="18">
@@ -55,13 +55,10 @@
                  nzCheckedChildren="ephemeral"></nz-switch>
     </nz-form-control>
   </nz-form-item>
-  <nz-form-item>
-    <nz-form-label [nzSpan]="6" nzRequired>Metadata (JSON)</nz-form-label>
-    <nz-form-control [nzSpan]="18">
-  <textarea rows="6" formControlName="metadata" nz-input [(ngModel)]="metadata"
-            placeholder="Please enter the metadata!"></textarea>
-    </nz-form-control>
-  </nz-form-item>
+  <nz-divider nzText="Metadata (JSON)"></nz-divider>
+  <ngx-monaco-editor [options]="{theme:'vs-dark',language:'json'}" [(ngModel)]="metadata"
+                     [ngModelOptions]="{standalone: true}"
+  ></ngx-monaco-editor>
   <nz-divider></nz-divider>
   <nz-form-item>
     <nz-form-control>
