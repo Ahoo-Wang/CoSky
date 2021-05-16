@@ -6,13 +6,14 @@ import me.ahoo.govern.config.redis.RedisConfigService;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
 public class RedisConfigServiceBenchmark {
-    private final static String namespace = "benchmark_cfg";
+    private final static String namespace = "ben_cfg";
     public RedisConfigService configService;
     private RedisClient redisClient;
     private StatefulRedisConnection<String, String> redisConnection;
@@ -28,6 +29,7 @@ public class RedisConfigServiceBenchmark {
             "      redis:\n" +
             "        mode: standalone\n" +
             "        url: redis://localhost:6379\n";
+    private AtomicInteger atomicInteger;
 
     @Setup
     public void setup() {
@@ -36,6 +38,7 @@ public class RedisConfigServiceBenchmark {
         redisConnection = redisClient.connect();
         configService = new RedisConfigService(redisConnection.async());
         configService.setConfig(namespace, configId, configData);
+        atomicInteger = new AtomicInteger();
     }
 
     @TearDown
@@ -51,7 +54,8 @@ public class RedisConfigServiceBenchmark {
 
     @Benchmark
     public void setConfig() {
-        configService.setConfig(namespace, configId, configData).join();
+        String randomConfigId = String.valueOf(atomicInteger.incrementAndGet());
+        configService.setConfig(namespace, randomConfigId, configData).join();
     }
 
     @Benchmark

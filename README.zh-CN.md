@@ -1,7 +1,8 @@
 # Govern Service 基于 Redis 的服务治理平台（服务注册/发现 & 配置中心）
 
 *Govern Service* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。 借助于 Redis 的高性能， *
-Govern Service* 提供了超高TPS&QPS。*Govern Service* 结合本地进程缓存策略 + *Redis PubSub*，实现实时进程缓存刷新，兼具无与伦比的QPS性能、进程缓存与 Redis 的实时一致性。
+Govern Service* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*Govern Service* 结合本地进程缓存策略 + *Redis PubSub*
+，实现实时进程缓存刷新，兼具无与伦比的QPS性能、进程缓存与 Redis 的实时一致性。
 
 ## 安装
 
@@ -177,21 +178,21 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
   - PUT
 - /v1/namespaces/{namespace}/services/{serviceId}/lb
   - GET
-  
-## JMH 基准测试
 
-- The development notebook : MacBook Pro (M1)
-- All benchmark tests are carried out on the development notebook.
-- Deploying Redis with docker on the development notebook.
+## JMH-Benchmark
+
+- 基准测试运行环境：笔记本开发机 ( MacBook Pro (M1) )
+- 所有基准测试都在开发笔记本上执行。
+- Redis 部署环境也在该笔记本开发机上。
 
 ``` shell
-gradle jmh
+gradle config:jmh
 ```
 
 ### ConfigService
 
 ```
-# JMH version: 1.28
+# JMH version: 1.29
 # VM version: JDK 11.0.11, OpenJDK 64-Bit Server VM, 11.0.11+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
@@ -203,18 +204,22 @@ gradle jmh
 # Benchmark mode: Throughput, ops/time
 
 Benchmark                                          Mode  Cnt          Score   Error  Units
-ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       555275866.836          ops/s
-RedisConfigServiceBenchmark.getConfig             thrpt           57397.188          ops/s
-RedisConfigServiceBenchmark.setConfig             thrpt           56882.673          ops/s
+ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       265321650.148          ops/s
+RedisConfigServiceBenchmark.getConfig             thrpt          106991.476          ops/s
+RedisConfigServiceBenchmark.setConfig             thrpt          103659.132          ops/s
 ```
 
 ### ServiceDiscovery
+
+``` shell
+gradle config:discovery
+```
 
 ```
 # JMH version: 1.29
 # VM version: JDK 11.0.11, OpenJDK 64-Bit Server VM, 11.0.11+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/govern-service/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
+# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
 # Warmup: 1 iterations, 10 s each
 # Measurement: 1 iterations, 10 s each
@@ -222,14 +227,14 @@ RedisConfigServiceBenchmark.setConfig             thrpt           56882.673     
 # Threads: 50 threads, will synchronize iterations
 # Benchmark mode: Throughput, ops/time
 
-Benchmark                                                Mode  Cnt           Score   Error  Units
-ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        567329996.255          ops/s
-ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       1929377291.635          ops/s
-RedisServiceDiscoveryBenchmark.getInstances             thrpt            43760.035          ops/s
-RedisServiceDiscoveryBenchmark.getServices              thrpt            60953.971          ops/s
-RedisServiceRegistryBenchmark.deregister                thrpt            63133.011          ops/s
-RedisServiceRegistryBenchmark.register                  thrpt            53957.797          ops/s
-RedisServiceRegistryBenchmark.renew                     thrpt            67116.116          ops/s
+Benchmark                                                Mode  Cnt          Score   Error  Units
+ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76894658.867          ops/s
+ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       466036317.472          ops/s
+RedisServiceDiscoveryBenchmark.getInstances             thrpt          107778.244          ops/s
+RedisServiceDiscoveryBenchmark.getServices              thrpt          106920.412          ops/s
+RedisServiceRegistryBenchmark.deregister                thrpt          114094.513          ops/s
+RedisServiceRegistryBenchmark.register                  thrpt          109085.694          ops/s
+RedisServiceRegistryBenchmark.renew                     thrpt          127003.104          ops/s
 ```
 
 ## TODO
