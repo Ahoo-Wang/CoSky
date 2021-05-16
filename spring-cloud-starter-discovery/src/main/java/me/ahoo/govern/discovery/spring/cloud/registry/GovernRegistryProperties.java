@@ -7,6 +7,7 @@ import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.commons.util.InetUtils;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -32,6 +33,8 @@ public class GovernRegistryProperties {
     private Boolean secure;
 
     private RenewProperties renew = new RenewProperties();
+
+    private Duration timeout = Duration.ofSeconds(2);
 
     public GovernRegistryProperties(InetUtils inetUtils) {
         this.hostInfo = inetUtils.findFirstNonLoopbackHostInfo();
@@ -76,9 +79,10 @@ public class GovernRegistryProperties {
         return weight;
     }
 
-    public void setWeight(Integer weight) {
+    public void setWeight(int weight) {
         this.weight = weight;
     }
+
 
     public boolean isEphemeral() {
         return ephemeral;
@@ -130,4 +134,13 @@ public class GovernRegistryProperties {
     public void setRenew(RenewProperties renew) {
         this.renew = renew;
     }
+
+    public Duration getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(Duration timeout) {
+        this.timeout = timeout;
+    }
+
 }

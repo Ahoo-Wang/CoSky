@@ -34,6 +34,7 @@ public class StatController {
     @GetMapping
     public CompletableFuture<GetStatResponse> getStat(@PathVariable String namespace) {
         var statResponse = new GetStatResponse();
+
         var setNamespacesFuture = namespaceService.getNamespaces().thenAccept(namespaces -> statResponse.setNamespaces(namespaces.size()));
         var setServicesFuture = serviceDiscovery.getServices(namespace).thenAccept(services -> statResponse.setServices(services.size()));
         var setInstancesFuture = serviceStatistic.getInstanceCount(namespace).thenAccept(count -> statResponse.setInstances(count.intValue()));

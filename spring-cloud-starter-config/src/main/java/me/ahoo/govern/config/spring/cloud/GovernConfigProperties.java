@@ -3,6 +3,8 @@ package me.ahoo.govern.config.spring.cloud;
 import me.ahoo.govern.spring.cloud.GovernProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
+
 import static me.ahoo.govern.config.spring.cloud.GovernConfigProperties.PREFIX;
 
 /**
@@ -17,6 +19,7 @@ public class GovernConfigProperties {
     private String configId;
 
     private String fileExtension = "yml";
+    private Duration timeout = Duration.ofSeconds(2);
 
     public boolean isEnabled() {
         return enabled;
@@ -40,5 +43,13 @@ public class GovernConfigProperties {
 
     public void setFileExtension(String fileExtension) {
         this.fileExtension = fileExtension;
+    }
+
+    public Duration getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(Duration timeout) {
+        this.timeout = timeout;
     }
 }

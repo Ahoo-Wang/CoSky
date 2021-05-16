@@ -8,6 +8,19 @@ java {
     }
 }
 
+tasks.jar.configure {
+    exclude("application.yml", "bootstrap.yml")
+}
+
+distributions {
+    main {
+        contents {
+            val dashboardDistPath = "${rootDir.absolutePath}/dashboard/dist";
+            from(dashboardDistPath).include("**")
+        }
+    }
+}
+
 application {
     mainClass.set("me.ahoo.govern.rest.RestApiServer")
 
@@ -20,12 +33,6 @@ application {
         "-Dspring.cloud.bootstrap.enabled=true",
         "-Dspring.cloud.bootstrap.location=config/bootstrap.yml"
     )
-
-    val dashboardDistPath = "${rootDir.absolutePath}/dashboard/dist";
-
-    applicationDistribution.from(dashboardDistPath) {
-        include("**")
-    }
 }
 
 

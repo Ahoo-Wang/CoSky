@@ -1,5 +1,6 @@
 package me.ahoo.govern.discovery.spring.cloud.discovery;
 
+import me.ahoo.govern.core.util.Futures;
 import me.ahoo.govern.discovery.ServiceDiscovery;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -37,7 +38,7 @@ public class GovernDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<ServiceInstance> getInstances(String serviceId) {
-        return serviceDiscovery.getInstances(serviceId).join()
+        return Futures.getUnChecked(serviceDiscovery.getInstances(serviceId), governDiscoveryProperties.getTimeout())
                 .stream().map(serviceInstance -> new GovernServiceInstance(serviceInstance))
                 .collect(Collectors.toList());
     }
@@ -47,7 +48,8 @@ public class GovernDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<String> getServices() {
-        return serviceDiscovery.getServices().join().stream().collect(Collectors.toList());
+        return Futures.getUnChecked(serviceDiscovery.getServices(), governDiscoveryProperties.getTimeout())
+                .stream().collect(Collectors.toList());
     }
 
     @Override

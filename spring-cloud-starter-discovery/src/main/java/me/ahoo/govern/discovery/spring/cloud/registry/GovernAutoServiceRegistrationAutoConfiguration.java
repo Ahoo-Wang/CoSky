@@ -43,10 +43,9 @@ public class GovernAutoServiceRegistrationAutoConfiguration {
 
     @Bean
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
-
                                                      AbstractRedisClient redisClient) {
         RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
-        return new RedisServiceRegistry(registryProperties,  redisCommands);
+        return new RedisServiceRegistry(registryProperties, redisCommands);
     }
 
     @Bean
@@ -83,8 +82,8 @@ public class GovernAutoServiceRegistrationAutoConfiguration {
     }
 
     @Bean
-    public GovernServiceRegistry governServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService) {
-        return new GovernServiceRegistry(serviceRegistry, renewInstanceService);
+    public GovernServiceRegistry governServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService, GovernRegistryProperties governRegistryProperties) {
+        return new GovernServiceRegistry(serviceRegistry, renewInstanceService, governRegistryProperties);
     }
 
     @Bean

@@ -9,6 +9,7 @@ import me.ahoo.govern.config.Config;
 import me.ahoo.govern.config.ConfigService;
 import me.ahoo.govern.core.Consts;
 import me.ahoo.govern.core.NamespacedContext;
+import me.ahoo.govern.core.util.Futures;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.env.OriginTrackedMapPropertySource;
 import org.springframework.boot.env.PropertySourceLoader;
@@ -54,7 +55,7 @@ public class GovernPropertySourceLocator implements PropertySourceLocator {
 
         log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
 
-        var config = configService.getConfig(configId).join();
+        var config = Futures.getUnChecked(configService.getConfig(configId), configProperties.getTimeout());
 
         if (Objects.isNull(config)) {
             log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);
