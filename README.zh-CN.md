@@ -212,7 +212,7 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ### ServiceDiscovery
 
 ``` shell
-gradle config:discovery
+gradle discovery:jmh
 ```
 
 ```
