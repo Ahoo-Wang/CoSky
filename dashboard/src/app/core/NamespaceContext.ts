@@ -4,7 +4,8 @@ import {ActivatedRoute, Router} from '@angular/router';
 
 
 const NAMESPACE_KEY = 'govern:ns:current';
-const SYSTEM_NAMESPACES = new Set(['govern-{default}', 'govern-{system}']);
+const SYSTEM_NAMESPACE = 'govern-{system}';
+const SYSTEM_NAMESPACES = new Set(['govern-{default}', SYSTEM_NAMESPACE]);
 
 @Injectable({providedIn: 'root'})
 export class NamespaceContext {
@@ -13,6 +14,17 @@ export class NamespaceContext {
   constructor(private notification: NzNotificationService,
               private activatedRoute: ActivatedRoute,
               private router: Router) {
+    this.resetIfAbsent();
+  }
+
+  private resetIfAbsent(): void {
+    if (!this.getCurrent()) {
+      this.setCurrent(SYSTEM_NAMESPACE);
+    }
+  }
+
+  rest(): void {
+    this.setCurrent(SYSTEM_NAMESPACE);
   }
 
   setCurrent(namespace: string): void {

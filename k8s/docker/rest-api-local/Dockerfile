@@ -1,8 +1,8 @@
-# docker buildx build --push --platform linux/arm/v7 --build-arg GOVERN_VERSION=0.9.13 --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.11_9-slim -t ahoowang/govern-service:0.9.13-armv7 .
-# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg GOVERN_VERSION=0.9.13 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/govern-service:0.9.13 .
+# docker buildx build --push --platform linux/arm/v7 --build-arg GOVERN_VERSION=0.9.14 --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.11_9-slim -t ahoowang/govern-service:0.9.14-armv7 .
+# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg GOVERN_VERSION=0.9.14 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/govern-service:0.9.14 .
 
 ARG JDK_VERSION=jdk11u-centos-nightly
-ARG GOVERN_VERSION=0.9.13
+ARG GOVERN_VERSION=0.9.14
 ARG GOVERN_SERVICE_HOME=/govern-service
 FROM adoptopenjdk/openjdk11:${JDK_VERSION} AS base
 

@@ -64,7 +64,6 @@ public class ConfigController {
             importResponse.setTotal(zipFile.size());
             Enumeration<?> entries = zipFile.entries();
             List<CompletableFuture<Boolean>> importFutures = new ArrayList<>(zipFile.size());
-
             while (entries.hasMoreElements()) {
                 ZipEntry zipEntry = (ZipEntry) entries.nextElement();
                 if (zipEntry.isDirectory()) {
@@ -104,16 +103,16 @@ public class ConfigController {
                             throw new IllegalStateException("Unexpected policy[skip,overwrite] value: " + policy);
                     }
                     importFutures.add(setFuture);
-                    setFuture.thenAccept(result -> {
-                        if (result) {
-                            importResponse.accSucceeded();
-                        }
-                    });
                 }
             }
             if (!importFutures.isEmpty()) {
                 return CompletableFuture.allOf(importFutures.toArray(new CompletableFuture[importFutures.size()])).thenApply((nil) ->
-                        importResponse);
+                        {
+                            int succeeded =(int) importFutures.stream().filter(future -> future.join()).count();
+                            importResponse.setTotal(succeeded);
+                            return importResponse;
+                        }
+                );
             }
             return CompletableFuture.completedFuture(importResponse);
         }

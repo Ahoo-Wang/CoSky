@@ -18,7 +18,7 @@ spec:
               value: cluster
             - name: GOVERN_REDIS_URI
               value: redis://redis-url:6379
-          image: ahoowang/govern-service:0.9.13
+          image: ahoowang/govern-service:0.9.14
           name: govern-service
           resources:
             limits:

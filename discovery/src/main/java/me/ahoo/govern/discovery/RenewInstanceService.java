@@ -1,11 +1,13 @@
 package me.ahoo.govern.discovery;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author ahoo wang
@@ -17,6 +19,7 @@ public class RenewInstanceService {
     private final RenewProperties renewProperties;
     private final ServiceRegistry serviceRegistry;
     private final ScheduledExecutorService scheduledExecutorService;
+    private final AtomicInteger renewCounter = new AtomicInteger();
 
     public RenewInstanceService(RenewProperties renewProperties, ServiceRegistry serviceRegistry) {
         this(renewProperties,
@@ -34,7 +37,9 @@ public class RenewInstanceService {
         if (isRunning()) {
             return;
         }
-        log.info("start.");
+        if (log.isInfoEnabled()) {
+            log.info("start.");
+        }
         running = true;
 
         scheduledExecutorService.scheduleAtFixedRate(this::renew, renewProperties.getInitialDelay(), renewProperties.getPeriod(), TimeUnit.SECONDS);
@@ -48,16 +53,25 @@ public class RenewInstanceService {
         if (!running) {
             return;
         }
-        log.info("stop.");
+        if (log.isInfoEnabled()) {
+            log.info("stop.");
+        }
         running = false;
         scheduledExecutorService.shutdown();
     }
 
     private void renew() {
-
+        final int times = renewCounter.incrementAndGet();
+        final Stopwatch stopwatch = Stopwatch.createStarted();
         final Set<NamespacedServiceInstance> instances = serviceRegistry.getRegisteredEphemeralInstances();
-        log.info("renew - instances size:{}.", instances.size());
+        if (log.isInfoEnabled()) {
+            log.info("renew - instances size:{} start - times@[{}] .", instances.size(), times);
+        }
+
         if (instances.isEmpty()) {
+            if (log.isInfoEnabled()) {
+                log.info("renew - instances size:{} end - times@[{}] .", instances.size(), times);
+            }
             return;
         }
 
@@ -65,9 +79,19 @@ public class RenewInstanceService {
         var instanceIterator = instances.iterator();
         for (int i = 0; i < renewFutures.length; i++) {
             var namespacedServiceInstance = instanceIterator.next();
-            renewFutures[i] = serviceRegistry.renew(namespacedServiceInstance.getNamespace(), namespacedServiceInstance.getServiceInstance());
+            renewFutures[i] = serviceRegistry.renew(namespacedServiceInstance.getNamespace(), namespacedServiceInstance.getServiceInstance())
+                    .exceptionally((ex) -> {
+                        if (log.isWarnEnabled()) {
+                            log.warn("renew - failed.", ex);
+                        }
+                        return null;
+                    });
         }
-        CompletableFuture.allOf(renewFutures).join();
+        CompletableFuture.allOf(renewFutures).thenAccept((nil) -> {
+            if (log.isInfoEnabled()) {
+                log.info("renew - instances size:{} start - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
+            }
+        });
     }
 
     private static ThreadFactory createThreadFactory() {

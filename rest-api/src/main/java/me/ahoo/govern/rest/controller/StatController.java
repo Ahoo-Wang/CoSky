@@ -1,5 +1,6 @@
 package me.ahoo.govern.rest.controller;
 
+import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.govern.config.ConfigService;
 import me.ahoo.govern.core.NamespaceService;
@@ -17,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.STAT_PREFIX)
+@Slf4j
 public class StatController {
 
     private final NamespaceService namespaceService;
@@ -33,12 +35,17 @@ public class StatController {
 
     @GetMapping
     public CompletableFuture<GetStatResponse> getStat(@PathVariable String namespace) {
-        var statResponse = new GetStatResponse();
-
-        var setNamespacesFuture = namespaceService.getNamespaces().thenAccept(namespaces -> statResponse.setNamespaces(namespaces.size()));
-        var setServicesFuture = serviceDiscovery.getServices(namespace).thenAccept(services -> statResponse.setServices(services.size()));
-        var setInstancesFuture = serviceStatistic.getInstanceCount(namespace).thenAccept(count -> statResponse.setInstances(count.intValue()));
-        var setConfigsFuture = configService.getConfigs(namespace).thenAccept(configs -> statResponse.setConfigs(configs.size()));
-        return CompletableFuture.allOf(setNamespacesFuture, setServicesFuture, setInstancesFuture, setConfigsFuture).thenApply((nil) -> statResponse);
+        var getNamespacesFuture = namespaceService.getNamespaces();
+        var getServicesFuture = serviceDiscovery.getServices(namespace);
+        var getInstanceCountFuture = serviceStatistic.getInstanceCount(namespace);
+        var getConfigsFuture = configService.getConfigs(namespace);
+        return CompletableFuture.allOf(getNamespacesFuture, getServicesFuture, getInstanceCountFuture, getConfigsFuture).thenApply((nil) -> {
+            var statResponse = new GetStatResponse();
+            statResponse.setNamespaces(getNamespacesFuture.join().size());
+            statResponse.setServices(getServicesFuture.join().size());
+            statResponse.setInstances(getInstanceCountFuture.join().intValue());
+            statResponse.setConfigs(getConfigsFuture.join().size());
+            return statResponse;
+        });
     }
 }

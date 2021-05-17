@@ -16,7 +16,7 @@ consistency between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.13";
+    val governVersion = "0.9.14";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -33,7 +33,7 @@ consistency between process cache and Redis.
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.13</govern.version>
+    <govern.version>0.9.14</govern.version>
   </properties>
 
   <dependencies>
@@ -74,31 +74,31 @@ spring:
 
 #### Option 1：Download the executable file
 
-> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.13/rest-api-0.9.13.tar)
+> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.14/rest-api-0.9.14.tar)
 
-> tar *rest-api-0.9.13.tar*
+> tar *rest-api-0.9.14.tar*
 
 ```shell
-cd rest-api-0.9.13
-# Working directory: rest-api-0.9.13
+cd rest-api-0.9.14
+# Working directory: rest-api-0.9.14
 bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Docker run
 
 ```shell
-docker pull ahoowang/govern-service:0.9.13
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.13
+docker pull ahoowang/govern-service:0.9.14
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.14
 ```
 
 ---
 > MacBook Pro (M1)
 >
-> Please use *ahoowang/govern-service:0.9.13-armv7*
+> Please use *ahoowang/govern-service:0.9.14-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.13-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.13-armv7
+docker pull ahoowang/govern-service:0.9.14-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.14-armv7
 ```
 
 ---

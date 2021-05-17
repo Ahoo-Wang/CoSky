@@ -31,9 +31,4 @@ public class ImportResponse {
         this.succeeded = succeeded;
     }
 
-    public void accSucceeded() {
-        this.succeeded += 1;
-    }
-
-
 }
