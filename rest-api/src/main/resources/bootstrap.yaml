@@ -5,10 +5,12 @@ spring:
     govern:
       namespace: ${govern.namespace:govern-{system}}
       config:
-        config-id: ${spring.application.name}.yml
+        config-id: ${spring.application.name}.yaml
       redis:
-        mode: ${govern.mode:standalone}
+        mode: ${govern.redis.mode:standalone}
         url: ${govern.redis.uri:redis://localhost:6379}
 logging:
   file:
     name: logs/${spring.application.name}.log
+
+

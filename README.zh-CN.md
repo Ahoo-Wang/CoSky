@@ -11,7 +11,7 @@
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.14";
+    val governVersion = "0.9.16";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -28,7 +28,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.14</govern.version>
+    <govern.version>0.9.16</govern.version>
   </properties>
 
   <dependencies>
@@ -47,7 +47,7 @@
 </project>
 ```
 
-### bootstrap.yml (Spring-Cloud-Config)
+### bootstrap.yaml (Spring-Cloud-Config)
 
 ```yaml
 spring:
@@ -57,14 +57,13 @@ spring:
     govern:
       namespace: ${govern.namespace:govern-{system}}
       config:
-        config-id: ${spring.application.name}.yml
+        config-id: ${spring.application.name}.yaml
       redis:
-        mode: ${govern.mode:standalone}
+        mode: ${govern.redis.mode:standalone}
         url: ${govern.redis.uri:redis://localhost:6379}
 logging:
   file:
     name: logs/${spring.application.name}.log
-
 ```
 
 ## REST-API Server (``Optional``)
@@ -73,31 +72,72 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.14/rest-api-0.9.14.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.16/rest-api-0.9.16.tar)
 
-> 解压 *rest-api-0.9.14.tar*
+> 解压 *rest-api-0.9.16.tar*
 
 ```shell
-cd rest-api-0.9.14
-# 工作目录: rest-api-0.9.14
+cd rest-api-0.9.16
+# 工作目录: rest-api-0.9.16
 bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
-#### 方式二：Docker run
+#### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/govern-service:0.9.14
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.14
+docker pull ahoowang/govern-service:0.9.16
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.16
 ```
 
+#### 方式三：在 Kubernetes 中运行
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: govern-service-rest-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: govern-service-rest-api
+  template:
+    metadata:
+      labels:
+        app: govern-service-rest-api
+    spec:
+      containers:
+        - env:
+            - name: GOVERN_REDIS_MODE
+              value: standalone
+            - name: GOVERN_REDIS_URI
+              value: redis://redis-uri:6379
+          image: ahoowang/govern-service:0.9.16
+          name: govern-service
+          resources:
+            limits:
+              cpu: "1"
+              memory: 640Mi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: volume-localtime
+      volumes:
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: volume-localtime
+```
 ---
 > MacBook Pro (M1)
 >
-> 请使用 *ahoowang/govern-service:0.9.14-armv7*
+> 请使用 *ahoowang/govern-service:0.9.16-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.14-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.14-armv7
+docker pull ahoowang/govern-service:0.9.16-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.16-armv7
 ```
 
 ---

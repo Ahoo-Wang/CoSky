@@ -14,11 +14,11 @@ spec:
     spec:
       containers:
         - env:
-            - name: GOVERN_MODE
-              value: cluster
+            - name: GOVERN_REDIS_MODE
+              value: standalone
             - name: GOVERN_REDIS_URI
-              value: redis://redis-url:6379
-          image: ahoowang/govern-service:0.9.14
+              value: redis://redis-uri:6379
+          image: ahoowang/govern-service:0.9.16
           name: govern-service
           resources:
             limits:

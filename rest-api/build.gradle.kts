@@ -9,7 +9,7 @@ java {
 }
 
 tasks.jar.configure {
-    exclude("application.yml", "bootstrap.yml")
+    exclude("application.yaml", "bootstrap.yaml")
 }
 
 distributions {
@@ -31,7 +31,7 @@ application {
         "-XX:+UseG1GC",
         "-Xlog:gc*:file=logs/rest-api-gc.log:time,tags:filecount=10,filesize=100M",
         "-Dspring.cloud.bootstrap.enabled=true",
-        "-Dspring.cloud.bootstrap.location=config/bootstrap.yml"
+        "-Dspring.cloud.bootstrap.location=config/bootstrap.yaml"
     )
 }
 

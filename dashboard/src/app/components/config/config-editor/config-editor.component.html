@@ -9,10 +9,11 @@
         <ng-template #configExt>
           <nz-select style="width: 120px;" [ngModel]="configName.ext" [ngModelOptions]="{standalone: true}"
                      (ngModelChange)="onExtChanged($event)">
-            <nz-option nzLabel=".text" nzValue="text"></nz-option>
+            <nz-option nzLabel=".yaml" nzValue="yaml"></nz-option>
+            <nz-option nzLabel=".yml" nzValue="yml"></nz-option>
             <nz-option nzLabel=".json" nzValue="json"></nz-option>
             <nz-option nzLabel=".xml" nzValue="xml"></nz-option>
-            <nz-option nzLabel=".yaml" nzValue="yaml"></nz-option>
+            <nz-option nzLabel=".text" nzValue="text"></nz-option>
             <nz-option nzLabel=".properties" nzValue="properties"></nz-option>
           </nz-select>
         </ng-template>

@@ -16,7 +16,7 @@ consistency between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.14";
+    val governVersion = "0.9.16";
     implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
 ```
@@ -33,7 +33,7 @@ consistency between process cache and Redis.
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.14</govern.version>
+    <govern.version>0.9.16</govern.version>
   </properties>
 
   <dependencies>
@@ -52,20 +52,23 @@ consistency between process cache and Redis.
 </project>
 ```
 
-### bootstrap.yml (Spring-Cloud-Config)
+### bootstrap.yaml (Spring-Cloud-Config)
 
 ```yaml
 spring:
   application:
-    name: govern-rest-api
+    name: ${service.name:govern-rest-api}
   cloud:
     govern:
-      namespace: dev
+      namespace: ${govern.namespace:govern-{system}}
       config:
-        config-id: ${spring.application.name}.yml
+        config-id: ${spring.application.name}.yaml
       redis:
-        mode: standalone
-        url: redis://localhost:6379
+        mode: ${govern.redis.mode:standalone}
+        url: ${govern.redis.uri:redis://localhost:6379}
+logging:
+  file:
+    name: logs/${spring.application.name}.log
 ```
 
 ## REST-API Server (``Optional``)
@@ -74,33 +77,74 @@ spring:
 
 #### Option 1：Download the executable file
 
-> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.14/rest-api-0.9.14.tar)
+> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.16/rest-api-0.9.16.tar)
 
-> tar *rest-api-0.9.14.tar*
+> tar *rest-api-0.9.16.tar*
 
 ```shell
-cd rest-api-0.9.14
-# Working directory: rest-api-0.9.14
+cd rest-api-0.9.16
+# Working directory: rest-api-0.9.16
 bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
-#### Option 2：Docker run
+#### Option 2：Run On Docker 
 
 ```shell
-docker pull ahoowang/govern-service:0.9.14
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.14
+docker pull ahoowang/govern-service:0.9.16
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.16
 ```
 
 ---
 > MacBook Pro (M1)
 >
-> Please use *ahoowang/govern-service:0.9.14-armv7*
+> Please use *ahoowang/govern-service:0.9.16-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.14-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.14-armv7
+docker pull ahoowang/govern-service:0.9.16-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.16-armv7
 ```
 
+#### Option 3：Run On Kubernetes
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: govern-service-rest-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: govern-service-rest-api
+  template:
+    metadata:
+      labels:
+        app: govern-service-rest-api
+    spec:
+      containers:
+        - env:
+            - name: GOVERN_REDIS_MODE
+              value: standalone
+            - name: GOVERN_REDIS_URI
+              value: redis://redis-uri:6379
+          image: ahoowang/govern-service:0.9.16
+          name: govern-service
+          resources:
+            limits:
+              cpu: "1"
+              memory: 640Mi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: volume-localtime
+      volumes:
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: volume-localtime
+```
 ---
 
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)

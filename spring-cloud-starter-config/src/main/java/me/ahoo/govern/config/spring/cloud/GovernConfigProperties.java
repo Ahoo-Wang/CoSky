@@ -18,7 +18,7 @@ public class GovernConfigProperties {
 
     private String configId;
 
-    private String fileExtension = "yml";
+    private String fileExtension = "yaml";
     private Duration timeout = Duration.ofSeconds(2);
 
     public boolean isEnabled() {
