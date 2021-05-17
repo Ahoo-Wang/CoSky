@@ -92,7 +92,12 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
 > MacBook Pro (M1)
 >
 > 请使用 *ahoowang/govern-service:0.9.18-armv7*
-> 
+
+```shell
+docker pull ahoowang/govern-service:0.9.18-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.18-armv7
+```
+
 #### 方式三：在 Kubernetes 中运行
 
 ```yaml
@@ -135,10 +140,6 @@ spec:
           name: volume-localtime
 ```
 
-```shell
-docker pull ahoowang/govern-service:0.9.18-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.18-armv7
-```
 
 ---
 
