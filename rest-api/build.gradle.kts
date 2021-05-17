@@ -39,6 +39,7 @@ application {
 dependencies {
     implementation(platform(project(":dependencies")))
     implementation("io.springfox:springfox-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":spring-cloud-starter-config"))
     implementation(project(":spring-cloud-starter-discovery"))
     implementation("com.google.guava:guava")
