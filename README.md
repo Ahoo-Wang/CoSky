@@ -16,9 +16,9 @@ consistency between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.17";
-    implementation("me.ahoo.govern:spring-cloud-starter-config:${governVersion}")
-    implementation("me.ahoo.govern:spring-cloud-starter-discovery:${governVersion}")
+    val governVersion = "0.9.18";
+    implementation("me.ahoo.govern:spring-cloud-starter-govern-config:${governVersion}")
+    implementation("me.ahoo.govern:spring-cloud-starter-govern-discovery:${governVersion}")
 ```
 
 ### Maven
@@ -33,18 +33,18 @@ consistency between process cache and Redis.
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.17</govern.version>
+    <govern.version>0.9.18</govern.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>me.ahoo.govern</groupId>
-      <artifactId>spring-cloud-starter-config</artifactId>
+      <artifactId>spring-cloud-starter-govern-config</artifactId>
       <version>${govern.version}</version>
     </dependency>
     <dependency>
       <groupId>me.ahoo.govern</groupId>
-      <artifactId>spring-cloud-starter-discovery</artifactId>
+      <artifactId>spring-cloud-starter-govern-discovery</artifactId>
       <version>${govern.version}</version>
     </dependency>
   </dependencies>
@@ -77,31 +77,31 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.17/rest-api-0.9.17.tar)
+> Download [govern-rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.18/govern-rest-api-0.9.18.tar)
 
-> tar *rest-api-0.9.17.tar*
+> tar *govern-rest-api-0.9.18.tar*
 
 ```shell
-cd rest-api-0.9.17
-# Working directory: rest-api-0.9.17
-bin/rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
+cd govern-rest-api-0.9.18
+# Working directory: govern-rest-api-0.9.18
+bin/govern-rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker 
 
 ```shell
-docker pull ahoowang/govern-service:0.9.17
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.17
+docker pull ahoowang/govern-service:0.9.18
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.18
 ```
 
 ---
 > MacBook Pro (M1)
 >
-> Please use *ahoowang/govern-service:0.9.17-armv7*
+> Please use *ahoowang/govern-service:0.9.18-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.17-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.17-armv7
+docker pull ahoowang/govern-service:0.9.18-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.18-armv7
 ```
 
 #### Option 3：Run On Kubernetes
@@ -127,7 +127,7 @@ spec:
               value: standalone
             - name: GOVERN_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/govern-service:0.9.17
+          image: ahoowang/govern-service:0.9.18
           name: govern-service
           resources:
             limits:
@@ -241,7 +241,7 @@ gradle config:jmh
 # JMH version: 1.29
 # VM version: JDK 11.0.11, OpenJDK 64-Bit Server VM, 11.0.11+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
+# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/govern-config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
 # Warmup: 1 iterations, 10 s each
 # Measurement: 1 iterations, 10 s each
@@ -265,7 +265,7 @@ gradle discovery:jmh
 # JMH version: 1.29
 # VM version: JDK 11.0.11, OpenJDK 64-Bit Server VM, 11.0.11+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
+# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/govern-discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
 # Warmup: 1 iterations, 10 s each
 # Measurement: 1 iterations, 10 s each

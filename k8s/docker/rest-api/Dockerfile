@@ -1,8 +1,8 @@
-# docker buildx build --push --platform linux/arm/v7 --build-arg GOVERN_VERSION=0.9.17 --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.11_9-slim -t ahoowang/govern-service:0.9.17-armv7 .
-# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg GOVERN_VERSION=0.9.17 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/govern-service:0.9.17 .
+# docker buildx build --push --platform linux/arm/v7 --build-arg GOVERN_VERSION=0.9.18 --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.11_9-slim -t ahoowang/govern-service:0.9.18-armv7 .
+# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg GOVERN_VERSION=0.9.18 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/govern-service:0.9.18 .
 
 ARG JDK_VERSION=jdk11u-centos-nightly
-ARG GOVERN_VERSION=0.9.17
+ARG GOVERN_VERSION=0.9.18
 ARG GOVERN_SERVICE_HOME=/govern-service
 FROM adoptopenjdk/openjdk11:${JDK_VERSION} AS base
 
@@ -17,7 +17,7 @@ USER root
 WORKDIR ${GOVERN_SERVICE_HOME}
 
 ENV DOWN_URL=https://github.com/Ahoo-Wang/govern-service/releases/download
-ENV GOVERN_SERVICE_REST_API_TAR=rest-api-${GOVERN_VERSION}.tar
+ENV GOVERN_SERVICE_REST_API_TAR=govern-rest-api-${GOVERN_VERSION}.tar
 ENV GOVERN_SERVICE_REST_API_TAR_URI=${DOWN_URL}/${GOVERN_VERSION}/${GOVERN_SERVICE_REST_API_TAR}
 
 RUN echo "Downloading : ${GOVERN_SERVICE_REST_API_TAR_URI}"
@@ -32,7 +32,7 @@ ARG GOVERN_SERVICE_HOME
 LABEL maintainer="ahoowang@qq.com"
 COPY --from=build ${GOVERN_SERVICE_HOME} ${GOVERN_SERVICE_HOME}
 
-WORKDIR ${GOVERN_SERVICE_HOME}/rest-api-${GOVERN_VERSION}
+WORKDIR ${GOVERN_SERVICE_HOME}/govern-rest-api-${GOVERN_VERSION}
 EXPOSE 8080
 
-ENTRYPOINT ["bin/rest-api"]
+ENTRYPOINT ["bin/govern-rest-api"]

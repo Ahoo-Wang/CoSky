@@ -10,14 +10,14 @@ plugins {
 }
 
 val bomProjects = listOf(
-    project(":bom"),
-    project(":dependencies")
+    project(":govern-bom"),
+    project(":govern-dependencies")
 )
 val coreProjects = listOf(
-    project(":config"),
-    project(":discovery")
+    project(":govern-config"),
+    project(":govern-discovery")
 )
-val restApiProject = project(":rest-api")
+val restApiProject = project(":govern-rest-api")
 val publishProjects = subprojects - restApiProject
 val libraryProjects = publishProjects - bomProjects
 
@@ -61,7 +61,7 @@ configure(libraryProjects) {
 
     dependencies {
         val depLombok = "org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}"
-        this.add("api", platform(project(":dependencies")))
+        this.add("api", platform(project(":govern-dependencies")))
         this.add("compileOnly", depLombok)
         this.add("annotationProcessor", depLombok)
         this.add("testCompileOnly", depLombok)

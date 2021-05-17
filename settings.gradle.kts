@@ -8,15 +8,17 @@
  */
 rootProject.name = "govern-service"
 
-include(":discovery")
-include(":config")
-include(":core")
-include(":bom")
-include(":dependencies")
-include(":spring-cloud-govern-core")
-include(":spring-cloud-starter-discovery")
-include(":spring-cloud-starter-config")
-include(":rest-api")
+include(":govern-core")
+include(":govern-config")
+include(":govern-discovery")
+
+include(":govern-bom")
+include(":govern-dependencies")
+include(":govern-spring-cloud-core")
+include(":spring-cloud-starter-govern-discovery")
+include(":spring-cloud-starter-govern-config")
+include(":govern-rest-api")
+
 
 buildscript {
     repositories {
