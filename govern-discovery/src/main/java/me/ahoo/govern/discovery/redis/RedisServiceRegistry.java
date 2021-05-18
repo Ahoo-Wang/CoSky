@@ -56,9 +56,9 @@ public class RedisServiceRegistry implements ServiceRegistry {
                 */
                 serviceInstance.getSchema(),
                 /**
-                 * local ip = ARGV[5];
+                 * local host = ARGV[5];
                 */
-                serviceInstance.getIp(),
+                serviceInstance.getHost(),
                 /**
                  * local port = ARGV[6];
                 */

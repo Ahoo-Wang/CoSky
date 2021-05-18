@@ -18,7 +18,7 @@ public final class ServiceInstanceCodec {
     private static final String INSTANCE_ID = "instanceId";
     private static final String SERVICE_ID = "serviceId";
     private static final String SCHEMA = "schema";
-    private static final String IP = "ip";
+    private static final String HOST = "host";
     private static final String PORT = "port";
     private static final String WEIGHT = "weight";
     private static final String EPHEMERAL = "ephemeral";
@@ -30,7 +30,7 @@ public final class ServiceInstanceCodec {
         serviceInstanceData.put(INSTANCE_ID, serviceInstance.getInstanceId());
         serviceInstanceData.put(SERVICE_ID, serviceInstance.getServiceId());
         serviceInstanceData.put(SCHEMA, serviceInstance.getSchema());
-        serviceInstanceData.put(IP, serviceInstance.getIp());
+        serviceInstanceData.put(HOST, serviceInstance.getHost());
         serviceInstanceData.put(PORT, String.valueOf(serviceInstance.getPort()));
         serviceInstanceData.put(WEIGHT, String.valueOf(serviceInstance.getWeight()));
         serviceInstanceData.put(EPHEMERAL, String.valueOf(serviceInstance.isEphemeral()));
@@ -73,8 +73,8 @@ public final class ServiceInstanceCodec {
                     serviceInstance.setSchema(value);
                     break;
                 }
-                case IP: {
-                    serviceInstance.setIp(value);
+                case HOST: {
+                    serviceInstance.setHost(value);
                     break;
                 }
                 case PORT: {
@@ -114,7 +114,7 @@ public final class ServiceInstanceCodec {
         serviceInstance.setInstanceId(instanceData.get(INSTANCE_ID));
         serviceInstance.setServiceId(instanceData.get(SERVICE_ID));
         serviceInstance.setSchema(instanceData.get(SCHEMA));
-        serviceInstance.setIp(instanceData.get(IP));
+        serviceInstance.setHost(instanceData.get(HOST));
         serviceInstance.setPort(Integer.parseInt(instanceData.get(PORT)));
         serviceInstance.setWeight(Integer.parseInt(instanceData.get(WEIGHT)));
         serviceInstance.setEphemeral(Boolean.parseBoolean(instanceData.get(EPHEMERAL)));

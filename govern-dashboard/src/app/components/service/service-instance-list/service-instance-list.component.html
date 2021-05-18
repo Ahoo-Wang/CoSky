@@ -2,7 +2,7 @@
   <thead>
   <tr>
     <th>Schema</th>
-    <th>Ip</th>
+    <th>Host</th>
     <th>Port</th>
     <th>Weight</th>
     <th>Ephemeral</th>
@@ -14,7 +14,7 @@
   <tbody>
   <tr *ngFor="let instance of innerTable.data">
     <td>{{ instance.schema }}</td>
-    <td>{{ instance.ip }}</td>
+    <td>{{ instance.host }}</td>
     <td>{{ instance.port }}</td>
     <td>{{ instance.weight }}</td>
     <td>{{ instance.ephemeral }}</td>

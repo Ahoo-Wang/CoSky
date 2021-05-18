@@ -13,7 +13,7 @@ public class InstanceIdGeneratorTest {
         ServiceInstance serviceInstance = new ServiceInstance();
         serviceInstance.setServiceId("order_service");
         serviceInstance.setSchema("http");
-        serviceInstance.setIp("127.0.0.1");
+        serviceInstance.setHost("127.0.0.1");
         serviceInstance.setPort(8080);
 
         String expected = "order_service@http#127.0.0.1#8080";
@@ -31,7 +31,7 @@ public class InstanceIdGeneratorTest {
         Assertions.assertEquals(instanceId, instance.getInstanceId());
         Assertions.assertEquals("order_service", instance.getServiceId());
         Assertions.assertEquals("http", instance.getSchema());
-        Assertions.assertEquals("127.0.0.1", instance.getIp());
+        Assertions.assertEquals("127.0.0.1", instance.getHost());
         Assertions.assertEquals(8080, instance.getPort());
 
     }

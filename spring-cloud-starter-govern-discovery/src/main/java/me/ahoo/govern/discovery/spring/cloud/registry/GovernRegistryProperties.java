@@ -20,7 +20,7 @@ public class GovernRegistryProperties {
     private final InetUtils.HostInfo hostInfo;
     private String serviceId;
     private String schema = "http";
-    private String ip;
+    private String host;
     private int port;
 
     private int weight = 1;
@@ -38,7 +38,7 @@ public class GovernRegistryProperties {
 
     public GovernRegistryProperties(InetUtils inetUtils) {
         this.hostInfo = inetUtils.findFirstNonLoopbackHostInfo();
-        this.ip = this.hostInfo.getIpAddress();
+        this.host = this.hostInfo.getIpAddress();
         metadata.put(StatusConstants.INSTANCE_STATUS_KEY, initialStatus);
     }
 
@@ -58,12 +58,12 @@ public class GovernRegistryProperties {
         this.schema = schema;
     }
 
-    public String getIp() {
-        return ip;
+    public String getHost() {
+        return host;
     }
 
-    public void setIp(String ip) {
-        this.ip = ip;
+    public void setHost(String host) {
+        this.host = host;
     }
 
     public int getPort() {

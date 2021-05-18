@@ -14,17 +14,17 @@ public class Instance {
     private String instanceId;
     private String serviceId;
     private String schema;
-    private String ip;
+    private String host;
     private int port;
 
     /**
-     * Creates a URI from the given ServiceInstance's ip:port.
+     * Creates a URI from the given ServiceInstance's host:port.
      *
      * @param instance the ServiceInstance.
-     * @return URI of the form {{@link #schema}}://{@link #ip}:{@link #port}".
+     * @return URI of the form {{@link #schema}}://{@link #host}:{@link #port}".
      */
     public static URI getUri(Instance instance) {
-        String uri = Strings.lenientFormat("%s://%s:%s", instance.getSchema(), instance.getIp(), instance.getPort());
+        String uri = Strings.lenientFormat("%s://%s:%s", instance.getSchema(), instance.getHost(), instance.getPort());
         return URI.create(uri);
     }
 
@@ -44,8 +44,8 @@ public class Instance {
         return this.schema;
     }
 
-    public String getIp() {
-        return this.ip;
+    public String getHost() {
+        return this.host;
     }
 
     public int getPort() {
@@ -64,8 +64,8 @@ public class Instance {
         this.schema = schema.toLowerCase(Locale.ROOT);
     }
 
-    public void setIp(String ip) {
-        this.ip = ip;
+    public void setHost(String host) {
+        this.host = host;
     }
 
     public void setPort(int port) {

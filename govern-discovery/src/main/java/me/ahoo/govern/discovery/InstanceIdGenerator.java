@@ -14,7 +14,7 @@ public interface InstanceIdGenerator {
 
     class Default implements InstanceIdGenerator {
         /**
-         * {@link  ServiceInstance#getServiceId()}@{@link ServiceInstance#getSchema()}#{@link ServiceInstance#getIp()}#{@link ServiceInstance#getPort()}}
+         * {@link  ServiceInstance#getServiceId()}@{@link ServiceInstance#getSchema()}#{@link ServiceInstance#getHost()}#{@link ServiceInstance#getPort()}}
          * order_service@http#127.0.0.1#8088
          */
         public final static String ID_FORMAT = "%s@%s#%s#%s";
@@ -23,7 +23,7 @@ public interface InstanceIdGenerator {
             return Strings.lenientFormat(ID_FORMAT,
                     instance.getServiceId(),
                     instance.getSchema(),
-                    instance.getIp(),
+                    instance.getHost(),
                     instance.getPort()
             );
         }
@@ -41,7 +41,7 @@ public interface InstanceIdGenerator {
                 throw new IllegalArgumentException(Strings.lenientFormat("instanceId:[%s] format error.", instanceId));
             }
             instance.setSchema(instanceSpits[0]);
-            instance.setIp(instanceSpits[1]);
+            instance.setHost(instanceSpits[1]);
             instance.setPort(Integer.parseInt(instanceSpits[2]));
             return instance;
         }

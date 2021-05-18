@@ -71,8 +71,8 @@ public class GovernAutoServiceRegistrationAutoConfiguration {
             serviceInstance.setSchema(properties.getSchema());
         }
 
-        if (Strings.isNotBlank(properties.getIp())) {
-            serviceInstance.setIp(properties.getIp());
+        if (Strings.isNotBlank(properties.getHost())) {
+            serviceInstance.setHost(properties.getHost());
         }
         serviceInstance.setPort(properties.getPort());
         serviceInstance.setWeight(properties.getWeight());

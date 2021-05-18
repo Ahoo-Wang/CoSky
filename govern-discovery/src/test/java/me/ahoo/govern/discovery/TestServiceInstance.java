@@ -14,14 +14,14 @@ public final class TestServiceInstance {
     static {
         TEST_INSTANCE.setServiceId("test_service");
         TEST_INSTANCE.setSchema("http");
-        TEST_INSTANCE.setIp("127.0.0.1");
+        TEST_INSTANCE.setHost("127.0.0.1");
         TEST_INSTANCE.setPort(8080);
         TEST_INSTANCE.setInstanceId(InstanceIdGenerator.DEFAULT.generate(TEST_INSTANCE));
         TEST_INSTANCE.getMetadata().put("from", "test");
 
         TEST_FIXED_INSTANCE.setServiceId("test_fixed_service");
         TEST_FIXED_INSTANCE.setSchema("http");
-        TEST_FIXED_INSTANCE.setIp("127.0.0.2");
+        TEST_FIXED_INSTANCE.setHost("127.0.0.2");
         TEST_FIXED_INSTANCE.setPort(8080);
         TEST_FIXED_INSTANCE.setInstanceId(InstanceIdGenerator.DEFAULT.generate(TEST_FIXED_INSTANCE));
         TEST_FIXED_INSTANCE.setEphemeral(false);
@@ -33,7 +33,7 @@ public final class TestServiceInstance {
         var instance = new ServiceInstance();
         instance.setServiceId(serviceId);
         instance.setSchema("http");
-        instance.setIp("127.0.0.2");
+        instance.setHost("127.0.0.2");
         instance.setPort(ThreadLocalRandom.current().nextInt(65535));
         instance.setEphemeral(false);
         instance.getMetadata().put("from", "test");

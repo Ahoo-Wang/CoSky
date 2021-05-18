@@ -219,7 +219,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                             cachedInstances.add(registeredInstance);
                         } else {
                             cachedInstance.setSchema(registeredInstance.getSchema());
-                            cachedInstance.setIp(registeredInstance.getIp());
+                            cachedInstance.setHost(registeredInstance.getHost());
                             cachedInstance.setPort(registeredInstance.getPort());
                             cachedInstance.setEphemeral(registeredInstance.isEphemeral());
                             cachedInstance.setTtlAt(registeredInstance.getTtlAt());

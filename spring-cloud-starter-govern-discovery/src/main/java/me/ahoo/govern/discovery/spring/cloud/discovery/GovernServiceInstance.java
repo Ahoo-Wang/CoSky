@@ -36,7 +36,7 @@ public class GovernServiceInstance implements ServiceInstance {
      */
     @Override
     public String getHost() {
-        return serviceInstance.getIp();
+        return serviceInstance.getHost();
     }
 
     /**

@@ -2,7 +2,7 @@ export interface ServiceInstanceDto {
   instanceId: string;
   serviceId: string;
   schema: string;
-  ip: string;
+  host: string;
   port: number;
   weight: number;
   ephemeral: boolean;

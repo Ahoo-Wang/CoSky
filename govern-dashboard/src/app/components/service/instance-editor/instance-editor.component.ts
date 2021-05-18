@@ -32,7 +32,7 @@ export class InstanceEditorComponent implements OnInit {
       serviceId: [this.instance.serviceId],
       instanceId: [this.instance.instanceId],
       schema: [this.instance.schema, [Validators.required]],
-      ip: [this.instance.ip, [Validators.required]],
+      host: [this.instance.host, [Validators.required]],
       port: [this.instance.port, [Validators.required]],
       weight: [this.instance.weight, [Validators.required]],
       ephemeral: [this.instance.ephemeral, [Validators.required]],

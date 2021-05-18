@@ -8,7 +8,7 @@ export class Instances {
       instanceId: '',
       serviceId: '',
       schema: '',
-      ip: '',
+      host: '',
       port: 80,
       weight: 1,
       ephemeral: true,

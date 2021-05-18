@@ -30,7 +30,7 @@ public class GovernRegistration implements Registration {
      */
     @Override
     public String getHost() {
-        return serviceInstance.getIp();
+        return serviceInstance.getHost();
     }
 
     /**

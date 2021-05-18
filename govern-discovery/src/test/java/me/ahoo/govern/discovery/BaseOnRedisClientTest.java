@@ -39,7 +39,7 @@ public class BaseOnRedisClientTest {
         var randomInstance = new ServiceInstance();
         randomInstance.setServiceId(serviceId);
         randomInstance.setSchema("http");
-        randomInstance.setIp("127.0.0.1");
+        randomInstance.setHost("127.0.0.1");
         randomInstance.setPort(ThreadLocalRandom.current().nextInt(65535));
         randomInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(randomInstance));
         randomInstance.getMetadata().put("from", "test");
