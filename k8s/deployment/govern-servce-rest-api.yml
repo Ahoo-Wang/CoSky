@@ -20,7 +20,7 @@ spec:
               value: standalone
             - name: GOVERN_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/govern-service:0.9.17
+          image: ahoowang/govern-service:0.9.19
           name: govern-service
           resources:
             limits:
