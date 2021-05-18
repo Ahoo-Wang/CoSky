@@ -30,6 +30,10 @@ application {
         "-server",
         "-XX:+UseG1GC",
         "-Xlog:gc*:file=logs/${applicationName}-gc.log:time,tags:filecount=10,filesize=100M",
+        "-Dcom.sun.management.jmxremote",
+        "-Dcom.sun.management.jmxremote.authenticate=false",
+        "-Dcom.sun.management.jmxremote.ssl=false",
+        "-Dcom.sun.management.jmxremote.port=5555",
         "-Dspring.cloud.bootstrap.enabled=true",
         "-Dspring.cloud.bootstrap.location=config/bootstrap.yaml"
     )

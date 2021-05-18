@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: govern-service-rest-api
+  labels:
+    app: govern-service-rest-api
 spec:
   replicas: 1
   selector:

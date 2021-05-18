@@ -60,7 +60,7 @@
 <nz-dropdown-menu #searchMenu="nzDropdownMenu">
   <div class="ant-table-filter-dropdown">
     <div class="search-box">
-      <input type="text" nz-input placeholder="Search name" [(ngModel)]="searchValue"/>
+      <input type="text" nz-input placeholder="Search name" [(ngModel)]="searchValue" (keyup.enter)="search()" />
       <button nz-button nzSize="small" nzType="primary" (click)="search()" class="search-button">
         Search
       </button>
