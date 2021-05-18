@@ -9,7 +9,7 @@
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-label [nzSpan]="3">hash</nz-form-label>
+    <nz-form-label [nzSpan]="3">Hash</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
              [ngModel]="configHistory.hash" disabled
@@ -18,7 +18,7 @@
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-label [nzSpan]="3">version</nz-form-label>
+    <nz-form-label [nzSpan]="3">Version</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
              [ngModel]="configHistory.version" disabled
@@ -27,16 +27,16 @@
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-label [nzSpan]="3">createTime</nz-form-label>
+    <nz-form-label [nzSpan]="3">CreateTime</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
-             [ngModel]="configHistory.createTime" disabled
+             [ngModel]="configHistory.createTime * 1000 | date:'yyyy-MM-dd HH:mm:ss'" disabled
              [ngModelOptions]="{standalone: true}"
       />
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-label [nzSpan]="3">op</nz-form-label>
+    <nz-form-label [nzSpan]="3">Op</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
              [ngModel]="configHistory.op" disabled
@@ -45,10 +45,10 @@
     </nz-form-control>
   </nz-form-item>
   <nz-form-item>
-    <nz-form-label [nzSpan]="3">opTime</nz-form-label>
+    <nz-form-label [nzSpan]="3">OpTime</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
-             [ngModel]="configHistory.opTime" disabled
+             [ngModel]="configHistory.opTime * 1000 | date:'yyyy-MM-dd HH:mm:ss'" disabled
              [ngModelOptions]="{standalone: true}"
       />
     </nz-form-control>

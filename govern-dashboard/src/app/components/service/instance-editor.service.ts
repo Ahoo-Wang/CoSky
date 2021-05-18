@@ -17,10 +17,13 @@ export class InstanceEditorService {
     let editInstance = instance;
     if (!editInstance) {
       editInstance = Instances.of();
+      editInstance.schema = 'http';
+      editInstance.serviceId = serviceId;
+      editInstance.ephemeral = true;
+    } else {
+      editInstance = JSON.parse(JSON.stringify(instance));
     }
-    editInstance.schema = 'http';
-    editInstance.serviceId = serviceId;
-    editInstance.ephemeral = false;
+
     const drawerRef = this.drawerService.create<InstanceEditorComponent, { instance: ServiceInstanceDto }, string>({
       nzTitle: `Managing service[${serviceId}] instances`,
       nzWidth: '550px',

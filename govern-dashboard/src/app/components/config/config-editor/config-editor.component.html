@@ -32,7 +32,7 @@
     </nz-form-item>
   </ng-template>
   <nz-form-item *ngIf="!isAdd">
-    <nz-form-label [nzSpan]="3">hash</nz-form-label>
+    <nz-form-label [nzSpan]="3">Hash</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
              [ngModel]="config.hash" disabled
@@ -41,7 +41,7 @@
     </nz-form-control>
   </nz-form-item>
   <nz-form-item *ngIf="!isAdd">
-    <nz-form-label [nzSpan]="3">version</nz-form-label>
+    <nz-form-label [nzSpan]="3">Version</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
              [ngModel]="config.version" disabled
@@ -53,7 +53,7 @@
     <nz-form-label [nzSpan]="3">CreateTime</nz-form-label>
     <nz-form-control [nzSpan]="21">
       <input nz-input type="text"
-             [ngModel]="config.createTime" disabled
+             [ngModel]="config.createTime * 1000 | date:'yyyy-MM-dd HH:mm:ss'" disabled
              [ngModelOptions]="{standalone: true}"
       />
     </nz-form-control>
