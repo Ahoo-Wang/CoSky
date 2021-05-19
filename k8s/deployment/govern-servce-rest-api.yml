@@ -22,6 +22,9 @@ spec:
               value: redis://redis-uri:6379
           image: ahoowang/govern-service:0.9.19
           name: govern-service
+          ports:
+            - containerPort: 8080
+              protocol: TCP
           resources:
             limits:
               cpu: "1"
@@ -37,3 +40,20 @@ spec:
             path: /etc/localtime
             type: ""
           name: volume-localtime
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: govern-service-rest-api
+  labels:
+    app: govern-service-rest-api
+spec:
+  selector:
+    app: govern-service-rest-api
+  ports:
+    - name: rest
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+
