@@ -138,6 +138,22 @@ spec:
             path: /etc/localtime
             type: ""
           name: volume-localtime
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: govern-service-rest-api
+  labels:
+    app: govern-service-rest-api
+spec:
+  selector:
+    app: govern-service-rest-api
+  ports:
+    - name: rest
+      port: 80
+      protocol: TCP
+      targetPort: 8080
 ```
 
 
