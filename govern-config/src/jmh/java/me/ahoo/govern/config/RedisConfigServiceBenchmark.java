@@ -53,14 +53,14 @@ public class RedisConfigServiceBenchmark {
     }
 
     @Benchmark
-    public void setConfig() {
+    public Boolean setConfig() {
         String randomConfigId = String.valueOf(atomicInteger.incrementAndGet());
-        configService.setConfig(namespace, randomConfigId, configData).join();
+        return configService.setConfig(namespace, randomConfigId, configData).join();
     }
 
     @Benchmark
-    public void getConfig() {
-        configService.getConfig(namespace, configId).join();
+    public Config getConfig() {
+        return configService.getConfig(namespace, configId).join();
     }
 
 }

@@ -3,7 +3,6 @@ package me.ahoo.govern.config.redis;
 import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.hash.Hashing;
-import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
@@ -76,14 +75,11 @@ public class RedisConfigService implements ConfigService {
         if (log.isInfoEnabled()) {
             log.info("setConfig - configId:[{}] - hash:[{}]  @ namespace:[{}].", configId, hash, namespace);
         }
-
-        return ConfigRedisScripts.loadConfigSet(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {configId, data, hash};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
-                    return redisFuture;
-                });
+        return ConfigRedisScripts.doConfigSet(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {configId, data, hash};
+            return redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
+        });
     }
 
     @Override
@@ -96,14 +92,11 @@ public class RedisConfigService implements ConfigService {
         if (log.isInfoEnabled()) {
             log.info("removeConfig - configId:[{}] @ namespace:[{}].", configId, namespace);
         }
-
-        return ConfigRedisScripts.loadConfigRemove(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {configId};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
-                    return redisFuture;
-                });
+        return ConfigRedisScripts.doConfigRemove(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {configId};
+            return redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
+        });
     }
 
     @Override
@@ -122,14 +115,11 @@ public class RedisConfigService implements ConfigService {
         if (log.isInfoEnabled()) {
             log.info("rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].", configId, targetVersion, namespace);
         }
-
-        return ConfigRedisScripts.loadConfigRollback(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {configId, String.valueOf(targetVersion)};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
-                    return redisFuture;
-                });
+        return ConfigRedisScripts.doConfigRollback(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {configId, String.valueOf(targetVersion)};
+            return redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
+        });
     }
 
     private final static int HISTORY_STOP = HISTORY_SIZE - 1;

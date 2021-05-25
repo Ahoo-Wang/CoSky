@@ -40,7 +40,6 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
         consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()));
     }
 
-
     @Test
     public void getServices() {
         registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {

@@ -11,7 +11,7 @@
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.19";
+    val governVersion = "0.9.20";
     implementation("me.ahoo.govern:spring-cloud-starter-govern-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-govern-discovery:${governVersion}")
 ```
@@ -28,7 +28,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.19</govern.version>
+    <govern.version>0.9.20</govern.version>
   </properties>
 
   <dependencies>
@@ -72,30 +72,30 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.19/govern-rest-api-0.9.19.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.20/govern-rest-api-0.9.20.tar)
 
-> 解压 *govern-rest-api-0.9.19.tar*
+> 解压 *govern-rest-api-0.9.20.tar*
 
 ```shell
-cd govern-rest-api-0.9.19
-# 工作目录: govern-rest-api-0.9.19
+cd govern-rest-api-0.9.20
+# 工作目录: govern-rest-api-0.9.20
 bin/govern-rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/govern-service:0.9.19
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.19
+docker pull ahoowang/govern-service:0.9.20
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.20
 ```
 ---
 > MacBook Pro (M1)
 >
-> 请使用 *ahoowang/govern-service:0.9.19-armv7*
+> 请使用 *ahoowang/govern-service:0.9.20-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.19-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.19-armv7
+docker pull ahoowang/govern-service:0.9.20-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.20-armv7
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -121,7 +121,7 @@ spec:
               value: standalone
             - name: GOVERN_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/govern-service:0.9.19
+          image: ahoowang/govern-service:0.9.20
           name: govern-service
           resources:
             limits:
@@ -245,7 +245,9 @@ spec:
 ### ConfigService
 
 ``` shell
-gradle config:jmh
+gradle govern-config:jmh
+# or
+java -jar govern-config/build/libs/govern-config-0.9.20-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
@@ -269,7 +271,9 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ### ServiceDiscovery
 
 ``` shell
-gradle discovery:jmh
+gradle govern-discovery:jmh
+# or
+java -jar govern-discovery/build/libs/govern-discovery-0.9.20-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```

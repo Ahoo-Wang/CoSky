@@ -84,7 +84,7 @@ public class RenewInstanceService {
                         if (log.isWarnEnabled()) {
                             log.warn("renew - failed.", ex);
                         }
-                        return null;
+                        return Boolean.FALSE;
                     });
         }
         CompletableFuture.allOf(renewFutures).thenAccept((nil) -> {

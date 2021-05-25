@@ -64,7 +64,7 @@ public class ConsistencyRedisConfigServiceBenchmark {
     }
 
     @Benchmark
-    public void getConfig() {
-        configService.getConfig(namespace, configId).join();
+    public Config getConfig() {
+        return configService.getConfig(namespace, configId).join();
     }
 }

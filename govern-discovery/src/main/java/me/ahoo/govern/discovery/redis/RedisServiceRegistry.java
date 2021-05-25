@@ -30,7 +30,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
         this.redisCommands = redisCommands;
     }
 
-    private CompletableFuture<Boolean> register0(String namespace, String scriptSha, ServiceInstance serviceInstance) {
+    private RedisFuture<Boolean> register0(String namespace, String scriptSha, ServiceInstance serviceInstance) {
         /**
          * KEYS[1]
          */
@@ -72,8 +72,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
         String[] values = ServiceInstanceCodec.encodeMetadata(infoArgs, serviceInstance.getMetadata());
 
-        RedisFuture<Boolean> redisFuture = redisCommands.evalsha(scriptSha, ScriptOutputType.BOOLEAN, keys, values);
-        return redisFuture.toCompletableFuture();
+        return redisCommands.evalsha(scriptSha, ScriptOutputType.BOOLEAN, keys, values);
     }
 
     @Override
@@ -82,8 +81,8 @@ public class RedisServiceRegistry implements ServiceRegistry {
             log.info("setService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
         }
 
-        return DiscoveryRedisScripts.loadRegistrySetService(redisCommands)
-                .thenCompose(sha -> redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, new String[]{namespace}, serviceId));
+        return DiscoveryRedisScripts.doRegistrySetService(redisCommands,
+                sha -> redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, new String[]{namespace}, serviceId));
 
     }
 
@@ -93,8 +92,8 @@ public class RedisServiceRegistry implements ServiceRegistry {
             log.info("removeService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
         }
 
-        return DiscoveryRedisScripts.loadRegistryRemoveService(redisCommands)
-                .thenCompose(sha -> redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, new String[]{namespace}, serviceId));
+        return DiscoveryRedisScripts.doRegistryRemoveService(redisCommands,
+                sha -> redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, new String[]{namespace}, serviceId));
     }
 
     /**
@@ -112,8 +111,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
         }
 
         addEphemeralInstance(namespace, serviceInstance);
-        return DiscoveryRedisScripts.loadRegistryRegister(redisCommands)
-                .thenCompose(sha -> register0(namespace, sha, serviceInstance));
+        return DiscoveryRedisScripts.doRegistryRegister(redisCommands, sha -> register0(namespace, sha, serviceInstance));
     }
 
     private void addEphemeralInstance(String namespace, ServiceInstance serviceInstance) {
@@ -174,9 +172,8 @@ public class RedisServiceRegistry implements ServiceRegistry {
             log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
         }
         String[] keys = {namespace};
-        return DiscoveryRedisScripts.loadRegistrySetMetadata(redisCommands)
-                .thenCompose(sha ->
-                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, args));
+        return DiscoveryRedisScripts.doRegistrySetMetadata(redisCommands, sha ->
+                redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, args));
     }
 
 
@@ -197,9 +194,8 @@ public class RedisServiceRegistry implements ServiceRegistry {
         }
         String[] keys = {namespace};
         String[] values = {serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl())};
-        return DiscoveryRedisScripts.loadRegistryRenew(redisCommands)
-                .thenCompose(sha ->
-                        redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values));
+        return DiscoveryRedisScripts.doRegistryRenew(redisCommands, sha ->
+                redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values));
     }
 
 
@@ -219,13 +215,11 @@ public class RedisServiceRegistry implements ServiceRegistry {
     }
 
     private CompletableFuture<Boolean> deregister0(String namespace, String serviceId, String instanceId) {
-        return DiscoveryRedisScripts.loadRegistryDeregister(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {serviceId, instanceId};
-                    RedisFuture<Boolean> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
-                    return redisFuture;
-                });
+        return DiscoveryRedisScripts.doRegistryDeregister(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {serviceId, instanceId};
+            return redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values);
+        });
     }
 
     @Override

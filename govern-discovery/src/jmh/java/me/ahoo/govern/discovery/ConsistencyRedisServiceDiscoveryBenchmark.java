@@ -9,7 +9,9 @@ import me.ahoo.govern.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.govern.discovery.redis.RedisServiceRegistry;
 import org.openjdk.jmh.annotations.*;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * @author ahoo wang
@@ -24,7 +26,7 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
 
     @Setup
     public void setup() {
-        System.out.println("\n ----- RedisServiceDiscoveryBenchmark setup ----- \n");
+        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark setup ----- \n");
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
 
@@ -38,7 +40,7 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
 
     @TearDown
     public void tearDown() {
-        System.out.println("\n ----- RedisServiceDiscoveryBenchmark tearDown ----- \n");
+        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark tearDown ----- \n");
         if (Objects.nonNull(redisConnection)) {
             redisConnection.close();
         }
@@ -55,12 +57,12 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
     }
 
     @Benchmark
-    public void getServices() {
-        serviceDiscovery.getServices(namespace).join();
+    public Set<String> getServices() {
+        return serviceDiscovery.getServices(namespace).join();
     }
 
     @Benchmark
-    public void getInstances() {
-        serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).join();
+    public List<ServiceInstance> getInstances() {
+        return serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).join();
     }
 }

@@ -66,9 +66,8 @@ public class RedisServiceStatistic implements ServiceStatistic {
         } else {
             values = new String[]{};
         }
-        return DiscoveryRedisScripts.loadServiceStat(redisCommands).thenCompose(sha ->
-                redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values)
-        );
+        return DiscoveryRedisScripts.doServiceStat(redisCommands, sha ->
+                redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values));
     }
 
     public CompletableFuture<Long> countService(String namespace) {

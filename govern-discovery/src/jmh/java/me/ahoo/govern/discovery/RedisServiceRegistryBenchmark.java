@@ -40,18 +40,18 @@ public class RedisServiceRegistryBenchmark {
     }
 
     @Benchmark
-    public void register() {
-        serviceRegistry.register(namespace, TestServiceInstance.TEST_INSTANCE).join();
+    public Boolean register() {
+        return serviceRegistry.register(namespace, TestServiceInstance.TEST_INSTANCE).join();
     }
 
     @Benchmark
-    public void deregister() {
-        serviceRegistry.deregister(namespace, TestServiceInstance.TEST_INSTANCE).join();
+    public Boolean deregister() {
+        return serviceRegistry.deregister(namespace, TestServiceInstance.TEST_INSTANCE).join();
     }
 
     @Benchmark
-    public void renew() {
-        serviceRegistry.renew(namespace, TestServiceInstance.TEST_INSTANCE).join();
+    public Boolean renew() {
+        return serviceRegistry.renew(namespace, TestServiceInstance.TEST_INSTANCE).join();
     }
 
 }

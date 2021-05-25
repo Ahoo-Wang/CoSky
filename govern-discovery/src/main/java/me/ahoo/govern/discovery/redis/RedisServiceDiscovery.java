@@ -1,6 +1,5 @@
 package me.ahoo.govern.discovery.redis;
 
-import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
@@ -33,49 +32,43 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
-        return DiscoveryRedisScripts.loadDiscoveryGetInstances(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {serviceId};
-                    RedisFuture<List<List<String>>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, keys, values);
-                    return redisFuture;
-                })
-                .thenApply(instanceGroups -> {
-                    if (Objects.isNull(instanceGroups)) {
-                        return Collections.emptyList();
-                    }
-                    ArrayList<ServiceInstance> instances = new ArrayList<>(instanceGroups.size());
-                    instanceGroups.forEach(instanceData -> instances.add(ServiceInstanceCodec.decode(instanceData)));
-                    return instances;
-                });
+        return DiscoveryRedisScripts.doDiscoveryGetInstances(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {serviceId};
+            return redisCommands.<List<List<String>>>evalsha(sha, ScriptOutputType.MULTI, keys, values);
+        })
+        .thenApply(instanceGroups -> {
+            if (Objects.isNull(instanceGroups)) {
+                return Collections.emptyList();
+            }
+            ArrayList<ServiceInstance> instances = new ArrayList<>(instanceGroups.size());
+            instanceGroups.forEach(instanceData -> instances.add(ServiceInstanceCodec.decode(instanceData)));
+            return instances;
+        });
     }
 
     @Override
     public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
-        return DiscoveryRedisScripts.loadDiscoveryGetInstance(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {serviceId, instanceId};
-                    RedisFuture<List<String>> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.MULTI, keys, values);
-                    return redisFuture;
-                })
-                .thenApply(instanceData -> {
-                    if (Objects.isNull(instanceData)) {
-                        return null;
-                    }
-                    return ServiceInstanceCodec.decode(instanceData);
-                });
+        return DiscoveryRedisScripts.doDiscoveryGetInstance(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {serviceId, instanceId};
+            return redisCommands.<List<String>>evalsha(sha, ScriptOutputType.MULTI, keys, values);
+        })
+        .thenApply(instanceData -> {
+            if (Objects.isNull(instanceData)) {
+                return null;
+            }
+            return ServiceInstanceCodec.decode(instanceData);
+        });
     }
 
     @Override
     public CompletableFuture<Long> getInstanceTtl(String namespace, String serviceId, String instanceId) {
-        return DiscoveryRedisScripts.loadDiscoveryGetInstanceTtl(redisCommands)
-                .thenCompose(sha -> {
-                    String[] keys = {namespace};
-                    String[] values = {serviceId, instanceId};
-                    RedisFuture<Long> redisFuture = redisCommands.evalsha(sha, ScriptOutputType.INTEGER, keys, values);
-                    return redisFuture;
-                });
+        return DiscoveryRedisScripts.doDiscoveryGetInstanceTtl(redisCommands, sha -> {
+            String[] keys = {namespace};
+            String[] values = {serviceId, instanceId};
+            return redisCommands.evalsha(sha, ScriptOutputType.INTEGER, keys, values);
+        });
     }
 
     @Override

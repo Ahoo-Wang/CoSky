@@ -5,6 +5,7 @@ import me.ahoo.govern.core.NamespaceService;
 import me.ahoo.govern.core.NamespacedContext;
 import me.ahoo.govern.core.listener.MessageListenable;
 import me.ahoo.govern.core.redis.RedisNamespaceService;
+import me.ahoo.govern.core.redis.RedisScriptInitializer;
 import me.ahoo.govern.spring.cloud.support.RedisClientSupport;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -27,6 +28,12 @@ public class GovernAutoConfiguration {
     @ConditionalOnMissingBean
     public AbstractRedisClient redisClient(GovernProperties governProperties) {
         return RedisClientSupport.redisClient(governProperties.getRedis());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RedisScriptInitializer redisScriptInitializer(AbstractRedisClient abstractRedisClient) {
+        return new RedisScriptInitializer(abstractRedisClient);
     }
 
     @Bean
