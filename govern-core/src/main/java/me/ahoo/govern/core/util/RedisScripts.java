@@ -9,8 +9,10 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.async.RedisScriptingAsyncCommands;
 import io.lettuce.core.internal.Exceptions;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -18,6 +20,7 @@ import java.util.function.Function;
 /**
  * @author ahoo wang
  */
+@Slf4j
 public final class RedisScripts {
     private static final String WARN_CLEAR_TEST_DATA = "warn_clear_test_data.lua";
     public static final ConcurrentHashMap<String, CompletableFuture<String>> scriptMapSha = new ConcurrentHashMap<>();
@@ -32,13 +35,28 @@ public final class RedisScripts {
     }
 
     public static void clearScript() {
+        if (log.isInfoEnabled()) {
+            log.info("clearScript");
+        }
         scriptMapSha.clear();
     }
 
     public static CompletableFuture<String> loadScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
+
         return scriptMapSha.computeIfAbsent(scriptName, (key) -> {
+            if (log.isInfoEnabled()) {
+                log.info("loadScript - scriptName : [{}].", scriptName);
+            }
             String script = getScript(key);
-            return scriptingCommands.scriptLoad(script).toCompletableFuture();
+
+            String scriptSha = scriptingCommands.digest(script);
+            return scriptingCommands.scriptExists(scriptSha).thenCompose(existsList -> {
+                boolean isExists = existsList.get(0);
+                if (isExists) {
+                    return CompletableFuture.completedFuture(scriptSha);
+                }
+                return scriptingCommands.scriptLoad(script).toCompletableFuture();
+            }).toCompletableFuture();
         });
     }
 
@@ -51,22 +69,56 @@ public final class RedisScripts {
      */
     public static CompletableFuture<String> reloadScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
         return scriptMapSha.compute(scriptName, (key, result) -> {
+            if (log.isInfoEnabled()) {
+                log.info("reloadScript - scriptName : [{}].", scriptName);
+            }
             String script = getScript(key);
             return scriptingCommands.scriptLoad(script).toCompletableFuture();
         });
     }
 
     public static <T> CompletableFuture<T> doEnsureScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
-        return loadScript(scriptName, scriptingCommands).thenCompose(sha -> {
-            RedisFuture<T> doFuture = doSha.apply(sha);
-            doFuture.exceptionally(throwable -> {
-                if (Exceptions.unwrap(throwable) instanceof RedisNoScriptException) {
-                    reloadScript(scriptName, scriptingCommands);
-                }
-                throw Exceptions.bubble(throwable);
-            });
-            return doFuture.toCompletableFuture();
-        });
+        CompletableFuture<T> ensureFuture = new CompletableFuture<>();
+        loadScript(scriptName, scriptingCommands)
+                .whenComplete((sha, loadScriptException) -> {
+
+                    if (Objects.nonNull(loadScriptException)) {
+                        ensureFuture.completeExceptionally(loadScriptException);
+                        return;
+                    }
+
+                    doSha.apply(sha).whenComplete((result, throwable) -> {
+                        if (Objects.isNull(throwable)) {
+                            ensureFuture.complete(result);
+                            return;
+                        }
+
+                        boolean isRedisNoScript = Exceptions.unwrap(throwable) instanceof RedisNoScriptException;
+
+                        if (!isRedisNoScript) {
+                            ensureFuture.completeExceptionally(throwable);
+                            return;
+                        }
+
+                        reloadScript(scriptName, scriptingCommands).whenComplete((reloadSha, reloadException) -> {
+
+                            if (Objects.nonNull(reloadException)) {
+                                ensureFuture.completeExceptionally(reloadException);
+                                return;
+                            }
+
+                            doSha.apply(reloadSha).whenComplete((retryResult, retryException) -> {
+                                if (Objects.nonNull(retryException)) {
+                                    ensureFuture.completeExceptionally(retryException);
+                                    return;
+                                }
+                                ensureFuture.complete(retryResult);
+                            });
+                        });
+                    });
+                });
+
+        return ensureFuture;
     }
 
 
@@ -80,6 +132,9 @@ public final class RedisScripts {
     @Deprecated
     @VisibleForTesting
     public static CompletableFuture<Void> clearTestData(String namespace, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
+        if (log.isWarnEnabled()) {
+            log.warn("clearTestData - namespace : [{}].", namespace);
+        }
         return RedisScripts.loadScript(WARN_CLEAR_TEST_DATA, scriptingCommands)
                 .thenCompose(sha -> scriptingCommands.evalsha(sha, ScriptOutputType.STATUS, new String[]{namespace}));
     }

@@ -35,8 +35,8 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Set<String>> getConfigs(String namespace) {
-        if (log.isInfoEnabled()) {
-            log.info("getConfigs  @ namespace:[{}].", namespace);
+        if (log.isDebugEnabled()) {
+            log.debug("getConfigs  @ namespace:[{}].", namespace);
         }
         var configIdxKey = ConfigKeyGenerator.getConfigIdxKey(namespace);
         return redisCommands.smembers(configIdxKey).thenApply(configKeySet ->
@@ -52,8 +52,8 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Config> getConfig(String namespace, String configId) {
-        if (log.isInfoEnabled()) {
-            log.info("getConfig - configId:[{}]  @ namespace:[{}].", configId, namespace);
+        if (log.isDebugEnabled()) {
+            log.debug("getConfig - configId:[{}]  @ namespace:[{}].", configId, namespace);
         }
         var configKey = ConfigKeyGenerator.getConfigKey(namespace, configId);
         return getAndDecodeConfig(configKey, ConfigCodec::decode);

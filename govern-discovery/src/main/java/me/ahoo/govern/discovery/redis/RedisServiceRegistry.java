@@ -88,8 +88,8 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> removeService(String namespace, String serviceId) {
-        if (log.isInfoEnabled()) {
-            log.info("removeService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
+        if (log.isWarnEnabled()) {
+            log.warn("removeService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
         }
 
         return DiscoveryRedisScripts.doRegistryRemoveService(redisCommands,
@@ -184,12 +184,14 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> renew(String namespace, ServiceInstance serviceInstance) {
-        if (log.isInfoEnabled()) {
-            log.info("renew - instanceId:[{}] @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
+        if (log.isDebugEnabled()) {
+            log.debug("renew - instanceId:[{}] @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
         }
 
         if (!serviceInstance.isEphemeral()) {
-            log.warn("renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.", serviceInstance.getInstanceId(), namespace);
+            if (log.isWarnEnabled()) {
+                log.warn("renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.", serviceInstance.getInstanceId(), namespace);
+            }
             return CompletableFuture.completedFuture(Boolean.FALSE);
         }
         String[] keys = {namespace};

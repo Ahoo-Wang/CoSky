@@ -3,15 +3,12 @@ package me.ahoo.govern.core.redis;
 import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.RedisChannelHandler;
 import io.lettuce.core.RedisConnectionStateListener;
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.govern.core.util.RedisScripts;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.SocketAddress;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author ahoo wang
@@ -48,8 +45,6 @@ public class RedisScriptInitializer implements Closeable {
 
     private static class RedisStateListener implements RedisConnectionStateListener {
 
-        private final Set<Object> connectedMap = ConcurrentHashMap.newKeySet();
-
         /**
          * Event handler for disconnection event.
          *
@@ -57,17 +52,15 @@ public class RedisScriptInitializer implements Closeable {
          */
         @Override
         public void onRedisDisconnected(RedisChannelHandler<?, ?> connection) {
-        }
 
-        @Override
-        public void onRedisConnected(RedisChannelHandler<?, ?> connection, SocketAddress socketAddress) {
-            var added = connectedMap.add(connection);
-            if (!added) {
-                if (log.isWarnEnabled()) {
-                    log.warn("onRedisConnected - [{}] - [{}] - RedisScripts.clearScript.", connection, socketAddress);
-                }
-                RedisScripts.clearScript();
+            if (connection instanceof StatefulRedisPubSubConnection) {
+                return;
             }
+
+            if (log.isWarnEnabled()) {
+                log.warn("onRedisDisconnected - [{}] - RedisScripts.clearScript.", connection);
+            }
+            RedisScripts.clearScript();
         }
 
         /**

@@ -24,6 +24,8 @@ public class ScriptTest {
 
     @Test
     void testReturnBoolean() {
+
+
         Boolean negativeOne = redisCommands.eval("return -1;", ScriptOutputType.BOOLEAN);
         Assertions.assertFalse(negativeOne);
         Boolean zero = redisCommands.eval("return 0;", ScriptOutputType.BOOLEAN);

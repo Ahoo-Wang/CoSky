@@ -16,7 +16,7 @@ consistency between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.20";
+    val governVersion = "0.9.22";
     implementation("me.ahoo.govern:spring-cloud-starter-govern-config:${governVersion}")
     implementation("me.ahoo.govern:spring-cloud-starter-govern-discovery:${governVersion}")
 ```
@@ -33,7 +33,7 @@ consistency between process cache and Redis.
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.20</govern.version>
+    <govern.version>0.9.22</govern.version>
   </properties>
 
   <dependencies>
@@ -77,31 +77,31 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [govern-rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.20/govern-rest-api-0.9.20.tar)
+> Download [govern-rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.22/govern-rest-api-0.9.22.tar)
 
-> tar *govern-rest-api-0.9.20.tar*
+> tar *govern-rest-api-0.9.22.tar*
 
 ```shell
-cd govern-rest-api-0.9.20
-# Working directory: govern-rest-api-0.9.20
+cd govern-rest-api-0.9.22
+# Working directory: govern-rest-api-0.9.22
 bin/govern-rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker 
 
 ```shell
-docker pull ahoowang/govern-service:0.9.20
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.20
+docker pull ahoowang/govern-service:0.9.22
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.22
 ```
 
 ---
 > MacBook Pro (M1)
 >
-> Please use *ahoowang/govern-service:0.9.20-armv7*
+> Please use *ahoowang/govern-service:0.9.22-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.20-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.20-armv7
+docker pull ahoowang/govern-service:0.9.22-armv7
+docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.22-armv7
 ```
 
 #### Option 3：Run On Kubernetes
@@ -127,7 +127,7 @@ spec:
               value: standalone
             - name: GOVERN_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/govern-service:0.9.20
+          image: ahoowang/govern-service:0.9.22
           name: govern-service
           resources:
             limits:
@@ -252,7 +252,7 @@ spec:
 ``` shell
 gradle govern-config:jmh
 # or
-java -jar govern-config/build/libs/govern-config-0.9.20-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar govern-config/build/libs/govern-config-0.9.22-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
@@ -278,7 +278,7 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ``` shell
 gradle govern-discovery:jmh
 # or
-java -jar govern-discovery/build/libs/govern-discovery-0.9.20-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar govern-discovery/build/libs/govern-discovery-0.9.22-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```

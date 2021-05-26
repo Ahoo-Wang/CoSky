@@ -20,7 +20,7 @@ spec:
               value: standalone
             - name: GOVERN_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/govern-service:0.9.20
+          image: ahoowang/govern-service:0.9.22
           name: govern-service
           ports:
             - containerPort: 8080

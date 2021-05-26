@@ -64,13 +64,13 @@ public class RenewInstanceService {
         final int times = renewCounter.incrementAndGet();
         final Stopwatch stopwatch = Stopwatch.createStarted();
         final Set<NamespacedServiceInstance> instances = serviceRegistry.getRegisteredEphemeralInstances();
-        if (log.isInfoEnabled()) {
-            log.info("renew - instances size:{} start - times@[{}] .", instances.size(), times);
+        if (log.isDebugEnabled()) {
+            log.debug("renew - instances size:{} start - times@[{}] .", instances.size(), times);
         }
 
         if (instances.isEmpty()) {
-            if (log.isInfoEnabled()) {
-                log.info("renew - instances size:{} end - times@[{}] .", instances.size(), times);
+            if (log.isDebugEnabled()) {
+                log.debug("renew - instances size:{} end - times@[{}] .", instances.size(), times);
             }
             return;
         }
@@ -88,8 +88,8 @@ public class RenewInstanceService {
                     });
         }
         CompletableFuture.allOf(renewFutures).thenAccept((nil) -> {
-            if (log.isInfoEnabled()) {
-                log.info("renew - instances size:{} start - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
+            if (log.isDebugEnabled()) {
+                log.debug("renew - instances size:{} start - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
             }
         });
     }
