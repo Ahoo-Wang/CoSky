@@ -1,6 +1,6 @@
 # CoSky On Redis (Service Discovery and Configuration Service)
 
-> **C**on**s**ul + S**ky** = **CoSky**
+> **Co**n**s**ul + S**ky** = **CoSky**
 
 > [中文文档](./README.zh-CN.md)
 
