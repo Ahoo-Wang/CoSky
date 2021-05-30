@@ -5,7 +5,7 @@ package me.ahoo.cosky.rest.dto;
  */
 public class GetStatResponse {
     private int namespaces;
-    private int services;
+    private Services services;
     private int instances;
     private int configs;
 
@@ -17,11 +17,11 @@ public class GetStatResponse {
         this.namespaces = namespaces;
     }
 
-    public int getServices() {
+    public Services getServices() {
         return services;
     }
 
-    public void setServices(int services) {
+    public void setServices(Services services) {
         this.services = services;
     }
 
@@ -39,5 +39,26 @@ public class GetStatResponse {
 
     public void setConfigs(int configs) {
         this.configs = configs;
+    }
+
+    public static class Services {
+        private int total;
+        private int health;
+
+        public int getTotal() {
+            return total;
+        }
+
+        public void setTotal(int total) {
+            this.total = total;
+        }
+
+        public int getHealth() {
+            return health;
+        }
+
+        public void setHealth(int health) {
+            this.health = health;
+        }
     }
 }

@@ -1,22 +1,40 @@
-<nz-row class="content" [nzGutter]="16">
-  <nz-col [nzSpan]="6">
-    <nz-card routerLink="/namespace">
-      <nz-statistic [nzValue]="(stat.namespaces | number)!" nzTitle="Namespaces"></nz-statistic>
-    </nz-card>
-  </nz-col>
-  <nz-col [nzSpan]="6">
-    <nz-card routerLink="/service">
-      <nz-statistic [nzValue]="(stat.services | number)!" nzTitle="Services"></nz-statistic>
-    </nz-card>
-  </nz-col>
-  <nz-col [nzSpan]="6">
-    <nz-card routerLink="/service">
-      <nz-statistic [nzValue]="(stat.instances | number)!" nzTitle="Instances"></nz-statistic>
-    </nz-card>
-  </nz-col>
-  <nz-col [nzSpan]="6">
-    <nz-card routerLink="/config">
-      <nz-statistic [nzValue]="(stat.configs | number)!" nzTitle="Configs"></nz-statistic>
-    </nz-card>
-  </nz-col>
-</nz-row>
+<div class="content">
+  <nz-row [nzGutter]="16">
+    <nz-col [nzSpan]="8">
+      <nz-card routerLink="/namespace">
+        <nz-statistic [nzValue]="(stat.namespaces | number)!" nzTitle="Namespaces"></nz-statistic>
+      </nz-card>
+    </nz-col>
+    <nz-col [nzSpan]="8">
+      <nz-card routerLink="/service">
+        <nz-statistic [nzValue]="(stat.instances | number)!" nzTitle="Instances"></nz-statistic>
+      </nz-card>
+    </nz-col>
+    <nz-col [nzSpan]="8">
+      <nz-card routerLink="/config">
+        <nz-statistic [nzValue]="(stat.configs | number)!" nzTitle="Configs"></nz-statistic>
+      </nz-card>
+    </nz-col>
+  </nz-row>
+  <nz-divider nzText="Services"></nz-divider>
+  <nz-row [nzGutter]="16">
+    <nz-col [nzSpan]="8">
+      <nz-card routerLink="/service">
+        <nz-statistic [nzValue]="(stat.services.total | number)!" nzTitle="Total Services"></nz-statistic>
+      </nz-card>
+    </nz-col>
+    <nz-col [nzSpan]="8">
+      <nz-card routerLink="/service">
+        <nz-statistic [nzValue]="(stat.services.health | number)!" nzTitle="Healthy Services (Instances > 0)"
+                      [nzValueStyle]="{ color: '#3F8600' }"></nz-statistic>
+      </nz-card>
+    </nz-col>
+    <nz-col [nzSpan]="8">
+      <nz-card routerLink="/service">
+        <nz-statistic [nzValue]="(stat.services.total-stat.services.health | number)!"
+                      [nzValueStyle]="{ color: '#CF1322' }"
+                      nzTitle="Unhealthy Services (Instances = 0)"></nz-statistic>
+      </nz-card>
+    </nz-col>
+  </nz-row>
+</div>

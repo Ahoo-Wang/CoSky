@@ -16,7 +16,8 @@ export class ServiceComponent implements OnInit {
   services: ServiceStatDto[] = [];
   displayServices!: RowExpand<ServiceStatDto>[];
   searchVisible = false;
-  searchValue = '';
+  searchServiceId = '';
+  instanceSortOrder = 'ascend';
 
   constructor(private namespaceContext: NamespaceContext,
               private serviceClient: ServiceClient,
@@ -47,16 +48,16 @@ export class ServiceComponent implements OnInit {
 
   search(): void {
     this.searchVisible = false;
-    if (this.searchValue.length === 0) {
+    if (this.searchServiceId.length === 0) {
       this.displayServices = this.asDisplayData(this.services);
       return;
     }
-    this.displayServices = this.services.filter((item) => item.serviceId.indexOf(this.searchValue) !== -1)
+    this.displayServices = this.services.filter((item) => item.serviceId.indexOf(this.searchServiceId) !== -1)
       .map(item => RowExpand.of(item));
   }
 
   reset(): void {
-    this.searchValue = '';
+    this.searchServiceId = '';
     this.search();
   }
 
@@ -82,5 +83,9 @@ export class ServiceComponent implements OnInit {
 
   openEditInstance(serviceId: string, instance?: ServiceInstanceDto): void {
     this.instanceEditorService.openEditInstance(serviceId, instance, result => this.getServices());
+  }
+
+  compareInstanceCount(left: RowExpand<ServiceStatDto>, right: RowExpand<ServiceStatDto>) {
+    return left.data.instanceCount - right.data.instanceCount;
   }
 }

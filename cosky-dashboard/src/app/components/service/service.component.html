@@ -13,12 +13,12 @@
   <thead>
   <tr>
     <th>Service Id
-      <nz-filter-trigger [(nzVisible)]="searchVisible" [nzActive]="searchValue.length > 0"
+      <nz-filter-trigger [(nzVisible)]="searchVisible" [nzActive]="searchServiceId.length > 0"
                          [nzDropdownMenu]="searchMenu">
         <i nz-icon nzType="search"></i>
       </nz-filter-trigger>
     </th>
-    <th>Instance Count</th>
+    <th [nzSortOrder]="instanceSortOrder" [nzSortFn]="compareInstanceCount">Instance Count</th>
     <th>Action</th>
     <th>Expand all instances</th>
   </tr>
@@ -60,7 +60,8 @@
 <nz-dropdown-menu #searchMenu="nzDropdownMenu">
   <div class="ant-table-filter-dropdown">
     <div class="search-box">
-      <input type="text" nz-input placeholder="Search name" [(ngModel)]="searchValue" (keyup.enter)="search()" />
+      <input type="text" nz-input placeholder="Search serviceId" [(ngModel)]="searchServiceId"
+             (keyup.enter)="search()"/>
       <button nz-button nzSize="small" nzType="primary" (click)="search()" class="search-button">
         Search
       </button>

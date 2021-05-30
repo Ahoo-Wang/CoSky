@@ -20,7 +20,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.0.0
+          image: ahoowang/cosky-rest-api:1.0.1
           name: cosky-rest-api
           ports:
             - containerPort: 8080
