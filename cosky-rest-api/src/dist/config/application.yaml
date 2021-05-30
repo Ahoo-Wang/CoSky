@@ -1,0 +1,12 @@
+spring:
+  cloud:
+    cosky:
+      discovery:
+        registry:
+          weight: 8
+  web:
+    resources:
+      static-locations: file:./dashboard/
+  servlet:
+    multipart:
+      max-file-size: 10MB

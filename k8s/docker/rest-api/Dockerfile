@@ -1,38 +1,38 @@
-# docker buildx build --push --platform linux/arm/v7 --build-arg GOVERN_VERSION=0.9.22 --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.11_9-slim -t ahoowang/govern-service:0.9.22-armv7 .
-# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg GOVERN_VERSION=0.9.22 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/govern-service:0.9.22 .
+# docker buildx build --push --platform linux/arm/v7 --build-arg COSKY_VERSION=1.0.0 --build-arg JDK_VERSION=armv7l-centos-jdk-11.0.11_9-slim -t ahoowang/cosky-rest-api:1.0.0-armv7 .
+# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg COSKY_VERSION=1.0.0 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/cosky-rest-api:1.0.0 .
 
-ARG JDK_VERSION=jdk11u-centos-nightly
-ARG GOVERN_VERSION=0.9.22
-ARG GOVERN_SERVICE_HOME=/govern-service
+ARG JDK_VERSION=jdk11u-centos-nightly-slim
+ARG COSKY_VERSION=1.0.0
+ARG COSKY_HOME=/cosky
 FROM adoptopenjdk/openjdk11:${JDK_VERSION} AS base
 
-ARG GOVERN_VERSION
-RUN echo "Building Govern-Service ${GOVERN_VERSION}"
+ARG COSKY_VERSION
+RUN echo "Building CoSky-REST-API ${COSKY_VERSION}"
 
 FROM curlimages/curl as build
-ARG GOVERN_VERSION
-ARG GOVERN_SERVICE_HOME
+ARG COSKY_VERSION
+ARG COSKY_HOME
 USER root
 
-WORKDIR ${GOVERN_SERVICE_HOME}
+WORKDIR ${COSKY_HOME}
 
-ENV DOWN_URL=https://github.com/Ahoo-Wang/govern-service/releases/download
-ENV GOVERN_SERVICE_REST_API_TAR=govern-rest-api-${GOVERN_VERSION}.tar
-ENV GOVERN_SERVICE_REST_API_TAR_URI=${DOWN_URL}/${GOVERN_VERSION}/${GOVERN_SERVICE_REST_API_TAR}
+ENV DOWN_URL=https://github.com/Ahoo-Wang/cosky/releases/download
+ENV COSKY_REST_API_TAR=cosky-rest-api-${COSKY_VERSION}.tar
+ENV COSKY_REST_API_TAR_URI=${DOWN_URL}/${COSKY_VERSION}/${COSKY_REST_API_TAR}
 
-RUN echo "Downloading : ${GOVERN_SERVICE_REST_API_TAR_URI}"
-RUN curl -L ${GOVERN_SERVICE_REST_API_TAR_URI} -o ${GOVERN_SERVICE_REST_API_TAR} ;\
-        tar -xvf ${GOVERN_SERVICE_REST_API_TAR};\
-        rm ${GOVERN_SERVICE_REST_API_TAR}
+RUN echo "Downloading : ${COSKY_REST_API_TAR_URI}"
+RUN curl -L ${COSKY_REST_API_TAR_URI} -o ${COSKY_REST_API_TAR} ;\
+        tar -xvf ${COSKY_REST_API_TAR};\
+        rm ${COSKY_REST_API_TAR}
 
 FROM base as run
-ARG GOVERN_VERSION
-ARG GOVERN_SERVICE_HOME
+ARG COSKY_VERSION
+ARG COSKY_HOME
 
 LABEL maintainer="ahoowang@qq.com"
-COPY --from=build ${GOVERN_SERVICE_HOME} ${GOVERN_SERVICE_HOME}
+COPY --from=build ${COSKY_HOME} ${COSKY_HOME}
 
-WORKDIR ${GOVERN_SERVICE_HOME}/govern-rest-api-${GOVERN_VERSION}
+WORKDIR ${COSKY_HOME}/cosky-rest-api-${COSKY_VERSION}
 EXPOSE 8080
 
-ENTRYPOINT ["bin/govern-rest-api"]
+ENTRYPOINT ["bin/cosky-rest-api"]

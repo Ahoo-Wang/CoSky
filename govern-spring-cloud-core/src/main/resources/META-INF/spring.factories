@@ -1,7 +1,0 @@
-# Bootstrap Configuration
-org.springframework.cloud.bootstrap.BootstrapConfiguration=\
-me.ahoo.govern.spring.cloud.GovernAutoConfiguration
-
-# Auto Configuration
-org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-me.ahoo.govern.spring.cloud.GovernAutoConfiguration

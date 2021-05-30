@@ -6,18 +6,17 @@
  * Detailed information about configuring a multi-project build in Gradle can be found
  * in the user manual at https://docs.gradle.org/7.0/userguide/multi_project_builds.html
  */
-rootProject.name = "govern-service"
+rootProject.name = "cosky"
 
-include(":govern-core")
-include(":govern-config")
-include(":govern-discovery")
-
-include(":govern-bom")
-include(":govern-dependencies")
-include(":govern-spring-cloud-core")
-include(":spring-cloud-starter-govern-discovery")
-include(":spring-cloud-starter-govern-config")
-include(":govern-rest-api")
+include(":cosky-core")
+include(":cosky-config")
+include(":cosky-discovery")
+include(":cosky-bom")
+include(":cosky-dependencies")
+include(":cosky-spring-cloud-core")
+include(":spring-cloud-starter-cosky-discovery")
+include(":spring-cloud-starter-cosky-config")
+include(":cosky-rest-api")
 
 
 buildscript {

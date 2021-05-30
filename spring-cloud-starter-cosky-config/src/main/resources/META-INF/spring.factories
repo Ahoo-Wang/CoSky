@@ -1,0 +1,8 @@
+# Bootstrap Configuration
+org.springframework.cloud.bootstrap.BootstrapConfiguration=\
+me.ahoo.cosky.config.spring.cloud.CoskyConfigBootstrapConfiguration
+
+# Auto Configuration
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+me.ahoo.cosky.config.spring.cloud.CoskyConfigAutoConfiguration
+

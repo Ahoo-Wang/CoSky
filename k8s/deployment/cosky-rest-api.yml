@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cosky-rest-api
+  labels:
+    app: cosky-rest-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cosky-rest-api
+  template:
+    metadata:
+      labels:
+        app: cosky-rest-api
+    spec:
+      containers:
+        - env:
+            - name: COSKY_REDIS_MODE
+              value: standalone
+            - name: COSKY_REDIS_URI
+              value: redis://redis-uri:6379
+          image: ahoowang/cosky-rest-api:1.0.0
+          name: cosky-rest-api
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 762Mi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: volume-localtime
+      volumes:
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: volume-localtime
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cosky-rest-api
+  labels:
+    app: cosky-rest-api
+spec:
+  selector:
+    app: cosky-rest-api
+  ports:
+    - name: rest
+      port: 80
+      protocol: TCP
+      targetPort: 8080
+

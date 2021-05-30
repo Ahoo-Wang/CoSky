@@ -1,7 +1,9 @@
-# Govern Service 基于 Redis 的服务治理平台（服务注册/发现 & 配置中心）
+# CoSky 基于 Redis 的服务治理平台（服务注册/发现 & 配置中心）
 
-*Govern Service* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。
-借助于 Redis 的高性能， *Govern Service* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*Govern Service* 结合本地进程缓存策略 + *Redis PubSub*
+> **C**on**s**ul + S**ky** = **CoSky**
+
+*CoSky* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。
+借助于 Redis 的高性能， *CoSky* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*
 ，实现实时进程缓存刷新，兼具无与伦比的QPS性能、进程缓存与 Redis 的实时一致性。
 
 ## 安装
@@ -11,9 +13,9 @@
 > Kotlin DSL
 
 ``` kotlin
-    val governVersion = "0.9.22";
-    implementation("me.ahoo.govern:spring-cloud-starter-govern-config:${governVersion}")
-    implementation("me.ahoo.govern:spring-cloud-starter-govern-discovery:${governVersion}")
+    val coskyVersion = "1.0.0";
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
 ```
 
 ### Maven
@@ -28,19 +30,19 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <govern.version>0.9.22</govern.version>
+    <cosky.version>1.0.0</cosky.version>
   </properties>
 
   <dependencies>
     <dependency>
-      <groupId>me.ahoo.govern</groupId>
-      <artifactId>spring-cloud-starter-govern-config</artifactId>
-      <version>${govern.version}</version>
+      <groupId>me.ahoo.cosky</groupId>
+      <artifactId>spring-cloud-starter-cosky-config</artifactId>
+      <version>${cosky.version}</version>
     </dependency>
     <dependency>
-      <groupId>me.ahoo.govern</groupId>
-      <artifactId>spring-cloud-starter-govern-discovery</artifactId>
-      <version>${govern.version}</version>
+      <groupId>me.ahoo.cosky</groupId>
+      <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+      <version>${cosky.version}</version>
     </dependency>
   </dependencies>
 
@@ -52,15 +54,15 @@
 ```yaml
 spring:
   application:
-    name: ${service.name:govern-rest-api}
+    name: ${service.name:cosky-rest-api}
   cloud:
-    govern:
-      namespace: ${govern.namespace:govern-{system}}
+    cosky:
+      namespace: ${cosky.namespace:cosky-{system}}
       config:
         config-id: ${spring.application.name}.yaml
       redis:
-        mode: ${govern.redis.mode:standalone}
-        url: ${govern.redis.uri:redis://localhost:6379}
+        mode: ${cosky.redis.mode:standalone}
+        url: ${cosky.redis.uri:redis://localhost:6379}
 logging:
   file:
     name: logs/${spring.application.name}.log
@@ -72,30 +74,30 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/govern-service/releases/download/0.9.22/govern-rest-api-0.9.22.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.0.0/cosky-rest-api-1.0.0.tar)
 
-> 解压 *govern-rest-api-0.9.22.tar*
+> 解压 *cosky-rest-api-1.0.0.tar*
 
 ```shell
-cd govern-rest-api-0.9.22
-# 工作目录: govern-rest-api-0.9.22
-bin/govern-rest-api --server.port=8080 --govern.redis.uri=redis://localhost:6379
+cd cosky-rest-api-1.0.0
+# 工作目录: cosky-rest-api-1.0.0
+bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/govern-service:0.9.22
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.22
+docker pull ahoowang/cosky-rest-api:1.0.0
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.0.0
 ```
 ---
 > MacBook Pro (M1)
 >
-> 请使用 *ahoowang/govern-service:0.9.22-armv7*
+> 请使用 *ahoowang/cosky-rest-api:1.0.0-armv7*
 
 ```shell
-docker pull ahoowang/govern-service:0.9.22-armv7
-docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_URI=redis://redis:6379  ahoowang/govern-service:0.9.22-armv7
+docker pull ahoowang/cosky-rest-api:1.0.0-armv7
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.0.0-armv7
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -104,25 +106,25 @@ docker run --name govern-service -d -p 8080:8080 --link redis -e GOVERN_REDIS_UR
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: govern-service-rest-api
+  name: cosky-rest-api
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: govern-service-rest-api
+      app: cosky-rest-api
   template:
     metadata:
       labels:
-        app: govern-service-rest-api
+        app: cosky-rest-api
     spec:
       containers:
         - env:
-            - name: GOVERN_REDIS_MODE
+            - name: COSKY_REDIS_MODE
               value: standalone
-            - name: GOVERN_REDIS_URI
+            - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/govern-service:0.9.22
-          name: govern-service
+          image: ahoowang/cosky-rest-api:1.0.0
+          name: cosky-rest-api
           resources:
             limits:
               cpu: "1"
@@ -143,12 +145,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: govern-service-rest-api
+  name: cosky-rest-api
   labels:
-    app: govern-service-rest-api
+    app: cosky-rest-api
 spec:
   selector:
-    app: govern-service-rest-api
+    app: cosky-rest-api
   ports:
     - name: rest
       port: 80
@@ -177,7 +179,7 @@ spec:
 ---
 ![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
 ---
-![dashboard-config-import](./docs/dashboard-config-import.png)
+![dashboard-config-import](./docs/dashboard-config-import.gif)
 
 #### 服务管理
 
@@ -245,16 +247,16 @@ spec:
 ### ConfigService
 
 ``` shell
-gradle govern-config:jmh
+gradle cosky-config:jmh
 # or
-java -jar govern-config/build/libs/govern-config-0.9.22-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.0.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
 # VM version: JDK 11.0.11, OpenJDK 64-Bit Server VM, 11.0.11+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
+# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
 # Warmup: 1 iterations, 10 s each
 # Measurement: 1 iterations, 10 s each
@@ -271,16 +273,16 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ### ServiceDiscovery
 
 ``` shell
-gradle govern-discovery:jmh
+gradle cosky-discovery:jmh
 # or
-java -jar govern-discovery/build/libs/govern-discovery-0.9.22-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.0.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
 # VM version: JDK 11.0.11, OpenJDK 64-Bit Server VM, 11.0.11+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/govern-service/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
+# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
 # Warmup: 1 iterations, 10 s each
 # Measurement: 1 iterations, 10 s each
@@ -297,7 +299,3 @@ RedisServiceRegistryBenchmark.deregister                thrpt          114094.51
 RedisServiceRegistryBenchmark.register                  thrpt          109085.694          ops/s
 RedisServiceRegistryBenchmark.renew                     thrpt          127003.104          ops/s
 ```
-
-## TODO
-
-1. Grayscale Publishing

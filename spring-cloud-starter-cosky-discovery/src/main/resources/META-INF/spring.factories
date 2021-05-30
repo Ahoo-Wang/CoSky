@@ -1,0 +1,5 @@
+# Auto Configuration
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+me.ahoo.cosky.discovery.spring.cloud.discovery.CoskyDiscoveryAutoConfiguration,\
+me.ahoo.cosky.discovery.spring.cloud.registry.CoskyAutoServiceRegistrationAutoConfiguration
+
