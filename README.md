@@ -96,9 +96,8 @@ docker pull ahoowang/cosky-rest-api:1.0.0
 docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.0.0
 ```
 
----
-> MacBook Pro (M1)
->
+##### MacBook Pro (M1)
+
 > Please use *ahoowang/cosky-rest-api:1.0.0-armv7*
 
 ```shell
@@ -164,11 +163,9 @@ spec:
       targetPort: 8080
 ```
 
----
+### Dashboard
 
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
-
-### Dashboard
 
 ![dashboard-dashboard](./docs/dashboard-dashboard.png)
 
@@ -179,24 +176,32 @@ spec:
 #### Config
 
 ![dashboard-config](./docs/dashboard-config.png)
----
+
+##### Edit configuration
+
 ![dashboard-config-edit](./docs/dashboard-config-edit.png)
----
+
+##### Rollback configuration
+
 ![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
----
+
+##### Import configuration from Nacos
+
 ![dashboard-config-import](./docs/dashboard-config-import.gif)
 
 #### Service
 
 ![dashboard-service](./docs/dashboard-service.png)
----
+
+##### Edit Service Instance
+
 ![dashboard-service-edit](./docs/dashboard-service-edit.png)
 
 ### REST-API
 
 > http://localhost:8080/swagger-ui/index.html#/
 
-##### Namespace
+#### Namespace
 
 ![rest-api-namespace](./docs/rest-api-namespace.png)
 
@@ -210,7 +215,7 @@ spec:
 - /v1/namespaces/current/{namespace}
     - PUT
 
-##### Config
+#### Config
 
 ![rest-api-config](./docs/rest-api-config.png)
 

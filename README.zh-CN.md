@@ -90,9 +90,9 @@ bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 docker pull ahoowang/cosky-rest-api:1.0.0
 docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.0.0
 ```
----
-> MacBook Pro (M1)
->
+
+##### MacBook Pro (M1)
+
 > 请使用 *ahoowang/cosky-rest-api:1.0.0-armv7*
 
 ```shell
@@ -158,12 +158,9 @@ spec:
       targetPort: 8080
 ```
 
-
----
+### Dashboard
 
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
-
-### Dashboard
 
 ![dashboard-dashboard](./docs/dashboard-dashboard.png)
 
@@ -174,17 +171,25 @@ spec:
 #### 配置管理
 
 ![dashboard-config](./docs/dashboard-config.png)
----
+
+##### 编辑配置
+
 ![dashboard-config-edit](./docs/dashboard-config-edit.png)
----
+
+##### 回滚配置
+
 ![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
----
+
+##### 从Nacos导入配置
+
 ![dashboard-config-import](./docs/dashboard-config-import.gif)
 
 #### 服务管理
 
 ![dashboard-service](./docs/dashboard-service.png)
----
+
+##### 编辑服务实例信息
+
 ![dashboard-service-edit](./docs/dashboard-service-edit.png)
 
 ### REST-API
