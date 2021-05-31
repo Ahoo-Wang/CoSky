@@ -6,8 +6,6 @@
 借助于 Redis 的高性能， *CoSky* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*
 ，实现实时进程缓存刷新，兼具无与伦比的QPS性能、进程缓存与 Redis 的实时一致性。
 
-## 架构
-
 ### 服务注册与发现
 
 ![CoSky-Discovery](./docs/CoSky-Discovery.png)
