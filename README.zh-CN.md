@@ -190,7 +190,7 @@ spec:
 
 ![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
 
-##### 从Nacos导入配置
+##### 从 Nacos 导入配置
 
 ![dashboard-config-import](./docs/dashboard-config-import.gif)
 
