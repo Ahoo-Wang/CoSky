@@ -10,3 +10,6 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
+  mvc:
+    async:
+      request-timeout: 5s

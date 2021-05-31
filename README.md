@@ -11,6 +11,16 @@ provides ultra-high TPS&QPS (10W+/s [JMH Benchmark](#jmh-benchmark)). *CoSky* co
 Redis PubSub* to achieve real-time process cache refresh, with unparalleled QPS performance and real-time consistency
 between process cache and Redis.
 
+## Architecture
+
+### Service Discovery
+
+![CoSky-Discovery](./docs/CoSky-Discovery.png)
+
+### Configuration
+
+![CoSky-Configuration](./docs/CoSky-Configuration.png)
+
 ## Installation
 
 ### Gradle
