@@ -9,7 +9,7 @@ import java.util.Map;
  * @author ahoo wang
  */
 public class CoskyServiceInstance implements ServiceInstance {
-    private me.ahoo.cosky.discovery.ServiceInstance serviceInstance;
+    private final me.ahoo.cosky.discovery.ServiceInstance serviceInstance;
 
     public CoskyServiceInstance(me.ahoo.cosky.discovery.ServiceInstance serviceInstance) {
         this.serviceInstance = serviceInstance;
@@ -77,5 +77,9 @@ public class CoskyServiceInstance implements ServiceInstance {
     @Override
     public String getScheme() {
         return serviceInstance.getSchema();
+    }
+
+    public me.ahoo.cosky.discovery.ServiceInstance of() {
+        return serviceInstance;
     }
 }

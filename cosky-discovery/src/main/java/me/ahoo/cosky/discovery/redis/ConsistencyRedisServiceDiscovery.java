@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -186,6 +187,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
             var serviceId = instance.getServiceId();
 
             var namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
+            AtomicReference<ServiceChangedEvent> serviceChangedEvent = new AtomicReference<>(ServiceChangedEvent.of(namespacedServiceId, message, instance));
             var serviceChangedListeners = serviceMapListener.get(namespacedServiceId);
 
             var instancesFuture = serviceMapInstances.get(namespacedServiceId);
@@ -194,7 +196,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                 if (log.isInfoEnabled()) {
                     log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] instancesFuture is null.", topic, channel, message);
                 }
-                invokeChanged(message, namespacedServiceId, serviceChangedListeners);
+                invokeChanged(serviceChangedEvent.get(), serviceChangedListeners);
                 return;
             }
 
@@ -210,7 +212,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                         .filter(itc -> itc.getInstanceId().equals(instanceId))
                         .findFirst().orElse(ServiceInstance.NOT_FOUND);
 
-                if (ServiceChangedListener.REGISTER.equals(message)) {
+                if (ServiceChangedEvent.REGISTER.equals(message)) {
                     if (log.isInfoEnabled()) {
                         log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] add registered Instance.", topic, channel, message);
                     }
@@ -229,7 +231,6 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                     });
                 }
 
-
                 if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
                     if (log.isWarnEnabled()) {
                         log.warn("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] not found cached Instance.", topic, channel, message);
@@ -238,23 +239,24 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                 }
 
                 switch (message) {
-                    case ServiceChangedListener.RENEW: {
+                    case ServiceChangedEvent.RENEW: {
                         if (log.isInfoEnabled()) {
                             log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setTtlAt.", topic, channel, message);
                         }
                         return delegate.getInstanceTtl(namespace, serviceId, instanceId).thenAccept(nextTtlAt -> cachedInstance.setTtlAt(nextTtlAt));
                     }
-                    case ServiceChangedListener.SET_METADATA: {
+                    case ServiceChangedEvent.SET_METADATA: {
                         if (log.isInfoEnabled()) {
                             log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setMetadata.", topic, channel, message);
                         }
                         return delegate.getInstance(namespace, serviceId, instanceId).thenAccept(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
                     }
-                    case ServiceChangedListener.DEREGISTER:
-                    case ServiceChangedListener.EXPIRED: {
+                    case ServiceChangedEvent.DEREGISTER:
+                    case ServiceChangedEvent.EXPIRED: {
                         if (log.isInfoEnabled()) {
                             log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] remove instance.", topic, channel, message);
                         }
+                        serviceChangedEvent.set(ServiceChangedEvent.of(namespacedServiceId, message, cachedInstance));
                         cachedInstances.remove(cachedInstance);
                         return CompletableFuture.completedFuture(null);
                     }
@@ -262,12 +264,12 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                         throw new IllegalStateException("Unexpected value: " + message);
                 }
 
-            }).thenAccept(nil -> invokeChanged(message, namespacedServiceId, serviceChangedListeners));
+            }).thenAccept(nil -> invokeChanged(serviceChangedEvent.get(), serviceChangedListeners));
         }
 
-        private void invokeChanged(String message, NamespacedServiceId namespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners) {
+        private void invokeChanged(ServiceChangedEvent serviceChangedEvent, CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners) {
             if (Objects.nonNull(serviceChangedListeners) && !serviceChangedListeners.isEmpty()) {
-                serviceChangedListeners.forEach(serviceChangedListener -> serviceChangedListener.onChange(namespacedServiceId, message));
+                serviceChangedListeners.forEach(serviceChangedListener -> serviceChangedListener.onChange(serviceChangedEvent));
             }
         }
     }

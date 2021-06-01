@@ -1,17 +1,16 @@
 package me.ahoo.cosky.discovery.redis;
 
+import com.google.common.base.Strings;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
-import me.ahoo.cosky.discovery.*;
 import me.ahoo.cosky.core.NamespacedContext;
+import me.ahoo.cosky.discovery.*;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author ahoo wang
@@ -21,11 +20,11 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     private final RegistryProperties registryProperties;
     private final RedisClusterAsyncCommands<String, String> redisCommands;
-    private final CopyOnWriteArraySet<NamespacedServiceInstance> registeredEphemeralInstances;
+    private final ConcurrentHashMap<NamespacedInstanceId, ServiceInstance> registeredEphemeralInstances;
 
     public RedisServiceRegistry(RegistryProperties registryProperties,
                                 RedisClusterAsyncCommands<String, String> redisCommands) {
-        this.registeredEphemeralInstances = new CopyOnWriteArraySet<>();
+        this.registeredEphemeralInstances = new ConcurrentHashMap<>();
         this.registryProperties = registryProperties;
         this.redisCommands = redisCommands;
     }
@@ -106,6 +105,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> register(String namespace, ServiceInstance serviceInstance) {
+        ensureInstanceId(serviceInstance);
         if (log.isInfoEnabled()) {
             log.info("register - instanceId:[{}]  @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
         }
@@ -114,21 +114,21 @@ public class RedisServiceRegistry implements ServiceRegistry {
         return DiscoveryRedisScripts.doRegistryRegister(redisCommands, sha -> register0(namespace, sha, serviceInstance));
     }
 
+    private void ensureInstanceId(ServiceInstance serviceInstance) {
+        if (Strings.isNullOrEmpty(serviceInstance.getInstanceId())) {
+            serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance));
+        }
+    }
+
     private void addEphemeralInstance(String namespace, ServiceInstance serviceInstance) {
         if (!serviceInstance.isEphemeral()) {
             return;
         }
-        registeredEphemeralInstances.add(NamespacedServiceInstance.of(namespace, serviceInstance));
+        registeredEphemeralInstances.put(NamespacedInstanceId.of(namespace, serviceInstance.getInstanceId()), serviceInstance);
     }
 
     private void removeEphemeralInstance(String namespace, String instanceId) {
-        var serviceInstanceOp = registeredEphemeralInstances.stream()
-                .filter(namespacedServiceInstance -> namespacedServiceInstance.getNamespace().equals(namespace) &&
-                        instanceId.equals(namespacedServiceInstance.getServiceInstance().getInstanceId()))
-                .findFirst();
-        if (serviceInstanceOp.isPresent()) {
-            registeredEphemeralInstances.remove(serviceInstanceOp.get());
-        }
+        registeredEphemeralInstances.remove(NamespacedInstanceId.of(namespace, instanceId));
     }
 
     private void removeEphemeralInstance(String namespace, ServiceInstance serviceInstance) {
@@ -136,11 +136,11 @@ public class RedisServiceRegistry implements ServiceRegistry {
             return;
         }
 
-        registeredEphemeralInstances.remove(NamespacedServiceInstance.of(namespace, serviceInstance));
+        registeredEphemeralInstances.remove(NamespacedInstanceId.of(namespace, serviceInstance.getInstanceId()));
     }
 
     @Override
-    public Set<NamespacedServiceInstance> getRegisteredEphemeralInstances() {
+    public Map<NamespacedInstanceId, ServiceInstance> getRegisteredEphemeralInstances() {
         return registeredEphemeralInstances;
     }
 
@@ -231,6 +231,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> deregister(String namespace, ServiceInstance serviceInstance) {
+        ensureInstanceId(serviceInstance);
         if (log.isInfoEnabled()) {
             log.info("deregister - instanceId:[{}] @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
         }

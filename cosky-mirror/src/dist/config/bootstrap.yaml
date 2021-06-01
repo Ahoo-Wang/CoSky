@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: ${service.name:cosky-mirror}
+  cloud:
+    cosky:
+      namespace: ${cosky.namespace:dev}
+      config:
+        config-id: ${spring.application.name}.yaml
+      redis:
+        mode: ${cosky.redis.mode:standalone}
+        url: ${cosky.redis.uri:redis://localhost:6379}
+logging:
+  file:
+    name: logs/${spring.application.name}.log

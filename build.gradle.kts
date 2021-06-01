@@ -18,7 +18,9 @@ val coreProjects = listOf(
     project(":cosky-discovery")
 )
 val restApiProject = project(":cosky-rest-api")
-val publishProjects = subprojects - restApiProject
+val mirrorProject = project(":cosky-mirror")
+val serverProjects = listOf(restApiProject, mirrorProject)
+val publishProjects = subprojects - serverProjects
 val libraryProjects = publishProjects - bomProjects
 
 ext {
@@ -28,6 +30,7 @@ ext {
     set("jmhVersion", "1.29")
     set("guavaVersion", "30.0-jre")
     set("springfoxVersion", "3.0.0")
+    set("metricsVersion", "4.2.0")
     set("libraryProjects", libraryProjects)
 }
 

@@ -20,6 +20,7 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationP
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * @author ahoo wang
@@ -42,6 +43,7 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     }
 
     @Bean
+    @Primary
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
                                                      AbstractRedisClient redisClient) {
         RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
@@ -54,8 +56,9 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     }
 
     @Bean
+    @Primary
     @ConditionalOnMissingBean(CoskyRegistration.class)
-    public CoskyRegistration governRegistration(
+    public CoskyRegistration coskyRegistration(
             ApplicationContext context, CoskyRegistryProperties properties) {
         ServiceInstance serviceInstance = new ServiceInstance();
         serviceInstance.setMetadata(properties.getMetadata());
@@ -82,11 +85,13 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     }
 
     @Bean
-    public CoskyServiceRegistry governServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService, CoskyRegistryProperties governRegistryProperties) {
+    @Primary
+    public CoskyServiceRegistry coskyServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService, CoskyRegistryProperties governRegistryProperties) {
         return new CoskyServiceRegistry(serviceRegistry, renewInstanceService, governRegistryProperties);
     }
 
     @Bean
+    @Primary
     public CoskyAutoServiceRegistration governAutoServiceRegistration(
             CoskyServiceRegistry serviceRegistry,
             CoskyRegistration registration,

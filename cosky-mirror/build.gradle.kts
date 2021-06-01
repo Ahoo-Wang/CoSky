@@ -12,17 +12,8 @@ tasks.jar.configure {
     exclude("application.yaml", "bootstrap.yaml")
 }
 
-distributions {
-    main {
-        contents {
-            val dashboardDistPath = "${rootDir.absolutePath}/cosky-dashboard/dist";
-            from(dashboardDistPath).include("**")
-        }
-    }
-}
-
 application {
-    mainClass.set("me.ahoo.cosky.rest.RestApiServer")
+    mainClass.set("me.ahoo.cosky.mirror.CoskyMirrorServer")
 
     applicationDefaultJvmArgs = listOf(
         "-Xms512M",
@@ -42,15 +33,10 @@ application {
 
 dependencies {
     implementation(platform(project(":cosky-dependencies")))
-    implementation("io.springfox:springfox-boot-starter")
-    implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
-    implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
-//    implementation("io.dropwizard.metrics:metrics-core")
-//    implementation("io.dropwizard.metrics:metrics-jvm")
+    implementation("com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:2021.1")
     compileOnly("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
     annotationProcessor("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")

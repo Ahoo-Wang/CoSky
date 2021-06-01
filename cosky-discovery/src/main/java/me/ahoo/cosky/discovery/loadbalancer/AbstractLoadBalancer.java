@@ -1,6 +1,8 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
+import lombok.var;
 import me.ahoo.cosky.discovery.NamespacedServiceId;
+import me.ahoo.cosky.discovery.ServiceChangedEvent;
 import me.ahoo.cosky.discovery.ServiceChangedListener;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
@@ -39,7 +41,8 @@ public abstract class AbstractLoadBalancer<Chooser extends LoadBalancer.Chooser>
     private class Listener implements ServiceChangedListener {
 
         @Override
-        public void onChange(NamespacedServiceId namespacedServiceId, String op) {
+        public void onChange(ServiceChangedEvent serviceChangedEvent) {
+            var namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
             serviceMapChooser.computeIfPresent(namespacedServiceId, (key, value) -> serviceDiscovery.getInstances(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId())
                     .thenApply(serviceInstances -> createChooser(serviceInstances)));
 

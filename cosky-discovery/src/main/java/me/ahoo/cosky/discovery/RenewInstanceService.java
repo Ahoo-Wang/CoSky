@@ -5,7 +5,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -63,7 +63,7 @@ public class RenewInstanceService {
     private void renew() {
         final int times = renewCounter.incrementAndGet();
         final Stopwatch stopwatch = Stopwatch.createStarted();
-        final Set<NamespacedServiceInstance> instances = serviceRegistry.getRegisteredEphemeralInstances();
+        final Map<NamespacedInstanceId, ServiceInstance> instances = serviceRegistry.getRegisteredEphemeralInstances();
         if (log.isDebugEnabled()) {
             log.debug("renew - instances size:{} start - times@[{}] .", instances.size(), times);
         }
@@ -76,10 +76,11 @@ public class RenewInstanceService {
         }
 
         CompletableFuture<Boolean>[] renewFutures = new CompletableFuture[instances.size()];
-        var instanceIterator = instances.iterator();
+
+        var instanceIterator = instances.entrySet().iterator();
         for (int i = 0; i < renewFutures.length; i++) {
             var namespacedServiceInstance = instanceIterator.next();
-            renewFutures[i] = serviceRegistry.renew(namespacedServiceInstance.getNamespace(), namespacedServiceInstance.getServiceInstance())
+            renewFutures[i] = serviceRegistry.renew(namespacedServiceInstance.getKey().getNamespace(), namespacedServiceInstance.getValue())
                     .exceptionally((ex) -> {
                         if (log.isWarnEnabled()) {
                             log.warn("renew - failed.", ex);

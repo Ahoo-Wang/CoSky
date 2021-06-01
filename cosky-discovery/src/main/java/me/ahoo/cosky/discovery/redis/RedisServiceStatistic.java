@@ -100,7 +100,7 @@ public class RedisServiceStatistic implements ServiceStatistic {
                 log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
 
-            if (ServiceChangedListener.RENEW.equals(message)) {
+            if (ServiceChangedEvent.RENEW.equals(message)) {
                 return;
             }
 

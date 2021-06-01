@@ -40,7 +40,7 @@ public interface ServiceRegistry {
 
     CompletableFuture<Boolean> deregister(String namespace, String serviceId, String instanceId);
 
-    Set<NamespacedServiceInstance> getRegisteredEphemeralInstances();
+    Map<NamespacedInstanceId, ServiceInstance> getRegisteredEphemeralInstances();
 
     CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, String key, String value);
 

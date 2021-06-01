@@ -17,7 +17,7 @@ include(":cosky-spring-cloud-core")
 include(":spring-cloud-starter-cosky-discovery")
 include(":spring-cloud-starter-cosky-config")
 include(":cosky-rest-api")
-
+include(":cosky-mirror")
 
 buildscript {
     repositories {
@@ -27,5 +27,3 @@ buildscript {
         classpath("io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0")
     }
 }
-
-

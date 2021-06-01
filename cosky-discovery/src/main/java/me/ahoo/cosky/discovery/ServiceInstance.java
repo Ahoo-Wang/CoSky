@@ -14,7 +14,7 @@ public class ServiceInstance extends Instance {
     public static final ServiceInstance NOT_FOUND = new ServiceInstance();
     private int weight = 1;
     private boolean ephemeral = true;
-    private long ttlAt = -1;
+    private volatile long ttlAt = -1;
     private Map<String, String> metadata = new LinkedHashMap<>();
 
     public int getWeight() {

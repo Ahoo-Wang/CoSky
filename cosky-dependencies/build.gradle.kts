@@ -5,5 +5,6 @@ dependencies {
         api("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
         api("com.google.guava:guava:${rootProject.ext.get("guavaVersion")}")
         api("io.springfox:springfox-boot-starter:${rootProject.ext.get("springfoxVersion")}")
+        api("io.dropwizard.metrics:metrics-core:${rootProject.ext.get("metricsVersion")}")
     }
 }
