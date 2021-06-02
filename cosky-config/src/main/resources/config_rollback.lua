@@ -1,6 +1,7 @@
 local namespace = KEYS[1];
 local configId = ARGV[1];
 local targetVersion = ARGV[2];
+local op = 'rollback';
 local versionField = "version";
 local hashField = "hash";
 local configIdxKey = namespace .. ":cfg_idx";
@@ -27,30 +28,30 @@ local function arrayToDictionary(arrayTable)
     return dicTable;
 end
 
-local function addHistory(preVersion, configKey)
-    local configHistoryKey = getConfigHistoryKey(preVersion);
-    redis.call("zadd", configHistoryIdxKey, preVersion, configHistoryKey);
+local function addHistory(currentVersion, configKey, op)
+    local configHistoryKey = getConfigHistoryKey(currentVersion);
+    redis.call("zadd", configHistoryIdxKey, currentVersion, configHistoryKey);
     redis.call("rename", configKey, configHistoryKey);
     local opTime = redis.call('time')[1];
-    return redis.call("hmset", configHistoryKey, "op", "rollback", "opTime", opTime);
+    return redis.call("hmset", configHistoryKey, 'op', op, "opTime", opTime);
 end
 
 local targetHistoryConfig = arrayToDictionary(targetHistoryConfigArray);
 
-local hash = targetHistoryConfig[hashField];
+local targetHash = targetHistoryConfig[hashField];
 
-local preHash = redis.call("hget", configKey, hashField)
-if (preHash ~= nil) and (preHash == hash) then
+local currentHash = redis.call("hget", configKey, hashField)
+if (currentHash ~= nil) and (currentHash == targetHash) then
     return 0;
 end
-redis.call("sadd", configIdxKey, configKey)
+redis.call("sadd", configIdxKey, configKey, configKey)
 
-local preVersion = redis.call("hget", configKey, versionField)
-local version = preVersion + 1;
-addHistory(preVersion, configKey)
+local currentVersion = redis.call("hget", configKey, versionField)
+local nextVersion = currentVersion + 1;
+addHistory(currentVersion, configKey, op)
 local data = targetHistoryConfig["data"];
 local createTime = redis.call('time')[1];
 
-local result = redis.call("hmset", configKey, "configId", configId, "data", data, "hash", hash, "version", version, "createTime", createTime);
-redis.call("publish", configKey, "rollback");
+local result = redis.call("hmset", configKey, "configId", configId, "data", data, hashField, targetHash, versionField, nextVersion, "createTime", createTime);
+redis.call("publish", configKey, op);
 return result;
