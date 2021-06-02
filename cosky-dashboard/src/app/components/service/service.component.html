@@ -9,7 +9,8 @@
   </div>
 </div>
 
-<nz-table class="content-body" #basicTable [nzBordered]="true" [nzData]="displayServices">
+<nz-table class="content-body" #basicTable [nzBordered]="true" [nzData]="displayServices" nzShowSizeChanger
+          [nzPageSizeOptions]="[10,20,30,50,100]">
   <thead>
   <tr>
     <th>Service Id

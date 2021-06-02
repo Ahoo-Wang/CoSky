@@ -11,7 +11,8 @@
   </div>
 </div>
 
-<nz-table class="content-body" #basicTable [nzBordered]="true" [nzData]="displayConfigs">
+<nz-table class="content-body" #basicTable [nzBordered]="true" [nzData]="displayConfigs" nzShowSizeChanger
+          [nzPageSizeOptions]="[10,20,30,50,100]">
   <thead>
   <tr>
     <th>Config Id
@@ -63,7 +64,8 @@
 <nz-dropdown-menu #searchMenu="nzDropdownMenu">
   <div class="ant-table-filter-dropdown">
     <div class="search-box">
-      <input type="text" nz-input [autofocus]="true" placeholder="Search name" [(ngModel)]="searchValue" (keyup.enter)="search()" />
+      <input type="text" nz-input [autofocus]="true" placeholder="Search name" [(ngModel)]="searchValue"
+             (keyup.enter)="search()"/>
       <button nz-button nzSize="small" nzType="primary" (click)="search()" class="search-button">
         Search
       </button>

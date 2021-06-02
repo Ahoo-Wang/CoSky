@@ -19,11 +19,14 @@ between process cache and Redis.
 
 ![CoSky-Configuration](./docs/CoSky-Configuration.png)
 
-### CoSky-Mirror
+### CoSky-Mirror (Real-Time Sync)
 
 > CoSky-Mirror is like a mirror placed between Nacos and CoSky to build a unified service discovery platform.
 
 ![CoSky-Mirror](./docs/CoSky-Mirror.png)
+
+![CoSky-Mirror-Unified](./docs/CoSky-Mirror-Unified.png)
+
 
 ## Installation
 
@@ -32,7 +35,7 @@ between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.1.0";
+    val coskyVersion = "1.1.2";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
 ```
@@ -49,7 +52,7 @@ between process cache and Redis.
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>1.1.0</cosky.version>
+        <cosky.version>1.1.2</cosky.version>
     </properties>
 
     <dependencies>
@@ -93,30 +96,30 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.0/cosky-rest-api-1.1.0.tar)
+> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.2/cosky-rest-api-1.1.2.tar)
 
-> tar *cosky-rest-api-1.1.0.tar*
+> tar *cosky-rest-api-1.1.2.tar*
 
 ```shell
-cd cosky-rest-api-1.1.0
-# Working directory: cosky-rest-api-1.1.0
+cd cosky-rest-api-1.1.2
+# Working directory: cosky-rest-api-1.1.2
 bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.0
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.0
+docker pull ahoowang/cosky-rest-api:1.1.2
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.2
 ```
 
 ##### MacBook Pro (M1)
 
-> Please use *ahoowang/cosky-rest-api:1.1.0-armv7*
+> Please use *ahoowang/cosky-rest-api:1.1.2-armv7*
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.0-armv7
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.0-armv7
+docker pull ahoowang/cosky-rest-api:1.1.2-armv7
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.2-armv7
 ```
 
 #### Option 3：Run On Kubernetes
@@ -142,7 +145,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.1.0
+          image: ahoowang/cosky-rest-api:1.1.2
           name: cosky-rest-api
           resources:
             limits:
@@ -273,12 +276,12 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.1.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.1.2-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
-# VM version: JDK 11.1.01, OpenJDK 64-Bit Server VM, 11.1.01+9-LTS
+# VM version: JDK 11.1.21, OpenJDK 64-Bit Server VM, 11.1.21+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/cosky-config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
@@ -299,12 +302,12 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.1.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.1.2-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
-# VM version: JDK 11.1.01, OpenJDK 64-Bit Server VM, 11.1.01+9-LTS
+# VM version: JDK 11.1.21, OpenJDK 64-Bit Server VM, 11.1.21+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/cosky-discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint

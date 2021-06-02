@@ -28,11 +28,8 @@ spec:
               value: nacos
             - name: SPRING_CLOUD_NACOS_PASSWORD
               value: nacos-pwd
-          image: ahoowang/cosky-mirror:1.1.0
+          image: ahoowang/cosky-mirror:1.1.2
           name: cosky-mirror
-          ports:
-            - containerPort: 8080
-              protocol: TCP
           resources:
             limits:
               cpu: "1"
