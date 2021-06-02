@@ -14,7 +14,7 @@
 
 ![CoSky-Configuration](./docs/CoSky-Configuration.png)
 
-### CoSky-Mirror （实时同步）
+### CoSky-Mirror （实时同步服务实例变更状态）
 
 > CoSky-Mirror 就像一个镜子放在 Nacos、CoSky 中间，构建一个统一的服务发现平台。
 

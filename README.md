@@ -19,7 +19,7 @@ between process cache and Redis.
 
 ![CoSky-Configuration](./docs/CoSky-Configuration.png)
 
-### CoSky-Mirror (Real-Time Sync)
+### CoSky-Mirror (Real-time synchronization of service instance change status)
 
 > CoSky-Mirror is like a mirror placed between Nacos and CoSky to build a unified service discovery platform.
 
