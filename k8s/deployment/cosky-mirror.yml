@@ -16,6 +16,8 @@ spec:
     spec:
       containers:
         - env:
+            - name: COSKY_NAMESPACE
+              value: 'dev'
             - name: COSKY_REDIS_MODE
               value: standalone
             - name: COSKY_REDIS_URI
