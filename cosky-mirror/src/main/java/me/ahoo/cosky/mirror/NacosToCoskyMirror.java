@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
- * @Nacos
+ * @see com.alibaba.cloud.nacos.discovery.NacosServiceDiscovery
  */
 @Slf4j
 @Service
@@ -139,7 +139,7 @@ public class NacosToCoskyMirror implements Mirror {
 
         /**
          * callback event.
-         *
+         * @see NamingEvent
          * @param event event
          */
         @Override
