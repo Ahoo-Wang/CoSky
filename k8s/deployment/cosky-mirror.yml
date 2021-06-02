@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cosky-rest-api
+  name: cosky-mirror
   labels:
-    app: cosky-rest-api
+    app: cosky-mirror
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cosky-rest-api
+      app: cosky-mirror
   template:
     metadata:
       labels:
-        app: cosky-rest-api
+        app: cosky-mirror
     spec:
       containers:
         - env:
@@ -20,8 +20,14 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.1.0
-          name: cosky-rest-api
+            - name: SPRING_CLOUD_NACOS_SERVERADDR
+              value: nacos-addr
+            - name: SPRING_CLOUD_NACOS_USERNAME
+              value: nacos
+            - name: SPRING_CLOUD_NACOS_PASSWORD
+              value: nacos-pwd
+          image: ahoowang/cosky-mirror:1.1.0
+          name: cosky-mirror
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -40,20 +46,4 @@ spec:
             path: /etc/localtime
             type: ""
           name: volume-localtime
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: cosky-rest-api
-  labels:
-    app: cosky-rest-api
-spec:
-  selector:
-    app: cosky-rest-api
-  ports:
-    - name: rest
-      port: 80
-      protocol: TCP
-      targetPort: 8080
 
