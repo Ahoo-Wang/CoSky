@@ -67,7 +67,7 @@ public abstract class AbstractMessageListenable implements MessageListenable {
     @Override
     public CompletableFuture<Void> removeListener(Topic topic, MessageListener messageListener) {
         AtomicReference<CompletableFuture> resultFuture = new AtomicReference<>(CompletableFuture.completedFuture(null));
-        var messageListeners = topicMapListener.compute(topic, (key, val) -> {
+        topicMapListener.compute(topic, (key, val) -> {
             if (Objects.isNull(val)) {
                 if (log.isInfoEnabled()) {
                     log.info("removeListener - topic[{}] not existed - Failure.", topic);

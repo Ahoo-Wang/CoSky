@@ -88,7 +88,7 @@ public class NacosToCoskyMirror implements Mirror {
         ServiceInstance coskyInstance = getCoskyInstanceFromNacos(serviceId, instance);
         coskyServiceRegistry.register(coskyInstance).exceptionally(throwable -> {
             log.error(throwable.getMessage(), throwable);
-            return null;
+            return Boolean.FALSE;
         });
     }
 
@@ -139,8 +139,9 @@ public class NacosToCoskyMirror implements Mirror {
 
         /**
          * callback event.
-         * @see NamingEvent
+         *
          * @param event event
+         * @see NamingEvent
          */
         @Override
         public void onEvent(Event event) {
