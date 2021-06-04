@@ -20,9 +20,9 @@ public class CoskyConfigAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public CoskyConfigRefresher governConfigRefresher(CoskyProperties governProperties,
+    public CoskyConfigRefresher governConfigRefresher(CoskyProperties coskyProperties,
                                                       CoskyConfigProperties configProperties,
                                                       ConfigListenable configListenable) {
-        return new CoskyConfigRefresher(governProperties, configProperties, configListenable);
+        return new CoskyConfigRefresher(coskyProperties, configProperties, configListenable);
     }
 }

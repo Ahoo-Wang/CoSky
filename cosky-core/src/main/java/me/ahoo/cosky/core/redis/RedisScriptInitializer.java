@@ -5,41 +5,29 @@ import io.lettuce.core.RedisChannelHandler;
 import io.lettuce.core.RedisConnectionStateListener;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import lombok.extern.slf4j.Slf4j;
-import me.ahoo.cosky.core.util.RedisScripts;
 
-import java.io.Closeable;
 import java.io.IOException;
 
 /**
  * @author ahoo wang
  */
 @Slf4j
-public class RedisScriptInitializer implements Closeable {
+public class RedisScriptInitializer implements AutoCloseable {
 
     private final AbstractRedisClient redisClient;
     private final RedisStateListener redisStateListener;
 
-    public RedisScriptInitializer(AbstractRedisClient redisClient) {
-        this.redisClient = redisClient;
+    public RedisScriptInitializer(RedisConnectionFactory redisConnectionFactory) {
+        this.redisClient = redisConnectionFactory.getClient();
         this.redisStateListener = new RedisStateListener();
         redisClient.addListener(redisStateListener);
     }
 
-    /**
-     * Closes this stream and releases any system resources associated
-     * with it. If the stream is already closed then invoking this
-     * method has no effect.
-     *
-     * <p> As noted in {@link AutoCloseable#close()}, cases where the
-     * close may fail require careful attention. It is strongly advised
-     * to relinquish the underlying resources and to internally
-     * <em>mark</em> the {@code Closeable} as closed, prior to throwing
-     * the {@code IOException}.
-     *
-     * @throws IOException if an I/O error occurs
-     */
     @Override
     public void close() throws IOException {
+        if (log.isInfoEnabled()){
+            log.info("close - removeListener.");
+        }
         this.redisClient.removeListener(redisStateListener);
     }
 

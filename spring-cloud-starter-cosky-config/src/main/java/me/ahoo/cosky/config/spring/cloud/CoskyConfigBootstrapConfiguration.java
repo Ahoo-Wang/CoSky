@@ -1,15 +1,14 @@
 package me.ahoo.cosky.config.spring.cloud;
 
-import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.var;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
+import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.core.listener.MessageListenable;
 import me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration;
 import me.ahoo.cosky.spring.cloud.support.AppSupport;
-import me.ahoo.cosky.spring.cloud.support.RedisClientSupport;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -41,8 +40,8 @@ public class CoskyConfigBootstrapConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RedisConfigService redisConfigService(
-            AbstractRedisClient redisClient) {
-        RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
+            RedisConnectionFactory redisConnectionFactory) {
+        RedisClusterAsyncCommands<String, String> redisCommands =redisConnectionFactory.getShareAsyncCommands();
         return new RedisConfigService(redisCommands);
     }
 

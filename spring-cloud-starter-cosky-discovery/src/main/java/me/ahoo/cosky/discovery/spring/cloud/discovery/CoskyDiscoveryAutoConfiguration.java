@@ -1,7 +1,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
-import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.core.listener.MessageListenable;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer;
@@ -10,7 +10,6 @@ import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
 import me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration;
-import me.ahoo.cosky.spring.cloud.support.RedisClientSupport;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -34,8 +33,8 @@ public class CoskyDiscoveryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RedisServiceDiscovery redisServiceDiscovery(
-            AbstractRedisClient redisClient) {
-        RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
+            RedisConnectionFactory redisConnectionFactory) {
+        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
         return new RedisServiceDiscovery(redisCommands);
     }
 
@@ -51,9 +50,9 @@ public class CoskyDiscoveryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RedisServiceStatistic redisServiceStatistic(
-            AbstractRedisClient redisClient,
+            RedisConnectionFactory redisConnectionFactory,
             MessageListenable messageListenable) {
-        RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
+        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
         return new RedisServiceStatistic(redisCommands, messageListenable);
     }
 

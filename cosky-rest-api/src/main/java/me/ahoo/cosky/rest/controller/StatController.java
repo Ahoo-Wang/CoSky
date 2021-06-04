@@ -22,13 +22,11 @@ import java.util.concurrent.CompletableFuture;
 public class StatController {
 
     private final NamespaceService namespaceService;
-    private final ServiceDiscovery serviceDiscovery;
     private final ConfigService configService;
     private final ServiceStatistic serviceStatistic;
 
     public StatController(NamespaceService namespaceService, ServiceDiscovery serviceDiscovery, ConfigService configService, ServiceStatistic serviceStatistic) {
         this.namespaceService = namespaceService;
-        this.serviceDiscovery = serviceDiscovery;
         this.configService = configService;
         this.serviceStatistic = serviceStatistic;
     }

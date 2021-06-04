@@ -2,7 +2,7 @@ package me.ahoo.cosky.spring.cloud;
 
 import me.ahoo.cosky.core.Consts;
 import me.ahoo.cosky.core.NamespacedProperties;
-import me.ahoo.cosky.core.RedisConfig;
+import me.ahoo.cosky.core.redis.RedisConfig;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 

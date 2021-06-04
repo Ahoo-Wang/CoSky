@@ -1,7 +1,8 @@
-package me.ahoo.cosky.core.util;
+package me.ahoo.cosky.core.redis;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Charsets;
+import com.google.common.hash.Hashing;
 import com.google.common.io.Resources;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisNoScriptException;
@@ -49,7 +50,7 @@ public final class RedisScripts {
             }
             String script = getScript(key);
 
-            String scriptSha = scriptingCommands.digest(script);
+            String scriptSha = Hashing.sha1().hashString(script, Charsets.UTF_8).toString();
             return scriptingCommands.scriptExists(scriptSha).thenCompose(existsList -> {
                 boolean isExists = existsList.get(0);
                 if (isExists) {

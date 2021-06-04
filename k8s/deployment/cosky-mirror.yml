@@ -28,7 +28,7 @@ spec:
               value: nacos
             - name: SPRING_CLOUD_NACOS_PASSWORD
               value: nacos-pwd
-          image: ahoowang/cosky-mirror:1.1.3
+          image: ahoowang/cosky-mirror:1.1.5
           name: cosky-mirror
           resources:
             limits:

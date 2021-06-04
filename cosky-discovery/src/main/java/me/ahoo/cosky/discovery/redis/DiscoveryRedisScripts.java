@@ -2,7 +2,7 @@ package me.ahoo.cosky.discovery.redis;
 
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.api.async.RedisScriptingAsyncCommands;
-import me.ahoo.cosky.core.util.RedisScripts;
+import me.ahoo.cosky.core.redis.RedisScripts;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;

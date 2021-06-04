@@ -3,7 +3,7 @@ package me.ahoo.cosky.discovery;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import lombok.var;
-import me.ahoo.cosky.core.util.RedisScripts;
+import me.ahoo.cosky.core.redis.RedisScripts;
 import org.junit.jupiter.api.*;
 
 import java.util.Objects;

@@ -25,11 +25,11 @@ public class CoskyConfigRefresher implements ApplicationListener<ApplicationRead
     private final Listener listener;
 
     public CoskyConfigRefresher(
-            CoskyProperties governProperties,
+            CoskyProperties coskyProperties,
             CoskyConfigProperties configProperties,
             ConfigListenable configListenable) {
         this.configListenable = configListenable;
-        this.governProperties = governProperties;
+        this.governProperties = coskyProperties;
         this.configProperties = configProperties;
         this.listener = new Listener();
     }

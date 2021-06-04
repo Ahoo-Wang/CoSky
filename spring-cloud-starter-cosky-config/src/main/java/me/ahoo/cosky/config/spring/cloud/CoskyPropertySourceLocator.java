@@ -63,7 +63,7 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
         }
 
         var sourceLoader = ensureSourceLoader(fileExt);
-        var governPropertySource = getGovernPropertySourceOfConfig(sourceLoader, config);
+        var governPropertySource = getCoSkyPropertySourceOfConfig(sourceLoader, config);
         return governPropertySource;
     }
 
@@ -86,7 +86,7 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
      * @return
      */
     @SneakyThrows
-    public OriginTrackedMapPropertySource getGovernPropertySourceOfConfig(PropertySourceLoader sourceLoader, Config config) {
+    public OriginTrackedMapPropertySource getCoSkyPropertySourceOfConfig(PropertySourceLoader sourceLoader, Config config) {
         ByteArrayResource byteArrayResource = new ByteArrayResource(config.getData().getBytes(Charsets.UTF_8));
         List<PropertySource<?>> propertySourceList = sourceLoader.load(config.getConfigId(), byteArrayResource);
         Map<String, Object> source = getMapSource(config.getConfigId(), propertySourceList);

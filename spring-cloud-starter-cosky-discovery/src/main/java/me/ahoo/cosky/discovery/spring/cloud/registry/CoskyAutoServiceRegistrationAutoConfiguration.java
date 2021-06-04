@@ -1,14 +1,13 @@
 package me.ahoo.cosky.discovery.spring.cloud.registry;
 
-import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.var;
+import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.discovery.*;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoskyDiscoveryEnabled;
 import me.ahoo.cosky.discovery.spring.cloud.discovery.CoskyDiscoveryAutoConfiguration;
 import me.ahoo.cosky.spring.cloud.support.AppSupport;
-import me.ahoo.cosky.spring.cloud.support.RedisClientSupport;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
@@ -45,8 +44,8 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     @Bean
     @Primary
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
-                                                     AbstractRedisClient redisClient) {
-        RedisClusterAsyncCommands<String, String> redisCommands = RedisClientSupport.getRedisCommands(redisClient);
+                                                     RedisConnectionFactory redisConnectionFactory) {
+        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
         return new RedisServiceRegistry(registryProperties, redisCommands);
     }
 

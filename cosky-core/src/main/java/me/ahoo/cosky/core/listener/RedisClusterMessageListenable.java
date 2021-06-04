@@ -63,7 +63,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void message(RedisClusterNode node, String channel, String message) {
             if (log.isDebugEnabled()){
-                log.debug("Message received from a channel subscription - RedisNode[{}] | channel[{}] | message[{}].", node.getUri(), channel, message);
+                log.debug("Message received from a channel subscription - {} | channel[{}] | message[{}].", node, channel, message);
             }
             onMessage(channel, message, null);
         }
@@ -79,7 +79,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void message(RedisClusterNode node, String pattern, String channel, String message) {
             if (log.isDebugEnabled()){
-                log.debug("Message received from a pattern subscription - RedisNode[{}]  | pattern[{}] | channel[{}] | message[{}].", node.getUri(), pattern, channel, message);
+                log.debug("Message received from a pattern subscription - {}  | pattern[{}] | channel[{}] | message[{}].", node, pattern, channel, message);
             }
             onMessage(channel, message, pattern);
         }
@@ -94,7 +94,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void subscribed(RedisClusterNode node, String channel, long count) {
             if (log.isInfoEnabled()){
-                log.debug("Subscribed to a channel - RedisNode[{}]  | channel[{}] | {}.", node.getUri(), channel, count);
+                log.debug("Subscribed to a channel - {}  | channel[{}] | {}.", node, channel, count);
             }
         }
 
@@ -108,7 +108,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void psubscribed(RedisClusterNode node, String pattern, long count) {
             if (log.isInfoEnabled()){
-                log.info("PSubscribed to a pattern - RedisNode[{}]  | pattern[{}] | {}.", node.getUri(), pattern, count);
+                log.info("PSubscribed to a pattern - {}  | pattern[{}] | {}.", node, pattern, count);
             }
         }
 
@@ -122,7 +122,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void unsubscribed(RedisClusterNode node, String channel, long count) {
             if (log.isInfoEnabled()){
-                log.info("Unsubscribed from a channel - RedisNode[{}] | channel[{}] | {}.", node.getUri(), channel, count);
+                log.info("Unsubscribed from a channel - {} | channel[{}] | {}.", node, channel, count);
             }
 
         }
@@ -137,7 +137,7 @@ public class RedisClusterMessageListenable extends AbstractMessageListenable {
         @Override
         public void punsubscribed(RedisClusterNode node, String pattern, long count) {
             if (log.isInfoEnabled()){
-                log.info("PUnsubscribed from a pattern - RedisNode[{}] | pattern[{}] | {}.", node.getUri(), pattern, count);
+                log.info("PUnsubscribed from a pattern - {} | pattern[{}] | {}.", node, pattern, count);
             }
 
         }
