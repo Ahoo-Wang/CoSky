@@ -4,7 +4,7 @@
 
 *[CoSky](https://github.com/Ahoo-Wang/CoSky)* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。
 借助于 Redis 的高性能， *CoSky* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*
-，实现实时进程缓存刷新，兼具无与伦比的QPS性能、进程缓存与 Redis 的实时一致性。
+，实现实时进程缓存刷新，兼具无与伦比的QPS性能 (7000W+/s [JMH 基准测试](#jmh-benchmark))、进程缓存与 Redis 的实时一致性。
 
 ### 服务注册与发现
 

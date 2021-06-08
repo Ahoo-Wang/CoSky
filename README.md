@@ -7,8 +7,8 @@
 *[CoSky](https://github.com/Ahoo-Wang/CoSky)* is a lightweight, low-cost service registration, service discovery, and configuration service SDK. By using
 Redis in the existing infrastructure (I believe you have already deployed Redis), it doesn’t need to bring extra to the
 operation and maintenance deployment. Cost and burden. With the high performance of Redis, *CoSky*
-provides ultra-high TPS&QPS (10W+/s [JMH Benchmark](#jmh-benchmark)). *CoSky* combines the process cache strategy + *
-Redis PubSub* to achieve real-time process cache refresh, with unparalleled QPS performance and real-time consistency
+provides ultra-high TPS&QPS (100,000+/s [JMH Benchmark](#jmh-benchmark)). *CoSky* combines the process cache strategy + *
+Redis PubSub* to achieve real-time process cache refresh, with unparalleled QPS performance (70,000,000+/s [JMH Benchmark](#jmh-benchmark)) and real-time consistency
 between process cache and Redis.
 
 ### Service Discovery
