@@ -1,7 +1,6 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery.ribbon;
 
 import com.netflix.loadbalancer.Server;
-import me.ahoo.cosky.discovery.Instance;
 import me.ahoo.cosky.discovery.ServiceInstance;
 
 /**
