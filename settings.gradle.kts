@@ -29,3 +29,11 @@ buildscript {
     }
 }
 
+include("examples:cosky-service-provider")
+findProject(":examples:cosky-service-provider")?.name = "cosky-service-provider"
+
+include("examples:cosky-service-provider-api")
+findProject(":examples:cosky-service-provider-api")?.name = "cosky-service-provider-api"
+
+include("examples:cosky-service-consumer")
+findProject(":examples:cosky-service-consumer")?.name = "cosky-service-consumer"
