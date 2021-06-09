@@ -14,8 +14,9 @@ include(":cosky-discovery")
 include(":cosky-bom")
 include(":cosky-dependencies")
 include(":cosky-spring-cloud-core")
-include(":spring-cloud-starter-cosky-discovery")
 include(":spring-cloud-starter-cosky-config")
+include(":spring-cloud-starter-cosky-discovery")
+include(":spring-cloud-starter-cosky-discovery-ribbon")
 include(":cosky-rest-api")
 include(":cosky-mirror")
 
@@ -27,3 +28,4 @@ buildscript {
         classpath("io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0")
     }
 }
+
