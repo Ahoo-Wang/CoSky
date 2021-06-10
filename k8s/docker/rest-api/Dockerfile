@@ -1,8 +1,8 @@
-# docker buildx build --push --platform linux/arm/v7 --build-arg COSKY_VERSION=1.1.5 --build-arg JDK_VERSION=armv7l-centos-jdk-11.1.51_9-slim -t ahoowang/cosky-rest-api:1.1.5-armv7 .
-# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg COSKY_VERSION=1.1.5 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/cosky-rest-api:1.1.5 .
+# docker buildx build --push --platform linux/arm/v7 --build-arg COSKY_VERSION=1.1.6 --build-arg JDK_VERSION=armv7l-centos-jdk-11.1.61_9-slim -t ahoowang/cosky-rest-api:1.1.6-armv7 .
+# docker buildx build --push --platform linux/amd64,linux/arm64 --build-arg COSKY_VERSION=1.1.6 --build-arg JDK_VERSION=jdk11u-centos-nightly-slim -t ahoowang/cosky-rest-api:1.1.6 .
 
 ARG JDK_VERSION=jdk11u-centos-nightly-slim
-ARG COSKY_VERSION=1.1.5
+ARG COSKY_VERSION=1.1.6
 ARG COSKY_HOME=/cosky
 FROM adoptopenjdk/openjdk11:${JDK_VERSION} AS base
 

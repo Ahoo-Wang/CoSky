@@ -27,7 +27,6 @@ import org.springframework.context.annotation.Primary;
 @ConditionalOnDiscoveryEnabled
 @EnableConfigurationProperties({CoskyDiscoveryProperties.class})
 @AutoConfigureAfter(CoskyAutoConfiguration.class)
-@AutoConfigureBefore({CommonsClientAutoConfiguration.class})
 public class CoskyDiscoveryAutoConfiguration {
 
     @Bean
@@ -56,16 +55,10 @@ public class CoskyDiscoveryAutoConfiguration {
         return new RedisServiceStatistic(redisCommands, messageListenable);
     }
 
-    @Bean
-    @ConditionalOnMissingBean
-    public CoskyDiscoveryClient governDiscoveryClient(
-            ServiceDiscovery serviceDiscovery, CoskyDiscoveryProperties governDiscoveryProperties) {
-        return new CoskyDiscoveryClient(serviceDiscovery, governDiscoveryProperties);
-    }
 
     @Bean
     @ConditionalOnMissingBean
-    public LoadBalancer loadBalancer(
+    public LoadBalancer coskyLoadBalancer(
             ConsistencyRedisServiceDiscovery serviceDiscovery) {
         return new BinaryWeightRandomLoadBalancer(serviceDiscovery);
     }

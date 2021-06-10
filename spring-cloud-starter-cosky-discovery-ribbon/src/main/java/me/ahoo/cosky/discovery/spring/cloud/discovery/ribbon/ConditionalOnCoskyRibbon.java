@@ -12,6 +12,6 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD})
-@ConditionalOnProperty(value = "ribbon.cosky.enabled", matchIfMissing = true)
+@ConditionalOnProperty(value = "spring.cloud.cosky.ribbon.enabled", matchIfMissing = true)
 public @interface ConditionalOnCoskyRibbon {
 }

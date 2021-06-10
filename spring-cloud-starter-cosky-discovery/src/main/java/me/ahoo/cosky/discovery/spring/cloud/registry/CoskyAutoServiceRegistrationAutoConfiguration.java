@@ -91,7 +91,7 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
 
     @Bean
     @Primary
-    public CoskyAutoServiceRegistration governAutoServiceRegistration(
+    public CoskyAutoServiceRegistration coskyAutoServiceRegistration(
             CoskyServiceRegistry serviceRegistry,
             CoskyRegistration registration,
             AutoServiceRegistrationProperties autoServiceRegistrationProperties
@@ -100,7 +100,7 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     }
 
     @Bean
-    public CoskyAutoServiceRegistrationOfNoneWeb governAutoServiceRegistrationOfNoneWeb(
+    public CoskyAutoServiceRegistrationOfNoneWeb coskyAutoServiceRegistrationOfNoneWeb(
             CoskyServiceRegistry serviceRegistry,
             CoskyRegistration registration
     ) {

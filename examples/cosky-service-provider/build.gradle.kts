@@ -9,7 +9,7 @@ java {
 }
 
 dependencies {
-    implementation(project(":examples:cosky-service-provider-api"))
+    implementation(project(":cosky-service-provider-api"))
 
     implementation(platform(project(":cosky-dependencies")))
     implementation("io.springfox:springfox-boot-starter")

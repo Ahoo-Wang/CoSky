@@ -27,7 +27,7 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public String description() {
-        return "Govern Service Discovery Client On Redis";
+        return "CoSky Discovery Client";
     }
 
     /**

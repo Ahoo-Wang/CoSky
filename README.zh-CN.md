@@ -29,7 +29,7 @@
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.1.5";
+    val coskyVersion = "1.1.6";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
 ```
@@ -46,7 +46,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <cosky.version>1.1.5</cosky.version>
+    <cosky.version>1.1.6</cosky.version>
   </properties>
 
   <dependencies>
@@ -90,30 +90,30 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.5/cosky-rest-api-1.1.5.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.6/cosky-rest-api-1.1.6.tar)
 
-> 解压 *cosky-rest-api-1.1.5.tar*
+> 解压 *cosky-rest-api-1.1.6.tar*
 
 ```shell
-cd cosky-rest-api-1.1.5
-# 工作目录: cosky-rest-api-1.1.5
+cd cosky-rest-api-1.1.6
+# 工作目录: cosky-rest-api-1.1.6
 bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.5
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.5
+docker pull ahoowang/cosky-rest-api:1.1.6
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.6
 ```
 
 ##### MacBook Pro (M1)
 
-> 请使用 *ahoowang/cosky-rest-api:1.1.5-armv7*
+> 请使用 *ahoowang/cosky-rest-api:1.1.6-armv7*
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.5-armv7
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.5-armv7
+docker pull ahoowang/cosky-rest-api:1.1.6-armv7
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.6-armv7
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -141,7 +141,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.1.5
+          image: ahoowang/cosky-rest-api:1.1.6
           name: cosky-rest-api
           ports:
             - containerPort: 8080
@@ -275,12 +275,12 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.1.5-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.1.6-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
-# VM version: JDK 11.1.51, OpenJDK 64-Bit Server VM, 11.1.51+9-LTS
+# VM version: JDK 11.1.61, OpenJDK 64-Bit Server VM, 11.1.61+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
@@ -301,12 +301,12 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.1.5-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.1.6-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
-# VM version: JDK 11.1.51, OpenJDK 64-Bit Server VM, 11.1.51+9-LTS
+# VM version: JDK 11.1.61, OpenJDK 64-Bit Server VM, 11.1.61+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint

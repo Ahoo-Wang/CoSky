@@ -29,11 +29,11 @@ buildscript {
     }
 }
 
-include("examples:cosky-service-provider")
-findProject(":examples:cosky-service-provider")?.name = "cosky-service-provider"
+include(":cosky-service-provider")
+project(":cosky-service-provider").projectDir = file("examples/cosky-service-provider")
 
-include("examples:cosky-service-provider-api")
-findProject(":examples:cosky-service-provider-api")?.name = "cosky-service-provider-api"
+include(":cosky-service-provider-api")
+project(":cosky-service-provider-api").projectDir = file("examples/cosky-service-provider-api")
 
-include("examples:cosky-service-consumer")
-findProject(":examples:cosky-service-consumer")?.name = "cosky-service-consumer"
+include(":cosky-service-consumer")
+project(":cosky-service-consumer").projectDir = file("examples/cosky-service-consumer")

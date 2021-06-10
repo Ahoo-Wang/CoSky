@@ -38,7 +38,7 @@ public class CoskyServerList extends AbstractServerList<CoskyServer> {
         if (instances.isEmpty()) {
             Collections.emptyList();
         }
-        return instances.stream().map(instance -> new CoskyServer(instance)).collect(Collectors.toList());
+        return instances.stream().map(CoskyServer::new).collect(Collectors.toList());
     }
 
     /**

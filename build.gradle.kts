@@ -20,13 +20,18 @@ val coreProjects = listOf(
 val restApiProject = project(":cosky-rest-api")
 val mirrorProject = project(":cosky-mirror")
 val serverProjects = listOf(restApiProject, mirrorProject)
-val publishProjects = subprojects - serverProjects
+val exampleProjects = listOf(
+    project(":cosky-service-provider"),
+    project(":cosky-service-provider-api"),
+    project(":cosky-service-consumer")
+)
+val publishProjects = subprojects - serverProjects - exampleProjects
 val libraryProjects = publishProjects - bomProjects
 
 ext {
     set("lombokVersion", "1.18.20")
-    set("springBootVersion", "2.4.5")
-    set("springCloudVersion", "2020.0.2")
+    set("springBootVersion", "2.4.6")
+    set("springCloudVersion", "2020.0.3")
     set("jmhVersion", "1.29")
     set("guavaVersion", "30.0-jre")
     set("springfoxVersion", "3.0.0")
