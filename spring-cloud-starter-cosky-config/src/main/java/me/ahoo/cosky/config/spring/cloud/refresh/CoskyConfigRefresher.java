@@ -20,7 +20,7 @@ import org.springframework.context.ApplicationListener;
 public class CoskyConfigRefresher implements ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware {
     private ApplicationContext applicationContext;
     private final ConfigListenable configListenable;
-    private final CoskyProperties governProperties;
+    private final CoskyProperties coskyProperties;
     private final CoskyConfigProperties configProperties;
     private final Listener listener;
 
@@ -29,7 +29,7 @@ public class CoskyConfigRefresher implements ApplicationListener<ApplicationRead
             CoskyConfigProperties configProperties,
             ConfigListenable configListenable) {
         this.configListenable = configListenable;
-        this.governProperties = coskyProperties;
+        this.coskyProperties = coskyProperties;
         this.configProperties = configProperties;
         this.listener = new Listener();
     }
@@ -46,7 +46,7 @@ public class CoskyConfigRefresher implements ApplicationListener<ApplicationRead
      */
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
-        configListenable.addListener(NamespacedConfigId.of(governProperties.getNamespace(), configProperties.getConfigId()), listener);
+        configListenable.addListener(NamespacedConfigId.of(coskyProperties.getNamespace(), configProperties.getConfigId()), listener);
     }
 
     class Listener implements ConfigChangedListener {

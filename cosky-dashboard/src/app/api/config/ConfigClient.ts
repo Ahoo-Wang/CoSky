@@ -11,7 +11,7 @@ export type ImportPolicy = 'skip' | 'overwrite';
 @Injectable({providedIn: 'root'})
 export class ConfigClient {
 
-  apiPrefix = environment.governRestApiHost + '/namespaces';
+  apiPrefix = environment.coskyRestApiHost + '/namespaces';
 
   constructor(private httpClient: HttpClient) {
   }

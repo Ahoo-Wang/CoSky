@@ -14,14 +14,14 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
 
     private final me.ahoo.cosky.discovery.ServiceRegistry serviceRegistry;
     private final RenewInstanceService renewInstanceService;
-    private final CoskyRegistryProperties governRegistryProperties;
+    private final CoskyRegistryProperties coskyRegistryProperties;
 
     public CoskyServiceRegistry(
             me.ahoo.cosky.discovery.ServiceRegistry serviceRegistry,
-            RenewInstanceService renewInstanceService, CoskyRegistryProperties governRegistryProperties) {
+            RenewInstanceService renewInstanceService, CoskyRegistryProperties coskyRegistryProperties) {
         this.serviceRegistry = serviceRegistry;
         this.renewInstanceService = renewInstanceService;
-        this.governRegistryProperties = governRegistryProperties;
+        this.coskyRegistryProperties = coskyRegistryProperties;
     }
 
     /**
@@ -33,7 +33,7 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
     @Override
     public void register(CoskyRegistration registration) {
         var instance = registration.of();
-        var succeeded = Futures.getUnChecked(serviceRegistry.register(instance), governRegistryProperties.getTimeout());
+        var succeeded = Futures.getUnChecked(serviceRegistry.register(instance), coskyRegistryProperties.getTimeout());
 
         if (!succeeded) {
             throw new RuntimeException("Service registration failed");
@@ -49,7 +49,7 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
     @Override
     public void deregister(CoskyRegistration registration) {
         var instance = registration.of();
-        var succeeded = Futures.getUnChecked(serviceRegistry.deregister(instance), governRegistryProperties.getTimeout());
+        var succeeded = Futures.getUnChecked(serviceRegistry.deregister(instance), coskyRegistryProperties.getTimeout());
 
         if (!succeeded) {
             throw new RuntimeException("Service deregister failed");
@@ -77,7 +77,7 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
         registration.getMetadata().put(StatusConstants.INSTANCE_STATUS_KEY, status);
         var instance = registration.of();
         var setMetadataFuture = serviceRegistry.setMetadata(instance.getServiceId(), instance.getInstanceId(), StatusConstants.INSTANCE_STATUS_KEY, status);
-        Futures.getUnChecked(setMetadataFuture, governRegistryProperties.getTimeout());
+        Futures.getUnChecked(setMetadataFuture, coskyRegistryProperties.getTimeout());
     }
 
     /**

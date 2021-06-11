@@ -6,7 +6,7 @@ import {StatDto} from './StatDto';
 
 @Injectable({providedIn: 'root'})
 export class StatClient {
-  apiPrefix = environment.governRestApiHost + '/namespaces';
+  apiPrefix = environment.coskyRestApiHost + '/namespaces';
 
   constructor(private httpClient: HttpClient) {
 

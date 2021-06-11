@@ -37,12 +37,6 @@ public class CoskyAutoConfiguration {
         return new RedisConnectionFactory(clientResources, coskyProperties.getRedis());
     }
 
-//    @Bean(destroyMethod = "shutdown")
-//    @ConditionalOnMissingBean
-//    public AbstractRedisClient redisClient(ClientResources clientResources, CoskyProperties governProperties) {
-//        return RedisClientSupport.redisClient(clientResources, governProperties.getRedis());
-//    }
-
     @Bean
     @ConditionalOnMissingBean
     public RedisScriptInitializer redisScriptInitializer(RedisConnectionFactory redisConnectionFactory) {

@@ -56,7 +56,7 @@ public class ConfigController {
         var importFilename = importZip.getOriginalFilename();
         var importFileExt = Files.getFileExtension(importFilename).toLowerCase();
         Preconditions.checkArgument(IMPORT_SUPPORT_EXT.equals(importFileExt), Strings.lenientFormat("Illegal file type:[%s],expect:[zip]!", importFileExt));
-        var prefixPath = Strings.lenientFormat("govern-service-%s-%s", System.currentTimeMillis(), importFilename);
+        var prefixPath = Strings.lenientFormat("cosky-service-%s-%s", System.currentTimeMillis(), importFilename);
         var importFile = File.createTempFile(prefixPath, ".temp");
         importZip.transferTo(importFile);
 

@@ -63,8 +63,8 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
         }
 
         var sourceLoader = ensureSourceLoader(fileExt);
-        var governPropertySource = getCoSkyPropertySourceOfConfig(sourceLoader, config);
-        return governPropertySource;
+        var coskyPropertySource = getCoSkyPropertySourceOfConfig(sourceLoader, config);
+        return coskyPropertySource;
     }
 
     public PropertySourceLoader ensureSourceLoader(String fileExtension) {

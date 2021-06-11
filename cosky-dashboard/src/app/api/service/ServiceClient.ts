@@ -8,7 +8,7 @@ import {ServiceStatDto} from './ServiceStatDto';
 @Injectable({providedIn: 'root'})
 
 export class ServiceClient {
-  apiPrefix = environment.governRestApiHost + '/namespaces';
+  apiPrefix = environment.coskyRestApiHost + '/namespaces';
 
   constructor(private httpClient: HttpClient) {
 

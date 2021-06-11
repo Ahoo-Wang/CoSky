@@ -35,9 +35,9 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RegistryProperties registryProperties(
-            CoskyRegistryProperties governRegistryProperties) {
+            CoskyRegistryProperties coskyRegistryProperties) {
         var registryProperties = new RegistryProperties();
-        registryProperties.setInstanceTtl(governRegistryProperties.getTtl());
+        registryProperties.setInstanceTtl(coskyRegistryProperties.getTtl());
         return registryProperties;
     }
 
@@ -50,8 +50,8 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     }
 
     @Bean
-    public RenewInstanceService renewInstanceService(CoskyRegistryProperties governRegistryProperties, RedisServiceRegistry redisServiceRegistry) {
-        return new RenewInstanceService(governRegistryProperties.getRenew(), redisServiceRegistry);
+    public RenewInstanceService renewInstanceService(CoskyRegistryProperties coskyRegistryProperties, RedisServiceRegistry redisServiceRegistry) {
+        return new RenewInstanceService(coskyRegistryProperties.getRenew(), redisServiceRegistry);
     }
 
     @Bean
@@ -85,8 +85,8 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
 
     @Bean
     @Primary
-    public CoskyServiceRegistry coskyServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService, CoskyRegistryProperties governRegistryProperties) {
-        return new CoskyServiceRegistry(serviceRegistry, renewInstanceService, governRegistryProperties);
+    public CoskyServiceRegistry coskyServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService, CoskyRegistryProperties coskyRegistryProperties) {
+        return new CoskyServiceRegistry(serviceRegistry, renewInstanceService, coskyRegistryProperties);
     }
 
     @Bean

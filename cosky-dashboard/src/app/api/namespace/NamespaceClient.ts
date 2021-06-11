@@ -5,7 +5,7 @@ import {environment} from '../../../environments/environment';
 
 @Injectable({providedIn: 'root'})
 export class NamespaceClient {
-  apiPrefix = environment.governRestApiHost + '/namespaces';
+  apiPrefix = environment.coskyRestApiHost + '/namespaces';
 
   constructor(private httpClient: HttpClient) {
 

@@ -13,11 +13,11 @@ import java.util.stream.Collectors;
  */
 public class CoskyDiscoveryClient implements DiscoveryClient {
     private final ServiceDiscovery serviceDiscovery;
-    private final CoskyDiscoveryProperties governDiscoveryProperties;
+    private final CoskyDiscoveryProperties coskyDiscoveryProperties;
 
-    public CoskyDiscoveryClient(ServiceDiscovery serviceDiscovery, CoskyDiscoveryProperties governDiscoveryProperties) {
+    public CoskyDiscoveryClient(ServiceDiscovery serviceDiscovery, CoskyDiscoveryProperties coskyDiscoveryProperties) {
         this.serviceDiscovery = serviceDiscovery;
-        this.governDiscoveryProperties = governDiscoveryProperties;
+        this.coskyDiscoveryProperties = coskyDiscoveryProperties;
     }
 
     /**
@@ -38,7 +38,7 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<ServiceInstance> getInstances(String serviceId) {
-        return Futures.getUnChecked(serviceDiscovery.getInstances(serviceId), governDiscoveryProperties.getTimeout())
+        return Futures.getUnChecked(serviceDiscovery.getInstances(serviceId), coskyDiscoveryProperties.getTimeout())
                 .stream().map(serviceInstance -> new CoskyServiceInstance(serviceInstance))
                 .collect(Collectors.toList());
     }
@@ -48,12 +48,12 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<String> getServices() {
-        return Futures.getUnChecked(serviceDiscovery.getServices(), governDiscoveryProperties.getTimeout())
+        return Futures.getUnChecked(serviceDiscovery.getServices(), coskyDiscoveryProperties.getTimeout())
                 .stream().collect(Collectors.toList());
     }
 
     @Override
     public int getOrder() {
-        return governDiscoveryProperties.getOrder();
+        return coskyDiscoveryProperties.getOrder();
     }
 }

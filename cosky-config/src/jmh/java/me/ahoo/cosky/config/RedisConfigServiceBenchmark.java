@@ -20,9 +20,9 @@ public class RedisConfigServiceBenchmark {
     private String configId = this.getClass().getSimpleName();
     private String configData = "spring:\n" +
             "  application:\n" +
-            "    name: govern-rest-api\n" +
+            "    name: cosky-rest-api\n" +
             "  cloud:\n" +
-            "    govern:\n" +
+            "    cosky:\n" +
             "      namespace: dev\n" +
             "      config:\n" +
             "        config-id: ${spring.application.name}.yml\n" +

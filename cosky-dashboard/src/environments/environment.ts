@@ -4,7 +4,7 @@
 
 export const environment = {
   production: false,
-  governRestApiHost: 'http://localhost:8080/v1'
+  coskyRestApiHost: 'http://localhost:8080/v1'
 };
 
 /*

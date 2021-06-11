@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  governRestApiHost: '/v1'
+  coskyRestApiHost: '/v1'
 };

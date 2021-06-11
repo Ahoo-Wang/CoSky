@@ -29,12 +29,12 @@ import org.springframework.core.env.Environment;
 @AutoConfigureAfter(CoskyAutoConfiguration.class)
 public class CoskyConfigBootstrapConfiguration {
 
-    public CoskyConfigBootstrapConfiguration(CoskyConfigProperties governConfigProperties, Environment environment) {
-        var configId = governConfigProperties.getConfigId();
+    public CoskyConfigBootstrapConfiguration(CoskyConfigProperties coskyConfigProperties, Environment environment) {
+        var configId = coskyConfigProperties.getConfigId();
         if (Strings.isBlank(configId)) {
-            configId = AppSupport.getAppName(environment) + "." + governConfigProperties.getFileExtension();
+            configId = AppSupport.getAppName(environment) + "." + coskyConfigProperties.getFileExtension();
         }
-        governConfigProperties.setConfigId(configId);
+        coskyConfigProperties.setConfigId(configId);
     }
 
     @Bean
@@ -55,7 +55,7 @@ public class CoskyConfigBootstrapConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public CoskyPropertySourceLocator governPropertySourceLocator(CoskyConfigProperties configProperties, ConfigService configService) {
+    public CoskyPropertySourceLocator coskyPropertySourceLocator(CoskyConfigProperties configProperties, ConfigService configService) {
         return new CoskyPropertySourceLocator(configProperties, configService);
     }
 }
