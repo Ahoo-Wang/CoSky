@@ -26,6 +26,9 @@ between process cache and Redis.
 
 ![CoSky-Mirror-Unified](./docs/CoSky-Mirror-Unified.png)
 
+## Examples
+
+[Service Consumer --RPC--> Service Provider Examples](https://github.com/Ahoo-Wang/CoSky/tree/main/examples)
 
 ## Installation
 
@@ -37,6 +40,7 @@ between process cache and Redis.
     val coskyVersion = "1.1.6";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
 ```
 
 ### Maven
@@ -64,6 +68,11 @@ between process cache and Redis.
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
             <version>${cosky.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>org.springframework.cloud</groupId>
+          <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+          <version>3.0.3</version>
         </dependency>
     </dependencies>
 
