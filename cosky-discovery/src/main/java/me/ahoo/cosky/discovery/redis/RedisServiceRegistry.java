@@ -197,7 +197,19 @@ public class RedisServiceRegistry implements ServiceRegistry {
         String[] keys = {namespace};
         String[] values = {serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl())};
         return DiscoveryRedisScripts.doRegistryRenew(redisCommands, sha ->
-                redisCommands.evalsha(sha, ScriptOutputType.BOOLEAN, keys, values));
+                {
+                    RedisFuture<Long> statusFuture = redisCommands.evalsha(sha, ScriptOutputType.INTEGER, keys, values);
+                    return statusFuture;
+                }
+        ).thenCompose(status -> {
+            if (status <= 0) {
+                if (log.isWarnEnabled()) {
+                    log.warn("renew - instanceId:[{}] @ namespace:[{}] status is [{}],register again.", serviceInstance.getInstanceId(), namespace, status);
+                }
+                return register(namespace, serviceInstance);
+            }
+            return CompletableFuture.completedFuture(Boolean.TRUE);
+        });
     }
 
 

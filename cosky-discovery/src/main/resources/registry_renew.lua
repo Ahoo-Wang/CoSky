@@ -2,11 +2,15 @@ local namespace = KEYS[1];
 local instanceId = ARGV[1];
 local instanceTtl = ARGV[2];
 
-local pubTolerance = 2;
+local pubTolerance = 5;
 local lastRenewPublishTtlAtField = "__last_renew_pub_ttl_at";
 local instanceKey = namespace .. ":svc_itc:" .. instanceId;
 
+-- -2: The key doesn't exist | -1: The key is fixed | >0: ttl(second)
 local preTtl = redis.call("ttl", instanceKey);
+if preTtl <= 0 then
+    return preTtl
+end
 
 local result = redis.call("expire", instanceKey, instanceTtl);
 

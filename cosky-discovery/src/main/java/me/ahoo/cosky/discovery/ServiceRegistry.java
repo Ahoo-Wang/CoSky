@@ -17,7 +17,7 @@ public interface ServiceRegistry {
     /**
      * 注册实例
      *
-     * @param serviceInstance
+     * @param serviceInstance serviceInstance
      */
     CompletableFuture<Boolean> register(ServiceInstance serviceInstance);
 
@@ -27,6 +27,7 @@ public interface ServiceRegistry {
      * 服务实例续期
      *
      * @param serviceInstance
+     * @return successful?
      */
     CompletableFuture<Boolean> renew(ServiceInstance serviceInstance);
 
