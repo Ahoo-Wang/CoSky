@@ -1,4 +1,4 @@
-# [CoSky](https://github.com/Ahoo-Wang/CoSky) On Redis (Service Discovery and Configuration Service)
+# [CoSky](https://github.com/Ahoo-Wang/CoSky) High-performance, low-cost microservice governance platform (Service Discovery and Configuration Service)
 
 > **Co**n**s**ul + S**ky** = **[CoSky](https://github.com/Ahoo-Wang/CoSky)**
 
