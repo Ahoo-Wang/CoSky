@@ -54,7 +54,7 @@ dependencies {
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
+//    implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
 //    implementation("io.dropwizard.metrics:metrics-core")
 //    implementation("io.dropwizard.metrics:metrics-jvm")
     compileOnly("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")

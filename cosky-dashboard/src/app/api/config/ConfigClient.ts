@@ -1,5 +1,5 @@
 import {Observable} from 'rxjs';
-import {HttpClient} from '@angular/common/http';
+import {HttpClient, HttpEvent, HttpHeaders} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {environment} from '../../../environments/environment';
 import {ConfigHistoryDto} from './ConfigHistoryDto';
@@ -27,6 +27,10 @@ export class ConfigClient {
 
   getImportUrl(namespace: string): string {
     return this.getConfigsUrl(namespace);
+  }
+
+  getExportUrl(namespace: string): string {
+    return `${this.getConfigsUrl(namespace)}/export`;
   }
 
   getConfigApiUrl(namespace: string, configId: string): string {
@@ -61,6 +65,16 @@ export class ConfigClient {
   getConfigHistory(namespace: string, configId: string, version: number): Observable<ConfigHistoryDto> {
     const apiUrl = `${this.getConfigApiUrl(namespace, configId)}/versions/${version}`;
     return this.httpClient.get<ConfigHistoryDto>(apiUrl);
+  }
+
+  exportConfigs(namespace: string): Observable<HttpEvent<Blob>> {
+    const apiUrl = `${this.getConfigsUrl(namespace)}/export`;
+
+    return this.httpClient.get(apiUrl, {
+      responseType: "blob", reportProgress: true, observe: "events", headers: new HttpHeaders(
+        {'Content-Type': 'application/json'}
+      )
+    });
   }
 
 }

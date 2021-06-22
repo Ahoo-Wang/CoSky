@@ -1,4 +1,4 @@
-package me.ahoo.cosky.rest.dto;
+package me.ahoo.cosky.rest.dto.config;
 
 /**
  * @author ahoo wang

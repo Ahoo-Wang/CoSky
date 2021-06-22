@@ -3,6 +3,7 @@ import {ConfigClient} from '../../api/config/ConfigClient';
 import {NamespaceContext} from '../../core/NamespaceContext';
 import {ConfigEditorService} from './config-editor.service';
 import {RowExpand} from '../../model/RowExpand';
+import {HttpEventType} from "@angular/common/http";
 
 @Component({
   selector: 'app-config',
@@ -14,6 +15,7 @@ export class ConfigComponent implements OnInit {
   displayConfigs!: RowExpand<string>[];
   searchVisible = false;
   searchValue = '';
+  exportUrl = '';
 
   constructor(private namespaceContext: NamespaceContext,
               private configClient: ConfigClient,
@@ -22,8 +24,10 @@ export class ConfigComponent implements OnInit {
 
   ngOnInit(): void {
     this.getConfigs();
+    this.getExportUrl();
     this.namespaceContext.subscribeNamespaceChanged('/config', namespace => {
       this.getConfigs();
+      this.getExportUrl();
     });
   }
 
@@ -76,4 +80,22 @@ export class ConfigComponent implements OnInit {
     this.searchValue = '';
     this.search();
   }
+
+  getExportUrl(): string {
+    this.exportUrl = this.configClient.getExportUrl(this.namespaceContext.ensureCurrentNamespace());
+    return this.exportUrl;
+  }
+
+  exportConfigs() {
+    this.configClient.exportConfigs(this.namespaceContext.ensureCurrentNamespace()).subscribe(response => {
+      if (response.type === HttpEventType.DownloadProgress) {
+        console.log("download progress");
+      }
+      if (response.type === HttpEventType.Response) {
+        console.log("download completed");
+      }
+    });
+  }
+
+
 }

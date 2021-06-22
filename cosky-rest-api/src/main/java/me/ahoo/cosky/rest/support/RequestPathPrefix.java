@@ -40,6 +40,10 @@ public interface RequestPathPrefix {
      */
     String CONFIGS_PREFIX = NAMESPACES_NAMESPACE_PREFIX + "/configs";
     /**
+     * /v1/namespaces/{namespace}/configs/{configId}/export
+     */
+    String CONFIGS_CONFIG_EXPORT = "/export";
+    /**
      * /v1/namespaces/{namespace}/configs/{configId}
      */
     String CONFIGS_CONFIG = "{configId}";
@@ -55,6 +59,7 @@ public interface RequestPathPrefix {
      * /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}
      */
     String CONFIGS_CONFIG_TO = CONFIGS_CONFIG + "/to/{targetVersion}";
+
     //endregion
     //region services
     /**

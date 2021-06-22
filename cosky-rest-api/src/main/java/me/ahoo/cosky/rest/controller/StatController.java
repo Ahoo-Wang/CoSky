@@ -6,7 +6,7 @@ import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceStatistic;
-import me.ahoo.cosky.rest.dto.GetStatResponse;
+import me.ahoo.cosky.rest.dto.service.GetStatResponse;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
