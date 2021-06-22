@@ -1,4 +1,4 @@
-# [CoSky](https://github.com/Ahoo-Wang/CoSky) 基于 Redis 的服务治理平台（服务注册/发现 & 配置中心）
+# [CoSky](https://github.com/Ahoo-Wang/CoSky) 高性能、低成本微服务治理平台（服务注册/发现 & 配置中心）
 
 > **Co**n**s**ul + S**ky** = **[CoSky](https://github.com/Ahoo-Wang/CoSky)**
 
