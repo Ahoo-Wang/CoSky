@@ -25,7 +25,7 @@ public class StatController {
     private final ConfigService configService;
     private final ServiceStatistic serviceStatistic;
 
-    public StatController(NamespaceService namespaceService, ServiceDiscovery serviceDiscovery, ConfigService configService, ServiceStatistic serviceStatistic) {
+    public StatController(NamespaceService namespaceService, ConfigService configService, ServiceStatistic serviceStatistic) {
         this.namespaceService = namespaceService;
         this.configService = configService;
         this.serviceStatistic = serviceStatistic;

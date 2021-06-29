@@ -26,7 +26,7 @@ public final class Futures {
         } catch (TimeoutException e) {
             throw new CoskyException(e);
         } catch (ExecutionException e) {
-            throw new CoskyException(e);
+            throw new CoskyException(e.getCause());
         }
     }
 }
