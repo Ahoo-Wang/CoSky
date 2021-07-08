@@ -4,9 +4,7 @@
 
 > [English Document](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md)
 
-*[CoSky](https://github.com/Ahoo-Wang/CoSky)* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。
-借助于 Redis 的高性能， *CoSky* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*
-，实现实时进程缓存刷新，兼具无与伦比的QPS性能 (7000W+/s [JMH 基准测试](#jmh-benchmark))、进程缓存与 Redis 的实时一致性。
+*[CoSky](https://github.com/Ahoo-Wang/CoSky)* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。 借助于 Redis 的高性能， *CoSky* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*，实现实时进程缓存刷新，兼具无与伦比的QPS性能 (7000W+/s [JMH 基准测试](#jmh-benchmark))、进程缓存与 Redis 的实时一致性。
 
 ### 服务注册与发现
 
@@ -35,7 +33,7 @@
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.1.11";
+    val coskyVersion = "1.1.12";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
@@ -53,7 +51,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <cosky.version>1.1.11</cosky.version>
+    <cosky.version>1.1.12</cosky.version>
   </properties>
 
   <dependencies>
@@ -102,30 +100,30 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.11/cosky-rest-api-1.1.11.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.12/cosky-rest-api-1.1.12.tar)
 
-> 解压 *cosky-rest-api-1.1.11.tar*
+> 解压 *cosky-rest-api-1.1.12.tar*
 
 ```shell
-cd cosky-rest-api-1.1.11
-# 工作目录: cosky-rest-api-1.1.11
+cd cosky-rest-api-1.1.12
+# 工作目录: cosky-rest-api-1.1.12
 bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.11
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.11
+docker pull ahoowang/cosky-rest-api:1.1.12
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.12
 ```
 
 ##### MacBook Pro (M1)
 
-> 请使用 *ahoowang/cosky-rest-api:1.1.11-armv7*
+> 请使用 *ahoowang/cosky-rest-api:1.1.12-armv7*
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.11-armv7
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.11-armv7
+docker pull ahoowang/cosky-rest-api:1.1.12-armv7
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.12-armv7
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -153,7 +151,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.1.11
+          image: ahoowang/cosky-rest-api:1.1.12
           name: cosky-rest-api
           ports:
             - containerPort: 8080
@@ -287,12 +285,12 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.1.11-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.1.12-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
-# VM version: JDK 11.1.111, OpenJDK 64-Bit Server VM, 11.1.111+9-LTS
+# VM version: JDK 11.1.121, OpenJDK 64-Bit Server VM, 11.1.121+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
@@ -303,9 +301,9 @@ java -jar cosky-config/build/libs/cosky-config-1.1.11-jmh.jar -bm thrpt -t 25 -w
 # Benchmark mode: Throughput, ops/time
 
 Benchmark                                          Mode  Cnt          Score   Error  Units
-ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       265321650.148          ops/s
-RedisConfigServiceBenchmark.getConfig             thrpt          106991.476          ops/s
-RedisConfigServiceBenchmark.setConfig             thrpt          103659.132          ops/s
+ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
+RedisConfigServiceBenchmark.getConfig             thrpt          241787.679          ops/s
+RedisConfigServiceBenchmark.setConfig             thrpt          140461.112          ops/s
 ```
 
 ### ServiceDiscovery
@@ -313,12 +311,12 @@ RedisConfigServiceBenchmark.setConfig             thrpt          103659.132     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.1.11-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.1.12-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
 # JMH version: 1.29
-# VM version: JDK 11.1.111, OpenJDK 64-Bit Server VM, 11.1.111+9-LTS
+# VM version: JDK 11.1.121, OpenJDK 64-Bit Server VM, 11.1.121+9-LTS
 # VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
 # VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
 # Blackhole mode: full + dont-inline hint
@@ -329,11 +327,11 @@ java -jar cosky-discovery/build/libs/cosky-discovery-1.1.11-jmh.jar -bm thrpt -t
 # Benchmark mode: Throughput, ops/time
 
 Benchmark                                                Mode  Cnt          Score   Error  Units
-ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76894658.867          ops/s
-ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       466036317.472          ops/s
-RedisServiceDiscoveryBenchmark.getInstances             thrpt          107778.244          ops/s
-RedisServiceDiscoveryBenchmark.getServices              thrpt          106920.412          ops/s
-RedisServiceRegistryBenchmark.deregister                thrpt          114094.513          ops/s
-RedisServiceRegistryBenchmark.register                  thrpt          109085.694          ops/s
-RedisServiceRegistryBenchmark.renew                     thrpt          127003.104          ops/s
+ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
+ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       455760632.346          ops/s
+RedisServiceDiscoveryBenchmark.getInstances             thrpt          226909.985          ops/s
+RedisServiceDiscoveryBenchmark.getServices              thrpt          304979.150          ops/s
+RedisServiceRegistryBenchmark.deregister                thrpt          255305.648          ops/s
+RedisServiceRegistryBenchmark.register                  thrpt          110664.160          ops/s
+RedisServiceRegistryBenchmark.renew                     thrpt          210960.325          ops/s
 ```

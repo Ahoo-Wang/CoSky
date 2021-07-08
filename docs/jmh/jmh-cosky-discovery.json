@@ -1,0 +1,368 @@
+[
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.ConsistencyRedisServiceDiscoveryBenchmark.getInstances",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 7.662172904826319E7,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 7.662172904826319E7,
+                "50.0" : 7.662172904826319E7,
+                "90.0" : 7.662172904826319E7,
+                "95.0" : 7.662172904826319E7,
+                "99.0" : 7.662172904826319E7,
+                "99.9" : 7.662172904826319E7,
+                "99.99" : 7.662172904826319E7,
+                "99.999" : 7.662172904826319E7,
+                "99.9999" : 7.662172904826319E7,
+                "100.0" : 7.662172904826319E7
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    7.662172904826319E7
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.ConsistencyRedisServiceDiscoveryBenchmark.getServices",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 4.5576063234583616E8,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 4.5576063234583616E8,
+                "50.0" : 4.5576063234583616E8,
+                "90.0" : 4.5576063234583616E8,
+                "95.0" : 4.5576063234583616E8,
+                "99.0" : 4.5576063234583616E8,
+                "99.9" : 4.5576063234583616E8,
+                "99.99" : 4.5576063234583616E8,
+                "99.999" : 4.5576063234583616E8,
+                "99.9999" : 4.5576063234583616E8,
+                "100.0" : 4.5576063234583616E8
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    4.5576063234583616E8
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.RedisServiceDiscoveryBenchmark.getInstances",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 226909.9848247323,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 226909.9848247323,
+                "50.0" : 226909.9848247323,
+                "90.0" : 226909.9848247323,
+                "95.0" : 226909.9848247323,
+                "99.0" : 226909.9848247323,
+                "99.9" : 226909.9848247323,
+                "99.99" : 226909.9848247323,
+                "99.999" : 226909.9848247323,
+                "99.9999" : 226909.9848247323,
+                "100.0" : 226909.9848247323
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    226909.9848247323
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.RedisServiceDiscoveryBenchmark.getServices",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 304979.1504962891,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 304979.1504962891,
+                "50.0" : 304979.1504962891,
+                "90.0" : 304979.1504962891,
+                "95.0" : 304979.1504962891,
+                "99.0" : 304979.1504962891,
+                "99.9" : 304979.1504962891,
+                "99.99" : 304979.1504962891,
+                "99.999" : 304979.1504962891,
+                "99.9999" : 304979.1504962891,
+                "100.0" : 304979.1504962891
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    304979.1504962891
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.RedisServiceRegistryBenchmark.deregister",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 255305.64839226945,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 255305.64839226945,
+                "50.0" : 255305.64839226945,
+                "90.0" : 255305.64839226945,
+                "95.0" : 255305.64839226945,
+                "99.0" : 255305.64839226945,
+                "99.9" : 255305.64839226945,
+                "99.99" : 255305.64839226945,
+                "99.999" : 255305.64839226945,
+                "99.9999" : 255305.64839226945,
+                "100.0" : 255305.64839226945
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    255305.64839226945
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.RedisServiceRegistryBenchmark.register",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 110664.15987293601,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 110664.15987293601,
+                "50.0" : 110664.15987293601,
+                "90.0" : 110664.15987293601,
+                "95.0" : 110664.15987293601,
+                "99.0" : 110664.15987293601,
+                "99.9" : 110664.15987293601,
+                "99.99" : 110664.15987293601,
+                "99.999" : 110664.15987293601,
+                "99.9999" : 110664.15987293601,
+                "100.0" : 110664.15987293601
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    110664.15987293601
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    },
+    {
+        "jmhVersion" : "1.29",
+        "benchmark" : "me.ahoo.cosky.discovery.RedisServiceRegistryBenchmark.renew",
+        "mode" : "thrpt",
+        "threads" : 50,
+        "forks" : 1,
+        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvmArgs" : [
+            "-Dfile.encoding=UTF-8",
+            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-discovery/build/tmp/jmh",
+            "-Duser.country=CN",
+            "-Duser.language=zh",
+            "-Duser.variant"
+        ],
+        "jdkVersion" : "11.0.11",
+        "vmName" : "OpenJDK 64-Bit Server VM",
+        "vmVersion" : "11.0.11+9-LTS",
+        "warmupIterations" : 1,
+        "warmupTime" : "10 s",
+        "warmupBatchSize" : 1,
+        "measurementIterations" : 1,
+        "measurementTime" : "10 s",
+        "measurementBatchSize" : 1,
+        "primaryMetric" : {
+            "score" : 210960.3249804336,
+            "scoreError" : "NaN",
+            "scoreConfidence" : [
+                "NaN",
+                "NaN"
+            ],
+            "scorePercentiles" : {
+                "0.0" : 210960.3249804336,
+                "50.0" : 210960.3249804336,
+                "90.0" : 210960.3249804336,
+                "95.0" : 210960.3249804336,
+                "99.0" : 210960.3249804336,
+                "99.9" : 210960.3249804336,
+                "99.99" : 210960.3249804336,
+                "99.999" : 210960.3249804336,
+                "99.9999" : 210960.3249804336,
+                "100.0" : 210960.3249804336
+            },
+            "scoreUnit" : "ops/s",
+            "rawData" : [
+                [
+                    210960.3249804336
+                ]
+            ]
+        },
+        "secondaryMetrics" : {
+        }
+    }
+]
+
+

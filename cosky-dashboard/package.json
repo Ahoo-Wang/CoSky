@@ -1,6 +1,6 @@
 {
   "name": "cosky-dashboard",
-  "version": "1.1.2",
+  "version": "1.1.12",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
