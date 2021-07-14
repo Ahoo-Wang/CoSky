@@ -28,6 +28,9 @@ import java.util.Set;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.ROLES_PREFIX)
+/**
+ * TODO @AdminResource
+ */
 @AdminResource
 public class RoleController {
     private final RBACService rbacService;
@@ -42,7 +45,7 @@ public class RoleController {
     }
 
     @PutMapping("/{roleName}")
-    public void saveRole(@PathVariable String roleName,@RequestBody Set<ResourceActionDto> resourceActionBind) {
+    public void saveRole(@PathVariable String roleName, @RequestBody Set<ResourceActionDto> resourceActionBind) {
         rbacService.saveRole(roleName, resourceActionBind);
     }
 

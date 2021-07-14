@@ -96,6 +96,8 @@ public class UserService {
     }
 
     public boolean removeUser(String username) {
+        String userRoleBindKey = getUserRoleBindKey(username);
+        redisCommands.del(userRoleBindKey);
         return redisCommands.hdel(USER_IDX, username) > 0;
     }
 

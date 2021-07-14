@@ -33,9 +33,8 @@ export class UserClient {
     return this.httpClient.patch<boolean>(apiUrl, {username, oldPassword, newPassword});
   }
 
-  saveUser(username: string, password: string): Observable<boolean> {
-    const apiUrl = `${this.apiPrefix}/${username}`;
-    return this.httpClient.put<boolean>(apiUrl, {username, password});
+  addUser(username: string, password: string): Observable<boolean> {
+    return this.httpClient.post<boolean>(this.apiPrefix, {username, password});
   }
 
   removeUser(username: string): Observable<boolean> {
@@ -44,7 +43,7 @@ export class UserClient {
   }
 
   bindRole(username: string, roleBind: string[]): Observable<boolean> {
-    const apiUrl = `${this.apiPrefix}/${username}`;
+    const apiUrl = `${this.apiPrefix}/${username}/role`;
     return this.httpClient.patch<boolean>(apiUrl, roleBind);
   }
 

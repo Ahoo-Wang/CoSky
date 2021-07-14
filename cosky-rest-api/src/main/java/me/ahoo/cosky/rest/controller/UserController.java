@@ -48,7 +48,7 @@ public class UserController {
     }
 
     @AdminResource
-    @PostMapping("/")
+    @PostMapping
     public boolean addUser(@RequestBody AddUserRequest addUserRequest) {
         return userService.addUser(addUserRequest.getUsername(), addUserRequest.getPassword());
     }

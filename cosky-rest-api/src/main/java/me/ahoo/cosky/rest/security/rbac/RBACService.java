@@ -13,9 +13,11 @@
 
 package me.ahoo.cosky.rest.security.rbac;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
+import lombok.SneakyThrows;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.rest.dto.role.ResourceActionDto;
@@ -28,6 +30,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.method.HandlerMethod;
 
 import javax.servlet.http.HttpServletRequest;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.Map;
 import java.util.Set;
 
@@ -97,22 +101,24 @@ public class RBACService {
     /**
      * 权限控制
      */
+    @SneakyThrows
     public boolean authorize(String accessToken, HttpServletRequest request, HandlerMethod handlerMethod) {
 
         User user = jwtProvider.authorize(accessToken);
         SecurityContext.setUser(user);
-        if (User.SUPER_USER.equals(user.getUsername())) {
+        if (User.SUPER_USER.equals(user.getUsername()) || user.isAdmin()) {
             return true;
         }
 
         String requestUrl = request.getRequestURI();
+        requestUrl = URLDecoder.decode(requestUrl, Charsets.UTF_8.name());
         if (RequestPathPrefix.NAMESPACES_PREFIX.equals(requestUrl)) {
             return true;
         }
 
         boolean isAdminResource = handlerMethod.hasMethodAnnotation(AdminResource.class);
-        if (isAdminResource && !user.isAdmin()) {
-            return true;
+        if (isAdminResource) {
+            return false;
         }
 
         String namespace = requestUrl.substring(RequestPathPrefix.NAMESPACES_PREFIX.length() + 1);

@@ -1,6 +1,9 @@
 import {Component, OnInit} from '@angular/core';
 import {UserDto} from "../../api/user/UserDto";
 import {RoleClient} from "../../api/role/RoleClient";
+import {UserEditorComponent} from "../user/user-editor/user-editor.component";
+import {NzDrawerService} from "ng-zorro-antd/drawer";
+import {RoleEditorComponent} from "./role-editor/role-editor.component";
 
 @Component({
   selector: 'app-role',
@@ -10,7 +13,7 @@ import {RoleClient} from "../../api/role/RoleClient";
 export class RoleComponent implements OnInit {
   roles: string[] = [];
 
-  constructor(private roleClient: RoleClient) {
+  constructor(private roleClient: RoleClient, private drawerService: NzDrawerService) {
   }
 
   loadRoles() {
@@ -33,7 +36,24 @@ export class RoleComponent implements OnInit {
     return 'admin' === role;
   }
 
-  showAddRole() {
 
+  openEditor(role: string | null) {
+    const title = role ? `Edit Role [${role}]` : 'Add Role';
+    const drawerRef = this.drawerService.create<RoleEditorComponent, {}, string>({
+      nzTitle: title,
+      nzWidth: '40%',
+      nzContent: RoleEditorComponent,
+      nzContentParams: {
+        role
+      }
+    });
+    drawerRef.afterOpen.subscribe(() => {
+      drawerRef.getContentComponent()?.afterSave.subscribe(result => {
+        if (result) {
+          drawerRef.close('Operation successful');
+        }
+        this.loadRoles();
+      });
+    });
   }
 }

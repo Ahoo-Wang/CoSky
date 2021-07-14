@@ -58,6 +58,8 @@ import {AuthInterceptor} from "./security/AuthInterceptor";
 import { LoginComponent } from './components/login/login.component';
 import { UserComponent } from './components/user/user.component';
 import { RoleComponent } from './components/role/role.component';
+import { RoleEditorComponent } from './components/role/role-editor/role-editor.component';
+import { UserEditorComponent } from './components/user/user-editor/user-editor.component';
 
 registerLocaleData(zh);
 
@@ -81,7 +83,9 @@ export const httpInterceptorProviders = [
     ConfigImporterComponent,
     LoginComponent,
     UserComponent,
-    RoleComponent
+    RoleComponent,
+    RoleEditorComponent,
+    UserEditorComponent
   ],
   imports: [
     BrowserModule,
