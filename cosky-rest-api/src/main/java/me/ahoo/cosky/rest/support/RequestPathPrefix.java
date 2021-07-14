@@ -13,11 +13,31 @@
 
 package me.ahoo.cosky.rest.support;
 
+
 /**
  * @author ahoo wang
  */
 public interface RequestPathPrefix {
     String V1 = "/v1/";
+
+    //region Authenticate
+    /**
+     * /v1/auth
+     */
+    String AUTHENTICATE_PREFIX = V1 + "authenticate";
+    //endregion
+    //region user
+    /**
+     * /v1/users
+     */
+    String USERS_PREFIX = V1 + "users";
+    //endregion
+    //region role
+    /**
+     * /v1/roles
+     */
+    String ROLES_PREFIX = V1 + "roles";
+    //endregion
     //region namespaces
     /**
      * /v1/namespaces

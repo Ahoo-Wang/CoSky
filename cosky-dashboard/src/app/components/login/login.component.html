@@ -1,0 +1,20 @@
+<nz-card  class="login-card"  [nzBordered]="false" nzTitle="Sign in to CoSky">
+  <form nz-form [formGroup]="loginForm" (ngSubmit)="signIn()">
+    <nz-form-item>
+      <nz-form-control nzErrorTip="Please input your username!">
+        <nz-input-group nzPrefixIcon="user">
+          <input type="text" nz-input formControlName="username" [(ngModel)]="username" placeholder="Username"/>
+        </nz-input-group>
+      </nz-form-control>
+    </nz-form-item>
+    <nz-form-item>
+      <nz-form-control nzErrorTip="Please input your Password!">
+        <nz-input-group nzPrefixIcon="lock">
+          <input type="password" nz-input formControlName="password" [(ngModel)]="password" placeholder="Password"/>
+        </nz-input-group>
+      </nz-form-control>
+    </nz-form-item>
+    <button nz-button nzType="primary" [disabled]="!loginForm.valid" nzSize="large" nzBlock>Sign in</button>
+  </form>
+</nz-card>
+

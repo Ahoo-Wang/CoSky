@@ -40,6 +40,18 @@
         <i nz-icon nzType="partition"></i>
         <span><a routerLink="/namespace">Namespace</a></span>
       </li>
+      <li nz-submenu  nzTitle="Security"  nzIcon="security-scan">
+        <ul>
+          <li nz-menu-item nzMatchRouter>
+            <i nz-icon nzType="user"></i>
+            <span><a routerLink="/user">User</a></span>
+          </li>
+          <li nz-menu-item nzMatchRouter>
+            <i nz-icon nzType="security-scan"></i>
+            <span><a routerLink="/role">Role</a></span>
+          </li>
+        </ul>
+      </li>
     </ul>
   </nz-sider>
   <nz-layout>
@@ -63,5 +75,4 @@
       <a href="https://github.com/Ahoo-Wang/cosky" target="_blank" title="CoSky Service">CoSky</a> ©2021
     </nz-footer>
   </nz-layout>
-
 </nz-layout>

@@ -11,40 +11,8 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.rbac;
+import {Token} from "./Token";
 
-import java.util.Set;
+export interface LoginResponse extends Token{
 
-/**
- * TODO
- * 认证 -> 授权 -> 鉴权 -> 权限控制
- *
- * @author ahoo wang
- */
-public class RBACService {
-
-    public void saveRole(String roleName, Set<Role.ResourceAction> resourceActionBind) {
-
-    }
-
-    public void removeRole(String roleName) {
-
-    }
-
-    public void userRoleBind(String userName, Set<String> roleBind) {
-
-    }
-
-    /**
-     * 鉴权
-     */
-    public void authenticate() {
-    }
-
-    /**
-     * 权限控制
-     */
-    public void accessCheck(){
-
-    }
 }

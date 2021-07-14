@@ -11,31 +11,28 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.rbac;
-
-import java.util.Set;
+package me.ahoo.cosky.rest.dto.user;
 
 /**
  * @author ahoo wang
  */
-public class UserRoleBinding {
+public class AddUserRequest {
+    private String username;
+    private String password;
 
-    private String userName;
-    private Set<String> roleBind;
-
-    public String getUserName() {
-        return userName;
+    public String getUsername() {
+        return username;
     }
 
-    public void setUserName(String userName) {
-        this.userName = userName;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
-    public Set<String> getRoleBind() {
-        return roleBind;
+    public String getPassword() {
+        return password;
     }
 
-    public void setRoleBind(Set<String> roleBind) {
-        this.roleBind = roleBind;
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

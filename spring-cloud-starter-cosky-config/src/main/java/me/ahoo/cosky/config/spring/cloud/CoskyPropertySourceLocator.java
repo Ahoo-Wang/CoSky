@@ -20,7 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.cosky.config.Config;
 import me.ahoo.cosky.config.ConfigService;
-import me.ahoo.cosky.core.Consts;
+import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.core.util.Futures;
 import org.apache.logging.log4j.util.Strings;
@@ -124,6 +124,6 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
 
 
     public static String getNameOfConfigId(String configId) {
-        return Consts.COSKY + ":" + configId;
+        return CoSky.COSKY + ":" + configId;
     }
 }

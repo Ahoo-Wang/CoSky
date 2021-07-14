@@ -1,0 +1,39 @@
+
+<div nz-row class="content-header">
+  <div nz-col nzOffset="16" [nzSpan]="8">
+    <button nz-button nzType="primary" nzSize="large" (click)="showAddUser()">Add User
+    </button>
+  </div>
+</div>
+
+<nz-table class="content-body" #basicTable [nzFrontPagination]="false" [nzBordered]="true" [nzData]="users" nzShowSizeChanger
+          [nzPageSizeOptions]="[10,20,30,50,100]">
+  <thead>
+  <tr>
+    <th>Username</th>
+    <th>Role</th>
+    <th>Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let user of basicTable.data">
+    <td>{{user.username}}</td>
+    <td>{{user.roleBind|json}}</td>
+    <td>
+      <button
+        nz-popconfirm
+        [nzPopconfirmTitle]="'Are you sure delete this user?'"
+        nzPopconfirmPlacement="top"
+        [disabled]="isSystem(user)"
+        nzType="dashed"
+        nz-button
+        (nzOnConfirm)="removeUser(user)"
+        nzDanger
+      >
+        <i nz-icon nzType="delete" nzTheme="outline"></i>
+      </button>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>
+

@@ -15,6 +15,7 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
+import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,9 +36,9 @@ public class NamespaceController {
         this.namespaceService = namespaceService;
     }
 
-
     @GetMapping
     public CompletableFuture<Set<String>> getNamespaces() {
+
         return namespaceService.getNamespaces();
     }
 
@@ -46,16 +47,19 @@ public class NamespaceController {
         return NamespacedContext.GLOBAL.getNamespace();
     }
 
+    @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
     public void setCurrentContextNamespace(@PathVariable String namespace) {
         NamespacedContext.GLOBAL.setCurrentContextNamespace(namespace);
     }
 
+    @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     public CompletableFuture<Boolean> setNamespace(@PathVariable String namespace) {
         return namespaceService.setNamespace(namespace);
     }
 
+    @AdminResource
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     public CompletableFuture<Boolean> removeNamespace(@PathVariable String namespace) {
         return namespaceService.removeNamespace(namespace);

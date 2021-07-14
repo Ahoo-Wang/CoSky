@@ -19,6 +19,7 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import io.lettuce.core.codec.StringCodec;
 import io.lettuce.core.masterreplica.MasterReplica;
 import io.lettuce.core.masterreplica.StatefulRedisMasterReplicaConnection;
@@ -68,29 +69,33 @@ public class RedisConnectionFactory implements AutoCloseable {
         return shareConnection;
     }
 
-    public synchronized RedisClusterAsyncCommands<String, String> getShareAsyncCommands() {
+    public RedisClusterAsyncCommands<String, String> getShareAsyncCommands() {
         return getShareConnection().getAsyncCommands();
+    }
+
+    public RedisClusterCommands<String, String> getShareSyncCommands() {
+        return getShareConnection().getSyncCommands();
     }
 
     public RedisConnection getConnection() {
 
         if (client instanceof RedisClusterClient) {
             var clusterConnection = ((RedisClusterClient) client).connect();
-            return new RedisConnection(clusterConnection, clusterConnection.async());
+            return new RedisConnection(clusterConnection, clusterConnection.sync(), clusterConnection.async());
         }
 
         var redisClient = (RedisClient) client;
 
         if (Objects.isNull(redisConfig.getReadFrom())) {
             var connection = redisClient.connect();
-            return new RedisConnection(connection, connection.async());
+            return new RedisConnection(connection, connection.sync(), connection.async());
         }
 
         ReadFrom readFrom = ReadFrom.valueOf(redisConfig.getReadFrom().name());
 
         StatefulRedisMasterReplicaConnection<String, String> connection = MasterReplica.connect(redisClient, StringCodec.UTF8, RedisURI.create(redisConfig.getUrl()));
         connection.setReadFrom(readFrom);
-        return new RedisConnection(connection, connection.async());
+        return new RedisConnection(connection, connection.sync(), connection.async());
     }
 
     public MessageListenable getMessageListenable() {

@@ -17,8 +17,8 @@ package me.ahoo.cosky.core;
  * @author ahoo wang
  */
 public interface Namespaced {
-    String DEFAULT = Consts.COSKY + "-{default}";
-    String SYSTEM = Consts.COSKY + "-{system}";
+    String DEFAULT = CoSky.COSKY + "-{default}";
+    String SYSTEM = CoSky.COSKY + "-{system}";
 
     /**
      * 获取当前上下文的命名空间

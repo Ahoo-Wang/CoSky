@@ -11,30 +11,28 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.user;
-
-import me.ahoo.cosky.rest.dto.user.AuthorizeResponse;
+package me.ahoo.cosky.rest.dto.user;
 
 /**
- * TODO
- *
  * @author ahoo wang
  */
-public class UserService {
+public class ChangePwdRequest {
+    private String oldPassword;
+    private String newPassword;
 
-    public Boolean saveUser(String userName, String pwd) {
-        return Boolean.TRUE;
+    public String getOldPassword() {
+        return oldPassword;
     }
 
-    public Boolean removeUser(String userName) {
-        return Boolean.TRUE;
+    public void setOldPassword(String oldPassword) {
+        this.oldPassword = oldPassword;
     }
 
-    /**
-     * @param userName
-     * @param pwd
-     */
-    public AuthorizeResponse authorize(String userName, String pwd) {
-        return null;
+    public String getNewPassword() {
+        return newPassword;
+    }
+
+    public void setNewPassword(String newPassword) {
+        this.newPassword = newPassword;
     }
 }

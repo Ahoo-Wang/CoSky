@@ -15,7 +15,7 @@ package me.ahoo.cosky.config;
 
 import com.google.common.base.Strings;
 import lombok.var;
-import me.ahoo.cosky.core.Consts;
+import me.ahoo.cosky.core.CoSky;
 
 /**
  * @author ahoo wang
@@ -80,7 +80,7 @@ public final class ConfigKeyGenerator {
     }
 
     public static NamespacedConfigId getConfigIdOfKey(String configKey) {
-        var firstSplitIdx = configKey.indexOf(Consts.KEY_SEPARATOR);
+        var firstSplitIdx = configKey.indexOf(CoSky.KEY_SEPARATOR);
         var namespace = configKey.substring(0, firstSplitIdx);
         var configKeyPrefix = Strings.lenientFormat(configKeyPrefixFormat, namespace);
         var configId = configKey.substring(configKeyPrefix.length());
@@ -90,7 +90,7 @@ public final class ConfigKeyGenerator {
     public static ConfigVersion getConfigVersionOfHistoryKey(String namespace, String configHistoryKey) {
         var configHistoryKeyPrefix = Strings.lenientFormat(configHistoryKeyPrefixFormat, namespace);
         var configIdWithVersion = configHistoryKey.substring(configHistoryKeyPrefix.length());
-        var configIdWithVersionSplit = configIdWithVersion.split(Consts.KEY_SEPARATOR);
+        var configIdWithVersionSplit = configIdWithVersion.split(CoSky.KEY_SEPARATOR);
         if (configIdWithVersionSplit.length != 2) {
             throw new IllegalArgumentException(Strings.lenientFormat("configHistoryKey:[%s] format error.", configHistoryKey));
         }

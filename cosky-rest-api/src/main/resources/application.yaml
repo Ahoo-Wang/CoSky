@@ -6,10 +6,26 @@ spring:
           weight: 18
   web:
     resources:
-      static-locations: file:./cosky-dashboard/dist/dashboard
+      static-locations: file:./cosky-dashboard/dist/
   servlet:
     multipart:
       max-file-size: 10MB
   mvc:
     async:
       request-timeout: 5s
+
+cosky:
+  security:
+    jwt:
+      signing-key: FyN0Igd80Gas3stTavArGKOYnS9uLWGW
+    enforce-init-super-user: true
+    enabled: true
+
+cosid:
+  namespace: ${spring.application.name}
+  snowflake:
+    enabled: true
+    machine:
+      distributor:
+        type: redis
+

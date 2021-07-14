@@ -11,28 +11,22 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.dto.user;
+package me.ahoo.cosky.rest.security;
+
+import me.ahoo.cosky.rest.security.user.User;
 
 /**
  * @author ahoo wang
  */
-public class AuthorizeResponse {
-    private String accessToken;
-    private String refreshToken;
+public class SecurityContext {
+    private static ThreadLocal<User> currentUser = new ThreadLocal<>();
 
-    public String getAccessToken() {
-        return accessToken;
+    public static User getUser() {
+        return currentUser.get();
     }
 
-    public void setAccessToken(String accessToken) {
-        this.accessToken = accessToken;
-    }
+    public static void setUser(User user) {
+        currentUser.set(user);
 
-    public String getRefreshToken() {
-        return refreshToken;
-    }
-
-    public void setRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
     }
 }

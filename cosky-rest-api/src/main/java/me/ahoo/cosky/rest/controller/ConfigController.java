@@ -22,7 +22,7 @@ import me.ahoo.cosky.config.Config;
 import me.ahoo.cosky.config.ConfigHistory;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.ConfigVersion;
-import me.ahoo.cosky.core.Consts;
+import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.rest.dto.config.ImportResponse;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import me.ahoo.cosky.rest.util.Zips;
@@ -136,7 +136,7 @@ public class ConfigController {
 
             return CompletableFuture.allOf(getConfigFutures).thenApply(nil -> {
                 HttpHeaders headers = new HttpHeaders();
-                String fileName = Consts.COSKY + "_export_config_" + System.currentTimeMillis() / 1000 + ".zip";
+                String fileName = CoSky.COSKY + "_export_config_" + System.currentTimeMillis() / 1000 + ".zip";
                 headers.add("Content-Disposition", "attachment;filename=" + fileName);
                 headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
                 return new ResponseEntity<>(Zips.zip(zipItems), headers, HttpStatus.OK);

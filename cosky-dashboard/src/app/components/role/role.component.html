@@ -1,0 +1,38 @@
+
+<div nz-row class="content-header">
+  <div nz-col nzOffset="16" [nzSpan]="8">
+    <button nz-button nzType="primary" nzSize="large" (click)="showAddRole()">Add Role
+    </button>
+  </div>
+</div>
+
+<nz-table class="content-body" #basicTable [nzFrontPagination]="false" [nzBordered]="true" [nzData]="roles" nzShowSizeChanger
+          [nzPageSizeOptions]="[10,20,30,50,100]">
+  <thead>
+  <tr>
+    <th>Role Name</th>
+    <th>Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let role of basicTable.data">
+    <td>{{role}}</td>
+<!--    <td>{{user.roleBind|json}}</td>-->
+    <td>
+      <button
+        nz-popconfirm
+        [nzPopconfirmTitle]="'Are you sure delete this role?'"
+        nzPopconfirmPlacement="top"
+        [disabled]="isSystem(role)"
+        nzType="dashed"
+        nz-button
+        (nzOnConfirm)="removeRole(role)"
+        nzDanger
+      >
+        <i nz-icon nzType="delete" nzTheme="outline"></i>
+      </button>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>
+

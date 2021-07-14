@@ -21,7 +21,7 @@ public interface NamespacedContext extends Namespaced {
     /**
      * 全局命名空间上下文
      */
-    NamespacedContext GLOBAL = of(Consts.COSKY);
+    NamespacedContext GLOBAL = of(CoSky.COSKY);
 
     /**
      * 设置当前上下文的命名空间

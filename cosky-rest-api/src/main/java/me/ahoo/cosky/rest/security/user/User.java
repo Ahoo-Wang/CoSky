@@ -11,39 +11,47 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.user;
+package me.ahoo.cosky.rest.security.user;
 
-import me.ahoo.cosky.core.Consts;
+import me.ahoo.cosky.core.CoSky;
+import me.ahoo.cosky.rest.security.rbac.Role;
+
+import java.util.Set;
 
 /**
  * @author ahoo wang
  */
 public class User {
-    public static String SUPER_USER = Consts.COSKY;
+    public static String SUPER_USER = CoSky.COSKY;
 
-    private String userName;
-    private String pwd;
+    private String username;
+    private Set<String> roleBind;
 
-    public String getUserName() {
-        return userName;
+    public String getUsername() {
+        return username;
     }
 
-    public void setUserName(String userName) {
-        this.userName = userName;
+    public void setUsername(String username) {
+        this.username = username;
     }
 
-    public String getPwd() {
-        return pwd;
+    public Set<String> getRoleBind() {
+        return roleBind;
     }
 
-    public void setPwd(String pwd) {
-        this.pwd = pwd;
+    public void setRoleBind(Set<String> roleBind) {
+        this.roleBind = roleBind;
+    }
+
+    public boolean isAdmin() {
+        return SUPER_USER.equals(username) || roleBind.contains(Role.ADMIN_ROLE);
     }
 
     @Override
     public String toString() {
         return "User{" +
-                "userName='" + userName + '\'' +
+                "username='" + username + '\'' +
+                ", roleBind=" + roleBind +
                 '}';
     }
 }
