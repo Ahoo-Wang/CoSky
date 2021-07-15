@@ -309,17 +309,6 @@ java -jar cosky-config/build/libs/cosky-config-1.2.0-jmh.jar -bm thrpt -t 25 -wi
 ```
 
 ```
-# JMH version: 1.29
-# VM version: JDK 11.2.01, OpenJDK 64-Bit Server VM, 11.2.01+9-LTS
-# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/cosky-config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
-# Blackhole mode: full + dont-inline hint
-# Warmup: 1 iterations, 10 s each
-# Measurement: 1 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 50 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-
 Benchmark                                          Mode  Cnt          Score   Error  Units
 ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
 RedisConfigServiceBenchmark.getConfig             thrpt          241787.679          ops/s
@@ -335,17 +324,6 @@ java -jar cosky-discovery/build/libs/cosky-discovery-1.2.0-jmh.jar -bm thrpt -t 
 ```
 
 ```
-# JMH version: 1.29
-# VM version: JDK 11.2.01, OpenJDK 64-Bit Server VM, 11.2.01+9-LTS
-# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/cosky-discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
-# Blackhole mode: full + dont-inline hint
-# Warmup: 1 iterations, 10 s each
-# Measurement: 1 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 50 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-
 Benchmark                                                Mode  Cnt          Score   Error  Units
 ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
 ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       455760632.346          ops/s
