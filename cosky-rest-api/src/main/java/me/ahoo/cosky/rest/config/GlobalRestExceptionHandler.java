@@ -14,7 +14,10 @@
 package me.ahoo.cosky.rest.config;
 
 import lombok.extern.slf4j.Slf4j;
+import me.ahoo.cosky.core.CoskyException;
 import me.ahoo.cosky.rest.dto.ErrorResponse;
+import me.ahoo.cosky.rest.security.CoSkySecurityException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -27,6 +30,24 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 @Slf4j
 public class GlobalRestExceptionHandler {
+
+    @ExceptionHandler(CoSkySecurityException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleCoSkySecurityException(CoSkySecurityException ex) {
+        if (log.isInfoEnabled()) {
+            log.info(ex.getMessage(), ex);
+        }
+        return ErrorResponse.of(ex.getMessage());
+    }
+
+    @ExceptionHandler(CoskyException.class)
+    @ResponseStatus
+    public ErrorResponse handleCoSkyException(CoskyException ex) {
+        if (log.isWarnEnabled()) {
+            log.warn(ex.getMessage(), ex);
+        }
+        return ErrorResponse.of(ex.getMessage());
+    }
 
     @ExceptionHandler
     @ResponseStatus

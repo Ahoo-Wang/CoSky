@@ -11,38 +11,29 @@
  * limitations under the License.
  */
 
-import {TestBed} from '@angular/core/testing';
+import {ComponentFixture, TestBed} from '@angular/core/testing';
 import {RouterTestingModule} from '@angular/router/testing';
 import {AppComponent} from './app.component';
+import {AuthenticatedComponent} from "./components/authenticated/authenticated.component";
 
 describe('AppComponent', () => {
+  let component: AuthenticatedComponent;
+  let fixture: ComponentFixture<AuthenticatedComponent>;
+
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [
-        RouterTestingModule
-      ],
-      declarations: [
-        AppComponent
-      ],
-    }).compileComponents();
+      declarations: [ AuthenticatedComponent ]
+    })
+      .compileComponents();
   });
 
-  it('should create the app', () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app).toBeTruthy();
-  });
-
-  it(`should have as title 'cosky-dashboard'`, () => {
-    const fixture = TestBed.createComponent(AppComponent);
-    const app = fixture.componentInstance;
-    expect(app.title).toEqual('CoSky Dashboard');
-  });
-
-  it('should render title', () => {
-    const fixture = TestBed.createComponent(AppComponent);
+  beforeEach(() => {
+    fixture = TestBed.createComponent(AuthenticatedComponent);
+    component = fixture.componentInstance;
     fixture.detectChanges();
-    const compiled = fixture.nativeElement;
-    expect(compiled.querySelector('.content span').textContent).toContain('cosky-dashboard app is running!');
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
   });
 });

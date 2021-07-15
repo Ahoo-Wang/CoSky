@@ -15,7 +15,7 @@ package me.ahoo.cosky.discovery;
 
 import com.google.common.base.Strings;
 import lombok.var;
-import me.ahoo.cosky.core.Consts;
+import me.ahoo.cosky.core.CoSky;
 
 /**
  * @author ahoo wang
@@ -66,7 +66,7 @@ public final class DiscoveryKeyGenerator {
     }
 
     public static String getNamespaceOfKey(String key) {
-        var firstSplitIdx = key.indexOf(Consts.KEY_SEPARATOR);
+        var firstSplitIdx = key.indexOf(CoSky.KEY_SEPARATOR);
         return key.substring(0, firstSplitIdx);
     }
 

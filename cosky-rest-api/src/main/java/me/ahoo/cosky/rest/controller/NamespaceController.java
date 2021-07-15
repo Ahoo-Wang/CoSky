@@ -15,6 +15,9 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
+import me.ahoo.cosky.rest.security.SecurityContext;
+import me.ahoo.cosky.rest.security.rbac.RBACService;
+import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,15 +33,19 @@ import java.util.concurrent.CompletableFuture;
 public class NamespaceController {
 
     private final NamespaceService namespaceService;
+    private final RBACService rbacService;
 
-    public NamespaceController(NamespaceService namespaceService) {
+    public NamespaceController(NamespaceService namespaceService, RBACService rbacService) {
         this.namespaceService = namespaceService;
+        this.rbacService = rbacService;
     }
-
 
     @GetMapping
     public CompletableFuture<Set<String>> getNamespaces() {
-        return namespaceService.getNamespaces();
+        if (SecurityContext.getUser().isAdmin()) {
+            return namespaceService.getNamespaces();
+        }
+        return CompletableFuture.completedFuture(rbacService.getCurrentUserNamespace());
     }
 
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
@@ -46,16 +53,19 @@ public class NamespaceController {
         return NamespacedContext.GLOBAL.getNamespace();
     }
 
+    @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
     public void setCurrentContextNamespace(@PathVariable String namespace) {
         NamespacedContext.GLOBAL.setCurrentContextNamespace(namespace);
     }
 
+    @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     public CompletableFuture<Boolean> setNamespace(@PathVariable String namespace) {
         return namespaceService.setNamespace(namespace);
     }
 
+    @AdminResource
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     public CompletableFuture<Boolean> removeNamespace(@PathVariable String namespace) {
         return namespaceService.removeNamespace(namespace);

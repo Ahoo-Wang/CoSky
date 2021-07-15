@@ -11,30 +11,14 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.user;
+export class Clone {
 
-import me.ahoo.cosky.rest.dto.user.AuthorizeResponse;
-
-/**
- * TODO
- *
- * @author ahoo wang
- */
-public class UserService {
-
-    public Boolean saveUser(String userName, String pwd) {
-        return Boolean.TRUE;
+  static deep<T>(source: T): T {
+    if (source === undefined || source === null) {
+      return source;
     }
 
-    public Boolean removeUser(String userName) {
-        return Boolean.TRUE;
-    }
 
-    /**
-     * @param userName
-     * @param pwd
-     */
-    public AuthorizeResponse authorize(String userName, String pwd) {
-        return null;
-    }
+    return JSON.parse(JSON.stringify(source));
+  }
 }

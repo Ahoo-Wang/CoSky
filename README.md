@@ -34,7 +34,7 @@ between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.1.12";
+    val coskyVersion = "1.2.0";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
@@ -52,7 +52,7 @@ between process cache and Redis.
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>1.1.12</cosky.version>
+        <cosky.version>1.2.0</cosky.version>
     </properties>
 
     <dependencies>
@@ -101,30 +101,21 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.12/cosky-rest-api-1.1.12.tar)
+> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.2.0/cosky-rest-api-1.2.0.tar)
 
-> tar *cosky-rest-api-1.1.12.tar*
+> tar *cosky-rest-api-1.2.0.tar*
 
 ```shell
-cd cosky-rest-api-1.1.12
-# Working directory: cosky-rest-api-1.1.12
+cd cosky-rest-api-1.2.0
+# Working directory: cosky-rest-api-1.2.0
 bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.12
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.12
-```
-
-##### MacBook Pro (M1)
-
-> Please use *ahoowang/cosky-rest-api:1.1.12-armv7*
-
-```shell
-docker pull ahoowang/cosky-rest-api:1.1.12-armv7
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.12-armv7
+docker pull ahoowang/cosky-rest-api:1.2.0
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.2.0
 ```
 
 #### Option 3：Run On Kubernetes
@@ -152,7 +143,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.1.12
+          image: ahoowang/cosky-rest-api:1.2.0
           name: cosky-rest-api
           ports:
             - containerPort: 8080
@@ -195,6 +186,34 @@ spec:
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
 ![dashboard-dashboard](./docs/dashboard-dashboard.png)
+
+### Role-based access control(RBAC)
+
+- cosky: Reserved username, super user, with the highest authority. When the application is launched for the first time, the super user (cosky) password will be initialized and printed on the console. Don't worry if you forget your password, you can configure `enforce-init-super-user: true`, *CoSky* will help you reinitialize the password and print it on the console.
+
+```log
+---------------- ****** CoSky -  init super user:[cosky] password:[6TrmOux4Oj] ****** ----------------
+```
+
+- admin: Reserved roles, super administrator roles, have all permissions, a user can be bound to multiple roles, and a role can be bound to multiple resource operation permissions.
+- Permission control granularity is namespace, read and write operations
+
+#### Role Permissions
+
+![dashboard-role](./docs/dashboard-role.png)
+
+##### Add Role
+
+![dashboard-role-add](./docs/dashboard-role-add.png)
+
+#### User Management
+
+![dashboard-user](./docs/dashboard-user.png)
+
+##### Add User
+
+![dashboard-user-add](./docs/dashboard-user-add.png)
+
 
 #### Namespace
 
@@ -286,21 +305,10 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.1.12-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.2.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
-# JMH version: 1.29
-# VM version: JDK 11.1.121, OpenJDK 64-Bit Server VM, 11.1.121+9-LTS
-# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/cosky-config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
-# Blackhole mode: full + dont-inline hint
-# Warmup: 1 iterations, 10 s each
-# Measurement: 1 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 50 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-
 Benchmark                                          Mode  Cnt          Score   Error  Units
 ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
 RedisConfigServiceBenchmark.getConfig             thrpt          241787.679          ops/s
@@ -312,21 +320,10 @@ RedisConfigServiceBenchmark.setConfig             thrpt          140461.112     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.1.12-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.2.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
-# JMH version: 1.29
-# VM version: JDK 11.1.121, OpenJDK 64-Bit Server VM, 11.1.121+9-LTS
-# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/cosky-discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
-# Blackhole mode: full + dont-inline hint
-# Warmup: 1 iterations, 10 s each
-# Measurement: 1 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 50 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-
 Benchmark                                                Mode  Cnt          Score   Error  Units
 ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
 ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       455760632.346          ops/s

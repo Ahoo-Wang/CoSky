@@ -33,7 +33,7 @@
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.1.12";
+    val coskyVersion = "1.2.0";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
@@ -51,7 +51,7 @@
   <modelVersion>4.0.0</modelVersion>
   <artifactId>demo</artifactId>
   <properties>
-    <cosky.version>1.1.12</cosky.version>
+    <cosky.version>1.2.0</cosky.version>
   </properties>
 
   <dependencies>
@@ -100,30 +100,21 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.1.12/cosky-rest-api-1.1.12.tar)
+> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.2.0/cosky-rest-api-1.2.0.tar)
 
-> 解压 *cosky-rest-api-1.1.12.tar*
+> 解压 *cosky-rest-api-1.2.0.tar*
 
 ```shell
-cd cosky-rest-api-1.1.12
-# 工作目录: cosky-rest-api-1.1.12
+cd cosky-rest-api-1.2.0
+# 工作目录: cosky-rest-api-1.2.0
 bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.1.12
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.12
-```
-
-##### MacBook Pro (M1)
-
-> 请使用 *ahoowang/cosky-rest-api:1.1.12-armv7*
-
-```shell
-docker pull ahoowang/cosky-rest-api:1.1.12-armv7
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.1.12-armv7
+docker pull ahoowang/cosky-rest-api:1.2.0
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.2.0
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -151,7 +142,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.1.12
+          image: ahoowang/cosky-rest-api:1.2.0
           name: cosky-rest-api
           ports:
             - containerPort: 8080
@@ -194,6 +185,33 @@ spec:
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
 ![dashboard-dashboard](./docs/dashboard-dashboard.png)
+
+### 基于角色的访问控制(RBAC)
+
+- cosky: 保留用户名，超级用户，拥有最高权限。应用首次启动时会初始化超级用户(*cosky*)的密码，并打印在控制台。忘记密码也不用担心，可以通过配置 `enforce-init-super-user: true`，*CoSky* 会帮助你重新初始化密码并打印在控制台。
+
+```log
+---------------- ****** CoSky -  init super user:[cosky] password:[6TrmOux4Oj] ****** ----------------
+```
+
+- admin: 保留角色，超级管理员角色，拥有所有权限，一个用户可以绑定多个角色，一个角色可以绑定多个资源操作权限。
+- 权限控制粒度为命名空间，读写操作
+
+#### 角色权限
+
+![dashboard-role](./docs/dashboard-role.png)
+
+##### 添加角色
+
+![dashboard-role-add](./docs/dashboard-role-add.png)
+
+#### 用户管理
+
+![dashboard-user](./docs/dashboard-user.png)
+
+##### 添加用户
+
+![dashboard-user-add](./docs/dashboard-user-add.png)
 
 #### 命名空间管理
 
@@ -285,21 +303,10 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.1.12-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.2.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
-# JMH version: 1.29
-# VM version: JDK 11.1.121, OpenJDK 64-Bit Server VM, 11.1.121+9-LTS
-# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/config/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
-# Blackhole mode: full + dont-inline hint
-# Warmup: 1 iterations, 10 s each
-# Measurement: 1 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 50 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-
 Benchmark                                          Mode  Cnt          Score   Error  Units
 ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
 RedisConfigServiceBenchmark.getConfig             thrpt          241787.679          ops/s
@@ -311,21 +318,10 @@ RedisConfigServiceBenchmark.setConfig             thrpt          140461.112     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.1.12-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.2.0-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
-# JMH version: 1.29
-# VM version: JDK 11.1.121, OpenJDK 64-Bit Server VM, 11.1.121+9-LTS
-# VM invoker: /Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java
-# VM options: -Dfile.encoding=UTF-8 -Djava.io.tmpdir=/Users/ahoo/cosky/discovery/build/tmp/jmh -Duser.country=CN -Duser.language=zh -Duser.variant
-# Blackhole mode: full + dont-inline hint
-# Warmup: 1 iterations, 10 s each
-# Measurement: 1 iterations, 10 s each
-# Timeout: 10 min per iteration
-# Threads: 50 threads, will synchronize iterations
-# Benchmark mode: Throughput, ops/time
-
 Benchmark                                                Mode  Cnt          Score   Error  Units
 ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
 ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       455760632.346          ops/s

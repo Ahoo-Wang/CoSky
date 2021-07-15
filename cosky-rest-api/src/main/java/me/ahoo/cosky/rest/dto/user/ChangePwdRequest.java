@@ -11,40 +11,28 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.rbac;
-
-import java.util.Set;
+package me.ahoo.cosky.rest.dto.user;
 
 /**
- * TODO
- * 认证 -> 授权 -> 鉴权 -> 权限控制
- *
  * @author ahoo wang
  */
-public class RBACService {
+public class ChangePwdRequest {
+    private String oldPassword;
+    private String newPassword;
 
-    public void saveRole(String roleName, Set<Role.ResourceAction> resourceActionBind) {
-
+    public String getOldPassword() {
+        return oldPassword;
     }
 
-    public void removeRole(String roleName) {
-
+    public void setOldPassword(String oldPassword) {
+        this.oldPassword = oldPassword;
     }
 
-    public void userRoleBind(String userName, Set<String> roleBind) {
-
+    public String getNewPassword() {
+        return newPassword;
     }
 
-    /**
-     * 鉴权
-     */
-    public void authenticate() {
-    }
-
-    /**
-     * 权限控制
-     */
-    public void accessCheck(){
-
+    public void setNewPassword(String newPassword) {
+        this.newPassword = newPassword;
     }
 }

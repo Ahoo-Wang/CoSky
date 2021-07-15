@@ -1,0 +1,16 @@
+<form  nzLayout="horizontal" nz-form [formGroup]="editorForm" (ngSubmit)="bindRole()">
+  <nz-form-item >
+    <nz-form-control  nzErrorTip="Please bind role!">
+      <nz-select
+        nzSize="large"
+        nzMode="multiple"
+        nzPlaceHolder="Please bind role!"
+        formControlName="roleBind"
+        [(ngModel)]="user.roleBind"
+      >
+        <nz-option *ngFor="let item of roles" [nzLabel]="item.name" [nzValue]="item.name"></nz-option>
+      </nz-select>
+    </nz-form-control>
+  </nz-form-item>
+  <button nz-button nzType="primary" [disabled]="!editorForm.valid" nzSize="large" nzBlock>Bind Role</button>
+</form>

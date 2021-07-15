@@ -17,13 +17,26 @@ import {NamespaceComponent} from './components/namespace/namespace.component';
 import {ConfigComponent} from './components/config/config.component';
 import {ServiceComponent} from './components/service/service.component';
 import {DashboardComponent} from './components/dashboard/dashboard.component';
+import {UserComponent} from "./components/user/user.component";
+import {AuthGuard} from "./security/AuthGuard";
+import {RoleComponent} from "./components/role/role.component";
+import {LoginComponent} from "./components/login/login.component";
+import {AuthenticatedComponent} from "./components/authenticated/authenticated.component";
 
 const routes: Routes = [
-  {path: '', pathMatch: 'full', redirectTo: '/dashboard'},
-  {path: 'dashboard', component: DashboardComponent},
-  {path: 'namespace', component: NamespaceComponent},
-  {path: 'config', component: ConfigComponent},
-  {path: 'service', component: ServiceComponent}
+  {path: 'login', component: LoginComponent},
+  {
+    path: '', canActivate: [AuthGuard], component: AuthenticatedComponent,
+    children: [
+      {path: '', pathMatch: 'full', redirectTo: '/home'},
+      {path: 'home', canActivate: [AuthGuard], component: DashboardComponent},
+      {path: 'namespace', canActivate: [AuthGuard], component: NamespaceComponent},
+      {path: 'config', canActivate: [AuthGuard], component: ConfigComponent},
+      {path: 'service', canActivate: [AuthGuard], component: ServiceComponent},
+      {path: 'user', canActivate: [AuthGuard], component: UserComponent},
+      {path: 'role', canActivate: [AuthGuard], component: RoleComponent}
+    ]
+  }
 ];
 
 @NgModule({

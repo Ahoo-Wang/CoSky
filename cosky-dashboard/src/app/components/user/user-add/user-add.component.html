@@ -1,0 +1,31 @@
+<form  nzLayout="horizontal" nz-form [formGroup]="addForm" (ngSubmit)="addUser()">
+  <nz-form-item>
+    <nz-form-control nzErrorTip="Please input Username!">
+      <nz-input-group nzPrefixIcon="user" nzSize="large">
+        <input type="text" nz-input formControlName="username" [(ngModel)]="username" placeholder="Username"/>
+      </nz-input-group>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-control nzErrorTip="Please input Password!">
+      <nz-input-group nzPrefixIcon="lock" nzSize="large">
+        <input type="password" nz-input formControlName="password" [(ngModel)]="password" placeholder="Password"/>
+      </nz-input-group>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-divider nzText="Bind Role"></nz-divider>
+  <nz-form-item>
+    <nz-form-control nzErrorTip="Please bind role!">
+      <nz-select
+        nzSize="large"
+        nzMode="multiple"
+        nzPlaceHolder="Please bind role!"
+        formControlName="roleBind"
+        [(ngModel)]="roleBind"
+      >
+        <nz-option *ngFor="let item of roles" [nzLabel]="item.name" [nzValue]="item.name"></nz-option>
+      </nz-select>
+    </nz-form-control>
+  </nz-form-item>
+  <button nz-button nzType="primary" [disabled]="!addForm.valid" nzSize="large" nzBlock>Add User</button>
+</form>

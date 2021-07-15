@@ -26,6 +26,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DashboardConfig implements ErrorPageRegistrar {
+    public static final String INDEX_PAGE = "/dashboard/index.html";
+
     /**
      * Register pages as required with the given registry.
      *
@@ -33,7 +35,7 @@ public class DashboardConfig implements ErrorPageRegistrar {
      */
     @Override
     public void registerErrorPages(ErrorPageRegistry registry) {
-        ErrorPage error404Page = new ErrorPage(HttpStatus.NOT_FOUND, "/index.html");
+        ErrorPage error404Page = new ErrorPage(HttpStatus.NOT_FOUND, INDEX_PAGE);
         registry.addErrorPages(error404Page);
     }
 }

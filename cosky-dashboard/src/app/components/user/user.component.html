@@ -1,0 +1,56 @@
+<div nz-row class="content-header">
+  <div nz-col nzOffset="20" [nzSpan]="4">
+    <button nz-button nzType="primary" nzSize="large" (click)="openAdd()">
+      <i nz-icon nzType="user-add" nzTheme="outline"></i>Add User
+    </button>
+  </div>
+</div>
+
+<nz-table class="content-body" #basicTable [nzFrontPagination]="false" [nzBordered]="true" [nzData]="users"
+          nzShowSizeChanger
+          [nzPageSizeOptions]="[10,20,30,50,100]">
+  <thead>
+  <tr>
+    <th>Username</th>
+    <th>Role</th>
+    <th>Action</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let user of basicTable.data">
+    <td>{{user.username}}</td>
+    <td>{{user.roleBind|json}}</td>
+    <td>
+      <nz-button-group>
+        <button
+          nz-popconfirm
+          [nzPopconfirmTitle]="'Are you sure delete this user?'"
+          nzPopconfirmPlacement="top"
+          [disabled]="isSystem(user)"
+          nzType="dashed"
+          nz-button
+          (nzOnConfirm)="removeUser(user)"
+          nzDanger
+        >
+          <i nz-icon nzType="delete" nzTheme="outline"></i>
+        </button>
+        <button
+          [disabled]="isSystem(user)"
+          nz-button
+          (click)="unlock(user)"
+        >
+          <i nz-icon nzType="unlock" nzTheme="outline"></i>
+        </button>
+        <button
+          [disabled]="isSystem(user)"
+          nz-button
+          (click)="openEditor(user)"
+        >
+          <i nz-icon nzType="edit" nzTheme="outline"></i>
+        </button>
+      </nz-button-group>
+    </td>
+  </tr>
+  </tbody>
+</nz-table>
+

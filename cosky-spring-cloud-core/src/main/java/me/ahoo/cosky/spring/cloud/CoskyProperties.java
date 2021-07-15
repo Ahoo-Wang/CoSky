@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.spring.cloud;
 
-import me.ahoo.cosky.core.Consts;
+import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.core.NamespacedProperties;
 import me.ahoo.cosky.core.redis.RedisConfig;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -24,7 +24,7 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  */
 @ConfigurationProperties(CoskyProperties.PREFIX)
 public class CoskyProperties extends NamespacedProperties {
-    public static final String PREFIX = "spring.cloud." + Consts.COSKY;
+    public static final String PREFIX = "spring.cloud." + CoSky.COSKY;
 
     private boolean enabled = true;
 

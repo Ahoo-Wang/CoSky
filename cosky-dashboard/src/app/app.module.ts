@@ -20,7 +20,7 @@ import {NZ_I18N, zh_CN} from 'ng-zorro-antd/i18n';
 import {registerLocaleData} from '@angular/common';
 import zh from '@angular/common/locales/zh';
 import {FormsModule, ReactiveFormsModule} from '@angular/forms';
-import {HttpClientModule} from '@angular/common/http';
+import {HTTP_INTERCEPTORS, HttpClientModule} from '@angular/common/http';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {IconsProviderModule} from './icons-provider.module';
 import {NzLayoutModule} from 'ng-zorro-antd/layout';
@@ -54,8 +54,21 @@ import {ConfigVersionListComponent} from './components/config/config-version-lis
 import {ConfigVersionComponent} from './components/config/config-version/config-version.component';
 import {DashboardComponent} from './components/dashboard/dashboard.component';
 import {ConfigImporterComponent} from './components/config/config-importer/config-importer.component';
+import {AuthInterceptor} from "./security/AuthInterceptor";
+import { LoginComponent } from './components/login/login.component';
+import { UserComponent } from './components/user/user.component';
+import { RoleComponent } from './components/role/role.component';
+import { RoleEditorComponent } from './components/role/role-editor/role-editor.component';
+import { UserEditorComponent } from './components/user/user-editor/user-editor.component';
+import { AuthenticatedComponent } from './components/authenticated/authenticated.component';
+import { UserChangePwdComponent } from './components/user/user-change-pwd/user-change-pwd.component';
+import { UserAddComponent } from './components/user/user-add/user-add.component';
 
 registerLocaleData(zh);
+
+export const httpInterceptorProviders = [
+  {provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true},
+];
 
 @NgModule({
   declarations: [
@@ -70,7 +83,15 @@ registerLocaleData(zh);
     ConfigVersionListComponent,
     ConfigVersionComponent,
     DashboardComponent,
-    ConfigImporterComponent
+    ConfigImporterComponent,
+    LoginComponent,
+    UserComponent,
+    RoleComponent,
+    RoleEditorComponent,
+    UserEditorComponent,
+    AuthenticatedComponent,
+    UserChangePwdComponent,
+    UserAddComponent
   ],
   imports: [
     BrowserModule,
@@ -100,7 +121,7 @@ registerLocaleData(zh);
     MonacoEditorModule,
     MonacoEditorModule.forRoot()
   ],
-  providers: [{provide: NZ_I18N, useValue: zh_CN}],
+  providers: [{provide: NZ_I18N, useValue: zh_CN}, httpInterceptorProviders],
   bootstrap: [AppComponent]
 })
 export class AppModule {
