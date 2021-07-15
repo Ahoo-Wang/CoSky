@@ -3,6 +3,7 @@ import {UserDto} from "../../../api/user/UserDto";
 import {FormBuilder, FormGroup, Validators} from "@angular/forms";
 import {UserClient} from "../../../api/user/UserClient";
 import {RoleClient} from "../../../api/role/RoleClient";
+import {RoleDto} from "../../../api/role/RoleDto";
 
 @Component({
   selector: 'app-user-editor',
@@ -10,13 +11,10 @@ import {RoleClient} from "../../../api/role/RoleClient";
   styleUrls: ['./user-editor.component.scss']
 })
 export class UserEditorComponent implements OnInit {
-  @Input() user!: UserDto | null;
+  @Input() user!: UserDto;
   @Output() afterSave: EventEmitter<boolean> = new EventEmitter<boolean>();
   editorForm!: FormGroup;
-  username!: string;
-  password!: string;
-  roleBind!: string[];
-  roles!: string[];
+  roles!: RoleDto[];
 
   constructor(private userClient: UserClient,
               private roleClient: RoleClient,
@@ -24,26 +22,19 @@ export class UserEditorComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    if (this.user) {
-      this.username = this.user.username;
-      this.roleBind = this.user.roleBind;
-    }
     this.roleClient.getAllRole().subscribe(resp => {
       this.roles = resp;
     })
     const controlsConfig = {
-      username: [this.username, [Validators.required]],
-      password: [this.password, [Validators.required]]
+      roleBind: [this.user.roleBind, [Validators.required]]
     };
     this.editorForm = this.formBuilder.group(controlsConfig);
   }
 
-  addUser() {
-    this.userClient.addUser(this.username, this.password).subscribe(resp => {
-      this.userClient.bindRole(this.username, this.roleBind).subscribe(bindResp => {
-        this.afterSave.emit(true);
-      })
-    });
+  bindRole() {
+    this.userClient.bindRole(this.user.username, this.user.roleBind).subscribe(bindResp => {
+      this.afterSave.emit(true);
+    })
   }
 
 }

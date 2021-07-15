@@ -16,6 +16,7 @@ package me.ahoo.cosky.rest.controller;
 import me.ahoo.cosky.rest.dto.user.AddUserRequest;
 import me.ahoo.cosky.rest.dto.user.ChangePwdRequest;
 import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.rbac.annotation.OwnerResource;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
@@ -30,6 +31,7 @@ import java.util.Set;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.USERS_PREFIX)
+@AdminResource
 public class UserController {
     private final UserService userService;
 
@@ -42,26 +44,29 @@ public class UserController {
         return userService.query();
     }
 
+    @OwnerResource
     @PatchMapping("/{username}/password")
-    public boolean changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
-        return userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
+    public void changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
+        userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
     }
 
-    @AdminResource
     @PostMapping
     public boolean addUser(@RequestBody AddUserRequest addUserRequest) {
         return userService.addUser(addUserRequest.getUsername(), addUserRequest.getPassword());
     }
 
-    @AdminResource
     @PatchMapping("/{username}/role")
     public void bindRole(@PathVariable String username, @RequestBody Set<String> roleBind) {
         userService.bindRole(username, roleBind);
     }
 
-    @AdminResource
     @DeleteMapping("/{username}")
     public boolean removeUser(@PathVariable String username) {
         return userService.removeUser(username);
+    }
+
+    @DeleteMapping("/{username}/lock")
+    public void unlock(@PathVariable String username) {
+        userService.unlock(username);
     }
 }

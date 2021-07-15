@@ -1,0 +1,17 @@
+<form nz-form [formGroup]="editorForm" (ngSubmit)="changePwd()">
+  <nz-form-item>
+    <nz-form-control nzErrorTip="Please input your old Password!">
+      <nz-input-group nzPrefixIcon="lock" nzSize="large">
+        <input type="password" nz-input formControlName="oldPassword" [(ngModel)]="oldPassword" placeholder="oldPassword"/>
+      </nz-input-group>
+    </nz-form-control>
+  </nz-form-item>
+  <nz-form-item>
+    <nz-form-control nzErrorTip="Please input your new Password!">
+      <nz-input-group nzPrefixIcon="lock" nzSize="large">
+        <input type="password" nz-input formControlName="newPassword" [(ngModel)]="newPassword" placeholder="newPassword"/>
+      </nz-input-group>
+    </nz-form-control>
+  </nz-form-item>
+  <button nz-button nzType="danger" [disabled]="!editorForm.valid" nzSize="large" nzBlock>Change Password</button>
+</form>

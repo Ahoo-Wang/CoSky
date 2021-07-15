@@ -3,22 +3,26 @@ spring:
     cosky:
       discovery:
         registry:
-          weight: 18
+          weight: 8
   web:
     resources:
-      static-locations: file:./cosky-dashboard/dist/
+      static-locations: file:./cosky-dashboard/dist/dashboard
   servlet:
     multipart:
       max-file-size: 10MB
   mvc:
+    static-path-pattern: /dashboard/**
     async:
       request-timeout: 5s
+
 
 cosky:
   security:
     jwt:
-      signing-key: FyN0Igd80Gas3stTavArGKOYnS9uLWGW
-    enforce-init-super-user: true
+      signing-key: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+      access-token-validity: 15m
+      refresh-token-validity: 3H
+    enforce-init-super-user: false
     enabled: true
 
 cosid:

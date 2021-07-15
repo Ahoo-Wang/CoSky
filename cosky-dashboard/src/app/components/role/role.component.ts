@@ -1,9 +1,8 @@
 import {Component, OnInit} from '@angular/core';
-import {UserDto} from "../../api/user/UserDto";
 import {RoleClient} from "../../api/role/RoleClient";
-import {UserEditorComponent} from "../user/user-editor/user-editor.component";
 import {NzDrawerService} from "ng-zorro-antd/drawer";
 import {RoleEditorComponent} from "./role-editor/role-editor.component";
+import {RoleDto} from "../../api/role/RoleDto";
 
 @Component({
   selector: 'app-role',
@@ -11,7 +10,7 @@ import {RoleEditorComponent} from "./role-editor/role-editor.component";
   styleUrls: ['./role.component.scss']
 })
 export class RoleComponent implements OnInit {
-  roles: string[] = [];
+  roles: RoleDto[] = [];
 
   constructor(private roleClient: RoleClient, private drawerService: NzDrawerService) {
   }
@@ -26,19 +25,19 @@ export class RoleComponent implements OnInit {
     this.loadRoles();
   }
 
-  removeRole(role: string) {
-    this.roleClient.removeRole(role).subscribe(resp => {
+  removeRole(role: RoleDto) {
+    this.roleClient.removeRole(role.name).subscribe(resp => {
       this.loadRoles();
     })
   }
 
-  isSystem(role: string) {
-    return 'admin' === role;
+  isSystem(role: RoleDto) {
+    return 'admin' === role.name;
   }
 
 
-  openEditor(role: string | null) {
-    const title = role ? `Edit Role [${role}]` : 'Add Role';
+  openEditor(role: RoleDto | null) {
+    const title = role ? `Edit Role [${role.name}]` : 'Add Role';
     const drawerRef = this.drawerService.create<RoleEditorComponent, {}, string>({
       nzTitle: title,
       nzWidth: '40%',

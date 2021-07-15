@@ -28,9 +28,9 @@ export class UserClient {
     return this.httpClient.get<UserDto[]>(this.apiPrefix);
   }
 
-  changePwd(username: string, oldPassword: string, newPassword: string): Observable<boolean> {
+  changePwd(username: string, oldPassword: string, newPassword: string): Observable<void> {
     const apiUrl = `${this.apiPrefix}/${username}/password`;
-    return this.httpClient.patch<boolean>(apiUrl, {username, oldPassword, newPassword});
+    return this.httpClient.patch<void>(apiUrl, {username, oldPassword, newPassword});
   }
 
   addUser(username: string, password: string): Observable<boolean> {
@@ -47,4 +47,8 @@ export class UserClient {
     return this.httpClient.patch<boolean>(apiUrl, roleBind);
   }
 
+  unlock(username: string): Observable<void> {
+    const apiUrl = `${this.apiPrefix}/${username}/lock`;
+    return this.httpClient.delete<void>(apiUrl);
+  }
 }

@@ -15,6 +15,8 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
+import me.ahoo.cosky.rest.security.SecurityContext;
+import me.ahoo.cosky.rest.security.rbac.RBACService;
 import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
@@ -31,15 +33,19 @@ import java.util.concurrent.CompletableFuture;
 public class NamespaceController {
 
     private final NamespaceService namespaceService;
+    private final RBACService rbacService;
 
-    public NamespaceController(NamespaceService namespaceService) {
+    public NamespaceController(NamespaceService namespaceService, RBACService rbacService) {
         this.namespaceService = namespaceService;
+        this.rbacService = rbacService;
     }
 
     @GetMapping
     public CompletableFuture<Set<String>> getNamespaces() {
-
-        return namespaceService.getNamespaces();
+        if (SecurityContext.getUser().isAdmin()) {
+            return namespaceService.getNamespaces();
+        }
+        return CompletableFuture.completedFuture(rbacService.getCurrentUserNamespace());
     }
 
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)

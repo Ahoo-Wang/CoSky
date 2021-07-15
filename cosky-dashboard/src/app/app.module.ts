@@ -60,6 +60,9 @@ import { UserComponent } from './components/user/user.component';
 import { RoleComponent } from './components/role/role.component';
 import { RoleEditorComponent } from './components/role/role-editor/role-editor.component';
 import { UserEditorComponent } from './components/user/user-editor/user-editor.component';
+import { AuthenticatedComponent } from './components/authenticated/authenticated.component';
+import { UserChangePwdComponent } from './components/user/user-change-pwd/user-change-pwd.component';
+import { UserAddComponent } from './components/user/user-add/user-add.component';
 
 registerLocaleData(zh);
 
@@ -85,7 +88,10 @@ export const httpInterceptorProviders = [
     UserComponent,
     RoleComponent,
     RoleEditorComponent,
-    UserEditorComponent
+    UserEditorComponent,
+    AuthenticatedComponent,
+    UserChangePwdComponent,
+    UserAddComponent
   ],
   imports: [
     BrowserModule,

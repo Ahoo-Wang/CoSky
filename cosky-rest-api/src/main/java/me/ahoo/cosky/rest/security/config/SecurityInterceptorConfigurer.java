@@ -44,7 +44,8 @@ public class SecurityInterceptorConfigurer implements WebMvcConfigurer {
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authorizeHandlerInterceptor)
                 .excludePathPatterns(
-                        "/swagger-ui/**"
+                        "/*"
+                        , "/swagger-ui/**"
                         , "/swagger-resources/**"
                         , "/v3/api-docs"
                         , "/dashboard/**"

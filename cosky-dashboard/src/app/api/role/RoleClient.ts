@@ -15,6 +15,7 @@ import {environment} from "../../../environments/environment";
 import {Observable} from "rxjs";
 import {HttpClient} from "@angular/common/http";
 import {ResourceActionDto} from "./ResourceActionDto";
+import {RoleDto} from "./RoleDto";
 
 @Injectable({providedIn: 'root'})
 export class RoleClient {
@@ -24,13 +25,18 @@ export class RoleClient {
 
   }
 
-  getAllRole(): Observable<string[]> {
-    return this.httpClient.get<string[]>(this.apiPrefix);
+  getAllRole(): Observable<RoleDto[]> {
+    return this.httpClient.get<RoleDto[]>(this.apiPrefix);
   }
 
-  saveRole(roleName: string, resourceActionBind: ResourceActionDto[]): Observable<boolean> {
-    const apiUrl = `${this.apiPrefix}/${roleName}`;
-    return this.httpClient.patch<boolean>(apiUrl, {roleName, resourceActionBind});
+  getResourceBind(roleName: string):Observable<ResourceActionDto[]>{
+    const apiUrl = `${this.apiPrefix}/${roleName}/bind`;
+    return this.httpClient.get<ResourceActionDto[]>(apiUrl);
+  }
+
+  saveRole(roleName: string, desc: string, resourceActionBind: ResourceActionDto[]): Observable<boolean> {
+    const apiUrl = `${this.apiPrefix}`;
+    return this.httpClient.put<boolean>(apiUrl, {name: roleName, desc: desc, resourceActionBind});
   }
 
   removeRole(roleName: string): Observable<boolean> {

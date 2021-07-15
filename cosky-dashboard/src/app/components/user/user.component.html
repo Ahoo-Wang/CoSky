@@ -1,6 +1,7 @@
 <div nz-row class="content-header">
-  <div nz-col nzOffset="16" [nzSpan]="8">
-    <button nz-button nzType="primary" nzSize="large" (click)="openEditor(null)">Add User
+  <div nz-col nzOffset="20" [nzSpan]="4">
+    <button nz-button nzType="primary" nzSize="large" (click)="openAdd()">
+      <i nz-icon nzType="user-add" nzTheme="outline"></i>Add User
     </button>
   </div>
 </div>
@@ -32,6 +33,13 @@
           nzDanger
         >
           <i nz-icon nzType="delete" nzTheme="outline"></i>
+        </button>
+        <button
+          [disabled]="isSystem(user)"
+          nz-button
+          (click)="unlock(user)"
+        >
+          <i nz-icon nzType="unlock" nzTheme="outline"></i>
         </button>
         <button
           [disabled]="isSystem(user)"

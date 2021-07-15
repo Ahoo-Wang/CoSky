@@ -13,7 +13,7 @@
 
 import {ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot, UrlTree} from "@angular/router";
 import {Observable} from "rxjs";
-import {SecurityService} from "./SecurityService";
+import {LOGIN_PATH, SecurityService} from "./SecurityService";
 import {Injectable} from "@angular/core";
 import {NzMessageService} from "ng-zorro-antd/message";
 import {AuthenticateClient} from "../api/authenticate/AuthenticateClient";
@@ -25,27 +25,32 @@ import {map} from "rxjs/operators";
 export class AuthGuard implements CanActivate {
 
   constructor(private securityService: SecurityService
-    , private router: Router
-    , private messageService: NzMessageService) {
+    , private router: Router) {
   }
 
+  /**
+   * Self-check in advance
+   * @param route
+   * @param state
+   */
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot)
     : Observable<boolean | UrlTree> | Promise<boolean | UrlTree> | boolean | UrlTree {
     if (this.securityService.authenticated()) {
       return true;
     }
-    if (this.securityService.refreshValid()) {
-      return this.securityService.refreshToken()
-        .pipe(map(succeeded => {
-          if (!succeeded) {
-            this.securityService.redirectFrom = route.url[0].path;
-            this.router.navigateByUrl("login")
-          }
-          return succeeded;
-        }));
+    return this.securityService.refreshToken()
+      .pipe(map(succeeded => {
+        if (!succeeded) {
+          this.saveRedirectFrom(route);
+          this.router.navigate([LOGIN_PATH])
+        }
+        return succeeded;
+      }));
+  }
+
+  saveRedirectFrom(route: ActivatedRouteSnapshot) {
+    if (route.url.length > 0) {
+      this.securityService.redirectFrom = route.url[0].path;
     }
-    this.messageService.error(`UNAUTHORIZED.`);
-    this.securityService.redirectFrom = route.url[0].path;
-    return this.router.parseUrl("login");
   }
 }

@@ -16,6 +16,7 @@ import {ServiceInstanceDto} from '../../api/service/ServiceInstanceDto';
 import {Instances} from '../../api/service/Instances';
 import {InstanceEditorComponent} from './instance-editor/instance-editor.component';
 import {NzDrawerService} from 'ng-zorro-antd/drawer';
+import {Clone} from "../../util/Clone";
 
 @Injectable({
   providedIn: 'root'
@@ -34,7 +35,7 @@ export class InstanceEditorService {
       editInstance.serviceId = serviceId;
       editInstance.ephemeral = true;
     } else {
-      editInstance = JSON.parse(JSON.stringify(instance));
+      editInstance = Clone.deep(instance);
     }
 
     const drawerRef = this.drawerService.create<InstanceEditorComponent, { instance: ServiceInstanceDto }, string>({

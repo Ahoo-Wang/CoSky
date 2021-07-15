@@ -15,18 +15,23 @@ package me.ahoo.cosky.rest.security;
 
 import me.ahoo.cosky.rest.security.user.User;
 
+import java.util.Objects;
+
 /**
  * @author ahoo wang
  */
 public class SecurityContext {
-    private static ThreadLocal<User> currentUser = new ThreadLocal<>();
+    private static final ThreadLocal<User> CURRENT_USER = new ThreadLocal<>();
+
+    public static boolean authorized() {
+        return Objects.nonNull(getUser());
+    }
 
     public static User getUser() {
-        return currentUser.get();
+        return CURRENT_USER.get();
     }
 
     public static void setUser(User user) {
-        currentUser.set(user);
-
+        CURRENT_USER.set(user);
     }
 }

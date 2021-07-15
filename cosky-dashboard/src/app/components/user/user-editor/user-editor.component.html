@@ -1,28 +1,16 @@
-<form nz-form [formGroup]="editorForm" (ngSubmit)="addUser()">
-  <nz-form-item>
-    <nz-form-control nzErrorTip="Please input your username!">
-      <nz-input-group nzPrefixIcon="user" nzSize="large">
-        <input type="text" nz-input formControlName="username" [(ngModel)]="username" placeholder="Username"/>
-      </nz-input-group>
+<form  nzLayout="horizontal" nz-form [formGroup]="editorForm" (ngSubmit)="bindRole()">
+  <nz-form-item >
+    <nz-form-control  nzErrorTip="Please bind role!">
+      <nz-select
+        nzSize="large"
+        nzMode="multiple"
+        nzPlaceHolder="Please bind role!"
+        formControlName="roleBind"
+        [(ngModel)]="user.roleBind"
+      >
+        <nz-option *ngFor="let item of roles" [nzLabel]="item.name" [nzValue]="item.name"></nz-option>
+      </nz-select>
     </nz-form-control>
   </nz-form-item>
-  <nz-form-item>
-    <nz-form-control nzErrorTip="Please input your Password!">
-      <nz-input-group nzPrefixIcon="lock" nzSize="large">
-        <input type="password" nz-input formControlName="password" [(ngModel)]="password" placeholder="Password"/>
-      </nz-input-group>
-    </nz-form-control>
-  </nz-form-item>
-  <nz-form-item>
-    <nz-select
-      nzSize="large"
-      nzMode="multiple"
-      nzPlaceHolder="Please select role!"
-      [(ngModel)]="roleBind"
-      [ngModelOptions]="{standalone: true}"
-    >
-      <nz-option *ngFor="let item of roles" [nzLabel]="item" [nzValue]="item"></nz-option>
-    </nz-select>
-  </nz-form-item>
-  <button nz-button nzType="primary" [disabled]="!editorForm.valid" nzSize="large" nzBlock>Add User</button>
+  <button nz-button nzType="primary" [disabled]="!editorForm.valid" nzSize="large" nzBlock>Bind Role</button>
 </form>

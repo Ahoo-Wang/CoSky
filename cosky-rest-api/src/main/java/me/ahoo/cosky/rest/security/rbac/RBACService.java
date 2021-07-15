@@ -16,24 +16,29 @@ package me.ahoo.cosky.rest.security.rbac;
 import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import lombok.SneakyThrows;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.rest.dto.role.ResourceActionDto;
+import me.ahoo.cosky.rest.dto.role.RoleDto;
+import me.ahoo.cosky.rest.dto.role.SaveRoleRequest;
 import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.SecurityContext;
+import me.ahoo.cosky.rest.security.TokenExpiredException;
 import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.rbac.annotation.OwnerResource;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.method.HandlerMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import java.net.URLDecoder;
-import java.net.URLEncoder;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
@@ -61,50 +66,87 @@ public class RBACService {
         return Strings.lenientFormat(ROLE_RESOURCE_BIND, roleName);
     }
 
-    public void saveRole(String roleName, Set<ResourceActionDto> resourceActionBind) {
-        redisCommands.sadd(ROLE_IDX, roleName);
-        String roleResourceBindKey = getRoleResourceBindKey(roleName);
+    public void saveRole(SaveRoleRequest saveRoleRequest) {
+        redisCommands.hset(ROLE_IDX, saveRoleRequest.getName(), saveRoleRequest.getDesc());
+        String roleResourceBindKey = getRoleResourceBindKey(saveRoleRequest.getName());
         redisCommands.del(roleResourceBindKey);
-        for (ResourceActionDto resourceAction : resourceActionBind) {
+        for (ResourceActionDto resourceAction : saveRoleRequest.getResourceActionBind()) {
             redisCommands.hset(roleResourceBindKey, resourceAction.getNamespace(), resourceAction.getAction());
         }
     }
 
     public void removeRole(String roleName) {
-        redisCommands.srem(ROLE_IDX, roleName);
+        redisCommands.hdel(ROLE_IDX, roleName);
         String roleResourceBindKey = getRoleResourceBindKey(roleName);
         redisCommands.del(roleResourceBindKey);
     }
 
-    public Set<String> getAllRole() {
-        Set<String> roles = redisCommands.smembers(ROLE_IDX);
-        Set<String> allRole = Sets.newHashSet(roles);
-        allRole.add(Role.ADMIN_ROLE);
+    public Set<RoleDto> getAllRole() {
+        Map<String, String> roleMap = redisCommands.hgetall(ROLE_IDX);
+        Set<RoleDto> allRole = Sets.newHashSet();
+        for (Map.Entry<String, String> entry : roleMap.entrySet()) {
+            RoleDto dto = new RoleDto();
+            dto.setName(entry.getKey());
+            dto.setDesc(entry.getValue());
+            allRole.add(dto);
+        }
+        allRole.add(RoleDto.ADMIN);
         return allRole;
     }
 
     public Role getRole(String roleName) throws NotFoundRoleException {
+        String roleDesc = redisCommands.hget(ROLE_IDX, roleName);
+        if (roleDesc == null) {
+            throw new NotFoundRoleException(roleName);
+        }
+        Role role = new Role();
+        role.setRoleName(roleName);
+        role.setDesc(roleDesc);
+        Set<ResourceAction> resourceActionBind = getResourceBind(roleName);
+        for (ResourceAction resourceAction : resourceActionBind) {
+            role.getResourceActionBind().put(resourceAction.getNamespace(), resourceAction);
+        }
+        return role;
+    }
+
+    public Set<ResourceAction> getResourceBind(String roleName) {
         String roleResourceBindKey = getRoleResourceBindKey(roleName);
         Map<String, String> roleResourceBindMap = redisCommands.hgetall(roleResourceBindKey);
         if (roleResourceBindMap == null) {
             throw new NotFoundRoleException(roleName);
         }
-        Role role = new Role();
-        role.setRoleName(roleName);
-        roleResourceBindMap.forEach((namespace, action) -> {
-            ResourceAction resourceAction = new ResourceAction(namespace, Action.of(action));
-            role.getResourceActionBind().put(namespace, resourceAction);
-        });
-        return role;
+        Set<ResourceAction> resourceActionBind = Sets.newHashSet();
+        for (Map.Entry<String, String> entry : roleResourceBindMap.entrySet()) {
+            ResourceAction resourceAction = new ResourceAction(entry.getKey(), Action.of(entry.getValue()));
+            resourceActionBind.add(resourceAction);
+        }
+        return resourceActionBind;
+
+    }
+
+
+    public Set<String> getCurrentUserNamespace() {
+        if (!SecurityContext.authorized()) {
+            return Collections.emptySet();
+        }
+
+        Set<String> userRoleBind = SecurityContext.getUser().getRoleBind();
+        return userRoleBind.stream()
+                .flatMap(role -> getRole(role).getResourceActionBind().keySet().stream())
+                .collect(Collectors.toSet());
     }
 
     /**
      * 权限控制
      */
     @SneakyThrows
-    public boolean authorize(String accessToken, HttpServletRequest request, HandlerMethod handlerMethod) {
-
-        User user = jwtProvider.authorize(accessToken);
+    public boolean authorize(String accessToken, HttpServletRequest request, HandlerMethod handlerMethod) throws TokenExpiredException {
+        User user;
+        try {
+            user = jwtProvider.authorize(accessToken);
+        } catch (ExpiredJwtException expiredJwtException) {
+            throw new TokenExpiredException(expiredJwtException);
+        }
         SecurityContext.setUser(user);
         if (User.SUPER_USER.equals(user.getUsername()) || user.isAdmin()) {
             return true;
@@ -116,7 +158,14 @@ public class RBACService {
             return true;
         }
 
-        boolean isAdminResource = handlerMethod.hasMethodAnnotation(AdminResource.class);
+        boolean isOwnerResource = AnnotatedElementUtils.hasAnnotation(handlerMethod.getBeanType(), OwnerResource.class)
+                || handlerMethod.hasMethodAnnotation(OwnerResource.class);
+        if (isOwnerResource) {
+            return true;
+        }
+
+        boolean isAdminResource = AnnotatedElementUtils.hasAnnotation(handlerMethod.getBeanType(), AdminResource.class)
+                || handlerMethod.hasMethodAnnotation(AdminResource.class);
         if (isAdminResource) {
             return false;
         }

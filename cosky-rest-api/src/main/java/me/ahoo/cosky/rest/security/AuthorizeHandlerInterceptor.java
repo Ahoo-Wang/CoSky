@@ -57,7 +57,7 @@ public class AuthorizeHandlerInterceptor implements HandlerInterceptor {
      */
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        if(HttpMethod.OPTIONS.name().equals(request.getMethod())){
+        if (HttpMethod.OPTIONS.name().equals(request.getMethod())) {
             return true;
         }
         String accessToken = request.getHeader(AUTH_HEADER);
@@ -67,8 +67,13 @@ public class AuthorizeHandlerInterceptor implements HandlerInterceptor {
             return false;
         }
 
-        if (!rbacService.authorize(accessToken, request, (HandlerMethod) handler)) {
-            response.setStatus(HttpStatus.FORBIDDEN.value());
+        try {
+            if (!rbacService.authorize(accessToken, request, (HandlerMethod) handler)) {
+                response.setStatus(HttpStatus.FORBIDDEN.value());
+                return false;
+            }
+        } catch (TokenExpiredException tokenExpiredException) {
+            response.setStatus(HttpStatus.UNAUTHORIZED.value());
             return false;
         }
 

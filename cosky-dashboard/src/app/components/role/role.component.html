@@ -1,5 +1,5 @@
 <div nz-row class="content-header">
-  <div nz-col nzOffset="16" [nzSpan]="8">
+  <div nz-col nzOffset="20" [nzSpan]="4">
     <button nz-button nzType="primary" nzSize="large" (click)="openEditor(null)">Add Role
     </button>
   </div>
@@ -11,13 +11,14 @@
   <thead>
   <tr>
     <th>Role Name</th>
+    <th>Desc</th>
     <th>Action</th>
   </tr>
   </thead>
   <tbody>
   <tr *ngFor="let role of basicTable.data">
-    <td>{{role}}</td>
-    <!--    <td>{{user.roleBind|json}}</td>-->
+    <td>{{role.name}}</td>
+    <td>{{role.desc}}</td>
     <td>
       <nz-button-group>
         <button

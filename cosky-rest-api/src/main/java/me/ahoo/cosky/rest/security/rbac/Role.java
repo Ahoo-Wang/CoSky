@@ -34,7 +34,7 @@ public class Role {
     }
 
     private String roleName;
-
+    private String desc;
     private Map<String, ResourceAction> resourceActionBind = new HashMap<>();
 
     public String getRoleName() {
@@ -43,6 +43,14 @@ public class Role {
 
     public void setRoleName(String roleName) {
         this.roleName = roleName;
+    }
+
+    public String getDesc() {
+        return desc;
+    }
+
+    public void setDesc(String desc) {
+        this.desc = desc;
     }
 
     public Map<String, ResourceAction> getResourceActionBind() {

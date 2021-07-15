@@ -17,12 +17,12 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.hash.Hashing;
-import io.lettuce.core.SetArgs;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.rest.dto.user.LoginResponse;
+import me.ahoo.cosky.rest.security.CoSkySecurityException;
 import me.ahoo.cosky.rest.security.JwtProvider;
 import net.bytebuddy.utility.RandomString;
 import org.springframework.stereotype.Service;
@@ -38,11 +38,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class UserService {
-
-    public static final String USER_SAVE = "user_save.lua";
-    public static final String USER_REMOVE = "user_remove.lua";
-    public static final String USER_CHANGE_PWD = "user_change_pwd.lua";
-    public static final String USER_LOGIN = "user_login.lua";
 
     public static final String USER_IDX = Namespaced.SYSTEM + ":user_idx";
     public static final String USER_ROLE_BIND = Namespaced.SYSTEM + ":user_role_bind:%s";
@@ -74,7 +69,7 @@ public class UserService {
     }
 
     private void printSuperUserPwd(String coskyPwd) {
-        System.out.println(Strings.lenientFormat("-------- CoSky -  init super user:[%s] password:[%s] --------", User.SUPER_USER, coskyPwd));
+        System.out.println(Strings.lenientFormat("---------------- ****** CoSky -  init super user:[%s] password:[%s] ****** ----------------", User.SUPER_USER, coskyPwd));
     }
 
     public List<User> query() {
@@ -103,6 +98,7 @@ public class UserService {
 
     public void bindRole(String username, Set<String> roleBind) {
         String userRoleBindKey = getUserRoleBindKey(username);
+        redisCommands.del(userRoleBindKey);
         for (String role : roleBind) {
             redisCommands.sadd(userRoleBindKey, role);
         }
@@ -113,34 +109,46 @@ public class UserService {
         return redisCommands.smembers(userRoleBindKey);
     }
 
-    public boolean changePwd(String username, String oldPwd, String newPwd) {
+    public void changePwd(String username, String oldPwd, String newPwd) {
         oldPwd = encodePwd(oldPwd);
         newPwd = encodePwd(newPwd);
         String prePwd = redisCommands.hget(USER_IDX, username);
-        Preconditions.checkNotNull(prePwd, Strings.lenientFormat("username:[%s] not exists.", username));
-        Preconditions.checkArgument(prePwd.equals(oldPwd), Strings.lenientFormat("username:[%s] - old password is incorrect.", username));
-        return redisCommands.hset(USER_IDX, username, newPwd);
+
+        Preconditions.checkNotNull(prePwd, Strings.lenientFormat("username:[%s] not exists!", username));
+
+        if (!prePwd.equals(oldPwd)) {
+            throw new CoSkySecurityException(Strings.lenientFormat("username:[%s] - old password is incorrect!", username));
+        }
+
+        redisCommands.hset(USER_IDX, username, newPwd);
     }
 
-    public static final int MAX_LOGIN_ERROR_TIMES = 5;
-    public static final long LOGIN_LOCK_EXPIRE = Duration.ofHours(1).toMillis();
+    public static final int MAX_LOGIN_ERROR_TIMES = 10;
+    public static final long LOGIN_LOCK_EXPIRE = Duration.ofMinutes(15).toMillis();
+    public static final long MAX_LOGIN_LOCK_EXPIRE = Duration.ofDays(3).toMillis();
 
-    public LoginResponse login(String username, String pwd) {
+    public LoginResponse login(String username, String pwd) throws CoSkySecurityException {
         String loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username);
 
         long tryCount = redisCommands.incr(loginLockKey);
-        redisCommands.pexpire(loginLockKey, LOGIN_LOCK_EXPIRE);
-        if (tryCount > MAX_LOGIN_ERROR_TIMES) {
+        long expansion = (int) Math.max(tryCount / MAX_LOGIN_ERROR_TIMES, 1);
+        final long loginLockExpire = Math.min(LOGIN_LOCK_EXPIRE * expansion, MAX_LOGIN_LOCK_EXPIRE);
 
-            /**
-             * throw freeze
-             */
+        redisCommands.pexpire(loginLockKey, loginLockExpire);
+        if (tryCount > MAX_LOGIN_ERROR_TIMES) {
+            throw new CoSkySecurityException(Strings.lenientFormat("User:[%s] sign in freezes for [%s] minutes,Too many:[%s] sign in errors!", username, Duration.ofMillis(loginLockExpire).toMinutes(), tryCount));
         }
 
         String realPwd = redisCommands.hget(USER_IDX, username);
-        Preconditions.checkNotNull(realPwd, Strings.lenientFormat("username:[%s] not exists.", username));
+
+        if (Strings.isNullOrEmpty(realPwd)) {
+            throw new CoSkySecurityException(Strings.lenientFormat("username:[%s] not exists!", username));
+        }
+
         String encodedPwd = encodePwd(pwd);
-        Preconditions.checkArgument(realPwd.equals(encodedPwd), Strings.lenientFormat("username:[%s] - password is incorrect.", username));
+        if (!realPwd.equals(encodedPwd)) {
+            throw new CoSkySecurityException(Strings.lenientFormat("username:[%s] - password is incorrect.!", username));
+        }
         Set<String> roleBind = getRoleBind(username);
         User user = new User();
         user.setUsername(username);
@@ -150,6 +158,11 @@ public class UserService {
 
     private String encodePwd(String pwd) {
         return Hashing.sha256().hashString(pwd, Charsets.UTF_8).toString();
+    }
+
+    public void unlock(String username) {
+        String loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username);
+        redisCommands.del(loginLockKey);
     }
 
     public void logout() {

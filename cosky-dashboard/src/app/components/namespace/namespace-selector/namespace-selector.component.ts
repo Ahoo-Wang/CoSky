@@ -32,7 +32,13 @@ export class NamespaceSelectorComponent implements OnInit {
     this.currentNamespace = this.namespaceContext.getCurrent();
     this.namespaceClient.getNamespaces().subscribe(namespaces => {
       this.namespaces = namespaces;
-      if (!this.currentNamespace && namespaces.length > 0) {
+
+      if (namespaces.length === 0) {
+        return;
+      }
+
+      if (!this.currentNamespace
+        || namespaces.indexOf(this.currentNamespace) < 0) {
         this.currentNamespace = namespaces[0];
         this.onNamespaceSelected();
       }

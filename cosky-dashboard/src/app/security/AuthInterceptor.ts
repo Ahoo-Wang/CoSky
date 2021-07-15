@@ -14,13 +14,11 @@
 import {HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest} from "@angular/common/http";
 import {Observable, of} from "rxjs";
 import {Injectable} from "@angular/core";
-import {SecurityService} from "./SecurityService";
+import {FORBIDDEN, LOGIN_PATH, SecurityService, UNAUTHORIZED} from "./SecurityService";
 import {Router} from "@angular/router";
-import {catchError} from "rxjs/operators";
+import {catchError, map, switchMap, switchMapTo} from "rxjs/operators";
 import {NzMessageService} from 'ng-zorro-antd/message';
 
-const UNAUTHORIZED = 401;
-const FORBIDDEN = 403;
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -28,14 +26,49 @@ export class AuthInterceptor implements HttpInterceptor {
   constructor(private securityService: SecurityService, private router: Router, private messageService: NzMessageService) {
   }
 
-  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+  ensureToken(req: HttpRequest<any>): HttpRequest<any> {
     let accessToken = this.securityService.getAccessToken();
 
-    const authReq = req.clone({
+    return req.clone({
       headers: req.headers.set('Authorization', accessToken)
     });
+  }
 
-    return next.handle(authReq);
+  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
+
+    const authReq = this.ensureToken(req);
+
+    return next.handle(authReq)
+      /**
+       * post check
+       */
+      .pipe(catchError((errorResponse: HttpErrorResponse, caught) => {
+
+        if (errorResponse.status === UNAUTHORIZED) {
+          return this.securityService.refreshToken()
+            .pipe(switchMap(succeeded => {
+              if (succeeded) {
+                /**
+                 * auto retry request after refreshToken
+                 */
+                const authReq = this.ensureToken(req);
+                return next.handle(authReq);
+              }
+              this.router.navigate([LOGIN_PATH])
+              throw errorResponse;
+            }));
+        }
+        if (errorResponse.status === FORBIDDEN) {
+          this.messageService.error("FORBIDDEN")
+          throw errorResponse;
+        }
+
+        if (errorResponse.error) {
+          this.messageService.error(errorResponse.error.msg)
+        }
+
+        throw errorResponse;
+      }));
   }
 
 }

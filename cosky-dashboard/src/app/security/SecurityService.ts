@@ -18,17 +18,27 @@ import {TokenPayload} from "../api/authenticate/TokenPayload";
 import {AuthenticateClient} from "../api/authenticate/AuthenticateClient";
 import {Observable, of, throwError} from "rxjs";
 import {catchError, map} from "rxjs/operators";
-import {HttpErrorResponse} from "@angular/common/http";
 import {NzMessageService} from "ng-zorro-antd/message";
 import {Router} from "@angular/router";
 
-const ACCESS_TOKEN_KEY = "cosky:accessToken"
-const REFRESH_TOKEN_KEY = "cosky:refreshToken"
+export const UNAUTHORIZED = 401;
+export const FORBIDDEN = 403;
 
+export const ACCESS_TOKEN_KEY = "cosky:accessToken"
+export const REFRESH_TOKEN_KEY = "cosky:refreshToken"
+export const LOGIN_PATH = 'login';
+export const HOME_PATH = 'home';
+const USER_UNAUTHORIZED: TokenPayload = {
+  jti: "",
+  sub: "UNAUTHORIZED",
+  role: "",
+  iat: 0,
+  exp: 0
+};
 
 @Injectable({providedIn: 'root'})
 export class SecurityService {
-  redirectFrom: string = 'dashboard';
+  redirectFrom: string = HOME_PATH;
 
   constructor(private authenticateClient: AuthenticateClient
     , private messageService: NzMessageService
@@ -37,15 +47,9 @@ export class SecurityService {
 
   signIn(username: string, password: string) {
     this.authenticateClient.login(username, password).subscribe((resp) => {
-        this.setToken(resp);
-        this.router.navigate([this.redirectFrom])
-      },
-      ((errorResponse: HttpErrorResponse) => {
-        if (errorResponse.error) {
-          this.messageService.error(errorResponse.error.msg)
-        }
-        console.error(errorResponse)
-      }))
+      this.setToken(resp);
+      this.router.navigate([this.redirectFrom])
+    });
   }
 
   getAccessToken(): string {
@@ -59,6 +63,14 @@ export class SecurityService {
   setToken(token: Token) {
     localStorage.setItem(ACCESS_TOKEN_KEY, token.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, token.refreshToken);
+  }
+
+  getCurrentUser(): TokenPayload {
+    let accessToken = localStorage.getItem(ACCESS_TOKEN_KEY)
+    if (accessToken) {
+      return this.parseToken(accessToken)
+    }
+    return USER_UNAUTHORIZED;
   }
 
   authenticated(): boolean {
@@ -80,8 +92,10 @@ export class SecurityService {
 
   parseToken(token: string): TokenPayload {
     let tokenSplit = token.split(".");
+    if (tokenSplit.length !== 3) {
+      throw Error(`token format error:[${token}]`);
+    }
     /**
-     * check tokenSplit.length===3
      *
      * TODO atob bug
      * Uncaught DOMException: Failed to execute 'atob' on 'Window': The string to be decoded is not correctly encoded.
@@ -103,9 +117,11 @@ export class SecurityService {
   refreshToken(): Observable<boolean> {
     const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
     const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-    if (!accessToken || !refreshToken) {
-      return throwError('accessToken or refreshToken is empty!')
+
+    if (!accessToken || !refreshToken || !this.refreshValid()) {
+      return of(false);
     }
+
     return this.authenticateClient
       .refresh(accessToken, refreshToken)
       .pipe(
@@ -114,15 +130,19 @@ export class SecurityService {
           return true;
         }),
         catchError((err, caught) => {
-          console.log(err);
+          this.clearToken();
           return of(false);
         })
       );
   }
 
   signOut() {
-    localStorage.clear();
-    this.router.navigate(['login'])
+    this.clearToken();
+    this.router.navigate([LOGIN_PATH])
   }
 
+  clearToken() {
+    localStorage.removeItem(ACCESS_TOKEN_KEY)
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+  }
 }

@@ -13,18 +13,16 @@
 
 package me.ahoo.cosky.rest.security;
 
-import me.ahoo.cosky.core.CoskyException;
-
 /**
  * @author ahoo wang
  */
-public class SecurityException extends CoskyException {
+public class TokenExpiredException extends CoSkySecurityException{
     /**
      * Constructs a new runtime exception with {@code null} as its
      * detail message.  The cause is not initialized, and may subsequently be
      * initialized by a call to {@link #initCause}.
      */
-    public SecurityException() {
+    public TokenExpiredException() {
     }
 
     /**
@@ -35,7 +33,7 @@ public class SecurityException extends CoskyException {
      * @param message the detail message. The detail message is saved for
      *                later retrieval by the {@link #getMessage()} method.
      */
-    public SecurityException(String message) {
+    public TokenExpiredException(String message) {
         super(message);
     }
 
@@ -53,7 +51,7 @@ public class SecurityException extends CoskyException {
      *                unknown.)
      * @since 1.4
      */
-    public SecurityException(String message, Throwable cause) {
+    public TokenExpiredException(String message, Throwable cause) {
         super(message, cause);
     }
 
@@ -70,7 +68,7 @@ public class SecurityException extends CoskyException {
      *              unknown.)
      * @since 1.4
      */
-    public SecurityException(Throwable cause) {
+    public TokenExpiredException(Throwable cause) {
         super(cause);
     }
 
@@ -88,7 +86,7 @@ public class SecurityException extends CoskyException {
      *                           be writable
      * @since 1.7
      */
-    public SecurityException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    public TokenExpiredException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
         super(message, cause, enableSuppression, writableStackTrace);
     }
 }

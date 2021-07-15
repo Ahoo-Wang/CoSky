@@ -11,5 +11,24 @@ spring:
     multipart:
       max-file-size: 10MB
   mvc:
+    static-path-pattern: /dashboard/**
     async:
       request-timeout: 5s
+
+cosky:
+  security:
+    jwt:
+      signing-key: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+      access-token-validity: 15m
+      refresh-token-validity: 3H
+    enforce-init-super-user: false
+    enabled: true
+
+cosid:
+  namespace: ${spring.application.name}
+  snowflake:
+    enabled: true
+    machine:
+      distributor:
+        type: redis
+

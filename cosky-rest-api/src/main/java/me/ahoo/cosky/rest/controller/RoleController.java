@@ -14,13 +14,15 @@
 package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.rest.dto.role.ResourceActionDto;
+import me.ahoo.cosky.rest.dto.role.RoleDto;
+import me.ahoo.cosky.rest.dto.role.SaveRoleRequest;
 import me.ahoo.cosky.rest.security.rbac.RBACService;
-import me.ahoo.cosky.rest.security.rbac.ResourceAction;
 import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
@@ -28,9 +30,6 @@ import java.util.Set;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.ROLES_PREFIX)
-/**
- * TODO @AdminResource
- */
 @AdminResource
 public class RoleController {
     private final RBACService rbacService;
@@ -40,13 +39,25 @@ public class RoleController {
     }
 
     @GetMapping
-    public Set<String> getAllRole() {
+    public Set<RoleDto> getAllRole() {
         return rbacService.getAllRole();
     }
 
-    @PutMapping("/{roleName}")
-    public void saveRole(@PathVariable String roleName, @RequestBody Set<ResourceActionDto> resourceActionBind) {
-        rbacService.saveRole(roleName, resourceActionBind);
+    @GetMapping("/{roleName}/bind")
+    public Set<ResourceActionDto> getResourceBind(@PathVariable String roleName) {
+        return rbacService.getResourceBind(roleName)
+                .stream()
+                .map(resourceAction -> {
+                    ResourceActionDto dto = new ResourceActionDto();
+                    dto.setNamespace(resourceAction.getNamespace());
+                    dto.setAction(resourceAction.getAction().getValue());
+                    return dto;
+                }).collect(Collectors.toSet());
+    }
+
+    @PutMapping
+    public void saveRole(@RequestBody SaveRoleRequest saveRoleRequest) {
+        rbacService.saveRole(saveRoleRequest);
     }
 
     @DeleteMapping("/{roleName}")
