@@ -25,12 +25,13 @@ import java.util.Map;
  */
 public class Role {
     public static final String ADMIN_ROLE = "admin";
-
+    public static final String ADMIN_ROLE_DESC = "System reserved role,Have the highest level of authority!";
     public static final Role ADMIN;
 
     static {
         ADMIN = new Role();
         ADMIN.setRoleName(ADMIN_ROLE);
+        ADMIN.setDesc(ADMIN_ROLE_DESC);
     }
 
     private String roleName;

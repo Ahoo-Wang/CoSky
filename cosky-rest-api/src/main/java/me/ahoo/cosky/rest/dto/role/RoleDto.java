@@ -24,6 +24,7 @@ public class RoleDto {
     static {
         ADMIN = new RoleDto();
         ADMIN.setName(Role.ADMIN_ROLE);
+        ADMIN.setDesc(Role.ADMIN_ROLE_DESC);
     }
 
     private String name;
