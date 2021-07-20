@@ -11,17 +11,32 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.security.rbac.annotation;
+package me.ahoo.cosky.rest.dto.auditlog;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import me.ahoo.cosky.rest.security.audit.AuditLog;
+
+import java.util.List;
 
 /**
  * @author ahoo wang
  */
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Retention(RetentionPolicy.RUNTIME)
-public @interface AdminResource {
+public class QueryLogResponse {
+    private List<AuditLog> list;
+    private long total;
+
+    public List<AuditLog> getList() {
+        return list;
+    }
+
+    public void setList(List<AuditLog> list) {
+        this.list = list;
+    }
+
+    public long getTotal() {
+        return total;
+    }
+
+    public void setTotal(long total) {
+        this.total = total;
+    }
 }

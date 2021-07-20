@@ -27,8 +27,8 @@ import me.ahoo.cosky.rest.dto.role.SaveRoleRequest;
 import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.SecurityContext;
 import me.ahoo.cosky.rest.security.TokenExpiredException;
-import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
-import me.ahoo.cosky.rest.security.rbac.annotation.OwnerResource;
+import me.ahoo.cosky.rest.security.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.annotation.OwnerResource;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.core.annotation.AnnotatedElementUtils;
@@ -66,9 +66,9 @@ public class RBACService {
         return Strings.lenientFormat(ROLE_RESOURCE_BIND, roleName);
     }
 
-    public void saveRole(SaveRoleRequest saveRoleRequest) {
-        redisCommands.hset(ROLE_IDX, saveRoleRequest.getName(), saveRoleRequest.getDesc());
-        String roleResourceBindKey = getRoleResourceBindKey(saveRoleRequest.getName());
+    public void saveRole(String roleName, SaveRoleRequest saveRoleRequest) {
+        redisCommands.hset(ROLE_IDX, roleName, saveRoleRequest.getDesc());
+        String roleResourceBindKey = getRoleResourceBindKey(roleName);
         redisCommands.del(roleResourceBindKey);
         for (ResourceActionDto resourceAction : saveRoleRequest.getResourceActionBind()) {
             redisCommands.hset(roleResourceBindKey, resourceAction.getNamespace(), resourceAction.getAction());
@@ -136,6 +136,8 @@ public class RBACService {
                 .collect(Collectors.toSet());
     }
 
+    public static final String CURRENT_USER_KEY = "cosky.currentUser";
+
     /**
      * 权限控制
      */
@@ -147,7 +149,10 @@ public class RBACService {
         } catch (ExpiredJwtException expiredJwtException) {
             throw new TokenExpiredException(expiredJwtException);
         }
+
         SecurityContext.setUser(user);
+        request.setAttribute(CURRENT_USER_KEY, SecurityContext.getUser());
+
         if (User.SUPER_USER.equals(user.getUsername()) || user.isAdmin()) {
             return true;
         }
@@ -178,6 +183,14 @@ public class RBACService {
 
         ResourceAction requestAction = new ResourceAction(namespace, Action.ofHttpMethod(request.getMethod()));
         return authorize(user, requestAction);
+    }
+
+    public User getUserOfRequest(HttpServletRequest request) {
+        Object user = request.getAttribute(CURRENT_USER_KEY);
+        if (Objects.isNull(user)) {
+            return null;
+        }
+        return (User) user;
     }
 
     /**

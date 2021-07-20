@@ -37,13 +37,13 @@ public class AuthenticateController {
         this.userService = userService;
     }
 
-    @PostMapping("/login")
-    public LoginResponse login(@RequestBody LoginRequest loginRequest) {
-        return userService.login(loginRequest.getUsername(), loginRequest.getPassword());
+    @PostMapping("/{username}/login")
+    public LoginResponse login(@PathVariable String username, @RequestBody LoginRequest loginRequest) {
+        return userService.login(username, loginRequest.getPassword());
     }
 
-    @PostMapping("/refresh")
-    public LoginResponse refresh(@RequestBody RefreshRequest refreshRequest) {
+    @PostMapping("/{username}/refresh")
+    public LoginResponse refresh(@PathVariable String username, @RequestBody RefreshRequest refreshRequest) {
         return jwtProvider.refresh(refreshRequest.getAccessToken(), refreshRequest.getRefreshToken());
     }
 }

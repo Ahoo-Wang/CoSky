@@ -15,6 +15,8 @@ package me.ahoo.cosky.discovery;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -29,4 +31,6 @@ public interface ServiceStatistic {
     CompletableFuture<List<ServiceStat>> getServiceStats(String namespace);
 
     CompletableFuture<Long> getInstanceCount(String namespace);
+
+    CompletableFuture<Map<String, Set<String>>> getTopology(String namespace);
 }

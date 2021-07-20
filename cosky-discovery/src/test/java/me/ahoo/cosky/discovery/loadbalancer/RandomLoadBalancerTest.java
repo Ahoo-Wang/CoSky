@@ -40,7 +40,7 @@ class RandomLoadBalancerTest extends BaseOnRedisClientTest {
         var registryProperties = new RegistryProperties();
         redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
         redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
-        var consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()));
+        var consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()), redisConnection.async());
         randomLoadBalancer = new RandomLoadBalancer(consistencyRedisServiceDiscovery);
     }
 

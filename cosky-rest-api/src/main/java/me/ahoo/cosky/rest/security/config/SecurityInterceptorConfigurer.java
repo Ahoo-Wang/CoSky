@@ -17,6 +17,7 @@ import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor;
 import me.ahoo.cosky.rest.security.ConditionalOnSecurityEnabled;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -43,13 +44,13 @@ public class SecurityInterceptorConfigurer implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(authorizeHandlerInterceptor)
+                .order(Ordered.HIGHEST_PRECEDENCE)
                 .excludePathPatterns(
                         "/*"
                         , "/swagger-ui/**"
                         , "/swagger-resources/**"
                         , "/v3/api-docs"
                         , "/dashboard/**"
-                        , RequestPathPrefix.AUTHENTICATE_PREFIX + "/**"
                 )
                 .addPathPatterns("/**");
     }

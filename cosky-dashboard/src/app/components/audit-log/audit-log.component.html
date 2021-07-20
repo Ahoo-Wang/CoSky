@@ -1,0 +1,34 @@
+<nz-table class="content-body" [nzBordered]="true" [nzData]="logs"
+          nzShowSizeChanger
+          [nzFrontPagination]="false"
+          [nzPageSizeOptions]="[10,20,30,50,100]"
+          [nzLoading]="loading"
+          [nzTotal]="total"
+          [nzPageSize]="pageSize"
+          [nzPageIndex]="pageIndex"
+          (nzQueryParams)="onQueryParamsChange($event)"
+>
+  <thead>
+  <tr>
+    <th>Operator</th>
+    <th>ClientIP</th>
+    <th>Resource</th>
+    <th>Action</th>
+    <th>Status</th>
+    <th>Msg</th>
+    <th>OpTime</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let log of logs">
+    <td>{{log.operator}}</td>
+    <td>{{log.ip}}</td>
+    <td>{{log.resource}}</td>
+    <td>{{log.action}}</td>
+    <td>{{log.status}}</td>
+    <td>{{log.msg}}</td>
+    <td>{{log.opTime | date:'yyyy-MM-dd HH:mm:ss'}}</td>
+  </tr>
+  </tbody>
+</nz-table>
+

@@ -29,5 +29,8 @@ export class StatClient {
     return this.httpClient.get<StatDto>(apiUrl);
   }
 
-
+  getTopology(namespace: string): Observable<Map<string,string[]>> {
+    const apiUrl = `${this.apiPrefix}/${namespace}/stat/topology`;
+    return this.httpClient.get<Map<string,string[]>>(apiUrl);
+  }
 }

@@ -63,6 +63,7 @@ import { UserEditorComponent } from './components/user/user-editor/user-editor.c
 import { AuthenticatedComponent } from './components/authenticated/authenticated.component';
 import { UserChangePwdComponent } from './components/user/user-change-pwd/user-change-pwd.component';
 import { UserAddComponent } from './components/user/user-add/user-add.component';
+import { AuditLogComponent } from './components/audit-log/audit-log.component';
 
 registerLocaleData(zh);
 
@@ -91,7 +92,8 @@ export const httpInterceptorProviders = [
     UserEditorComponent,
     AuthenticatedComponent,
     UserChangePwdComponent,
-    UserAddComponent
+    UserAddComponent,
+    AuditLogComponent
   ],
   imports: [
     BrowserModule,

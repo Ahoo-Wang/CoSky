@@ -17,12 +17,14 @@ import me.ahoo.cosky.rest.dto.role.ResourceActionDto;
 import me.ahoo.cosky.rest.dto.role.RoleDto;
 import me.ahoo.cosky.rest.dto.role.SaveRoleRequest;
 import me.ahoo.cosky.rest.security.rbac.RBACService;
-import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static me.ahoo.cosky.rest.support.RequestPathPrefix.*;
 
 /**
  * @author ahoo wang
@@ -43,7 +45,7 @@ public class RoleController {
         return rbacService.getAllRole();
     }
 
-    @GetMapping("/{roleName}/bind")
+    @GetMapping(ROLES_ROLE_BIND)
     public Set<ResourceActionDto> getResourceBind(@PathVariable String roleName) {
         return rbacService.getResourceBind(roleName)
                 .stream()
@@ -55,12 +57,12 @@ public class RoleController {
                 }).collect(Collectors.toSet());
     }
 
-    @PutMapping
-    public void saveRole(@RequestBody SaveRoleRequest saveRoleRequest) {
-        rbacService.saveRole(saveRoleRequest);
+    @PutMapping(ROLES_ROLE)
+    public void saveRole(@PathVariable String roleName, @RequestBody SaveRoleRequest saveRoleRequest) {
+        rbacService.saveRole(roleName, saveRoleRequest);
     }
 
-    @DeleteMapping("/{roleName}")
+    @DeleteMapping(ROLES_ROLE)
     public void removeRole(@PathVariable String roleName) {
         rbacService.removeRole(roleName);
     }

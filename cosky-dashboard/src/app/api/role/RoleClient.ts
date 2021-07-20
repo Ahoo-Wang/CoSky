@@ -29,14 +29,14 @@ export class RoleClient {
     return this.httpClient.get<RoleDto[]>(this.apiPrefix);
   }
 
-  getResourceBind(roleName: string):Observable<ResourceActionDto[]>{
+  getResourceBind(roleName: string): Observable<ResourceActionDto[]> {
     const apiUrl = `${this.apiPrefix}/${roleName}/bind`;
     return this.httpClient.get<ResourceActionDto[]>(apiUrl);
   }
 
   saveRole(roleName: string, desc: string, resourceActionBind: ResourceActionDto[]): Observable<boolean> {
-    const apiUrl = `${this.apiPrefix}`;
-    return this.httpClient.put<boolean>(apiUrl, {name: roleName, desc: desc, resourceActionBind});
+    const apiUrl = `${this.apiPrefix}/${roleName}`;
+    return this.httpClient.put<boolean>(apiUrl, {desc: desc, resourceActionBind});
   }
 
   removeRole(roleName: string): Observable<boolean> {

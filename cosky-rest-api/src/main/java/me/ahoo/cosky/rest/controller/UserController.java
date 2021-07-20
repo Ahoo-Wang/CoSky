@@ -15,8 +15,8 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.rest.dto.user.AddUserRequest;
 import me.ahoo.cosky.rest.dto.user.ChangePwdRequest;
-import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
-import me.ahoo.cosky.rest.security.rbac.annotation.OwnerResource;
+import me.ahoo.cosky.rest.security.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.annotation.OwnerResource;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Set;
+
+import static me.ahoo.cosky.rest.support.RequestPathPrefix.*;
 
 /**
  * @author ahoo wang
@@ -45,27 +47,27 @@ public class UserController {
     }
 
     @OwnerResource
-    @PatchMapping("/{username}/password")
+    @PatchMapping(USERS_USER_PASSWORD)
     public void changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
         userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
     }
 
-    @PostMapping
-    public boolean addUser(@RequestBody AddUserRequest addUserRequest) {
-        return userService.addUser(addUserRequest.getUsername(), addUserRequest.getPassword());
+    @PostMapping(USERS_USER)
+    public boolean addUser(@PathVariable String username, @RequestBody AddUserRequest addUserRequest) {
+        return userService.addUser(username, addUserRequest.getPassword());
     }
 
-    @PatchMapping("/{username}/role")
+    @PatchMapping(USERS_USER_ROLE)
     public void bindRole(@PathVariable String username, @RequestBody Set<String> roleBind) {
         userService.bindRole(username, roleBind);
     }
 
-    @DeleteMapping("/{username}")
+    @DeleteMapping(USERS_USER)
     public boolean removeUser(@PathVariable String username) {
         return userService.removeUser(username);
     }
 
-    @DeleteMapping("/{username}/lock")
+    @DeleteMapping(USERS_USER_UNLOCK)
     public void unlock(@PathVariable String username) {
         userService.unlock(username);
     }

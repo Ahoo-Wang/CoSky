@@ -17,7 +17,7 @@ import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.rest.security.SecurityContext;
 import me.ahoo.cosky.rest.security.rbac.RBACService;
-import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 

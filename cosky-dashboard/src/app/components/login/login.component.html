@@ -1,22 +1,26 @@
-<nz-layout style="height: 100%;">
+<nz-layout style="height: 100vh;">
   <nz-header>
-    <div style="float: left;height: 100%; margin-right: 10px;">
-      <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">
+    <nz-row>
+      <nz-col nzSpan="6">
+        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">
         <h1 style="color: white">CoSky</h1>
       </a>
-    </div>
-    <ul nz-menu nzTheme="dark" nzMode="horizontal" style="float: right">
-      <li nz-menu-item>
-        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Home</a>
-      </li>
-      <li nz-menu-item>
-        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Documentation</a>
-      </li>
-      <li nz-menu-item>
-        <i nz-icon nzType="github"></i>
-        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">GitHub</a>
-      </li>
-    </ul>
+      </nz-col>
+      <nz-col nzOffset="6" nzSpan="12">
+        <ul nz-menu nzTheme="dark" nzMode="horizontal" style="float: right">
+          <li nz-menu-item>
+            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Home</a>
+          </li>
+          <li nz-menu-item>
+            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Documentation</a>
+          </li>
+          <li nz-menu-item>
+            <i nz-icon nzType="github"></i>
+            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">GitHub</a>
+          </li>
+        </ul>
+      </nz-col>
+    </nz-row>
   </nz-header>
   <nz-content>
     <nz-card class="login-card" [nzBordered]="false" nzTitle="Sign in to CoSky">

@@ -22,6 +22,7 @@ import {AuthGuard} from "./security/AuthGuard";
 import {RoleComponent} from "./components/role/role.component";
 import {LoginComponent} from "./components/login/login.component";
 import {AuthenticatedComponent} from "./components/authenticated/authenticated.component";
+import {AuditLogComponent} from "./components/audit-log/audit-log.component";
 
 const routes: Routes = [
   {path: 'login', component: LoginComponent},
@@ -34,7 +35,8 @@ const routes: Routes = [
       {path: 'config', canActivate: [AuthGuard], component: ConfigComponent},
       {path: 'service', canActivate: [AuthGuard], component: ServiceComponent},
       {path: 'user', canActivate: [AuthGuard], component: UserComponent},
-      {path: 'role', canActivate: [AuthGuard], component: RoleComponent}
+      {path: 'role', canActivate: [AuthGuard], component: RoleComponent},
+      {path: 'audit-log', canActivate: [AuthGuard], component: AuditLogComponent}
     ]
   }
 ];

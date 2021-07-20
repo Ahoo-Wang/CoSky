@@ -14,6 +14,8 @@
 package me.ahoo.cosky.discovery.redis;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.lettuce.core.ScriptOutputType;
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.cosky.discovery.*;
@@ -31,10 +33,11 @@ import java.util.stream.Collectors;
  * @author ahoo wang
  */
 @Slf4j
-public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, ServiceListenable {
+public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, ServiceListenable, ServiceTopology {
 
     private final ServiceDiscovery delegate;
     private final MessageListenable messageListenable;
+    private final RedisClusterAsyncCommands<String, String> redisCommands;
     private final ServiceIdxListener serviceIdxListener;
     private final InstanceListener instanceListener;
 
@@ -42,7 +45,8 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     private final ConcurrentHashMap<NamespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener>> serviceMapListener;
     private final ConcurrentHashMap<String, CompletableFuture<Set<String>>> namespaceMapServices;
 
-    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate, MessageListenable messageListenable) {
+    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate, MessageListenable messageListenable, RedisClusterAsyncCommands<String, String> redisCommands) {
+        this.redisCommands = redisCommands;
         this.serviceMapInstances = new ConcurrentHashMap<>();
         this.namespaceMapServices = new ConcurrentHashMap<>();
         this.serviceMapListener = new ConcurrentHashMap<>();
@@ -77,7 +81,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
         return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId), (_serviceId) ->
                 addListener(namespace, serviceId).
                         thenCompose(nil -> delegate.getInstances(namespace, serviceId)
-                                .thenApply(serviceInstances -> new CopyOnWriteArrayList<ServiceInstance>(serviceInstances)))
+                                .thenApply(serviceInstances -> new CopyOnWriteArrayList<>(serviceInstances)))
         )
                 .thenApply(serviceInstances -> serviceInstances.stream().filter(instance -> !instance.isExpired())
                         .collect(Collectors.toList()));
@@ -131,7 +135,23 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     @VisibleForTesting
     public CompletableFuture<Void> addListener(String namespace, String serviceId) {
         PatternTopic instanceTopic = getPatternTopic(namespace, serviceId);
-        return messageListenable.addListener(instanceTopic, instanceListener);
+        return messageListenable.addListener(instanceTopic, instanceListener)
+                .thenCompose(nil -> addTopology(namespace, serviceId));
+    }
+
+    @Override
+    public CompletableFuture<Void> addTopology(String producerNamespace, String producerServiceId) {
+        final String consumerNamespace = ServiceInstanceContext.CURRENT.getNamespace();
+        final String consumerName = ServiceTopology.getConsumerName();
+        final String producerName = ServiceTopology.getProducerName(producerNamespace, producerServiceId);
+        if (Objects.equals(consumerName, producerName)) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return DiscoveryRedisScripts.doServiceTopologyAdd(redisCommands, (sha) -> {
+            String[] keys = {consumerNamespace};
+            String[] values = {consumerName, producerName};
+            return redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values);
+        });
     }
 
     @Override

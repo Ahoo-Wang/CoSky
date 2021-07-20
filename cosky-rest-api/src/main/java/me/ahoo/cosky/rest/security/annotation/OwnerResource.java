@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.security.rbac.annotation;
+package me.ahoo.cosky.rest.security.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

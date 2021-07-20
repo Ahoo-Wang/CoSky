@@ -17,12 +17,13 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.NamespaceService;
-import me.ahoo.cosky.discovery.ServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceStatistic;
-import me.ahoo.cosky.rest.dto.service.GetStatResponse;
+import me.ahoo.cosky.rest.dto.stat.GetStatResponse;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -64,5 +65,10 @@ public class StatController {
             statResponse.setInstances(instances);
             return statResponse;
         });
+    }
+
+    @GetMapping("topology")
+    public CompletableFuture<Map<String, Set<String>>> getTopology(@PathVariable String namespace) {
+        return serviceStatistic.getTopology(namespace);
     }
 }

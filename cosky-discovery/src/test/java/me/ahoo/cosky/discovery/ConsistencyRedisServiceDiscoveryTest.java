@@ -50,7 +50,7 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
         registryProperties.setInstanceTtl(30);
         redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
         var redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
-        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()));
+        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()), redisConnection.async());
     }
 
     @Test

@@ -35,7 +35,7 @@ public final class DiscoveryRedisScripts {
     public static final String DISCOVERY_GET_INSTANCE_TTL = "discovery_get_instance_ttl.lua";
     public static final String INSTANCE_COUNT_STAT = "instance_count_stat.lua";
     public static final String SERVICE_STAT = "service_stat.lua";
-
+    public static final String SERVICE_TOPOLOGY_ADD = "service_topology_add.lua";
 
     public static <T> CompletableFuture<T> doRegistryRegister(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_REGISTER, scriptingCommands, doSha);
@@ -78,5 +78,8 @@ public final class DiscoveryRedisScripts {
     }
     public static CompletableFuture<String> loadInstanceCountStat(RedisScriptingAsyncCommands<String, String> scriptingCommands) {
         return RedisScripts.loadScript(INSTANCE_COUNT_STAT, scriptingCommands);
+    }
+    public static <T> CompletableFuture<T> doServiceTopologyAdd(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+        return RedisScripts.doEnsureScript(SERVICE_TOPOLOGY_ADD, scriptingCommands, doSha);
     }
 }

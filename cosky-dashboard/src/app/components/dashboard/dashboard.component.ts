@@ -24,17 +24,106 @@ import {Stats} from '../../api/stat/Stats';
 })
 export class DashboardComponent implements OnInit {
   stat: StatDto;
+  topologyChart!: any;
 
   constructor(private namespaceContext: NamespaceContext,
               private statClient: StatClient) {
     this.stat = Stats.of();
   }
 
+
   ngOnInit(): void {
     this.getStat();
-    this.namespaceContext.subscribeNamespaceChanged('/dashboard', ns => {
+    this.loadTopology();
+    this.namespaceContext.subscribeNamespaceChanged('/home', ns => {
       this.getStat();
+      this.loadTopology();
     });
+
+  }
+
+  private loadTopology() {
+    if (this.topologyChart) {
+      this.topologyChart.dispose();
+    }
+    // @ts-ignore
+    this.topologyChart = echarts.init(document.getElementById('topology'));
+    this.topologyChart.showLoading();
+    this.statClient.getTopology(this.namespaceContext.ensureCurrentNamespace()).subscribe(stat => {
+      this.topologyChart.hideLoading();
+      this.drawTopology(stat);
+    });
+  }
+
+  private drawTopology(stat: Map<string, string[]>) {
+    let chartNodes: ChartNode[] = [];
+    let chartEdges: { source: string; target: string; }[] = [];
+    Object.keys(stat).forEach(nodeName => {
+      this.putIfAbsent(chartNodes, nodeName);
+      // @ts-ignore
+      stat[nodeName].forEach(targetName => {
+        this.putIfAbsent(chartNodes, targetName);
+        chartEdges.push({source: nodeName, target: targetName});
+        let targetNode = this.ofNodeName(chartNodes, targetName);
+        if (targetNode) {
+          targetNode.symbolSize = targetNode.symbolSize + 2;
+        }
+      })
+    })
+
+    let topologyChartOption = {
+      title: {
+        text: 'Service Topology',
+        show: false
+      },
+      animationDurationUpdate: 1500,
+      animationEasingUpdate: 'quinticInOut',
+      series: [
+        {
+          name: 'Service Topology',
+          type: 'graph',
+          layout: 'circular',
+          circular: {
+            rotateLabel: true
+          },
+          animation: false,
+          label: {
+            position: 'right',
+            formatter: '{b}',
+            show: true
+          },
+          lineStyle: {
+            color: 'source',
+            curveness: 0.2
+          },
+          draggable: true,
+          edgeSymbol: ['circle', 'arrow'],
+          // edgeSymbolSize: [20, 10],
+          emphasis: {
+            focus: 'adjacency',
+            blurScope: 'coordinateSystem'
+          },
+          roam: true,
+          data: chartNodes,
+          edges: chartEdges
+        }
+      ]
+    };
+    this.topologyChart.setOption(topologyChartOption, true);
+  }
+
+  private ofNodeName(chartNodes: ChartNode[], nodeName: string): ChartNode | undefined {
+    return chartNodes.find(_nodeName => {
+      return _nodeName.name === nodeName;
+    });
+  }
+
+  private putIfAbsent(chartNodes: ChartNode[], nodeName: string) {
+    if (chartNodes.filter(_nodeName => {
+      return _nodeName.name === nodeName;
+    }).length === 0) {
+      chartNodes.push({name: nodeName, symbolSize: 1})
+    }
   }
 
   private getStat(): void {
@@ -42,4 +131,11 @@ export class DashboardComponent implements OnInit {
       this.stat = stat;
     });
   }
+
+
+}
+
+interface ChartNode {
+  name: string,
+  symbolSize: number
 }

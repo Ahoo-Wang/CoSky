@@ -19,13 +19,14 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
+import me.ahoo.cosky.core.redis.RedisScripts;
 import me.ahoo.cosky.discovery.*;
 import me.ahoo.cosky.core.listener.MessageListenable;
 import me.ahoo.cosky.core.listener.MessageListener;
 import me.ahoo.cosky.core.listener.PatternTopic;
 import me.ahoo.cosky.core.listener.Topic;
 
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -103,6 +104,29 @@ public class RedisServiceStatistic implements ServiceStatistic {
     public CompletableFuture<Long> getInstanceCount(String namespace) {
         return DiscoveryRedisScripts.loadInstanceCountStat(redisCommands).
                 thenCompose(sha -> redisCommands.evalsha(sha, ScriptOutputType.INTEGER, namespace));
+    }
+
+
+    public static final String SERVICE_TOPOLOGY_GET = "service_topology_get.lua";
+
+    @Override
+    public CompletableFuture<Map<String, Set<String>>> getTopology(String namespace) {
+        return RedisScripts.doEnsureScript(SERVICE_TOPOLOGY_GET, redisCommands,
+                sha -> redisCommands.evalsha(sha, ScriptOutputType.MULTI, namespace))
+                .thenApply(result -> {
+                    Map<String, Set<String>> topology = new HashMap<>();
+                    List<Object> deps = (List<Object>) result;
+                    String consumerName = "";
+                    for (Object dep : deps) {
+                        if (dep instanceof String) {
+                            consumerName = dep.toString();
+                        }
+                        if (dep instanceof List) {
+                            topology.put(consumerName, new HashSet<>((List<String>) dep));
+                        }
+                    }
+                    return topology;
+                });
     }
 
     private class InstanceListener implements MessageListener {

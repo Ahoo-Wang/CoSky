@@ -48,7 +48,7 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
         serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
         RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
         messageListenable = new RedisMessageListenable(redisClient.connectPubSub());
-        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable);
+        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnection.async());
     }
 
     @TearDown

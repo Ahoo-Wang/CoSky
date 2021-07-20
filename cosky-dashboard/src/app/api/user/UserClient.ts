@@ -34,7 +34,8 @@ export class UserClient {
   }
 
   addUser(username: string, password: string): Observable<boolean> {
-    return this.httpClient.post<boolean>(this.apiPrefix, {username, password});
+    const apiUrl = `${this.apiPrefix}/${username}`;
+    return this.httpClient.post<boolean>(apiUrl, {password});
   }
 
   removeUser(username: string): Observable<boolean> {
@@ -48,7 +49,7 @@ export class UserClient {
   }
 
   unlock(username: string): Observable<void> {
-    const apiUrl = `${this.apiPrefix}/${username}/lock`;
+    const apiUrl = `${this.apiPrefix}/${username}/unlock`;
     return this.httpClient.delete<void>(apiUrl);
   }
 }

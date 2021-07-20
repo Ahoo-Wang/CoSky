@@ -19,17 +19,9 @@ import java.util.Set;
  * @author ahoo wang
  */
 public class SaveRoleRequest {
-    private String name;
+
     private String desc;
    private Set<ResourceActionDto> resourceActionBind;
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
 
     public String getDesc() {
         return desc;

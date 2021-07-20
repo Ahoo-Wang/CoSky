@@ -17,11 +17,8 @@ import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
-import me.ahoo.cosky.discovery.ServiceDiscovery;
+import me.ahoo.cosky.discovery.*;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator;
-import me.ahoo.cosky.discovery.ServiceInstance;
-import me.ahoo.cosky.discovery.ServiceInstanceCodec;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -50,15 +47,17 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
             String[] values = {serviceId};
             return redisCommands.<List<List<String>>>evalsha(sha, ScriptOutputType.MULTI, keys, values);
         })
-        .thenApply(instanceGroups -> {
-            if (Objects.isNull(instanceGroups)) {
-                return Collections.emptyList();
-            }
-            ArrayList<ServiceInstance> instances = new ArrayList<>(instanceGroups.size());
-            instanceGroups.forEach(instanceData -> instances.add(ServiceInstanceCodec.decode(instanceData)));
-            return instances;
-        });
+                .thenApply(instanceGroups -> {
+                    if (Objects.isNull(instanceGroups)) {
+                        return Collections.emptyList();
+                    }
+                    ArrayList<ServiceInstance> instances = new ArrayList<>(instanceGroups.size());
+                    instanceGroups.forEach(instanceData -> instances.add(ServiceInstanceCodec.decode(instanceData)));
+                    return instances;
+                });
     }
+
+
 
     @Override
     public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
@@ -67,12 +66,12 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
             String[] values = {serviceId, instanceId};
             return redisCommands.<List<String>>evalsha(sha, ScriptOutputType.MULTI, keys, values);
         })
-        .thenApply(instanceData -> {
-            if (Objects.isNull(instanceData)) {
-                return null;
-            }
-            return ServiceInstanceCodec.decode(instanceData);
-        });
+                .thenApply(instanceData -> {
+                    if (Objects.isNull(instanceData)) {
+                        return null;
+                    }
+                    return ServiceInstanceCodec.decode(instanceData);
+                });
     }
 
     @Override

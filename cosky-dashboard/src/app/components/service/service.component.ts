@@ -75,6 +75,10 @@ export class ServiceComponent implements OnInit {
   }
 
   addService(serviceId: string): void {
+    if (!serviceId){
+      this.messageService.error(`serviceId can not be empty!`);
+      return;
+    }
     this.serviceClient.addService(this.namespaceContext.ensureCurrentNamespace(), serviceId)
       .subscribe(result => {
         if (result) {
