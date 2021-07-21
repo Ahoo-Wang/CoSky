@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.core;
 
+import com.google.common.base.Strings;
+
 /**
  * @author ahoo wang
  */
@@ -29,6 +31,14 @@ public interface NamespacedContext extends Namespaced {
      * @param namespace
      */
     void setCurrentContextNamespace(String namespace);
+
+    default String getRequiredNamespace() {
+        final String namespace = getNamespace();
+        if (Strings.isNullOrEmpty(namespace)) {
+            throw new CoskyException("namespace can not be empty!");
+        }
+        return namespace;
+    }
 
     static NamespacedContext of(String namespace) {
         return new Default(namespace);

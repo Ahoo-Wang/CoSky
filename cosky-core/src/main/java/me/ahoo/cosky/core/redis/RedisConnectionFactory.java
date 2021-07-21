@@ -17,7 +17,9 @@ import io.lettuce.core.AbstractRedisClient;
 import io.lettuce.core.ReadFrom;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.cluster.RedisClusterClient;
+import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import io.lettuce.core.codec.StringCodec;
@@ -25,7 +27,6 @@ import io.lettuce.core.masterreplica.MasterReplica;
 import io.lettuce.core.masterreplica.StatefulRedisMasterReplicaConnection;
 import io.lettuce.core.resource.ClientResources;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.core.listener.MessageListenable;
 import me.ahoo.cosky.core.listener.RedisClusterMessageListenable;
 import me.ahoo.cosky.core.listener.RedisMessageListenable;
@@ -42,11 +43,17 @@ public class RedisConnectionFactory implements AutoCloseable {
     private final RedisConfig redisConfig;
     private final AbstractRedisClient client;
     private RedisConnection shareConnection;
+    private boolean isCluster;
 
     public RedisConnectionFactory(ClientResources clientResources, RedisConfig redisConfig) {
         this.clientResources = clientResources;
         this.redisConfig = redisConfig;
+        this.isCluster = RedisConfig.RedisMode.CLUSTER.equals(redisConfig.getMode());
         this.client = createClient();
+    }
+
+    public boolean isCluster() {
+        return isCluster;
     }
 
     private AbstractRedisClient createClient() {
@@ -80,14 +87,14 @@ public class RedisConnectionFactory implements AutoCloseable {
     public RedisConnection getConnection() {
 
         if (client instanceof RedisClusterClient) {
-            var clusterConnection = ((RedisClusterClient) client).connect();
+            StatefulRedisClusterConnection<String, String> clusterConnection = ((RedisClusterClient) client).connect();
             return new RedisConnection(clusterConnection, clusterConnection.sync(), clusterConnection.async());
         }
 
-        var redisClient = (RedisClient) client;
+        RedisClient redisClient = (RedisClient) client;
 
         if (Objects.isNull(redisConfig.getReadFrom())) {
-            var connection = redisClient.connect();
+            StatefulRedisConnection<String, String> connection = redisClient.connect();
             return new RedisConnection(connection, connection.sync(), connection.async());
         }
 

@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.discovery.redis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
 import io.lettuce.core.ScriptOutputType;
@@ -26,6 +27,7 @@ import me.ahoo.cosky.core.listener.MessageListener;
 import me.ahoo.cosky.core.listener.PatternTopic;
 import me.ahoo.cosky.core.listener.Topic;
 
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -69,7 +71,9 @@ public class RedisServiceStatistic implements ServiceStatistic {
         return statService0(namespace, serviceId);
     }
 
-    private CompletableFuture<Void> statService0(String namespace, String serviceId) {
+    private CompletableFuture<Void> statService0(String namespace, @Nullable String serviceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         if (log.isInfoEnabled()) {
             log.info("statService  @ namespace:[{}].", namespace);
         }
@@ -85,12 +89,16 @@ public class RedisServiceStatistic implements ServiceStatistic {
     }
 
     public CompletableFuture<Long> countService(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         var serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
         return redisCommands.hlen(serviceIdxStatKey).toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<List<ServiceStat>> getServiceStats(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         var serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
         return redisCommands.hgetall(serviceIdxStatKey).thenApply(statMap -> statMap.entrySet().stream().map(stat -> {
             ServiceStat serviceStat = new ServiceStat();
@@ -111,6 +119,8 @@ public class RedisServiceStatistic implements ServiceStatistic {
 
     @Override
     public CompletableFuture<Map<String, Set<String>>> getTopology(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         return RedisScripts.doEnsureScript(SERVICE_TOPOLOGY_GET, redisCommands,
                 sha -> redisCommands.evalsha(sha, ScriptOutputType.MULTI, namespace))
                 .thenApply(result -> {
@@ -141,11 +151,11 @@ public class RedisServiceStatistic implements ServiceStatistic {
                 return;
             }
 
-            var instanceKey = channel;
-            var namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
-            var instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
-            var instance = InstanceIdGenerator.DEFAULT.of(instanceId);
-            var serviceId = instance.getServiceId();
+            String instanceKey = channel;
+            String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
+            String instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
+            Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
+            String serviceId = instance.getServiceId();
             statService0(namespace, serviceId);
         }
     }

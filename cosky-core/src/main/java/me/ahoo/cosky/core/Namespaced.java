@@ -26,4 +26,5 @@ public interface Namespaced {
      * @return
      */
     String getNamespace();
+
 }

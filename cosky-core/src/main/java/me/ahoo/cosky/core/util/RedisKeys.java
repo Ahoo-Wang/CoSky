@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.core.util;
 
+import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 
 /**
@@ -24,10 +25,11 @@ public final class RedisKeys {
     public static final String WRAP_RIGHT = "}";
 
     private RedisKeys() {
+
     }
 
     public static boolean isCluster(RedisClusterAsyncCommands<String, String> asyncCommands) {
-        return true;
+        return asyncCommands instanceof RedisAdvancedClusterAsyncCommands;
     }
 
     public static String ofKey(RedisClusterAsyncCommands<String, String> asyncCommands, String key) {
@@ -41,8 +43,25 @@ public final class RedisKeys {
         return hashTag(key);
     }
 
+    /**
+     * The first '{' index and the first '{' after '}' key
+     * <hr>
+     * {system} -&gt; system
+     * <hr>
+     * {{system} -&gt; {system
+     * <hr>
+     * {{system}} -&gt; {system
+     *
+     * @param key redis key
+     * @return If the key meets the hashtag specification, return true
+     */
     public static boolean hasWrap(String key) {
-        return key.startsWith(WRAP_LEFT) && key.endsWith(WRAP_RIGHT);
+        int leftIndex = key.indexOf(WRAP_LEFT);
+        if (leftIndex == -1) {
+            return false;
+        }
+        int rightIdx = key.substring(leftIndex).indexOf(WRAP_RIGHT);
+        return rightIdx > -1;
     }
 
     public static String wrap(String key) {
@@ -53,7 +72,10 @@ public final class RedisKeys {
         if (!hasWrap(key)) {
             return key;
         }
-        return key.substring(1, key.length() - 1);
+        int leftIndex = key.indexOf(WRAP_LEFT);
+        int rightIdx = key.substring(leftIndex).indexOf(WRAP_RIGHT);
+
+        return key.substring(leftIndex + 1, leftIndex + rightIdx);
     }
 
     public static String hashTag(String key) {

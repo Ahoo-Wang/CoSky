@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.core.redis;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.Namespaced;
@@ -40,6 +42,8 @@ public class RedisNamespaceService implements NamespaceService {
 
     @Override
     public CompletableFuture<Boolean> setNamespace(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         return redisCommands.sadd(NAMESPACE_IDX_KEY, namespace)
                 .thenApply(affected -> affected > 0)
                 .toCompletableFuture();
@@ -47,6 +51,8 @@ public class RedisNamespaceService implements NamespaceService {
 
     @Override
     public CompletableFuture<Boolean> removeNamespace(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         return redisCommands.srem(NAMESPACE_IDX_KEY, namespace).thenApply(affected -> affected > 0).toCompletableFuture();
     }
 

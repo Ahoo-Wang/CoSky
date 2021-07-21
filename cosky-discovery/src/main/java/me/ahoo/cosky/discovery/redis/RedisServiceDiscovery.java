@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.discovery.redis;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
@@ -37,11 +39,14 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<List<ServiceInstance>> getInstances(String serviceId) {
-        return getInstances(NamespacedContext.GLOBAL.getNamespace(), serviceId);
+        return getInstances(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId);
     }
 
     @Override
     public CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+
         return DiscoveryRedisScripts.doDiscoveryGetInstances(redisCommands, sha -> {
             String[] keys = {namespace};
             String[] values = {serviceId};
@@ -61,6 +66,10 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
+
         return DiscoveryRedisScripts.doDiscoveryGetInstance(redisCommands, sha -> {
             String[] keys = {namespace};
             String[] values = {serviceId, instanceId};
@@ -76,6 +85,10 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<Long> getInstanceTtl(String namespace, String serviceId, String instanceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
+
         return DiscoveryRedisScripts.doDiscoveryGetInstanceTtl(redisCommands, sha -> {
             String[] keys = {namespace};
             String[] values = {serviceId, instanceId};
@@ -85,13 +98,15 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
 
     @Override
     public CompletableFuture<Set<String>> getServices(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         var serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
         return redisCommands.smembers(serviceIdxKey).toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Set<String>> getServices() {
-        return getServices(NamespacedContext.GLOBAL.getNamespace());
+        return getServices(NamespacedContext.GLOBAL.getRequiredNamespace());
     }
 
 

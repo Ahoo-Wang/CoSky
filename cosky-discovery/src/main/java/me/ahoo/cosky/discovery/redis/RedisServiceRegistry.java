@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.discovery.redis;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.lettuce.core.RedisFuture;
 import io.lettuce.core.ScriptOutputType;
@@ -89,6 +90,9 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setService(String namespace, String serviceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+
         if (log.isInfoEnabled()) {
             log.info("setService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
         }
@@ -100,6 +104,9 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> removeService(String namespace, String serviceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+
         if (log.isWarnEnabled()) {
             log.warn("removeService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace);
         }
@@ -113,11 +120,16 @@ public class RedisServiceRegistry implements ServiceRegistry {
      */
     @Override
     public CompletableFuture<Boolean> register(ServiceInstance serviceInstance) {
-        return register(NamespacedContext.GLOBAL.getNamespace(), serviceInstance);
+        return register(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
     }
 
     @Override
     public CompletableFuture<Boolean> register(String namespace, ServiceInstance serviceInstance) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getServiceId()), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getSchema()), "schema can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getHost()), "host can not be empty!");
+
         ensureInstanceId(serviceInstance);
         if (log.isInfoEnabled()) {
             log.info("register - instanceId:[{}]  @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
@@ -160,7 +172,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, String key, String value) {
-        return setMetadata(NamespacedContext.GLOBAL.getNamespace(), serviceId, instanceId, key, value);
+        return setMetadata(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId, key, value);
     }
 
     @Override
@@ -171,7 +183,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata) {
-        return setMetadata(NamespacedContext.GLOBAL.getNamespace(), serviceId, instanceId, metadata);
+        return setMetadata(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId, metadata);
     }
 
     @Override
@@ -181,6 +193,9 @@ public class RedisServiceRegistry implements ServiceRegistry {
     }
 
     private CompletableFuture<Boolean> setMetadata0(String namespace, String instanceId, String[] args) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
+
         if (log.isInfoEnabled()) {
             log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace);
         }
@@ -192,11 +207,17 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> renew(ServiceInstance serviceInstance) {
-        return renew(NamespacedContext.GLOBAL.getNamespace(), serviceInstance);
+        return renew(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
     }
 
     @Override
     public CompletableFuture<Boolean> renew(String namespace, ServiceInstance serviceInstance) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getServiceId()), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getSchema()), "schema can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getHost()), "host can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getInstanceId()), "instanceId can not be empty!");
+
         if (log.isDebugEnabled()) {
             log.debug("renew - instanceId:[{}] @ namespace:[{}].", serviceInstance.getInstanceId(), namespace);
         }
@@ -228,7 +249,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> deregister(String serviceId, String instanceId) {
-        return deregister(NamespacedContext.GLOBAL.getNamespace(), serviceId, instanceId);
+        return deregister(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId);
     }
 
     @Override
@@ -242,6 +263,10 @@ public class RedisServiceRegistry implements ServiceRegistry {
     }
 
     private CompletableFuture<Boolean> deregister0(String namespace, String serviceId, String instanceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
+
         return DiscoveryRedisScripts.doRegistryDeregister(redisCommands, sha -> {
             String[] keys = {namespace};
             String[] values = {serviceId, instanceId};
@@ -251,7 +276,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> deregister(ServiceInstance serviceInstance) {
-        return deregister(NamespacedContext.GLOBAL.getNamespace(), serviceInstance);
+        return deregister(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
     }
 
     @Override

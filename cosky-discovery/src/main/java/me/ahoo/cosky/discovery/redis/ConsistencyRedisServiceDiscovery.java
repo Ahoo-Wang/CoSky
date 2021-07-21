@@ -14,16 +14,18 @@
 package me.ahoo.cosky.discovery.redis;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.discovery.*;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.core.listener.*;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -58,9 +60,11 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
 
     @Override
     public CompletableFuture<Set<String>> getServices(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+
         return namespaceMapServices.computeIfAbsent(namespace, (_namespace) -> {
-            var serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
-            var serviceIdxTopic = ChannelTopic.of(serviceIdxKey);
+            String serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
+            ChannelTopic serviceIdxTopic = ChannelTopic.of(serviceIdxKey);
             return messageListenable.addListener(serviceIdxTopic, serviceIdxListener)
                     .thenCompose(nil -> delegate.getServices(namespace));
         });
@@ -68,16 +72,19 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
 
     @Override
     public CompletableFuture<Set<String>> getServices() {
-        return getServices(NamespacedContext.GLOBAL.getNamespace());
+        return getServices(NamespacedContext.GLOBAL.getRequiredNamespace());
     }
 
     @Override
     public CompletableFuture<List<ServiceInstance>> getInstances(String serviceId) {
-        return getInstances(NamespacedContext.GLOBAL.getNamespace(), serviceId);
+        return getInstances(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId);
     }
 
     @Override
     public CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+
         return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId), (_serviceId) ->
                 addListener(namespace, serviceId).
                         thenCompose(nil -> delegate.getInstances(namespace, serviceId)
@@ -88,9 +95,13 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     }
 
     public CompletableFuture<ServiceInstance> getInstance0(String namespace, String serviceId, String instanceId) {
-        var namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
 
-        var instancesFuture = serviceMapInstances.get(namespacedServiceId);
+        NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
+
+        CompletableFuture<CopyOnWriteArrayList<ServiceInstance>> instancesFuture = serviceMapInstances.get(namespacedServiceId);
 
         if (Objects.isNull(instancesFuture)) {
             return CompletableFuture.completedFuture(null);
@@ -100,7 +111,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
             if (Objects.isNull(serviceInstances)) {
                 return null;
             }
-            var cachedInstanceOp = serviceInstances.stream().filter(itc -> itc.getInstanceId().equals(instanceId)).findFirst();
+            Optional<ServiceInstance> cachedInstanceOp = serviceInstances.stream().filter(itc -> itc.getInstanceId().equals(instanceId)).findFirst();
 
             return cachedInstanceOp.orElse(ServiceInstance.NOT_FOUND);
         });
@@ -185,8 +196,8 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     }
 
     private PatternTopic getPatternTopic(String namespace, String serviceId) {
-        var instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
-        var instanceTopic = PatternTopic.of(instancePattern);
+        String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
+        PatternTopic instanceTopic = PatternTopic.of(instancePattern);
         return instanceTopic;
     }
 
@@ -198,8 +209,8 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
             if (log.isInfoEnabled()) {
                 log.info("onMessage@ServiceIdxListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
-            var serviceIdxKey = channel;
-            var namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
+            String serviceIdxKey = channel;
+            String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
             namespaceMapServices.put(namespace, delegate.getServices(namespace));
         }
     }
@@ -213,17 +224,17 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                 log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
 
-            final var instanceKey = channel;
-            var namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
-            var instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
-            var instance = InstanceIdGenerator.DEFAULT.of(instanceId);
-            var serviceId = instance.getServiceId();
+            final String instanceKey = channel;
+            String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
+            String instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
+            Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
+            String serviceId = instance.getServiceId();
 
-            var namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
+            NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
             AtomicReference<ServiceChangedEvent> serviceChangedEvent = new AtomicReference<>(ServiceChangedEvent.of(namespacedServiceId, message, instance));
-            var serviceChangedListeners = serviceMapListener.get(namespacedServiceId);
+            CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners = serviceMapListener.get(namespacedServiceId);
 
-            var instancesFuture = serviceMapInstances.get(namespacedServiceId);
+            CompletableFuture<CopyOnWriteArrayList<ServiceInstance>> instancesFuture = serviceMapInstances.get(namespacedServiceId);
 
             if (Objects.isNull(instancesFuture)) {
                 if (log.isInfoEnabled()) {
@@ -241,7 +252,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                     return CompletableFuture.completedFuture(null);
                 }
 
-                var cachedInstance = cachedInstances.stream()
+                ServiceInstance cachedInstance = cachedInstances.stream()
                         .filter(itc -> itc.getInstanceId().equals(instanceId))
                         .findFirst().orElse(ServiceInstance.NOT_FOUND);
 

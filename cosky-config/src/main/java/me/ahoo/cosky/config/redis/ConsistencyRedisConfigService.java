@@ -13,8 +13,9 @@
 
 package me.ahoo.cosky.config.redis;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.config.*;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.core.listener.ChannelTopic;
@@ -61,18 +62,21 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
 
     @Override
     public CompletableFuture<Config> getConfig(String configId) {
-        return getConfig(NamespacedContext.GLOBAL.getNamespace(), configId);
+        return getConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
     }
 
     @Override
     public CompletableFuture<Config> getConfig(String namespace, String configId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+
         return configMap.computeIfAbsent(NamespacedConfigId.of(namespace, configId), (_configId) -> addListener(namespace, configId).
                 thenCompose(nil -> delegate.getConfig(namespace, configId)));
     }
 
     private CompletableFuture<Void> addListener(String namespace, String configId) {
-        var topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
-        var configTopic = ChannelTopic.of(topicStr);
+        String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
+        ChannelTopic configTopic = ChannelTopic.of(topicStr);
         return messageListenable.addListener(configTopic, configListener);
     }
 
@@ -171,10 +175,10 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
                 log.info("onMessage@ConfigListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
             }
 
-            final var configkey = channel;
-            var namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
+            final String configkey = channel;
+            NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
             configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()));
-            var configChangedListeners = configMapListener.get(namespacedConfigId);
+            CopyOnWriteArraySet<ConfigChangedListener> configChangedListeners = configMapListener.get(namespacedConfigId);
             if (Objects.isNull(configChangedListeners) || configChangedListeners.isEmpty()) {
                 return;
             }

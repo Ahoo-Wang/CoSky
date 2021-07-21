@@ -56,12 +56,16 @@ public class RedisKeysTest {
 
     @Test
     void wrap() {
-        Assertions.assertEquals("{dev}",RedisKeys.wrap("dev"));
+        Assertions.assertEquals("{dev}", RedisKeys.wrap("dev"));
     }
 
     @Test
     void unwrap() {
-        Assertions.assertEquals("dev",RedisKeys.unwrap("{dev}"));
+        Assertions.assertEquals("dev", RedisKeys.unwrap("{dev}"));
+        Assertions.assertEquals("dev", RedisKeys.unwrap("cosky-{dev}"));
+        Assertions.assertEquals("{dev", RedisKeys.unwrap("cosky-{{dev}"));
+        Assertions.assertEquals("{dev", RedisKeys.unwrap("cosky-{{dev}}"));
+        Assertions.assertEquals("dev", RedisKeys.unwrap("cosky-{dev}-cosky"));
     }
 
 }
