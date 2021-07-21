@@ -32,7 +32,7 @@ between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.2.7";
+    val coskyVersion = "1.2.8";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
@@ -50,7 +50,7 @@ between process cache and Redis.
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>1.2.7</cosky.version>
+        <cosky.version>1.2.8</cosky.version>
     </properties>
 
     <dependencies>
@@ -99,21 +99,21 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.2.7/cosky-rest-api-1.2.7.tar)
+> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.2.8/cosky-rest-api-1.2.8.tar)
 
-> tar *cosky-rest-api-1.2.7.tar*
+> tar *cosky-rest-api-1.2.8.tar*
 
 ```shell
-cd cosky-rest-api-1.2.7
-# Working directory: cosky-rest-api-1.2.7
+cd cosky-rest-api-1.2.8
+# Working directory: cosky-rest-api-1.2.8
 bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.2.7
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.2.7
+docker pull ahoowang/cosky-rest-api:1.2.8
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.2.8
 ```
 
 #### Option 3：Run On Kubernetes
@@ -141,7 +141,7 @@ spec:
               value: standalone
             - name: COSKY_REDIS_URI
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.2.7
+          image: ahoowang/cosky-rest-api:1.2.8
           name: cosky-rest-api
           ports:
             - containerPort: 8080
@@ -306,7 +306,7 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.2.7-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-1.2.8-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
@@ -321,7 +321,7 @@ RedisConfigServiceBenchmark.setConfig             thrpt          140461.112     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.2.7-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-1.2.8-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
