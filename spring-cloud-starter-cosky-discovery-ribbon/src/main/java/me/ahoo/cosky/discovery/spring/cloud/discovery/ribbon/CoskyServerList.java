@@ -49,7 +49,7 @@ public class CoskyServerList extends AbstractServerList<CoskyServer> {
         var getInstancesFuture = serviceDiscovery.getInstances(this.serviceId);
         var instances = Futures.getUnChecked(getInstancesFuture, Duration.ofSeconds(2));
         if (instances.isEmpty()) {
-            Collections.emptyList();
+           return Collections.emptyList();
         }
         return instances.stream().map(CoskyServer::new).collect(Collectors.toList());
     }
