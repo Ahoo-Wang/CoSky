@@ -125,10 +125,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> register(String namespace, ServiceInstance serviceInstance) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getServiceId()), "serviceId can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getSchema()), "schema can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getHost()), "host can not be empty!");
+        ensureNamespacedInstance(namespace, serviceInstance);
 
         ensureInstanceId(serviceInstance);
         if (log.isInfoEnabled()) {
@@ -137,6 +134,14 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
         addEphemeralInstance(namespace, serviceInstance);
         return DiscoveryRedisScripts.doRegistryRegister(redisCommands, sha -> register0(namespace, sha, serviceInstance));
+    }
+
+    private void ensureNamespacedInstance(String namespace, ServiceInstance serviceInstance) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkNotNull(serviceInstance, "serviceInstance can not be null!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getServiceId()), "serviceId can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getSchema()), "schema can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getHost()), "host can not be empty!");
     }
 
     private void ensureInstanceId(ServiceInstance serviceInstance) {
@@ -212,10 +217,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
 
     @Override
     public CompletableFuture<Boolean> renew(String namespace, ServiceInstance serviceInstance) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getServiceId()), "serviceId can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getSchema()), "schema can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getHost()), "host can not be empty!");
+        ensureNamespacedInstance(namespace, serviceInstance);
         Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceInstance.getInstanceId()), "instanceId can not be empty!");
 
         if (log.isDebugEnabled()) {

@@ -68,14 +68,18 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Config> getConfig(String namespace, String configId) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         if (log.isDebugEnabled()) {
             log.debug("getConfig - configId:[{}]  @ namespace:[{}].", configId, namespace);
         }
         String configKey = ConfigKeyGenerator.getConfigKey(namespace, configId);
         return getAndDecodeConfig(configKey, ConfigCodec::decode);
+    }
+
+    private void ensureNamespacedConfigId(String namespace, String configId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
     }
 
     /**
@@ -90,8 +94,7 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Boolean> setConfig(String namespace, String configId, String data) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         String hash = Hashing.sha256().hashString(data, Charsets.UTF_8).toString();
         if (log.isInfoEnabled()) {
@@ -111,8 +114,7 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Boolean> removeConfig(String namespace, String configId) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         if (log.isInfoEnabled()) {
             log.info("removeConfig - configId:[{}] @ namespace:[{}].", configId, namespace);
@@ -127,8 +129,7 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Boolean> containsConfig(String namespace, String configId) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         String configKey = ConfigKeyGenerator.getConfigKey(namespace, configId);
         return redisCommands.exists(configKey).thenApply(count -> count > 0).toCompletableFuture();
@@ -141,8 +142,7 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<Boolean> rollback(String namespace, String configId, int targetVersion) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         if (log.isInfoEnabled()) {
             log.info("rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].", configId, targetVersion, namespace);
@@ -163,8 +163,7 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<List<ConfigVersion>> getConfigVersions(String namespace, String configId) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         String configHistoryIdxKey = ConfigKeyGenerator.getConfigHistoryIdxKey(namespace, configId);
         return redisCommands.zrevrange(configHistoryIdxKey, 0, HISTORY_STOP)
@@ -183,8 +182,7 @@ public class RedisConfigService implements ConfigService {
 
     @Override
     public CompletableFuture<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+        ensureNamespacedConfigId(namespace, configId);
 
         String configHistoryKey = ConfigKeyGenerator.getConfigHistoryKey(namespace, configId, version);
         return getAndDecodeConfig(configHistoryKey, ConfigCodec::decodeHistory);

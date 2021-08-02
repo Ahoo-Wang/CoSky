@@ -67,7 +67,7 @@ dependencies {
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
     implementation("me.ahoo.cosid:cosid-redis")
-    implementation("me.ahoo.cosid:spring-boot-starter-cosid")
+    implementation("me.ahoo.cosid:cosid-spring-boot-starter")
 
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("io.jsonwebtoken:jjwt-api:${rootProject.ext.get("jjwtVersion")}")

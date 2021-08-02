@@ -13,7 +13,6 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.registry;
 
-import lombok.var;
 import me.ahoo.cosky.discovery.InstanceIdGenerator;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.ServiceInstanceContext;

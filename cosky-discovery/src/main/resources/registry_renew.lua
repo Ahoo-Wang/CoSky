@@ -1,3 +1,6 @@
+-- Note: starting with Redis 5, the replication method described in this section (scripts effects replication) is the default and does not need to be explicitly enabled.
+redis.replicate_commands();
+
 local namespace = KEYS[1];
 local instanceId = ARGV[1];
 local instanceTtl = ARGV[2];
