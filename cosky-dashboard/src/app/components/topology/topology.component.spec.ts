@@ -13,21 +13,21 @@
 
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { UserChangePwdComponent } from './user-change-pwd.component';
+import { TopologyComponent } from './topology.component';
 
-describe('UserChangePwdComponent', () => {
-  let component: UserChangePwdComponent;
-  let fixture: ComponentFixture<UserChangePwdComponent>;
+describe('TopologyComponent', () => {
+  let component: TopologyComponent;
+  let fixture: ComponentFixture<TopologyComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ UserChangePwdComponent ]
+      declarations: [ TopologyComponent ]
     })
     .compileComponents();
   });
 
   beforeEach(() => {
-    fixture = TestBed.createComponent(UserChangePwdComponent);
+    fixture = TestBed.createComponent(TopologyComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

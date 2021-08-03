@@ -64,6 +64,7 @@ import { AuthenticatedComponent } from './components/authenticated/authenticated
 import { UserChangePwdComponent } from './components/user/user-change-pwd/user-change-pwd.component';
 import { UserAddComponent } from './components/user/user-add/user-add.component';
 import { AuditLogComponent } from './components/audit-log/audit-log.component';
+import { TopologyComponent } from './components/topology/topology.component';
 
 registerLocaleData(zh);
 
@@ -93,7 +94,8 @@ export const httpInterceptorProviders = [
     AuthenticatedComponent,
     UserChangePwdComponent,
     UserAddComponent,
-    AuditLogComponent
+    AuditLogComponent,
+    TopologyComponent
   ],
   imports: [
     BrowserModule,
