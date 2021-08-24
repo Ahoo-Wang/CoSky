@@ -29,13 +29,13 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
 
     @BeforeAll
     private void init() {
-        redisConfigService = new RedisConfigService(redisConnection.async());
+        redisConfigService = new RedisConfigService(redisConnection.reactive());
     }
 
     @Test
     public void setConfig() {
         clearTestData(namespace);
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, "setConfigData").join();
+        var setResult = redisConfigService.setConfig(namespace, testConfigId, "setConfigData").block();
         Assertions.assertTrue(setResult);
     }
 
@@ -43,8 +43,8 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
     @Test
     public void removeConfig() {
         clearTestData(namespace);
-        redisConfigService.setConfig(namespace, testConfigId, "removeConfigData").join();
-        var result = redisConfigService.removeConfig(namespace, testConfigId).join();
+        redisConfigService.setConfig(namespace, testConfigId, "removeConfigData").block();
+        var result = redisConfigService.removeConfig(namespace, testConfigId).block();
         Assertions.assertTrue(result);
     }
 
@@ -52,9 +52,9 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
     public void getConfig() {
         clearTestData(namespace);
         var getConfigData = "getConfigData";
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, getConfigData).join();
+        var setResult = redisConfigService.setConfig(namespace, testConfigId, getConfigData).block();
         Assertions.assertTrue(setResult);
-        var getResult = redisConfigService.getConfig(namespace, testConfigId).join();
+        var getResult = redisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNotNull(getResult);
         Assertions.assertEquals(testConfigId, getResult.getConfigId());
         Assertions.assertEquals(getConfigData, getResult.getData());
@@ -67,23 +67,23 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
         clearTestData(namespace);
         var test_get_config = "test_rollback_config";
         var version1Data = "version-1";
-        var setResult = redisConfigService.setConfig(namespace, test_get_config, version1Data).join();
+        var setResult = redisConfigService.setConfig(namespace, test_get_config, version1Data).block();
         Assertions.assertTrue(setResult);
-        var version1Config = redisConfigService.getConfig(namespace, test_get_config).join();
+        var version1Config = redisConfigService.getConfig(namespace, test_get_config).block();
         Assertions.assertNotNull(version1Config);
         Assertions.assertEquals(version1Data, version1Config.getData());
 
         var version2Data = "version-2";
-        setResult = redisConfigService.setConfig(namespace, test_get_config, version2Data).join();
+        setResult = redisConfigService.setConfig(namespace, test_get_config, version2Data).block();
         Assertions.assertTrue(setResult);
-        var version2Config = redisConfigService.getConfig(namespace, test_get_config).join();
+        var version2Config = redisConfigService.getConfig(namespace, test_get_config).block();
         Assertions.assertNotNull(version2Config);
         Assertions.assertEquals(version2Data, version2Config.getData());
 
-        var rollbackResult = redisConfigService.rollback(namespace, test_get_config, version1Config.getVersion()).join();
+        var rollbackResult = redisConfigService.rollback(namespace, test_get_config, version1Config.getVersion()).block();
         Assertions.assertTrue(rollbackResult);
 
-        var afterRollbackConfig = redisConfigService.getConfig(namespace, test_get_config).join();
+        var afterRollbackConfig = redisConfigService.getConfig(namespace, test_get_config).block();
 
         Assertions.assertEquals(version1Config.getData(), afterRollbackConfig.getData());
     }
@@ -91,11 +91,11 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
     @Test
     void getConfigs() {
         clearTestData(namespace);
-        var getResult = redisConfigService.getConfigs(namespace).join();
+        var getResult = redisConfigService.getConfigs(namespace).block();
         Assertions.assertTrue(getResult.isEmpty());
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigsData").join();
+        var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigsData").block();
         Assertions.assertTrue(setResult);
-        getResult = redisConfigService.getConfigs(namespace).join();
+        getResult = redisConfigService.getConfigs(namespace).block();
         Assertions.assertFalse(getResult.isEmpty());
         Assertions.assertEquals(testConfigId, getResult.iterator().next());
     }
@@ -103,13 +103,13 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
     @Test
     void getConfigVersions() {
         clearTestData(namespace);
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData").join();
+        var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData").block();
         Assertions.assertTrue(setResult);
-        var getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).join();
+        var getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).block();
         Assertions.assertTrue(getConfigVersionResult.isEmpty());
-        setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData-1").join();
+        setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData-1").block();
         Assertions.assertTrue(setResult);
-        getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).join();
+        getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).block();
         Assertions.assertFalse(getConfigVersionResult.isEmpty());
         var configVersion = getConfigVersionResult.get(0);
         Assertions.assertEquals(testConfigId, configVersion.getConfigId());
@@ -120,9 +120,9 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
     void getConfigVersionsLast10() {
         clearTestData(namespace);
         for (int i = 0; i < ConfigRollback.HISTORY_SIZE * 2 + 1; i++) {
-            var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData-" + i).join();
+            var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData-" + i).block();
         }
-        var getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).join();
+        var getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).block();
         Assertions.assertFalse(getConfigVersionResult.isEmpty());
         Assertions.assertEquals(ConfigRollback.HISTORY_SIZE, getConfigVersionResult.size());
         var configVersion = getConfigVersionResult.get(0);
@@ -133,7 +133,7 @@ public class RedisConfigServiceTest extends BaseOnRedisClientTest {
     @Test
     void getConfigHistory() {
         getConfigVersions();
-        var config = redisConfigService.getConfigHistory(namespace, testConfigId, 1).join();
+        var config = redisConfigService.getConfigHistory(namespace, testConfigId, 1).block();
         Assertions.assertNotNull(config);
         Assertions.assertEquals(testConfigId, config.getConfigId());
         Assertions.assertEquals(1, config.getVersion());

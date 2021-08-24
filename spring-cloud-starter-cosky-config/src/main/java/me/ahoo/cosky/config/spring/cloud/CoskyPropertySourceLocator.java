@@ -68,7 +68,7 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
 
         log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
 
-        var config = Futures.getUnChecked(configService.getConfig(configId), configProperties.getTimeout());
+        var config = configService.getConfig(configId).block(configProperties.getTimeout());
 
         if (Objects.isNull(config)) {
             log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);

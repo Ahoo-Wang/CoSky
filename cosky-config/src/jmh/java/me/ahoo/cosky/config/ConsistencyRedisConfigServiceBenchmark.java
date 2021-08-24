@@ -52,7 +52,7 @@ public class ConsistencyRedisConfigServiceBenchmark {
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
 
-        RedisConfigService redisConfigService = new RedisConfigService(redisConnection.async());
+        RedisConfigService redisConfigService = new RedisConfigService(redisConnection.reactive());
         redisConfigService.setConfig(configId, configData);
         messageListenable = new RedisMessageListenable(redisClient.connectPubSub());
         configService = new ConsistencyRedisConfigService(redisConfigService, messageListenable);
@@ -78,6 +78,6 @@ public class ConsistencyRedisConfigServiceBenchmark {
 
     @Benchmark
     public Config getConfig() {
-        return configService.getConfig(namespace, configId).join();
+        return configService.getConfig(namespace, configId).block();
     }
 }

@@ -43,7 +43,7 @@ public class NamespaceController {
     @GetMapping
     public CompletableFuture<Set<String>> getNamespaces() {
         if (SecurityContext.getUser().isAdmin()) {
-            return namespaceService.getNamespaces();
+            return namespaceService.getNamespaces().toFuture();
         }
         return CompletableFuture.completedFuture(rbacService.getCurrentUserNamespace());
     }
@@ -62,12 +62,12 @@ public class NamespaceController {
     @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     public CompletableFuture<Boolean> setNamespace(@PathVariable String namespace) {
-        return namespaceService.setNamespace(namespace);
+        return namespaceService.setNamespace(namespace).toFuture();
     }
 
     @AdminResource
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     public CompletableFuture<Boolean> removeNamespace(@PathVariable String namespace) {
-        return namespaceService.removeNamespace(namespace);
+        return namespaceService.removeNamespace(namespace).toFuture();
     }
 }

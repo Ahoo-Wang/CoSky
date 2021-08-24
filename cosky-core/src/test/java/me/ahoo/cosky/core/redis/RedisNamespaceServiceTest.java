@@ -35,28 +35,28 @@ class RedisNamespaceServiceTest {
     @BeforeAll
     private void init() {
         redisClient = TestRedisClient.createClient();
-        namespaceService = new RedisNamespaceService(redisClient.connect().async());
+        namespaceService = new RedisNamespaceService(redisClient.connect().reactive());
     }
 
     @Test
     void getNamespaces() {
-        var namespaces = namespaceService.getNamespaces().join();
+        var namespaces = namespaceService.getNamespaces().block();
         Assertions.assertNotNull(namespaces);
     }
 
     @Test
     void setNamespace() {
         var ns = UUID.randomUUID().toString();
-        namespaceService.removeNamespace(ns).join();
-        var isOk = namespaceService.setNamespace(ns).join();
+        namespaceService.removeNamespace(ns).block();
+        var isOk = namespaceService.setNamespace(ns).block();
         Assertions.assertTrue(isOk);
     }
 
     @Test
     void removeNamespace() {
         var ns = UUID.randomUUID().toString();
-        namespaceService.setNamespace(ns).join();
-        var isOk = namespaceService.removeNamespace(ns).join();
+        namespaceService.setNamespace(ns).block();
+        var isOk = namespaceService.removeNamespace(ns).block();
         Assertions.assertTrue(isOk);
     }
 

@@ -33,5 +33,7 @@ cosid:
     enabled: true
     machine:
       distributor:
-        type: redis
+        type: manual
+        manual:
+          machine-id: 1
 

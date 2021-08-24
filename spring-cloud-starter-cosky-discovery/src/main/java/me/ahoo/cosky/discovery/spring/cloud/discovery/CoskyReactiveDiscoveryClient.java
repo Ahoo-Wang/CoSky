@@ -15,12 +15,11 @@ package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
 import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
-import org.reactivestreams.Publisher;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient;
 import reactor.core.publisher.Flux;
 
-import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
@@ -51,17 +50,10 @@ public class CoskyReactiveDiscoveryClient implements ReactiveDiscoveryClient {
      */
     @Override
     public Flux<ServiceInstance> getInstances(String serviceId) {
-        return Flux.<ServiceInstance>defer(() -> (Publisher<ServiceInstance>) subscriber -> {
-            serviceDiscovery.getInstances(serviceId).whenComplete((instances, error) -> {
-                if (Objects.nonNull(error)) {
-                    subscriber.onError(error);
-                    log.error("getInstances - error.", error);
-                    return;
-                }
-                instances.forEach(instance -> subscriber.onNext(new CoskyServiceInstance(instance)));
-                subscriber.onComplete();
-            });
-        });
+        return serviceDiscovery.getInstances(serviceId)
+                .flatMapIterable(list -> list
+                        .stream()
+                        .map(CoskyServiceInstance::new).collect(Collectors.toList()));
     }
 
     /**
@@ -69,16 +61,6 @@ public class CoskyReactiveDiscoveryClient implements ReactiveDiscoveryClient {
      */
     @Override
     public Flux<String> getServices() {
-        return Flux.<String>defer(() -> (Publisher<String>) subscriber -> {
-            serviceDiscovery.getServices().whenComplete((instances, error) -> {
-                if (Objects.nonNull(error)) {
-                    subscriber.onError(error);
-                    log.error("getServices - error.", error);
-                    return;
-                }
-                instances.forEach(svc -> subscriber.onNext(svc));
-                subscriber.onComplete();
-            });
-        });
+        return serviceDiscovery.getServices().flatMapIterable(list -> list);
     }
 }

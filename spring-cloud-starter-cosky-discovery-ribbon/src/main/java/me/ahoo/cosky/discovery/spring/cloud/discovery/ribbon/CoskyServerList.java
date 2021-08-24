@@ -18,10 +18,13 @@ import com.netflix.loadbalancer.AbstractServerList;
 import lombok.var;
 import me.ahoo.cosky.core.util.Futures;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -46,10 +49,9 @@ public class CoskyServerList extends AbstractServerList<CoskyServer> {
     }
 
     private List<CoskyServer> getCoskyServers() {
-        var getInstancesFuture = serviceDiscovery.getInstances(this.serviceId);
-        var instances = Futures.getUnChecked(getInstancesFuture, Duration.ofSeconds(2));
-        if (instances.isEmpty()) {
-           return Collections.emptyList();
+        List<ServiceInstance> instances = serviceDiscovery.getInstances(this.serviceId).block(Duration.ofSeconds(2));
+        if (Objects.isNull(instances) || instances.isEmpty()) {
+            return Collections.emptyList();
         }
         return instances.stream().map(CoskyServer::new).collect(Collectors.toList());
     }

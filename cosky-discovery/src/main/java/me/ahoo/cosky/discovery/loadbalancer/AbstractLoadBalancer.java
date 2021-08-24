@@ -19,6 +19,7 @@ import me.ahoo.cosky.discovery.ServiceChangedEvent;
 import me.ahoo.cosky.discovery.ServiceChangedListener;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -29,7 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public abstract class AbstractLoadBalancer<Chooser extends LoadBalancer.Chooser> implements LoadBalancer {
 
-    private final ConcurrentHashMap<NamespacedServiceId, CompletableFuture<Chooser>> serviceMapChooser;
+    private final ConcurrentHashMap<NamespacedServiceId, Mono<Chooser>> serviceMapChooser;
     private final ConsistencyRedisServiceDiscovery serviceDiscovery;
 
     public AbstractLoadBalancer(ConsistencyRedisServiceDiscovery serviceDiscovery) {
@@ -38,14 +39,15 @@ public abstract class AbstractLoadBalancer<Chooser extends LoadBalancer.Chooser>
     }
 
     @Override
-    public CompletableFuture<ServiceInstance> choose(String namespace, String serviceId) {
+    public Mono<ServiceInstance> choose(String namespace, String serviceId) {
         return serviceMapChooser.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId),
-                namespacedServiceId -> {
-                    serviceDiscovery.addListener(namespacedServiceId, new Listener());
-                    return serviceDiscovery.getInstances(namespace, serviceId)
-                            .thenApply(serviceInstances -> createChooser(serviceInstances));
-                })
-                .thenApply(chooser -> chooser.choose());
+                        namespacedServiceId -> {
+                            serviceDiscovery.addListener(namespacedServiceId, new Listener());
+                            return serviceDiscovery.getInstances(namespace, serviceId)
+                                    .map(this::createChooser)
+                                    .cache();
+                        })
+                .mapNotNull(LoadBalancer.Chooser::choose);
     }
 
 
@@ -56,8 +58,11 @@ public abstract class AbstractLoadBalancer<Chooser extends LoadBalancer.Chooser>
         @Override
         public void onChange(ServiceChangedEvent serviceChangedEvent) {
             var namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
-            serviceMapChooser.computeIfPresent(namespacedServiceId, (key, value) -> serviceDiscovery.getInstances(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId())
-                    .thenApply(serviceInstances -> createChooser(serviceInstances)));
+            serviceMapChooser.computeIfPresent(namespacedServiceId, (key, value) ->
+                    serviceDiscovery.getInstances(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId())
+                            .map(AbstractLoadBalancer.this::createChooser)
+                            .cache()
+            );
 
         }
     }

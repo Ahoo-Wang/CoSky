@@ -15,12 +15,14 @@ package me.ahoo.cosky.rest.security.audit;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import lombok.SneakyThrows;
 import me.ahoo.cosid.CosIdException;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,11 +36,11 @@ public class AuditLogService {
     public static final String AUDIT_LOG_KEY = Namespaced.SYSTEM + ":audit:log";
 
     private final ObjectMapper objectMapper;
-    private final RedisClusterCommands<String, String> redisCommands;
+    private final RedisClusterReactiveCommands<String, String> redisCommands;
 
     public AuditLogService(ObjectMapper objectMapper, RedisConnectionFactory redisConnectionFactory) {
         this.objectMapper = objectMapper;
-        this.redisCommands = redisConnectionFactory.getShareSyncCommands();
+        this.redisCommands = redisConnectionFactory.getShareReactiveCommands();
     }
 
     @SneakyThrows
@@ -46,20 +48,21 @@ public class AuditLogService {
         String logStr = this.objectMapper.writeValueAsString(log);
         redisCommands.lpush(AUDIT_LOG_KEY, logStr);
     }
-
     @SneakyThrows
-    public List<AuditLog> queryLog(long offset, long limit) {
-        return this.redisCommands.lrange(AUDIT_LOG_KEY, offset, offset + limit - 1).stream().map(logStr -> {
-            try {
-                return this.objectMapper.readValue(logStr, AuditLog.class);
-            } catch (JsonProcessingException e) {
-                throw new CosIdException(e);
-            }
-        }).collect(Collectors.toList());
+    public Mono<List<AuditLog>> queryLog(long offset, long limit) {
+        return this.redisCommands.lrange(AUDIT_LOG_KEY, offset, offset + limit - 1)
+                .map(logStr -> {
+                    try {
+                        return this.objectMapper.readValue(logStr, AuditLog.class);
+                    } catch (JsonProcessingException e) {
+                        throw new CosIdException(e);
+                    }
+                })
+                .collect(Collectors.toList());
     }
 
 
-    public long getTotal() {
+    public Mono<Long> getTotal() {
         return this.redisCommands.llen(AUDIT_LOG_KEY);
     }
 }

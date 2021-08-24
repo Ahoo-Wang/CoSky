@@ -14,7 +14,6 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceInstance;
 
@@ -65,7 +64,7 @@ public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryW
             this.totalWeight = accWeight;
             this.randomBound = totalWeight + ONE;
         }
-
+        @Override
         public ServiceInstance choose() {
             if (weightLine.length == ZERO) {
                 if (log.isWarnEnabled()) {
@@ -84,7 +83,7 @@ public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryW
                 return instanceList.get(ZERO);
             }
 
-            final var randomValue = ThreadLocalRandom.current().nextInt(ONE, randomBound);
+            final int randomValue = ThreadLocalRandom.current().nextInt(ONE, randomBound);
             if (randomValue == ONE) {
                 return instanceList.get(ZERO);
             }
@@ -92,7 +91,7 @@ public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryW
                 return instanceList.get(maxLineIndex);
             }
 
-            var instanceIdx = binarySearchLowIndex(randomValue);
+            int instanceIdx = binarySearchLowIndex(randomValue);
             return instanceList.get(instanceIdx);
         }
 

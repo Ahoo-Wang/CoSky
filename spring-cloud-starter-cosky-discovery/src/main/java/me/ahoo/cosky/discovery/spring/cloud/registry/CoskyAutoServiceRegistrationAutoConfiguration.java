@@ -58,8 +58,7 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     @Primary
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
                                                      RedisConnectionFactory redisConnectionFactory) {
-        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
-        return new RedisServiceRegistry(registryProperties, redisCommands);
+        return new RedisServiceRegistry(registryProperties, redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean

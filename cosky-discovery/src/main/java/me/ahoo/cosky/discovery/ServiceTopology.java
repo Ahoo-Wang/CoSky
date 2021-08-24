@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.discovery;
 
+import reactor.core.publisher.Mono;
+
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
@@ -23,7 +25,7 @@ public interface ServiceTopology {
 
     String DEFAULT_CONSUMER_NAME = "_Client_";
 
-    CompletableFuture<Void> addTopology(String producerNamespace, String producerServiceId);
+    Mono<Void> addTopology(String producerNamespace, String producerServiceId);
 
     static String getConsumerName() {
         final ServiceInstance consumerServiceInstance = ServiceInstanceContext.CURRENT.getServiceInstance();

@@ -41,7 +41,7 @@ public class BaseOnRedisClientTest {
     }
 
     protected void clearTestData(String namespace) {
-        RedisScripts.clearTestData(namespace, redisConnection.async()).join();
+        RedisScripts.clearTestData(namespace, redisConnection.reactive()).block();
     }
 
     protected ServiceInstance createRandomInstance() {
@@ -62,9 +62,9 @@ public class BaseOnRedisClientTest {
 
     protected void registerRandomInstanceFinal(String namespace, ServiceRegistry serviceRegistry, Consumer<ServiceInstance> doTest) {
         var randomInstance = createRandomInstance();
-        serviceRegistry.register(namespace, randomInstance).join();
+        serviceRegistry.register(namespace, randomInstance).block();
         doTest.accept(randomInstance);
-        serviceRegistry.deregister(namespace, randomInstance).join();
+        serviceRegistry.deregister(namespace, randomInstance).block();
     }
 
 

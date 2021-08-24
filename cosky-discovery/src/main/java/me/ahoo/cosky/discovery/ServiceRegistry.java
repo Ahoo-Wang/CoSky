@@ -13,9 +13,10 @@
 
 package me.ahoo.cosky.discovery;
 
+import me.ahoo.cosky.core.NamespacedContext;
+import reactor.core.publisher.Mono;
+
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -23,18 +24,20 @@ import java.util.concurrent.CompletableFuture;
 public interface ServiceRegistry {
 
 
-    CompletableFuture<Boolean> setService(String namespace, String serviceId);
+    Mono<Boolean> setService(String namespace, String serviceId);
 
-    CompletableFuture<Boolean> removeService(String namespace, String serviceId);
+    Mono<Boolean> removeService(String namespace, String serviceId);
 
     /**
      * 注册实例
      *
      * @param serviceInstance serviceInstance
      */
-    CompletableFuture<Boolean> register(ServiceInstance serviceInstance);
+    default Mono<Boolean> register(ServiceInstance serviceInstance) {
+        return register(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
+    }
 
-    CompletableFuture<Boolean> register(String namespace, ServiceInstance serviceInstance);
+    Mono<Boolean> register(String namespace, ServiceInstance serviceInstance);
 
     /**
      * 服务实例续期
@@ -42,25 +45,35 @@ public interface ServiceRegistry {
      * @param serviceInstance
      * @return successful?
      */
-    CompletableFuture<Boolean> renew(ServiceInstance serviceInstance);
+    default Mono<Boolean> renew(ServiceInstance serviceInstance) {
+        return renew(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
+    }
 
-    CompletableFuture<Boolean> renew(String namespace, ServiceInstance serviceInstance);
+    Mono<Boolean> renew(String namespace, ServiceInstance serviceInstance);
 
-    CompletableFuture<Boolean> deregister(ServiceInstance serviceInstance);
+    default Mono<Boolean> deregister(ServiceInstance serviceInstance) {
+        return deregister(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
+    }
 
-    CompletableFuture<Boolean> deregister(String namespace, ServiceInstance serviceInstance);
+    Mono<Boolean> deregister(String namespace, ServiceInstance serviceInstance);
 
-    CompletableFuture<Boolean> deregister(String serviceId, String instanceId);
+    default Mono<Boolean> deregister(String serviceId, String instanceId) {
+        return deregister(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId);
+    }
 
-    CompletableFuture<Boolean> deregister(String namespace, String serviceId, String instanceId);
+    Mono<Boolean> deregister(String namespace, String serviceId, String instanceId);
 
     Map<NamespacedInstanceId, ServiceInstance> getRegisteredEphemeralInstances();
 
-    CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, String key, String value);
+    default Mono<Boolean> setMetadata(String serviceId, String instanceId, String key, String value) {
+        return setMetadata(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId, key, value);
+    }
 
-    CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value);
+    Mono<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value);
 
-    CompletableFuture<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata);
+    default Mono<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata) {
+        return setMetadata(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId, metadata);
+    }
 
-    CompletableFuture<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata);
+    Mono<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata);
 }

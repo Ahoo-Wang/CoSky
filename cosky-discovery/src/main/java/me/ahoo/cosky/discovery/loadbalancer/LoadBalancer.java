@@ -15,6 +15,7 @@ package me.ahoo.cosky.discovery.loadbalancer;
 
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.core.util.Futures;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
@@ -26,10 +27,10 @@ public interface LoadBalancer {
     int ZERO = 0;
     int ONE = 1;
 
-    CompletableFuture<ServiceInstance> choose(String namespace, String serviceId);
+    Mono<ServiceInstance> choose(String namespace, String serviceId);
 
     default ServiceInstance choose(String namespace, String serviceId, Duration timeout) {
-        return Futures.getUnChecked(choose(namespace, serviceId), timeout);
+        return choose(namespace,serviceId).block(timeout);
     }
 
     interface Chooser {

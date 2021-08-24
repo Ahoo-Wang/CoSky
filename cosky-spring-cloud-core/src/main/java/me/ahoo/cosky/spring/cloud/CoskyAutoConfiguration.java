@@ -65,6 +65,6 @@ public class CoskyAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public NamespaceService namespaceService(RedisConnectionFactory redisConnectionFactory) {
-        return new RedisNamespaceService(redisConnectionFactory.getShareAsyncCommands());
+        return new RedisNamespaceService(redisConnectionFactory.getShareReactiveCommands());
     }
 }

@@ -54,8 +54,7 @@ public class CoskyConfigBootstrapConfiguration {
     @ConditionalOnMissingBean
     public RedisConfigService redisConfigService(
             RedisConnectionFactory redisConnectionFactory) {
-        RedisClusterAsyncCommands<String, String> redisCommands =redisConnectionFactory.getShareAsyncCommands();
-        return new RedisConfigService(redisCommands);
+        return new RedisConfigService(redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean

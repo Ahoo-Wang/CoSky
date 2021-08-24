@@ -44,11 +44,11 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
         redisConnection = redisClient.connect();
 
         RegistryProperties registryProperties = new RegistryProperties();
-        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
+        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
         serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
-        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
+        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
         messageListenable = new RedisMessageListenable(redisClient.connectPubSub());
-        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnection.async());
+        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnection.reactive());
     }
 
     @TearDown
@@ -70,12 +70,12 @@ public class ConsistencyRedisServiceDiscoveryBenchmark {
     }
 
     @Benchmark
-    public Set<String> getServices() {
-        return serviceDiscovery.getServices(namespace).join();
+    public List<String> getServices() {
+        return serviceDiscovery.getServices(namespace).block();
     }
 
     @Benchmark
     public List<ServiceInstance> getInstances() {
-        return serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).join();
+        return serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).block();
     }
 }

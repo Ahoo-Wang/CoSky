@@ -21,15 +21,15 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import io.lettuce.core.codec.StringCodec;
 import io.lettuce.core.masterreplica.MasterReplica;
 import io.lettuce.core.masterreplica.StatefulRedisMasterReplicaConnection;
 import io.lettuce.core.resource.ClientResources;
 import lombok.extern.slf4j.Slf4j;
+import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.core.listener.RedisClusterMessageListenable;
-import me.ahoo.cosky.core.listener.RedisMessageListenable;
 
 import java.util.Objects;
 
@@ -75,7 +75,9 @@ public class RedisConnectionFactory implements AutoCloseable {
         shareConnection = getConnection();
         return shareConnection;
     }
-
+    public RedisClusterReactiveCommands<String, String> getShareReactiveCommands() {
+        return getShareConnection().getReactiveCommands();
+    }
     public RedisClusterAsyncCommands<String, String> getShareAsyncCommands() {
         return getShareConnection().getAsyncCommands();
     }
@@ -84,32 +86,33 @@ public class RedisConnectionFactory implements AutoCloseable {
         return getShareConnection().getSyncCommands();
     }
 
+
     public RedisConnection getConnection() {
 
         if (client instanceof RedisClusterClient) {
             StatefulRedisClusterConnection<String, String> clusterConnection = ((RedisClusterClient) client).connect();
-            return new RedisConnection(clusterConnection, clusterConnection.sync(), clusterConnection.async());
+            return new RedisConnection(clusterConnection, clusterConnection.sync(), clusterConnection.async(), clusterConnection.reactive());
         }
 
         RedisClient redisClient = (RedisClient) client;
 
         if (Objects.isNull(redisConfig.getReadFrom())) {
             StatefulRedisConnection<String, String> connection = redisClient.connect();
-            return new RedisConnection(connection, connection.sync(), connection.async());
+            return new RedisConnection(connection, connection.sync(), connection.async(), connection.reactive());
         }
 
         ReadFrom readFrom = ReadFrom.valueOf(redisConfig.getReadFrom().name());
 
         StatefulRedisMasterReplicaConnection<String, String> connection = MasterReplica.connect(redisClient, StringCodec.UTF8, RedisURI.create(redisConfig.getUrl()));
         connection.setReadFrom(readFrom);
-        return new RedisConnection(connection, connection.sync(), connection.async());
+        return new RedisConnection(connection, connection.sync(), connection.async(), connection.reactive());
     }
 
     public MessageListenable getMessageListenable() {
         if (client instanceof RedisClusterClient) {
-            return new RedisClusterMessageListenable(((RedisClusterClient) client).connectPubSub());
+            return new DefaultMessageListenable(((RedisClusterClient) client).connectPubSub().reactive());
         }
-        return new RedisMessageListenable(((RedisClient) client).connectPubSub());
+        return new DefaultMessageListenable(((RedisClient) client).connectPubSub().reactive());
     }
 
     @Override

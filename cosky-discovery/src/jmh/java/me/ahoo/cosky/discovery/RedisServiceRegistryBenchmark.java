@@ -37,7 +37,7 @@ public class RedisServiceRegistryBenchmark {
         redisConnection = redisClient.connect();
         RegistryProperties registryProperties = new RegistryProperties();
 
-        serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
+        serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
         serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
     }
 
@@ -54,17 +54,17 @@ public class RedisServiceRegistryBenchmark {
 
     @Benchmark
     public Boolean register() {
-        return serviceRegistry.register(namespace, TestServiceInstance.TEST_INSTANCE).join();
+        return serviceRegistry.register(namespace, TestServiceInstance.TEST_INSTANCE).block();
     }
 
     @Benchmark
     public Boolean deregister() {
-        return serviceRegistry.deregister(namespace, TestServiceInstance.TEST_INSTANCE).join();
+        return serviceRegistry.deregister(namespace, TestServiceInstance.TEST_INSTANCE).block();
     }
 
     @Benchmark
     public Boolean renew() {
-        return serviceRegistry.renew(namespace, TestServiceInstance.TEST_INSTANCE).join();
+        return serviceRegistry.renew(namespace, TestServiceInstance.TEST_INSTANCE).block();
     }
 
 }
