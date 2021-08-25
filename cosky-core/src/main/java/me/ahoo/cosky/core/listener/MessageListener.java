@@ -13,10 +13,12 @@
 
 package me.ahoo.cosky.core.listener;
 
+import javax.annotation.Nullable;
+
 /**
  * @author ahoo wang
  */
 @FunctionalInterface
 public interface MessageListener {
-    void onMessage(Topic topic, String channel, String message);
+    void onMessage(@Nullable String pattern, String channel, String message);
 }

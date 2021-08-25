@@ -14,11 +14,11 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 
 import java.util.List;
+import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -50,7 +50,7 @@ public class TreeWeightRandomLoadBalancer extends AbstractLoadBalancer<TreeWeigh
         private void initTree(List<ServiceInstance> instanceList) {
             instanceTree = new TreeMap<>();
             int accWeight = ZERO;
-            for (var instance : instanceList) {
+            for (ServiceInstance instance : instanceList) {
                 if (instance.getWeight() == ZERO) {
                     continue;
                 }
@@ -60,7 +60,7 @@ public class TreeWeightRandomLoadBalancer extends AbstractLoadBalancer<TreeWeigh
             this.totalWeight = accWeight;
         }
 
-
+        @Override
         public ServiceInstance choose() {
             if (instanceTree.size() == ZERO) {
                 if (log.isWarnEnabled()) {
@@ -78,8 +78,8 @@ public class TreeWeightRandomLoadBalancer extends AbstractLoadBalancer<TreeWeigh
                 return instanceTree.firstEntry().getValue();
             }
 
-            var randomVal = ThreadLocalRandom.current().nextInt(ZERO, totalWeight);
-            var tailMap = instanceTree.tailMap(randomVal, false);
+            int randomVal = ThreadLocalRandom.current().nextInt(ZERO, totalWeight);
+            NavigableMap<Integer, ServiceInstance> tailMap = instanceTree.tailMap(randomVal, false);
             return tailMap.firstEntry().getValue();
         }
     }

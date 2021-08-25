@@ -22,7 +22,6 @@ import me.ahoo.cosky.config.Config;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.core.util.Futures;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.env.OriginTrackedMapPropertySource;
 import org.springframework.boot.env.PropertySourceLoader;
@@ -68,7 +67,7 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
 
         log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
 
-        var config = Futures.getUnChecked(configService.getConfig(configId), configProperties.getTimeout());
+        var config = configService.getConfig(configId).block(configProperties.getTimeout());
 
         if (Objects.isNull(config)) {
             log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);

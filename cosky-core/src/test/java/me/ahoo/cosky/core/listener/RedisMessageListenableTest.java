@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -31,44 +32,44 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class RedisMessageListenableTest {
-    private RedisMessageListenable redisEventListenerContainer;
+    private DefaultMessageListenable messageListenable;
     private RedisClient redisClient;
 
     @BeforeAll
     private void init() {
         redisClient = TestRedisClient.createClient();
-        redisEventListenerContainer = new RedisMessageListenable(redisClient.connectPubSub());
+        messageListenable = new DefaultMessageListenable(redisClient.connectPubSub().reactive());
     }
 
     @Test
     public void addListener() throws InterruptedException {
-        var patternTopic = PatternTopic.of("order_service@*");
+        String patternTopic = "order_service@*";
         MessageListener messageListener = new MessageListener() {
             @Override
-            public void onMessage(Topic topic, String channel, String message) {
-                log.info("onEvent - [{}] topic:[{}] - channel:[{}] - message:[{}]", patternTopic.equals(topic), topic, channel, message);
+            public void onMessage(@Nullable String pattern, String channel, String message) {
+                log.info("onEvent - [{}] pattern:[{}] - channel:[{}] - message:[{}]", patternTopic.equals(pattern), pattern, channel, message);
             }
         };
-        redisEventListenerContainer.addListener(patternTopic, messageListener).join();
+        messageListenable.addPatternListener(patternTopic, messageListener);
 
     }
 
     @Test
     public void removeListener() throws InterruptedException {
-        var patternTopic = PatternTopic.of("order_service@*");
+        String patternTopic = "order_service@*";
         MessageListener messageListener = new MessageListener() {
             @Override
-            public void onMessage(Topic topic, String channel, String message) {
-                log.info("onEvent - [{}] topic:[{}] - channel:[{}] - message:[{}]", patternTopic.equals(topic), topic, channel, message);
+            public void onMessage(@Nullable String pattern, String channel, String message) {
+                log.info("onEvent - [{}] pattern:[{}] - channel:[{}] - message:[{}]", patternTopic.equals(pattern), pattern, channel, message);
             }
         };
 
-        redisEventListenerContainer.removeListener(patternTopic, messageListener).join();
-        redisEventListenerContainer.addListener(patternTopic, messageListener).join();
+        messageListenable.removePatternListener(patternTopic, messageListener);
+        messageListenable.addPatternListener(patternTopic, messageListener);
 
-        redisEventListenerContainer.removeListener(patternTopic, messageListener).join();
+        messageListenable.removePatternListener(patternTopic, messageListener);
 
-        redisEventListenerContainer.addListener(patternTopic, messageListener).join();
+        messageListenable.addPatternListener(patternTopic, messageListener);
         TimeUnit.SECONDS.sleep(2);
     }
 
@@ -76,10 +77,10 @@ public class RedisMessageListenableTest {
     public void concurrentAddListener() throws InterruptedException {
         for (int i = 0; i < 100; i++) {
             new Thread(() -> {
-                var patternTopic = PatternTopic.of("order_service@*");
-                redisEventListenerContainer.addListener(patternTopic, (topic, channel, message) -> {
-                    log.info("onEvent - [{}] topic:[{}] - channel:[{}] - message:[{}]", patternTopic.equals(topic), topic, channel, message);
-                }).join();
+                String patternTopic = "order_service@*";
+                messageListenable.addPatternListener(patternTopic, (pattern, channel, message) -> {
+                    log.info("onEvent - [{}] pattern:[{}] - channel:[{}] - message:[{}]", patternTopic.equals(pattern), pattern, channel, message);
+                });
             }).start();
         }
         TimeUnit.SECONDS.sleep(10);

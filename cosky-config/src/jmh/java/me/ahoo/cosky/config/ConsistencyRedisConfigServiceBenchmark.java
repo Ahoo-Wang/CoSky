@@ -17,8 +17,8 @@ import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.StatefulRedisConnection;
 import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
+import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.core.listener.RedisMessageListenable;
 import org.openjdk.jmh.annotations.*;
 
 import java.util.Objects;
@@ -52,9 +52,9 @@ public class ConsistencyRedisConfigServiceBenchmark {
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
 
-        RedisConfigService redisConfigService = new RedisConfigService(redisConnection.async());
+        RedisConfigService redisConfigService = new RedisConfigService(redisConnection.reactive());
         redisConfigService.setConfig(configId, configData);
-        messageListenable = new RedisMessageListenable(redisClient.connectPubSub());
+        messageListenable = new DefaultMessageListenable(redisClient.connectPubSub().reactive());
         configService = new ConsistencyRedisConfigService(redisConfigService, messageListenable);
     }
 
@@ -67,17 +67,10 @@ public class ConsistencyRedisConfigServiceBenchmark {
         if (Objects.nonNull(redisClient)) {
             redisClient.shutdown();
         }
-        if (Objects.nonNull(messageListenable)) {
-            try {
-                messageListenable.close();
-            } catch (Exception exception) {
-                throw new RuntimeException(exception);
-            }
-        }
     }
 
     @Benchmark
     public Config getConfig() {
-        return configService.getConfig(namespace, configId).join();
+        return configService.getConfig(namespace, configId).block();
     }
 }

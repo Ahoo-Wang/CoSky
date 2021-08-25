@@ -17,7 +17,10 @@ import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -88,24 +91,17 @@ public class RenewInstanceService {
             return;
         }
 
-        CompletableFuture<Boolean>[] renewFutures = new CompletableFuture[instances.size()];
-
-        var instanceIterator = instances.entrySet().iterator();
-        for (int i = 0; i < renewFutures.length; i++) {
-            var namespacedServiceInstance = instanceIterator.next();
-            renewFutures[i] = serviceRegistry.renew(namespacedServiceInstance.getKey().getNamespace(), namespacedServiceInstance.getValue())
-                    .exceptionally((ex) -> {
-                        if (log.isWarnEnabled()) {
-                            log.warn("renew - failed.", ex);
-                        }
-                        return Boolean.FALSE;
-                    });
-        }
-        CompletableFuture.allOf(renewFutures).thenAccept((nil) -> {
-            if (log.isDebugEnabled()) {
-                log.debug("renew - instances size:{} start - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
-            }
-        });
+        Flux.fromIterable(instances.entrySet())
+                .flatMap(namespacedServiceInstance -> serviceRegistry.renew(namespacedServiceInstance.getKey().getNamespace(), namespacedServiceInstance.getValue()))
+                .doOnError(throwable -> {
+                    if (log.isWarnEnabled()) {
+                        log.warn("renew - failed.", throwable);
+                    }
+                }).doOnComplete(() -> {
+                    if (log.isDebugEnabled()) {
+                        log.debug("renew - instances size:{} start - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
+                    }
+                }).subscribe();
     }
 
     private static ThreadFactory createThreadFactory() {

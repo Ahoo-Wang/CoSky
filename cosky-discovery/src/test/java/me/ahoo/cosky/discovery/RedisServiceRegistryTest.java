@@ -19,6 +19,7 @@ import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -39,38 +40,38 @@ public class RedisServiceRegistryTest extends BaseOnRedisClientTest {
         var registryProperties = new RegistryProperties();
         registryProperties.setInstanceTtl(10);
 
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
     }
 
     @Test
     public void register() {
         clearTestData(namespace);
-        var result = redisServiceRegistry.register(namespace, testInstance).join();
+        var result = redisServiceRegistry.register(namespace, testInstance).block();
         Assertions.assertTrue(result);
     }
 
     @Test
     public void renew() {
-        var result = redisServiceRegistry.renew(namespace, testInstance).join();
+        var result = redisServiceRegistry.renew(namespace, testInstance).block();
         Assertions.assertTrue(result);
     }
 
     @Test
     public void renewFixed() {
-        var result = redisServiceRegistry.renew(namespace, testFixedInstance).join();
+        var result = redisServiceRegistry.renew(namespace, testFixedInstance).block();
         Assertions.assertFalse(result);
     }
 
     @Test
     public void registerFixed() {
-        var result = redisServiceRegistry.register(namespace, testFixedInstance).join();
+        var result = redisServiceRegistry.register(namespace, testFixedInstance).block();
         Assertions.assertTrue(result);
     }
 
 
     @Test
     public void deregister() {
-        redisServiceRegistry.deregister(namespace, testInstance).join();
+        redisServiceRegistry.deregister(namespace, testInstance).block();
     }
 
     private final static int REPEATED_SIZE = 60000;
@@ -78,19 +79,19 @@ public class RedisServiceRegistryTest extends BaseOnRedisClientTest {
     @Test
     public void registerRepeatedSync() {
         for (int i = 0; i < 20; i++) {
-            redisServiceRegistry.register(namespace, testInstance).join();
+            redisServiceRegistry.register(namespace, testInstance).block();
         }
     }
 
     @SneakyThrows
 //    @Test
     public void registerRepeatedAsync() {
-        var futures = new CompletableFuture[REPEATED_SIZE];
+        var futures = new Mono[REPEATED_SIZE];
         for (int i = 0; i < REPEATED_SIZE; i++) {
             var future = redisServiceRegistry.register(testInstance);
             futures[i] = future;
         }
-        CompletableFuture.allOf(futures).join();
+        Mono.when(futures).block();
     }
 
     private final static int THREAD_COUNT = 5;
@@ -109,11 +110,11 @@ public class RedisServiceRegistryTest extends BaseOnRedisClientTest {
 
     //    @Test
     public void deregisterRepeatedAsync() {
-        var futures = new CompletableFuture[REPEATED_SIZE];
+        var futures = new Mono[REPEATED_SIZE];
         for (int i = 0; i < REPEATED_SIZE; i++) {
             futures[i] = redisServiceRegistry.deregister(testInstance);
         }
-        CompletableFuture.allOf(futures).join();
+        Mono.when(futures).block();
     }
 
     //    @Test

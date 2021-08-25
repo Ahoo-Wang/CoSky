@@ -13,29 +13,43 @@
 
 package me.ahoo.cosky.rest.config;
 
-import org.springframework.boot.web.server.ErrorPage;
-import org.springframework.boot.web.server.ErrorPageRegistrar;
-import org.springframework.boot.web.server.ErrorPageRegistry;
+import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
+import org.springframework.http.server.reactive.ServerHttpResponse;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
+import reactor.core.publisher.Mono;
+
+import java.net.URI;
 
 /**
  * for Dashboard-UI
  *
  * @author ahoo wang
  */
-@Component
-public class DashboardConfig implements ErrorPageRegistrar {
-    public static final String INDEX_PAGE = "/dashboard/index.html";
+@Controller
+public class DashboardConfig {
+    public static final String INDEX_PAGE = RequestPathPrefix.DASHBOARD + "index.html";
+    public static final URI INDEX_PAGE_URI = URI.create(INDEX_PAGE);
 
-    /**
-     * Register pages as required with the given registry.
-     *
-     * @param registry the error page registry
-     */
-    @Override
-    public void registerErrorPages(ErrorPageRegistry registry) {
-        ErrorPage error404Page = new ErrorPage(HttpStatus.NOT_FOUND, INDEX_PAGE);
-        registry.addErrorPages(error404Page);
+    @GetMapping(
+            {
+                    "/",
+                    RequestPathPrefix.DASHBOARD,
+                    RequestPathPrefix.DASHBOARD + "home",
+                    RequestPathPrefix.DASHBOARD + "topology",
+                    RequestPathPrefix.DASHBOARD + "config",
+                    RequestPathPrefix.DASHBOARD + "service",
+                    RequestPathPrefix.DASHBOARD + "namespace",
+                    RequestPathPrefix.DASHBOARD + "user",
+                    RequestPathPrefix.DASHBOARD + "role",
+                    RequestPathPrefix.DASHBOARD + "audit-log",
+                    RequestPathPrefix.DASHBOARD + "login"
+            }
+    )
+    public Mono<Void> home(ServerHttpResponse response) {
+        response.setStatusCode(HttpStatus.TEMPORARY_REDIRECT);
+        response.getHeaders().setLocation(INDEX_PAGE_URI);
+        return response.setComplete();
     }
 }

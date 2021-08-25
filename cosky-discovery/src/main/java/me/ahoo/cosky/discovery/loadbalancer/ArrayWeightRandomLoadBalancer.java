@@ -14,7 +14,6 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceInstance;
 
@@ -44,13 +43,13 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
             if (instanceList.isEmpty()) {
                 this.totalWeight = ZERO;
             } else {
-                this.totalWeight = instanceList.stream().map(node -> node.getWeight()).reduce(Integer::sum).get();
+                this.totalWeight = instanceList.stream().map(ServiceInstance::getWeight).reduce(Integer::sum).get();
             }
             instanceLine = this.toLine(instanceList);
         }
 
         private ServiceInstance[] toLine(List<ServiceInstance> instanceList) {
-            var line = new ServiceInstance[totalWeight];
+            ServiceInstance[] line = new ServiceInstance[totalWeight];
             int startX = ZERO;
             for (ServiceInstance connectorInstance : instanceList) {
                 int weightLength = connectorInstance.getWeight();
@@ -64,7 +63,7 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
             return line;
         }
 
-
+        @Override
         public ServiceInstance choose() {
             if (instanceLine.length == ZERO) {
                 if (log.isWarnEnabled()) {
@@ -83,8 +82,8 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
                 return instanceLine[ZERO];
             }
 
-            var randomValue = ThreadLocalRandom.current().nextInt(0, totalWeight);
-            var instance = instanceLine[randomValue];
+            int randomValue = ThreadLocalRandom.current().nextInt(0, totalWeight);
+            ServiceInstance instance = instanceLine[randomValue];
             return instance;
         }
     }

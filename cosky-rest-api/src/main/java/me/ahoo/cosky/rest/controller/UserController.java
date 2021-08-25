@@ -21,6 +21,7 @@ import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Set;
@@ -42,33 +43,33 @@ public class UserController {
     }
 
     @GetMapping
-    public List<User> query() {
+    public Mono<List<User>> query() {
         return userService.query();
     }
 
     @OwnerResource
     @PatchMapping(USERS_USER_PASSWORD)
-    public void changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
-        userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
+    public Mono<Boolean> changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
+        return userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
     }
 
     @PostMapping(USERS_USER)
-    public boolean addUser(@PathVariable String username, @RequestBody AddUserRequest addUserRequest) {
+    public Mono<Boolean> addUser(@PathVariable String username, @RequestBody AddUserRequest addUserRequest) {
         return userService.addUser(username, addUserRequest.getPassword());
     }
 
     @PatchMapping(USERS_USER_ROLE)
-    public void bindRole(@PathVariable String username, @RequestBody Set<String> roleBind) {
-        userService.bindRole(username, roleBind);
+    public Mono<Void> bindRole(@PathVariable String username, @RequestBody Set<String> roleBind) {
+        return userService.bindRole(username, roleBind);
     }
 
     @DeleteMapping(USERS_USER)
-    public boolean removeUser(@PathVariable String username) {
+    public Mono<Boolean> removeUser(@PathVariable String username) {
         return userService.removeUser(username);
     }
 
     @DeleteMapping(USERS_USER_UNLOCK)
-    public void unlock(@PathVariable String username) {
-        userService.unlock(username);
+    public Mono<Boolean> unlock(@PathVariable String username) {
+        return userService.unlock(username);
     }
 }

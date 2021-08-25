@@ -14,9 +14,9 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import lombok.var;
+import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import me.ahoo.cosky.discovery.BaseOnRedisClientTest;
 import me.ahoo.cosky.discovery.RegistryProperties;
-import me.ahoo.cosky.core.listener.RedisMessageListenable;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
@@ -38,22 +38,22 @@ class RandomLoadBalancerTest extends BaseOnRedisClientTest {
     @BeforeAll
     private void init() {
         var registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
-        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
-        var consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()), redisConnection.async());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
+        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
+        var consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new DefaultMessageListenable(redisClient.connectPubSub().reactive()), redisConnection.reactive());
         randomLoadBalancer = new RandomLoadBalancer(consistencyRedisServiceDiscovery);
     }
 
     @Test
     void chooseNone() {
-        var instance = randomLoadBalancer.choose(namespace, UUID.randomUUID().toString()).join();
+        var instance = randomLoadBalancer.choose(namespace, UUID.randomUUID().toString()).block();
         Assertions.assertNull(instance);
     }
 
     @Test
     void chooseOne() {
         registerRandomInstanceFinal(namespace, redisServiceRegistry, instance -> {
-            var expectedInstance = randomLoadBalancer.choose(namespace, instance.getServiceId()).join();
+            var expectedInstance = randomLoadBalancer.choose(namespace, instance.getServiceId()).block();
             Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
         });
@@ -65,10 +65,10 @@ class RandomLoadBalancerTest extends BaseOnRedisClientTest {
         var instance1 = createInstance(serviceId);
         var instance2 = createInstance(serviceId);
         var instance3 = createInstance(serviceId);
-        redisServiceRegistry.register(namespace, instance1).join();
-        redisServiceRegistry.register(namespace, instance2).join();
-        redisServiceRegistry.register(namespace, instance3).join();
-        var expectedInstance = randomLoadBalancer.choose(namespace, serviceId).join();
+        redisServiceRegistry.register(namespace, instance1).block();
+        redisServiceRegistry.register(namespace, instance2).block();
+        redisServiceRegistry.register(namespace, instance3).block();
+        var expectedInstance = randomLoadBalancer.choose(namespace, serviceId).block();
         Assertions.assertNotNull(expectedInstance);
         boolean succeeded = expectedInstance.getInstanceId().equals(instance1.getInstanceId())
                 || expectedInstance.getInstanceId().equals(instance2.getInstanceId())

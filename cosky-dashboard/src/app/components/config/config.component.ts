@@ -17,6 +17,7 @@ import {NamespaceContext} from '../../core/NamespaceContext';
 import {ConfigEditorService} from './config-editor.service';
 import {RowExpand} from '../../model/RowExpand';
 import {HttpEventType} from "@angular/common/http";
+import {SecurityService} from "../../security/SecurityService";
 
 @Component({
   selector: 'app-config',
@@ -32,7 +33,8 @@ export class ConfigComponent implements OnInit {
 
   constructor(private namespaceContext: NamespaceContext,
               private configClient: ConfigClient,
-              private configEditorService: ConfigEditorService) {
+              private configEditorService: ConfigEditorService,
+              private securityService: SecurityService) {
   }
 
   ngOnInit(): void {
@@ -95,7 +97,7 @@ export class ConfigComponent implements OnInit {
   }
 
   getExportUrl(): string {
-    this.exportUrl = this.configClient.getExportUrl(this.namespaceContext.ensureCurrentNamespace());
+    this.exportUrl = this.configClient.getExportUrl(this.namespaceContext.ensureCurrentNamespace(), this.securityService.getAccessToken());
     return this.exportUrl;
   }
 

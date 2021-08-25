@@ -13,11 +13,11 @@
 
 package me.ahoo.cosky.discovery.redis;
 
-import io.lettuce.core.RedisFuture;
-import io.lettuce.core.api.async.RedisScriptingAsyncCommands;
+import io.lettuce.core.api.reactive.RedisScriptingReactiveCommands;
 import me.ahoo.cosky.core.redis.RedisScripts;
+import reactor.core.publisher.Mono;
 
-import java.util.concurrent.CompletableFuture;
+
 import java.util.function.Function;
 
 /**
@@ -37,49 +37,49 @@ public final class DiscoveryRedisScripts {
     public static final String SERVICE_STAT = "service_stat.lua";
     public static final String SERVICE_TOPOLOGY_ADD = "service_topology_add.lua";
 
-    public static <T> CompletableFuture<T> doRegistryRegister(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doRegistryRegister(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_REGISTER, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doRegistryDeregister(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doRegistryDeregister(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_DEREGISTER, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doRegistryRenew(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doRegistryRenew(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_RENEW, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doRegistrySetMetadata(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doRegistrySetMetadata(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_SET_METADATA, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doRegistrySetService(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doRegistrySetService(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_SET_SERVICE, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doRegistryRemoveService(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doRegistryRemoveService(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(REGISTRY_REMOVE_SERVICE, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doDiscoveryGetInstances(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doDiscoveryGetInstances(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(DISCOVERY_GET_INSTANCES, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doDiscoveryGetInstance(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doDiscoveryGetInstance(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(DISCOVERY_GET_INSTANCE, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doDiscoveryGetInstanceTtl(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doDiscoveryGetInstanceTtl(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(DISCOVERY_GET_INSTANCE_TTL, scriptingCommands, doSha);
     }
 
-    public static <T> CompletableFuture<T> doServiceStat(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doServiceStat(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(SERVICE_STAT, scriptingCommands, doSha);
     }
-    public static CompletableFuture<String> loadInstanceCountStat(RedisScriptingAsyncCommands<String, String> scriptingCommands) {
+    public static Mono<String> loadInstanceCountStat(RedisScriptingReactiveCommands<String, String> scriptingCommands) {
         return RedisScripts.loadScript(INSTANCE_COUNT_STAT, scriptingCommands);
     }
-    public static <T> CompletableFuture<T> doServiceTopologyAdd(RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
+    public static <T> Mono<T> doServiceTopologyAdd(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
         return RedisScripts.doEnsureScript(SERVICE_TOPOLOGY_ADD, scriptingCommands, doSha);
     }
 }

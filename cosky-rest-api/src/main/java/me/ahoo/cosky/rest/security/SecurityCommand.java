@@ -38,6 +38,6 @@ public class SecurityCommand implements CommandLineRunner {
      */
     @Override
     public void run(String... args) throws Exception {
-        userService.initRoot(securityProperties.isEnforceInitSuperUser());
+        userService.initRoot(securityProperties.isEnforceInitSuperUser()).subscribe();
     }
 }

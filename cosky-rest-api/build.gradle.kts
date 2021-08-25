@@ -66,10 +66,10 @@ dependencies {
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
-    implementation("me.ahoo.cosid:cosid-redis")
+//    implementation("me.ahoo.cosid:cosid-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
 
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("io.jsonwebtoken:jjwt-api:${rootProject.ext.get("jjwtVersion")}")
     implementation("io.jsonwebtoken:jjwt-impl:${rootProject.ext.get("jjwtVersion")}")
     implementation("io.jsonwebtoken:jjwt-jackson:${rootProject.ext.get("jjwtVersion")}")
@@ -77,6 +77,7 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
     annotationProcessor("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("io.projectreactor:reactor-test")
 }
 
 tasks.withType<Test> {

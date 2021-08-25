@@ -17,17 +17,19 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import lombok.extern.slf4j.Slf4j;
-import me.ahoo.cosky.discovery.*;
-import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.core.listener.*;
+import me.ahoo.cosky.discovery.*;
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -39,15 +41,17 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
 
     private final ServiceDiscovery delegate;
     private final MessageListenable messageListenable;
-    private final RedisClusterAsyncCommands<String, String> redisCommands;
+    private final RedisClusterReactiveCommands<String, String> redisCommands;
     private final ServiceIdxListener serviceIdxListener;
     private final InstanceListener instanceListener;
 
-    private final ConcurrentHashMap<NamespacedServiceId, CompletableFuture<CopyOnWriteArrayList<ServiceInstance>>> serviceMapInstances;
+    private final ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArrayList<ServiceInstance>>> serviceMapInstances;
     private final ConcurrentHashMap<NamespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener>> serviceMapListener;
-    private final ConcurrentHashMap<String, CompletableFuture<Set<String>>> namespaceMapServices;
+    private final ConcurrentHashMap<String, Mono<List<String>>> namespaceMapServices;
 
-    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate, MessageListenable messageListenable, RedisClusterAsyncCommands<String, String> redisCommands) {
+    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate
+            , MessageListenable messageListenable
+            , RedisClusterReactiveCommands<String, String> redisCommands) {
         this.redisCommands = redisCommands;
         this.serviceMapInstances = new ConcurrentHashMap<>();
         this.namespaceMapServices = new ConcurrentHashMap<>();
@@ -59,109 +63,82 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     }
 
     @Override
-    public CompletableFuture<Set<String>> getServices(String namespace) {
+    public Mono<List<String>> getServices(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-
         return namespaceMapServices.computeIfAbsent(namespace, (_namespace) -> {
             String serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
-            ChannelTopic serviceIdxTopic = ChannelTopic.of(serviceIdxKey);
-            return messageListenable.addListener(serviceIdxTopic, serviceIdxListener)
-                    .thenCompose(nil -> delegate.getServices(namespace));
+            messageListenable.addChannelListener(serviceIdxKey, serviceIdxListener);
+            return delegate.getServices(namespace).cache();
         });
     }
 
     @Override
-    public CompletableFuture<Set<String>> getServices() {
-        return getServices(NamespacedContext.GLOBAL.getRequiredNamespace());
-    }
-
-    @Override
-    public CompletableFuture<List<ServiceInstance>> getInstances(String serviceId) {
-        return getInstances(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId);
-    }
-
-    @Override
-    public CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
+    public Mono<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
 
         return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId), (_serviceId) ->
-                addListener(namespace, serviceId).
-                        thenCompose(nil -> delegate.getInstances(namespace, serviceId)
-                                .thenApply(serviceInstances -> new CopyOnWriteArrayList<>(serviceInstances)))
-        )
-                .thenApply(serviceInstances -> serviceInstances.stream().filter(instance -> !instance.isExpired())
+                        addListener(namespace, serviceId).
+                                then(delegate.getInstances(namespace, serviceId))
+                                .map(CopyOnWriteArrayList::new)
+                                .cache()
+                )
+                .map(serviceInstances -> serviceInstances.stream()
+                        .filter(instance -> !instance.isExpired())
                         .collect(Collectors.toList()));
     }
 
-    public CompletableFuture<ServiceInstance> getInstance0(String namespace, String serviceId, String instanceId) {
+    public Mono<ServiceInstance> getInstance0(String namespace, String serviceId, String instanceId) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
 
         NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
 
-        CompletableFuture<CopyOnWriteArrayList<ServiceInstance>> instancesFuture = serviceMapInstances.get(namespacedServiceId);
+        Mono<CopyOnWriteArrayList<ServiceInstance>> instancesMono = serviceMapInstances.get(namespacedServiceId);
 
-        if (Objects.isNull(instancesFuture)) {
-            return CompletableFuture.completedFuture(null);
+        if (Objects.isNull(instancesMono)) {
+            return delegate.getInstance(namespace, serviceId, instanceId);
         }
 
-        return instancesFuture.thenApply(serviceInstances -> {
-            if (Objects.isNull(serviceInstances)) {
-                return null;
-            }
-            Optional<ServiceInstance> cachedInstanceOp = serviceInstances.stream().filter(itc -> itc.getInstanceId().equals(instanceId)).findFirst();
-
-            return cachedInstanceOp.orElse(ServiceInstance.NOT_FOUND);
-        });
+        return instancesMono.mapNotNull(serviceInstances -> serviceInstances
+                .stream()
+                .filter(itc -> itc.getInstanceId().equals(instanceId))
+                .findFirst()
+                .orElse(null)
+        );
     }
 
     @Override
-    public CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
-        return getInstance0(namespace, serviceId, instanceId).thenCompose(instance -> {
-            if (ServiceInstance.NOT_FOUND.equals(instance)) {
-                return CompletableFuture.completedFuture(null);
-            }
-            if (Objects.isNull(instance)) {
-                return delegate.getInstance(namespace, serviceId, instanceId);
-            }
-            return CompletableFuture.completedFuture(instance);
-        });
+    public Mono<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
+        return getInstance0(namespace, serviceId, instanceId);
     }
 
     @Override
-    public CompletableFuture<Long> getInstanceTtl(String namespace, String serviceId, String instanceId) {
-        return getInstance0(namespace, serviceId, instanceId).thenCompose(instance -> {
-            if (ServiceInstance.NOT_FOUND.equals(instance)) {
-                return CompletableFuture.completedFuture(null);
-            }
-            if (Objects.isNull(instance)) {
-                return delegate.getInstanceTtl(namespace, serviceId, instanceId);
-            }
-            return CompletableFuture.completedFuture(instance.getTtlAt());
-        });
+    public Mono<Long> getInstanceTtl(String namespace, String serviceId, String instanceId) {
+        return getInstance0(namespace, serviceId, instanceId)
+                .map(ServiceInstance::getTtlAt);
     }
 
     @VisibleForTesting
-    public CompletableFuture<Void> addListener(String namespace, String serviceId) {
-        PatternTopic instanceTopic = getPatternTopic(namespace, serviceId);
-        return messageListenable.addListener(instanceTopic, instanceListener)
-                .thenCompose(nil -> addTopology(namespace, serviceId));
+    public Mono<Void> addListener(String namespace, String serviceId) {
+        String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
+        messageListenable.addPatternListener(instancePattern, instanceListener);
+        return addTopology(namespace, serviceId);
     }
 
     @Override
-    public CompletableFuture<Void> addTopology(String producerNamespace, String producerServiceId) {
+    public Mono<Void> addTopology(String producerNamespace, String producerServiceId) {
         final String consumerNamespace = ServiceInstanceContext.CURRENT.getNamespace();
         final String consumerName = ServiceTopology.getConsumerName();
         final String producerName = ServiceTopology.getProducerName(producerNamespace, producerServiceId);
         if (Objects.equals(consumerName, producerName)) {
-            return CompletableFuture.completedFuture(null);
+            return Mono.empty();
         }
         return DiscoveryRedisScripts.doServiceTopologyAdd(redisCommands, (sha) -> {
             String[] keys = {consumerNamespace};
             String[] values = {consumerName, producerName};
-            return redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values);
+            return redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values).then();
         });
     }
 
@@ -170,6 +147,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
         serviceMapListener.compute(namespacedServiceId, (key, val) -> {
             CopyOnWriteArraySet<ServiceChangedListener> listeners = val;
             if (Objects.isNull(val)) {
+                addListener(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId()).subscribe();
                 listeners = new CopyOnWriteArraySet<>();
             }
             listeners.add(serviceChangedListener);
@@ -190,28 +168,21 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     }
 
     @VisibleForTesting
-    public Future<Void> removeListener(String namespace, String serviceId) {
-        PatternTopic instanceTopic = getPatternTopic(namespace, serviceId);
-        return messageListenable.removeListener(instanceTopic, instanceListener);
-    }
-
-    private PatternTopic getPatternTopic(String namespace, String serviceId) {
+    public void removeListener(String namespace, String serviceId) {
         String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
-        PatternTopic instanceTopic = PatternTopic.of(instancePattern);
-        return instanceTopic;
+        messageListenable.removePatternListener(instancePattern, instanceListener);
     }
-
 
     private class ServiceIdxListener implements MessageListener {
 
         @Override
-        public void onMessage(Topic topic, String channel, String message) {
+        public void onMessage(@Nullable String pattern, String channel, String message) {
             if (log.isInfoEnabled()) {
-                log.info("onMessage@ServiceIdxListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
+                log.info("onMessage@ServiceIdxListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
             }
             String serviceIdxKey = channel;
             String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
-            namespaceMapServices.put(namespace, delegate.getServices(namespace));
+            namespaceMapServices.put(namespace, delegate.getServices(namespace).cache());
         }
     }
 
@@ -219,9 +190,9 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
 
 
         @Override
-        public void onMessage(Topic topic, String channel, String message) {
+        public void onMessage(@Nullable String pattern, String channel, String message) {
             if (log.isInfoEnabled()) {
-                log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
+                log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
             }
 
             final String instanceKey = channel;
@@ -234,33 +205,26 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
             AtomicReference<ServiceChangedEvent> serviceChangedEvent = new AtomicReference<>(ServiceChangedEvent.of(namespacedServiceId, message, instance));
             CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners = serviceMapListener.get(namespacedServiceId);
 
-            CompletableFuture<CopyOnWriteArrayList<ServiceInstance>> instancesFuture = serviceMapInstances.get(namespacedServiceId);
+            Mono<CopyOnWriteArrayList<ServiceInstance>> instancesMono = serviceMapInstances.get(namespacedServiceId);
 
-            if (Objects.isNull(instancesFuture)) {
+            if (Objects.isNull(instancesMono)) {
                 if (log.isInfoEnabled()) {
-                    log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] instancesFuture is null.", topic, channel, message);
+                    log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] instancesMono is null.", pattern, channel, message);
                 }
                 invokeChanged(serviceChangedEvent.get(), serviceChangedListeners);
                 return;
             }
 
-            instancesFuture.thenCompose(cachedInstances -> {
-                if (Objects.isNull(cachedInstances)) {
-                    if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] cachedInstances is null.", topic, channel, message);
-                    }
-                    return CompletableFuture.completedFuture(null);
-                }
-
+            instancesMono.flatMap(cachedInstances -> {
                 ServiceInstance cachedInstance = cachedInstances.stream()
                         .filter(itc -> itc.getInstanceId().equals(instanceId))
                         .findFirst().orElse(ServiceInstance.NOT_FOUND);
 
                 if (ServiceChangedEvent.REGISTER.equals(message)) {
                     if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] add registered Instance.", topic, channel, message);
+                        log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] add registered Instance.", pattern, channel, message);
                     }
-                    return delegate.getInstance(namespace, serviceId, instanceId).thenAccept(registeredInstance -> {
+                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(registeredInstance -> {
                         if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
                             cachedInstances.add(registeredInstance);
                         } else {
@@ -277,38 +241,37 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
 
                 if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
                     if (log.isWarnEnabled()) {
-                        log.warn("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] not found cached Instance.", topic, channel, message);
+                        log.warn("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] not found cached Instance.", pattern, channel, message);
                     }
-                    return CompletableFuture.completedFuture(null);
+                    return Mono.empty();
                 }
 
                 switch (message) {
                     case ServiceChangedEvent.RENEW: {
                         if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setTtlAt.", topic, channel, message);
+                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] setTtlAt.", pattern, channel, message);
                         }
-                        return delegate.getInstanceTtl(namespace, serviceId, instanceId).thenAccept(nextTtlAt -> cachedInstance.setTtlAt(nextTtlAt));
+                        return delegate.getInstanceTtl(namespace, serviceId, instanceId).doOnNext(cachedInstance::setTtlAt);
                     }
                     case ServiceChangedEvent.SET_METADATA: {
                         if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] setMetadata.", topic, channel, message);
+                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] setMetadata.", pattern, channel, message);
                         }
-                        return delegate.getInstance(namespace, serviceId, instanceId).thenAccept(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
+                        return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
                     }
                     case ServiceChangedEvent.DEREGISTER:
                     case ServiceChangedEvent.EXPIRED: {
                         if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - topic:[{}] - channel:[{}] - message:[{}] remove instance.", topic, channel, message);
+                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] remove instance.", pattern, channel, message);
                         }
                         serviceChangedEvent.set(ServiceChangedEvent.of(namespacedServiceId, message, cachedInstance));
                         cachedInstances.remove(cachedInstance);
-                        return CompletableFuture.completedFuture(null);
+                        return Mono.empty();
                     }
                     default:
-                        throw new IllegalStateException("Unexpected value: " + message);
+                        return Mono.error(new IllegalStateException("Unexpected value: " + message));
                 }
-
-            }).thenAccept(nil -> invokeChanged(serviceChangedEvent.get(), serviceChangedListeners));
+            }).doOnSuccess(nil -> invokeChanged(serviceChangedEvent.get(), serviceChangedListeners)).subscribe();
         }
 
         private void invokeChanged(ServiceChangedEvent serviceChangedEvent, CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners) {

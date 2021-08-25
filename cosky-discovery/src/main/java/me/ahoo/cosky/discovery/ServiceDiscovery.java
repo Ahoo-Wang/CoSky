@@ -13,25 +13,30 @@
 
 package me.ahoo.cosky.discovery;
 
+import me.ahoo.cosky.core.NamespacedContext;
+import reactor.core.publisher.Mono;
+
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
  */
 public interface ServiceDiscovery {
 
-    CompletableFuture<Set<String>> getServices(String namespace);
+    Mono<List<String>> getServices(String namespace);
 
-    CompletableFuture<Set<String>> getServices();
+    default Mono<List<String>> getServices() {
+        return getServices(NamespacedContext.GLOBAL.getRequiredNamespace());
+    }
 
-    CompletableFuture<List<ServiceInstance>> getInstances(String serviceId);
+    default Mono<List<ServiceInstance>> getInstances(String serviceId) {
+        return getInstances(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId);
+    }
 
-    CompletableFuture<List<ServiceInstance>> getInstances(String namespace, String serviceId);
+    Mono<List<ServiceInstance>> getInstances(String namespace, String serviceId);
 
-    CompletableFuture<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId);
+    Mono<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId);
 
-    CompletableFuture<Long> getInstanceTtl(String namespace, String serviceId, String instanceId);
+    Mono<Long> getInstanceTtl(String namespace, String serviceId, String instanceId);
 
 }

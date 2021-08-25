@@ -13,9 +13,8 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
-import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.core.listener.MessageListenable;
+import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer;
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
@@ -43,8 +42,7 @@ public class CoskyDiscoveryAutoConfiguration {
     @ConditionalOnMissingBean
     public RedisServiceDiscovery redisServiceDiscovery(
             RedisConnectionFactory redisConnectionFactory) {
-        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
-        return new RedisServiceDiscovery(redisCommands);
+        return new RedisServiceDiscovery(redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean
@@ -54,7 +52,7 @@ public class CoskyDiscoveryAutoConfiguration {
             RedisServiceDiscovery redisServiceDiscovery,
             MessageListenable messageListenable,
             RedisConnectionFactory redisConnectionFactory) {
-        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnectionFactory.getShareAsyncCommands());
+        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean
@@ -62,8 +60,7 @@ public class CoskyDiscoveryAutoConfiguration {
     public RedisServiceStatistic redisServiceStatistic(
             RedisConnectionFactory redisConnectionFactory,
             MessageListenable messageListenable) {
-        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
-        return new RedisServiceStatistic(redisCommands, messageListenable);
+        return new RedisServiceStatistic(redisConnectionFactory.getShareReactiveCommands(), messageListenable);
     }
 
 

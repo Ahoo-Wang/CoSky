@@ -15,6 +15,7 @@ package me.ahoo.cosky.core.redis;
 
 import io.lettuce.core.api.StatefulConnection;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 
 
@@ -22,18 +23,20 @@ import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
  * @author ahoo wang
  */
 public class RedisConnection implements AutoCloseable {
-    private StatefulConnection<String, String> connection;
-    private RedisClusterCommands<String, String> syncCommands;
-    private RedisClusterAsyncCommands<String, String> asyncCommands;
+    private final StatefulConnection<String, String> connection;
+    private final RedisClusterCommands<String, String> syncCommands;
+    private final RedisClusterAsyncCommands<String, String> asyncCommands;
+    private final RedisClusterReactiveCommands<String, String> reactiveCommands;
 
     public RedisConnection(StatefulConnection<String, String> connection
             , RedisClusterCommands<String, String> syncCommands
-            , RedisClusterAsyncCommands<String, String> asyncCommands
-
+            , RedisClusterAsyncCommands<String, String> asyncCommands,
+                           RedisClusterReactiveCommands<String, String> reactiveCommands
     ) {
         this.connection = connection;
         this.syncCommands = syncCommands;
         this.asyncCommands = asyncCommands;
+        this.reactiveCommands = reactiveCommands;
     }
 
     public StatefulConnection<String, String> getConnection() {
@@ -46,6 +49,10 @@ public class RedisConnection implements AutoCloseable {
 
     public RedisClusterAsyncCommands<String, String> getAsyncCommands() {
         return asyncCommands;
+    }
+
+    public RedisClusterReactiveCommands<String, String> getReactiveCommands() {
+        return reactiveCommands;
     }
 
     @Override

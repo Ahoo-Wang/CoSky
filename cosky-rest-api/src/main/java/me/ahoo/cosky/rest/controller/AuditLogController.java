@@ -23,8 +23,10 @@ import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -42,12 +44,13 @@ public class AuditLogController {
     }
 
     @GetMapping
-    public QueryLogResponse queryLog(long offset, long limit) {
-        QueryLogResponse queryLogResponse = new QueryLogResponse();
-        long total = auditService.getTotal();
-        List<AuditLog> list = auditService.queryLog(offset,  limit);
-        queryLogResponse.setTotal(total);
-        queryLogResponse.setList(list);
-        return queryLogResponse;
+    public Mono<QueryLogResponse> queryLog(long offset, long limit) {
+        return Mono.zip(auditService.getTotal(), auditService.queryLog(offset, limit))
+                .map(tuple -> {
+                    QueryLogResponse queryLogResponse = new QueryLogResponse();
+                    queryLogResponse.setTotal(tuple.getT1());
+                    queryLogResponse.setList(tuple.getT2());
+                    return queryLogResponse;
+                });
     }
 }

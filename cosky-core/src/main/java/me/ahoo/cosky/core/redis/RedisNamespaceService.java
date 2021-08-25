@@ -15,12 +15,13 @@ package me.ahoo.cosky.core.redis;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
+import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.Namespaced;
+import reactor.core.publisher.Mono;
 
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
@@ -29,31 +30,35 @@ public class RedisNamespaceService implements NamespaceService {
 
     private final static String NAMESPACE_IDX_KEY = Namespaced.SYSTEM + ":ns_idx";
 
-    private final RedisClusterAsyncCommands<String, String> redisCommands;
+    private final RedisClusterReactiveCommands<String, String> redisCommands;
 
-    public RedisNamespaceService(RedisClusterAsyncCommands<String, String> redisCommands) {
+    public RedisNamespaceService(RedisClusterReactiveCommands<String, String> redisCommands) {
         this.redisCommands = redisCommands;
     }
 
     @Override
-    public CompletableFuture<Set<String>> getNamespaces() {
-        return redisCommands.smembers(NAMESPACE_IDX_KEY).toCompletableFuture();
+    public Mono<Set<String>> getNamespaces() {
+        return redisCommands.smembers(NAMESPACE_IDX_KEY).collect(Collectors.toSet());
     }
 
     @Override
-    public CompletableFuture<Boolean> setNamespace(String namespace) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+    public Mono<Boolean> setNamespace(String namespace) {
+        ensureNamespace(namespace);
 
         return redisCommands.sadd(NAMESPACE_IDX_KEY, namespace)
-                .thenApply(affected -> affected > 0)
-                .toCompletableFuture();
+                .map(affected -> affected > 0);
+    }
+
+    private void ensureNamespace(String namespace) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
     }
 
     @Override
-    public CompletableFuture<Boolean> removeNamespace(String namespace) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+    public Mono<Boolean> removeNamespace(String namespace) {
+        ensureNamespace(namespace);
 
-        return redisCommands.srem(NAMESPACE_IDX_KEY, namespace).thenApply(affected -> affected > 0).toCompletableFuture();
+        return redisCommands.srem(NAMESPACE_IDX_KEY, namespace)
+                .map(affected -> affected > 0);
     }
 
 }

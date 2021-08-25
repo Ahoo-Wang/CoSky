@@ -15,7 +15,7 @@ package me.ahoo.cosky.discovery;
 
 import lombok.var;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.core.listener.RedisMessageListenable;
+import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import me.ahoo.cosky.core.redis.RedisNamespaceService;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
@@ -34,10 +34,10 @@ public class ServiceTopologyTest extends BaseOnRedisClientTest {
 
     @BeforeEach
     private void init() {
-        RedisNamespaceService  redisNamespaceService=new RedisNamespaceService(redisConnection.async());
-        redisNamespaceService.setNamespace(namespace);
-        var redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
-        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new RedisMessageListenable(redisClient.connectPubSub()), redisConnection.async());
+        RedisNamespaceService redisNamespaceService = new RedisNamespaceService(redisConnection.reactive());
+        redisNamespaceService.setNamespace(namespace).block();
+        var redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
+        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new DefaultMessageListenable(redisClient.connectPubSub().reactive()), redisConnection.reactive());
     }
 
     @Test
@@ -55,11 +55,9 @@ public class ServiceTopologyTest extends BaseOnRedisClientTest {
                 if (depServiceId == i) {
                     continue;
                 }
-                consistencyRedisServiceDiscovery.addTopology(namespace, "service-" + depServiceId).join();
+                consistencyRedisServiceDiscovery.addTopology(namespace, "service-" + depServiceId).block();
             }
 
         }
-
     }
-
 }

@@ -37,7 +37,7 @@ public class BaseOnRedisClientTest {
     }
 
     protected void clearTestData(String namespace) {
-        RedisScripts.clearTestData(namespace, redisConnection.async()).join();
+        RedisScripts.clearTestData(namespace, redisConnection.reactive()).block();
     }
 
 

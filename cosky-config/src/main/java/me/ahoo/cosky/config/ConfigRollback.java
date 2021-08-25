@@ -13,8 +13,10 @@
 
 package me.ahoo.cosky.config;
 
+import me.ahoo.cosky.core.NamespacedContext;
+import reactor.core.publisher.Mono;
+
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -22,15 +24,21 @@ import java.util.concurrent.CompletableFuture;
 public interface ConfigRollback {
     int HISTORY_SIZE = 10;
 
-    CompletableFuture<Boolean> rollback(String configId, int targetVersion);
+    default Mono<Boolean> rollback(String configId, int targetVersion) {
+        return rollback(NamespacedContext.GLOBAL.getRequiredNamespace(), configId, targetVersion);
+    }
 
-    CompletableFuture<Boolean> rollback(String namespace, String configId, int targetVersion);
+    Mono<Boolean> rollback(String namespace, String configId, int targetVersion);
 
-    CompletableFuture<List<ConfigVersion>> getConfigVersions(String configId);
+    default Mono<List<ConfigVersion>> getConfigVersions(String configId) {
+        return getConfigVersions(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
+    }
 
-    CompletableFuture<List<ConfigVersion>> getConfigVersions(String namespace, String configId);
+    Mono<List<ConfigVersion>> getConfigVersions(String namespace, String configId);
 
-    CompletableFuture<ConfigHistory> getConfigHistory(String configId, int version);
+    default Mono<ConfigHistory> getConfigHistory(String configId, int version) {
+        return getConfigHistory(NamespacedContext.GLOBAL.getRequiredNamespace(), configId, version);
+    }
 
-    CompletableFuture<ConfigHistory> getConfigHistory(String namespace, String configId, int version);
+    Mono<ConfigHistory> getConfigHistory(String namespace, String configId, int version);
 }

@@ -38,7 +38,7 @@ public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
         testFixedInstance = TestServiceInstance.TEST_FIXED_INSTANCE;
         var registryProperties = new RegistryProperties();
         registryProperties.setInstanceTtl(15);
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
         var renewProperties = new RenewProperties();
         renewService = new RenewInstanceService(renewProperties, redisServiceRegistry);
     }
@@ -47,8 +47,8 @@ public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
     @Test
     public void start() {
         renewService.start();
-        redisServiceRegistry.register(namespace, testInstance);
-        redisServiceRegistry.register(namespace, testFixedInstance);
+        redisServiceRegistry.register(namespace, testInstance).block();
+        redisServiceRegistry.register(namespace, testFixedInstance).block();
         TimeUnit.SECONDS.sleep(20);
     }
 

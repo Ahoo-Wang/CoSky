@@ -14,20 +14,18 @@
 package me.ahoo.cosky.core.redis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Charsets;
 import com.google.common.hash.Hashing;
 import com.google.common.io.Resources;
-import io.lettuce.core.RedisFuture;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.api.async.RedisScriptingAsyncCommands;
+import io.lettuce.core.api.reactive.RedisScriptingReactiveCommands;
 import io.lettuce.core.internal.Exceptions;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
+import me.ahoo.cosky.core.CoskyException;
+import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.net.URL;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
@@ -37,15 +35,21 @@ import java.util.function.Function;
 @Slf4j
 public final class RedisScripts {
     private static final String WARN_CLEAR_TEST_DATA = "warn_clear_test_data.lua";
-    public static final ConcurrentHashMap<String, CompletableFuture<String>> scriptMapSha = new ConcurrentHashMap<>();
+    public static final ConcurrentHashMap<String, Mono<String>> scriptMapSha = new ConcurrentHashMap<>();
 
     private RedisScripts() {
     }
 
-    @SneakyThrows
-    public static String getScript(String scriptName) {
-        URL url = Resources.getResource(scriptName);
-        return Resources.toString(url, Charsets.UTF_8);
+    public static byte[] getScript(String scriptName) {
+        try {
+            URL url = Resources.getResource(scriptName);
+            return Resources.toByteArray(url);
+        } catch (IOException ioException) {
+            if (log.isErrorEnabled()) {
+                log.error(ioException.getMessage(), ioException);
+            }
+            throw new CoskyException(ioException.getMessage(), ioException);
+        }
     }
 
     public static void clearScript() {
@@ -55,23 +59,30 @@ public final class RedisScripts {
         scriptMapSha.clear();
     }
 
-    public static CompletableFuture<String> loadScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
-
+    public static Mono<String> loadScript(String scriptName, RedisScriptingReactiveCommands<String, String> scriptingCommands) {
         return scriptMapSha.computeIfAbsent(scriptName, (key) -> {
             if (log.isInfoEnabled()) {
                 log.info("loadScript - scriptName : [{}].", scriptName);
             }
-            String script = getScript(key);
-
-            String scriptSha = Hashing.sha1().hashString(script, Charsets.UTF_8).toString();
-            return scriptingCommands.scriptExists(scriptSha).thenCompose(existsList -> {
-                boolean isExists = existsList.get(0);
-                if (isExists) {
-                    return CompletableFuture.completedFuture(scriptSha);
-                }
-                return scriptingCommands.scriptLoad(script).toCompletableFuture();
-            }).toCompletableFuture();
+            return tryGetSha(key, scriptingCommands);
         });
+    }
+
+    private static Mono<String> tryGetSha(String scriptName, RedisScriptingReactiveCommands<String, String> scriptingCommands) {
+        byte[] script = getScript(scriptName);
+
+        String scriptSha = Hashing.sha1().hashBytes(script).toString();
+
+        return scriptingCommands
+                .scriptExists(scriptSha)
+                .flatMap(exists -> {
+                    if (exists) {
+                        return Mono.just(scriptSha);
+                    }
+                    return scriptingCommands.scriptLoad(script);
+                })
+                .next()
+                .cache();
     }
 
     /**
@@ -81,60 +92,25 @@ public final class RedisScripts {
      * @param scriptingCommands
      * @return
      */
-    public static CompletableFuture<String> reloadScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
+    public static Mono<String> reloadScript(String scriptName, RedisScriptingReactiveCommands<String, String> scriptingCommands) {
         return scriptMapSha.compute(scriptName, (key, result) -> {
             if (log.isInfoEnabled()) {
                 log.info("reloadScript - scriptName : [{}].", scriptName);
             }
-            String script = getScript(key);
-            return scriptingCommands.scriptLoad(script).toCompletableFuture();
+            return tryGetSha(scriptName, scriptingCommands);
         });
     }
 
-    public static <T> CompletableFuture<T> doEnsureScript(String scriptName, RedisScriptingAsyncCommands<String, String> scriptingCommands, Function<String, RedisFuture<T>> doSha) {
-        CompletableFuture<T> ensureFuture = new CompletableFuture<>();
-        loadScript(scriptName, scriptingCommands)
-                .whenComplete((sha, loadScriptException) -> {
-
-                    if (Objects.nonNull(loadScriptException)) {
-                        ensureFuture.completeExceptionally(loadScriptException);
-                        return;
+    public static <T> Mono<T> doEnsureScript(String scriptName, RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
+        return loadScript(scriptName, scriptingCommands)
+                .flatMap(doSha)
+                .onErrorResume(throwable -> Exceptions.unwrap(throwable) instanceof RedisNoScriptException, (throwable -> {
+                    if (log.isWarnEnabled()) {
+                        log.warn(throwable.getMessage(), throwable);
                     }
-
-                    doSha.apply(sha).whenComplete((result, throwable) -> {
-                        if (Objects.isNull(throwable)) {
-                            ensureFuture.complete(result);
-                            return;
-                        }
-
-                        boolean isRedisNoScript = Exceptions.unwrap(throwable) instanceof RedisNoScriptException;
-
-                        if (!isRedisNoScript) {
-                            ensureFuture.completeExceptionally(throwable);
-                            return;
-                        }
-
-                        reloadScript(scriptName, scriptingCommands).whenComplete((reloadSha, reloadException) -> {
-
-                            if (Objects.nonNull(reloadException)) {
-                                ensureFuture.completeExceptionally(reloadException);
-                                return;
-                            }
-
-                            doSha.apply(reloadSha).whenComplete((retryResult, retryException) -> {
-                                if (Objects.nonNull(retryException)) {
-                                    ensureFuture.completeExceptionally(retryException);
-                                    return;
-                                }
-                                ensureFuture.complete(retryResult);
-                            });
-                        });
-                    });
-                });
-
-        return ensureFuture;
+                    return reloadScript(scriptName, scriptingCommands).flatMap(doSha);
+                }));
     }
-
 
     /**
      * only for dev
@@ -145,11 +121,13 @@ public final class RedisScripts {
      */
     @Deprecated
     @VisibleForTesting
-    public static CompletableFuture<Void> clearTestData(String namespace, RedisScriptingAsyncCommands<String, String> scriptingCommands) {
+    public static Mono<Void> clearTestData(String namespace, RedisScriptingReactiveCommands<String, String> scriptingCommands) {
         if (log.isWarnEnabled()) {
             log.warn("clearTestData - namespace : [{}].", namespace);
         }
         return RedisScripts.loadScript(WARN_CLEAR_TEST_DATA, scriptingCommands)
-                .thenCompose(sha -> scriptingCommands.evalsha(sha, ScriptOutputType.STATUS, new String[]{namespace}));
+                .flatMap(sha -> scriptingCommands.evalsha(sha, ScriptOutputType.STATUS, new String[]{namespace}).then()
+                );
     }
+
 }

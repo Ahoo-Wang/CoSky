@@ -20,6 +20,7 @@ import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 /**
  * @author ahoo wang
@@ -38,7 +39,7 @@ public class AuthenticateController {
     }
 
     @PostMapping("/{username}/login")
-    public LoginResponse login(@PathVariable String username, @RequestBody LoginRequest loginRequest) {
+    public Mono<LoginResponse> login(@PathVariable String username, @RequestBody LoginRequest loginRequest) {
         return userService.login(username, loginRequest.getPassword());
     }
 
