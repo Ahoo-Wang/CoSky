@@ -66,7 +66,7 @@ dependencies {
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
-//    implementation("me.ahoo.cosid:cosid-redis")
+    implementation("me.ahoo.cosid:cosid-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
 
     implementation("org.springframework.boot:spring-boot-starter-webflux")
