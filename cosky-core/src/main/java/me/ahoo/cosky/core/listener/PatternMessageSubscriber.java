@@ -77,6 +77,9 @@ public class PatternMessageSubscriber extends BaseSubscriber<PatternMessage<Stri
 
         CopyOnWriteArraySet<MessageListener> listeners = this.listeners.get(value.getPattern());
         if (Objects.isNull(listeners) || listeners.isEmpty()) {
+            if(log.isDebugEnabled()){
+                log.debug("hookOnNext - pattern:[{}] - channel:[{}] - message:[{}] - listeners is empty.", value.getPattern(),value.getChannel(), value.getMessage());
+            }
             return;
         }
 

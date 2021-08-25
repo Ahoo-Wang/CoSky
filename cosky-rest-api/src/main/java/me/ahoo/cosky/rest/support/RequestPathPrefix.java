@@ -18,6 +18,12 @@ package me.ahoo.cosky.rest.support;
  * @author ahoo wang
  */
 public interface RequestPathPrefix {
+
+    /**
+     * /dashboard
+     */
+    String DASHBOARD = "/dashboard/";
+
     String V1 = "/v1/";
 
     //region Authenticate

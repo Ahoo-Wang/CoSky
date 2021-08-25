@@ -13,32 +13,27 @@
 
 package me.ahoo.cosky.rest.security.rbac;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Strings;
-import com.google.common.collect.Sets;
 import io.jsonwebtoken.ExpiredJwtException;
-import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
-import lombok.SneakyThrows;
+import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
-import me.ahoo.cosky.rest.dto.role.ResourceActionDto;
 import me.ahoo.cosky.rest.dto.role.RoleDto;
 import me.ahoo.cosky.rest.dto.role.SaveRoleRequest;
 import me.ahoo.cosky.rest.security.JwtProvider;
-import me.ahoo.cosky.rest.security.SecurityContext;
 import me.ahoo.cosky.rest.security.TokenExpiredException;
 import me.ahoo.cosky.rest.security.annotation.AdminResource;
 import me.ahoo.cosky.rest.security.annotation.OwnerResource;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
-import javax.servlet.http.HttpServletRequest;
-import java.net.URLDecoder;
-import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -58,84 +53,73 @@ public class RBACService {
      */
     public static final String ROLE_RESOURCE_BIND = Namespaced.SYSTEM + ":role_resource_bind:%s";
     private final JwtProvider jwtProvider;
-    private final RedisClusterCommands<String, String> redisCommands;
+    private final RedisClusterReactiveCommands<String, String> redisCommands;
 
     public RBACService(JwtProvider jwtProvider, RedisConnectionFactory redisConnectionFactory) {
         this.jwtProvider = jwtProvider;
-        this.redisCommands = redisConnectionFactory.getShareSyncCommands();
+        this.redisCommands = redisConnectionFactory.getShareReactiveCommands();
     }
 
     private String getRoleResourceBindKey(String roleName) {
         return Strings.lenientFormat(ROLE_RESOURCE_BIND, roleName);
     }
 
-    public void saveRole(String roleName, SaveRoleRequest saveRoleRequest) {
-        redisCommands.hset(ROLE_IDX, roleName, saveRoleRequest.getDesc());
+    public Mono<Void> saveRole(String roleName, SaveRoleRequest saveRoleRequest) {
         String roleResourceBindKey = getRoleResourceBindKey(roleName);
-        redisCommands.del(roleResourceBindKey);
-        for (ResourceActionDto resourceAction : saveRoleRequest.getResourceActionBind()) {
-            redisCommands.hset(roleResourceBindKey, resourceAction.getNamespace(), resourceAction.getAction());
-        }
+        return redisCommands.hset(ROLE_IDX, roleName, saveRoleRequest.getDesc())
+                .flatMap(nil -> redisCommands.del(roleResourceBindKey))
+                .thenMany(Flux.fromIterable(saveRoleRequest.getResourceActionBind()))
+                .flatMap(resourceAction -> redisCommands.hset(roleResourceBindKey, resourceAction.getNamespace(), resourceAction.getAction()))
+                .then();
     }
 
-    public void removeRole(String roleName) {
-        redisCommands.hdel(ROLE_IDX, roleName);
+    public Mono<Boolean> removeRole(String roleName) {
         String roleResourceBindKey = getRoleResourceBindKey(roleName);
-        redisCommands.del(roleResourceBindKey);
+        return redisCommands.hdel(ROLE_IDX, roleName)
+                .then(redisCommands.del(roleResourceBindKey))
+                .map(affected -> affected > 0);
     }
 
-    public Set<RoleDto> getAllRole() {
-        Map<String, String> roleMap = redisCommands.hgetall(ROLE_IDX);
-        Set<RoleDto> allRole = Sets.newHashSet();
-        for (Map.Entry<String, String> entry : roleMap.entrySet()) {
-            RoleDto dto = new RoleDto();
-            dto.setName(entry.getKey());
-            dto.setDesc(entry.getValue());
-            allRole.add(dto);
-        }
-        allRole.add(RoleDto.ADMIN);
-        return allRole;
+    public Mono<Set<RoleDto>> getAllRole() {
+        return redisCommands.hgetall(ROLE_IDX)
+                .map(entry -> {
+                    RoleDto dto = new RoleDto();
+                    dto.setName(entry.getKey());
+                    dto.setDesc(entry.getValue());
+                    return dto;
+                })
+                .collect(Collectors.toSet())
+                .doOnNext(roles -> roles.add(RoleDto.ADMIN));
     }
 
-    public Role getRole(String roleName) throws NotFoundRoleException {
-        String roleDesc = redisCommands.hget(ROLE_IDX, roleName);
-        if (roleDesc == null) {
-            throw new NotFoundRoleException(roleName);
-        }
-        Role role = new Role();
-        role.setRoleName(roleName);
-        role.setDesc(roleDesc);
-        Set<ResourceAction> resourceActionBind = getResourceBind(roleName);
-        for (ResourceAction resourceAction : resourceActionBind) {
-            role.getResourceActionBind().put(resourceAction.getNamespace(), resourceAction);
-        }
-        return role;
+    public Mono<Role> getRole(String roleName) throws NotFoundRoleException {
+        return redisCommands.hget(ROLE_IDX, roleName)
+                .switchIfEmpty(Mono.error(new NotFoundRoleException(roleName)))
+                .flatMap(roleDesc -> getResourceBind(roleName).collect(Collectors.toSet())
+                        .map(resourceActions -> {
+                            Role role = new Role();
+                            role.setRoleName(roleName);
+                            role.setDesc(roleDesc);
+                            resourceActions.forEach(resourceAction -> {
+                                role.getResourceActionBind().put(resourceAction.getNamespace(), resourceAction);
+                            });
+                            return role;
+                        }));
     }
 
-    public Set<ResourceAction> getResourceBind(String roleName) {
+    public Flux<ResourceAction> getResourceBind(String roleName) {
         String roleResourceBindKey = getRoleResourceBindKey(roleName);
-        Map<String, String> roleResourceBindMap = redisCommands.hgetall(roleResourceBindKey);
-        if (roleResourceBindMap == null) {
-            throw new NotFoundRoleException(roleName);
-        }
-        Set<ResourceAction> resourceActionBind = Sets.newHashSet();
-        for (Map.Entry<String, String> entry : roleResourceBindMap.entrySet()) {
-            ResourceAction resourceAction = new ResourceAction(entry.getKey(), Action.of(entry.getValue()));
-            resourceActionBind.add(resourceAction);
-        }
-        return resourceActionBind;
-
+        return redisCommands.hgetall(roleResourceBindKey)
+                .switchIfEmpty(Mono.error(new NotFoundRoleException(roleName)))
+                .map(entry -> new ResourceAction(entry.getKey(), Action.of(entry.getValue())));
     }
 
 
-    public Set<String> getCurrentUserNamespace() {
-        if (!SecurityContext.authorized()) {
-            return Collections.emptySet();
-        }
-
-        Set<String> userRoleBind = SecurityContext.getUser().getRoleBind();
-        return userRoleBind.stream()
-                .flatMap(role -> getRole(role).getResourceActionBind().keySet().stream())
+    public Mono<Set<String>> getCurrentUserNamespace(User user) {
+        Set<String> userRoleBind = user.getRoleBind();
+        return Flux.fromIterable(userRoleBind)
+                .flatMap(this::getRole)
+                .flatMapIterable(role -> role.getResourceActionBind().keySet())
                 .collect(Collectors.toSet());
     }
 
@@ -144,52 +128,53 @@ public class RBACService {
     /**
      * 权限控制
      */
-    @SneakyThrows
-    public boolean authorize(String accessToken, HttpServletRequest request, HandlerMethod handlerMethod) throws TokenExpiredException {
+    public Mono<Boolean> authorize(String accessToken, ServerWebExchange serverWebExchange, Mono<HandlerMethod> handlerMethodMono) throws TokenExpiredException {
         User user;
         try {
             user = jwtProvider.authorize(accessToken);
         } catch (ExpiredJwtException expiredJwtException) {
             throw new TokenExpiredException(expiredJwtException);
         }
+        ServerHttpRequest request = serverWebExchange.getRequest();
 
-        SecurityContext.setUser(user);
-        request.setAttribute(CURRENT_USER_KEY, SecurityContext.getUser());
+        serverWebExchange.getAttributes().put(CURRENT_USER_KEY, user);
 
         if (User.SUPER_USER.equals(user.getUsername()) || user.isAdmin()) {
-            return true;
+            return Mono.just(true);
         }
 
-        String requestUrl = request.getRequestURI();
-        requestUrl = URLDecoder.decode(requestUrl, Charsets.UTF_8.name());
+        final String requestUrl = request.getPath().value();
         if (RequestPathPrefix.NAMESPACES_PREFIX.equals(requestUrl)) {
-            return true;
+            return Mono.just(true);
         }
+        return handlerMethodMono
+                .flatMap(handlerMethod -> {
+                    boolean isOwnerResource = AnnotatedElementUtils.hasAnnotation(handlerMethod.getBeanType(), OwnerResource.class)
+                            || handlerMethod.hasMethodAnnotation(OwnerResource.class);
+                    if (isOwnerResource) {
+                        return Mono.just(true);
+                    }
 
-        boolean isOwnerResource = AnnotatedElementUtils.hasAnnotation(handlerMethod.getBeanType(), OwnerResource.class)
-                || handlerMethod.hasMethodAnnotation(OwnerResource.class);
-        if (isOwnerResource) {
-            return true;
-        }
+                    boolean isAdminResource = AnnotatedElementUtils.hasAnnotation(handlerMethod.getBeanType(), AdminResource.class)
+                            || handlerMethod.hasMethodAnnotation(AdminResource.class);
+                    if (isAdminResource) {
+                        return Mono.just(false);
+                    }
 
-        boolean isAdminResource = AnnotatedElementUtils.hasAnnotation(handlerMethod.getBeanType(), AdminResource.class)
-                || handlerMethod.hasMethodAnnotation(AdminResource.class);
-        if (isAdminResource) {
-            return false;
-        }
+                    String namespace = requestUrl.substring(RequestPathPrefix.NAMESPACES_PREFIX.length() + 1);
+                    int splitIdx = namespace.indexOf("/");
+                    if (splitIdx > 0) {
+                        namespace = namespace.substring(0, splitIdx);
+                    }
 
-        String namespace = requestUrl.substring(RequestPathPrefix.NAMESPACES_PREFIX.length() + 1);
-        int splitIdx = namespace.indexOf("/");
-        if (splitIdx > 0) {
-            namespace = namespace.substring(0, splitIdx);
-        }
-
-        ResourceAction requestAction = new ResourceAction(namespace, Action.ofHttpMethod(request.getMethod()));
-        return authorize(user, requestAction);
+                    ResourceAction requestAction = new ResourceAction(namespace, Action.ofHttpMethod(Objects.requireNonNull(request.getMethod())));
+                    return authorize(user, requestAction);
+                })
+                .defaultIfEmpty(Boolean.FALSE);
     }
 
-    public User getUserOfRequest(HttpServletRequest request) {
-        Object user = request.getAttribute(CURRENT_USER_KEY);
+    public static User getUserOfRequest(ServerWebExchange serverWebExchange) {
+        Object user = serverWebExchange.getAttribute(CURRENT_USER_KEY);
         if (Objects.isNull(user)) {
             return null;
         }
@@ -199,10 +184,9 @@ public class RBACService {
     /**
      * 权限控制
      */
-    public boolean authorize(User user, ResourceAction requestAction) {
-        return user.getRoleBind()
-                .stream()
-                .map(roleName -> getRole(roleName))
-                .anyMatch(role -> role.check(requestAction));
+    public Mono<Boolean> authorize(User user, ResourceAction requestAction) {
+        return Flux.fromIterable(user.getRoleBind())
+                .flatMap(this::getRole)
+                .any(role -> role.check(requestAction));
     }
 }

@@ -78,6 +78,9 @@ public class ChannelMessageSubscriber extends BaseSubscriber<ChannelMessage<Stri
 
         CopyOnWriteArraySet<MessageListener> listeners = this.listeners.get(value.getChannel());
         if (Objects.isNull(listeners) || listeners.isEmpty()) {
+            if(log.isDebugEnabled()){
+                log.debug("hookOnNext - channel:[{}] - message:[{}] - listeners is empty.", value.getChannel(), value.getMessage());
+            }
             return;
         }
 

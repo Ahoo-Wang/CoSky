@@ -24,7 +24,6 @@ import me.ahoo.cosky.core.redis.RedisScripts;
 import me.ahoo.cosky.discovery.*;
 import me.ahoo.cosky.core.listener.MessageListenable;
 import me.ahoo.cosky.core.listener.MessageListener;
-import me.ahoo.cosky.core.listener.Topic;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;

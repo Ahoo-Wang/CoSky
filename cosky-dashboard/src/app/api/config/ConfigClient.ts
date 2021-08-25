@@ -42,8 +42,8 @@ export class ConfigClient {
     return this.getConfigsUrl(namespace);
   }
 
-  getExportUrl(namespace: string): string {
-    return `${this.getConfigsUrl(namespace)}/export`;
+  getExportUrl(namespace: string, token: string): string {
+    return `${this.getConfigsUrl(namespace)}/export?token=${token}`;
   }
 
   getConfigApiUrl(namespace: string, configId: string): string {

@@ -22,7 +22,6 @@ import me.ahoo.cosky.config.Config;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.core.util.Futures;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.env.OriginTrackedMapPropertySource;
 import org.springframework.boot.env.PropertySourceLoader;

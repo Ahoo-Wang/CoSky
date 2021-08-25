@@ -50,9 +50,10 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<ServiceInstance> getInstances(String serviceId) {
-       return serviceDiscovery.getInstances(serviceId)
+        return serviceDiscovery.getInstances(serviceId)
                 .block(coskyDiscoveryProperties.getTimeout())
-                .stream().map(CoskyServiceInstance::new)
+                .stream()
+                .map(CoskyServiceInstance::new)
                 .collect(Collectors.toList());
     }
 
@@ -61,7 +62,7 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<String> getServices() {
-       return serviceDiscovery.getServices().block(coskyDiscoveryProperties.getTimeout());
+        return serviceDiscovery.getServices().block(coskyDiscoveryProperties.getTimeout());
     }
 
     @Override

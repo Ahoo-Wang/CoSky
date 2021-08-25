@@ -15,11 +15,8 @@ package me.ahoo.cosky.discovery.spring.cloud.discovery.ribbon;
 
 import com.netflix.client.config.IClientConfig;
 import com.netflix.loadbalancer.AbstractServerList;
-import lombok.var;
-import me.ahoo.cosky.core.util.Futures;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceInstance;
-import reactor.core.publisher.Flux;
 
 import java.time.Duration;
 import java.util.Collections;

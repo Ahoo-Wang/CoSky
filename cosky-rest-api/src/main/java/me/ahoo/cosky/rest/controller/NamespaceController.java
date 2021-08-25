@@ -15,14 +15,16 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.rest.security.SecurityContext;
 import me.ahoo.cosky.rest.security.rbac.RBACService;
 import me.ahoo.cosky.rest.security.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
+import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -41,11 +43,12 @@ public class NamespaceController {
     }
 
     @GetMapping
-    public CompletableFuture<Set<String>> getNamespaces() {
-        if (SecurityContext.getUser().isAdmin()) {
-            return namespaceService.getNamespaces().toFuture();
+    public Mono<Set<String>> getNamespaces(ServerWebExchange serverWebExchange) {
+        User user = RBACService.getUserOfRequest(serverWebExchange);
+        if (Objects.requireNonNull(user).isAdmin()) {
+            return namespaceService.getNamespaces();
         }
-        return CompletableFuture.completedFuture(rbacService.getCurrentUserNamespace());
+        return rbacService.getCurrentUserNamespace(user);
     }
 
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
@@ -61,13 +64,13 @@ public class NamespaceController {
 
     @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
-    public CompletableFuture<Boolean> setNamespace(@PathVariable String namespace) {
-        return namespaceService.setNamespace(namespace).toFuture();
+    public Mono<Boolean> setNamespace(@PathVariable String namespace) {
+        return namespaceService.setNamespace(namespace);
     }
 
     @AdminResource
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
-    public CompletableFuture<Boolean> removeNamespace(@PathVariable String namespace) {
-        return namespaceService.removeNamespace(namespace).toFuture();
+    public Mono<Boolean> removeNamespace(@PathVariable String namespace) {
+        return namespaceService.removeNamespace(namespace);
     }
 }

@@ -7,13 +7,8 @@ spring:
   web:
     resources:
       static-locations: file:./dashboard/
-  servlet:
-    multipart:
-      max-file-size: 10MB
-  mvc:
+  webflux:
     static-path-pattern: /dashboard/**
-    async:
-      request-timeout: 5s
 
 cosky:
   security:
@@ -32,5 +27,7 @@ cosid:
     enabled: true
     machine:
       distributor:
-        type: redis
+        type: manual
+        manual:
+          machine-id: 1
 

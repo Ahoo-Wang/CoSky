@@ -16,9 +16,9 @@ package me.ahoo.cosky.rest.security.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
-import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
 import lombok.SneakyThrows;
 import me.ahoo.cosid.CosIdException;
+import me.ahoo.cosky.core.CoskyException;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import org.springframework.stereotype.Service;
@@ -43,24 +43,26 @@ public class AuditLogService {
         this.redisCommands = redisConnectionFactory.getShareReactiveCommands();
     }
 
-    @SneakyThrows
-    public void addLog(AuditLog log) {
-        String logStr = this.objectMapper.writeValueAsString(log);
-        redisCommands.lpush(AUDIT_LOG_KEY, logStr);
+    public Mono<Long> addLog(AuditLog log) {
+        try {
+            String logStr = this.objectMapper.writeValueAsString(log);
+            return redisCommands.lpush(AUDIT_LOG_KEY, logStr);
+        } catch (JsonProcessingException e) {
+            throw new CoskyException(e);
+        }
     }
-    @SneakyThrows
+
     public Mono<List<AuditLog>> queryLog(long offset, long limit) {
         return this.redisCommands.lrange(AUDIT_LOG_KEY, offset, offset + limit - 1)
                 .map(logStr -> {
                     try {
                         return this.objectMapper.readValue(logStr, AuditLog.class);
                     } catch (JsonProcessingException e) {
-                        throw new CosIdException(e);
+                        throw new CoskyException(e);
                     }
                 })
                 .collect(Collectors.toList());
     }
-
 
     public Mono<Long> getTotal() {
         return this.redisCommands.llen(AUDIT_LOG_KEY);

@@ -19,8 +19,6 @@ import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient;
 import reactor.core.publisher.Flux;
 
-import java.util.stream.Collectors;
-
 /**
  * @author ahoo wang
  */
@@ -51,9 +49,8 @@ public class CoskyReactiveDiscoveryClient implements ReactiveDiscoveryClient {
     @Override
     public Flux<ServiceInstance> getInstances(String serviceId) {
         return serviceDiscovery.getInstances(serviceId)
-                .flatMapIterable(list -> list
-                        .stream()
-                        .map(CoskyServiceInstance::new).collect(Collectors.toList()));
+                .flatMapIterable(list -> list)
+                .map(CoskyServiceInstance::new);
     }
 
     /**

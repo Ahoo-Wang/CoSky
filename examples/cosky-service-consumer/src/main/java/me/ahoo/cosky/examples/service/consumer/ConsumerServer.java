@@ -14,7 +14,6 @@
 package me.ahoo.cosky.examples.service.consumer;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.examples.service.provider.client.HelloClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -44,7 +43,7 @@ public class ConsumerServer implements CommandLineRunner {
      */
     @Override
     public void run(String... args) throws Exception {
-        var rpcResponse = helloClient.hi("consumer");
+        String rpcResponse = helloClient.hi("consumer");
         log.warn(rpcResponse);
     }
 }

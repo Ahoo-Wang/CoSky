@@ -147,6 +147,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
         serviceMapListener.compute(namespacedServiceId, (key, val) -> {
             CopyOnWriteArraySet<ServiceChangedListener> listeners = val;
             if (Objects.isNull(val)) {
+                addListener(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId()).subscribe();
                 listeners = new CopyOnWriteArraySet<>();
             }
             listeners.add(serviceChangedListener);
@@ -169,7 +170,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
     @VisibleForTesting
     public void removeListener(String namespace, String serviceId) {
         String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
-         messageListenable.removePatternListener(instancePattern, instanceListener);
+        messageListenable.removePatternListener(instancePattern, instanceListener);
     }
 
     private class ServiceIdxListener implements MessageListener {
@@ -181,7 +182,7 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
             }
             String serviceIdxKey = channel;
             String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
-            namespaceMapServices.put(namespace, delegate.getServices(namespace));
+            namespaceMapServices.put(namespace, delegate.getServices(namespace).cache());
         }
     }
 
@@ -208,20 +209,13 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
 
             if (Objects.isNull(instancesMono)) {
                 if (log.isInfoEnabled()) {
-                    log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] instancesFuture is null.", pattern, channel, message);
+                    log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] instancesMono is null.", pattern, channel, message);
                 }
                 invokeChanged(serviceChangedEvent.get(), serviceChangedListeners);
                 return;
             }
 
             instancesMono.flatMap(cachedInstances -> {
-                if (Objects.isNull(cachedInstances)) {
-                    if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] cachedInstances is null.", pattern, channel, message);
-                    }
-                    return Mono.empty();
-                }
-
                 ServiceInstance cachedInstance = cachedInstances.stream()
                         .filter(itc -> itc.getInstanceId().equals(instanceId))
                         .findFirst().orElse(ServiceInstance.NOT_FOUND);

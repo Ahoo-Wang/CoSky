@@ -4,18 +4,12 @@ spring:
       discovery:
         registry:
           weight: 8
+
   web:
     resources:
-      static-locations: file:./cosky-dashboard/dist/dashboard
-  servlet:
-    multipart:
-      max-file-size: 10MB
-  mvc:
+      static-locations: file:./cosky-dashboard/dist/dashboard/
+  webflux:
     static-path-pattern: /dashboard/**
-    async:
-      request-timeout: 5s
-
-
 cosky:
   security:
     enabled: true

@@ -14,11 +14,9 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import me.ahoo.cosky.discovery.ServiceInstance;
-import me.ahoo.cosky.core.util.Futures;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang

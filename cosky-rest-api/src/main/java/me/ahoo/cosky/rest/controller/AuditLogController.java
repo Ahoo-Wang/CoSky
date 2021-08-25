@@ -44,15 +44,13 @@ public class AuditLogController {
     }
 
     @GetMapping
-    public CompletableFuture<QueryLogResponse> queryLog(long offset, long limit) {
+    public Mono<QueryLogResponse> queryLog(long offset, long limit) {
         return Mono.zip(auditService.getTotal(), auditService.queryLog(offset, limit))
                 .map(tuple -> {
                     QueryLogResponse queryLogResponse = new QueryLogResponse();
                     queryLogResponse.setTotal(tuple.getT1());
                     queryLogResponse.setList(tuple.getT2());
                     return queryLogResponse;
-                })
-                .toFuture();
-
+                });
     }
 }

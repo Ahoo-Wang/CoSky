@@ -18,7 +18,6 @@ import com.google.common.base.Strings;
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
@@ -26,8 +25,10 @@ import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.ServiceInstanceCodec;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 /**
  * @author ahoo wang
@@ -64,9 +65,8 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
                         List<ServiceInstance> instances = new ArrayList<>(groups.size());
                         groups.forEach(instanceData -> instances.add(ServiceInstanceCodec.decode(instanceData)));
                         return instances;
-                    }).last();
+                    }).single();
         });
-
     }
 
 
@@ -103,7 +103,7 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
             String[] values = {serviceId, instanceId};
             return redisCommands.evalsha(sha, ScriptOutputType.INTEGER, keys, values)
                     .cast(Long.class)
-                    .next();
+                    .single();
         });
     }
 
@@ -111,7 +111,7 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
     public Mono<List<String>> getServices(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
 
-        var serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
+        String serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
         return redisCommands.smembers(serviceIdxKey).collectList();
     }
 

@@ -23,6 +23,7 @@ import me.ahoo.cosky.rest.security.rbac.RBACService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.reactive.result.method.annotation.RequestMappingHandlerMapping;
 
 /**
  * @author ahoo wang
@@ -42,7 +43,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(RBACService rbacService, AuditLogService auditService) {
-        return new AuthorizeHandlerInterceptor(rbacService, auditService, securityProperties);
+    public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(RBACService rbacService, AuditLogService auditService, RequestMappingHandlerMapping requestMappingHandlerMapping) {
+        return new AuthorizeHandlerInterceptor(rbacService, auditService, securityProperties, requestMappingHandlerMapping);
     }
 }
