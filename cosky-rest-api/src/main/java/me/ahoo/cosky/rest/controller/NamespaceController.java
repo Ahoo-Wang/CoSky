@@ -15,15 +15,15 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.rest.security.rbac.RBACService;
 import me.ahoo.cosky.rest.security.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
+import me.ahoo.cosky.rest.security.rbac.RBACService;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -44,8 +44,8 @@ public class NamespaceController {
 
     @GetMapping
     public Mono<Set<String>> getNamespaces(ServerWebExchange serverWebExchange) {
-        User user = RBACService.getUserOfRequest(serverWebExchange);
-        if (Objects.requireNonNull(user).isAdmin()) {
+        User user = AuthorizeService.getRequiredUserOfRequest(serverWebExchange);
+        if (user.isAdmin()) {
             return namespaceService.getNamespaces();
         }
         return rbacService.getCurrentUserNamespace(user);

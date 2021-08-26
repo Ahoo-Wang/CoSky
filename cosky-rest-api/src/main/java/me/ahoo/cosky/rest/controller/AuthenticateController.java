@@ -17,6 +17,7 @@ import me.ahoo.cosky.rest.dto.user.LoginRequest;
 import me.ahoo.cosky.rest.dto.user.LoginResponse;
 import me.ahoo.cosky.rest.dto.user.RefreshRequest;
 import me.ahoo.cosky.rest.security.JwtProvider;
+import me.ahoo.cosky.rest.security.annotation.AllowAnonymous;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +29,7 @@ import reactor.core.publisher.Mono;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUTHENTICATE_PREFIX)
+@AllowAnonymous
 public class AuthenticateController {
 
     private final JwtProvider jwtProvider;
@@ -38,6 +40,13 @@ public class AuthenticateController {
         this.userService = userService;
     }
 
+    /**
+     * Authentication
+     *
+     * @param username
+     * @param loginRequest
+     * @return
+     */
     @PostMapping("/{username}/login")
     public Mono<LoginResponse> login(@PathVariable String username, @RequestBody LoginRequest loginRequest) {
         return userService.login(username, loginRequest.getPassword());

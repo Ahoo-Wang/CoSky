@@ -24,6 +24,8 @@ public interface RequestPathPrefix {
      */
     String DASHBOARD = "/dashboard/";
 
+    String SWAGGER_UI = "/swagger";
+
     String V1 = "/v1/";
 
     //region Authenticate

@@ -61,7 +61,7 @@ public final class ConfigKeyGenerator {
      * {namespace}:{@link #CONFIG_IDX}
      *
      * @param namespace namespace
-     * @return
+     * @return the key of config idx
      */
     public static String getConfigIdxKey(String namespace) {
         return namespace + ":" + CONFIG_IDX;

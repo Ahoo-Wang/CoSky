@@ -143,15 +143,16 @@ public class UserService {
                     }
                     return redisCommands.pexpire(loginLockKey, loginLockExpire);
                 })
-                .flatMap(nil -> redisCommands.hget(USER_IDX, username)
-                        .switchIfEmpty(Mono.error(new CoSkySecurityException(Strings.lenientFormat("username:[%s] not exists!", username))))
-                        .map(realEncodedPwd -> {
-                            String encodedPwd = encodePwd(pwd);
-                            if (!realEncodedPwd.equals(encodedPwd)) {
-                                throw new CoSkySecurityException(Strings.lenientFormat("username:[%s] - password is incorrect.!", username));
-                            }
-                            return encodedPwd;
-                        })
+                .flatMap(nil ->
+                        redisCommands.hget(USER_IDX, username)
+                                .switchIfEmpty(Mono.error(new CoSkySecurityException(Strings.lenientFormat("username:[%s] not exists!", username))))
+                                .flatMap(realEncodedPwd -> {
+                                    String encodedPwd = encodePwd(pwd);
+                                    if (!realEncodedPwd.equals(encodedPwd)) {
+                                        return Mono.error(new CoSkySecurityException(Strings.lenientFormat("username:[%s] - password is incorrect.!", username)));
+                                    }
+                                    return redisCommands.del(loginLockKey);
+                                })
                 )
                 .flatMap(nil -> getRoleBind(username).collect(Collectors.toSet()))
                 .map(roleBind -> {

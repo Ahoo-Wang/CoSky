@@ -14,7 +14,6 @@
 package me.ahoo.cosky.core.redis;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.hash.Hashing;
 import com.google.common.io.Resources;
 import io.lettuce.core.RedisNoScriptException;
 import io.lettuce.core.ScriptOutputType;
@@ -70,19 +69,7 @@ public final class RedisScripts {
 
     private static Mono<String> tryGetSha(String scriptName, RedisScriptingReactiveCommands<String, String> scriptingCommands) {
         byte[] script = getScript(scriptName);
-
-        String scriptSha = Hashing.sha1().hashBytes(script).toString();
-
-        return scriptingCommands
-                .scriptExists(scriptSha)
-                .flatMap(exists -> {
-                    if (exists) {
-                        return Mono.just(scriptSha);
-                    }
-                    return scriptingCommands.scriptLoad(script);
-                })
-                .next()
-                .cache();
+        return scriptingCommands.scriptLoad(script).cache();
     }
 
     /**
@@ -106,7 +93,7 @@ public final class RedisScripts {
                 .flatMap(doSha)
                 .onErrorResume(throwable -> Exceptions.unwrap(throwable) instanceof RedisNoScriptException, (throwable -> {
                     if (log.isWarnEnabled()) {
-                        log.warn(throwable.getMessage(), throwable);
+                        log.warn("Actively reloading script[{}]:[{}]", scriptName, throwable.getMessage());
                     }
                     return reloadScript(scriptName, scriptingCommands).flatMap(doSha);
                 }));

@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.rest.config;
 
-import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor;
+import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import springfox.documentation.builders.PathSelectors;
@@ -23,7 +23,6 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spi.service.contexts.SecurityContext;
 import springfox.documentation.spring.web.plugins.Docket;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -64,10 +63,10 @@ public class SwaggerConfig {
         AuthorizationScope authorizationScope = new AuthorizationScope("global", "");
         AuthorizationScope[] authorizationScopes = new AuthorizationScope[1];
         authorizationScopes[0] = authorizationScope;
-        return Collections.singletonList(new SecurityReference(AuthorizeHandlerInterceptor.AUTH_HEADER, authorizationScopes));
+        return Collections.singletonList(new SecurityReference(AuthorizeService.AUTH_HEADER, authorizationScopes));
     }
 
     private ApiKey apiKey() {
-        return new ApiKey(AuthorizeHandlerInterceptor.AUTH_HEADER, AuthorizeHandlerInterceptor.AUTH_HEADER, "header");
+        return new ApiKey(AuthorizeService.AUTH_HEADER, AuthorizeService.AUTH_HEADER, "header");
     }
 }

@@ -19,11 +19,10 @@ import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor;
 import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.SecurityProperties;
 import me.ahoo.cosky.rest.security.audit.AuditLogService;
-import me.ahoo.cosky.rest.security.rbac.RBACService;
+import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.reactive.result.method.annotation.RequestMappingHandlerMapping;
 
 /**
  * @author ahoo wang
@@ -43,7 +42,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(RBACService rbacService, AuditLogService auditService, RequestMappingHandlerMapping requestMappingHandlerMapping) {
-        return new AuthorizeHandlerInterceptor(rbacService, auditService, securityProperties, requestMappingHandlerMapping);
+    public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(AuthorizeService authorizeService, AuditLogService auditService) {
+        return new AuthorizeHandlerInterceptor(authorizeService, auditService, securityProperties);
     }
 }
