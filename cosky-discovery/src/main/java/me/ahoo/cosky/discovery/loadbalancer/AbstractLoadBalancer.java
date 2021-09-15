@@ -30,16 +30,18 @@ public abstract class AbstractLoadBalancer<Chooser extends LoadBalancer.Chooser>
 
     private final ConcurrentHashMap<NamespacedServiceId, Mono<Chooser>> serviceMapChooser;
     private final ConsistencyRedisServiceDiscovery serviceDiscovery;
+    private final Listener listener;
 
     public AbstractLoadBalancer(ConsistencyRedisServiceDiscovery serviceDiscovery) {
         this.serviceDiscovery = serviceDiscovery;
-        serviceMapChooser = new ConcurrentHashMap<>();
+        this.serviceMapChooser = new ConcurrentHashMap<>();
+        this.listener = new Listener();
     }
 
     private Mono<Chooser> ensureChooser(NamespacedServiceId namespacedServiceId) {
         return serviceMapChooser.computeIfAbsent(namespacedServiceId,
                 key -> {
-                    serviceDiscovery.addListener(key, new Listener());
+                    serviceDiscovery.addListener(key, this.listener);
                     return serviceDiscovery.getInstances(key.getNamespace(), key.getServiceId())
                             .map(this::createChooser)
                             .cache();

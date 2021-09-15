@@ -49,9 +49,9 @@ public class StatController {
 
     @GetMapping
     public Mono<GetStatResponse> getStat(@PathVariable String namespace) {
-        var getNamespacesFuture = namespaceService.getNamespaces();
-        var getConfigsFuture = configService.getConfigs(namespace);
-        var getServiceStatsFuture = serviceStatistic.getServiceStats(namespace);
+        Mono<Set<String>> getNamespacesFuture = namespaceService.getNamespaces();
+        Mono<Set<String>> getConfigsFuture = configService.getConfigs(namespace);
+        Mono<List<ServiceStat>> getServiceStatsFuture = serviceStatistic.getServiceStats(namespace);
 
         return Mono.zip(getNamespacesFuture, getConfigsFuture, getServiceStatsFuture)
                 .map(tuple -> {

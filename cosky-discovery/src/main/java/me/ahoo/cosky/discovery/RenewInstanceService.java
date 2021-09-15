@@ -99,7 +99,7 @@ public class RenewInstanceService {
                     }
                 }).doOnComplete(() -> {
                     if (log.isDebugEnabled()) {
-                        log.debug("renew - instances size:{} start - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
+                        log.debug("renew - instances size:{} end - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
                     }
                 }).subscribe();
     }

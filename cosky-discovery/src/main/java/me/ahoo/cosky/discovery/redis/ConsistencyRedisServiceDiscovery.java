@@ -220,14 +220,24 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                         .filter(itc -> itc.getInstanceId().equals(instanceId))
                         .findFirst().orElse(ServiceInstance.NOT_FOUND);
 
-                if (ServiceChangedEvent.REGISTER.equals(message)) {
-                    if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] add registered Instance.", pattern, channel, message);
+                if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
+                    if (!ServiceChangedEvent.REGISTER.equals(message) && !ServiceChangedEvent.RENEW.equals(message)) {
+                        if (log.isWarnEnabled()) {
+                            log.warn("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] not found cached Instance.", pattern, channel, message);
+                        }
+                        return Mono.empty();
                     }
-                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(registeredInstance -> {
-                        if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
-                            cachedInstances.add(registeredInstance);
-                        } else {
+                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(serviceInstance -> {
+                        if (log.isInfoEnabled()) {
+                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] add registered Instance.", pattern, channel, message);
+                        }
+                        cachedInstances.add(serviceInstance);
+                    });
+                }
+
+                switch (message) {
+                    case ServiceChangedEvent.REGISTER: {
+                        return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(registeredInstance -> {
                             cachedInstance.setSchema(registeredInstance.getSchema());
                             cachedInstance.setHost(registeredInstance.getHost());
                             cachedInstance.setPort(registeredInstance.getPort());
@@ -235,18 +245,8 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
                             cachedInstance.setTtlAt(registeredInstance.getTtlAt());
                             cachedInstance.setWeight(registeredInstance.getWeight());
                             cachedInstance.setMetadata(registeredInstance.getMetadata());
-                        }
-                    });
-                }
-
-                if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
-                    if (log.isWarnEnabled()) {
-                        log.warn("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] not found cached Instance.", pattern, channel, message);
+                        });
                     }
-                    return Mono.empty();
-                }
-
-                switch (message) {
                     case ServiceChangedEvent.RENEW: {
                         if (log.isInfoEnabled()) {
                             log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] setTtlAt.", pattern, channel, message);

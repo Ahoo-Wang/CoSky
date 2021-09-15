@@ -14,15 +14,11 @@
 package me.ahoo.cosky.rest.job;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.discovery.ServiceStatistic;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Mono;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -43,18 +39,17 @@ public class StatServiceJob {
         if (log.isInfoEnabled()) {
             log.info("doStatService - start.");
         }
-        var currentNamespace = NamespacedContext.GLOBAL.getNamespace();
-        namespaceService.getNamespaces().flatMap(namespaces -> {
+
+        final String currentNamespace = NamespacedContext.GLOBAL.getNamespace();
+        namespaceService.getNamespaces()
+                .flatMapIterable(namespaces -> {
                     if (!namespaces.contains(currentNamespace)) {
-                        return namespaceService.setNamespace(currentNamespace);
+                        namespaceService.setNamespace(currentNamespace).subscribe();
                     }
-                    var futures = namespaces.stream()
-                            .map(serviceStatistic::statService)
-                            .toArray(Mono[]::new);
-                    return Mono.when(futures);
-                }).doOnSuccess(nil -> {
-                    log.info("doStatService - end.");
+                    return namespaces;
                 })
+                .flatMap(serviceStatistic::statService)
+                .doOnComplete(() -> log.info("doStatService - end."))
                 .subscribe();
 
     }
