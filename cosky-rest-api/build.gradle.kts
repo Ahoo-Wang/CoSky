@@ -20,9 +20,14 @@ java {
         languageVersion.set(JavaLanguageVersion.of(8))
     }
 }
-
 tasks.jar.configure {
     exclude("application.yaml", "bootstrap.yaml")
+    manifest {
+        attributes(
+            "Implementation-Title" to application.applicationName,
+            "Implementation-Version" to version
+        )
+    }
 }
 
 distributions {

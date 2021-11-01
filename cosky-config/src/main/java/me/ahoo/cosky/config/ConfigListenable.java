@@ -13,8 +13,6 @@
 
 package me.ahoo.cosky.config;
 
-import reactor.core.publisher.Mono;
-
 /**
  * @author ahoo wang
  */

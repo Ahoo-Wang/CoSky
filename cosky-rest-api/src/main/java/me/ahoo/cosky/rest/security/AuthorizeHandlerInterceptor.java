@@ -113,6 +113,7 @@ public class AuthorizeHandlerInterceptor implements WebFilter {
 
         if (requestPath.startsWith(RequestPathPrefix.DASHBOARD)
                 || requestPath.startsWith(RequestPathPrefix.SWAGGER_UI)
+                || requestPath.startsWith("/actuator/health")
                 || requestPath.startsWith("/v3/api-docs")
                 || "/".equals(requestPath)
                 || HttpMethod.OPTIONS.equals(request.getMethod())) {

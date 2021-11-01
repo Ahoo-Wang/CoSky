@@ -73,10 +73,6 @@ public class ServiceInstance extends Instance {
         if (this == o) return true;
         if (!(o instanceof ServiceInstance)) return false;
         return super.equals(o);
-//        if (!super.equals(o)) return false;
-//        ServiceInstance that = (ServiceInstance) o;
-
-//        return getWeight() == that.getWeight() && isEphemeral() == that.isEphemeral() && getTtlAt() == that.getTtlAt() && Objects.equal(getMetadata(), that.getMetadata());
     }
 
     @Override
