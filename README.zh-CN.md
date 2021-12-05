@@ -329,3 +329,19 @@ RedisServiceRegistryBenchmark.deregister                thrpt          255305.64
 RedisServiceRegistryBenchmark.register                  thrpt          110664.160          ops/s
 RedisServiceRegistryBenchmark.renew                     thrpt          210960.325          ops/s
 ```
+## 其他同类产品对比
+|  | Nacos |	Eureka |	Consul |	CoreDNS |	Zookeeper |	CoSky |	Apollo |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CAP | CP+AP |	AP|	CP |	CP |	CP |	CP+AP |	CP+AP |
+| 健康检查 |	TCP/HTTP/Client Beat |	Client Beat	| TCP/HTTP/gRPC/Cmd |	Keep Alive |	Keep Alive |	Client Beat |	Client Beat |
+| 负载均衡策略 |	权重/metadata/Selector |	Ribbon|	Fabio	|	RoundRobin	|	RoundRobin	|	权重/RoundRobin	|	RoundRobin	|
+| 雪崩保护 |	有 |	有|	无	|	无	|	无	|	无	|	无	|
+| 自动注销实例 |	支持 |	支持|	不支持	|	不支持	|	支持 |	支持 |	支持	|
+| 访问协议 |	HTTP/DNS |	HTTP|	HTTP/DNS	|	DNS	|	TCP	|	HTTP/Redis	|	HTTP	|
+| 监听支持 |	支持 |	支持|	支持	|	不支持	|	支持	|	支持	|	支持	|
+| 多数据中心 |	支持 |	支持|	支持	|	不支持	|	不支持	|	支持	|	支持	|
+| 跨注册中心同步 |	支持 |	不支持|	支持	|	不支持	|	不支持	|	支持	|	不支持	|
+| SpringCloud集成 |	支持 |	支持|	支持	|	不支持	|	不支持	|	支持 |	支持	|
+| Dubbo集成 |	支持 |	不支持|	不支持	|	不支持	|	支持	|	支持	|	支持	|
+| K8S集成 |	支持 |	不支持|	支持	|	支持	|	不支持	|	支持	|	不支持	|
+| 持久化 |	MySql |		|		|		| | 	Redis |	MySql |
