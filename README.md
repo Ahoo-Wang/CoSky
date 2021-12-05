@@ -343,15 +343,15 @@ RedisServiceRegistryBenchmark.renew                     thrpt          210960.32
 |  | Nacos |	Eureka |	Consul |	CoreDNS |	Zookeeper |	CoSky |	Apollo |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | CAP | CP+AP |	AP|	CP |	CP |	CP |	CP+AP |	CP+AP |
-| 健康检查 |	TCP/HTTP/Client Beat |	Client Beat	| TCP/HTTP/gRPC/Cmd |	Keep Alive |	Keep Alive |	Client Beat |	Client Beat |
-| 负载均衡策略 |	权重/metadata/Selector |	Ribbon|	Fabio	|	RoundRobin	|	RoundRobin	|	权重/RoundRobin	|	RoundRobin	|
-| 雪崩保护 |	有 |	有|	无	|	无	|	无	|	无	|	无	|
-| 自动注销实例 |	支持 |	支持|	不支持	|	不支持	|	支持 |	支持 |	支持	|
-| 访问协议 |	HTTP/DNS |	HTTP|	HTTP/DNS	|	DNS	|	TCP	|	HTTP/Redis	|	HTTP	|
-| 监听支持 |	支持 |	支持|	支持	|	不支持	|	支持	|	支持	|	支持	|
-| 多数据中心 |	支持 |	支持|	支持	|	不支持	|	不支持	|	支持	|	支持	|
-| 跨注册中心同步 |	支持 |	不支持|	支持	|	不支持	|	不支持	|	支持	|	不支持	|
-| SpringCloud集成 |	支持 |	支持|	支持	|	不支持	|	不支持	|	支持 |	支持	|
-| Dubbo集成 |	支持 |	不支持|	不支持	|	不支持	|	支持	|	支持	|	支持	|
-| K8S集成 |	支持 |	不支持|	支持	|	支持	|	不支持	|	支持	|	不支持	|
-| 持久化 |	MySql |		|		|		| | 	Redis |	MySql |
+| Health Check |	TCP/HTTP/Client Beat |	Client Beat	| TCP/HTTP/gRPC/Cmd |	Keep Alive |	Keep Alive |	Client Beat |	Client Beat |
+| Load Balancing Strategy |	权重/metadata/Selector |	Ribbon|	Fabio	|	RoundRobin	|	RoundRobin	|	权重/RoundRobin	|	RoundRobin	|
+| Avalanche Protection |	Y |	Y|	N	|	N	|	N	|	N	|	N	|
+| Auto Logoff Instance |	Support |	Support|	Not Support	|	Not Support	|	Support |	Support |	Support	|
+| Access Protocol |	HTTP/DNS |	HTTP|	HTTP/DNS	|	DNS	|	TCP	|	HTTP/Redis	|	HTTP	|
+| Listening Support |	Support |	Support|	Support	|	Not Support	|	Support	|	Support	|	Support	|
+| Multi-data Center |	Support |	Support|	Support	|	Not Support	|	Not Support	|	Support	|	Support	|
+| Cross Registry Synchronization |	Support |	Not Support|	Support	|	Not Support	|	Not Support	|	Support	|	Not Support	|
+| SpringCloud Integration |	Support |	Support|	Support	|	Not Support	|	Not Support	|	Support |	Support	|
+| Dubbo Integration |	Support |	Not Support|	Not Support	|	Not Support	|	Support	|	Support	|	Support	|
+| K8S Integration |	Support |	Not Support|	Support	|	Support	|	Not Support	|	Support	|	Not Support	|
+| Persistence |	MySql |		|		|		| | 	Redis |	MySql |
