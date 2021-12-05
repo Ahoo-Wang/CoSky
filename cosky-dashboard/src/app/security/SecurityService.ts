@@ -61,6 +61,9 @@ export class SecurityService {
   }
 
   setToken(token: Token) {
+    if (!token.accessToken) {
+      return;
+    }
     localStorage.setItem(ACCESS_TOKEN_KEY, token.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, token.refreshToken);
   }
@@ -121,9 +124,9 @@ export class SecurityService {
     if (!accessToken || !refreshToken || !this.refreshValid()) {
       return of(false);
     }
-
+    let tokenPayload = this.parseToken(accessToken);
     return this.authenticateClient
-      .refresh(accessToken, refreshToken)
+      .refresh(tokenPayload.sub, accessToken, refreshToken)
       .pipe(
         map(resp => {
           this.setToken(resp);

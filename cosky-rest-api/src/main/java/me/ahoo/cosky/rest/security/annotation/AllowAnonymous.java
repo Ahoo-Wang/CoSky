@@ -11,27 +11,19 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.security;
+package me.ahoo.cosky.rest.security.annotation;
 
-import me.ahoo.cosky.rest.security.user.User;
-
-import java.util.Objects;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
+ * Allow anonymous access
  * @author ahoo wang
  */
-public class SecurityContext {
-    private static final ThreadLocal<User> CURRENT_USER = new ThreadLocal<>();
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface AllowAnonymous {
 
-    public static boolean authorized() {
-        return Objects.nonNull(getUser());
-    }
-
-    public static User getUser() {
-        return CURRENT_USER.get();
-    }
-
-    public static void setUser(User user) {
-        CURRENT_USER.set(user);
-    }
 }

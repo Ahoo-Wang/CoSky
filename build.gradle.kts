@@ -43,7 +43,7 @@ val libraryProjects = publishProjects - bomProjects
 
 ext {
     set("lombokVersion", "1.18.20")
-    set("springBootVersion", "2.4.7")
+    set("springBootVersion", "2.4.10")
     set("springCloudVersion", "2020.0.3")
     set("jmhVersion", "1.29")
     set("guavaVersion", "30.0-jre")
@@ -51,7 +51,7 @@ ext {
     set("springfoxVersion", "3.0.0")
     set("metricsVersion", "4.2.0")
     set("jjwtVersion", "0.11.2")
-    set("cosIdVersion", "1.3.2")
+    set("cosIdVersion", "1.3.17")
     set("libraryProjects", libraryProjects)
 }
 
@@ -95,6 +95,7 @@ configure(libraryProjects) {
         this.add("testImplementation", "ch.qos.logback:logback-classic")
         this.add("testImplementation", "org.junit.jupiter:junit-jupiter-api")
         this.add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine")
+        this.add("testImplementation", "io.projectreactor:reactor-test")
     }
 }
 

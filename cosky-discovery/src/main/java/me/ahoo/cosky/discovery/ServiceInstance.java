@@ -13,8 +13,6 @@
 
 package me.ahoo.cosky.discovery;
 
-import lombok.var;
-
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -66,7 +64,19 @@ public class ServiceInstance extends Instance {
         if (!ephemeral) {
             return false;
         }
-        var nowTimeSeconds = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
+        long nowTimeSeconds = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis());
         return ttlAt < nowTimeSeconds;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ServiceInstance)) return false;
+        return super.equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+        return super.hashCode();
     }
 }

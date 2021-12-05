@@ -1,22 +1,39 @@
-<nz-layout style="height: 100%;">
+<!--
+  ~ Copyright [2021-2021] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<nz-layout style="height: 100vh;">
   <nz-header>
-    <div style="float: left;height: 100%; margin-right: 10px;">
-      <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">
+    <nz-row>
+      <nz-col nzSpan="6">
+        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">
         <h1 style="color: white">CoSky</h1>
       </a>
-    </div>
-    <ul nz-menu nzTheme="dark" nzMode="horizontal" style="float: right">
-      <li nz-menu-item>
-        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Home</a>
-      </li>
-      <li nz-menu-item>
-        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Documentation</a>
-      </li>
-      <li nz-menu-item>
-        <i nz-icon nzType="github"></i>
-        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">GitHub</a>
-      </li>
-    </ul>
+      </nz-col>
+      <nz-col nzOffset="6" nzSpan="12">
+        <ul nz-menu nzTheme="dark" nzMode="horizontal" style="float: right">
+          <li nz-menu-item>
+            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Home</a>
+          </li>
+          <li nz-menu-item>
+            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">Documentation</a>
+          </li>
+          <li nz-menu-item>
+            <i nz-icon nzType="github"></i>
+            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">GitHub</a>
+          </li>
+        </ul>
+      </nz-col>
+    </nz-row>
   </nz-header>
   <nz-content>
     <nz-card class="login-card" [nzBordered]="false" nzTitle="Sign in to CoSky">

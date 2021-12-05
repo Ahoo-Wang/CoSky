@@ -20,6 +20,7 @@ import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -36,8 +37,8 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
     @BeforeAll
     private void init() {
         var registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
-        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.async());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
+        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
     }
 
     private final static int REPEATED_SIZE = 60000;
@@ -45,7 +46,7 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
     @Test
     public void getServices() {
         registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var serviceIds = redisServiceDiscovery.getServices(namespace).join();
+            var serviceIds = redisServiceDiscovery.getServices(namespace).block();
             Assertions.assertNotNull(serviceIds);
             Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
         }));
@@ -54,7 +55,7 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
     @Test
     public void getInstances() {
         registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var instances = redisServiceDiscovery.getInstances(namespace, instance.getServiceId()).join();
+            var instances = redisServiceDiscovery.getInstances(namespace, instance.getServiceId()).block();
             Assertions.assertNotNull(instances);
             Assertions.assertEquals(1, instances.size());
 
@@ -68,7 +69,7 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
     @Test
     public void getInstance() {
         registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var actualInstance = redisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).join();
+            var actualInstance = redisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
             Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
         }));
@@ -77,11 +78,11 @@ public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
 
     //    @Test
     public void getServicesRepeatedAsync() {
-        var futures = new CompletableFuture[REPEATED_SIZE];
+        var futures = new Mono[REPEATED_SIZE];
         for (int i = 0; i < REPEATED_SIZE; i++) {
             futures[i] = redisServiceDiscovery.getServices();
         }
-        CompletableFuture.allOf(futures).join();
+        Mono.when(futures).block();
     }
 
     //    @Test

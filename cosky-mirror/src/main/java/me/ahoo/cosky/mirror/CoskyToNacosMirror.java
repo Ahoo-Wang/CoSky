@@ -30,6 +30,8 @@ import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -59,31 +61,34 @@ public class CoskyToNacosMirror implements Mirror {
 
     @Scheduled(initialDelay = 10_000, fixedDelay = 30_000)
     public void mirror() {
-        coskyServiceDiscovery.getServices().thenAccept(coskyServices -> {
-            coskyServices.stream().filter(serviceId -> !serviceMapListener.containsKey(serviceId))
-                    .forEach(serviceId -> coskyToNacos(serviceId));
-        }).exceptionally(throwable -> {
-            log.error(throwable.getMessage(), throwable);
-            return null;
-        });
+        coskyServiceDiscovery.getServices()
+                .flatMapIterable(list -> list)
+                .filter(serviceId -> !serviceMapListener.containsKey(serviceId))
+                .flatMap(this::coskyToNacos)
+                .doOnError(throwable -> {
+                    if (log.isErrorEnabled()) {
+                        log.error(throwable.getMessage(), throwable);
+                    }
+                }).subscribe();
     }
 
-    public void coskyToNacos(String serviceId) {
-        coskyServiceDiscovery.getInstances(serviceId).thenAccept(coskyInstances -> {
-
-            coskyInstances.stream().filter(serviceInstance -> shouldRegister(serviceInstance.getMetadata()))
-                    .forEach((serviceInstance -> coskyToNacos(serviceInstance)));
-
-            serviceMapListener.computeIfAbsent(serviceId, (key) -> {
-                var listener = new CoskyServiceChangedListener(serviceId);
-                coskyServiceDiscovery.addListener(NamespacedServiceId.of(NamespacedContext.GLOBAL.getNamespace(), serviceId), listener);
-                return listener;
-            });
-        }).exceptionally(throwable -> {
-            log.error(throwable.getMessage(), throwable);
-            return null;
-        });
-
+    public Flux<Boolean> coskyToNacos(String serviceId) {
+        return coskyServiceDiscovery.getInstances(serviceId)
+                .flatMapIterable(list -> list)
+                .filter(serviceInstance -> shouldRegister(serviceInstance.getMetadata()))
+                .map(this::coskyToNacos)
+                .doOnComplete(() -> {
+                    serviceMapListener.computeIfAbsent(serviceId, (key) -> {
+                        CoskyServiceChangedListener listener = new CoskyServiceChangedListener(serviceId);
+                        coskyServiceDiscovery.addListener(NamespacedServiceId.of(NamespacedContext.GLOBAL.getNamespace(), serviceId), listener);
+                        return listener;
+                    });
+                })
+                .doOnError(throwable -> {
+                    if (log.isErrorEnabled()) {
+                        log.error(throwable.getMessage(), throwable);
+                    }
+                });
     }
 
     /**
@@ -91,12 +96,13 @@ public class CoskyToNacosMirror implements Mirror {
      * @see NacosServiceRegistry
      */
     @SneakyThrows
-    public void coskyToNacos(ServiceInstance coskyInstance) {
+    public Boolean coskyToNacos(ServiceInstance coskyInstance) {
         markRegisterSource(coskyInstance.getMetadata());
         var nacosInstance = getNacosInstanceFromCosky(coskyInstance);
         markRegisterSource(nacosInstance.getMetadata());
         String group = nacosDiscoveryProperties.getGroup();
         namingService().registerInstance(coskyInstance.getServiceId(), group, nacosInstance);
+        return Boolean.TRUE;
     }
 
     private Instance getNacosInstanceFromCosky(me.ahoo.cosky.discovery.ServiceInstance serviceInstance) {
@@ -131,26 +137,28 @@ public class CoskyToNacosMirror implements Mirror {
 
         @Override
         public void onChange(ServiceChangedEvent serviceChangedEvent) {
-            var instance = serviceChangedEvent.getInstance();
+            me.ahoo.cosky.discovery.Instance instance = serviceChangedEvent.getInstance();
             if (log.isInfoEnabled()) {
                 log.info("CoskyServiceChangedListener - onChange - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getOp(), instance.getInstanceId());
             }
-            var namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
+            NamespacedServiceId namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
             if (ServiceChangedEvent.REGISTER.equals(serviceChangedEvent.getOp())) {
-                coskyServiceDiscovery.getInstance(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId(), instance.getInstanceId()).thenAccept(coskyInstance -> {
-                    if (getTarget().equals(coskyInstance.getMetadata().get(MIRROR_SOURCE))) {
-                        if (log.isInfoEnabled()) {
-                            log.info("CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getOp(), instance.getInstanceId());
-                        }
-                        return;
-                    }
-                    coskyToNacos(coskyInstance);
-                });
+                coskyServiceDiscovery.getInstance(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId(), instance.getInstanceId())
+                        .doOnNext(coskyInstance -> {
+                            if (getTarget().equals(coskyInstance.getMetadata().get(MIRROR_SOURCE))) {
+                                if (log.isInfoEnabled()) {
+                                    log.info("CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getOp(), instance.getInstanceId());
+                                }
+                                return;
+                            }
+                            coskyToNacos(coskyInstance);
+                        })
+                        .subscribe();
                 return;
             }
 
             if (ServiceChangedEvent.DEREGISTER.equals(serviceChangedEvent.getOp()) || ServiceChangedEvent.EXPIRED.equals(serviceChangedEvent.getOp())) {
-                var coskyInstance = (ServiceInstance) serviceChangedEvent.getInstance();
+                ServiceInstance coskyInstance = (ServiceInstance) serviceChangedEvent.getInstance();
                 if (getTarget().equals(coskyInstance.getMetadata().get(MIRROR_SOURCE))) {
                     if (log.isInfoEnabled()) {
                         log.info("CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getOp(), instance.getInstanceId());

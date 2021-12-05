@@ -17,6 +17,7 @@ import lombok.SneakyThrows;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,10 +44,14 @@ public final class Zips {
         }
     }
 
-    @SneakyThrows
     public static List<ZipItem> unzip(byte[] zipSource) {
+        return unzip(new ByteArrayInputStream(zipSource));
+    }
+
+    @SneakyThrows
+    public static List<ZipItem> unzip(InputStream zipSource) {
         List<ZipItem> items = new ArrayList<>();
-        try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(zipSource))) {
+        try (ZipInputStream zipInputStream = new ZipInputStream(zipSource)) {
             ZipEntry entry;
             while ((entry = zipInputStream.getNextEntry()) != null) {
                 if (entry.isDirectory()) {

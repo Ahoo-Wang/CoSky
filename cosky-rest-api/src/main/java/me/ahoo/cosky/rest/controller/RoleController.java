@@ -17,12 +17,15 @@ import me.ahoo.cosky.rest.dto.role.ResourceActionDto;
 import me.ahoo.cosky.rest.dto.role.RoleDto;
 import me.ahoo.cosky.rest.dto.role.SaveRoleRequest;
 import me.ahoo.cosky.rest.security.rbac.RBACService;
-import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.annotation.AdminResource;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static me.ahoo.cosky.rest.support.RequestPathPrefix.*;
 
 /**
  * @author ahoo wang
@@ -39,29 +42,29 @@ public class RoleController {
     }
 
     @GetMapping
-    public Set<RoleDto> getAllRole() {
+    public Mono<Set<RoleDto>> getAllRole() {
         return rbacService.getAllRole();
     }
 
-    @GetMapping("/{roleName}/bind")
-    public Set<ResourceActionDto> getResourceBind(@PathVariable String roleName) {
+    @GetMapping(ROLES_ROLE_BIND)
+    public Mono<Set<ResourceActionDto>> getResourceBind(@PathVariable String roleName) {
         return rbacService.getResourceBind(roleName)
-                .stream()
                 .map(resourceAction -> {
                     ResourceActionDto dto = new ResourceActionDto();
                     dto.setNamespace(resourceAction.getNamespace());
                     dto.setAction(resourceAction.getAction().getValue());
                     return dto;
-                }).collect(Collectors.toSet());
+                })
+                .collect(Collectors.toSet());
     }
 
-    @PutMapping
-    public void saveRole(@RequestBody SaveRoleRequest saveRoleRequest) {
-        rbacService.saveRole(saveRoleRequest);
+    @PutMapping(ROLES_ROLE)
+    public Mono<Void> saveRole(@PathVariable String roleName, @RequestBody SaveRoleRequest saveRoleRequest) {
+        return rbacService.saveRole(roleName, saveRoleRequest);
     }
 
-    @DeleteMapping("/{roleName}")
-    public void removeRole(@PathVariable String roleName) {
-        rbacService.removeRole(roleName);
+    @DeleteMapping(ROLES_ROLE)
+    public Mono<Boolean> removeRole(@PathVariable String roleName) {
+        return rbacService.removeRole(roleName);
     }
 }

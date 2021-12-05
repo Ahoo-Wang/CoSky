@@ -26,12 +26,12 @@ export class AuthenticateClient {
   }
 
   login(username: string, password: string): Observable<LoginResponse> {
-    const apiUrl = `${this.apiPrefix}/login`;
-    return this.httpClient.post<LoginResponse>(apiUrl, {username, password});
+    const apiUrl = `${this.apiPrefix}/${username}/login`;
+    return this.httpClient.post<LoginResponse>(apiUrl, { password});
   }
 
-  refresh(accessToken: string, refreshToken: string): Observable<LoginResponse> {
-    const apiUrl = `${this.apiPrefix}/refresh`;
+  refresh(username: string, accessToken: string, refreshToken: string): Observable<LoginResponse> {
+    const apiUrl = `${this.apiPrefix}/${username}/refresh`;
     return this.httpClient.post<LoginResponse>(apiUrl, {accessToken, refreshToken});
   }
 }

@@ -18,7 +18,8 @@ import me.ahoo.cosid.snowflake.SnowflakeId;
 import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor;
 import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.SecurityProperties;
-import me.ahoo.cosky.rest.security.rbac.RBACService;
+import me.ahoo.cosky.rest.security.audit.AuditLogService;
+import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +42,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(RBACService rbacService) {
-        return new AuthorizeHandlerInterceptor(rbacService);
+    public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(AuthorizeService authorizeService, AuditLogService auditService) {
+        return new AuthorizeHandlerInterceptor(authorizeService, auditService, securityProperties);
     }
 }

@@ -16,9 +16,10 @@ package me.ahoo.cosky.config.redis;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
+import me.ahoo.cosky.config.Config;
 import me.ahoo.cosky.config.ConfigChangedListener;
 import me.ahoo.cosky.config.NamespacedConfigId;
-import me.ahoo.cosky.core.listener.RedisMessageListenable;
+import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -39,22 +40,22 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
 
     @BeforeEach
     private void init() {
-        var redisConfigService = new RedisConfigService(redisConnection.async());
-        consistencyRedisConfigService = new ConsistencyRedisConfigService(redisConfigService, new RedisMessageListenable(redisClient.connectPubSub()));
+        var redisConfigService = new RedisConfigService(redisConnection.reactive());
+        consistencyRedisConfigService = new ConsistencyRedisConfigService(redisConfigService, new DefaultMessageListenable(redisClient.connectPubSub().reactive()));
     }
 
     @Test
     void getConfig() {
         clearTestData(namespace);
         var getConfigData = "getConfigData";
-        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData).join();
+        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData).block();
         Assertions.assertTrue(setResult);
-        var getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNotNull(getResult);
         Assertions.assertEquals(testConfigId, getResult.getConfigId());
         Assertions.assertEquals(getConfigData, getResult.getData());
         Assertions.assertEquals(1, getResult.getVersion());
-        var getResult2 = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var getResult2 = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertTrue(getResult2 == getResult);
     }
 
@@ -68,19 +69,19 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
     @Test
     void getConfigChanged() {
         clearTestData(namespace);
-        var getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
-        Assertions.assertNull(getResult);
+        var getResultOp = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
+        Assertions.assertNull(getResultOp);
         var getConfigData = "getConfigData";
-        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData).join();
+        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData).block();
         Assertions.assertTrue(setResult);
         sleepForWaitNotify();
-        getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        Config getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNotNull(getResult);
         var getConfigData2 = "getConfigData-2";
-        setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData2).join();
+        setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData2).block();
         Assertions.assertTrue(setResult);
         sleepForWaitNotify();
-        var getResult2 = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var getResult2 = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertEquals(getConfigData2, getResult2.getData());
         Assertions.assertNotEquals(getResult, getResult2);
     }
@@ -88,18 +89,18 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
     @Test
     void getConfigChangedRemove() {
         clearTestData(namespace);
-        var getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNull(getResult);
         var getConfigData = "getConfigChangedRemoveData";
-        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData).join();
+        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, getConfigData).block();
         Assertions.assertTrue(setResult);
         sleepForWaitNotify();
-        getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        getResult = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNotNull(getResult);
-        var removeResult = consistencyRedisConfigService.removeConfig(namespace, testConfigId).join();
+        var removeResult = consistencyRedisConfigService.removeConfig(namespace, testConfigId).block();
         Assertions.assertTrue(removeResult);
         sleepForWaitNotify();
-        var getResult2 = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var getResult2 = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNull(getResult2);
     }
 
@@ -107,24 +108,24 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
     void getConfigChangedRollback() {
         clearTestData(namespace);
         var version1Data = "version-1";
-        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, version1Data).join();
+        var setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, version1Data).block();
         Assertions.assertTrue(setResult);
-        var version1Config = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var version1Config = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNotNull(version1Config);
         Assertions.assertEquals(version1Data, version1Config.getData());
 
         var version2Data = "version-2";
-        setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, version2Data).join();
+        setResult = consistencyRedisConfigService.setConfig(namespace, testConfigId, version2Data).block();
         Assertions.assertTrue(setResult);
         sleepForWaitNotify();
-        var version2Config = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var version2Config = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
         Assertions.assertNotNull(version2Config);
         Assertions.assertEquals(version2Data, version2Config.getData());
 
-        var rollbackResult = consistencyRedisConfigService.rollback(namespace, testConfigId, version1Config.getVersion()).join();
+        var rollbackResult = consistencyRedisConfigService.rollback(namespace, testConfigId, version1Config.getVersion()).block();
         Assertions.assertTrue(rollbackResult);
         sleepForWaitNotify();
-        var afterRollbackConfig = consistencyRedisConfigService.getConfig(namespace, testConfigId).join();
+        var afterRollbackConfig = consistencyRedisConfigService.getConfig(namespace, testConfigId).block();
 
         Assertions.assertEquals(version1Config.getData(), afterRollbackConfig.getData());
     }
@@ -143,8 +144,7 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
                 countDownLatch.countDown();
             }
         };
-        var addListenerResult = consistencyRedisConfigService.addListener(testConfig, changedListener);
-        Assertions.assertTrue(addListenerResult.join());
+        consistencyRedisConfigService.addListener(testConfig, changedListener);
         getConfigChanged();
         countDownLatch.await();
         Assertions.assertEquals(testConfig, changedConfigId.get());
@@ -159,11 +159,10 @@ class ConsistencyRedisConfigServiceTest extends BaseOnRedisClientTest {
                 Assertions.fail();
             }
         };
-        var addListenerResult = consistencyRedisConfigService.addListener(testConfig, changedListener);
+        consistencyRedisConfigService.addListener(testConfig, changedListener);
 
-        Assertions.assertTrue(addListenerResult.join());
-        var removeListenerResult = consistencyRedisConfigService.removeListener(testConfig, changedListener);
-        Assertions.assertTrue(removeListenerResult.join());
+        consistencyRedisConfigService.removeListener(testConfig, changedListener);
+
         getConfigChanged();
     }
 }

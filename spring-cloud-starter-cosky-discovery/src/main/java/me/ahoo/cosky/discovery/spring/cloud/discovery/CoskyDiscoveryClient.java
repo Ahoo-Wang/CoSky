@@ -13,7 +13,6 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
-import me.ahoo.cosky.core.util.Futures;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
@@ -51,8 +50,10 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<ServiceInstance> getInstances(String serviceId) {
-        return Futures.getUnChecked(serviceDiscovery.getInstances(serviceId), coskyDiscoveryProperties.getTimeout())
-                .stream().map(serviceInstance -> new CoskyServiceInstance(serviceInstance))
+        return serviceDiscovery.getInstances(serviceId)
+                .block(coskyDiscoveryProperties.getTimeout())
+                .stream()
+                .map(CoskyServiceInstance::new)
                 .collect(Collectors.toList());
     }
 
@@ -61,8 +62,7 @@ public class CoskyDiscoveryClient implements DiscoveryClient {
      */
     @Override
     public List<String> getServices() {
-        return Futures.getUnChecked(serviceDiscovery.getServices(), coskyDiscoveryProperties.getTimeout())
-                .stream().collect(Collectors.toList());
+        return serviceDiscovery.getServices().block(coskyDiscoveryProperties.getTimeout());
     }
 
     @Override

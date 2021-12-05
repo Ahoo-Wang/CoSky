@@ -5,7 +5,7 @@ spring:
     name: ${service.name:example-provider}
   cloud:
     cosky:
-      namespace: ${cosky.namespace:{dev}}
+      namespace: ${cosky.namespace:dev}
       config:
         config-id: ${spring.application.name}.yaml
       redis:

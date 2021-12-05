@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.discovery;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Strings;
 
 import java.net.URI;
@@ -95,5 +96,23 @@ public class Instance {
 
     public boolean isSecure() {
         return secureSchemas.contains(schema);
+    }
+
+    @Override
+    public String toString() {
+        return instanceId;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof Instance)) return false;
+        Instance instance = (Instance) o;
+        return getPort() == instance.getPort() && Objects.equal(getServiceId(), instance.getServiceId()) && Objects.equal(getSchema(), instance.getSchema()) && Objects.equal(getHost(), instance.getHost());
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(getServiceId(), getSchema(), getHost(), getPort());
     }
 }

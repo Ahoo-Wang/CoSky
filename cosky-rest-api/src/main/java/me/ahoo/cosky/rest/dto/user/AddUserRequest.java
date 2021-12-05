@@ -17,16 +17,8 @@ package me.ahoo.cosky.rest.dto.user;
  * @author ahoo wang
  */
 public class AddUserRequest {
-    private String username;
+
     private String password;
-
-    public String getUsername() {
-        return username;
-    }
-
-    public void setUsername(String username) {
-        this.username = username;
-    }
 
     public String getPassword() {
         return password;

@@ -13,8 +13,9 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.registry;
 
-import lombok.var;
 import me.ahoo.cosky.discovery.InstanceIdGenerator;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import me.ahoo.cosky.discovery.ServiceInstanceContext;
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration;
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties;
 
@@ -44,11 +45,12 @@ public class CoskyAutoServiceRegistration extends AbstractAutoServiceRegistratio
 
     @Override
     protected void register() {
+        ServiceInstance serviceInstance = this.registration.of();
         if (this.registration.getPort() == 0) {
             this.registration.setPort(getPort().get());
-            var serviceInstance = this.registration.of();
             serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance));
         }
+        ServiceInstanceContext.CURRENT.setServiceInstance(serviceInstance);
         super.register();
     }
 

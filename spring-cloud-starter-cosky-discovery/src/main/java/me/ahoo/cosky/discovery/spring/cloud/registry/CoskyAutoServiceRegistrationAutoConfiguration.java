@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.registry;
 
+import com.google.common.base.Strings;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 import lombok.var;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;
@@ -21,7 +22,6 @@ import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoskyDiscoveryEnabled;
 import me.ahoo.cosky.discovery.spring.cloud.discovery.CoskyDiscoveryAutoConfiguration;
 import me.ahoo.cosky.spring.cloud.support.AppSupport;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -58,8 +58,7 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
     @Primary
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
                                                      RedisConnectionFactory redisConnectionFactory) {
-        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
-        return new RedisServiceRegistry(registryProperties, redisCommands);
+        return new RedisServiceRegistry(registryProperties, redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean
@@ -75,20 +74,21 @@ public class CoskyAutoServiceRegistrationAutoConfiguration {
         ServiceInstance serviceInstance = new ServiceInstance();
         serviceInstance.setMetadata(properties.getMetadata());
 
-        if (Strings.isBlank(properties.getServiceId())) {
+        if (Strings.isNullOrEmpty(properties.getServiceId())) {
             String serviceId = AppSupport.getAppName(context.getEnvironment());
             serviceInstance.setServiceId(serviceId);
         } else {
             serviceInstance.setServiceId(properties.getServiceId());
         }
 
-        if (Strings.isNotBlank(properties.getSchema())) {
+        if (!Strings.isNullOrEmpty(properties.getSchema())) {
             serviceInstance.setSchema(properties.getSchema());
         }
 
-        if (Strings.isNotBlank(properties.getHost())) {
+        if (!Strings.isNullOrEmpty(properties.getHost())) {
             serviceInstance.setHost(properties.getHost());
         }
+
         serviceInstance.setPort(properties.getPort());
         serviceInstance.setWeight(properties.getWeight());
         serviceInstance.setEphemeral(properties.isEphemeral());

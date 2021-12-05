@@ -13,20 +13,25 @@
 
 package me.ahoo.cosky.discovery;
 
+import reactor.core.publisher.Mono;
+
 import javax.annotation.Nullable;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author ahoo wang
  */
 public interface ServiceStatistic {
 
-    CompletableFuture<Void> statService(String namespace);
+    Mono<Void> statService(String namespace);
 
-    CompletableFuture<Void> statService(String namespace, @Nullable String serviceId);
+    Mono<Void> statService(String namespace, @Nullable String serviceId);
 
-    CompletableFuture<List<ServiceStat>> getServiceStats(String namespace);
+    Mono<List<ServiceStat>> getServiceStats(String namespace);
 
-    CompletableFuture<Long> getInstanceCount(String namespace);
+    Mono<Long> getInstanceCount(String namespace);
+
+    Mono<Map<String, Set<String>>> getTopology(String namespace);
 }

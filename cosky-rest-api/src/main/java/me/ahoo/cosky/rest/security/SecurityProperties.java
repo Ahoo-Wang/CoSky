@@ -14,6 +14,7 @@
 package me.ahoo.cosky.rest.security;
 
 import me.ahoo.cosky.core.CoSky;
+import me.ahoo.cosky.rest.security.rbac.Action;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
@@ -28,9 +29,11 @@ public class SecurityProperties {
     private boolean enabled = true;
     private boolean enforceInitSuperUser = false;
     private Jwt jwt;
+    private AuditLog auditLog;
 
     public SecurityProperties() {
         jwt = new Jwt();
+        auditLog = new AuditLog();
     }
 
     public boolean isEnforceInitSuperUser() {
@@ -55,6 +58,14 @@ public class SecurityProperties {
 
     public void setJwt(Jwt jwt) {
         this.jwt = jwt;
+    }
+
+    public AuditLog getAuditLog() {
+        return auditLog;
+    }
+
+    public void setAuditLog(AuditLog auditLog) {
+        this.auditLog = auditLog;
     }
 
     public static class Jwt {
@@ -93,6 +104,18 @@ public class SecurityProperties {
 
         public void setRefreshTokenValidity(Duration refreshTokenValidity) {
             this.refreshTokenValidity = refreshTokenValidity;
+        }
+    }
+
+    public static class AuditLog {
+        private Action action = Action.WRITE;
+
+        public Action getAction() {
+            return action;
+        }
+
+        public void setAction(Action action) {
+            this.action = action;
         }
     }
 }

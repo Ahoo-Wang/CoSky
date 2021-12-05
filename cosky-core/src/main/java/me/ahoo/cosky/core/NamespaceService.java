@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.core;
 
+import reactor.core.publisher.Mono;
+
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -21,9 +23,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface NamespaceService {
 
-    CompletableFuture<Set<String>> getNamespaces();
+    Mono<Set<String>> getNamespaces();
 
-    CompletableFuture<Boolean> setNamespace(String namespace);
+    Mono<Boolean> setNamespace(String namespace);
 
-    CompletableFuture<Boolean> removeNamespace(String namespace);
+    Mono<Boolean> removeNamespace(String namespace);
 }

@@ -11,11 +11,28 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.core.listener;
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-/**
- * @author ahoo wang
- */
-public interface Topic {
-    String getTopic();
-}
+import { TopologyComponent } from './topology.component';
+
+describe('TopologyComponent', () => {
+  let component: TopologyComponent;
+  let fixture: ComponentFixture<TopologyComponent>;
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      declarations: [ TopologyComponent ]
+    })
+    .compileComponents();
+  });
+
+  beforeEach(() => {
+    fixture = TestBed.createComponent(TopologyComponent);
+    component = fixture.componentInstance;
+    fixture.detectChanges();
+  });
+
+  it('should create', () => {
+    expect(component).toBeTruthy();
+  });
+});

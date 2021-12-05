@@ -13,10 +13,8 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
-import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.discovery.ServiceDiscovery;
+import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer;
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
@@ -24,10 +22,8 @@ import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
 import me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
-import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.client.CommonsClientAutoConfiguration;
 import org.springframework.cloud.client.ConditionalOnDiscoveryEnabled;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -46,8 +42,7 @@ public class CoskyDiscoveryAutoConfiguration {
     @ConditionalOnMissingBean
     public RedisServiceDiscovery redisServiceDiscovery(
             RedisConnectionFactory redisConnectionFactory) {
-        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
-        return new RedisServiceDiscovery(redisCommands);
+        return new RedisServiceDiscovery(redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean
@@ -55,8 +50,9 @@ public class CoskyDiscoveryAutoConfiguration {
     @Primary
     public ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery(
             RedisServiceDiscovery redisServiceDiscovery,
-            MessageListenable messageListenable) {
-        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable);
+            MessageListenable messageListenable,
+            RedisConnectionFactory redisConnectionFactory) {
+        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnectionFactory.getShareReactiveCommands());
     }
 
     @Bean
@@ -64,8 +60,7 @@ public class CoskyDiscoveryAutoConfiguration {
     public RedisServiceStatistic redisServiceStatistic(
             RedisConnectionFactory redisConnectionFactory,
             MessageListenable messageListenable) {
-        RedisClusterAsyncCommands<String, String> redisCommands = redisConnectionFactory.getShareAsyncCommands();
-        return new RedisServiceStatistic(redisCommands, messageListenable);
+        return new RedisServiceStatistic(redisConnectionFactory.getShareReactiveCommands(), messageListenable);
     }
 
 

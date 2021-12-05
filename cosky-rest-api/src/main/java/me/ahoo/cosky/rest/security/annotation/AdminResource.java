@@ -11,27 +11,17 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.security.rbac;
+package me.ahoo.cosky.rest.security.annotation;
 
-import javax.servlet.http.HttpServletRequest;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
  * @author ahoo wang
  */
-public class RequestAction {
-    private final HttpServletRequest request;
-    private final Action action;
-
-    public RequestAction(HttpServletRequest request, Action action) {
-        this.request = request;
-        this.action = action;
-    }
-
-    public HttpServletRequest getRequest() {
-        return request;
-    }
-
-    public Action getAction() {
-        return action;
-    }
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+public @interface AdminResource {
 }

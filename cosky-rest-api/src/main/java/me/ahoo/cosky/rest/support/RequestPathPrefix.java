@@ -18,6 +18,14 @@ package me.ahoo.cosky.rest.support;
  * @author ahoo wang
  */
 public interface RequestPathPrefix {
+
+    /**
+     * /dashboard
+     */
+    String DASHBOARD = "/dashboard/";
+
+    String SWAGGER_UI = "/swagger";
+
     String V1 = "/v1/";
 
     //region Authenticate
@@ -31,13 +39,34 @@ public interface RequestPathPrefix {
      * /v1/users
      */
     String USERS_PREFIX = V1 + "users";
+
+    /**
+     * /v1/users/{username}
+     */
+    String USERS_USER = "/{username}";
+
+    String USERS_USER_PASSWORD = USERS_USER + "/password";
+    String USERS_USER_ROLE = USERS_USER + "/role";
+    String USERS_USER_UNLOCK = USERS_USER + "/unlock";
+
     //endregion
     //region role
     /**
      * /v1/roles
      */
     String ROLES_PREFIX = V1 + "roles";
+    String ROLES_ROLE = "/{roleName}";
+    String ROLES_ROLE_BIND = ROLES_ROLE + "/bind";
     //endregion
+
+
+    //region audit
+    /**
+     * /v1/audit
+     */
+    String AUDIT_LOG_PREFIX = V1 + "audit-log";
+    //endregion
+
     //region namespaces
     /**
      * /v1/namespaces

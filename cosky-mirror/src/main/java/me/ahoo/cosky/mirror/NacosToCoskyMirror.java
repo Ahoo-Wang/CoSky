@@ -31,6 +31,8 @@ import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -67,24 +69,24 @@ public class NacosToCoskyMirror implements Mirror {
     @SneakyThrows
     public List<String> getNacosServices() {
         String group = nacosDiscoveryProperties.getGroup();
-        ListView<String> services = namingService().getServicesOfServer(1,
-                Integer.MAX_VALUE, group);
+        ListView<String> services = namingService().getServicesOfServer(1, Integer.MAX_VALUE, group);
         return services.getData();
     }
 
     @Scheduled(initialDelay = 15_000, fixedDelay = 30_000)
     public void mirror() {
         var nacosServices = getNacosServices();
-        nacosServices.stream().filter(serviceId -> !serviceMapListener.containsKey(serviceId))
-                .forEach(serviceId -> nacosToCosky(serviceId));
+        Flux.fromIterable(nacosServices)
+                .filter(serviceId -> !serviceMapListener.containsKey(serviceId))
+                .flatMap(this::nacosToCosky)
+                .subscribe();
     }
 
     @SneakyThrows
-    public void nacosToCosky(String serviceId) {
+    public Flux<Boolean> nacosToCosky(String serviceId) {
         String group = nacosDiscoveryProperties.getGroup();
         List<Instance> nacosInstances = namingService().selectInstances(serviceId, group, true);
-        nacosInstances.stream().filter(serviceInstance -> shouldRegister(serviceInstance.getMetadata()))
-                .forEach((serviceInstance -> nacosToCosky(serviceId, serviceInstance)));
+
         serviceMapListener.computeIfAbsent(serviceId, (key) -> {
             var listener = new NacosServiceChangedListener(serviceId, nacosInstances);
             try {
@@ -95,14 +97,20 @@ public class NacosToCoskyMirror implements Mirror {
             }
             return listener;
         });
+        return Flux.fromIterable(nacosInstances)
+                .filter(serviceInstance -> shouldRegister(serviceInstance.getMetadata()))
+                .flatMap((serviceInstance -> nacosToCosky(serviceId, serviceInstance)));
     }
 
-    public void nacosToCosky(String serviceId, Instance instance) {
+    public Mono<Boolean> nacosToCosky(String serviceId, Instance instance) {
         ServiceInstance coskyInstance = getCoskyInstanceFromNacos(serviceId, instance);
-        coskyServiceRegistry.register(coskyInstance).exceptionally(throwable -> {
-            log.error(throwable.getMessage(), throwable);
-            return Boolean.FALSE;
-        });
+        return coskyServiceRegistry.register(coskyInstance)
+                .doOnError(throwable -> {
+                    if (log.isErrorEnabled()) {
+                        log.error(throwable.getMessage(), throwable);
+                    }
+                })
+                .retry(1);
     }
 
     private ServiceInstance getCoskyInstanceFromNacos(String serviceId, Instance instance) {
@@ -164,11 +172,11 @@ public class NacosToCoskyMirror implements Mirror {
             NamingEvent namingEvent = (NamingEvent) event;
             var currentInstances = namingEvent.getInstances();
             List<Instance> addedInstances = currentInstances.stream().filter(current ->
-                    lastInstances.stream().allMatch(last -> !last.getInstanceId().equals(current.getInstanceId()))
+                    lastInstances.stream().noneMatch(last -> last.getInstanceId().equals(current.getInstanceId()))
             ).collect(Collectors.toList());
 
             List<Instance> removedInstances = lastInstances.stream().filter(last ->
-                    currentInstances.stream().allMatch(current -> !last.getInstanceId().equals(current.getInstanceId()))
+                    currentInstances.stream().noneMatch(current -> last.getInstanceId().equals(current.getInstanceId()))
             ).collect(Collectors.toList());
             addedInstances.forEach(addedInstance -> {
                 if (log.isInfoEnabled()) {
@@ -180,14 +188,14 @@ public class NacosToCoskyMirror implements Mirror {
                     }
                     return;
                 }
-                nacosToCosky(serviceId, addedInstance);
+                nacosToCosky(serviceId, addedInstance).subscribe();
             });
             removedInstances.forEach(removedInstance -> {
                 if (log.isInfoEnabled()) {
                     log.info("NacosServiceChangedListener - onEvent - remove {}", removedInstance);
                 }
                 var coskyInstance = getCoskyInstanceFromNacos(serviceId, removedInstance);
-                coskyServiceRegistry.deregister(coskyInstance);
+                coskyServiceRegistry.deregister(coskyInstance).subscribe();
             });
 
             this.lastInstances = currentInstances;

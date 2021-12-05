@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.cosky.core.util.Systems;
 import me.ahoo.cosky.discovery.InstanceIdGenerator;
+import me.ahoo.cosky.discovery.ServiceInstanceContext;
 import org.springframework.beans.BeansException;
 import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.boot.web.context.WebServerApplicationContext;
@@ -64,6 +65,7 @@ public class CoskyAutoServiceRegistrationOfNoneWeb implements ApplicationListene
             serviceInstance.setPort((int) Systems.getCurrentProcessId());
             serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance));
         }
+        ServiceInstanceContext.CURRENT.setServiceInstance(serviceInstance);
         this.serviceRegistry.register(registration);
     }
 

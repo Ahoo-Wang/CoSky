@@ -13,9 +13,11 @@
 
 package me.ahoo.cosky.spring.cloud;
 
+import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.core.NamespacedProperties;
 import me.ahoo.cosky.core.redis.RedisConfig;
+import me.ahoo.cosky.core.util.RedisKeys;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
 
@@ -23,10 +25,25 @@ import org.springframework.boot.context.properties.NestedConfigurationProperty;
  * @author ahoo wang
  */
 @ConfigurationProperties(CoskyProperties.PREFIX)
+@Slf4j
 public class CoskyProperties extends NamespacedProperties {
     public static final String PREFIX = "spring.cloud." + CoSky.COSKY;
 
     private boolean enabled = true;
+
+    @Override
+    public void setNamespace(String namespace) {
+        if (RedisConfig.RedisMode.CLUSTER.equals(getRedis().getMode())
+                && !RedisKeys.hasWrap(namespace)
+        ) {
+            String clusterNamespace = RedisKeys.ofKey(true, namespace);
+            if (log.isWarnEnabled()) {
+                log.warn("When Redis is in cluster mode, namespace:[{}-->{}] must be wrapped by {}(hashtag).", namespace,clusterNamespace, "{}");
+            }
+            namespace = clusterNamespace;
+        }
+        super.setNamespace(namespace);
+    }
 
     @NestedConfigurationProperty
     private RedisConfig redis = new RedisConfig();

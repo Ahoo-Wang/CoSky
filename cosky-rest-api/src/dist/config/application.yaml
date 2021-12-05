@@ -7,22 +7,19 @@ spring:
   web:
     resources:
       static-locations: file:./dashboard/
-  servlet:
-    multipart:
-      max-file-size: 10MB
-  mvc:
+  webflux:
     static-path-pattern: /dashboard/**
-    async:
-      request-timeout: 5s
 
 cosky:
   security:
+    enabled: true
+    audit-log:
+      action: write
     jwt:
       signing-key: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
       access-token-validity: 15m
       refresh-token-validity: 3H
     enforce-init-super-user: false
-    enabled: true
 
 cosid:
   namespace: ${spring.application.name}

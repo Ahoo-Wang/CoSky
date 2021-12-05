@@ -1,0 +1,47 @@
+<!--
+  ~ Copyright [2021-2021] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<nz-table class="content-body" [nzBordered]="true" [nzData]="logs"
+          nzShowSizeChanger
+          [nzFrontPagination]="false"
+          [nzPageSizeOptions]="[10,20,30,50,100]"
+          [nzLoading]="loading"
+          [nzTotal]="total"
+          [nzPageSize]="pageSize"
+          [nzPageIndex]="pageIndex"
+          (nzQueryParams)="onQueryParamsChange($event)"
+>
+  <thead>
+  <tr>
+    <th>Operator</th>
+    <th>ClientIP</th>
+    <th>Resource</th>
+    <th>Action</th>
+    <th>Status</th>
+    <th>Msg</th>
+    <th>OpTime</th>
+  </tr>
+  </thead>
+  <tbody>
+  <tr *ngFor="let log of logs">
+    <td>{{log.operator}}</td>
+    <td>{{log.ip}}</td>
+    <td>{{log.resource}}</td>
+    <td>{{log.action}}</td>
+    <td>{{log.status}}</td>
+    <td>{{log.msg}}</td>
+    <td>{{log.opTime | date:'yyyy-MM-dd HH:mm:ss'}}</td>
+  </tr>
+  </tbody>
+</nz-table>
+

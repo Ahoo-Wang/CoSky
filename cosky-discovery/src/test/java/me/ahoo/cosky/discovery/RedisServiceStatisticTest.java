@@ -14,7 +14,7 @@
 package me.ahoo.cosky.discovery;
 
 import lombok.var;
-import me.ahoo.cosky.core.listener.RedisMessageListenable;
+import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
 import org.junit.jupiter.api.Assertions;
@@ -33,18 +33,18 @@ public class RedisServiceStatisticTest extends BaseOnRedisClientTest {
     @BeforeAll
     private void init() {
         var registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.async());
-        redisServiceStatistic = new RedisServiceStatistic(redisConnection.async(), new RedisMessageListenable(redisClient.connectPubSub()));
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
+        redisServiceStatistic = new RedisServiceStatistic(redisConnection.reactive(), new DefaultMessageListenable(redisClient.connectPubSub().reactive()));
     }
 
     @Test
     void statService() {
         var getServiceStatInstance = createRandomInstance();
 
-        redisServiceRegistry.register(namespace, getServiceStatInstance).join();
-        redisServiceStatistic.statService(namespace).join();
+        redisServiceRegistry.register(namespace, getServiceStatInstance).block();
+        redisServiceStatistic.statService(namespace).block();
 
-        var stats = redisServiceStatistic.getServiceStats(namespace).join();
+        var stats = redisServiceStatistic.getServiceStats(namespace).block();
         Assertions.assertTrue(stats.size() >= 1);
         var statOptional = stats.stream().filter(serviceStat -> serviceStat.getServiceId().equals(getServiceStatInstance.getServiceId())).findFirst();
         Assertions.assertTrue(statOptional.isPresent());

@@ -49,7 +49,7 @@ public class RedisConfigServiceBenchmark {
         System.out.println("\n ----- RedisConfigBenchmark setup ----- \n");
         redisClient = RedisClient.create("redis://localhost:6379");
         redisConnection = redisClient.connect();
-        configService = new RedisConfigService(redisConnection.async());
+        configService = new RedisConfigService(redisConnection.reactive());
         configService.setConfig(namespace, configId, configData);
         atomicInteger = new AtomicInteger();
     }
@@ -68,12 +68,12 @@ public class RedisConfigServiceBenchmark {
     @Benchmark
     public Boolean setConfig() {
         String randomConfigId = String.valueOf(atomicInteger.incrementAndGet());
-        return configService.setConfig(namespace, randomConfigId, configData).join();
+        return configService.setConfig(namespace, randomConfigId, configData).block();
     }
 
     @Benchmark
     public Config getConfig() {
-        return configService.getConfig(namespace, configId).join();
+        return configService.getConfig(namespace, configId).block();
     }
 
 }

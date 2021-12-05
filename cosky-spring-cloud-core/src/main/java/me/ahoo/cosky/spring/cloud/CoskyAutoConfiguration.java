@@ -17,8 +17,8 @@ import io.lettuce.core.resource.ClientResources;
 import io.lettuce.core.resource.DefaultClientResources;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.core.listener.MessageListenable;
+import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.core.redis.RedisNamespaceService;
 import me.ahoo.cosky.core.redis.RedisScriptInitializer;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -65,6 +65,6 @@ public class CoskyAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public NamespaceService namespaceService(RedisConnectionFactory redisConnectionFactory) {
-        return new RedisNamespaceService(redisConnectionFactory.getShareAsyncCommands());
+        return new RedisNamespaceService(redisConnectionFactory.getShareReactiveCommands());
     }
 }

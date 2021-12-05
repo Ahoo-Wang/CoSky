@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.rest.dto.service;
+package me.ahoo.cosky.rest.dto.stat;
 
 /**
  * @author ahoo wang

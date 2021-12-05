@@ -15,15 +15,18 @@ package me.ahoo.cosky.rest.controller;
 
 import me.ahoo.cosky.rest.dto.user.AddUserRequest;
 import me.ahoo.cosky.rest.dto.user.ChangePwdRequest;
-import me.ahoo.cosky.rest.security.rbac.annotation.AdminResource;
-import me.ahoo.cosky.rest.security.rbac.annotation.OwnerResource;
+import me.ahoo.cosky.rest.security.annotation.AdminResource;
+import me.ahoo.cosky.rest.security.annotation.OwnerResource;
 import me.ahoo.cosky.rest.security.user.User;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Set;
+
+import static me.ahoo.cosky.rest.support.RequestPathPrefix.*;
 
 /**
  * @author ahoo wang
@@ -40,33 +43,33 @@ public class UserController {
     }
 
     @GetMapping
-    public List<User> query() {
+    public Mono<List<User>> query() {
         return userService.query();
     }
 
     @OwnerResource
-    @PatchMapping("/{username}/password")
-    public void changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
-        userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
+    @PatchMapping(USERS_USER_PASSWORD)
+    public Mono<Boolean> changePwd(@PathVariable String username, @RequestBody ChangePwdRequest changePwdRequest) {
+        return userService.changePwd(username, changePwdRequest.getOldPassword(), changePwdRequest.getNewPassword());
     }
 
-    @PostMapping
-    public boolean addUser(@RequestBody AddUserRequest addUserRequest) {
-        return userService.addUser(addUserRequest.getUsername(), addUserRequest.getPassword());
+    @PostMapping(USERS_USER)
+    public Mono<Boolean> addUser(@PathVariable String username, @RequestBody AddUserRequest addUserRequest) {
+        return userService.addUser(username, addUserRequest.getPassword());
     }
 
-    @PatchMapping("/{username}/role")
-    public void bindRole(@PathVariable String username, @RequestBody Set<String> roleBind) {
-        userService.bindRole(username, roleBind);
+    @PatchMapping(USERS_USER_ROLE)
+    public Mono<Void> bindRole(@PathVariable String username, @RequestBody Set<String> roleBind) {
+        return userService.bindRole(username, roleBind);
     }
 
-    @DeleteMapping("/{username}")
-    public boolean removeUser(@PathVariable String username) {
+    @DeleteMapping(USERS_USER)
+    public Mono<Boolean> removeUser(@PathVariable String username) {
         return userService.removeUser(username);
     }
 
-    @DeleteMapping("/{username}/lock")
-    public void unlock(@PathVariable String username) {
-        userService.unlock(username);
+    @DeleteMapping(USERS_USER_UNLOCK)
+    public Mono<Boolean> unlock(@PathVariable String username) {
+        return userService.unlock(username);
     }
 }

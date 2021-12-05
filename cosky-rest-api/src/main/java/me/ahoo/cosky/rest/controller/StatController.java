@@ -17,13 +17,16 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.var;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.NamespaceService;
-import me.ahoo.cosky.discovery.ServiceDiscovery;
+import me.ahoo.cosky.discovery.ServiceStat;
 import me.ahoo.cosky.discovery.ServiceStatistic;
-import me.ahoo.cosky.rest.dto.service.GetStatResponse;
+import me.ahoo.cosky.rest.dto.stat.GetStatResponse;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.publisher.Mono;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * @author ahoo wang
@@ -45,24 +48,31 @@ public class StatController {
     }
 
     @GetMapping
-    public CompletableFuture<GetStatResponse> getStat(@PathVariable String namespace) {
-        var getNamespacesFuture = namespaceService.getNamespaces();
-        var getConfigsFuture = configService.getConfigs(namespace);
-        var getServiceStatsFuture = serviceStatistic.getServiceStats(namespace);
-        return CompletableFuture.allOf(getNamespacesFuture, getConfigsFuture, getServiceStatsFuture).thenApply((nil) -> {
-            var statResponse = new GetStatResponse();
-            statResponse.setNamespaces(getNamespacesFuture.join().size());
-            statResponse.setConfigs(getConfigsFuture.join().size());
-            GetStatResponse.Services services = new GetStatResponse.Services();
-            var serviceStats = getServiceStatsFuture.join();
-            services.setTotal(serviceStats.size());
-            services.setHealth((int) serviceStats.stream().filter(stat -> stat.getInstanceCount() > 0).count());
-            statResponse.setServices(services);
-            var instances = serviceStats.stream().map(stat -> stat.getInstanceCount()).reduce(Integer.valueOf(0),
-                    (left, right) -> left + right
-            );
-            statResponse.setInstances(instances);
-            return statResponse;
-        });
+    public Mono<GetStatResponse> getStat(@PathVariable String namespace) {
+        Mono<Set<String>> getNamespacesFuture = namespaceService.getNamespaces();
+        Mono<Set<String>> getConfigsFuture = configService.getConfigs(namespace);
+        Mono<List<ServiceStat>> getServiceStatsFuture = serviceStatistic.getServiceStats(namespace);
+
+        return Mono.zip(getNamespacesFuture, getConfigsFuture, getServiceStatsFuture)
+                .map(tuple -> {
+                    GetStatResponse statResponse = new GetStatResponse();
+                    statResponse.setNamespaces(tuple.getT1().size());
+                    statResponse.setConfigs(tuple.getT2().size());
+                    GetStatResponse.Services services = new GetStatResponse.Services();
+                    List<ServiceStat> serviceStats = tuple.getT3();
+                    services.setTotal(serviceStats.size());
+                    services.setHealth((int) serviceStats.stream().filter(stat -> stat.getInstanceCount() > 0).count());
+                    statResponse.setServices(services);
+                    Integer instances = serviceStats.stream().map(ServiceStat::getInstanceCount).reduce(0,
+                            Integer::sum
+                    );
+                    statResponse.setInstances(instances);
+                    return statResponse;
+                });
+    }
+
+    @GetMapping("topology")
+    public Mono<Map<String, Set<String>>> getTopology(@PathVariable String namespace) {
+        return serviceStatistic.getTopology(namespace);
     }
 }

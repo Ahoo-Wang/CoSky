@@ -22,7 +22,8 @@ import java.util.Set;
  * @author ahoo wang
  */
 public class User {
-    public static String SUPER_USER = CoSky.COSKY;
+
+    public final static String SUPER_USER = CoSky.COSKY;
 
     private String username;
     private Set<String> roleBind;

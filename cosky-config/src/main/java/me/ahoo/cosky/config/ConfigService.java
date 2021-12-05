@@ -13,30 +13,40 @@
 
 package me.ahoo.cosky.config;
 
+import me.ahoo.cosky.core.NamespacedContext;
+import reactor.core.publisher.Mono;
+
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
  */
 public interface ConfigService extends ConfigRollback {
 
-    CompletableFuture<Set<String>> getConfigs();
+    default Mono<Set<String>> getConfigs() {
+        return getConfigs(NamespacedContext.GLOBAL.getRequiredNamespace());
+    }
 
-    CompletableFuture<Set<String>> getConfigs(String namespace);
+    Mono<Set<String>> getConfigs(String namespace);
 
-    CompletableFuture<Config> getConfig(String configId);
+    default Mono<Config> getConfig(String configId) {
+        return getConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
+    }
 
-    CompletableFuture<Config> getConfig(String namespace, String configId);
+    Mono<Config> getConfig(String namespace, String configId);
 
-    CompletableFuture<Boolean> setConfig(String configId, String data);
+    default Mono<Boolean> setConfig(String configId, String data) {
+        return setConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId, data);
+    }
 
-    CompletableFuture<Boolean> setConfig(String namespace, String configId, String data);
+    Mono<Boolean> setConfig(String namespace, String configId, String data);
 
-    CompletableFuture<Boolean> removeConfig(String configId);
+    default Mono<Boolean> removeConfig(String configId) {
+        return removeConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
+    }
 
-    CompletableFuture<Boolean> removeConfig(String namespace, String configId);
+    Mono<Boolean> removeConfig(String namespace, String configId);
 
 
-    CompletableFuture<Boolean> containsConfig(String namespace, String configId);
+    Mono<Boolean> containsConfig(String namespace, String configId);
 }

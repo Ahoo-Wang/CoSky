@@ -49,6 +49,10 @@ export class NamespaceComponent implements OnInit {
   }
 
   addNamespace(namespace: string): void {
+    if (!namespace){
+      this.messageService.error(`Namespace can not be empty!`);
+      return;
+    }
     this.namespaceClient.setNamespace(namespace).subscribe(() => {
       this.messageService.success(`Namespace:[${namespace}] added successful.`);
       this.getNamespaces();

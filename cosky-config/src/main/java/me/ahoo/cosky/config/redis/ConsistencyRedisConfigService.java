@@ -13,19 +13,18 @@
 
 package me.ahoo.cosky.config.redis;
 
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.config.*;
-import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.core.listener.ChannelTopic;
 import me.ahoo.cosky.core.listener.MessageListenable;
 import me.ahoo.cosky.core.listener.MessageListener;
-import me.ahoo.cosky.core.listener.Topic;
+import reactor.core.publisher.Mono;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -38,7 +37,7 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     private final MessageListenable messageListenable;
     private final ConfigListener configListener;
 
-    private final ConcurrentHashMap<NamespacedConfigId, CompletableFuture<Config>> configMap;
+    private final ConcurrentHashMap<NamespacedConfigId, Mono<Config>> configMap;
     private final ConcurrentHashMap<NamespacedConfigId, CopyOnWriteArraySet<ConfigChangedListener>> configMapListener;
 
     public ConsistencyRedisConfigService(ConfigService delegate, MessageListenable messageListenable) {
@@ -50,115 +49,93 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     }
 
     @Override
-    public CompletableFuture<Set<String>> getConfigs() {
-        return delegate.getConfigs();
-    }
-
-    @Override
-    public CompletableFuture<Set<String>> getConfigs(String namespace) {
+    public Mono<Set<String>> getConfigs(String namespace) {
         return delegate.getConfigs(namespace);
     }
 
     @Override
-    public CompletableFuture<Config> getConfig(String configId) {
-        return getConfig(NamespacedContext.GLOBAL.getNamespace(), configId);
+    public Mono<Config> getConfig(String namespace, String configId) {
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+
+        return configMap.computeIfAbsent(NamespacedConfigId.of(namespace, configId), (_configId) ->
+                {
+                    addListener(namespace, configId);
+                    return delegate.getConfig(namespace, configId).cache();
+                }
+        );
     }
+
+    private void addListener(String namespace, String configId) {
+        String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
+        messageListenable.addChannelListener(topicStr, configListener);
+    }
+
 
     @Override
-    public CompletableFuture<Config> getConfig(String namespace, String configId) {
-        return configMap.computeIfAbsent(NamespacedConfigId.of(namespace, configId), (_configId) -> addListener(namespace, configId).
-                thenCompose(nil -> delegate.getConfig(namespace, configId)));
-    }
-
-    private CompletableFuture<Void> addListener(String namespace, String configId) {
-        var topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
-        var configTopic = ChannelTopic.of(topicStr);
-        return messageListenable.addListener(configTopic, configListener);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> setConfig(String configId, String data) {
-        return delegate.setConfig(configId, data);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> setConfig(String namespace, String configId, String data) {
+    public Mono<Boolean> setConfig(String namespace, String configId, String data) {
         return delegate.setConfig(namespace, configId, data);
     }
 
     @Override
-    public CompletableFuture<Boolean> removeConfig(String configId) {
+    public Mono<Boolean> removeConfig(String configId) {
         return delegate.removeConfig(configId);
     }
 
     @Override
-    public CompletableFuture<Boolean> removeConfig(String namespace, String configId) {
+    public Mono<Boolean> removeConfig(String namespace, String configId) {
         return delegate.removeConfig(namespace, configId);
     }
 
     @Override
-    public CompletableFuture<Boolean> containsConfig(String namespace, String configId) {
+    public Mono<Boolean> containsConfig(String namespace, String configId) {
         return delegate.containsConfig(namespace, configId);
     }
 
-
     @Override
-    public CompletableFuture<Boolean> addListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
+    public void addListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
         configMapListener.compute(namespacedConfigId, (key, val) -> {
             CopyOnWriteArraySet<ConfigChangedListener> listeners = val;
             if (Objects.isNull(val)) {
+                addListener(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId());
                 listeners = new CopyOnWriteArraySet<>();
             }
             listeners.add(configChangedListener);
             return listeners;
         });
-        return CompletableFuture.completedFuture(true);
     }
 
     @Override
-    public CompletableFuture<Boolean> removeListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
+    public void removeListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
         configMapListener.compute(namespacedConfigId, (key, val) -> {
             if (Objects.isNull(val)) {
                 return null;
             }
-            CopyOnWriteArraySet<ConfigChangedListener> listeners = val;
-            listeners.remove(configChangedListener);
-            if (listeners.isEmpty()) {
+            val.remove(configChangedListener);
+            if (val.isEmpty()) {
                 return null;
             }
-            return listeners;
+            return val;
         });
-
-        return CompletableFuture.completedFuture(true);
     }
 
     @Override
-    public CompletableFuture<Boolean> rollback(String configId, int targetVersion) {
+    public Mono<Boolean> rollback(String configId, int targetVersion) {
         return delegate.rollback(configId, targetVersion);
     }
 
     @Override
-    public CompletableFuture<Boolean> rollback(String namespace, String configId, int targetVersion) {
+    public Mono<Boolean> rollback(String namespace, String configId, int targetVersion) {
         return delegate.rollback(namespace, configId, targetVersion);
     }
 
     @Override
-    public CompletableFuture<List<ConfigVersion>> getConfigVersions(String configId) {
-        return delegate.getConfigVersions(configId);
-    }
-
-    @Override
-    public CompletableFuture<List<ConfigVersion>> getConfigVersions(String namespace, String configId) {
+    public Mono<List<ConfigVersion>> getConfigVersions(String namespace, String configId) {
         return delegate.getConfigVersions(namespace, configId);
     }
 
     @Override
-    public CompletableFuture<ConfigHistory> getConfigHistory(String configId, int version) {
-        return delegate.getConfigHistory(configId, version);
-    }
-
-    @Override
-    public CompletableFuture<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
+    public Mono<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
         return delegate.getConfigHistory(namespace, configId, version);
     }
 
@@ -166,15 +143,15 @@ public class ConsistencyRedisConfigService implements ConfigService, ConfigListe
     private class ConfigListener implements MessageListener {
 
         @Override
-        public void onMessage(Topic topic, String channel, String message) {
+        public void onMessage(@Nullable String pattern, String channel, String message) {
             if (log.isInfoEnabled()) {
-                log.info("onMessage@ConfigListener - topic:[{}] - channel:[{}] - message:[{}]", topic, channel, message);
+                log.info("onMessage@ConfigListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
             }
 
-            final var configkey = channel;
-            var namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
-            configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()));
-            var configChangedListeners = configMapListener.get(namespacedConfigId);
+            final String configkey = channel;
+            NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
+            configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()).cache());
+            CopyOnWriteArraySet<ConfigChangedListener> configChangedListeners = configMapListener.get(namespacedConfigId);
             if (Objects.isNull(configChangedListeners) || configChangedListeners.isEmpty()) {
                 return;
             }

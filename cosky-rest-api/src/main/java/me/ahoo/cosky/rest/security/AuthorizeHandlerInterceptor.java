@@ -13,70 +13,113 @@
 
 package me.ahoo.cosky.rest.security;
 
-import com.google.common.base.Strings;
-import me.ahoo.cosky.rest.security.rbac.RBACService;
+import lombok.extern.slf4j.Slf4j;
+import me.ahoo.cosky.rest.security.audit.AuditLog;
+import me.ahoo.cosky.rest.security.audit.AuditLogService;
+import me.ahoo.cosky.rest.security.rbac.Action;
+import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
+import me.ahoo.cosky.rest.security.user.User;
+import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.servlet.AsyncHandlerInterceptor;
-import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.web.server.ServerWebExchange;
+import org.springframework.web.server.WebFilter;
+import org.springframework.web.server.WebFilterChain;
+import reactor.core.publisher.Mono;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import java.util.Objects;
 
 /**
  * @author ahoo wang
  */
-public class AuthorizeHandlerInterceptor implements HandlerInterceptor {
-    public static final String AUTH_HEADER = "Authorization";
-    private final RBACService rbacService;
+@Slf4j
+public class AuthorizeHandlerInterceptor implements WebFilter {
+    private final AuthorizeService authorizeService;
+    private final AuditLogService auditService;
+    private final SecurityProperties securityProperties;
 
-    public AuthorizeHandlerInterceptor(RBACService rbacService) {
-        this.rbacService = rbacService;
+    public AuthorizeHandlerInterceptor(AuthorizeService authorizeService,
+                                       AuditLogService auditService,
+                                       SecurityProperties securityProperties) {
+        this.authorizeService = authorizeService;
+        this.auditService = auditService;
+        this.securityProperties = securityProperties;
     }
 
     /**
-     * Intercept the execution of a handler. Called after HandlerMapping determined
-     * an appropriate handler object, but before HandlerAdapter invokes the handler.
-     * <p>DispatcherServlet processes a handler in an execution chain, consisting
-     * of any number of interceptors, with the handler itself at the end.
-     * With this method, each interceptor can decide to abort the execution chain,
-     * typically sending an HTTP error or writing a custom response.
-     * <p><strong>Note:</strong> special considerations apply for asynchronous
-     * request processing. For more details see
-     * {@link AsyncHandlerInterceptor}.
-     * <p>The default implementation returns {@code true}.
+     * Process the Web request and (optionally) delegate to the next
+     * {@code WebFilter} through the given {@link WebFilterChain}.
      *
-     * @param request  current HTTP request
-     * @param response current HTTP response
-     * @param handler  chosen handler to execute, for type and/or instance evaluation
-     * @return {@code true} if the execution chain should proceed with the
-     * next interceptor or the handler itself. Else, DispatcherServlet assumes
-     * that this interceptor has already dealt with the response itself.
-     * @throws Exception in case of errors
+     * @param exchange the current server exchange
+     * @param chain    provides a way to delegate to the next filter
+     * @return {@code Mono<Void>} to indicate when request processing is complete
      */
     @Override
-    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
-        if (HttpMethod.OPTIONS.name().equals(request.getMethod())) {
-            return true;
-        }
-        String accessToken = request.getHeader(AUTH_HEADER);
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        return authorize(exchange)
+                .flatMap(authorizeResult -> {
+                    if (authorizeResult.isAuthorized()) {
+                        return chain.filter(exchange);
+                    }
+                    exchange.getResponse().setStatusCode(authorizeResult.getStatus());
+                    return Mono.empty();
+                })
+                .doOnSuccess(nil -> writeAuditLog(exchange, null))
+                .doOnError(throwable -> writeAuditLog(exchange, throwable));
+    }
 
-        if (Strings.isNullOrEmpty(accessToken)) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return false;
-        }
+    private void writeAuditLog(ServerWebExchange exchange, Throwable throwable) {
+        ServerHttpRequest request = exchange.getRequest();
+        Action requestAction = Action.ofHttpMethod(Objects.requireNonNull(request.getMethod()));
 
-        try {
-            if (!rbacService.authorize(accessToken, request, (HandlerMethod) handler)) {
-                response.setStatus(HttpStatus.FORBIDDEN.value());
-                return false;
+        if (!securityProperties.getAuditLog().getAction().check(requestAction)) {
+            return;
+        }
+        String requestPath = request.getPath().value();
+
+        AuditLog auditLog = new AuditLog();
+        if (requestPath.startsWith(RequestPathPrefix.AUTHENTICATE_PREFIX)) {
+            String operator = requestPath.substring(RequestPathPrefix.AUTHENTICATE_PREFIX.length() + 1);
+            int splitIdx = operator.indexOf("/");
+            if (splitIdx > 0) {
+                operator = operator.substring(0, splitIdx);
+                auditLog.setOperator(operator);
             }
-        } catch (TokenExpiredException tokenExpiredException) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return false;
+        } else {
+            User currentUser = AuthorizeService.getRequiredUserOfRequest(exchange);
+            auditLog.setOperator(currentUser.getUsername());
         }
 
-        return true;
+//        HandlerMethod handlerMethod = exchange.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE);
+
+        auditLog.setResource(requestPath);
+        auditLog.setAction(request.getMethod().name());
+        auditLog.setIp(Objects.requireNonNull(request.getRemoteAddress()).getHostString());
+        auditLog.setStatus(Objects.requireNonNull(exchange.getResponse().getStatusCode()).value());
+
+        if (Objects.nonNull(throwable)) {
+            auditLog.setMsg(throwable.getMessage());
+        }
+
+        auditLog.setOpTime(System.currentTimeMillis());
+
+        auditService.addLog(auditLog).subscribe();
+    }
+
+    public Mono<AuthorizeService.AuthorizeResult> authorize(ServerWebExchange exchange) {
+
+        ServerHttpRequest request = exchange.getRequest();
+        String requestPath = request.getPath().value();
+
+        if (requestPath.startsWith(RequestPathPrefix.DASHBOARD)
+                || requestPath.startsWith(RequestPathPrefix.SWAGGER_UI)
+                || requestPath.startsWith("/actuator/health")
+                || requestPath.startsWith("/v3/api-docs")
+                || "/".equals(requestPath)
+                || HttpMethod.OPTIONS.equals(request.getMethod())) {
+            return Mono.just(AuthorizeService.AuthorizeResult.ALLOW_ANONYMOUS);
+        }
+
+        return authorizeService.authorize(exchange);
     }
 }

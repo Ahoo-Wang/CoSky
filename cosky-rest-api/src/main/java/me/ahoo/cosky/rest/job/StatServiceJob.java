@@ -14,14 +14,11 @@
 package me.ahoo.cosky.rest.job;
 
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.discovery.ServiceStatistic;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * @author ahoo wang
@@ -42,23 +39,18 @@ public class StatServiceJob {
         if (log.isInfoEnabled()) {
             log.info("doStatService - start.");
         }
-        var currentNamespace = NamespacedContext.GLOBAL.getNamespace();
-        namespaceService.getNamespaces().thenCompose(namespaces -> {
-            if (!namespaces.contains(currentNamespace)) {
-                CompletableFuture future = namespaceService.setNamespace(currentNamespace);
-                return future;
-            }
-            if (!namespaces.isEmpty()) {
-                var futures = namespaces.stream()
-                        .map(serviceStatistic::statService)
-                        .toArray(CompletableFuture[]::new);
-                return CompletableFuture.allOf(futures);
-            }
-            return CompletableFuture.completedFuture(null);
-        }).thenAccept((nil) -> {
-            if (log.isInfoEnabled()) {
-                log.info("doStatService - end.");
-            }
-        });
+
+        final String currentNamespace = NamespacedContext.GLOBAL.getNamespace();
+        namespaceService.getNamespaces()
+                .flatMapIterable(namespaces -> {
+                    if (!namespaces.contains(currentNamespace)) {
+                        namespaceService.setNamespace(currentNamespace).subscribe();
+                    }
+                    return namespaces;
+                })
+                .flatMap(serviceStatistic::statService)
+                .doOnComplete(() -> log.info("doStatService - end."))
+                .subscribe();
+
     }
 }

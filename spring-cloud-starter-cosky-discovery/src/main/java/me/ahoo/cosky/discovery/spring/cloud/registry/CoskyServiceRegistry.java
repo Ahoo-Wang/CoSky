@@ -13,10 +13,9 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.registry;
 
-import lombok.var;
-import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants;
-import me.ahoo.cosky.core.util.Futures;
 import me.ahoo.cosky.discovery.RenewInstanceService;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants;
 import org.springframework.cloud.client.serviceregistry.ServiceRegistry;
 import org.springframework.cloud.client.serviceregistry.endpoint.ServiceRegistryEndpoint;
 
@@ -45,8 +44,8 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
      */
     @Override
     public void register(CoskyRegistration registration) {
-        var instance = registration.of();
-        var succeeded = Futures.getUnChecked(serviceRegistry.register(instance), coskyRegistryProperties.getTimeout());
+        ServiceInstance instance = registration.of();
+        Boolean succeeded = serviceRegistry.register(instance).block(coskyRegistryProperties.getTimeout());
 
         if (!succeeded) {
             throw new RuntimeException("Service registration failed");
@@ -61,8 +60,8 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
      */
     @Override
     public void deregister(CoskyRegistration registration) {
-        var instance = registration.of();
-        var succeeded = Futures.getUnChecked(serviceRegistry.deregister(instance), coskyRegistryProperties.getTimeout());
+        ServiceInstance instance = registration.of();
+        Boolean succeeded = serviceRegistry.deregister(instance).block(coskyRegistryProperties.getTimeout());
 
         if (!succeeded) {
             throw new RuntimeException("Service deregister failed");
@@ -88,9 +87,11 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
     @Override
     public void setStatus(CoskyRegistration registration, String status) {
         registration.getMetadata().put(StatusConstants.INSTANCE_STATUS_KEY, status);
-        var instance = registration.of();
-        var setMetadataFuture = serviceRegistry.setMetadata(instance.getServiceId(), instance.getInstanceId(), StatusConstants.INSTANCE_STATUS_KEY, status);
-        Futures.getUnChecked(setMetadataFuture, coskyRegistryProperties.getTimeout());
+        ServiceInstance instance = registration.of();
+        serviceRegistry
+                .setMetadata(instance.getServiceId(), instance.getInstanceId(), StatusConstants.INSTANCE_STATUS_KEY, status)
+                .block(coskyRegistryProperties.getTimeout());
+
     }
 
     /**
