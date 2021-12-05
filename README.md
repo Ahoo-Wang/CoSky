@@ -340,18 +340,18 @@ RedisServiceRegistryBenchmark.renew                     thrpt          210960.32
 ```
 
 ## Comparison with others
-|  | Nacos |	Eureka |	Consul |	CoreDNS |	Zookeeper |	CoSky |	Apollo |
+|  | CoSky |	Eureka |	Consul |	CoreDNS |	Zookeeper |	Nacos |	Apollo |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | CAP | CP+AP |	AP|	CP |	CP |	CP |	CP+AP |	CP+AP |
-| Health Check |	TCP/HTTP/Client Beat |	Client Beat	| TCP/HTTP/gRPC/Cmd |	Keep Alive |	Keep Alive |	Client Beat |	Client Beat |
-| Load Balancing Strategy |	权重/metadata/Selector |	Ribbon|	Fabio	|	RoundRobin	|	RoundRobin	|	权重/RoundRobin	|	RoundRobin	|
-| Avalanche Protection |	Y |	Y|	N	|	N	|	N	|	N	|	N	|
+| Health Check |	Client Beat |	Client Beat	| TCP/HTTP/gRPC/Cmd |	Keep Alive |	Keep Alive |	TCP/HTTP/Client Beat |	Client Beat |
+| Load Balancing Strategy |	Weight/Selector |	Ribbon|	Fabio	|	RoundRobin	|	RoundRobin	|	Weight/metadata/RoundRobin	|	RoundRobin	|
+| Avalanche Protection |	N |	Y|	N	|	N	|	N	|	Y	|	N	|
 | Auto Logoff Instance |	Support |	Support|	Not Support	|	Not Support	|	Support |	Support |	Support	|
-| Access Protocol |	HTTP/DNS |	HTTP|	HTTP/DNS	|	DNS	|	TCP	|	HTTP/Redis	|	HTTP	|
+| Access Protocol |	HTTP/Redis |	HTTP|	HTTP/DNS	|	DNS	|	TCP	|	HTTP/DNS	|	HTTP	|
 | Listening Support |	Support |	Support|	Support	|	Not Support	|	Support	|	Support	|	Support	|
 | Multi-data Center |	Support |	Support|	Support	|	Not Support	|	Not Support	|	Support	|	Support	|
 | Cross Registry Synchronization |	Support |	Not Support|	Support	|	Not Support	|	Not Support	|	Support	|	Not Support	|
 | SpringCloud Integration |	Support |	Support|	Support	|	Not Support	|	Not Support	|	Support |	Support	|
 | Dubbo Integration |	Support |	Not Support|	Not Support	|	Not Support	|	Support	|	Support	|	Support	|
 | K8S Integration |	Support |	Not Support|	Support	|	Support	|	Not Support	|	Support	|	Not Support	|
-| Persistence |	MySql |		|		|		| | 	Redis |	MySql |
+| Persistence |	Redis |		|		|		| | 	MySql |	MySql |
