@@ -28,4 +28,6 @@ cosid:
     machine:
       distributor:
         type: redis
-
+simba:
+  redis:
+    enabled: true

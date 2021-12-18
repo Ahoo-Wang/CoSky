@@ -20,7 +20,6 @@ dependencies {
     api("io.lettuce:lettuce-core")
     implementation("io.netty:netty-transport-native-epoll:linux-x86_64")
     implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
-
     jmh("org.openjdk.jmh:jmh-core:${rootProject.ext.get("jmhVersion")}")
     jmh("org.openjdk.jmh:jmh-generator-annprocess:${rootProject.ext.get("jmhVersion")}")
 }

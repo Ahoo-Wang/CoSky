@@ -33,15 +33,6 @@ include(":spring-cloud-starter-cosky-discovery-ribbon")
 include(":cosky-rest-api")
 include(":cosky-mirror")
 
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-        classpath("io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0")
-    }
-}
-
 include(":cosky-service-provider")
 project(":cosky-service-provider").projectDir = file("examples/cosky-service-provider")
 

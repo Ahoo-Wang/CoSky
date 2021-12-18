@@ -17,27 +17,40 @@ import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.discovery.ServiceStatistic;
-import org.springframework.scheduling.annotation.Scheduled;
+import me.ahoo.simba.core.MutexContendServiceFactory;
+import me.ahoo.simba.schedule.AbstractScheduler;
+import me.ahoo.simba.schedule.ScheduleConfig;
+import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 
 /**
  * @author ahoo wang
  */
 @Slf4j
 @Service
-public class StatServiceJob {
+public class StatServiceScheduler extends AbstractScheduler implements SmartLifecycle {
+    public static final String STAT_MUTEX = "stat";
+
     private final NamespaceService namespaceService;
     private final ServiceStatistic serviceStatistic;
 
-    public StatServiceJob(NamespaceService namespaceService, ServiceStatistic serviceStatistic) {
+    public StatServiceScheduler(NamespaceService namespaceService, ServiceStatistic serviceStatistic, MutexContendServiceFactory contendServiceFactory) {
+        super(STAT_MUTEX, ScheduleConfig.ofDelay(Duration.ofSeconds(1), Duration.ofSeconds(10)), contendServiceFactory);
         this.namespaceService = namespaceService;
         this.serviceStatistic = serviceStatistic;
     }
 
-    @Scheduled(initialDelay = 10_000, fixedDelay = 60_000)
-    public void doStatService() {
+    @Override
+    protected String getWorker() {
+        return getClass().getSimpleName();
+    }
+
+    @Override
+    protected void work() {
         if (log.isInfoEnabled()) {
-            log.info("doStatService - start.");
+            log.info("work - start.");
         }
 
         final String currentNamespace = NamespacedContext.GLOBAL.getNamespace();
@@ -51,6 +64,5 @@ public class StatServiceJob {
                 .flatMap(serviceStatistic::statService)
                 .doOnComplete(() -> log.info("doStatService - end."))
                 .subscribe();
-
     }
 }

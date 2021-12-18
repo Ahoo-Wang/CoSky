@@ -74,6 +74,8 @@ dependencies {
     implementation("com.google.guava:guava")
     implementation("me.ahoo.cosid:cosid-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
+    implementation("me.ahoo.simba:simba-redis")
+    implementation("me.ahoo.simba:simba-spring-boot-starter")
 
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("io.jsonwebtoken:jjwt-api:${rootProject.ext.get("jjwtVersion")}")

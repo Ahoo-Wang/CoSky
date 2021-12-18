@@ -18,8 +18,9 @@
  * For more details take a look at the 'Building Java & JVM projects' chapter in the Gradle
  * User Manual available at https://docs.gradle.org/7.0/userguide/building_java_projects.html
  */
+
 plugins {
-    id("io.codearte.nexus-staging")
+    id("io.github.gradle-nexus.publish-plugin") version ("1.1.0")
 }
 
 val bomProjects = listOf(
@@ -43,15 +44,16 @@ val libraryProjects = publishProjects - bomProjects
 
 ext {
     set("lombokVersion", "1.18.20")
-    set("springBootVersion", "2.4.10")
-    set("springCloudVersion", "2020.0.3")
-    set("jmhVersion", "1.29")
+    set("springBootVersion", "2.4.13")
+    set("springCloudVersion", "2020.0.5")
+    set("jmhVersion", "1.33")
     set("guavaVersion", "30.0-jre")
     set("commonsIOVersion", "2.10.0")
     set("springfoxVersion", "3.0.0")
     set("metricsVersion", "4.2.0")
     set("jjwtVersion", "0.11.2")
-    set("cosIdVersion", "1.3.17")
+    set("cosIdVersion", "1.4.15")
+    set("simbaVersion", "0.2.5")
     set("libraryProjects", libraryProjects)
 }
 
@@ -94,8 +96,9 @@ configure(libraryProjects) {
         this.add("implementation", "org.slf4j:slf4j-api")
         this.add("testImplementation", "ch.qos.logback:logback-classic")
         this.add("testImplementation", "org.junit.jupiter:junit-jupiter-api")
+        this.add("testImplementation", "org.junit.jupiter:junit-jupiter-params")
+//        this.add("testImplementation", "org.junit-pioneer:junit-pioneer")
         this.add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine")
-        this.add("testImplementation", "io.projectreactor:reactor-test")
     }
 }
 
@@ -110,15 +113,11 @@ configure(publishProjects) {
                 url = uri(layout.buildDirectory.dir("repos"))
             }
             maven {
-                name = "sonatypeRepo"
-                url = if (version.toString().endsWith("SNAPSHOT"))
-                    uri("https://oss.sonatype.org/content/repositories/snapshots")
-                else
-                    uri("https://oss.sonatype.org/service/local/staging/deploy/maven2/")
-
+                name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/Ahoo-Wang/CoSky")
                 credentials {
-                    username = getPropertyOf("ossrhUsername")
-                    password = getPropertyOf("ossrhPassword")
+                    username = project.findProperty("gitHubPackagesUserName") as String
+                    password = project.findProperty("gitHubPackagesToken") as String
                 }
             }
         }
@@ -168,10 +167,10 @@ configure(publishProjects) {
     }
 }
 
-nexusStaging {
-    username = getPropertyOf("ossrhUsername")
-    password = getPropertyOf("ossrhPassword")
-    packageGroup = "me.ahoo"
+nexusPublishing {
+    repositories {
+        sonatype()
+    }
 }
 
 fun getPropertyOf(name: String) = project.properties[name]?.toString()
