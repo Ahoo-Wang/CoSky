@@ -22,6 +22,7 @@ import me.ahoo.simba.schedule.AbstractScheduler;
 import me.ahoo.simba.schedule.ScheduleConfig;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Service;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
 
@@ -55,6 +56,7 @@ public class StatServiceScheduler extends AbstractScheduler implements SmartLife
 
         final String currentNamespace = NamespacedContext.GLOBAL.getNamespace();
         namespaceService.getNamespaces()
+                .publishOn(Schedulers.boundedElastic())
                 .flatMapIterable(namespaces -> {
                     if (!namespaces.contains(currentNamespace)) {
                         namespaceService.setNamespace(currentNamespace).subscribe();
@@ -62,7 +64,7 @@ public class StatServiceScheduler extends AbstractScheduler implements SmartLife
                     return namespaces;
                 })
                 .flatMap(serviceStatistic::statService)
-                .doOnComplete(() -> log.info("doStatService - end."))
+                .doOnComplete(() -> log.info("work - end."))
                 .subscribe();
     }
 }

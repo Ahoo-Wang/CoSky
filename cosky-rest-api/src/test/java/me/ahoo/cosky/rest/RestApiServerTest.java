@@ -13,14 +13,12 @@
 
 package me.ahoo.cosky.rest;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 /**
  * @author ahoo wang
  */
-@Disabled
 @SpringBootTest("spring.cloud.bootstrap.enabled=true")
 class RestApiServerTest {
     @Test
