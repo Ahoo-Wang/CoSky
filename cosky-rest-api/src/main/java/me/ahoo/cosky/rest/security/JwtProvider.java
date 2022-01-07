@@ -1,5 +1,5 @@
 /*
- * Copyright [2021-2021] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -20,6 +20,7 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
+import me.ahoo.cosid.IdGenerator;
 import me.ahoo.cosid.snowflake.SnowflakeFriendlyId;
 import me.ahoo.cosky.rest.dto.user.LoginResponse;
 import me.ahoo.cosky.rest.security.user.User;
@@ -38,10 +39,10 @@ public class JwtProvider {
     private final static String ROLE_SEPARATOR = ",";
     private final SecurityProperties.Jwt jwt;
     private final Key signingKey;
-    private final SnowflakeFriendlyId idGenerator;
+    private final IdGenerator idGenerator;
     private final JwtParser jwtParser;
 
-    public JwtProvider(SecurityProperties.Jwt jwt, SnowflakeFriendlyId idGenerator) {
+    public JwtProvider(SecurityProperties.Jwt jwt, IdGenerator idGenerator) {
         this.jwt = jwt;
         this.idGenerator = idGenerator;
         final byte[] signingKeyBytes = jwt.getSigningKey().getBytes(Charsets.UTF_8);
@@ -67,7 +68,7 @@ public class JwtProvider {
     }
 
     public LoginResponse generateToken(User user) {
-        String accessTokenId = idGenerator.friendlyId().toString();
+        String accessTokenId = idGenerator.generateAsString();
         Date now = new Date();
         Date accessTokenExp = new Date(now.getTime() + jwt.getAccessTokenValidity().toMillis());
         String accessToken = Jwts.builder()
@@ -79,7 +80,7 @@ public class JwtProvider {
                 .setExpiration(accessTokenExp)
                 .compact();
 
-        String refreshTokenId = idGenerator.friendlyId().toString();
+        String refreshTokenId =  idGenerator.generateAsString();
         Date refreshTokenExp = new Date(now.getTime() + jwt.getRefreshTokenValidity().toMillis());
         String refreshToken = Jwts.builder()
                 .setId(refreshTokenId)

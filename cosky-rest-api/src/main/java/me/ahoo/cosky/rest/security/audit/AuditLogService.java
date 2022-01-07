@@ -1,5 +1,5 @@
 /*
- * Copyright [2021-2021] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,8 +16,6 @@ package me.ahoo.cosky.rest.security.audit;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
-import lombok.SneakyThrows;
-import me.ahoo.cosid.CosIdException;
 import me.ahoo.cosky.core.CoskyException;
 import me.ahoo.cosky.core.Namespaced;
 import me.ahoo.cosky.core.redis.RedisConnectionFactory;

@@ -10,6 +10,7 @@ spring:
       static-locations: file:./cosky-dashboard/dist/dashboard/
   webflux:
     static-path-pattern: /dashboard/**
+
 cosky:
   security:
     enabled: true
@@ -19,15 +20,19 @@ cosky:
       signing-key: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
       access-token-validity: 15m
       refresh-token-validity: 3H
-    enforce-init-super-user: false
+    enforce-init-super-user: ${cosky.super.init:false}
 
 cosid:
   namespace: ${spring.application.name}
   snowflake:
     enabled: true
+    share:
+      converter:
+        type: radix
     machine:
       distributor:
         type: redis
+
 simba:
   redis:
     enabled: true
