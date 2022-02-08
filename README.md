@@ -7,11 +7,15 @@ between process cache and Redis.
 
 ## Service Discovery
 
-![CoSky-Discovery](./docs/CoSky-Discovery.png)
+<p align="center">
+     <img src="./docs/CoSky-Discovery.png" alt="CoSky-Discovery"/>
+</p>
 
 ## Configuration
 
-![CoSky-Configuration](./docs/CoSky-Configuration.png)
+<p align="center">
+     <img src="./docs/CoSky-Configuration.png" alt="CoSky-Configuration"/>
+</p>
 
 ## Examples
 
@@ -175,11 +179,15 @@ spec:
 
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
-![dashboard-dashboard](./docs/dashboard-dashboard.png)
+<p align="center">
+     <img src="./docs/dashboard-dashboard.png" alt="CoSky-Dashboard"/>
+</p>
 
 ### Service dependent topology
 
-![dashboard-topology](./docs/dashboard-topology.png)
+<p align="center">
+     <img src="./docs/dashboard-topology.png" alt="CoSky-Dashboard-topology"/>
+</p>
 
 ### Role-based access control(RBAC)
 
@@ -194,51 +202,75 @@ spec:
 
 #### Role Permissions
 
-![dashboard-role](./docs/dashboard-role.png)
+<p align="center">
+     <img src="./docs/dashboard-role.png" alt="CoSky-Dashboard-role"/>
+</p>
 
 ##### Add Role
 
-![dashboard-role-add](./docs/dashboard-role-add.png)
+<p align="center">
+     <img src="./docs/dashboard-role-add.png" alt="CoSky-Dashboard-role-add"/>
+</p>
 
 #### User Management
 
-![dashboard-user](./docs/dashboard-user.png)
+<p align="center">
+     <img src="./docs/dashboard-user.png" alt="CoSky-Dashboard-user"/>
+</p>
 
 ##### Add User
 
-![dashboard-user-add](./docs/dashboard-user-add.png)
+<p align="center">
+     <img src="./docs/dashboard-user-add.png" alt="CoSky-Dashboard-user-add"/>
+</p>
 
 #### Audit Log
 
-![dashboard-audit-log](./docs/dashboard-audit-log.png)
+<p align="center">
+     <img src="./docs/dashboard-audit-log.png" alt="CoSky-Dashboard-audit-log"/>
+</p>
 
 #### Namespace
 
-![dashboard-namespace](./docs/dashboard-namespace.png)
+<p align="center">
+     <img src="./docs/dashboard-namespace.png" alt="CoSky-Dashboard-namespace"/>
+</p>
 
 #### Config
 
-![dashboard-config](./docs/dashboard-config.png)
+<p align="center">
+     <img src="./docs/dashboard-config.png" alt="CoSky-Dashboard-config"/>
+</p>
 
 ##### Edit configuration
 
-![dashboard-config-edit](./docs/dashboard-config-edit.png)
+<p align="center">
+     <img src="./docs/dashboard-config-edit.png" alt="CoSky-Dashboard-config-edit"/>
+</p>
 
 ##### Rollback configuration
 
-![dashboard-config-rollback](./docs/dashboard-config-rollback.png)
+<p align="center">
+     <img src="./docs/dashboard-config-rollback.png" alt="CoSky-Dashboard-config-rollback"/>
+</p>
 
 ##### Import configuration from Nacos
 
-![dashboard-config-import](./docs/dashboard-config-import.gif)
+<p align="center">
+     <img src="./docs/dashboard-config-import.gif" alt="CoSky-Dashboard-config-import"/>
+</p>
 
 #### Service
 
-![dashboard-service](./docs/dashboard-service.png)
+<p align="center">
+     <img src="./docs/dashboard-service.png" alt="CoSky-Dashboard-service"/>
+</p>
 
 ##### Edit Service Instance
 
-![dashboard-service-edit](./docs/dashboard-service-edit.png)
+<p align="center">
+     <img src="./docs/dashboard-service-edit.png" alt="CoSky-Dashboard-service-edit"/>
+</p>
 
 ### REST-API
 
@@ -246,7 +278,9 @@ spec:
 
 #### Namespace
 
-![rest-api-namespace](./docs/rest-api-namespace.png)
+<p align="center">
+     <img src="./docs/rest-api-namespace.png" alt="rest-api-namespace"/>
+</p>
 
 - /v1/namespaces
     - GET
@@ -260,7 +294,9 @@ spec:
 
 #### Config
 
-![rest-api-config](./docs/rest-api-config.png)
+<p align="center">
+     <img src="./docs/rest-api-config.png" alt="rest-api-config"/>
+</p>
 
 - /v1/namespaces/{namespace}/configs
     - GET
@@ -277,7 +313,9 @@ spec:
 
 #### Service
 
-![rest-api-service](./docs/rest-api-service.png)
+<p align="center">
+     <img src="./docs/rest-api-service.png" alt="rest-api-service"/>
+</p>
 
 - /v1/namespaces/{namespace}/services/
     - GET
@@ -335,9 +373,13 @@ RedisServiceRegistryBenchmark.renew                     thrpt          210960.32
 
 > CoSky-Mirror is like a mirror placed between Nacos and CoSky to build a unified service discovery platform.
 
-![CoSky-Mirror](./docs/CoSky-Mirror.png)
+<p align="center">
+     <img src="./docs/CoSky-Mirror.png" alt="CoSky-Mirror"/>
+</p>
 
-![CoSky-Mirror-Unified](./docs/CoSky-Mirror-Unified.png)
+<p align="center">
+     <img src="./docs/CoSky-Mirror-Unified.png" alt="CoSky-Mirror-Unified"/>
+</p>
 
 ## Comparison with others
 |                                | CoSky            | 	Eureka       | 	Consul           | 	CoreDNS      | 	Zookeeper    | 	Nacos                       | 	Apollo       |
