@@ -41,3 +41,4 @@ project(":cosky-service-provider-api").projectDir = file("examples/cosky-service
 
 include(":cosky-service-consumer")
 project(":cosky-service-consumer").projectDir = file("examples/cosky-service-consumer")
+

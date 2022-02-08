@@ -43,7 +43,7 @@ public class RedisConnectionFactory implements AutoCloseable {
     private final RedisConfig redisConfig;
     private final AbstractRedisClient client;
     private RedisConnection shareConnection;
-    private boolean isCluster;
+    private final boolean isCluster;
 
     public RedisConnectionFactory(ClientResources clientResources, RedisConfig redisConfig) {
         this.clientResources = clientResources;
@@ -75,9 +75,11 @@ public class RedisConnectionFactory implements AutoCloseable {
         shareConnection = getConnection();
         return shareConnection;
     }
+
     public RedisClusterReactiveCommands<String, String> getShareReactiveCommands() {
         return getShareConnection().getReactiveCommands();
     }
+
     public RedisClusterAsyncCommands<String, String> getShareAsyncCommands() {
         return getShareConnection().getAsyncCommands();
     }
