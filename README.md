@@ -5,21 +5,13 @@
 *[CoSky](https://github.com/Ahoo-Wang/CoSky)* is a lightweight, low-cost service registration, service discovery, and configuration service SDK. By using Redis in the existing infrastructure (I believe you have already deployed Redis), it doesn’t need to bring extra to the operation and maintenance deployment. Cost and burden. With the high performance of Redis, *CoSky* provides ultra-high TPS&QPS (100,000+/s [JMH Benchmark](#jmh-benchmark)). *CoSky* combines the process cache strategy + *Redis PubSub* to achieve real-time process cache refresh, with unparalleled QPS performance (70,000,000+/s [JMH Benchmark](#jmh-benchmark)) and real-time consistency
 between process cache and Redis.
 
-### Service Discovery
+## Service Discovery
 
 ![CoSky-Discovery](./docs/CoSky-Discovery.png)
 
-### Configuration
+## Configuration
 
 ![CoSky-Configuration](./docs/CoSky-Configuration.png)
-
-### CoSky-Mirror (Real-time synchronization of service instance change status)
-
-> CoSky-Mirror is like a mirror placed between Nacos and CoSky to build a unified service discovery platform.
-
-![CoSky-Mirror](./docs/CoSky-Mirror.png)
-
-![CoSky-Mirror-Unified](./docs/CoSky-Mirror-Unified.png)
 
 ## Examples
 
@@ -339,19 +331,27 @@ RedisServiceRegistryBenchmark.register                  thrpt          110664.16
 RedisServiceRegistryBenchmark.renew                     thrpt          210960.325          ops/s
 ```
 
+## CoSky-Mirror (Real-time synchronization of service instance change status)
+
+> CoSky-Mirror is like a mirror placed between Nacos and CoSky to build a unified service discovery platform.
+
+![CoSky-Mirror](./docs/CoSky-Mirror.png)
+
+![CoSky-Mirror-Unified](./docs/CoSky-Mirror-Unified.png)
+
 ## Comparison with others
-|  | CoSky |	Eureka |	Consul |	CoreDNS |	Zookeeper |	Nacos |	Apollo |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| CAP | CP+AP |	AP|	CP |	CP |	CP |	CP+AP |	CP+AP |
-| Health Check |	Client Beat |	Client Beat	| TCP/HTTP/gRPC/Cmd |	Keep Alive |	Keep Alive |	TCP/HTTP/Client Beat |	Client Beat |
-| Load Balancing Strategy |	Weight/Selector |	Ribbon|	Fabio	|	RoundRobin	|	RoundRobin	|	Weight/metadata/RoundRobin	|	RoundRobin	|
-| Avalanche Protection |	N |	Y|	N	|	N	|	N	|	Y	|	N	|
-| Auto Logoff Instance |	Support |	Support|	Not Support	|	Not Support	|	Support |	Support |	Support	|
-| Access Protocol |	HTTP/Redis |	HTTP|	HTTP/DNS	|	DNS	|	TCP	|	HTTP/DNS	|	HTTP	|
-| Listening Support |	Support |	Support|	Support	|	Not Support	|	Support	|	Support	|	Support	|
-| Multi-data Center |	Support |	Support|	Support	|	Not Support	|	Not Support	|	Support	|	Support	|
-| Cross Registry Synchronization |	Support |	Not Support|	Support	|	Not Support	|	Not Support	|	Support	|	Not Support	|
-| SpringCloud Integration |	Support |	Support|	Support	|	Not Support	|	Not Support	|	Support |	Support	|
-| Dubbo Integration |	Support |	Not Support|	Not Support	|	Not Support	|	Support	|	Support	|	Support	|
-| K8S Integration |	Support |	Not Support|	Support	|	Support	|	Not Support	|	Support	|	Not Support	|
-| Persistence |	Redis |		|		|		| | 	MySql |	MySql |
+|                                | CoSky            | 	Eureka       | 	Consul           | 	CoreDNS      | 	Zookeeper    | 	Nacos                       | 	Apollo       |
+|--------------------------------|------------------|---------------|-------------------|---------------|---------------|------------------------------|---------------|
+| CAP                            | CP+AP            | 	AP           | 	CP               | 	CP           | 	CP           | 	CP+AP                       | 	CP+AP        |
+| Health Check                   | 	Client Beat     | 	Client Beat	 | TCP/HTTP/gRPC/Cmd | 	Keep Alive   | 	Keep Alive   | 	TCP/HTTP/Client Beat        | 	Client Beat  |
+| Load Balancing Strategy        | 	Weight/Selector | 	Ribbon       | 	Fabio	           | 	RoundRobin	  | 	RoundRobin	  | 	Weight/metadata/RoundRobin	 | 	RoundRobin	  |
+| Avalanche Protection           | 	N               | 	Y            | 	N	               | 	N	           | 	N	           | 	Y	                          | 	N	           |
+| Auto Logoff Instance           | 	Support         | 	Support      | 	Not Support	     | 	Not Support	 | 	Support      | 	Support                     | 	Support	     |
+| Access Protocol                | 	HTTP/Redis      | 	HTTP         | 	HTTP/DNS	        | 	DNS	         | 	TCP	         | 	HTTP/DNS	                   | 	HTTP	        |
+| Listening Support              | 	Support         | 	Support      | 	Support	         | 	Not Support	 | 	Support	     | 	Support	                    | 	Support	     |
+| Multi-data Center              | 	Support         | 	Support      | 	Support	         | 	Not Support	 | 	Not Support	 | 	Support	                    | 	Support	     |
+| Cross Registry Synchronization | 	Support         | 	Not Support  | 	Support	         | 	Not Support	 | 	Not Support	 | 	Support	                    | 	Not Support	 |
+| SpringCloud Integration        | 	Support         | 	Support      | 	Support	         | 	Not Support	 | 	Not Support	 | 	Support                     | 	Support	     |
+| Dubbo Integration              | 	Support         | 	Not Support  | 	Not Support	     | 	Not Support	 | 	Support	     | 	Support	                    | 	Support	     |
+| K8S Integration                | 	Support         | 	Not Support  | 	Support	         | 	Support	     | 	Not Support	 | 	Support	                    | 	Not Support	 |
+| Persistence                    | 	Redis           | 		            | 		                | 		            |               | 	MySql                       | 	MySql        |
