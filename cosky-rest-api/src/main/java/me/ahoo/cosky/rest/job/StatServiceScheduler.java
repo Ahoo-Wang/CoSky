@@ -33,27 +33,27 @@ import java.time.Duration;
 @Service
 public class StatServiceScheduler extends AbstractScheduler implements SmartLifecycle {
     public static final String STAT_MUTEX = "stat";
-
+    
     private final NamespaceService namespaceService;
     private final ServiceStatistic serviceStatistic;
-
+    
     public StatServiceScheduler(NamespaceService namespaceService, ServiceStatistic serviceStatistic, MutexContendServiceFactory contendServiceFactory) {
         super(STAT_MUTEX, ScheduleConfig.ofDelay(Duration.ofSeconds(1), Duration.ofSeconds(10)), contendServiceFactory);
         this.namespaceService = namespaceService;
         this.serviceStatistic = serviceStatistic;
     }
-
+    
     @Override
     protected String getWorker() {
         return getClass().getSimpleName();
     }
-
+    
     @Override
     protected void work() {
         if (log.isInfoEnabled()) {
             log.info("work - start.");
         }
-
+        
         final String currentNamespace = NamespacedContext.GLOBAL.getNamespace();
         namespaceService.getNamespaces()
                 .publishOn(Schedulers.boundedElastic())
@@ -64,7 +64,11 @@ public class StatServiceScheduler extends AbstractScheduler implements SmartLife
                     return namespaces;
                 })
                 .flatMap(serviceStatistic::statService)
-                .doOnComplete(() -> log.info("work - end."))
+                .doOnComplete(() -> {
+                    if (log.isInfoEnabled()) {
+                        log.info("work - end.");
+                    }
+                })
                 .subscribe();
     }
 }

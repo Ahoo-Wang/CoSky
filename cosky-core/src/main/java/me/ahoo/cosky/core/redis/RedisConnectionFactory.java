@@ -63,6 +63,7 @@ public class RedisConnectionFactory implements AutoCloseable {
         return RedisClient.create(clientResources, redisConfig.getUrl());
     }
 
+    @SuppressWarnings("unchecked")
     public <T extends AbstractRedisClient> T getClient() {
         return (T) client;
     }
