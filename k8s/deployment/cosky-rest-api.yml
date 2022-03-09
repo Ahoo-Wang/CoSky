@@ -23,7 +23,7 @@ spec:
               value: redis://redis-uri:6379
             - name: TZ
               value: Asia/Shanghai
-          image: ahoowang/cosky-rest-api:1.3.16
+          image: ahoowang/cosky-rest-api:1.3.18
           livenessProbe:
             httpGet:
               port: 8080
