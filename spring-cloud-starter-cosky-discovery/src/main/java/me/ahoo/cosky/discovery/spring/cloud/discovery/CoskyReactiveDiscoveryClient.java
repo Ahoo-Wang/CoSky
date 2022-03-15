@@ -13,51 +13,39 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
-import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient;
 import reactor.core.publisher.Flux;
 
 /**
+ * Cosky Reactive Discovery Client.
+ *
  * @author ahoo wang
  */
 @Slf4j
 public class CoskyReactiveDiscoveryClient implements ReactiveDiscoveryClient {
     private final ServiceDiscovery serviceDiscovery;
-
+    
     public CoskyReactiveDiscoveryClient(ServiceDiscovery serviceDiscovery) {
         this.serviceDiscovery = serviceDiscovery;
     }
-
-    /**
-     * A human-readable description of the implementation, used in HealthIndicator.
-     *
-     * @return The description.
-     */
+    
     @Override
     public String description() {
         return "CoSky Reactive Discovery Client";
     }
-
-    /**
-     * Gets all ServiceInstances associated with a particular serviceId.
-     *
-     * @param serviceId The serviceId to query.
-     * @return A List of ServiceInstance.
-     */
+    
     @Override
     public Flux<ServiceInstance> getInstances(String serviceId) {
         return serviceDiscovery.getInstances(serviceId)
-                .flatMapIterable(list -> list)
-                .map(CoskyServiceInstance::new);
+            .map(CoskyServiceInstance::new);
     }
-
-    /**
-     * @return All known service IDs.
-     */
+    
     @Override
     public Flux<String> getServices() {
-        return serviceDiscovery.getServices().flatMapIterable(list -> list);
+        return serviceDiscovery.getServices();
     }
 }

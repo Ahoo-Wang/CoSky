@@ -14,39 +14,41 @@
 package me.ahoo.cosky.config;
 
 import me.ahoo.cosky.core.NamespacedContext;
+
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Set;
-
 /**
+ * Config Service.
+ *
  * @author ahoo wang
  */
 public interface ConfigService extends ConfigRollback {
-
-    default Mono<Set<String>> getConfigs() {
+    
+    default Flux<String> getConfigs() {
         return getConfigs(NamespacedContext.GLOBAL.getRequiredNamespace());
     }
-
-    Mono<Set<String>> getConfigs(String namespace);
-
+    
+    Flux<String> getConfigs(String namespace);
+    
     default Mono<Config> getConfig(String configId) {
         return getConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
     }
-
+    
     Mono<Config> getConfig(String namespace, String configId);
-
+    
     default Mono<Boolean> setConfig(String configId, String data) {
         return setConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId, data);
     }
-
+    
     Mono<Boolean> setConfig(String namespace, String configId, String data);
-
+    
     default Mono<Boolean> removeConfig(String configId) {
         return removeConfig(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
     }
-
+    
     Mono<Boolean> removeConfig(String namespace, String configId);
-
-
+    
+    
     Mono<Boolean> containsConfig(String namespace, String configId);
 }

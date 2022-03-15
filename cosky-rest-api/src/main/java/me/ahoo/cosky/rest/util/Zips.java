@@ -26,10 +26,12 @@ import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
 /**
+ * Zip tool.
+ *
  * @author ahoo wang
  */
 public final class Zips {
-
+    
     @SneakyThrows
     public static byte[] zip(List<ZipItem> items) {
         try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -43,11 +45,11 @@ public final class Zips {
             return byteArrayOutputStream.toByteArray();
         }
     }
-
+    
     public static List<ZipItem> unzip(byte[] zipSource) {
         return unzip(new ByteArrayInputStream(zipSource));
     }
-
+    
     @SneakyThrows
     public static List<ZipItem> unzip(InputStream zipSource) {
         List<ZipItem> items = new ArrayList<>();
@@ -70,28 +72,28 @@ public final class Zips {
             return items;
         }
     }
-
-
+    
+    
     public static class ZipItem {
         private final String name;
         private final String data;
-
+        
         public ZipItem(String name, String data) {
             this.name = name;
             this.data = data;
         }
-
+        
         public String getName() {
             return name;
         }
-
+        
         public String getData() {
             return data;
         }
-
+        
         public static ZipItem of(String name, String data) {
             return new ZipItem(name, data);
         }
     }
-
+    
 }

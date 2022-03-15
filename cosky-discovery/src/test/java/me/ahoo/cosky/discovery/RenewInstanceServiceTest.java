@@ -14,10 +14,12 @@
 package me.ahoo.cosky.discovery;
 
 import lombok.SneakyThrows;
-import lombok.var;
+
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
@@ -25,24 +27,33 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author ahoo wang
  */
-public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
+public class RenewInstanceServiceTest  extends AbstractReactiveRedisTest {
     private final static String namespace = "test_renew";
     private ServiceInstance testInstance;
     private ServiceInstance testFixedInstance;
     private RedisServiceRegistry redisServiceRegistry;
     private RenewInstanceService renewService;
-
-    @BeforeAll
-    private void init() {
-        testInstance = TestServiceInstance.TEST_INSTANCE;
-        testFixedInstance = TestServiceInstance.TEST_FIXED_INSTANCE;
-        var registryProperties = new RegistryProperties();
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        testInstance = TestServiceInstance.randomInstance();
+        testFixedInstance = TestServiceInstance.randomFixedInstance();
+        RegistryProperties registryProperties = new RegistryProperties();
         registryProperties.setInstanceTtl(15);
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        var renewProperties = new RenewProperties();
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        RenewProperties renewProperties = new RenewProperties();
         renewService = new RenewInstanceService(renewProperties, redisServiceRegistry);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        renewService.stop();
+        super.destroy();
+    }
+    
     @SneakyThrows
     @Test
     public void start() {
@@ -51,10 +62,4 @@ public class RenewInstanceServiceTest extends BaseOnRedisClientTest {
         redisServiceRegistry.register(namespace, testFixedInstance).block();
         TimeUnit.SECONDS.sleep(20);
     }
-
-    @AfterAll
-    public void stop() {
-        renewService.stop();
-    }
-
 }

@@ -13,29 +13,31 @@
 
 package me.ahoo.cosky.config.spring.cloud;
 
+import me.ahoo.cosky.config.ListenableConfigService;
 import me.ahoo.cosky.config.spring.cloud.refresh.CoskyConfigRefresher;
-import me.ahoo.cosky.config.ConfigListenable;
 import me.ahoo.cosky.spring.cloud.CoskyProperties;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * Cosky Config Auto Configuration.
  *
  * @author ahoo wang
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnCoskyConfigEnabled
 public class CoskyConfigAutoConfiguration {
-
+    
     public CoskyConfigAutoConfiguration() {
     }
-
+    
     @Bean
     @ConditionalOnMissingBean
     public CoskyConfigRefresher coskyConfigRefresher(CoskyProperties coskyProperties,
-                                                      CoskyConfigProperties configProperties,
-                                                      ConfigListenable configListenable) {
-        return new CoskyConfigRefresher(coskyProperties, configProperties, configListenable);
+                                                     CoskyConfigProperties configProperties,
+                                                     ListenableConfigService listenableConfigService) {
+        return new CoskyConfigRefresher(coskyProperties, configProperties, listenableConfigService);
     }
 }

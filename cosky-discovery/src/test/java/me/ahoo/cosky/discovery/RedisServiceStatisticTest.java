@@ -13,42 +13,54 @@
 
 package me.ahoo.cosky.discovery;
 
-import lombok.var;
-import me.ahoo.cosky.core.listener.DefaultMessageListenable;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Optional;
 
 /**
  * @author ahoo wang
  */
-public class RedisServiceStatisticTest extends BaseOnRedisClientTest {
+public class RedisServiceStatisticTest extends AbstractReactiveRedisTest {
     private final static String namespace = "test_svc_stat";
     private RedisServiceStatistic redisServiceStatistic;
-
+    
     private RedisServiceRegistry redisServiceRegistry;
-
-    @BeforeAll
-    private void init() {
-        var registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        redisServiceStatistic = new RedisServiceStatistic(redisConnection.reactive(), new DefaultMessageListenable(redisClient.connectPubSub().reactive()));
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        RegistryProperties registryProperties = new RegistryProperties();
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        redisServiceStatistic = new RedisServiceStatistic(redisTemplate, listenerContainer);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
     @Test
     void statService() {
-        var getServiceStatInstance = createRandomInstance();
-
+        ServiceInstance getServiceStatInstance = TestServiceInstance.randomInstance();
+        
         redisServiceRegistry.register(namespace, getServiceStatInstance).block();
         redisServiceStatistic.statService(namespace).block();
-
-        var stats = redisServiceStatistic.getServiceStats(namespace).block();
+    
+        List<ServiceStat> stats = redisServiceStatistic.getServiceStats(namespace).collectList().block();
         Assertions.assertTrue(stats.size() >= 1);
-        var statOptional = stats.stream().filter(serviceStat -> serviceStat.getServiceId().equals(getServiceStatInstance.getServiceId())).findFirst();
+        Optional<ServiceStat> statOptional = stats.stream().filter(serviceStat -> serviceStat.getServiceId().equals(getServiceStatInstance.getServiceId())).findFirst();
         Assertions.assertTrue(statOptional.isPresent());
-        var testStat = statOptional.get();
+        ServiceStat testStat = statOptional.get();
         Assertions.assertEquals(1, testStat.getInstanceCount());
     }
 }

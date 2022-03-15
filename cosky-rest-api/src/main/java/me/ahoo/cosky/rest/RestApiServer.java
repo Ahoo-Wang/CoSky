@@ -18,14 +18,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
+ * Rest Api Server.
+ *
  * @author ahoo wang
  */
 @EnableSwagger2
 @SpringBootApplication
 public class RestApiServer {
-
+    
     public static void main(String[] args) {
         SpringApplication.run(RestApiServer.class, args);
     }
-
+    
 }

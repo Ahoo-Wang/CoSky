@@ -14,89 +14,88 @@
 package me.ahoo.cosky.rest.security.audit;
 
 /**
+ * Audit Log.
+ *
  * @author ahoo wang
  */
 public class AuditLog {
-
+    
     /**
-     * user name
+     * user name.
      */
     private String operator;
-
+    
     private String ip;
-
+    
     /**
-     * resources
+     * resources.
      */
     private String resource;
-    /**
-     *
-     */
     private String action;
     /**
-     * 操作成功
+     * 操作成功.
      */
     private int status;
-
+    
     /**
-     * 操作消息
+     * 操作消息.
      */
     private String msg;
-
+    
     private long opTime;
-
+    
     public String getOperator() {
         return operator;
     }
-
+    
     public void setOperator(String operator) {
         this.operator = operator;
     }
-
+    
     public String getIp() {
         return ip;
     }
-
+    
     public void setIp(String ip) {
         this.ip = ip;
     }
-
+    
     public String getResource() {
         return resource;
     }
-
+    
     public void setResource(String resource) {
         this.resource = resource;
     }
-
+    
     public String getAction() {
         return action;
     }
-
+    
     public void setAction(String action) {
         this.action = action;
     }
-
+    
     public int getStatus() {
         return status;
     }
-
+    
     public void setStatus(int status) {
         this.status = status;
     }
-
+    
     public String getMsg() {
         return msg;
     }
-
+    
     public void setMsg(String msg) {
         this.msg = msg;
     }
-
+    
     public long getOpTime() {
         return opTime;
     }
-
+    
     public void setOpTime(long opTime) {
         this.opTime = opTime;
     }

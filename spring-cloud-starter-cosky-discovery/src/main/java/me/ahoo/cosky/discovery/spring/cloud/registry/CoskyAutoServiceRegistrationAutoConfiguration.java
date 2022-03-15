@@ -13,15 +13,17 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.registry;
 
-import com.google.common.base.Strings;
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
-import lombok.var;
-import me.ahoo.cosky.core.redis.RedisConnectionFactory;
-import me.ahoo.cosky.discovery.*;
+import me.ahoo.cosky.discovery.InstanceIdGenerator;
+import me.ahoo.cosky.discovery.RegistryProperties;
+import me.ahoo.cosky.discovery.RenewInstanceService;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import me.ahoo.cosky.discovery.ServiceRegistry;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoskyDiscoveryEnabled;
 import me.ahoo.cosky.discovery.spring.cloud.discovery.CoskyDiscoveryAutoConfiguration;
 import me.ahoo.cosky.spring.cloud.support.AppSupport;
+
+import com.google.common.base.Strings;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -33,8 +35,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 
 /**
+ * Cosky Auto Service Registration Auto Configuration.
+ *
  * @author ahoo wang
  */
 @Configuration(proxyBeanMethods = false)
@@ -44,78 +49,78 @@ import org.springframework.context.annotation.Primary;
 @AutoConfigureBefore({AutoServiceRegistrationAutoConfiguration.class})
 @AutoConfigureAfter({CoskyDiscoveryAutoConfiguration.class})
 public class CoskyAutoServiceRegistrationAutoConfiguration {
-
+    
     @Bean
     @ConditionalOnMissingBean
     public RegistryProperties registryProperties(
-            CoskyRegistryProperties coskyRegistryProperties) {
-        var registryProperties = new RegistryProperties();
+        CoskyRegistryProperties coskyRegistryProperties) {
+        RegistryProperties registryProperties = new RegistryProperties();
         registryProperties.setInstanceTtl(coskyRegistryProperties.getTtl());
         return registryProperties;
     }
-
+    
     @Bean
     @Primary
     public RedisServiceRegistry redisServiceRegistry(RegistryProperties registryProperties,
-                                                     RedisConnectionFactory redisConnectionFactory) {
-        return new RedisServiceRegistry(registryProperties, redisConnectionFactory.getShareReactiveCommands());
+                                                     ReactiveStringRedisTemplate redisTemplate) {
+        return new RedisServiceRegistry(registryProperties, redisTemplate);
     }
-
+    
     @Bean
     public RenewInstanceService renewInstanceService(CoskyRegistryProperties coskyRegistryProperties, RedisServiceRegistry redisServiceRegistry) {
         return new RenewInstanceService(coskyRegistryProperties.getRenew(), redisServiceRegistry);
     }
-
+    
     @Bean
     @Primary
     @ConditionalOnMissingBean(CoskyRegistration.class)
     public CoskyRegistration coskyRegistration(
-            ApplicationContext context, CoskyRegistryProperties properties) {
+        ApplicationContext context, CoskyRegistryProperties properties) {
         ServiceInstance serviceInstance = new ServiceInstance();
         serviceInstance.setMetadata(properties.getMetadata());
-
+        
         if (Strings.isNullOrEmpty(properties.getServiceId())) {
             String serviceId = AppSupport.getAppName(context.getEnvironment());
             serviceInstance.setServiceId(serviceId);
         } else {
             serviceInstance.setServiceId(properties.getServiceId());
         }
-
+        
         if (!Strings.isNullOrEmpty(properties.getSchema())) {
             serviceInstance.setSchema(properties.getSchema());
         }
-
+        
         if (!Strings.isNullOrEmpty(properties.getHost())) {
             serviceInstance.setHost(properties.getHost());
         }
-
+        
         serviceInstance.setPort(properties.getPort());
         serviceInstance.setWeight(properties.getWeight());
         serviceInstance.setEphemeral(properties.isEphemeral());
         serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance));
         return new CoskyRegistration(serviceInstance);
     }
-
+    
     @Bean
     @Primary
     public CoskyServiceRegistry coskyServiceRegistry(ServiceRegistry serviceRegistry, RenewInstanceService renewInstanceService, CoskyRegistryProperties coskyRegistryProperties) {
         return new CoskyServiceRegistry(serviceRegistry, renewInstanceService, coskyRegistryProperties);
     }
-
+    
     @Bean
     @Primary
     public CoskyAutoServiceRegistration coskyAutoServiceRegistration(
-            CoskyServiceRegistry serviceRegistry,
-            CoskyRegistration registration,
-            AutoServiceRegistrationProperties autoServiceRegistrationProperties
+        CoskyServiceRegistry serviceRegistry,
+        CoskyRegistration registration,
+        AutoServiceRegistrationProperties autoServiceRegistrationProperties
     ) {
         return new CoskyAutoServiceRegistration(serviceRegistry, registration, autoServiceRegistrationProperties);
     }
-
+    
     @Bean
     public CoskyAutoServiceRegistrationOfNoneWeb coskyAutoServiceRegistrationOfNoneWeb(
-            CoskyServiceRegistry serviceRegistry,
-            CoskyRegistration registration
+        CoskyServiceRegistry serviceRegistry,
+        CoskyRegistration registration
     ) {
         return new CoskyAutoServiceRegistrationOfNoneWeb(serviceRegistry, registration);
     }

@@ -16,10 +16,13 @@ package me.ahoo.cosky.discovery.loadbalancer;
 import com.google.common.base.Stopwatch;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
+
+import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.TestServiceInstance;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -30,21 +33,20 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @Slf4j
 class TreeWeightRandomLoadBalancerTest {
 
-
     @Test
     public void choose() {
-        var serviceId = "ServiceInstanceTree";
-        var instance1 = TestServiceInstance.createInstance(serviceId);
+        String serviceId = "ServiceInstanceTree";
+        ServiceInstance instance1 = TestServiceInstance.createInstance(serviceId);
         instance1.setWeight(2);
-        var instance2 = TestServiceInstance.createInstance(serviceId);
+        ServiceInstance instance2 = TestServiceInstance.createInstance(serviceId);
         instance2.setWeight(3);
-        var instance3 = TestServiceInstance.createInstance(serviceId);
+        ServiceInstance instance3 = TestServiceInstance.createInstance(serviceId);
         instance3.setWeight(5);
-        var instances = Arrays.asList(instance1,
-                instance2,
-                instance3);
+        List<ServiceInstance> instances = Arrays.asList(instance1,
+            instance2,
+            instance3);
         TreeWeightRandomLoadBalancer.TreeChooser treeChooser = new TreeWeightRandomLoadBalancer.TreeChooser(instances);
-        var instance = treeChooser.choose();
+        ServiceInstance instance = treeChooser.choose();
         assertNotNull(instance);
 
         int totalTimes = 1000_000_0;
@@ -53,7 +55,7 @@ class TreeWeightRandomLoadBalancerTest {
         int instance3Count = 0;
         Stopwatch stopwatch = Stopwatch.createStarted();
         for (int i = 0; i < totalTimes; i++) {
-            var randomInstance = treeChooser.choose();
+            ServiceInstance randomInstance = treeChooser.choose();
             if (randomInstance.equals(instance1)) {
                 instance1Count++;
             } else if (randomInstance.equals(instance2)) {

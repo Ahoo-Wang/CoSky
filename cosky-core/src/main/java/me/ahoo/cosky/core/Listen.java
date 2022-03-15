@@ -11,14 +11,15 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.core.listener;
+package me.ahoo.cosky.core;
 
-import javax.annotation.Nullable;
+import reactor.core.publisher.Flux;
 
 /**
+ * Listen .
+ *
  * @author ahoo wang
  */
-@FunctionalInterface
-public interface MessageListener {
-    void onMessage(@Nullable String pattern, String channel, String message);
+public interface Listen<T, R> {
+    Flux<R> listen(T topic);
 }

@@ -17,34 +17,36 @@ import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
 
 /**
+ * RedisKeys.
+ *
  * @author ahoo wang
  */
 public final class RedisKeys {
-
+    
     public static final String WRAP_LEFT = "{";
     public static final String WRAP_RIGHT = "}";
-
+    
     private RedisKeys() {
-
+    
     }
-
+    
     public static boolean isCluster(RedisClusterAsyncCommands<String, String> asyncCommands) {
         return asyncCommands instanceof RedisAdvancedClusterAsyncCommands;
     }
-
+    
     public static String ofKey(RedisClusterAsyncCommands<String, String> asyncCommands, String key) {
         return ofKey(isCluster(asyncCommands), key);
     }
-
+    
     public static String ofKey(boolean isCluster, String key) {
         if (!isCluster) {
             return key;
         }
         return hashTag(key);
     }
-
+    
     /**
-     * The first '{' index and the first '{' after '}' key
+     * The first '{' index and the first '{' after '}' key.
      * <hr>
      * {system} -&gt; system
      * <hr>
@@ -63,21 +65,21 @@ public final class RedisKeys {
         int rightIdx = key.substring(leftIndex).indexOf(WRAP_RIGHT);
         return rightIdx > -1;
     }
-
+    
     public static String wrap(String key) {
         return "{" + key + "}";
     }
-
+    
     public static String unwrap(String key) {
         if (!hasWrap(key)) {
             return key;
         }
         int leftIndex = key.indexOf(WRAP_LEFT);
         int rightIdx = key.substring(leftIndex).indexOf(WRAP_RIGHT);
-
+        
         return key.substring(leftIndex + 1, leftIndex + rightIdx);
     }
-
+    
     public static String hashTag(String key) {
         if (hasWrap(key)) {
             return key;

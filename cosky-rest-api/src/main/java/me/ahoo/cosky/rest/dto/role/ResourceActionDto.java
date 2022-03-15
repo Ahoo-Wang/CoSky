@@ -14,33 +14,35 @@
 package me.ahoo.cosky.rest.dto.role;
 
 /**
+ * Resource Action Dto.
+ *
  * @author ahoo wang
  */
 public class ResourceActionDto {
     private String namespace;
     private String action;
-
+    
     public String getNamespace() {
         return namespace;
     }
-
+    
     public void setNamespace(String namespace) {
         this.namespace = namespace;
     }
-
+    
     public String getAction() {
         return action;
     }
-
+    
     public void setAction(String action) {
         this.action = action;
     }
-
+    
     @Override
     public String toString() {
-        return "ResourceActionDto{" +
-                "namespace='" + namespace + '\'' +
-                ", action='" + action + '\'' +
-                '}';
+        return "ResourceActionDto{"
+            + "namespace='" + namespace + '\''
+            + ", action='" + action + '\''
+            + '}';
     }
 }

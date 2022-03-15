@@ -13,67 +13,63 @@
 
 package me.ahoo.cosky.config;
 
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.config.redis.RedisConfigService;
-import org.openjdk.jmh.annotations.*;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 
-import java.util.Objects;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
+
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class RedisConfigServiceBenchmark {
+public class RedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
     private final static String namespace = "ben_cfg";
     public RedisConfigService configService;
-    private RedisClient redisClient;
-    private StatefulRedisConnection<String, String> redisConnection;
-    private String configId = this.getClass().getSimpleName();
-    private String configData = "spring:\n" +
-            "  application:\n" +
-            "    name: cosky-rest-api\n" +
-            "  cloud:\n" +
-            "    cosky:\n" +
-            "      namespace: dev\n" +
-            "      config:\n" +
-            "        config-id: ${spring.application.name}.yml\n" +
-            "      redis:\n" +
-            "        mode: standalone\n" +
-            "        url: redis://localhost:6379\n";
+    private final String configId = MockIdGenerator.INSTANCE.generateAsString();
+    private final String configData = "spring:\n" +
+        "  application:\n" +
+        "    name: cosky-rest-api\n" +
+        "  cloud:\n" +
+        "    cosky:\n" +
+        "      namespace: dev\n" +
+        "      config:\n" +
+        "        config-id: ${spring.application.name}.yml\n" +
+        "      redis:\n" +
+        "        mode: standalone\n" +
+        "        url: redis://localhost:6379\n";
     private AtomicInteger atomicInteger;
-
+    
     @Setup
-    public void setup() {
+    public void afterPropertiesSet() {
         System.out.println("\n ----- RedisConfigBenchmark setup ----- \n");
-        redisClient = RedisClient.create("redis://localhost:6379");
-        redisConnection = redisClient.connect();
-        configService = new RedisConfigService(redisConnection.reactive());
-        configService.setConfig(namespace, configId, configData);
+        super.afterPropertiesSet();
+        configService = new RedisConfigService(redisTemplate);
+        configService.setConfig(namespace, configId, configData).block();
         atomicInteger = new AtomicInteger();
     }
-
+    
     @TearDown
-    public void tearDown() {
+    public void destroy() {
         System.out.println("\n ----- RedisConfigBenchmark tearDown ----- \n");
-        if (Objects.nonNull(redisConnection)) {
-            redisConnection.close();
-        }
-        if (Objects.nonNull(redisClient)) {
-            redisClient.shutdown();
-        }
+        super.destroy();
     }
-
+    
     @Benchmark
     public Boolean setConfig() {
         String randomConfigId = String.valueOf(atomicInteger.incrementAndGet());
         return configService.setConfig(namespace, randomConfigId, configData).block();
     }
-
+    
     @Benchmark
     public Config getConfig() {
         return configService.getConfig(namespace, configId).block();
     }
-
+    
 }

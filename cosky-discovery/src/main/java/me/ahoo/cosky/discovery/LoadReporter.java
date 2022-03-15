@@ -16,21 +16,21 @@ package me.ahoo.cosky.discovery;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * 实例负载上报器
+ * 实例负载上报器.
  * TODO 实时上报服务实例负载情况，用于动态负载均衡。{@link me.ahoo.cosky.discovery.loadbalancer.LoadBalancer}
  *
  * @author ahoo wang
  */
 public interface LoadReporter {
     /**
-     * 上报实例负载报告
+     * 上报实例负载报告.
      *
-     * @param report
-     * @return
+     * @param report report
+     * @return CompletableFuture
      */
     CompletableFuture<Void> report(Report report);
-
+    
     public class Report {
-
+    
     }
 }

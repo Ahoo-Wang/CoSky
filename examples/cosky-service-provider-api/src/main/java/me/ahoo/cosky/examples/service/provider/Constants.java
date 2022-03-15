@@ -14,6 +14,8 @@
 package me.ahoo.cosky.examples.service.provider;
 
 /**
+ * Constants.
+ *
  * @author ahoo wang
  */
 public final class Constants {

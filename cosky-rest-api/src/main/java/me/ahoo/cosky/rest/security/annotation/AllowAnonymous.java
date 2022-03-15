@@ -19,7 +19,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Allow anonymous access
+ * Allow anonymous access.
+ *
  * @author ahoo wang
  */
 @Target({ElementType.TYPE, ElementType.METHOD})

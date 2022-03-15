@@ -13,43 +13,46 @@
 
 package me.ahoo.cosky.discovery.loadbalancer;
 
-import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceInstance;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
+ * Binary Weight Random Load Balancer.
+ *
  * @author ahoo wang
  */
 @Slf4j
 public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryWeightRandomLoadBalancer.BinaryChooser> {
-
+    
     public BinaryWeightRandomLoadBalancer(ConsistencyRedisServiceDiscovery serviceDiscovery) {
         super(serviceDiscovery);
     }
-
+    
     @Override
     protected BinaryChooser createChooser(List<ServiceInstance> serviceInstances) {
         return new BinaryChooser(serviceInstances);
     }
-
+    
     public static class BinaryChooser implements LoadBalancer.Chooser {
-
+        
         private final List<ServiceInstance> instanceList;
         private int totalWeight;
         private int randomBound;
         private int[] weightLine;
         private final int maxLineIndex;
-
+        
         public BinaryChooser(List<ServiceInstance> instanceList) {
             this.maxLineIndex = instanceList.size() - 1;
             this.instanceList = instanceList;
             initLine(instanceList);
         }
-
+        
         private void initLine(List<ServiceInstance> instanceList) {
             weightLine = new int[instanceList.size()];
             int accWeight = ZERO;
@@ -64,6 +67,7 @@ public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryW
             this.totalWeight = accWeight;
             this.randomBound = totalWeight + ONE;
         }
+        
         @Override
         public ServiceInstance choose() {
             if (weightLine.length == ZERO) {
@@ -72,17 +76,17 @@ public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryW
                 }
                 return null;
             }
-
-
+            
+            
             if (ZERO == totalWeight) {
                 log.warn("choose - The size of connector instances is [{}],but total weight is 0!", weightLine.length);
                 return null;
             }
-
+            
             if (weightLine.length == ONE) {
                 return instanceList.get(ZERO);
             }
-
+            
             final int randomValue = ThreadLocalRandom.current().nextInt(ONE, randomBound);
             if (randomValue == ONE) {
                 return instanceList.get(ZERO);
@@ -90,11 +94,11 @@ public class BinaryWeightRandomLoadBalancer extends AbstractLoadBalancer<BinaryW
             if (randomValue == totalWeight) {
                 return instanceList.get(maxLineIndex);
             }
-
+            
             int instanceIdx = binarySearchLowIndex(randomValue);
             return instanceList.get(instanceIdx);
         }
-
+        
         private int binarySearchLowIndex(int randomValue) {
             int idx = Arrays.binarySearch(weightLine, randomValue);
             if (idx < 0) {

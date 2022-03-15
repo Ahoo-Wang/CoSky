@@ -13,12 +13,13 @@
 
 package me.ahoo.cosky.discovery;
 
-import lombok.var;
 import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.core.listener.DefaultMessageListenable;
 import me.ahoo.cosky.core.redis.RedisNamespaceService;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,29 +28,36 @@ import java.util.concurrent.ThreadLocalRandom;
 /**
  * @author ahoo wang
  */
-public class ServiceTopologyTest extends BaseOnRedisClientTest {
+public class ServiceTopologyTest extends AbstractReactiveRedisTest {
     private final static String namespace = "topology";
     private ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery;
-
-
+    
     @BeforeEach
-    private void init() {
-        RedisNamespaceService redisNamespaceService = new RedisNamespaceService(redisConnection.reactive());
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        RedisNamespaceService redisNamespaceService = new RedisNamespaceService(redisTemplate);
         redisNamespaceService.setNamespace(namespace).block();
-        var redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
-        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new DefaultMessageListenable(redisClient.connectPubSub().reactive()), redisConnection.reactive());
+        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
+        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
     @Test
     public void buildTopologyData() {
         NamespacedContext.GLOBAL.setCurrentContextNamespace(namespace);
         int serviceSize = 20;
         for (int i = 0; i < serviceSize; i++) {
             ServiceInstance currentInstance = new ServiceInstance();
-
+            
             currentInstance.setServiceId("service-" + i);
             ServiceInstanceContext.CURRENT.setServiceInstance(currentInstance);
-
+            
             for (int j = 0; j < 5; j++) {
                 int depServiceId = ThreadLocalRandom.current().nextInt(0, serviceSize);
                 if (depServiceId == i) {
@@ -57,7 +65,7 @@ public class ServiceTopologyTest extends BaseOnRedisClientTest {
                 }
                 consistencyRedisServiceDiscovery.addTopology(namespace, "service-" + depServiceId).block();
             }
-
+            
         }
     }
 }

@@ -13,14 +13,12 @@
 
 package me.ahoo.cosky.config.spring.cloud;
 
-import lombok.var;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
-import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration;
 import me.ahoo.cosky.spring.cloud.support.AppSupport;
+
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -29,8 +27,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.env.Environment;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
 
 /**
+ * Cosky Config Bootstrap Configuration.
  * {@link org.springframework.cloud.util.PropertyUtils#BOOTSTRAP_ENABLED_PROPERTY}
  *
  * @author ahoo wang
@@ -40,30 +41,29 @@ import org.springframework.core.env.Environment;
 @EnableConfigurationProperties(CoskyConfigProperties.class)
 @AutoConfigureAfter(CoskyAutoConfiguration.class)
 public class CoskyConfigBootstrapConfiguration {
-
+    
     public CoskyConfigBootstrapConfiguration(CoskyConfigProperties coskyConfigProperties, Environment environment) {
-        var configId = coskyConfigProperties.getConfigId();
+        String configId = coskyConfigProperties.getConfigId();
         if (Strings.isBlank(configId)) {
             configId = AppSupport.getAppName(environment) + "." + coskyConfigProperties.getFileExtension();
         }
         coskyConfigProperties.setConfigId(configId);
     }
-
+    
     @Bean
     @ConditionalOnMissingBean
-    public RedisConfigService redisConfigService(
-            RedisConnectionFactory redisConnectionFactory) {
-        return new RedisConfigService(redisConnectionFactory.getShareReactiveCommands());
+    public RedisConfigService redisConfigService(ReactiveStringRedisTemplate redisTemplate) {
+        return new RedisConfigService(redisTemplate);
     }
-
+    
     @Bean
     @ConditionalOnMissingBean
     @Primary
     public ConsistencyRedisConfigService consistencyRedisConfigService(
-            RedisConfigService delegate, MessageListenable messageListenable) {
-        return new ConsistencyRedisConfigService(delegate, messageListenable);
+        RedisConfigService delegate, ReactiveRedisMessageListenerContainer listenerContainer) {
+        return new ConsistencyRedisConfigService(delegate, listenerContainer);
     }
-
+    
     @Bean
     @ConditionalOnMissingBean
     public CoskyPropertySourceLocator coskyPropertySourceLocator(CoskyConfigProperties configProperties, ConfigService configService) {

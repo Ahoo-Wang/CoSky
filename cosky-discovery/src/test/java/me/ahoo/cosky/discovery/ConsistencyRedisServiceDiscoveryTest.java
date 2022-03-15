@@ -16,23 +16,31 @@ package me.ahoo.cosky.discovery;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import lombok.var;
-import me.ahoo.cosky.core.listener.DefaultMessageListenable;
+
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 /**
  * @author ahoo wang
  */
+//TODO
+@Disabled
 @Slf4j
-public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest {
+public class ConsistencyRedisServiceDiscoveryTest  extends AbstractReactiveRedisTest {
 
     private final static String namespace = "test_svc_csy";
     private ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery;
@@ -41,22 +49,28 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
     private ServiceInstance testFixedInstance;
     private RedisServiceRegistry redisServiceRegistry;
     private RegistryProperties registryProperties;
-
+    
     @BeforeEach
-    private void init() {
-        testInstance = TestServiceInstance.TEST_INSTANCE;
-        testFixedInstance = TestServiceInstance.TEST_FIXED_INSTANCE;
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        testInstance = TestServiceInstance.randomInstance();
+        testFixedInstance = TestServiceInstance.randomFixedInstance();
         registryProperties = new RegistryProperties();
         registryProperties.setInstanceTtl(30);
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        var redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
-        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new DefaultMessageListenable(redisClient.connectPubSub().reactive()), redisConnection.reactive());
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
+        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
-
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
     @Test
     public void getServices() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var serviceIds = consistencyRedisServiceDiscovery.getServices(namespace).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            List<String> serviceIds = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
             Assertions.assertNotNull(serviceIds);
             Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
         }));
@@ -64,11 +78,11 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
 
     @Test
     public void getInstances() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var instances = consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            List<ServiceInstance> instances = consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).collectList().block();
             Assertions.assertNotNull(instances);
-
-            var expectedInstance = instances.stream().findFirst().get();
+    
+            ServiceInstance expectedInstance = instances.stream().findFirst().get();
             Assertions.assertNotNull(expectedInstance);
             Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
@@ -77,8 +91,8 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
 
     @Test
     public void getInstance() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            ServiceInstance actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
             Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
         }));
@@ -86,13 +100,13 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
 
     @Test
     public void getInstanceWithCache() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).block();
-            var actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).collectList().block();
+            ServiceInstance actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
             Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
-
-            var cachedInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
+    
+            ServiceInstance cachedInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
             Assertions.assertEquals(cachedInstance, actualInstance);
         }));
     }
@@ -107,47 +121,44 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
 
     @Test
     public void getServicesListener() {
-        clearTestData(namespace);
-        var services = consistencyRedisServiceDiscovery.getServices(namespace).block();
+        List<String> services = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
         sleepForWaitNotify();
         redisServiceRegistry.register(namespace, testInstance).block();
         sleepForWaitNotify();
-        services = consistencyRedisServiceDiscovery.getServices(namespace).block();
+        services = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
         Assertions.assertEquals(1, services.size());
         redisServiceRegistry.register(namespace, testFixedInstance).block();
         sleepForWaitNotify();
-        services = consistencyRedisServiceDiscovery.getServices(namespace).block();
+        services = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
         Assertions.assertEquals(2, services.size());
     }
 
 
     @Test
     public void getInstancesListener() {
-        clearTestData(namespace);
-        var instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).block();
+        List<ServiceInstance> instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
         sleepForWaitNotify();
         redisServiceRegistry.register(namespace, testInstance).block();
         sleepForWaitNotify();
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).block();
+        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
         Assertions.assertEquals(1, instances.size());
         redisServiceRegistry.deregister(namespace, testInstance).block();
         sleepForWaitNotify();
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).block();
+        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
         Assertions.assertEquals(0, instances.size());
     }
 
     @SneakyThrows
     @Test
     public void getInstancesListenerExpire() {
-        clearTestData(namespace);
-        var instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).block();
+        List<ServiceInstance> instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
         sleepForWaitNotify();
         redisServiceRegistry.register(namespace, testInstance).block();
         sleepForWaitNotify();
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).block();
+        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
         Assertions.assertEquals(1, instances.size());
         TimeUnit.SECONDS.sleep(registryProperties.getInstanceTtl());
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).block();
+        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
         Assertions.assertEquals(0, instances.size());
     }
 
@@ -165,7 +176,7 @@ public class ConsistencyRedisServiceDiscoveryTest extends BaseOnRedisClientTest 
 
     //    @Test
     public void getServicesRepeatedAsync() {
-        var futures = new Mono[REPEATED_SIZE];
+        var futures = new Flux[REPEATED_SIZE];
         for (int i = 0; i < REPEATED_SIZE; i++) {
             futures[i] = consistencyRedisServiceDiscovery.getServices(namespace);
         }

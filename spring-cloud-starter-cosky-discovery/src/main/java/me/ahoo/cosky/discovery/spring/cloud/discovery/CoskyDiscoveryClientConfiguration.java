@@ -14,6 +14,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
 import me.ahoo.cosky.discovery.ServiceDiscovery;
+
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.AutoConfigureBefore;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -25,6 +26,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * Cosky Discovery Client Configuration.
+ *
  * @author ahoo wang
  */
 @Configuration(proxyBeanMethods = false)
@@ -34,11 +37,11 @@ import org.springframework.context.annotation.Configuration;
 @AutoConfigureBefore({CommonsClientAutoConfiguration.class, SimpleDiscoveryClientAutoConfiguration.class})
 @AutoConfigureAfter(CoskyDiscoveryAutoConfiguration.class)
 public class CoskyDiscoveryClientConfiguration {
-
+    
     @Bean
     @ConditionalOnMissingBean
     public CoskyDiscoveryClient coskyDiscoveryClient(
-            ServiceDiscovery serviceDiscovery, CoskyDiscoveryProperties coskyDiscoveryProperties) {
+        ServiceDiscovery serviceDiscovery, CoskyDiscoveryProperties coskyDiscoveryProperties) {
         return new CoskyDiscoveryClient(serviceDiscovery, coskyDiscoveryProperties);
     }
 }

@@ -16,22 +16,24 @@ package me.ahoo.cosky.core;
 import com.google.common.base.Strings;
 
 /**
+ * Namespaced Context.
+ *
  * @author ahoo wang
  */
 public interface NamespacedContext extends Namespaced {
-
+    
     /**
-     * 全局命名空间上下文
+     * 全局命名空间上下文.
      */
     NamespacedContext GLOBAL = of(CoSky.COSKY);
-
+    
     /**
-     * 设置当前上下文的命名空间
+     * 设置当前上下文的命名空间.
      *
-     * @param namespace
+     * @param namespace namespace
      */
     void setCurrentContextNamespace(String namespace);
-
+    
     default String getRequiredNamespace() {
         final String namespace = getNamespace();
         if (Strings.isNullOrEmpty(namespace)) {
@@ -39,32 +41,32 @@ public interface NamespacedContext extends Namespaced {
         }
         return namespace;
     }
-
+    
     static NamespacedContext of(String namespace) {
         return new Default(namespace);
     }
-
+    
     class Default implements NamespacedContext {
         private volatile String namespace;
-
+        
         public Default(String namespace) {
             this.namespace = namespace;
         }
-
+        
         /**
-         * 设置当前上下文的命名空间
+         * 设置当前上下文的命名空间.
          *
-         * @param namespace
+         * @param namespace namespace
          */
         @Override
         public void setCurrentContextNamespace(String namespace) {
             this.namespace = namespace;
         }
-
+        
         /**
-         * 获取当前上下文的命名空间
+         * 获取当前上下文的命名空间.
          *
-         * @return
+         * @return current namespace
          */
         @Override
         public String getNamespace() {

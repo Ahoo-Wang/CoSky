@@ -66,15 +66,18 @@ application {
 
 dependencies {
     implementation(platform(project(":cosky-dependencies")))
+    //implementation("io.netty:netty-all")
+    implementation("io.netty:netty-transport-native-epoll:linux-x86_64")
+    implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
     implementation("io.springfox:springfox-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-//    implementation("org.springframework.boot:spring-boot-starter-mail")
+    //implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
-    implementation("me.ahoo.cosid:cosid-redis")
+    implementation("me.ahoo.cosid:cosid-spring-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
-    implementation("me.ahoo.simba:simba-redis")
+    implementation("me.ahoo.simba:simba-spring-redis")
     implementation("me.ahoo.simba:simba-spring-boot-starter")
 
     implementation("org.springframework.boot:spring-boot-starter-webflux")

@@ -13,73 +13,56 @@
 
 package me.ahoo.cosky.discovery.redis;
 
-import io.lettuce.core.api.reactive.RedisScriptingReactiveCommands;
-import me.ahoo.cosky.core.redis.RedisScripts;
-import reactor.core.publisher.Mono;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.data.redis.core.script.RedisScript;
 
-
-import java.util.function.Function;
+import java.util.List;
 
 /**
+ * Discovery Redis Scripts.
+ *
  * @author ahoo wang
  */
 public final class DiscoveryRedisScripts {
-    public static final String REGISTRY_REGISTER = "registry_register.lua";
-    public static final String REGISTRY_DEREGISTER = "registry_deregister.lua";
-    public static final String REGISTRY_RENEW = "registry_renew.lua";
-    public static final String REGISTRY_SET_METADATA = "registry_set_metadata.lua";
-    public static final String REGISTRY_SET_SERVICE = "registry_set_service.lua";
-    public static final String REGISTRY_REMOVE_SERVICE = "registry_remove_service.lua";
-    public static final String DISCOVERY_GET_INSTANCES = "discovery_get_instances.lua";
-    public static final String DISCOVERY_GET_INSTANCE = "discovery_get_instance.lua";
-    public static final String DISCOVERY_GET_INSTANCE_TTL = "discovery_get_instance_ttl.lua";
-    public static final String INSTANCE_COUNT_STAT = "instance_count_stat.lua";
-    public static final String SERVICE_STAT = "service_stat.lua";
-    public static final String SERVICE_TOPOLOGY_ADD = "service_topology_add.lua";
+    
+    public static final Resource RESOURCE_REGISTRY_REGISTER = new ClassPathResource("registry_register.lua");
+    public static final RedisScript<Boolean> SCRIPT_REGISTRY_REGISTER = RedisScript.of(RESOURCE_REGISTRY_REGISTER, Boolean.class);
+    
+    public static final Resource RESOURCE_REGISTRY_DEREGISTER = new ClassPathResource("registry_deregister.lua");
+    public static final RedisScript<Boolean> SCRIPT_REGISTRY_DEREGISTER = RedisScript.of(RESOURCE_REGISTRY_DEREGISTER, Boolean.class);
+    
+    public static final Resource RESOURCE_REGISTRY_RENEW = new ClassPathResource("registry_renew.lua");
+    public static final RedisScript<Long> SCRIPT_REGISTRY_RENEW = RedisScript.of(RESOURCE_REGISTRY_RENEW, Long.class);
+    
+    public static final Resource RESOURCE_REGISTRY_SET_METADATA = new ClassPathResource("registry_set_metadata.lua");
+    public static final RedisScript<Boolean> SCRIPT_REGISTRY_SET_METADATA = RedisScript.of(RESOURCE_REGISTRY_SET_METADATA, Boolean.class);
 
-    public static <T> Mono<T> doRegistryRegister(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(REGISTRY_REGISTER, scriptingCommands, doSha);
-    }
+    public static final Resource RESOURCE_REGISTRY_SET_SERVICE = new ClassPathResource("registry_set_service.lua");
+    public static final RedisScript<Boolean> SCRIPT_REGISTRY_SET_SERVICE = RedisScript.of(RESOURCE_REGISTRY_SET_SERVICE, Boolean.class);
 
-    public static <T> Mono<T> doRegistryDeregister(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(REGISTRY_DEREGISTER, scriptingCommands, doSha);
-    }
+    public static final Resource RESOURCE_REGISTRY_REMOVE_SERVICE = new ClassPathResource("registry_remove_service.lua");
+    public static final RedisScript<Boolean> SCRIPT_REGISTRY_REMOVE_SERVICE = RedisScript.of(RESOURCE_REGISTRY_REMOVE_SERVICE, Boolean.class);
 
-    public static <T> Mono<T> doRegistryRenew(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(REGISTRY_RENEW, scriptingCommands, doSha);
-    }
+    public static final Resource RESOURCE_REGISTRY_GET_INSTANCES = new ClassPathResource("discovery_get_instances.lua");
+    public static final RedisScript<List> SCRIPT_REGISTRY_GET_INSTANCES = RedisScript.of(RESOURCE_REGISTRY_GET_INSTANCES, List.class);
 
-    public static <T> Mono<T> doRegistrySetMetadata(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(REGISTRY_SET_METADATA, scriptingCommands, doSha);
-    }
+    public static final Resource RESOURCE_REGISTRY_GET_INSTANCE = new ClassPathResource("discovery_get_instance.lua");
+    public static final RedisScript<List> SCRIPT_REGISTRY_GET_INSTANCE = RedisScript.of(RESOURCE_REGISTRY_GET_INSTANCE, List.class);
 
-    public static <T> Mono<T> doRegistrySetService(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(REGISTRY_SET_SERVICE, scriptingCommands, doSha);
-    }
+    public static final Resource RESOURCE_REGISTRY_GET_INSTANCE_TTL = new ClassPathResource("discovery_get_instance_ttl.lua");
+    public static final RedisScript<Long> SCRIPT_REGISTRY_GET_INSTANCE_TTL = RedisScript.of(RESOURCE_REGISTRY_GET_INSTANCE_TTL, Long.class);
+    
+    public static final Resource RESOURCE_INSTANCE_COUNT_STAT = new ClassPathResource("instance_count_stat.lua");
+    public static final RedisScript<Long> SCRIPT_INSTANCE_COUNT_STAT = RedisScript.of(RESOURCE_INSTANCE_COUNT_STAT, Long.class);
 
-    public static <T> Mono<T> doRegistryRemoveService(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(REGISTRY_REMOVE_SERVICE, scriptingCommands, doSha);
-    }
+    public static final Resource RESOURCE_SERVICE_STAT = new ClassPathResource("service_stat.lua");
+    public static final RedisScript<Boolean> SCRIPT_SERVICE_STAT = RedisScript.of(RESOURCE_SERVICE_STAT, Boolean.class);
+    
+    public static final Resource RESOURCE_TOPOLOGY_ADD = new ClassPathResource("service_topology_add.lua");
+    public static final RedisScript<Boolean> SCRIPT_TOPOLOGY_ADD = RedisScript.of(RESOURCE_TOPOLOGY_ADD, Boolean.class);
+    
+    public static final Resource RESOURCE_SERVICE_TOPOLOGY_GET = new ClassPathResource("service_topology_get.lua");
+    public static final RedisScript<List> SCRIPT_SERVICE_TOPOLOGY_GET = RedisScript.of(RESOURCE_SERVICE_TOPOLOGY_GET, List.class);
 
-    public static <T> Mono<T> doDiscoveryGetInstances(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(DISCOVERY_GET_INSTANCES, scriptingCommands, doSha);
-    }
-
-    public static <T> Mono<T> doDiscoveryGetInstance(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(DISCOVERY_GET_INSTANCE, scriptingCommands, doSha);
-    }
-
-    public static <T> Mono<T> doDiscoveryGetInstanceTtl(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(DISCOVERY_GET_INSTANCE_TTL, scriptingCommands, doSha);
-    }
-
-    public static <T> Mono<T> doServiceStat(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(SERVICE_STAT, scriptingCommands, doSha);
-    }
-    public static Mono<String> loadInstanceCountStat(RedisScriptingReactiveCommands<String, String> scriptingCommands) {
-        return RedisScripts.loadScript(INSTANCE_COUNT_STAT, scriptingCommands);
-    }
-    public static <T> Mono<T> doServiceTopologyAdd(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(SERVICE_TOPOLOGY_ADD, scriptingCommands, doSha);
-    }
 }

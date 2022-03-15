@@ -13,151 +13,168 @@
 
 package me.ahoo.cosky.discovery.redis;
 
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator;
+import me.ahoo.cosky.discovery.Instance;
+import me.ahoo.cosky.discovery.InstanceIdGenerator;
+import me.ahoo.cosky.discovery.ServiceChangedEvent;
+import me.ahoo.cosky.discovery.ServiceStat;
+import me.ahoo.cosky.discovery.ServiceStatistic;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.primitives.Ints;
-import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
-import me.ahoo.cosky.core.redis.RedisScripts;
-import me.ahoo.cosky.discovery.*;
-import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.core.listener.MessageListener;
+import org.springframework.data.redis.connection.ReactiveSubscription;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
+ * Redis Service Statistic.
+ *
  * @author ahoo wang
  */
 @Slf4j
 public class RedisServiceStatistic implements ServiceStatistic {
-    private final RedisClusterReactiveCommands<String, String> redisCommands;
-    private final MessageListenable messageListenable;
-    private final InstanceListener instanceListener;
+    private final ReactiveStringRedisTemplate redisTemplate;
+    private final ReactiveRedisMessageListenerContainer listenerContainer;
     private final ConcurrentHashMap<String, Object> listenedNamespaces = new ConcurrentHashMap<>();
-    private final static Object NONE = new Object();
-
+    private static final Object NONE = new Object();
+    
     public RedisServiceStatistic(
-            RedisClusterReactiveCommands<String, String> redisCommands, MessageListenable messageListenable) {
-        this.redisCommands = redisCommands;
-        this.messageListenable = messageListenable;
-        this.instanceListener = new InstanceListener();
+        ReactiveStringRedisTemplate redisTemplate, ReactiveRedisMessageListenerContainer listenerContainer) {
+        this.redisTemplate = redisTemplate;
+        this.listenerContainer = listenerContainer;
     }
-
+    
     private void startListeningServiceInstancesOfNamespace(String namespace) {
         listenedNamespaces.computeIfAbsent(namespace, ns -> {
-            var instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(namespace);
-            messageListenable.addPatternListener(instancePattern, instanceListener);
+            String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(namespace);
+            listenerContainer.receive(PatternTopic.of(instancePattern))
+                .doOnNext(this::instanceChanged).subscribe();
             return NONE;
         });
     }
-
+    
+    
+    private void instanceChanged(ReactiveSubscription.PatternMessage<String, String, String> message) {
+        if (log.isInfoEnabled()) {
+            log.info("instanceChanged - pattern:[{}] - channel:[{}] - message:[{}]", message.getPattern(), message.getChannel(), message.getMessage());
+        }
+        
+        if (ServiceChangedEvent.RENEW.equals(message.getMessage())) {
+            return;
+        }
+        
+        String instanceKey = message.getChannel();
+        String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
+        String instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
+        Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
+        String serviceId = instance.getServiceId();
+        statService0(namespace, serviceId).subscribe();
+    }
+    
     @Override
     public Mono<Void> statService(String namespace) {
         startListeningServiceInstancesOfNamespace(namespace);
         return statService0(namespace, null);
     }
-
+    
     @Override
     public Mono<Void> statService(String namespace, String serviceId) {
         return statService0(namespace, serviceId);
     }
-
+    
     private Mono<Void> statService0(String namespace, @Nullable String serviceId) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-
+        
         if (log.isInfoEnabled()) {
             log.info("statService  @ namespace:[{}].", namespace);
         }
-        String[] keys = {namespace};
         String[] values;
         if (!Strings.isNullOrEmpty(serviceId)) {
-            values = new String[]{serviceId};
+            values = new String[] {serviceId};
         } else {
-            values = new String[]{};
+            values = new String[] {};
         }
-        return DiscoveryRedisScripts.doServiceStat(redisCommands, sha ->
-                redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values).then());
+        
+        return redisTemplate.execute(
+                DiscoveryRedisScripts.SCRIPT_SERVICE_STAT,
+                Collections.singletonList(namespace),
+                Arrays.asList(values)
+            )
+            .then();
     }
-
+    
     public Mono<Long> countService(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-
-        var serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
-        return redisCommands.hlen(serviceIdxStatKey);
+        
+        String serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
+        return redisTemplate
+            .opsForHash()
+            .size(serviceIdxStatKey);
     }
-
+    
     @Override
-    public Mono<List<ServiceStat>> getServiceStats(String namespace) {
+    public Flux<ServiceStat> getServiceStats(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-
-        var serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
-        return redisCommands.hgetall(serviceIdxStatKey)
-                .map(stat -> {
-                    ServiceStat serviceStat = new ServiceStat();
-                    serviceStat.setServiceId(stat.getKey());
-                    serviceStat.setInstanceCount(Ints.tryParse(stat.getValue()));
-                    return serviceStat;
-                }).collect(Collectors.toList());
+    
+        String serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
+        return redisTemplate
+            .<String, String>opsForHash().entries(serviceIdxStatKey)
+            .map(stat -> {
+                ServiceStat serviceStat = new ServiceStat();
+                serviceStat.setServiceId(stat.getKey());
+                serviceStat.setInstanceCount(Ints.tryParse(stat.getValue()));
+                return serviceStat;
+            });
     }
-
+    
     @Override
     public Mono<Long> getInstanceCount(String namespace) {
-        return DiscoveryRedisScripts.loadInstanceCountStat(redisCommands).
-                flatMap(sha -> redisCommands.evalsha(sha, ScriptOutputType.INTEGER, namespace)
-                        .cast(Long.class)
-                        .next()
-                );
+        
+        return redisTemplate.execute(
+                DiscoveryRedisScripts.SCRIPT_INSTANCE_COUNT_STAT,
+                Collections.singletonList(namespace)
+            )
+            .next();
     }
-
-
-    public static final String SERVICE_TOPOLOGY_GET = "service_topology_get.lua";
-
+    
+    @SuppressWarnings("unchecked")
     @Override
     public Mono<Map<String, Set<String>>> getTopology(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-
-        return RedisScripts.doEnsureScript(SERVICE_TOPOLOGY_GET, redisCommands,
-                        sha -> redisCommands.evalsha(sha, ScriptOutputType.MULTI, namespace).next())
-                .map(result -> {
-                    List<List<Object>> deps = (List<List<Object>>) result;
-                    Map<String, Set<String>> topology = new HashMap<>(deps.size());
-                    String consumerName = "";
-                    for (Object dep : deps) {
-                        if (dep instanceof String) {
-                            consumerName = dep.toString();
-                        }
-                        if (dep instanceof List) {
-                            topology.put(consumerName, new HashSet<>((List<String>) dep));
-                        }
+        
+        return redisTemplate.execute(
+                DiscoveryRedisScripts.SCRIPT_SERVICE_TOPOLOGY_GET,
+                Collections.singletonList(namespace)
+            )
+            .map(result -> {
+                List<List<Object>> deps = (List<List<Object>>) result;
+                Map<String, Set<String>> topology = new HashMap<>(deps.size());
+                String consumerName = "";
+                for (Object dep : deps) {
+                    if (dep instanceof String) {
+                        consumerName = dep.toString();
                     }
-                    return topology;
-                });
-    }
-
-    private class InstanceListener implements MessageListener {
-
-        @Override
-        public void onMessage(@Nullable String pattern, String channel, String message) {
-            if (log.isInfoEnabled()) {
-                log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
-            }
-
-            if (ServiceChangedEvent.RENEW.equals(message)) {
-                return;
-            }
-
-            String instanceKey = channel;
-            String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
-            String instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
-            Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
-            String serviceId = instance.getServiceId();
-            statService0(namespace, serviceId).subscribe();
-        }
+                    if (dep instanceof List) {
+                        topology.put(consumerName, new HashSet<>((List<String>) dep));
+                    }
+                }
+                return topology;
+            })
+            .next();
     }
 }

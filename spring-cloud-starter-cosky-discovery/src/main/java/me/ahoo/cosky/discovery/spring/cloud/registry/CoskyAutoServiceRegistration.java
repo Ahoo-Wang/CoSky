@@ -16,17 +16,20 @@ package me.ahoo.cosky.discovery.spring.cloud.registry;
 import me.ahoo.cosky.discovery.InstanceIdGenerator;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.ServiceInstanceContext;
+
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration;
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties;
 
 /**
+ * Cosky Auto Service Registration.
+ *
  * @author ahoo wang
  */
 public class CoskyAutoServiceRegistration extends AbstractAutoServiceRegistration<CoskyRegistration> {
-
+    
     private final CoskyRegistration registration;
     private final AutoServiceRegistrationProperties autoServiceRegistrationProperties;
-
+    
     protected CoskyAutoServiceRegistration(CoskyServiceRegistry serviceRegistry,
                                            CoskyRegistration registration,
                                            AutoServiceRegistrationProperties autoServiceRegistrationProperties) {
@@ -34,15 +37,12 @@ public class CoskyAutoServiceRegistration extends AbstractAutoServiceRegistratio
         this.registration = registration;
         this.autoServiceRegistrationProperties = autoServiceRegistrationProperties;
     }
-
-    /**
-     * @return The object used to configure the registration.
-     */
+    
     @Override
     protected Object getConfiguration() {
         return autoServiceRegistrationProperties;
     }
-
+    
     @Override
     protected void register() {
         ServiceInstance serviceInstance = this.registration.of();
@@ -53,20 +53,17 @@ public class CoskyAutoServiceRegistration extends AbstractAutoServiceRegistratio
         ServiceInstanceContext.CURRENT.setServiceInstance(serviceInstance);
         super.register();
     }
-
-    /**
-     * @return True, if this is enabled.
-     */
+    
     @Override
     protected boolean isEnabled() {
         return autoServiceRegistrationProperties.isEnabled();
     }
-
+    
     @Override
     protected CoskyRegistration getRegistration() {
         return registration;
     }
-
+    
     @Override
     protected CoskyRegistration getManagementRegistration() {
         return null;

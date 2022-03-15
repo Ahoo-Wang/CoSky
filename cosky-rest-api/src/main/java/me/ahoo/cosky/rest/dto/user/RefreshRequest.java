@@ -14,7 +14,9 @@
 package me.ahoo.cosky.rest.dto.user;
 
 /**
+ * Refresh Request.
+ *
  * @author ahoo wang
  */
-public class RefreshRequest extends LoginResponse{
+public class RefreshRequest extends LoginResponse {
 }

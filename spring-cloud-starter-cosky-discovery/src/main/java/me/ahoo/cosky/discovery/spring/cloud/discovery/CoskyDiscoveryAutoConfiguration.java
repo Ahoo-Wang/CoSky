@@ -13,14 +13,13 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
-import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.core.redis.RedisConnectionFactory;
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer;
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
 import me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration;
+
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -28,8 +27,12 @@ import org.springframework.cloud.client.ConditionalOnDiscoveryEnabled;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
 
 /**
+ * Cosky Discovery Auto Configuration.
+ *
  * @author ahoo wang
  */
 @Configuration(proxyBeanMethods = false)
@@ -37,37 +40,36 @@ import org.springframework.context.annotation.Primary;
 @EnableConfigurationProperties({CoskyDiscoveryProperties.class})
 @AutoConfigureAfter(CoskyAutoConfiguration.class)
 public class CoskyDiscoveryAutoConfiguration {
-
+    
     @Bean
     @ConditionalOnMissingBean
-    public RedisServiceDiscovery redisServiceDiscovery(
-            RedisConnectionFactory redisConnectionFactory) {
-        return new RedisServiceDiscovery(redisConnectionFactory.getShareReactiveCommands());
+    public RedisServiceDiscovery redisServiceDiscovery(ReactiveStringRedisTemplate redisTemplate) {
+        return new RedisServiceDiscovery(redisTemplate);
     }
-
+    
     @Bean
     @ConditionalOnMissingBean
     @Primary
     public ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery(
-            RedisServiceDiscovery redisServiceDiscovery,
-            MessageListenable messageListenable,
-            RedisConnectionFactory redisConnectionFactory) {
-        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnectionFactory.getShareReactiveCommands());
+        RedisServiceDiscovery redisServiceDiscovery,
+        ReactiveStringRedisTemplate redisTemplate,
+        ReactiveRedisMessageListenerContainer listenerContainer) {
+        return new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
-
+    
     @Bean
     @ConditionalOnMissingBean
     public RedisServiceStatistic redisServiceStatistic(
-            RedisConnectionFactory redisConnectionFactory,
-            MessageListenable messageListenable) {
-        return new RedisServiceStatistic(redisConnectionFactory.getShareReactiveCommands(), messageListenable);
+        ReactiveStringRedisTemplate redisTemplate,
+        ReactiveRedisMessageListenerContainer listenerContainer) {
+        return new RedisServiceStatistic(redisTemplate, listenerContainer);
     }
-
-
+    
+    
     @Bean
     @ConditionalOnMissingBean
     public LoadBalancer coskyLoadBalancer(
-            ConsistencyRedisServiceDiscovery serviceDiscovery) {
+        ConsistencyRedisServiceDiscovery serviceDiscovery) {
         return new BinaryWeightRandomLoadBalancer(serviceDiscovery);
     }
 }

@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Role 1:n ResourceAction
+ * Role 1:n ResourceAction.
  *
  * @author ahoo wang
  */
@@ -27,41 +27,41 @@ public class Role {
     public static final String ADMIN_ROLE = "admin";
     public static final String ADMIN_ROLE_DESC = "System reserved role,Have the highest level of authority!";
     public static final Role ADMIN;
-
+    
     static {
         ADMIN = new Role();
         ADMIN.setRoleName(ADMIN_ROLE);
         ADMIN.setDesc(ADMIN_ROLE_DESC);
     }
-
+    
     private String roleName;
     private String desc;
     private Map<String, ResourceAction> resourceActionBind = new HashMap<>();
-
+    
     public String getRoleName() {
         return roleName;
     }
-
+    
     public void setRoleName(String roleName) {
         this.roleName = roleName;
     }
-
+    
     public String getDesc() {
         return desc;
     }
-
+    
     public void setDesc(String desc) {
         this.desc = desc;
     }
-
+    
     public Map<String, ResourceAction> getResourceActionBind() {
         return resourceActionBind;
     }
-
+    
     public void setResourceActionBind(Map<String, ResourceAction> resourceActionBind) {
         this.resourceActionBind = resourceActionBind;
     }
-
+    
     public boolean check(ResourceAction requestAction) {
         ResourceAction resourceAction = resourceActionBind.get(requestAction.getNamespace());
         if (resourceAction == null) {
@@ -69,15 +69,19 @@ public class Role {
         }
         return resourceAction.check(requestAction);
     }
-
+    
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Role)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof Role)) {
+            return false;
+        }
         Role role = (Role) o;
         return Objects.equal(roleName, role.roleName);
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hashCode(roleName);

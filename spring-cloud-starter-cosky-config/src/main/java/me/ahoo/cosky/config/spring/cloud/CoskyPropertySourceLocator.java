@@ -13,15 +13,15 @@
 
 package me.ahoo.cosky.config.spring.cloud;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.config.Config;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.CoSky;
 import me.ahoo.cosky.core.NamespacedContext;
+
+import com.google.common.base.Charsets;
+import com.google.common.io.Files;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.logging.log4j.util.Strings;
 import org.springframework.boot.env.OriginTrackedMapPropertySource;
 import org.springframework.boot.env.PropertySourceLoader;
@@ -32,9 +32,16 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.support.SpringFactoriesLoader;
 import org.springframework.util.CollectionUtils;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
+ * Cosky Property Source Locator.
+ *
  * @author ahoo wang
  */
 @Slf4j
@@ -42,61 +49,51 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
     private final List<PropertySourceLoader> propertySourceLoaders;
     private final ConfigService configService;
     private final CoskyConfigProperties configProperties;
-
+    
     public CoskyPropertySourceLocator(CoskyConfigProperties configProperties, ConfigService configService) {
         this.configService = configService;
         this.configProperties = configProperties;
         propertySourceLoaders = SpringFactoriesLoader
-                .loadFactories(PropertySourceLoader.class, CoskyPropertySourceLocator.class.getClassLoader());
+            .loadFactories(PropertySourceLoader.class, CoskyPropertySourceLocator.class.getClassLoader());
     }
-
-    /**
-     * @param environment The current Environment.
-     * @return A PropertySource, or null if there is none.
-     * @throws IllegalStateException if there is a fail-fast condition.
-     */
+    
     @Override
     public PropertySource<?> locate(Environment environment) {
-        var configId = configProperties.getConfigId();
-
-        var fileExt = Files.getFileExtension(configId);
+        String configId = configProperties.getConfigId();
+        
+        String fileExt = Files.getFileExtension(configId);
         if (Strings.isBlank(fileExt)) {
             fileExt = configProperties.getFileExtension();
         }
-        var namespace = NamespacedContext.GLOBAL.getNamespace();
-
+        String namespace = NamespacedContext.GLOBAL.getNamespace();
+        
         log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
-
-        var config = configService.getConfig(configId).block(configProperties.getTimeout());
-
+        
+        Config config = configService.getConfig(configId).block(configProperties.getTimeout());
+        
         if (Objects.isNull(config)) {
             log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);
             return new OriginTrackedMapPropertySource(getNameOfConfigId(configId), Collections.emptyMap());
         }
-
-        var sourceLoader = ensureSourceLoader(fileExt);
-        var coskyPropertySource = getCoSkyPropertySourceOfConfig(sourceLoader, config);
+        
+        PropertySourceLoader sourceLoader = ensureSourceLoader(fileExt);
+        OriginTrackedMapPropertySource coskyPropertySource = getCoSkyPropertySourceOfConfig(sourceLoader, config);
         return coskyPropertySource;
     }
-
+    
     public PropertySourceLoader ensureSourceLoader(String fileExtension) {
-        var sourceLoaderOptional = propertySourceLoaders
-                .stream()
-                .filter(propertySourceLoader ->
-                        Arrays.stream(propertySourceLoader.getFileExtensions())
-                                .anyMatch(fileExt -> fileExt.equals(fileExtension)))
-                .findFirst();
+        Optional<PropertySourceLoader> sourceLoaderOptional = propertySourceLoaders
+            .stream()
+            .filter(propertySourceLoader ->
+                Arrays.stream(propertySourceLoader.getFileExtensions())
+                    .anyMatch(fileExt -> fileExt.equals(fileExtension)))
+            .findFirst();
         if (!sourceLoaderOptional.isPresent()) {
             throw new IllegalArgumentException(String.format("can not find fileExtension:[%s] PropertySourceLoader.", fileExtension));
         }
         return sourceLoaderOptional.get();
     }
-
-    /**
-     * @param sourceLoader
-     * @param config
-     * @return
-     */
+    
     @SneakyThrows
     public OriginTrackedMapPropertySource getCoSkyPropertySourceOfConfig(PropertySourceLoader sourceLoader, Config config) {
         ByteArrayResource byteArrayResource = new ByteArrayResource(config.getData().getBytes(Charsets.UTF_8));
@@ -104,12 +101,12 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
         Map<String, Object> source = getMapSource(config.getConfigId(), propertySourceList);
         return new OriginTrackedMapPropertySource(getNameOfConfigId(config.getConfigId()), source);
     }
-
+    
     private Map<String, Object> getMapSource(String configId, List<PropertySource<?>> propertySourceList) {
         if (CollectionUtils.isEmpty(propertySourceList)) {
             return Collections.emptyMap();
         }
-
+        
         if (propertySourceList.size() == 1) {
             PropertySource propertySource = propertySourceList.get(0);
             if (propertySource != null && propertySource.getSource() instanceof Map) {
@@ -117,11 +114,11 @@ public class CoskyPropertySourceLocator implements PropertySourceLocator {
             }
         }
         return Collections.singletonMap(
-                getNameOfConfigId(configId),
-                propertySourceList);
+            getNameOfConfigId(configId),
+            propertySourceList);
     }
-
-
+    
+    
     public static String getNameOfConfigId(String configId) {
         return CoSky.COSKY + ":" + configId;
     }

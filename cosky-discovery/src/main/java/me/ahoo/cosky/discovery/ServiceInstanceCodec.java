@@ -13,7 +13,6 @@
 
 package me.ahoo.cosky.discovery;
 
-
 import lombok.var;
 
 import java.util.HashMap;
@@ -21,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Service Instance Codec.
+ *
  * @author ahoo wang
  */
 public final class ServiceInstanceCodec {
@@ -36,10 +37,10 @@ public final class ServiceInstanceCodec {
     private static final String WEIGHT = "weight";
     private static final String EPHEMERAL = "ephemeral";
     private static final String TTL_AT = "ttl_at";
-
+    
     @Deprecated
     public static Map<String, String> encode(ServiceInstance serviceInstance) {
-        var serviceInstanceData = new HashMap<String, String>();
+        HashMap<String, String> serviceInstanceData = new HashMap<>();
         serviceInstanceData.put(INSTANCE_ID, serviceInstance.getInstanceId());
         serviceInstanceData.put(SERVICE_ID, serviceInstance.getServiceId());
         serviceInstanceData.put(SCHEMA, serviceInstance.getSchema());
@@ -48,31 +49,31 @@ public final class ServiceInstanceCodec {
         serviceInstanceData.put(WEIGHT, String.valueOf(serviceInstance.getWeight()));
         serviceInstanceData.put(EPHEMERAL, String.valueOf(serviceInstance.isEphemeral()));
         serviceInstance.getMetadata().forEach((key, value) -> {
-            var metadataKey = METADATA_PREFIX + key;
+            String metadataKey = METADATA_PREFIX + key;
             serviceInstanceData.put(metadataKey, value);
         });
         return serviceInstanceData;
     }
-
+    
     public static String[] encodeMetadata(String[] preArgs, Map<String, String> instanceMetadata) {
         if (instanceMetadata.isEmpty()) {
             return preArgs;
         }
         String[] values = new String[preArgs.length + instanceMetadata.size() * 2];
         System.arraycopy(preArgs, 0, values, 0, preArgs.length);
-        var valueIdx = preArgs.length - 1;
-        for (Map.Entry<String, String> metadataKV : instanceMetadata.entrySet()) {
-            values[++valueIdx] = METADATA_PREFIX + metadataKV.getKey();
-            values[++valueIdx] = metadataKV.getValue();
+        int valueIdx = preArgs.length - 1;
+        for (Map.Entry<String, String> metadataKv : instanceMetadata.entrySet()) {
+            values[++valueIdx] = METADATA_PREFIX + metadataKv.getKey();
+            values[++valueIdx] = metadataKv.getValue();
         }
         return values;
     }
-
+    
     public static ServiceInstance decode(List<String> instanceData) {
         ServiceInstance serviceInstance = new ServiceInstance();
         for (int i = 0; i < instanceData.size(); i = i + 2) {
-            var key = instanceData.get(i);
-            var value = instanceData.get(i + 1);
+            String key = instanceData.get(i);
+            String value = instanceData.get(i + 1);
             switch (key) {
                 case INSTANCE_ID: {
                     serviceInstance.setInstanceId(value);
@@ -111,7 +112,7 @@ public final class ServiceInstanceCodec {
                         break;
                     }
                     if (key.startsWith(METADATA_PREFIX)) {
-                        var metadataKey = key.substring(METADATA_PREFIX_LENGTH);
+                        String metadataKey = key.substring(METADATA_PREFIX_LENGTH);
                         serviceInstance.getMetadata().put(metadataKey, value);
                     }
                     break;
@@ -120,7 +121,7 @@ public final class ServiceInstanceCodec {
         }
         return serviceInstance;
     }
-
+    
     @Deprecated
     public static ServiceInstance decode(Map<String, String> instanceData) {
         ServiceInstance serviceInstance = new ServiceInstance();
@@ -136,11 +137,11 @@ public final class ServiceInstanceCodec {
         }
         instanceData.forEach((key, value) -> {
             if (key.startsWith(METADATA_PREFIX)) {
-                var metadataKey = key.substring(METADATA_PREFIX_LENGTH);
+                String metadataKey = key.substring(METADATA_PREFIX_LENGTH);
                 serviceInstance.getMetadata().put(metadataKey, value);
             }
         });
         return serviceInstance;
     }
-
+    
 }

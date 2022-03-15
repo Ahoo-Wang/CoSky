@@ -14,16 +14,18 @@
 package me.ahoo.cosky.rest.dto.user;
 
 /**
+ * Login Request.
+ *
  * @author ahoo wang
  */
 public class LoginRequest {
-
+    
     private String password;
-
+    
     public String getPassword() {
         return password;
     }
-
+    
     public void setPassword(String password) {
         this.password = password;
     }

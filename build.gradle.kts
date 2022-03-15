@@ -36,16 +36,16 @@ val libraryProjects = publishProjects - bomProjects
 
 ext {
     set("lombokVersion", "1.18.20")
-    set("springBootVersion", "2.4.13")
-    set("springCloudVersion", "2020.0.5")
+    set("springBootVersion", "2.6.4")
+    set("springCloudVersion", "2021.0.1")
     set("jmhVersion", "1.33")
     set("guavaVersion", "30.0-jre")
     set("commonsIOVersion", "2.10.0")
     set("springfoxVersion", "3.0.0")
     set("metricsVersion", "4.2.0")
     set("jjwtVersion", "0.11.2")
-    set("cosIdVersion", "1.8.9")
-    set("simbaVersion", "0.2.6")
+    set("cosIdVersion", "1.8.11")
+    set("simbaVersion", "0.3.0")
     set("libraryProjects", libraryProjects)
 }
 
@@ -108,8 +108,10 @@ configure(publishProjects) {
                 name = "GitHubPackages"
                 url = uri("https://maven.pkg.github.com/Ahoo-Wang/CoSky")
                 credentials {
-                    username = project.findProperty("gitHubPackagesUserName") as String? ?: System.getenv("GITHUB_PACKAGES_USERNAME")
-                    password = project.findProperty("gitHubPackagesToken") as String? ?: System.getenv("GITHUB_PACKAGES_TOKEN")
+                    username = project.findProperty("gitHubPackagesUserName") as String?
+                        ?: System.getenv("GITHUB_PACKAGES_USERNAME")
+                    password =
+                        project.findProperty("gitHubPackagesToken") as String? ?: System.getenv("GITHUB_PACKAGES_TOKEN")
                 }
             }
         }

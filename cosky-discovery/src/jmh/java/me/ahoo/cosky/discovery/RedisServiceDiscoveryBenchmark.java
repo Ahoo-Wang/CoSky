@@ -13,56 +13,49 @@
 
 package me.ahoo.cosky.discovery;
 
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
-import org.openjdk.jmh.annotations.*;
+
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class RedisServiceDiscoveryBenchmark {
+public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
     private final static String namespace = "benchmark_svc_dvy";
     public ServiceDiscovery serviceDiscovery;
-    private RedisClient redisClient;
-    private StatefulRedisConnection<String, String> redisConnection;
-
+    
     @Setup
-    public void setup() {
-        System.out.println("\n ----- RedisServiceDiscoveryBenchmark setup ----- \n");
-        redisClient = RedisClient.create("redis://localhost:6379");
-        redisConnection = redisClient.connect();
-
+    public void afterPropertiesSet() {
+        System.out.println("\n ----- RedisServiceDiscoveryBenchmark afterPropertiesSet ----- \n");
+        super.afterPropertiesSet();
         RegistryProperties registryProperties = new RegistryProperties();
-        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
-        serviceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
+        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        serviceRegistry.register(TestServiceInstance.randomInstance()).block();
+        serviceDiscovery = new RedisServiceDiscovery(redisTemplate);
     }
-
+    
     @TearDown
     public void tearDown() {
-        System.out.println("\n ----- RedisServiceDiscoveryBenchmark tearDown ----- \n");
-        if (Objects.nonNull(redisConnection)) {
-            redisConnection.close();
-        }
-        if (Objects.nonNull(redisClient)) {
-            redisClient.shutdown();
-        }
+        System.out.println("\n ----- RedisServiceDiscoveryBenchmark destroy ----- \n");
+        super.destroy();
     }
-
+    
     @Benchmark
     public List<String> getServices() {
-        return serviceDiscovery.getServices(namespace).block();
+        return serviceDiscovery.getServices(namespace).collectList().block();
     }
-
+    
     @Benchmark
     public List<ServiceInstance> getInstances() {
-        return serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).block();
+        return serviceDiscovery.getInstances(namespace, TestServiceInstance.randomInstance().getServiceId()).collectList().block();
     }
 }

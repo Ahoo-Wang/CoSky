@@ -13,120 +13,135 @@
 
 package me.ahoo.cosky.discovery.redis;
 
-import com.google.common.annotations.VisibleForTesting;
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator;
+import me.ahoo.cosky.discovery.Instance;
+import me.ahoo.cosky.discovery.InstanceIdGenerator;
+import me.ahoo.cosky.discovery.ListenableServiceDiscovery;
+import me.ahoo.cosky.discovery.NamespacedServiceId;
+import me.ahoo.cosky.discovery.ServiceChangedEvent;
+import me.ahoo.cosky.discovery.ServiceDiscovery;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import me.ahoo.cosky.discovery.ServiceInstanceContext;
+import me.ahoo.cosky.discovery.ServiceTopology;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import lombok.extern.slf4j.Slf4j;
-import me.ahoo.cosky.core.listener.*;
-import me.ahoo.cosky.discovery.*;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.PatternTopic;
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.SignalType;
 
 import javax.annotation.Nullable;
-import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 /**
+ * Consistency Redis Service Discovery.
+ *
  * @author ahoo wang
  */
 @Slf4j
-public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, ServiceListenable, ServiceTopology {
-
+public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscovery, ServiceTopology {
+    
     private final ServiceDiscovery delegate;
-    private final MessageListenable messageListenable;
-    private final RedisClusterReactiveCommands<String, String> redisCommands;
-    private final ServiceIdxListener serviceIdxListener;
-    private final InstanceListener instanceListener;
-
-    private final ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArrayList<ServiceInstance>>> serviceMapInstances;
-    private final ConcurrentHashMap<NamespacedServiceId, CopyOnWriteArraySet<ServiceChangedListener>> serviceMapListener;
-    private final ConcurrentHashMap<String, Mono<List<String>>> namespaceMapServices;
-
-    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate
-            , MessageListenable messageListenable
-            , RedisClusterReactiveCommands<String, String> redisCommands) {
-        this.redisCommands = redisCommands;
+    private final ReactiveStringRedisTemplate redisTemplate;
+    private final ReactiveRedisMessageListenerContainer listenerContainer;
+    
+    private final ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>> serviceMapInstances;
+    private final ConcurrentHashMap<String, Flux<String>> namespaceMapServices;
+    
+    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate,
+                                            ReactiveStringRedisTemplate redisTemplate,
+                                            ReactiveRedisMessageListenerContainer listenerContainer) {
+        this.redisTemplate = redisTemplate;
         this.serviceMapInstances = new ConcurrentHashMap<>();
         this.namespaceMapServices = new ConcurrentHashMap<>();
-        this.serviceMapListener = new ConcurrentHashMap<>();
         this.delegate = delegate;
-        this.messageListenable = messageListenable;
-        this.serviceIdxListener = new ServiceIdxListener();
-        this.instanceListener = new InstanceListener();
+        this.listenerContainer = listenerContainer;
     }
-
+    
     @Override
-    public Mono<List<String>> getServices(String namespace) {
+    public Flux<ServiceChangedEvent> listen(NamespacedServiceId topic) {
+        String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(topic.getNamespace(), topic.getServiceId());
+        return listenerContainer.receive(PatternTopic.of(instancePattern))
+            .map(message -> {
+                String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(message.getChannel());
+                String instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, message.getChannel());
+                Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
+                String serviceId = instance.getServiceId();
+                NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
+                return new ServiceChangedEvent(namespacedServiceId, ServiceChangedEvent.Event.of(message.getMessage()), instance);
+            })
+            .doOnComplete(() -> {
+                addTopology(topic.getNamespace(), topic.getServiceId()).subscribe();
+            });
+    }
+    
+    @Override
+    public Flux<String> getServices(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        return namespaceMapServices.computeIfAbsent(namespace, (_namespace) -> {
-            String serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
-            messageListenable.addChannelListener(serviceIdxKey, serviceIdxListener);
-            return delegate.getServices(namespace).cache();
-        });
+        return namespaceMapServices.computeIfAbsent(namespace, (np) -> listenServiceAndGetCache(namespace));
     }
-
+    
+    private Flux<String> listenServiceAndGetCache(String namespace) {
+        String serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
+        listenerContainer.receive(ChannelTopic.of(serviceIdxKey))
+            .doOnNext(message -> namespaceMapServices.put(namespace, delegate.getServices(namespace).cache()))
+            .subscribe();
+        return delegate.getServices(namespace).cache();
+    }
+    
     @Override
-    public Mono<List<ServiceInstance>> getInstances(String namespace, String serviceId) {
+    public Flux<ServiceInstance> getInstances(String namespace, String serviceId) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
-
-        return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId), (_serviceId) ->
-                        addListener(namespace, serviceId).
-                                then(delegate.getInstances(namespace, serviceId))
-                                .map(CopyOnWriteArrayList::new)
-                                .cache()
-                )
-                .map(serviceInstances -> serviceInstances.stream()
-                        .filter(instance -> !instance.isExpired())
-                        .collect(Collectors.toList()));
+        
+        return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId),
+                (svcId) -> {
+                    listen(svcId)
+                        .doOnNext(this::onInstanceChanged)
+                        .subscribe();
+                    return delegate.getInstances(namespace, serviceId)
+                        .collectList()
+                        .map(CopyOnWriteArraySet::new)
+                        .cache();
+                }
+            )
+            .flatMapIterable(serviceInstances -> serviceInstances)
+            .filter(instance -> !instance.isExpired());
     }
-
+    
     public Mono<ServiceInstance> getInstance0(String namespace, String serviceId, String instanceId) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(instanceId), "instanceId can not be empty!");
-
+        
         NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
-
-        Mono<CopyOnWriteArrayList<ServiceInstance>> instancesMono = serviceMapInstances.get(namespacedServiceId);
-
-        if (Objects.isNull(instancesMono)) {
-            return delegate.getInstance(namespace, serviceId, instanceId);
-        }
-
-        return instancesMono.mapNotNull(serviceInstances -> serviceInstances
-                .stream()
-                .filter(itc -> itc.getInstanceId().equals(instanceId))
-                .findFirst()
-                .orElse(null)
-        );
+        
+        return serviceMapInstances.get(namespacedServiceId)
+            .flatMapIterable(serviceInstances -> serviceInstances)
+            .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
+            .filter(itc -> itc.getInstanceId().equals(instanceId))
+            .next();
     }
-
+    
     @Override
     public Mono<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId) {
         return getInstance0(namespace, serviceId, instanceId);
     }
-
+    
     @Override
     public Mono<Long> getInstanceTtl(String namespace, String serviceId, String instanceId) {
         return getInstance0(namespace, serviceId, instanceId)
-                .map(ServiceInstance::getTtlAt);
+            .map(ServiceInstance::getTtlAt);
     }
-
-    @VisibleForTesting
-    public Mono<Void> addListener(String namespace, String serviceId) {
-        String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
-        messageListenable.addPatternListener(instancePattern, instanceListener);
-        return addTopology(namespace, serviceId);
-    }
-
+    
     @Override
     public Mono<Void> addTopology(String producerNamespace, String producerServiceId) {
         final String consumerNamespace = ServiceInstanceContext.CURRENT.getNamespace();
@@ -135,149 +150,103 @@ public class ConsistencyRedisServiceDiscovery implements ServiceDiscovery, Servi
         if (Objects.equals(consumerName, producerName)) {
             return Mono.empty();
         }
-        return DiscoveryRedisScripts.doServiceTopologyAdd(redisCommands, (sha) -> {
-            String[] keys = {consumerNamespace};
-            String[] values = {consumerName, producerName};
-            return redisCommands.evalsha(sha, ScriptOutputType.STATUS, keys, values).then();
-        });
+        
+        return redisTemplate.execute(
+                DiscoveryRedisScripts.SCRIPT_TOPOLOGY_ADD,
+                Collections.singletonList(consumerNamespace),
+                Arrays.asList(consumerName, producerName)
+            )
+            .then();
     }
-
-    @Override
-    public void addListener(NamespacedServiceId namespacedServiceId, ServiceChangedListener serviceChangedListener) {
-        serviceMapListener.compute(namespacedServiceId, (key, val) -> {
-            CopyOnWriteArraySet<ServiceChangedListener> listeners = val;
-            if (Objects.isNull(val)) {
-                addListener(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId()).subscribe();
-                listeners = new CopyOnWriteArraySet<>();
-            }
-            listeners.add(serviceChangedListener);
-            return listeners;
-        });
-    }
-
-    @Override
-    public void removeListener(NamespacedServiceId namespacedServiceId, ServiceChangedListener serviceChangedListener) {
-        serviceMapListener.compute(namespacedServiceId, (key, val) -> {
-            if (Objects.isNull(val)) {
-                return null;
-            }
-            CopyOnWriteArraySet<ServiceChangedListener> listeners = val;
-            listeners.remove(serviceChangedListener);
-            return listeners;
-        });
-    }
-
-    @VisibleForTesting
-    public void removeListener(String namespace, String serviceId) {
-        String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfService(namespace, serviceId);
-        messageListenable.removePatternListener(instancePattern, instanceListener);
-    }
-
-    private class ServiceIdxListener implements MessageListener {
-
-        @Override
-        public void onMessage(@Nullable String pattern, String channel, String message) {
-            if (log.isInfoEnabled()) {
-                log.info("onMessage@ServiceIdxListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
-            }
-            String serviceIdxKey = channel;
-            String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
-            namespaceMapServices.put(namespace, delegate.getServices(namespace).cache());
+    
+    private void onServiceChanged(@Nullable String pattern, String channel, String message) {
+        if (log.isInfoEnabled()) {
+            log.info("onServiceChanged - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
         }
+        String serviceIdxKey = channel;
+        String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
+        namespaceMapServices.put(namespace, delegate.getServices(namespace).cache());
     }
-
-    private class InstanceListener implements MessageListener {
-
-
-        @Override
-        public void onMessage(@Nullable String pattern, String channel, String message) {
+    
+    
+    private void onInstanceChanged(ServiceChangedEvent serviceChangedEvent) {
+        if (log.isInfoEnabled()) {
+            log.info("onInstanceChanged - instance:[{}] - message:[{}]", serviceChangedEvent.getInstance(), serviceChangedEvent.getEvent());
+        }
+        
+        NamespacedServiceId namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
+        String instanceId = serviceChangedEvent.getInstance().getInstanceId();
+        Instance instance = serviceChangedEvent.getInstance();
+        String namespace = namespacedServiceId.getNamespace();
+        String serviceId = namespacedServiceId.getServiceId();
+        
+        Mono<CopyOnWriteArraySet<ServiceInstance>> instancesMono = serviceMapInstances.get(namespacedServiceId);
+        
+        if (Objects.isNull(instancesMono)) {
             if (log.isInfoEnabled()) {
-                log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
+                log.info("onInstanceChanged - instance:[{}] - event:[{}] instancesMono is null.", instance, serviceChangedEvent.getEvent());
             }
-
-            final String instanceKey = channel;
-            String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(instanceKey);
-            String instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, instanceKey);
-            Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
-            String serviceId = instance.getServiceId();
-
-            NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
-            AtomicReference<ServiceChangedEvent> serviceChangedEvent = new AtomicReference<>(ServiceChangedEvent.of(namespacedServiceId, message, instance));
-            CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners = serviceMapListener.get(namespacedServiceId);
-
-            Mono<CopyOnWriteArrayList<ServiceInstance>> instancesMono = serviceMapInstances.get(namespacedServiceId);
-
-            if (Objects.isNull(instancesMono)) {
-                if (log.isInfoEnabled()) {
-                    log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] instancesMono is null.", pattern, channel, message);
-                }
-                invokeChanged(serviceChangedEvent.get(), serviceChangedListeners);
-                return;
-            }
-
-            instancesMono.flatMap(cachedInstances -> {
-                ServiceInstance cachedInstance = cachedInstances.stream()
-                        .filter(itc -> itc.getInstanceId().equals(instanceId))
-                        .findFirst().orElse(ServiceInstance.NOT_FOUND);
-
-                if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
-                    if (!ServiceChangedEvent.REGISTER.equals(message) && !ServiceChangedEvent.RENEW.equals(message)) {
-                        if (log.isWarnEnabled()) {
-                            log.warn("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] not found cached Instance.", pattern, channel, message);
-                        }
-                        return Mono.empty();
+            return;
+        }
+        
+        instancesMono.flatMap(cachedInstances -> {
+            ServiceInstance cachedInstance = cachedInstances.stream()
+                .filter(itc -> itc.getInstanceId().equals(instanceId))
+                .findFirst().orElse(ServiceInstance.NOT_FOUND);
+            
+            if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
+                if (!ServiceChangedEvent.Event.REGISTER.equals(serviceChangedEvent.getEvent())
+                    && !ServiceChangedEvent.Event.RENEW.equals(serviceChangedEvent.getEvent())
+                ) {
+                    if (log.isWarnEnabled()) {
+                        log.warn("onInstanceChanged - instance:[{}] - event:[{}] not found cached Instance.", instance, serviceChangedEvent.getEvent());
                     }
-                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(serviceInstance -> {
-                        if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] add registered Instance.", pattern, channel, message);
-                        }
-                        cachedInstances.add(serviceInstance);
+                    return Mono.empty();
+                }
+                return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(serviceInstance -> {
+                    if (log.isInfoEnabled()) {
+                        log.info("onInstanceChanged - instance:[{}] - event:[{}] add registered Instance.", instance, serviceChangedEvent.getEvent());
+                    }
+                    cachedInstances.add(serviceInstance);
+                });
+            }
+            
+            switch (serviceChangedEvent.getEvent()) {
+                case REGISTER: {
+                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(registeredInstance -> {
+                        cachedInstance.setSchema(registeredInstance.getSchema());
+                        cachedInstance.setHost(registeredInstance.getHost());
+                        cachedInstance.setPort(registeredInstance.getPort());
+                        cachedInstance.setEphemeral(registeredInstance.isEphemeral());
+                        cachedInstance.setTtlAt(registeredInstance.getTtlAt());
+                        cachedInstance.setWeight(registeredInstance.getWeight());
+                        cachedInstance.setMetadata(registeredInstance.getMetadata());
                     });
                 }
-
-                switch (message) {
-                    case ServiceChangedEvent.REGISTER: {
-                        return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(registeredInstance -> {
-                            cachedInstance.setSchema(registeredInstance.getSchema());
-                            cachedInstance.setHost(registeredInstance.getHost());
-                            cachedInstance.setPort(registeredInstance.getPort());
-                            cachedInstance.setEphemeral(registeredInstance.isEphemeral());
-                            cachedInstance.setTtlAt(registeredInstance.getTtlAt());
-                            cachedInstance.setWeight(registeredInstance.getWeight());
-                            cachedInstance.setMetadata(registeredInstance.getMetadata());
-                        });
+                case RENEW: {
+                    if (log.isInfoEnabled()) {
+                        log.info("onMessage@InstanceListener - instance:[{}] - event:[{}] setTtlAt.", instance, serviceChangedEvent.getEvent());
                     }
-                    case ServiceChangedEvent.RENEW: {
-                        if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] setTtlAt.", pattern, channel, message);
-                        }
-                        return delegate.getInstanceTtl(namespace, serviceId, instanceId).doOnNext(cachedInstance::setTtlAt);
-                    }
-                    case ServiceChangedEvent.SET_METADATA: {
-                        if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] setMetadata.", pattern, channel, message);
-                        }
-                        return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
-                    }
-                    case ServiceChangedEvent.DEREGISTER:
-                    case ServiceChangedEvent.EXPIRED: {
-                        if (log.isInfoEnabled()) {
-                            log.info("onMessage@InstanceListener - pattern:[{}] - channel:[{}] - message:[{}] remove instance.", pattern, channel, message);
-                        }
-                        serviceChangedEvent.set(ServiceChangedEvent.of(namespacedServiceId, message, cachedInstance));
-                        cachedInstances.remove(cachedInstance);
-                        return Mono.empty();
-                    }
-                    default:
-                        return Mono.error(new IllegalStateException("Unexpected value: " + message));
+                    return delegate.getInstanceTtl(namespace, serviceId, instanceId).doOnNext(cachedInstance::setTtlAt);
                 }
-            }).doOnSuccess(nil -> invokeChanged(serviceChangedEvent.get(), serviceChangedListeners)).subscribe();
-        }
-
-        private void invokeChanged(ServiceChangedEvent serviceChangedEvent, CopyOnWriteArraySet<ServiceChangedListener> serviceChangedListeners) {
-            if (Objects.nonNull(serviceChangedListeners) && !serviceChangedListeners.isEmpty()) {
-                serviceChangedListeners.forEach(serviceChangedListener -> serviceChangedListener.onChange(serviceChangedEvent));
+                case SET_METADATA: {
+                    if (log.isInfoEnabled()) {
+                        log.info("onMessage@InstanceListener - instance:[{}] - event:[{}] setMetadata.", instance, serviceChangedEvent.getEvent());
+                    }
+                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
+                }
+                case DEREGISTER:
+                case EXPIRED: {
+                    if (log.isInfoEnabled()) {
+                        log.info("onMessage@InstanceListener - instance:[{}] - event:[{}] remove instance.", instance, serviceChangedEvent.getEvent());
+                    }
+                    cachedInstances.remove(cachedInstance);
+                    return Mono.empty();
+                }
+                default:
+                    return Mono.error(new IllegalStateException("Unexpected value: " + serviceChangedEvent.getEvent()));
             }
-        }
+        }).subscribe();
     }
+    
 }

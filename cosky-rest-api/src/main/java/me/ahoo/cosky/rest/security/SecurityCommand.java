@@ -14,28 +14,25 @@
 package me.ahoo.cosky.rest.security;
 
 import me.ahoo.cosky.rest.security.user.UserService;
+
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 /**
+ * Security Command.
+ *
  * @author ahoo wang
  */
 @Component
 public class SecurityCommand implements CommandLineRunner {
     private final SecurityProperties securityProperties;
     private final UserService userService;
-
+    
     public SecurityCommand(SecurityProperties securityProperties, UserService userService) {
         this.securityProperties = securityProperties;
         this.userService = userService;
     }
 
-    /**
-     * Callback used to run the bean.
-     *
-     * @param args incoming main method arguments
-     * @throws Exception on error
-     */
     @Override
     public void run(String... args) throws Exception {
         userService.initRoot(securityProperties.isEnforceInitSuperUser()).subscribe();

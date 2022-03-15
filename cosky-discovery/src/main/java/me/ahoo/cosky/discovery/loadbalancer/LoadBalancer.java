@@ -14,23 +14,26 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import me.ahoo.cosky.discovery.ServiceInstance;
+
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 
 /**
+ * Load Balancer.
+ *
  * @author ahoo wang
  */
 public interface LoadBalancer {
     int ZERO = 0;
     int ONE = 1;
-
+    
     Mono<ServiceInstance> choose(String namespace, String serviceId);
-
+    
     default ServiceInstance choose(String namespace, String serviceId, Duration timeout) {
-        return choose(namespace,serviceId).block(timeout);
+        return choose(namespace, serviceId).block(timeout);
     }
-
+    
     interface Chooser {
         ServiceInstance choose();
     }

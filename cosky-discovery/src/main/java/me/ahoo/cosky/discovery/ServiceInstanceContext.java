@@ -19,62 +19,64 @@ import me.ahoo.cosky.core.NamespacedContext;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
+ * Service Instance Context.
+ *
  * @author ahoo wang
  */
 public interface ServiceInstanceContext extends Namespaced {
-
+    
     ServiceInstanceContext CURRENT = new CurrentContext();
-
+    
     void setServiceInstance(ServiceInstance serviceInstance);
-
+    
     void addListener(ServiceInstanceContextChangedListener changedListener);
-
+    
     void removeListener(ServiceInstanceContextChangedListener changedListener);
-
+    
     ServiceInstance getServiceInstance();
-
+    
     class CurrentContext implements ServiceInstanceContext {
-
+        
         private volatile ServiceInstance serviceInstance;
         private final CopyOnWriteArraySet<ServiceInstanceContextChangedListener> listeners;
-
+        
         public CurrentContext() {
             this.listeners = new CopyOnWriteArraySet<>();
         }
-
+        
         /**
-         * 获取当前上下文的命名空间
+         * 获取当前上下文的命名空间.
          *
-         * @return
+         * @return namespace
          */
         @Override
         public String getNamespace() {
             return NamespacedContext.GLOBAL.getNamespace();
         }
-
+        
         @Override
         public void setServiceInstance(ServiceInstance serviceInstance) {
             final ServiceInstance before = this.serviceInstance;
             this.serviceInstance = serviceInstance;
             listeners.forEach(changedListener -> changedListener.onChange(before, serviceInstance));
         }
-
+        
         @Override
         public void addListener(ServiceInstanceContextChangedListener changedListener) {
             listeners.add(changedListener);
         }
-
+        
         @Override
         public void removeListener(ServiceInstanceContextChangedListener changedListener) {
             listeners.remove(changedListener);
         }
-
+        
         @Override
         public ServiceInstance getServiceInstance() {
             return this.serviceInstance;
         }
     }
-
+    
     @FunctionalInterface
     interface ServiceInstanceContextChangedListener {
         void onChange(ServiceInstance before, ServiceInstance after);

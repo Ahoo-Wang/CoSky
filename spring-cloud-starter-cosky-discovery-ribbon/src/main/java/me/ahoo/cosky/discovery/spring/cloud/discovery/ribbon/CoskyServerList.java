@@ -13,10 +13,11 @@
 
 package me.ahoo.cosky.discovery.spring.cloud.discovery.ribbon;
 
-import com.netflix.client.config.IClientConfig;
-import com.netflix.loadbalancer.AbstractServerList;
 import me.ahoo.cosky.discovery.ServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceInstance;
+
+import com.netflix.client.config.IClientConfig;
+import com.netflix.loadbalancer.AbstractServerList;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -25,34 +26,36 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
+ * Cosky Server List.
+ *
  * @author ahoo wang
  */
 public class CoskyServerList extends AbstractServerList<CoskyServer> {
     private String serviceId;
     private final ServiceDiscovery serviceDiscovery;
-
+    
     public CoskyServerList(ServiceDiscovery serviceDiscovery) {
         this.serviceDiscovery = serviceDiscovery;
     }
-
+    
     @Override
-    public void initWithNiwsConfig(IClientConfig iClientConfig) {
-        this.serviceId = iClientConfig.getClientName();
+    public void initWithNiwsConfig(IClientConfig clientConfig) {
+        this.serviceId = clientConfig.getClientName();
     }
-
+    
     @Override
     public List<CoskyServer> getInitialListOfServers() {
         return getCoskyServers();
     }
-
+    
     private List<CoskyServer> getCoskyServers() {
-        List<ServiceInstance> instances = serviceDiscovery.getInstances(this.serviceId).block(Duration.ofSeconds(2));
+        List<ServiceInstance> instances = serviceDiscovery.getInstances(this.serviceId).collectList().block(Duration.ofSeconds(2));
         if (Objects.isNull(instances) || instances.isEmpty()) {
             return Collections.emptyList();
         }
         return instances.stream().map(CoskyServer::new).collect(Collectors.toList());
     }
-
+    
     /**
      * Return updated list of servers. This is called say every 30 secs
      * (configurable) by the Loadbalancer's Ping cycle

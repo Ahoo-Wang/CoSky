@@ -14,17 +14,19 @@
 package me.ahoo.cosky.core;
 
 /**
+ * Namespaced.
+ *
  * @author ahoo wang
  */
 public interface Namespaced {
     String DEFAULT = CoSky.COSKY + "-{default}";
     String SYSTEM = CoSky.COSKY + "-{system}";
-
+    
     /**
-     * 获取当前上下文的命名空间
+     * 获取当前上下文的命名空间.
      *
-     * @return
+     * @return current namespace
      */
     String getNamespace();
-
+    
 }

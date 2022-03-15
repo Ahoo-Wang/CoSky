@@ -14,6 +14,7 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import lombok.extern.slf4j.Slf4j;
+
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 
@@ -23,30 +24,32 @@ import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
+ * Tree Weight Random Load Balancer.
+ *
  * @author ahoo wang
  */
 @Slf4j
 public class TreeWeightRandomLoadBalancer extends AbstractLoadBalancer<TreeWeightRandomLoadBalancer.TreeChooser> {
-
-
+    
+    
     public TreeWeightRandomLoadBalancer(ConsistencyRedisServiceDiscovery serviceDiscovery) {
         super(serviceDiscovery);
     }
-
+    
     @Override
     protected TreeChooser createChooser(List<ServiceInstance> serviceInstances) {
         return new TreeChooser(serviceInstances);
     }
-
+    
     public static class TreeChooser implements LoadBalancer.Chooser {
-
+        
         private TreeMap<Integer, ServiceInstance> instanceTree;
         private int totalWeight;
-
+        
         public TreeChooser(List<ServiceInstance> instanceList) {
             this.initTree(instanceList);
         }
-
+        
         private void initTree(List<ServiceInstance> instanceList) {
             instanceTree = new TreeMap<>();
             int accWeight = ZERO;
@@ -59,7 +62,7 @@ public class TreeWeightRandomLoadBalancer extends AbstractLoadBalancer<TreeWeigh
             }
             this.totalWeight = accWeight;
         }
-
+        
         @Override
         public ServiceInstance choose() {
             if (instanceTree.size() == ZERO) {
@@ -68,16 +71,16 @@ public class TreeWeightRandomLoadBalancer extends AbstractLoadBalancer<TreeWeigh
                 }
                 return null;
             }
-
+            
             if (ZERO == totalWeight) {
                 log.warn("choose - The size of connector instances is [{}],but total weight is 0!", instanceTree.size());
                 return null;
             }
-
+            
             if (instanceTree.size() == ONE) {
                 return instanceTree.firstEntry().getValue();
             }
-
+            
             int randomVal = ThreadLocalRandom.current().nextInt(ZERO, totalWeight);
             NavigableMap<Integer, ServiceInstance> tailMap = instanceTree.tailMap(randomVal, false);
             return tailMap.firstEntry().getValue();

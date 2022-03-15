@@ -13,28 +13,22 @@
 
 package me.ahoo.cosky.config.redis;
 
-import io.lettuce.core.api.reactive.RedisScriptingReactiveCommands;
-import me.ahoo.cosky.core.redis.RedisScripts;
-import reactor.core.publisher.Mono;
-
-import java.util.function.Function;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.data.redis.core.script.RedisScript;
 
 /**
+ * ConfigRedisScripts.
+ *
  * @author ahoo wang
  */
 public final class ConfigRedisScripts {
-    public static final String CONFIG_SET = "config_set.lua";
-    public static final String CONFIG_REMOVE = "config_remove.lua";
-    public static final String CONFIG_ROLLBACK = "config_rollback.lua";
-
-    public static <T> Mono<T> doConfigSet(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(CONFIG_SET, scriptingCommands, doSha);
-    }
-    public static <T> Mono<T> doConfigRemove(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(CONFIG_REMOVE, scriptingCommands, doSha);
-    }
-    public static <T> Mono<T> doConfigRollback(RedisScriptingReactiveCommands<String, String> scriptingCommands, Function<String, Mono<T>> doSha) {
-        return RedisScripts.doEnsureScript(CONFIG_ROLLBACK, scriptingCommands, doSha);
-    }
-
+    public static final Resource RESOURCE_CONFIG_SET = new ClassPathResource("config_set.lua");
+    public static final RedisScript<Boolean> SCRIPT_CONFIG_SET = RedisScript.of(RESOURCE_CONFIG_SET, Boolean.class);
+    
+    public static final Resource RESOURCE_CONFIG_REMOVE = new ClassPathResource("config_remove.lua");
+    public static final RedisScript<Boolean> SCRIPT_CONFIG_REMOVE = RedisScript.of(RESOURCE_CONFIG_REMOVE, Boolean.class);
+    
+    public static final Resource RESOURCE_CONFIG_ROLLBACK = new ClassPathResource("config_rollback.lua");
+    public static final RedisScript<Boolean> SCRIPT_CONFIG_ROLLBACK = RedisScript.of(RESOURCE_CONFIG_ROLLBACK, Boolean.class);
 }

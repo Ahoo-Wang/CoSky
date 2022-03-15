@@ -13,13 +13,14 @@
 
 package me.ahoo.cosky.rest.job;
 
-import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.discovery.ServiceStatistic;
 import me.ahoo.simba.core.MutexContendServiceFactory;
 import me.ahoo.simba.schedule.AbstractScheduler;
 import me.ahoo.simba.schedule.ScheduleConfig;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Service;
 import reactor.core.scheduler.Schedulers;
@@ -27,6 +28,8 @@ import reactor.core.scheduler.Schedulers;
 import java.time.Duration;
 
 /**
+ * Stat Service Scheduler.
+ *
  * @author ahoo wang
  */
 @Slf4j
@@ -56,19 +59,20 @@ public class StatServiceScheduler extends AbstractScheduler implements SmartLife
         
         final String currentNamespace = NamespacedContext.GLOBAL.getNamespace();
         namespaceService.getNamespaces()
-                .publishOn(Schedulers.boundedElastic())
-                .flatMapIterable(namespaces -> {
-                    if (!namespaces.contains(currentNamespace)) {
-                        namespaceService.setNamespace(currentNamespace).subscribe();
-                    }
-                    return namespaces;
-                })
-                .flatMap(serviceStatistic::statService)
-                .doOnComplete(() -> {
-                    if (log.isInfoEnabled()) {
-                        log.info("work - end.");
-                    }
-                })
-                .subscribe();
+            .publishOn(Schedulers.boundedElastic())
+            .collectList()
+            .flatMapIterable(namespaces -> {
+                if (!namespaces.contains(currentNamespace)) {
+                    namespaceService.setNamespace(currentNamespace).subscribe();
+                }
+                return namespaces;
+            })
+            .flatMap(serviceStatistic::statService)
+            .doOnComplete(() -> {
+                if (log.isInfoEnabled()) {
+                    log.info("work - end.");
+                }
+            })
+            .subscribe();
     }
 }

@@ -16,6 +16,8 @@ package me.ahoo.cosky.rest.config;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * App Config.
+ *
  * @author ahoo wang
  */
 @Configuration

@@ -14,29 +14,33 @@
 package me.ahoo.cosky.discovery;
 
 import me.ahoo.cosky.core.NamespacedContext;
+
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 
 /**
+ * Service Discovery.
+ *
  * @author ahoo wang
  */
 public interface ServiceDiscovery {
-
-    Mono<List<String>> getServices(String namespace);
-
-    default Mono<List<String>> getServices() {
+    
+    Flux<String> getServices(String namespace);
+    
+    default Flux<String> getServices() {
         return getServices(NamespacedContext.GLOBAL.getRequiredNamespace());
     }
-
-    default Mono<List<ServiceInstance>> getInstances(String serviceId) {
+    
+    default Flux<ServiceInstance> getInstances(String serviceId) {
         return getInstances(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId);
     }
-
-    Mono<List<ServiceInstance>> getInstances(String namespace, String serviceId);
-
+    
+    Flux<ServiceInstance> getInstances(String namespace, String serviceId);
+    
     Mono<ServiceInstance> getInstance(String namespace, String serviceId, String instanceId);
-
+    
     Mono<Long> getInstanceTtl(String namespace, String serviceId, String instanceId);
-
+    
 }

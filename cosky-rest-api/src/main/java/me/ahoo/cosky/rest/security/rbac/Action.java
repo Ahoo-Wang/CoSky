@@ -16,23 +16,25 @@ package me.ahoo.cosky.rest.security.rbac;
 import org.springframework.http.HttpMethod;
 
 /**
+ * Action.
+ *
  * @author ahoo wang
  */
 public enum Action {
     READ("r"),
     WRITE("w"),
     READ_WRITE("rw");
-
+    
     private final String value;
-
+    
     Action(String value) {
         this.value = value;
     }
-
+    
     public String getValue() {
         return value;
     }
-
+    
     public static Action of(String value) {
         switch (value) {
             case "r": {
@@ -48,12 +50,12 @@ public enum Action {
                 throw new IllegalStateException("Unexpected value: " + value);
         }
     }
-
+    
     public static Action ofHttpMethod(String httpMethodStr) {
         HttpMethod httpMethod = HttpMethod.resolve(httpMethodStr);
         return ofHttpMethod(httpMethod);
     }
-
+    
     public static Action ofHttpMethod(HttpMethod httpMethod) {
         switch (httpMethod) {
             case GET:
@@ -70,13 +72,13 @@ public enum Action {
                 throw new IllegalStateException("Unexpected value: " + httpMethod);
         }
     }
-
+    
     public boolean check(Action requestAction) {
         if (READ_WRITE.value.equals(this.value)) {
             return true;
         }
         return this.equals(requestAction);
     }
-
-
+    
+    
 }

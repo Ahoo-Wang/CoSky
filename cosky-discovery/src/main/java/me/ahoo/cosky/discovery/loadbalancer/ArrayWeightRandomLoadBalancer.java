@@ -13,14 +13,17 @@
 
 package me.ahoo.cosky.discovery.loadbalancer;
 
-import lombok.extern.slf4j.Slf4j;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.ServiceInstance;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
+ * Array Weight Random Load Balancer.
+ *
  * @author ahoo wang
  */
 @Slf4j
@@ -28,17 +31,17 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
     public ArrayWeightRandomLoadBalancer(ConsistencyRedisServiceDiscovery serviceDiscovery) {
         super(serviceDiscovery);
     }
-
+    
     @Override
     protected ArrayChooser createChooser(List<ServiceInstance> serviceInstances) {
         return new ArrayChooser(serviceInstances);
     }
-
+    
     public static class ArrayChooser implements LoadBalancer.Chooser {
-
+        
         private final ServiceInstance[] instanceLine;
         private final int totalWeight;
-
+        
         public ArrayChooser(List<ServiceInstance> instanceList) {
             if (instanceList.isEmpty()) {
                 this.totalWeight = ZERO;
@@ -47,7 +50,7 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
             }
             instanceLine = this.toLine(instanceList);
         }
-
+        
         private ServiceInstance[] toLine(List<ServiceInstance> instanceList) {
             ServiceInstance[] line = new ServiceInstance[totalWeight];
             int startX = ZERO;
@@ -62,7 +65,7 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
             }
             return line;
         }
-
+        
         @Override
         public ServiceInstance choose() {
             if (instanceLine.length == ZERO) {
@@ -71,17 +74,17 @@ public class ArrayWeightRandomLoadBalancer extends AbstractLoadBalancer<ArrayWei
                 }
                 return null;
             }
-
-
+            
+            
             if (ZERO == totalWeight) {
                 log.warn("choose - The size of connector instances is [{}],but total weight is 0!", instanceLine.length);
                 return null;
             }
-
+            
             if (instanceLine.length == ONE) {
                 return instanceLine[ZERO];
             }
-
+            
             int randomValue = ThreadLocalRandom.current().nextInt(0, totalWeight);
             ServiceInstance instance = instanceLine[randomValue];
             return instance;

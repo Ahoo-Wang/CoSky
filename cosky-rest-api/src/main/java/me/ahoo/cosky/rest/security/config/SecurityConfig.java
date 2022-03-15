@@ -13,34 +13,36 @@
 
 package me.ahoo.cosky.rest.security.config;
 
-import me.ahoo.cosid.snowflake.SnowflakeFriendlyId;
 import me.ahoo.cosid.snowflake.SnowflakeId;
 import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor;
 import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.SecurityProperties;
 import me.ahoo.cosky.rest.security.audit.AuditLogService;
 import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
+
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * Security Config.
+ *
  * @author ahoo wang
  */
 @Configuration
 @EnableConfigurationProperties(SecurityProperties.class)
 public class SecurityConfig {
     private final SecurityProperties securityProperties;
-
+    
     public SecurityConfig(SecurityProperties securityProperties) {
         this.securityProperties = securityProperties;
     }
-
+    
     @Bean
     public JwtProvider jwtProvider(SnowflakeId snowflakeFriendlyId) {
-        return new JwtProvider(securityProperties.getJwt(), (SnowflakeFriendlyId) snowflakeFriendlyId);
+        return new JwtProvider(securityProperties.getJwt(), snowflakeFriendlyId);
     }
-
+    
     @Bean
     public AuthorizeHandlerInterceptor authorizeHandlerInterceptor(AuthorizeService authorizeService, AuditLogService auditService) {
         return new AuthorizeHandlerInterceptor(authorizeService, auditService, securityProperties);

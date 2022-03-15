@@ -16,32 +16,34 @@ package me.ahoo.cosky.rest.dto.role;
 import me.ahoo.cosky.rest.security.rbac.Role;
 
 /**
+ * Role Dto.
+ *
  * @author ahoo wang
  */
 public class RoleDto {
     public static final RoleDto ADMIN;
-
+    
     static {
         ADMIN = new RoleDto();
         ADMIN.setName(Role.ADMIN_ROLE);
         ADMIN.setDesc(Role.ADMIN_ROLE_DESC);
     }
-
+    
     private String name;
     private String desc;
-
+    
     public String getName() {
         return name;
     }
-
+    
     public void setName(String name) {
         this.name = name;
     }
-
+    
     public String getDesc() {
         return desc;
     }
-
+    
     public void setDesc(String desc) {
         this.desc = desc;
     }

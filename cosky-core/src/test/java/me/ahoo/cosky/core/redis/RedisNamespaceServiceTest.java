@@ -13,57 +13,73 @@
 
 package me.ahoo.cosky.core.redis;
 
-import io.lettuce.core.RedisClient;
-import lombok.extern.slf4j.Slf4j;
-import lombok.var;
 import me.ahoo.cosky.core.NamespaceService;
-import me.ahoo.cosky.core.TestRedisClient;
-import org.junit.jupiter.api.*;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 
-import java.util.Objects;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import reactor.test.StepVerifier;
+
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * @author ahoo wang
  */
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class RedisNamespaceServiceTest {
+class RedisNamespaceServiceTest extends AbstractReactiveRedisTest {
     NamespaceService namespaceService;
-    private RedisClient redisClient;
-
-    @BeforeAll
-    private void init() {
-        redisClient = TestRedisClient.createClient();
-        namespaceService = new RedisNamespaceService(redisClient.connect().reactive());
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        namespaceService = new RedisNamespaceService(redisTemplate);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
     @Test
     void getNamespaces() {
-        var namespaces = namespaceService.getNamespaces().block();
-        Assertions.assertNotNull(namespaces);
+        String ns = UUID.randomUUID().toString();
+        StepVerifier
+            .create(
+                namespaceService
+                    .setNamespace(ns).
+                    then(namespaceService.getNamespaces().collect(Collectors.toSet()))
+            )
+            .expectNextMatches((namespaces) -> namespaces.contains(ns))
+            .verifyComplete();
     }
-
+    
     @Test
     void setNamespace() {
-        var ns = UUID.randomUUID().toString();
-        namespaceService.removeNamespace(ns).block();
-        var isOk = namespaceService.setNamespace(ns).block();
-        Assertions.assertTrue(isOk);
+        String ns = UUID.randomUUID().toString();
+        StepVerifier
+            .create(namespaceService.setNamespace(ns))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
-
+    
     @Test
     void removeNamespace() {
-        var ns = UUID.randomUUID().toString();
-        namespaceService.setNamespace(ns).block();
-        var isOk = namespaceService.removeNamespace(ns).block();
-        Assertions.assertTrue(isOk);
+        String ns = UUID.randomUUID().toString();
+        StepVerifier
+            .create(
+                namespaceService
+                    .setNamespace(ns)
+                    .then(namespaceService.removeNamespace(ns))
+            )
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
-
-    @AfterAll
-    private void destroy() {
-        if (Objects.nonNull(redisClient)) {
-            redisClient.shutdown();
-        }
-    }
+    
 }

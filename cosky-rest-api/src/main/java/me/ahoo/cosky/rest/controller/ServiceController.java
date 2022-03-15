@@ -13,16 +13,32 @@
 
 package me.ahoo.cosky.rest.controller;
 
-import me.ahoo.cosky.discovery.*;
+import me.ahoo.cosky.discovery.InstanceIdGenerator;
+import me.ahoo.cosky.discovery.ServiceDiscovery;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import me.ahoo.cosky.discovery.ServiceRegistry;
+import me.ahoo.cosky.discovery.ServiceStat;
+import me.ahoo.cosky.discovery.ServiceStatistic;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer;
-import org.springframework.web.bind.annotation.*;
+
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.Map;
 
 /**
+ * Service Controller.
+ *
  * @author ahoo wang
  */
 @CrossOrigin("*")
@@ -33,7 +49,7 @@ public class ServiceController {
     private final ServiceRegistry serviceRegistry;
     private final ServiceStatistic serviceStatistic;
     private final LoadBalancer loadBalancer;
-
+    
     public ServiceController(ServiceRegistry serviceRegistry,
                              ServiceDiscovery discoveryService,
                              ServiceStatistic serviceStatistic,
@@ -43,27 +59,27 @@ public class ServiceController {
         this.serviceStatistic = serviceStatistic;
         this.loadBalancer = loadBalancer;
     }
-
+    
     @GetMapping
     public Mono<List<String>> getServices(@PathVariable String namespace) {
-        return discoveryService.getServices(namespace);
+        return discoveryService.getServices(namespace).collectList();
     }
-
+    
     @PutMapping(RequestPathPrefix.SERVICES_SERVICE)
     public Mono<Boolean> setService(@PathVariable String namespace, @PathVariable String serviceId) {
         return serviceRegistry.setService(namespace, serviceId);
     }
-
+    
     @DeleteMapping(RequestPathPrefix.SERVICES_SERVICE)
     public Mono<Boolean> removeService(@PathVariable String namespace, @PathVariable String serviceId) {
         return serviceRegistry.removeService(namespace, serviceId);
     }
-
+    
     @GetMapping(RequestPathPrefix.SERVICES_INSTANCES)
     public Mono<List<ServiceInstance>> getInstances(@PathVariable String namespace, @PathVariable String serviceId) {
-        return discoveryService.getInstances(namespace, serviceId);
+        return discoveryService.getInstances(namespace, serviceId).collectList();
     }
-
+    
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES)
     public Mono<Boolean> register(@PathVariable String namespace, @PathVariable String serviceId, @RequestBody ServiceInstance instance) {
         instance.setServiceId(serviceId);
@@ -71,25 +87,25 @@ public class ServiceController {
         instance.setInstanceId(instanceId);
         return serviceRegistry.register(namespace, instance);
     }
-
+    
     @DeleteMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE)
     public Mono<Boolean> deregister(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId) {
         return serviceRegistry.deregister(namespace, serviceId, instanceId);
     }
-
+    
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE_METADATA)
     public Mono<Boolean> setMetadata(@PathVariable String namespace, @PathVariable String serviceId, @PathVariable String instanceId, @RequestBody Map<String, String> metadata) {
         return serviceRegistry.setMetadata(namespace, serviceId, instanceId, metadata);
     }
-
+    
     @GetMapping(RequestPathPrefix.SERVICES_STATS)
     public Mono<List<ServiceStat>> getServiceStats(@PathVariable String namespace) {
-        return serviceStatistic.getServiceStats(namespace);
+        return serviceStatistic.getServiceStats(namespace).collectList();
     }
-
+    
     @GetMapping(RequestPathPrefix.SERVICES_LB)
     public Mono<ServiceInstance> choose(@PathVariable String namespace, @PathVariable String serviceId) {
         return loadBalancer.choose(namespace, serviceId);
     }
-
+    
 }

@@ -13,15 +13,19 @@
 
 package me.ahoo.cosky.discovery.loadbalancer;
 
-import lombok.var;
-import me.ahoo.cosky.core.listener.DefaultMessageListenable;
-import me.ahoo.cosky.discovery.BaseOnRedisClientTest;
+import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.RegistryProperties;
+import me.ahoo.cosky.discovery.ServiceInstance;
+import me.ahoo.cosky.discovery.TestServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+
+import lombok.var;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -29,53 +33,62 @@ import java.util.UUID;
 /**
  * @author ahoo wang
  */
-class RandomLoadBalancerTest extends BaseOnRedisClientTest {
+class RandomLoadBalancerTest extends AbstractReactiveRedisTest {
     private final static String namespace = "test_lb";
     private RedisServiceDiscovery redisServiceDiscovery;
     private RedisServiceRegistry redisServiceRegistry;
     private RandomLoadBalancer randomLoadBalancer;
-
-    @BeforeAll
-    private void init() {
-        var registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
-        var consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, new DefaultMessageListenable(redisClient.connectPubSub().reactive()), redisConnection.reactive());
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        RegistryProperties registryProperties = new RegistryProperties();
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
+        ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery =
+            new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
         randomLoadBalancer = new RandomLoadBalancer(consistencyRedisServiceDiscovery);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
     @Test
     void chooseNone() {
-        var instance = randomLoadBalancer.choose(namespace, UUID.randomUUID().toString()).block();
+        ServiceInstance instance = randomLoadBalancer.choose(namespace, UUID.randomUUID().toString()).block();
         Assertions.assertNull(instance);
     }
-
+    
     @Test
     void chooseOne() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, instance -> {
-            var expectedInstance = randomLoadBalancer.choose(namespace, instance.getServiceId()).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, instance -> {
+            ServiceInstance expectedInstance = randomLoadBalancer.choose(namespace, instance.getServiceId()).block();
             Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
         });
     }
-
+    
     @Test
     void chooseMultiple() {
-        var serviceId = UUID.randomUUID().toString();
-        var instance1 = createInstance(serviceId);
-        var instance2 = createInstance(serviceId);
-        var instance3 = createInstance(serviceId);
+        String serviceId = MockIdGenerator.INSTANCE.generateAsString();
+        ServiceInstance instance1 = TestServiceInstance.createInstance(serviceId);
+        ServiceInstance instance2 = TestServiceInstance.createInstance(serviceId);
+        ServiceInstance instance3 = TestServiceInstance.createInstance(serviceId);
         redisServiceRegistry.register(namespace, instance1).block();
         redisServiceRegistry.register(namespace, instance2).block();
         redisServiceRegistry.register(namespace, instance3).block();
-        var expectedInstance = randomLoadBalancer.choose(namespace, serviceId).block();
+        ServiceInstance expectedInstance = randomLoadBalancer.choose(namespace, serviceId).block();
         Assertions.assertNotNull(expectedInstance);
         boolean succeeded = expectedInstance.getInstanceId().equals(instance1.getInstanceId())
-                || expectedInstance.getInstanceId().equals(instance2.getInstanceId())
-                || expectedInstance.getInstanceId().equals(instance3.getInstanceId());
+            || expectedInstance.getInstanceId().equals(instance2.getInstanceId())
+            || expectedInstance.getInstanceId().equals(instance3.getInstanceId());
         Assertions.assertTrue(succeeded);
-        redisServiceRegistry.deregister(namespace, instance1);
-        redisServiceRegistry.deregister(namespace, instance2);
-        redisServiceRegistry.deregister(namespace, instance3);
+        redisServiceRegistry.deregister(namespace, instance1).block();
+        redisServiceRegistry.deregister(namespace, instance2).block();
+        redisServiceRegistry.deregister(namespace, instance3).block();
     }
 }

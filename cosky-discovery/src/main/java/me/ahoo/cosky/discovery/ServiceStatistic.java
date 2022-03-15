@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.discovery;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;
@@ -21,17 +22,19 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * Service Statistic.
+ *
  * @author ahoo wang
  */
 public interface ServiceStatistic {
-
+    
     Mono<Void> statService(String namespace);
-
+    
     Mono<Void> statService(String namespace, @Nullable String serviceId);
-
-    Mono<List<ServiceStat>> getServiceStats(String namespace);
-
+    
+    Flux<ServiceStat> getServiceStats(String namespace);
+    
     Mono<Long> getInstanceCount(String namespace);
-
+    
     Mono<Map<String, Set<String>>> getTopology(String namespace);
 }

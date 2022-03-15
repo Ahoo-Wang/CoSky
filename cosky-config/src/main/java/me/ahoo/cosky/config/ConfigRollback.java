@@ -14,31 +14,35 @@
 package me.ahoo.cosky.config;
 
 import me.ahoo.cosky.core.NamespacedContext;
+
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 
 /**
+ * Config Rollback.
+ *
  * @author ahoo wang
  */
 public interface ConfigRollback {
     int HISTORY_SIZE = 10;
-
+    
     default Mono<Boolean> rollback(String configId, int targetVersion) {
         return rollback(NamespacedContext.GLOBAL.getRequiredNamespace(), configId, targetVersion);
     }
-
+    
     Mono<Boolean> rollback(String namespace, String configId, int targetVersion);
-
-    default Mono<List<ConfigVersion>> getConfigVersions(String configId) {
+    
+    default Flux<ConfigVersion> getConfigVersions(String configId) {
         return getConfigVersions(NamespacedContext.GLOBAL.getRequiredNamespace(), configId);
     }
-
-    Mono<List<ConfigVersion>> getConfigVersions(String namespace, String configId);
-
+    
+    Flux<ConfigVersion> getConfigVersions(String namespace, String configId);
+    
     default Mono<ConfigHistory> getConfigHistory(String configId, int version) {
         return getConfigHistory(NamespacedContext.GLOBAL.getRequiredNamespace(), configId, version);
     }
-
+    
     Mono<ConfigHistory> getConfigHistory(String namespace, String configId, int version);
 }

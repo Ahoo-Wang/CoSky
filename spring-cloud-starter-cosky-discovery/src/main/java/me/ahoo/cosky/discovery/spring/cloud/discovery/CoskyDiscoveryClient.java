@@ -14,6 +14,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery;
 
 import me.ahoo.cosky.discovery.ServiceDiscovery;
+
 import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 
@@ -21,50 +22,38 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
+ * Cosky Discovery Client.
+ *
  * @author ahoo wang
  */
 public class CoskyDiscoveryClient implements DiscoveryClient {
     private final ServiceDiscovery serviceDiscovery;
     private final CoskyDiscoveryProperties coskyDiscoveryProperties;
-
+    
     public CoskyDiscoveryClient(ServiceDiscovery serviceDiscovery, CoskyDiscoveryProperties coskyDiscoveryProperties) {
         this.serviceDiscovery = serviceDiscovery;
         this.coskyDiscoveryProperties = coskyDiscoveryProperties;
     }
-
-    /**
-     * A human-readable description of the implementation, used in HealthIndicator.
-     *
-     * @return The description.
-     */
+    
     @Override
     public String description() {
         return "CoSky Discovery Client";
     }
-
-    /**
-     * Gets all ServiceInstances associated with a particular serviceId.
-     *
-     * @param serviceId The serviceId to query.
-     * @return A List of ServiceInstance.
-     */
+    
     @Override
     public List<ServiceInstance> getInstances(String serviceId) {
         return serviceDiscovery.getInstances(serviceId)
-                .block(coskyDiscoveryProperties.getTimeout())
-                .stream()
-                .map(CoskyServiceInstance::new)
-                .collect(Collectors.toList());
+            .map(serviceInstance -> (ServiceInstance) new CoskyServiceInstance(serviceInstance))
+            .collectList()
+            .block(coskyDiscoveryProperties.getTimeout())
+            ;
     }
-
-    /**
-     * @return All known service IDs.
-     */
+    
     @Override
     public List<String> getServices() {
-        return serviceDiscovery.getServices().block(coskyDiscoveryProperties.getTimeout());
+        return serviceDiscovery.getServices().collectList().block(coskyDiscoveryProperties.getTimeout());
     }
-
+    
     @Override
     public int getOrder() {
         return coskyDiscoveryProperties.getOrder();

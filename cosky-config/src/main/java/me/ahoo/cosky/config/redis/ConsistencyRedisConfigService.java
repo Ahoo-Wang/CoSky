@@ -13,149 +13,120 @@
 
 package me.ahoo.cosky.config.redis;
 
+import me.ahoo.cosky.config.Config;
+import me.ahoo.cosky.config.ConfigChangedEvent;
+import me.ahoo.cosky.config.ConfigHistory;
+import me.ahoo.cosky.config.ConfigKeyGenerator;
+import me.ahoo.cosky.config.ListenableConfigService;
+import me.ahoo.cosky.config.ConfigService;
+import me.ahoo.cosky.config.ConfigVersion;
+import me.ahoo.cosky.config.NamespacedConfigId;
+
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
-import me.ahoo.cosky.config.*;
-import me.ahoo.cosky.core.listener.MessageListenable;
-import me.ahoo.cosky.core.listener.MessageListener;
+import org.springframework.data.redis.listener.ChannelTopic;
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import javax.annotation.Nullable;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
+ * Consistency Redis Config Service.
+ *
  * @author ahoo wang
  */
 @Slf4j
-public class ConsistencyRedisConfigService implements ConfigService, ConfigListenable {
+public class ConsistencyRedisConfigService implements ListenableConfigService {
     private final ConfigService delegate;
-    private final MessageListenable messageListenable;
-    private final ConfigListener configListener;
-
-    private final ConcurrentHashMap<NamespacedConfigId, Mono<Config>> configMap;
-    private final ConcurrentHashMap<NamespacedConfigId, CopyOnWriteArraySet<ConfigChangedListener>> configMapListener;
-
-    public ConsistencyRedisConfigService(ConfigService delegate, MessageListenable messageListenable) {
-        this.configMap = new ConcurrentHashMap<>();
-        this.configMapListener = new ConcurrentHashMap<>();
+    private final ReactiveRedisMessageListenerContainer listenerContainer;
+    private final ConcurrentHashMap<NamespacedConfigId, Mono<Config>> configMapCache;
+    
+    public ConsistencyRedisConfigService(ConfigService delegate,
+                                         ReactiveRedisMessageListenerContainer listenerContainer) {
+        this.listenerContainer = listenerContainer;
+        this.configMapCache = new ConcurrentHashMap<>();
         this.delegate = delegate;
-        this.messageListenable = messageListenable;
-        this.configListener = new ConfigListener();
     }
-
+    
     @Override
-    public Mono<Set<String>> getConfigs(String namespace) {
+    public Flux<ConfigChangedEvent> listen(NamespacedConfigId topic) {
+        return listen(topic.getNamespace(), topic.getConfigId());
+    }
+    
+    public Flux<ConfigChangedEvent> listen(String namespace, String configId) {
+        String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
+        return listenerContainer
+            .receive(ChannelTopic.of(topicStr))
+            .map(message -> {
+                NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(message.getChannel());
+                ConfigChangedEvent.Event event = ConfigChangedEvent.Event.of(message.getMessage());
+                return new ConfigChangedEvent(namespacedConfigId, event);
+            });
+    }
+    
+    @Override
+    public Flux<String> getConfigs(String namespace) {
         return delegate.getConfigs(namespace);
     }
-
+    
     @Override
     public Mono<Config> getConfig(String namespace, String configId) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
-
-        return configMap.computeIfAbsent(NamespacedConfigId.of(namespace, configId), (_configId) ->
-                {
-                    addListener(namespace, configId);
-                    return delegate.getConfig(namespace, configId).cache();
-                }
-        );
+        
+        return configMapCache.computeIfAbsent(NamespacedConfigId.of(namespace, configId), this::listenAndGetCache);
     }
-
-    private void addListener(String namespace, String configId) {
-        String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
-        messageListenable.addChannelListener(topicStr, configListener);
+    
+    private Mono<Config> listenAndGetCache(NamespacedConfigId cfgId) {
+        final String namespace = cfgId.getNamespace();
+        final String configId = cfgId.getConfigId();
+        listen(namespace, configId)
+            .doOnNext(configEvent -> configMapCache.put(cfgId, delegate.getConfig(namespace, configId).cache()))
+            .subscribe();
+        return delegate.getConfig(namespace, configId).cache();
     }
-
-
+    
+    
     @Override
     public Mono<Boolean> setConfig(String namespace, String configId, String data) {
         return delegate.setConfig(namespace, configId, data);
     }
-
+    
     @Override
     public Mono<Boolean> removeConfig(String configId) {
         return delegate.removeConfig(configId);
     }
-
+    
     @Override
     public Mono<Boolean> removeConfig(String namespace, String configId) {
         return delegate.removeConfig(namespace, configId);
     }
-
+    
     @Override
     public Mono<Boolean> containsConfig(String namespace, String configId) {
         return delegate.containsConfig(namespace, configId);
     }
-
-    @Override
-    public void addListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
-        configMapListener.compute(namespacedConfigId, (key, val) -> {
-            CopyOnWriteArraySet<ConfigChangedListener> listeners = val;
-            if (Objects.isNull(val)) {
-                addListener(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId());
-                listeners = new CopyOnWriteArraySet<>();
-            }
-            listeners.add(configChangedListener);
-            return listeners;
-        });
-    }
-
-    @Override
-    public void removeListener(NamespacedConfigId namespacedConfigId, ConfigChangedListener configChangedListener) {
-        configMapListener.compute(namespacedConfigId, (key, val) -> {
-            if (Objects.isNull(val)) {
-                return null;
-            }
-            val.remove(configChangedListener);
-            if (val.isEmpty()) {
-                return null;
-            }
-            return val;
-        });
-    }
-
+    
     @Override
     public Mono<Boolean> rollback(String configId, int targetVersion) {
         return delegate.rollback(configId, targetVersion);
     }
-
+    
     @Override
     public Mono<Boolean> rollback(String namespace, String configId, int targetVersion) {
         return delegate.rollback(namespace, configId, targetVersion);
     }
-
+    
     @Override
-    public Mono<List<ConfigVersion>> getConfigVersions(String namespace, String configId) {
+    public Flux<ConfigVersion> getConfigVersions(String namespace, String configId) {
         return delegate.getConfigVersions(namespace, configId);
     }
-
+    
     @Override
     public Mono<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
         return delegate.getConfigHistory(namespace, configId, version);
     }
-
-
-    private class ConfigListener implements MessageListener {
-
-        @Override
-        public void onMessage(@Nullable String pattern, String channel, String message) {
-            if (log.isInfoEnabled()) {
-                log.info("onMessage@ConfigListener - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
-            }
-
-            final String configkey = channel;
-            NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(configkey);
-            configMap.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()).cache());
-            CopyOnWriteArraySet<ConfigChangedListener> configChangedListeners = configMapListener.get(namespacedConfigId);
-            if (Objects.isNull(configChangedListeners) || configChangedListeners.isEmpty()) {
-                return;
-            }
-            configChangedListeners.forEach(configChangedListener -> configChangedListener.onChange(namespacedConfigId, message));
-        }
-    }
+    
 }

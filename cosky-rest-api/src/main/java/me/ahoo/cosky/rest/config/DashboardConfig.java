@@ -14,6 +14,7 @@
 package me.ahoo.cosky.rest.config;
 
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpResponse;
 import org.springframework.stereotype.Controller;
@@ -23,7 +24,7 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 
 /**
- * for Dashboard-UI
+ * for Dashboard-UI.
  *
  * @author ahoo wang
  */
@@ -31,21 +32,21 @@ import java.net.URI;
 public class DashboardConfig {
     public static final String INDEX_PAGE = RequestPathPrefix.DASHBOARD + "index.html";
     public static final URI INDEX_PAGE_URI = URI.create(INDEX_PAGE);
-
+    
     @GetMapping(
-            {
-                    "/",
-                    RequestPathPrefix.DASHBOARD,
-                    RequestPathPrefix.DASHBOARD + "home",
-                    RequestPathPrefix.DASHBOARD + "topology",
-                    RequestPathPrefix.DASHBOARD + "config",
-                    RequestPathPrefix.DASHBOARD + "service",
-                    RequestPathPrefix.DASHBOARD + "namespace",
-                    RequestPathPrefix.DASHBOARD + "user",
-                    RequestPathPrefix.DASHBOARD + "role",
-                    RequestPathPrefix.DASHBOARD + "audit-log",
-                    RequestPathPrefix.DASHBOARD + "login"
-            }
+        {
+            "/",
+            RequestPathPrefix.DASHBOARD,
+            RequestPathPrefix.DASHBOARD + "home",
+            RequestPathPrefix.DASHBOARD + "topology",
+            RequestPathPrefix.DASHBOARD + "config",
+            RequestPathPrefix.DASHBOARD + "service",
+            RequestPathPrefix.DASHBOARD + "namespace",
+            RequestPathPrefix.DASHBOARD + "user",
+            RequestPathPrefix.DASHBOARD + "role",
+            RequestPathPrefix.DASHBOARD + "audit-log",
+            RequestPathPrefix.DASHBOARD + "login"
+        }
     )
     public Mono<Void> home(ServerHttpResponse response) {
         response.setStatusCode(HttpStatus.TEMPORARY_REDIRECT);

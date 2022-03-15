@@ -14,6 +14,8 @@
 package me.ahoo.cosky.core;
 
 /**
+ * CoSky brand constant.
+ *
  * @author ahoo wang
  */
 public interface CoSky {

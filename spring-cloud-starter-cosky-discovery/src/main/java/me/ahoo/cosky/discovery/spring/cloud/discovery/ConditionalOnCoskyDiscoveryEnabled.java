@@ -21,6 +21,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Conditional On Cosky Discovery Enabled.
+ *
  * @author ahoo wang
  */
 @Retention(RetentionPolicy.RUNTIME)

@@ -15,56 +15,51 @@ package me.ahoo.cosky.discovery.loadbalancer;
 
 import me.ahoo.cosky.discovery.NamespacedServiceId;
 import me.ahoo.cosky.discovery.ServiceChangedEvent;
-import me.ahoo.cosky.discovery.ServiceChangedListener;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
+
 import reactor.core.publisher.Mono;
 
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
+ * Abstract Load Balancer.
+ *
  * @author ahoo wang
  */
-public abstract class AbstractLoadBalancer<Chooser extends LoadBalancer.Chooser> implements LoadBalancer {
-
-    private final ConcurrentHashMap<NamespacedServiceId, Mono<Chooser>> serviceMapChooser;
+public abstract class AbstractLoadBalancer<C extends LoadBalancer.Chooser> implements LoadBalancer {
+    
+    private final ConcurrentHashMap<NamespacedServiceId, Mono<C>> serviceMapChooser;
     private final ConsistencyRedisServiceDiscovery serviceDiscovery;
-    private final Listener listener;
-
+    
     public AbstractLoadBalancer(ConsistencyRedisServiceDiscovery serviceDiscovery) {
         this.serviceDiscovery = serviceDiscovery;
         this.serviceMapChooser = new ConcurrentHashMap<>();
-        this.listener = new Listener();
     }
-
-    private Mono<Chooser> ensureChooser(NamespacedServiceId namespacedServiceId) {
+    
+    private Mono<C> ensureChooser(NamespacedServiceId namespacedServiceId) {
         return serviceMapChooser.computeIfAbsent(namespacedServiceId,
-                key -> {
-                    serviceDiscovery.addListener(key, this.listener);
-                    return serviceDiscovery.getInstances(key.getNamespace(), key.getServiceId())
-                            .map(this::createChooser)
-                            .cache();
-                });
+            key -> {
+                serviceDiscovery.listen(key)
+                    .doOnNext(serviceChangedEvent -> serviceMapChooser.put(key, getCachedInstances(namespacedServiceId)))
+                    .subscribe();
+                return getCachedInstances(namespacedServiceId);
+            });
     }
-
+    
+    private Mono<C> getCachedInstances(NamespacedServiceId namespacedServiceId) {
+        return serviceDiscovery.getInstances(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId())
+            .collectList()
+            .map(this::createChooser)
+            .cache();
+    }
+    
     @Override
     public Mono<ServiceInstance> choose(String namespace, String serviceId) {
         return ensureChooser(NamespacedServiceId.of(namespace, serviceId))
-                .mapNotNull(LoadBalancer.Chooser::choose);
+            .mapNotNull(LoadBalancer.Chooser::choose);
     }
-
-
-    protected abstract Chooser createChooser(List<ServiceInstance> serviceInstances);
-
-    private class Listener implements ServiceChangedListener {
-
-        @Override
-        public void onChange(ServiceChangedEvent serviceChangedEvent) {
-            NamespacedServiceId namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
-            serviceMapChooser.remove(namespacedServiceId);
-            ensureChooser(namespacedServiceId);
-
-        }
-    }
+    
+    protected abstract C createChooser(List<ServiceInstance> serviceInstances);
 }

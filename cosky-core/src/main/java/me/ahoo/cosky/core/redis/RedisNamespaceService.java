@@ -13,52 +13,57 @@
 
 package me.ahoo.cosky.core.redis;
 
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
-import io.lettuce.core.cluster.api.reactive.RedisClusterReactiveCommands;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.Namespaced;
+
+import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Set;
-import java.util.stream.Collectors;
-
 /**
+ * Redis Namespace Service.
+ *
  * @author ahoo wang
  */
 public class RedisNamespaceService implements NamespaceService {
-
-    private final static String NAMESPACE_IDX_KEY = Namespaced.SYSTEM + ":ns_idx";
-
-    private final RedisClusterReactiveCommands<String, String> redisCommands;
-
-    public RedisNamespaceService(RedisClusterReactiveCommands<String, String> redisCommands) {
-        this.redisCommands = redisCommands;
+    
+    private static final String NAMESPACE_IDX_KEY = Namespaced.SYSTEM + ":ns_idx";
+    
+    private final ReactiveStringRedisTemplate redisTemplate;
+    
+    public RedisNamespaceService(ReactiveStringRedisTemplate redisTemplate) {
+        this.redisTemplate = redisTemplate;
     }
-
+    
     @Override
-    public Mono<Set<String>> getNamespaces() {
-        return redisCommands.smembers(NAMESPACE_IDX_KEY).collect(Collectors.toSet());
+    public Flux<String> getNamespaces() {
+        return redisTemplate
+            .opsForSet()
+            .members(NAMESPACE_IDX_KEY);
     }
-
+    
     @Override
     public Mono<Boolean> setNamespace(String namespace) {
         ensureNamespace(namespace);
-
-        return redisCommands.sadd(NAMESPACE_IDX_KEY, namespace)
-                .map(affected -> affected > 0);
+        return redisTemplate
+            .opsForSet()
+            .add(NAMESPACE_IDX_KEY, namespace)
+            .map(affected -> affected > 0);
     }
-
+    
     private void ensureNamespace(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
     }
-
+    
     @Override
     public Mono<Boolean> removeNamespace(String namespace) {
         ensureNamespace(namespace);
-
-        return redisCommands.srem(NAMESPACE_IDX_KEY, namespace)
-                .map(affected -> affected > 0);
+        return redisTemplate
+            .opsForSet()
+            .remove(NAMESPACE_IDX_KEY, namespace)
+            .map(affected -> affected > 0);
     }
-
+    
 }

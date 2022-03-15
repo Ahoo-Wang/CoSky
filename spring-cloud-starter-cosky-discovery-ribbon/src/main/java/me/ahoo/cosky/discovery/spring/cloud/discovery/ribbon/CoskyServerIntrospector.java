@@ -19,10 +19,12 @@ import org.springframework.cloud.netflix.ribbon.DefaultServerIntrospector;
 import java.util.Map;
 
 /**
+ * Cosky Server Introspector.
+ *
  * @author ahoo wang
  */
 public class CoskyServerIntrospector extends DefaultServerIntrospector {
-
+    
     @Override
     public boolean isSecure(Server server) {
         if (server instanceof CoskyServer) {
@@ -30,7 +32,7 @@ public class CoskyServerIntrospector extends DefaultServerIntrospector {
         }
         return super.isSecure(server);
     }
-
+    
     @Override
     public Map<String, String> getMetadata(Server server) {
         if (server instanceof CoskyServer) {

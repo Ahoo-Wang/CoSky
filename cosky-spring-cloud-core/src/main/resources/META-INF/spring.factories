@@ -1,7 +1,10 @@
 # Bootstrap Configuration
 org.springframework.cloud.bootstrap.BootstrapConfiguration=\
-me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration
-
+me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration,\
+org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,\
+org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
 # Auto Configuration
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration
+me.ahoo.cosky.spring.cloud.CoskyAutoConfiguration,\
+org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,\
+org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration

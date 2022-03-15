@@ -19,40 +19,42 @@ import me.ahoo.cosky.rest.security.rbac.Role;
 import java.util.Set;
 
 /**
+ * User.
+ *
  * @author ahoo wang
  */
 public class User {
-
-    public final static String SUPER_USER = CoSky.COSKY;
-
+    
+    public static final String SUPER_USER = CoSky.COSKY;
+    
     private String username;
     private Set<String> roleBind;
-
+    
     public String getUsername() {
         return username;
     }
-
+    
     public void setUsername(String username) {
         this.username = username;
     }
-
+    
     public Set<String> getRoleBind() {
         return roleBind;
     }
-
+    
     public void setRoleBind(Set<String> roleBind) {
         this.roleBind = roleBind;
     }
-
+    
     public boolean isAdmin() {
         return SUPER_USER.equals(username) || roleBind.contains(Role.ADMIN_ROLE);
     }
-
+    
     @Override
     public String toString() {
-        return "User{" +
-                "username='" + username + '\'' +
-                ", roleBind=" + roleBind +
-                '}';
+        return "User{"
+            + "username='" + username + '\''
+            + ", roleBind=" + roleBind
+            + '}';
     }
 }

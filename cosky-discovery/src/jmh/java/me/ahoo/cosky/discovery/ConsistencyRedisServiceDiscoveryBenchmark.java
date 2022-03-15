@@ -13,61 +13,53 @@
 
 package me.ahoo.cosky.discovery;
 
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
-import me.ahoo.cosky.core.listener.DefaultMessageListenable;
-import me.ahoo.cosky.core.listener.MessageListenable;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
-import org.openjdk.jmh.annotations.*;
+
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 
 import java.util.List;
-import java.util.Objects;
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class ConsistencyRedisServiceDiscoveryBenchmark {
+public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
     private final static String namespace = "benchmark_csy_svc_dvy";
     public ServiceDiscovery serviceDiscovery;
-    private RedisClient redisClient;
-    private StatefulRedisConnection<String, String> redisConnection;
-    private MessageListenable messageListenable;
-
+    private final static ServiceInstance fixedInstance = TestServiceInstance.randomFixedInstance();
+    
     @Setup
-    public void setup() {
-        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark setup ----- \n");
-        redisClient = RedisClient.create("redis://localhost:6379");
-        redisConnection = redisClient.connect();
-
+    public void afterPropertiesSet() {
+        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark afterPropertiesSet ----- \n");
+        super.afterPropertiesSet();
+        
         RegistryProperties registryProperties = new RegistryProperties();
-        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        serviceRegistry.register(TestServiceInstance.TEST_FIXED_INSTANCE);
-        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
-        messageListenable = new DefaultMessageListenable(redisClient.connectPubSub().reactive());
-        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, messageListenable, redisConnection.reactive());
+        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        serviceRegistry.register(fixedInstance).block();
+        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
+        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
-
+    
     @TearDown
-    public void tearDown() {
-        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark tearDown ----- \n");
-        if (Objects.nonNull(redisConnection)) {
-            redisConnection.close();
-        }
-        if (Objects.nonNull(redisClient)) {
-            redisClient.shutdown();
-        }
+    public void destroy() {
+        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark destroy ----- \n");
+        super.destroy();
     }
-
+    
     @Benchmark
     public List<String> getServices() {
-        return serviceDiscovery.getServices(namespace).block();
+        return serviceDiscovery.getServices(namespace).collectList().block();
     }
-
+    
     @Benchmark
     public List<ServiceInstance> getInstances() {
-        return serviceDiscovery.getInstances(namespace, TestServiceInstance.TEST_FIXED_INSTANCE.getServiceId()).block();
+        return serviceDiscovery.getInstances(namespace, fixedInstance.getServiceId()).collectList().block();
     }
 }

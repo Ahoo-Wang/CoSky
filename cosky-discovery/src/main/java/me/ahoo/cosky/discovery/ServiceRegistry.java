@@ -14,66 +14,68 @@
 package me.ahoo.cosky.discovery;
 
 import me.ahoo.cosky.core.NamespacedContext;
+
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
 
 /**
+ * Service Registry.
+ *
  * @author ahoo wang
  */
 public interface ServiceRegistry {
-
-
+    
     Mono<Boolean> setService(String namespace, String serviceId);
-
+    
     Mono<Boolean> removeService(String namespace, String serviceId);
-
+    
     /**
-     * 注册实例
+     * 注册实例.
      *
      * @param serviceInstance serviceInstance
      */
     default Mono<Boolean> register(ServiceInstance serviceInstance) {
         return register(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
     }
-
+    
     Mono<Boolean> register(String namespace, ServiceInstance serviceInstance);
-
+    
     /**
-     * 服务实例续期
+     * 服务实例续期.
      *
-     * @param serviceInstance
+     * @param serviceInstance serviceInstance
      * @return successful?
      */
     default Mono<Boolean> renew(ServiceInstance serviceInstance) {
         return renew(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
     }
-
+    
     Mono<Boolean> renew(String namespace, ServiceInstance serviceInstance);
-
+    
     default Mono<Boolean> deregister(ServiceInstance serviceInstance) {
         return deregister(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
     }
-
+    
     Mono<Boolean> deregister(String namespace, ServiceInstance serviceInstance);
-
+    
     default Mono<Boolean> deregister(String serviceId, String instanceId) {
         return deregister(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId);
     }
-
+    
     Mono<Boolean> deregister(String namespace, String serviceId, String instanceId);
-
+    
     Map<NamespacedInstanceId, ServiceInstance> getRegisteredEphemeralInstances();
-
+    
     default Mono<Boolean> setMetadata(String serviceId, String instanceId, String key, String value) {
         return setMetadata(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId, key, value);
     }
-
+    
     Mono<Boolean> setMetadata(String namespace, String serviceId, String instanceId, String key, String value);
-
+    
     default Mono<Boolean> setMetadata(String serviceId, String instanceId, Map<String, String> metadata) {
         return setMetadata(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceId, instanceId, metadata);
     }
-
+    
     Mono<Boolean> setMetadata(String namespace, String serviceId, String instanceId, Map<String, String> metadata);
 }

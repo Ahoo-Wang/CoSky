@@ -13,55 +13,62 @@
 
 package me.ahoo.cosky.rest.security.rbac;
 
-import com.google.common.base.Objects;
 import me.ahoo.cosky.core.Namespaced;
 
+import com.google.common.base.Objects;
+
 /**
+ * Resource Action.
+ *
  * @author ahoo wang
  */
 public class ResourceAction implements Namespaced {
     private final String namespace;
     private final Action action;
-
+    
     public ResourceAction(String namespace, Action action) {
         this.namespace = namespace;
         this.action = action;
     }
-
+    
     @Override
     public String getNamespace() {
         return namespace;
     }
-
+    
     public Action getAction() {
         return action;
     }
-
+    
     public boolean check(ResourceAction requestAction) {
         if (!namespace.equals(requestAction.getNamespace())) {
             return false;
         }
         return action.check(requestAction.getAction());
     }
-
+    
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof ResourceAction)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof ResourceAction)) {
+            return false;
+        }
         ResourceAction that = (ResourceAction) o;
         return Objects.equal(namespace, that.namespace) && action == that.action;
     }
-
+    
     @Override
     public int hashCode() {
         return Objects.hashCode(namespace, action);
     }
-
+    
     @Override
     public String toString() {
-        return "ResourceAction{" +
-                "namespace='" + namespace + '\'' +
-                ", action=" + action +
-                '}';
+        return "ResourceAction{"
+            + "namespace='" + namespace + '\''
+            + ", action=" + action
+            + '}';
     }
 }

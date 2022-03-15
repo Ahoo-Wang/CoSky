@@ -15,11 +15,13 @@ package me.ahoo.cosky.discovery.loadbalancer;
 
 import com.google.common.base.Stopwatch;
 import lombok.extern.slf4j.Slf4j;
-import lombok.var;
+
+import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.TestServiceInstance;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,18 +33,18 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class BinaryWeightRandomLoadBalancerTest {
     @Test
     public void choose() {
-        var serviceId = "BinaryWeightRandomLoadBalancer";
-        var instance1 = TestServiceInstance.createInstance(serviceId);
+        String serviceId = "BinaryWeightRandomLoadBalancer";
+        ServiceInstance instance1 = TestServiceInstance.createInstance(serviceId);
         instance1.setWeight(2);
-        var instance2 = TestServiceInstance.createInstance(serviceId);
+        ServiceInstance instance2 = TestServiceInstance.createInstance(serviceId);
         instance2.setWeight(3);
-        var instance3 = TestServiceInstance.createInstance(serviceId);
+        ServiceInstance instance3 = TestServiceInstance.createInstance(serviceId);
         instance3.setWeight(5);
-        var instances = Arrays.asList(instance1,
-                instance2,
-                instance3);
+        List<ServiceInstance> instances = Arrays.asList(instance1,
+            instance2,
+            instance3);
         BinaryWeightRandomLoadBalancer.BinaryChooser binaryChooser = new BinaryWeightRandomLoadBalancer.BinaryChooser(instances);
-        var instance = binaryChooser.choose();
+        ServiceInstance instance = binaryChooser.choose();
         assertNotNull(instance);
 
         int totalTimes = 1000_000_0;
@@ -51,7 +53,7 @@ class BinaryWeightRandomLoadBalancerTest {
         int instance3Count = 0;
         Stopwatch stopwatch = Stopwatch.createStarted();
         for (int i = 0; i < totalTimes; i++) {
-            var randomInstance = binaryChooser.choose();
+            ServiceInstance randomInstance = binaryChooser.choose();
             if (randomInstance.equals(instance1)) {
                 instance1Count++;
             } else if (randomInstance.equals(instance2)) {

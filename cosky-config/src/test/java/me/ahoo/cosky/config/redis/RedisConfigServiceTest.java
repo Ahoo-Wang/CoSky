@@ -13,129 +13,182 @@
 
 package me.ahoo.cosky.config.redis;
 
-import lombok.var;
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.config.ConfigRollback;
+import me.ahoo.cosky.config.ConfigService;
+import me.ahoo.cosky.config.ConfigVersion;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
 
 /**
  * @author ahoo wang
  */
-public class RedisConfigServiceTest extends BaseOnRedisClientTest {
-    private RedisConfigService redisConfigService;
-    private final String testConfigId = "test_config";
-    private final String namespace = "test_cfg";
-
-    @BeforeAll
-    private void init() {
-        redisConfigService = new RedisConfigService(redisConnection.reactive());
+public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
+    private ConfigService configService;
+    private final String testConfigId = "test-config-id";
+    private final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        configService = new RedisConfigService(redisTemplate);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
     @Test
     public void setConfig() {
-        clearTestData(namespace);
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, "setConfigData").block();
-        Assertions.assertTrue(setResult);
+        StepVerifier
+            .create(configService.setConfig(namespace, testConfigId, "setConfigData"))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
-
-
+    
+    
     @Test
     public void removeConfig() {
-        clearTestData(namespace);
-        redisConfigService.setConfig(namespace, testConfigId, "removeConfigData").block();
-        var result = redisConfigService.removeConfig(namespace, testConfigId).block();
-        Assertions.assertTrue(result);
+        StepVerifier.create(
+                configService.setConfig(namespace, testConfigId, "removeConfigData")
+                    .then(configService.removeConfig(namespace, testConfigId))
+            )
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
-
+    
     @Test
     public void getConfig() {
-        clearTestData(namespace);
-        var getConfigData = "getConfigData";
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, getConfigData).block();
-        Assertions.assertTrue(setResult);
-        var getResult = redisConfigService.getConfig(namespace, testConfigId).block();
-        Assertions.assertNotNull(getResult);
-        Assertions.assertEquals(testConfigId, getResult.getConfigId());
-        Assertions.assertEquals(getConfigData, getResult.getData());
-        Assertions.assertEquals(1, getResult.getVersion());
+        String getConfigData = "getConfigData";
+        StepVerifier.create(configService.setConfig(namespace, testConfigId, getConfigData))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.getConfig(namespace, testConfigId))
+            .expectNextMatches(actual -> {
+                Assertions.assertEquals(testConfigId, actual.getConfigId());
+                Assertions.assertEquals(getConfigData, actual.getData());
+                Assertions.assertEquals(1, actual.getVersion());
+                return true;
+            })
+            .verifyComplete();
     }
-
-
+    
+    
     @Test
     public void rollback() {
-        clearTestData(namespace);
-        var test_get_config = "test_rollback_config";
-        var version1Data = "version-1";
-        var setResult = redisConfigService.setConfig(namespace, test_get_config, version1Data).block();
-        Assertions.assertTrue(setResult);
-        var version1Config = redisConfigService.getConfig(namespace, test_get_config).block();
-        Assertions.assertNotNull(version1Config);
-        Assertions.assertEquals(version1Data, version1Config.getData());
-
-        var version2Data = "version-2";
-        setResult = redisConfigService.setConfig(namespace, test_get_config, version2Data).block();
-        Assertions.assertTrue(setResult);
-        var version2Config = redisConfigService.getConfig(namespace, test_get_config).block();
-        Assertions.assertNotNull(version2Config);
-        Assertions.assertEquals(version2Data, version2Config.getData());
-
-        var rollbackResult = redisConfigService.rollback(namespace, test_get_config, version1Config.getVersion()).block();
-        Assertions.assertTrue(rollbackResult);
-
-        var afterRollbackConfig = redisConfigService.getConfig(namespace, test_get_config).block();
-
-        Assertions.assertEquals(version1Config.getData(), afterRollbackConfig.getData());
+        String test_get_config = "test_rollback_config";
+        String version1Data = "version-1";
+        
+        StepVerifier.create(configService.setConfig(namespace, test_get_config, version1Data))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.getConfig(namespace, test_get_config))
+            .expectNextMatches(config -> {
+                Assertions.assertEquals(version1Data, config.getData());
+                return true;
+            })
+            .verifyComplete();
+        
+        String version2Data = "version-2";
+        StepVerifier.create(configService.setConfig(namespace, test_get_config, version2Data))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.getConfig(namespace, test_get_config))
+            .expectNextMatches(config -> {
+                Assertions.assertEquals(version2Data, config.getData());
+                return true;
+            })
+            .verifyComplete();
+        
+        StepVerifier.create(configService.rollback(namespace, test_get_config, 1))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+    
+        StepVerifier.create(configService.getConfig(namespace, test_get_config))
+            .expectNextMatches(config -> {
+                Assertions.assertEquals(version1Data, config.getData());
+                return true;
+            })
+            .verifyComplete();
     }
-
+    
     @Test
     void getConfigs() {
-        clearTestData(namespace);
-        var getResult = redisConfigService.getConfigs(namespace).block();
-        Assertions.assertTrue(getResult.isEmpty());
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigsData").block();
-        Assertions.assertTrue(setResult);
-        getResult = redisConfigService.getConfigs(namespace).block();
-        Assertions.assertFalse(getResult.isEmpty());
-        Assertions.assertEquals(testConfigId, getResult.iterator().next());
+        StepVerifier.create(configService.getConfigs(namespace))
+            .expectNextCount(0)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.setConfig(namespace, testConfigId, "getConfigsData"))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.getConfigs(namespace))
+            .expectNext(testConfigId)
+            .verifyComplete();
     }
-
+    
     @Test
     void getConfigVersions() {
-        clearTestData(namespace);
-        var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData").block();
-        Assertions.assertTrue(setResult);
-        var getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).block();
-        Assertions.assertTrue(getConfigVersionResult.isEmpty());
-        setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData-1").block();
-        Assertions.assertTrue(setResult);
-        getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).block();
-        Assertions.assertFalse(getConfigVersionResult.isEmpty());
-        var configVersion = getConfigVersionResult.get(0);
-        Assertions.assertEquals(testConfigId, configVersion.getConfigId());
-        Assertions.assertEquals(1, configVersion.getVersion());
+        StepVerifier.create(configService.setConfig(namespace, testConfigId, "getConfigVersionData"))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.getConfigVersions(namespace, testConfigId))
+            .expectNextCount(0)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.setConfig(namespace, testConfigId, "getConfigVersionData-1"))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(configService.getConfigVersions(namespace, testConfigId))
+            .expectNextMatches(configVersion -> {
+                Assertions.assertEquals(testConfigId, configVersion.getConfigId());
+                Assertions.assertEquals(1, configVersion.getVersion());
+                return true;
+            })
+            .verifyComplete();
     }
-
+    
     @Test
     void getConfigVersionsLast10() {
-        clearTestData(namespace);
+        
         for (int i = 0; i < ConfigRollback.HISTORY_SIZE * 2 + 1; i++) {
-            var setResult = redisConfigService.setConfig(namespace, testConfigId, "getConfigVersionData-" + i).block();
+            StepVerifier.create(configService.setConfig(namespace, testConfigId, "getConfigVersionData-" + i))
+                .expectNext(Boolean.TRUE)
+                .verifyComplete();
         }
-        var getConfigVersionResult = redisConfigService.getConfigVersions(namespace, testConfigId).block();
-        Assertions.assertFalse(getConfigVersionResult.isEmpty());
-        Assertions.assertEquals(ConfigRollback.HISTORY_SIZE, getConfigVersionResult.size());
-        var configVersion = getConfigVersionResult.get(0);
-        Assertions.assertEquals(testConfigId, configVersion.getConfigId());
-        Assertions.assertEquals(ConfigRollback.HISTORY_SIZE * 2, configVersion.getVersion());
+        StepVerifier.create(configService.getConfigVersions(namespace, testConfigId).collectList())
+            .expectNextMatches(configVersions -> {
+                Assertions.assertEquals(ConfigRollback.HISTORY_SIZE, configVersions.size());
+                ConfigVersion configVersion = configVersions.get(0);
+                Assertions.assertEquals(testConfigId, configVersion.getConfigId());
+                Assertions.assertEquals(ConfigRollback.HISTORY_SIZE * 2, configVersion.getVersion());
+                return true;
+            })
+            .verifyComplete();
     }
-
+    
     @Test
     void getConfigHistory() {
         getConfigVersions();
-        var config = redisConfigService.getConfigHistory(namespace, testConfigId, 1).block();
-        Assertions.assertNotNull(config);
-        Assertions.assertEquals(testConfigId, config.getConfigId());
-        Assertions.assertEquals(1, config.getVersion());
+        StepVerifier.create(configService.getConfigHistory(namespace, testConfigId, 1))
+            .expectNextMatches(configHistory -> {
+                Assertions.assertEquals(testConfigId, configHistory.getConfigId());
+                Assertions.assertEquals(1, configHistory.getVersion());
+                return true;
+            })
+            .verifyComplete();
     }
 }

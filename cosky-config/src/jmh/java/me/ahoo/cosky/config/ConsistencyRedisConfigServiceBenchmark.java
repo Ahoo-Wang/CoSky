@@ -13,62 +13,51 @@
 
 package me.ahoo.cosky.config;
 
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
-import me.ahoo.cosky.core.listener.DefaultMessageListenable;
-import me.ahoo.cosky.core.listener.MessageListenable;
-import org.openjdk.jmh.annotations.*;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 
-import java.util.Objects;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class ConsistencyRedisConfigServiceBenchmark {
+public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
     private static final String namespace = "benchmark_csy_cfg";
     public ConfigService configService;
-    private RedisClient redisClient;
-    private StatefulRedisConnection<String, String> redisConnection;
-    private MessageListenable messageListenable;
-    private String configId = this.getClass().getSimpleName();
-    private String configData = "spring:\n" +
-            "  application:\n" +
-            "    name: cosky-rest-api\n" +
-            "  cloud:\n" +
-            "    cosky:\n" +
-            "      namespace: dev\n" +
-            "      config:\n" +
-            "        config-id: ${spring.application.name}.yml\n" +
-            "      redis:\n" +
-            "        mode: standalone\n" +
-            "        url: redis://localhost:6379\n";
-
+    private final String configId = MockIdGenerator.INSTANCE.generateAsString();
+    private final String configData = "spring:\n" +
+        "  application:\n" +
+        "    name: cosky-rest-api\n" +
+        "  cloud:\n" +
+        "    cosky:\n" +
+        "      namespace: dev\n" +
+        "      config:\n" +
+        "        config-id: ${spring.application.name}.yml\n" +
+        "      redis:\n" +
+        "        mode: standalone\n" +
+        "        url: redis://localhost:6379\n";
     @Setup
-    public void setup() {
+    public void afterPropertiesSet() {
         System.out.println("\n ----- ConsistencyRedisConfigServiceBenchmark setup ----- \n");
-        redisClient = RedisClient.create("redis://localhost:6379");
-        redisConnection = redisClient.connect();
-
-        RedisConfigService redisConfigService = new RedisConfigService(redisConnection.reactive());
-        redisConfigService.setConfig(configId, configData);
-        messageListenable = new DefaultMessageListenable(redisClient.connectPubSub().reactive());
-        configService = new ConsistencyRedisConfigService(redisConfigService, messageListenable);
+        super.afterPropertiesSet();
+        RedisConfigService redisConfigService = new RedisConfigService(redisTemplate);
+        redisConfigService.setConfig(configId, configData).block();
+        configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer);
     }
-
+    
     @TearDown
-    public void tearDown() {
+    public void destroy() {
         System.out.println("\n ----- ConsistencyRedisConfigServiceBenchmark tearDown ----- \n");
-        if (Objects.nonNull(redisConnection)) {
-            redisConnection.close();
-        }
-        if (Objects.nonNull(redisClient)) {
-            redisClient.shutdown();
-        }
+        super.destroy();
     }
-
+    
     @Benchmark
     public Config getConfig() {
         return configService.getConfig(namespace, configId).block();

@@ -21,6 +21,8 @@ dependencies {
     implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
     jmh("org.openjdk.jmh:jmh-core:${rootProject.ext.get("jmhVersion")}")
     jmh("org.openjdk.jmh:jmh-generator-annprocess:${rootProject.ext.get("jmhVersion")}")
+    testImplementation("me.ahoo.cosid:cosid-core")
+    testImplementation("io.projectreactor:reactor-test")
 }
 
 jmh {
@@ -31,6 +33,6 @@ jmh {
     benchmarkMode.set(listOf(
         "thrpt"
     ))
-    threads.set(50)
+    threads.set(5)
     fork.set(1)
 }

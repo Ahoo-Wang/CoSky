@@ -16,17 +16,19 @@ package me.ahoo.cosky.core.util;
 import java.lang.management.ManagementFactory;
 
 /**
+ * Systems.
+ *
  * @author ahoo wang
  */
 public final class Systems {
     private Systems() {
     }
-
-
+    
+    
     public static String getCurrentProcessName() {
         return ManagementFactory.getRuntimeMXBean().getName();
     }
-
+    
     public static long getCurrentProcessId() {
         String processName = getCurrentProcessName();
         String processIdStr = processName.split("@")[0];

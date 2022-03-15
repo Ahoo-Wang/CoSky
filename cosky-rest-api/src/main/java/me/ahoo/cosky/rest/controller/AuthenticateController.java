@@ -20,10 +20,18 @@ import me.ahoo.cosky.rest.security.JwtProvider;
 import me.ahoo.cosky.rest.security.annotation.AllowAnonymous;
 import me.ahoo.cosky.rest.security.user.UserService;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
-import org.springframework.web.bind.annotation.*;
+
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
 /**
+ * Authenticate Controller.
+ *
  * @author ahoo wang
  */
 @CrossOrigin("*")
@@ -31,27 +39,20 @@ import reactor.core.publisher.Mono;
 @RequestMapping(RequestPathPrefix.AUTHENTICATE_PREFIX)
 @AllowAnonymous
 public class AuthenticateController {
-
+    
     private final JwtProvider jwtProvider;
     private final UserService userService;
-
+    
     public AuthenticateController(JwtProvider jwtProvider, UserService userService) {
         this.jwtProvider = jwtProvider;
         this.userService = userService;
     }
-
-    /**
-     * Authentication
-     *
-     * @param username
-     * @param loginRequest
-     * @return
-     */
+    
     @PostMapping("/{username}/login")
     public Mono<LoginResponse> login(@PathVariable String username, @RequestBody LoginRequest loginRequest) {
         return userService.login(username, loginRequest.getPassword());
     }
-
+    
     @PostMapping("/{username}/refresh")
     public LoginResponse refresh(@PathVariable String username, @RequestBody RefreshRequest refreshRequest) {
         return jwtProvider.refresh(refreshRequest.getAccessToken(), refreshRequest.getRefreshToken());

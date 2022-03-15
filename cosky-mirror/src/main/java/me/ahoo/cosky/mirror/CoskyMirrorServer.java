@@ -18,14 +18,16 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
+ * Cosky Mirror Server.
+ *
  * @author ahoo wang
  */
 @EnableScheduling
 @SpringBootApplication
 public class CoskyMirrorServer {
-
+    
     public static void main(String[] args) {
         SpringApplication.run(CoskyMirrorServer.class, args);
     }
-
+    
 }

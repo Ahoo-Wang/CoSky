@@ -13,6 +13,7 @@
 
 dependencies {
     api("io.lettuce:lettuce-core")
-
-//    testImplementation("io.projectreactor:reactor-test")
+    api("org.springframework.data:spring-data-redis")
+    testImplementation("me.ahoo.cosid:cosid-core")
+    testImplementation("io.projectreactor:reactor-test")
 }

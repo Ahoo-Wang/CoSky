@@ -13,12 +13,12 @@
 
 package me.ahoo.cosky.discovery;
 
+import me.ahoo.cosky.core.Listen;
+
 /**
+ * Listenable Service Discovery .
+ *
  * @author ahoo wang
  */
-public interface ServiceListenable {
-
-    void addListener(NamespacedServiceId namespacedServiceId, ServiceChangedListener serviceChangedListener);
-
-    void removeListener(NamespacedServiceId namespacedServiceId, ServiceChangedListener serviceChangedListener);
+public interface ListenableServiceDiscovery extends ServiceDiscovery, Listen<NamespacedServiceId, ServiceChangedEvent> {
 }

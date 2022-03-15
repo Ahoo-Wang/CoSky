@@ -13,14 +13,12 @@
 
 package me.ahoo.cosky.config;
 
+import me.ahoo.cosky.core.Listen;
+
 /**
+ * Listenable Config  Service .
+ *
  * @author ahoo wang
  */
-public interface ConfigChangedListener {
-    String OP_SET = "set";
-    String OP_ROLLBACK = "rollback";
-    String OP_REMOVE = "remove";
-
-    void onChange(NamespacedConfigId namespacedConfigId, String op);
-
+public interface ListenableConfigService extends ConfigService, Listen<NamespacedConfigId, ConfigChangedEvent> {
 }

@@ -19,6 +19,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Admin Resource.
+ *
  * @author ahoo wang
  */
 @Target({ElementType.TYPE, ElementType.METHOD})

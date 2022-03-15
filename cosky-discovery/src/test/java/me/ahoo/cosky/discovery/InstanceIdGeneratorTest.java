@@ -13,7 +13,6 @@
 
 package me.ahoo.cosky.discovery;
 
-import lombok.var;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -30,7 +29,7 @@ public class InstanceIdGeneratorTest {
         serviceInstance.setPort(8080);
 
         String expected = "order_service@http#127.0.0.1#8080";
-        var actual = InstanceIdGenerator.DEFAULT.generate(serviceInstance);
+        String actual = InstanceIdGenerator.DEFAULT.generate(serviceInstance);
 
         Assertions.assertEquals(expected, actual);
     }
@@ -39,7 +38,7 @@ public class InstanceIdGeneratorTest {
     public void of() {
 
         String instanceId = "order_service@http#127.0.0.1#8080";
-        var instance = InstanceIdGenerator.DEFAULT.of(instanceId);
+        Instance instance = InstanceIdGenerator.DEFAULT.of(instanceId);
 
         Assertions.assertEquals(instanceId, instance.getInstanceId());
         Assertions.assertEquals("order_service", instance.getServiceId());

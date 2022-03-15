@@ -16,16 +16,18 @@ package me.ahoo.cosky.rest.security.rbac;
 import com.google.common.base.Strings;
 
 /**
+ * Not Found Role Exception.
+ *
  * @author ahoo wang
  */
 public class NotFoundRoleException extends SecurityException {
     private final String roleName;
-
+    
     public NotFoundRoleException(String roleName) {
         super(Strings.lenientFormat("not found role:[%s]", roleName));
         this.roleName = roleName;
     }
-
+    
     public String getRoleName() {
         return roleName;
     }

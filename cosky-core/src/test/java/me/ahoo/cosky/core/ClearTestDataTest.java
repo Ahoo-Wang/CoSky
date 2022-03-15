@@ -13,19 +13,36 @@
 
 package me.ahoo.cosky.core;
 
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.cluster.api.sync.RedisClusterCommands;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+import me.ahoo.cosky.core.test.ClearRedisScripts;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
+ * ClearTestData .
+ *
  * @author ahoo wang
  */
-public final class TestRedisClient {
-
-    public static RedisClient createClient() {
-        return RedisClient.create("redis://localhost:6379");
+public class ClearTestDataTest extends AbstractReactiveRedisTest {
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
     }
-
-    public static RedisClusterCommands<String, String> createRedisClusterCommands(RedisClient redisClient) {
-        return redisClient.connect().sync();
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
+    @Disabled
+    @Test
+    public void clear() {
+        ClearRedisScripts.clear(redisTemplate, "").block();
     }
 }

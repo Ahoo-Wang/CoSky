@@ -13,96 +13,77 @@
 
 package me.ahoo.cosky.discovery;
 
-import lombok.extern.slf4j.Slf4j;
-import lombok.var;
+import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.concurrent.CompletableFuture;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 
 /**
  * @author ahoo wang
  */
 @Slf4j
-public class RedisServiceDiscoveryTest extends BaseOnRedisClientTest {
+public class RedisServiceDiscoveryTest extends AbstractReactiveRedisTest {
     private final static String namespace = "test_svc";
     private RedisServiceDiscovery redisServiceDiscovery;
     private RedisServiceRegistry redisServiceRegistry;
-
-    @BeforeAll
-    private void init() {
-        var registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisConnection.reactive());
-        redisServiceDiscovery = new RedisServiceDiscovery(redisConnection.reactive());
+    
+    @BeforeEach
+    @Override
+    public void afterPropertiesSet() {
+        super.afterPropertiesSet();
+        RegistryProperties registryProperties = new RegistryProperties();
+        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
     }
-
+    
+    @AfterEach
+    @Override
+    public void destroy() {
+        super.destroy();
+    }
+    
     private final static int REPEATED_SIZE = 60000;
-
+    
     @Test
     public void getServices() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var serviceIds = redisServiceDiscovery.getServices(namespace).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            List<String> serviceIds = redisServiceDiscovery.getServices(namespace).collectList().block();
             Assertions.assertNotNull(serviceIds);
             Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
         }));
     }
-
+    
     @Test
     public void getInstances() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var instances = redisServiceDiscovery.getInstances(namespace, instance.getServiceId()).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            List<ServiceInstance> instances = redisServiceDiscovery.getInstances(namespace, instance.getServiceId()).collectList().block();
             Assertions.assertNotNull(instances);
             Assertions.assertEquals(1, instances.size());
-
-            var expectedInstance = instances.stream().findFirst().get();
+    
+            ServiceInstance expectedInstance = instances.stream().findFirst().get();
             Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
         }));
     }
-
-
+    
+    
     @Test
     public void getInstance() {
-        registerRandomInstanceFinal(namespace, redisServiceRegistry, (instance -> {
-            var actualInstance = redisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
+        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+            ServiceInstance actualInstance = redisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
             Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
         }));
     }
-
-
-    //    @Test
-    public void getServicesRepeatedAsync() {
-        var futures = new Mono[REPEATED_SIZE];
-        for (int i = 0; i < REPEATED_SIZE; i++) {
-            futures[i] = redisServiceDiscovery.getServices();
-        }
-        Mono.when(futures).block();
-    }
-
-    //    @Test
-    public void getInstancesRepeated() {
-        for (int i = 0; i < 40000; i++) {
-            getInstances();
-        }
-    }
-
-    //    @Test
-    public void getInstancesRepeatedMMultiple() throws InterruptedException {
-        int threadCount = 50;
-        CountDownLatch countDownLatch = new CountDownLatch(threadCount);
-        for (int thNum = 0; thNum < threadCount; thNum++) {
-            new Thread(() -> {
-                getInstancesRepeated();
-                countDownLatch.countDown();
-            }).start();
-        }
-        countDownLatch.await();
-    }
-
+    
 }

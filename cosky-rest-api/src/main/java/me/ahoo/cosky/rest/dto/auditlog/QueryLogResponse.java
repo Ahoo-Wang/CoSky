@@ -18,24 +18,26 @@ import me.ahoo.cosky.rest.security.audit.AuditLog;
 import java.util.List;
 
 /**
+ * Query Log Response.
+ *
  * @author ahoo wang
  */
 public class QueryLogResponse {
     private List<AuditLog> list;
     private long total;
-
+    
     public List<AuditLog> getList() {
         return list;
     }
-
+    
     public void setList(List<AuditLog> list) {
         this.list = list;
     }
-
+    
     public long getTotal() {
         return total;
     }
-
+    
     public void setTotal(long total) {
         this.total = total;
     }

@@ -16,25 +16,27 @@ package me.ahoo.cosky.rest.dto.role;
 import java.util.Set;
 
 /**
+ * Save Role Request.
+ *
  * @author ahoo wang
  */
 public class SaveRoleRequest {
-
+    
     private String desc;
-   private Set<ResourceActionDto> resourceActionBind;
-
+    private Set<ResourceActionDto> resourceActionBind;
+    
     public String getDesc() {
         return desc;
     }
-
+    
     public void setDesc(String desc) {
         this.desc = desc;
     }
-
+    
     public Set<ResourceActionDto> getResourceActionBind() {
         return resourceActionBind;
     }
-
+    
     public void setResourceActionBind(Set<ResourceActionDto> resourceActionBind) {
         this.resourceActionBind = resourceActionBind;
     }

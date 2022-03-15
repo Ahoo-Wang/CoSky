@@ -19,26 +19,28 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
+ * Service Topology.
+ *
  * @author ahoo wang
  */
 public interface ServiceTopology {
-
+    
     String DEFAULT_CONSUMER_NAME = "_Client_";
-
+    
     Mono<Void> addTopology(String producerNamespace, String producerServiceId);
-
+    
     static String getConsumerName() {
         final ServiceInstance consumerServiceInstance = ServiceInstanceContext.CURRENT.getServiceInstance();
-
+        
         if (Objects.isNull(consumerServiceInstance)) {
             return DEFAULT_CONSUMER_NAME;
         }
         return consumerServiceInstance.getServiceId();
     }
-
+    
     static String getProducerName(String producerNamespace, String producerServiceId) {
         final String consumerNamespace = ServiceInstanceContext.CURRENT.getNamespace();
-
+        
         if (producerNamespace.equals(consumerNamespace)) {
             return producerServiceId;
         }
