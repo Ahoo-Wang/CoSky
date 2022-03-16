@@ -22,6 +22,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 import java.util.List;
 
@@ -32,6 +33,7 @@ import java.util.List;
 public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
     private final static String namespace = "benchmark_svc_dvy";
     public ServiceDiscovery serviceDiscovery;
+    private final static ServiceInstance testInstance = TestServiceInstance.randomInstance();
     
     @Setup
     public void afterPropertiesSet() {
@@ -39,8 +41,13 @@ public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
         super.afterPropertiesSet();
         RegistryProperties registryProperties = new RegistryProperties();
         RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(TestServiceInstance.randomInstance()).block();
+        serviceRegistry.register(testInstance).block();
         serviceDiscovery = new RedisServiceDiscovery(redisTemplate);
+    }
+    
+    @Override
+    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
+    
     }
     
     @TearDown
@@ -51,11 +58,17 @@ public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
     
     @Benchmark
     public List<String> getServices() {
-        return serviceDiscovery.getServices(namespace).collectList().block();
+        return serviceDiscovery
+            .getServices(namespace)
+            .collectList()
+            .block();
     }
     
     @Benchmark
     public List<ServiceInstance> getInstances() {
-        return serviceDiscovery.getInstances(namespace, TestServiceInstance.randomInstance().getServiceId()).collectList().block();
+        return serviceDiscovery
+            .getInstances(namespace, testInstance.getServiceId())
+            .collectList()
+            .block();
     }
 }

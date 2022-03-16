@@ -22,6 +22,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -53,6 +54,11 @@ public class RedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
         configService = new RedisConfigService(redisTemplate);
         configService.setConfig(namespace, configId, configData).block();
         atomicInteger = new AtomicInteger();
+    }
+    
+    @Override
+    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
+    
     }
     
     @TearDown

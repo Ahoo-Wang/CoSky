@@ -18,12 +18,11 @@ plugins {
 dependencies {
     api(project(":cosky-core"))
     api("io.lettuce:lettuce-core")
-    implementation("io.netty:netty-transport-native-epoll:linux-x86_64")
-    implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
     jmh("org.openjdk.jmh:jmh-core:${rootProject.ext.get("jmhVersion")}")
     jmh("org.openjdk.jmh:jmh-generator-annprocess:${rootProject.ext.get("jmhVersion")}")
     testImplementation("me.ahoo.cosid:cosid-core")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("io.netty:netty-all")
 }
 
 jmh {
@@ -34,6 +33,6 @@ jmh {
     benchmarkMode.set(listOf(
         "thrpt"
     ))
-    threads.set(50)
+    threads.set(25)
     fork.set(1)
 }

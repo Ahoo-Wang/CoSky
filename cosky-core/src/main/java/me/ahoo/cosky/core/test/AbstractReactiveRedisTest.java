@@ -37,11 +37,14 @@ public abstract class AbstractReactiveRedisTest implements InitializingBean, Dis
         RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration();
         connectionFactory = new LettuceConnectionFactory(redisConfig);
         connectionFactory.afterPropertiesSet();
-        connectionFactory.setClientResources(null);
-        connectionFactory.setShareNativeConnection(false);
+        customizeConnectionFactory(connectionFactory);
         redisTemplate = new ReactiveStringRedisTemplate(connectionFactory);
         listenerContainer = new ReactiveRedisMessageListenerContainer(connectionFactory);
-        
+    }
+    
+    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
+        connectionFactory.setClientResources(null);
+        connectionFactory.setShareNativeConnection(false);
     }
     
     @Override

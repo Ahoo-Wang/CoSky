@@ -72,16 +72,14 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
     }
     
     public Flux<ConfigChangedEvent> listen(String namespace, String configId) {
-        return Flux.defer(() -> {
-            String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
-            return listenerContainer
-                .receive(ChannelTopic.of(topicStr))
-                .map(message -> {
-                    NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(message.getChannel());
-                    ConfigChangedEvent.Event event = ConfigChangedEvent.Event.of(message.getMessage());
-                    return new ConfigChangedEvent(namespacedConfigId, event);
-                });
-        });
+        String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
+        return listenerContainer
+            .receive(ChannelTopic.of(topicStr))
+            .map(message -> {
+                NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(message.getChannel());
+                ConfigChangedEvent.Event event = ConfigChangedEvent.Event.of(message.getMessage());
+                return new ConfigChangedEvent(namespacedConfigId, event);
+            });
     }
     
     @Override
@@ -91,12 +89,10 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
     
     @Override
     public Mono<Config> getConfig(String namespace, String configId) {
-        return Mono.defer(() -> {
-            Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-            Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
-            
-            return configMapCache.computeIfAbsent(NamespacedConfigId.of(namespace, configId), this::listenAndGetCache);
-        });
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+    
+        return configMapCache.computeIfAbsent(NamespacedConfigId.of(namespace, configId), this::listenAndGetCache);
     }
     
     private Mono<Config> listenAndGetCache(NamespacedConfigId cfgId) {
@@ -164,6 +160,9 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
         
         @Override
         protected void hookOnNext(ConfigChangedEvent value) {
+            if (log.isInfoEnabled()) {
+                log.info("hookOnNext - NamespacedConfigId:[{}] - Event:[{}].", value.getNamespacedConfigId(), value.getEvent());
+            }
             configService.onConfigChanged(value);
         }
         

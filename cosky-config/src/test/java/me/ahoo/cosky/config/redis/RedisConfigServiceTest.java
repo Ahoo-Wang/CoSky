@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.config.redis;
 
-import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosid.jvm.UuidGenerator;
 import me.ahoo.cosky.config.ConfigRollback;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.ConfigVersion;
@@ -32,7 +32,6 @@ import reactor.test.StepVerifier;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     private ConfigService configService;
-    private final String namespace = MockIdGenerator.INSTANCE.generateAsString();
     
     @BeforeAll
     @Override
@@ -49,17 +48,20 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     public void setConfig() {
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         StepVerifier
             .create(configService.setConfig(namespace, testConfigId, "setConfigData"))
             .expectNext(Boolean.TRUE)
             .verifyComplete();
     }
     
-    
     @Test
     public void removeConfig() {
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         StepVerifier.create(
                 configService.setConfig(namespace, testConfigId, "removeConfigData")
                     .then(configService.removeConfig(namespace, testConfigId))
@@ -70,7 +72,9 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     public void getConfig() {
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         String getConfigData = "getConfigData";
         StepVerifier.create(configService.setConfig(namespace, testConfigId, getConfigData))
             .expectNext(Boolean.TRUE)
@@ -86,11 +90,11 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
             .verifyComplete();
     }
     
-    
     @Test
     public void rollback() {
-    
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         String version1Data = "version-1";
         
         StepVerifier.create(configService.setConfig(namespace, testConfigId, version1Data))
@@ -119,7 +123,7 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
         StepVerifier.create(configService.rollback(namespace, testConfigId, 1))
             .expectNext(Boolean.TRUE)
             .verifyComplete();
-    
+        
         StepVerifier.create(configService.getConfig(namespace, testConfigId))
             .expectNextMatches(config -> {
                 Assertions.assertEquals(version1Data, config.getData());
@@ -130,8 +134,9 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void getConfigs() {
-        String namespace = MockIdGenerator.INSTANCE.generateAsString();
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         StepVerifier.create(configService.getConfigs(namespace))
             .expectNextCount(0)
             .verifyComplete();
@@ -147,11 +152,13 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void getConfigVersions() {
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
-        getConfigVersions(testConfigId);
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
+        getConfigVersions(namespace, testConfigId);
     }
     
-    private void getConfigVersions(String testConfigId) {
+    private void getConfigVersions(String namespace, String testConfigId) {
         StepVerifier.create(configService.setConfig(namespace, testConfigId, "getConfigVersionData"))
             .expectNext(Boolean.TRUE)
             .verifyComplete();
@@ -175,7 +182,9 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void getConfigVersionsLast10() {
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         for (int i = 0; i < ConfigRollback.HISTORY_SIZE * 2 + 1; i++) {
             StepVerifier.create(configService.setConfig(namespace, testConfigId, "getConfigVersionData-" + i))
                 .expectNext(Boolean.TRUE)
@@ -194,8 +203,10 @@ public class RedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void getConfigHistory() {
-        String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
-        getConfigVersions(testConfigId);
+        
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
+        getConfigVersions(namespace, testConfigId);
         StepVerifier.create(configService.getConfigHistory(namespace, testConfigId, 1))
             .expectNextMatches(configHistory -> {
                 Assertions.assertEquals(testConfigId, configHistory.getConfigId());

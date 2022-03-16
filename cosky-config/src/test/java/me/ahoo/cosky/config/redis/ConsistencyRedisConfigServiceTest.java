@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.config.redis;
 
-import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosid.jvm.UuidGenerator;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 
@@ -53,8 +53,8 @@ class ConsistencyRedisConfigServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void getConfig() {
-        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
-        final String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         
         ConfigService configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer);
         String getConfigData = "getConfigData";
@@ -80,18 +80,22 @@ class ConsistencyRedisConfigServiceTest extends AbstractReactiveRedisTest {
     @SneakyThrows
     @Test
     void getConfigChanged() {
-        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
-        final String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         
         Semaphore semaphore = new Semaphore(0);
-        ConfigService configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer, (configChangedEvent -> semaphore.release()));
+        ConfigService configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer, (configChangedEvent -> {
+            if (configChangedEvent.getNamespacedConfigId().getNamespace().equals(namespace)){
+                semaphore.release();
+            }
+        }));
         
         StepVerifier.create(configService.getConfig(namespace, testConfigId))
             .expectNextCount(0)
             .verifyComplete();
         
-        String configData = "configData";
-
+        String configData = UuidGenerator.INSTANCE.generateAsString();
+        
         StepVerifier.create(configService.setConfig(namespace, testConfigId, configData))
             .expectNext(Boolean.TRUE)
             .verifyComplete();
@@ -110,8 +114,8 @@ class ConsistencyRedisConfigServiceTest extends AbstractReactiveRedisTest {
     @SneakyThrows
     @Test
     void getConfigChangedRemove() {
-        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
-        final String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         
         Semaphore semaphore = new Semaphore(0);
         ConfigService configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer, (configChangedEvent -> semaphore.release()));
@@ -143,8 +147,8 @@ class ConsistencyRedisConfigServiceTest extends AbstractReactiveRedisTest {
     @SneakyThrows
     @Test
     void getConfigChangedRollback() {
-        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
-        final String testConfigId = MockIdGenerator.INSTANCE.generateAsString();
+        final String namespace = UuidGenerator.INSTANCE.generateAsString();
+        final String testConfigId = UuidGenerator.INSTANCE.generateAsString();
         
         Semaphore semaphore = new Semaphore(0);
         ConfigService configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer, (configChangedEvent -> semaphore.release()));

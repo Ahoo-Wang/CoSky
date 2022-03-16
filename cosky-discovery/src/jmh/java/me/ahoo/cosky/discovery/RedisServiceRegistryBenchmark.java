@@ -13,14 +13,15 @@
 
 package me.ahoo.cosky.discovery;
 
-import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
-
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
-import org.openjdk.jmh.annotations.*;
 
-import java.util.Objects;
+import org.openjdk.jmh.annotations.Benchmark;
+import org.openjdk.jmh.annotations.Scope;
+import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 /**
  * @author ahoo wang
@@ -29,36 +30,48 @@ import java.util.Objects;
 public class RedisServiceRegistryBenchmark extends AbstractReactiveRedisTest {
     private final static String namespace = "benchmark_svc";
     public ServiceRegistry serviceRegistry;
-
+    private final static ServiceInstance testInstance = TestServiceInstance.randomInstance();
+    
     @Setup
     public void afterPropertiesSet() {
         System.out.println("\n ----- RedisServiceRegistryBenchmark afterPropertiesSet ----- \n");
         super.afterPropertiesSet();
         RegistryProperties registryProperties = new RegistryProperties();
-
+        
         serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(TestServiceInstance.randomInstance()).block();
+        serviceRegistry.register(testInstance).block();
     }
-
+    
+    @Override
+    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
+    
+    }
+    
     @TearDown
     public void destroy() {
         System.out.println("\n ----- RedisServiceRegistryBenchmark destroy ----- \n");
         super.destroy();
     }
-
+    
     @Benchmark
     public Boolean register() {
-        return serviceRegistry.register(namespace, TestServiceInstance.randomInstance()).block();
+        return serviceRegistry
+            .register(namespace, testInstance)
+            .block();
     }
-
+    
     @Benchmark
     public Boolean deregister() {
-        return serviceRegistry.deregister(namespace, TestServiceInstance.randomInstance()).block();
+        return serviceRegistry
+            .deregister(namespace, testInstance)
+            .block();
     }
-
+    
     @Benchmark
     public Boolean renew() {
-        return serviceRegistry.renew(namespace, TestServiceInstance.randomInstance()).block();
+        return serviceRegistry
+            .renew(namespace, testInstance)
+            .block();
     }
-
+    
 }

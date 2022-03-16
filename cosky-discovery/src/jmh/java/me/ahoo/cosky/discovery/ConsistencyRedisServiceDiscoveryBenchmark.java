@@ -23,6 +23,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 import java.util.List;
 
@@ -47,6 +48,11 @@ public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveR
         serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
     
+    @Override
+    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
+    
+    }
+    
     @TearDown
     public void destroy() {
         System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark destroy ----- \n");
@@ -55,11 +61,17 @@ public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveR
     
     @Benchmark
     public List<String> getServices() {
-        return serviceDiscovery.getServices(namespace).collectList().block();
+        return serviceDiscovery
+            .getServices(namespace)
+            .collectList()
+            .block();
     }
     
     @Benchmark
     public List<ServiceInstance> getInstances() {
-        return serviceDiscovery.getInstances(namespace, fixedInstance.getServiceId()).collectList().block();
+        return serviceDiscovery
+            .getInstances(namespace, fixedInstance.getServiceId())
+            .collectList()
+            .block();
     }
 }

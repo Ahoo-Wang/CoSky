@@ -23,6 +23,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 /**
  * @author ahoo wang
@@ -50,6 +51,11 @@ public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedi
         RedisConfigService redisConfigService = new RedisConfigService(redisTemplate);
         redisConfigService.setConfig(configId, configData).block();
         configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer);
+    }
+    
+    @Override
+    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
+    
     }
     
     @TearDown
