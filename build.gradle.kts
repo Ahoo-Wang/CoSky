@@ -45,7 +45,7 @@ ext {
     set("metricsVersion", "4.2.0")
     set("jjwtVersion", "0.11.2")
     set("cosIdVersion", "1.8.11")
-    set("simbaVersion", "0.3.0")
+    set("simbaVersion", "0.3.2")
     set("libraryProjects", libraryProjects)
 }
 
