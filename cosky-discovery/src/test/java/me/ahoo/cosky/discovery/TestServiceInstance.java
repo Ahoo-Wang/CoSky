@@ -15,6 +15,8 @@ package me.ahoo.cosky.discovery;
 
 import me.ahoo.cosid.util.MockIdGenerator;
 
+import reactor.test.StepVerifier;
+
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 
@@ -44,10 +46,14 @@ public final class TestServiceInstance {
         return randomInstance;
     }
     
-    public static void registerRandomInstance(String namespace, ServiceRegistry serviceRegistry, Consumer<ServiceInstance> doTest) {
+    public static void registerRandomInstanceAndTestThenDeregister(String namespace, ServiceRegistry serviceRegistry, Consumer<ServiceInstance> doTest) {
         ServiceInstance randomInstance = randomInstance();
-        serviceRegistry.register(namespace, randomInstance).block();
+        StepVerifier.create(serviceRegistry.register(namespace, randomInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
         doTest.accept(randomInstance);
-        serviceRegistry.deregister(namespace, randomInstance).block();
+        StepVerifier.create(serviceRegistry.deregister(namespace, randomInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
 }

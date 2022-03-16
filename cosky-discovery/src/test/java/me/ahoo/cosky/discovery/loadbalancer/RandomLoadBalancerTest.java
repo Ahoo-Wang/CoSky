@@ -22,7 +22,6 @@ import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 
-import lombok.var;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,7 +64,7 @@ class RandomLoadBalancerTest extends AbstractReactiveRedisTest {
     
     @Test
     void chooseOne() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, instance -> {
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, instance -> {
             ServiceInstance expectedInstance = randomLoadBalancer.choose(namespace, instance.getServiceId()).block();
             Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());

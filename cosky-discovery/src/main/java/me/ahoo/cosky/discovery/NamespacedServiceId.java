@@ -60,4 +60,12 @@ public class NamespacedServiceId implements Namespaced {
     public int hashCode() {
         return Objects.hashCode(namespace, serviceId);
     }
+    
+    @Override
+    public String toString() {
+        return "NamespacedServiceId{"
+            + "namespace='" + namespace + '\''
+            + ", serviceId='" + serviceId + '\''
+            + '}';
+    }
 }

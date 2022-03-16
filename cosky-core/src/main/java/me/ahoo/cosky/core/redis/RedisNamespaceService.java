@@ -46,11 +46,13 @@ public class RedisNamespaceService implements NamespaceService {
     
     @Override
     public Mono<Boolean> setNamespace(String namespace) {
-        ensureNamespace(namespace);
-        return redisTemplate
-            .opsForSet()
-            .add(NAMESPACE_IDX_KEY, namespace)
-            .map(affected -> affected > 0);
+        return Mono.defer(() -> {
+            ensureNamespace(namespace);
+            return redisTemplate
+                .opsForSet()
+                .add(NAMESPACE_IDX_KEY, namespace)
+                .map(affected -> affected > 0);
+        });
     }
     
     private void ensureNamespace(String namespace) {
@@ -59,11 +61,12 @@ public class RedisNamespaceService implements NamespaceService {
     
     @Override
     public Mono<Boolean> removeNamespace(String namespace) {
-        ensureNamespace(namespace);
-        return redisTemplate
-            .opsForSet()
-            .remove(NAMESPACE_IDX_KEY, namespace)
-            .map(affected -> affected > 0);
+        return Mono.defer(() -> {
+            ensureNamespace(namespace);
+            return redisTemplate
+                .opsForSet()
+                .remove(NAMESPACE_IDX_KEY, namespace)
+                .map(affected -> affected > 0);
+        });
     }
-    
 }

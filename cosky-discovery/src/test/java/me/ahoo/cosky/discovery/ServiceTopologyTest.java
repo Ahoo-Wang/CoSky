@@ -18,11 +18,14 @@ import me.ahoo.cosky.core.redis.RedisNamespaceService;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
+import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
 
+import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -30,7 +33,8 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class ServiceTopologyTest extends AbstractReactiveRedisTest {
     private final static String namespace = "topology";
-    private ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery;
+    private ConsistencyRedisServiceDiscovery serviceDiscovery;
+    private ServiceRegistry serviceRegistry;
     
     @BeforeEach
     @Override
@@ -38,8 +42,9 @@ public class ServiceTopologyTest extends AbstractReactiveRedisTest {
         super.afterPropertiesSet();
         RedisNamespaceService redisNamespaceService = new RedisNamespaceService(redisTemplate);
         redisNamespaceService.setNamespace(namespace).block();
+        serviceRegistry = new RedisServiceRegistry(new RegistryProperties(), redisTemplate);
         RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
-        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
+        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
     
     @AfterEach
@@ -51,7 +56,7 @@ public class ServiceTopologyTest extends AbstractReactiveRedisTest {
     @Test
     public void buildTopologyData() {
         NamespacedContext.GLOBAL.setCurrentContextNamespace(namespace);
-        int serviceSize = 20;
+        final int serviceSize = 50;
         for (int i = 0; i < serviceSize; i++) {
             ServiceInstance currentInstance = new ServiceInstance();
             
@@ -63,7 +68,13 @@ public class ServiceTopologyTest extends AbstractReactiveRedisTest {
                 if (depServiceId == i) {
                     continue;
                 }
-                consistencyRedisServiceDiscovery.addTopology(namespace, "service-" + depServiceId).block();
+                String serviceId = "service-" + depServiceId;
+                StepVerifier.create(serviceRegistry.setService(namespace, serviceId))
+                    .expectNextMatches(nil -> true)
+                    .verifyComplete();
+                
+                StepVerifier.create(serviceDiscovery.addTopology(namespace, serviceId))
+                    .verifyComplete();
             }
             
         }

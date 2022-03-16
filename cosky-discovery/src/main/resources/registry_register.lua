@@ -16,12 +16,17 @@ end
 local serviceIdxKey = namespace .. ":svc_idx";
 local instanceIdxKey = namespace .. ":svc_itc_idx:" .. serviceId;
 local instanceKey = namespace .. ":svc_itc:" .. instanceId;
+local serviceIdxStatKey = namespace .. ":svc_stat";
 
 local added = redis.call("sadd", instanceIdxKey, instanceId);
 
 if added == 1 then
-    redis.call("publish", serviceIdxKey, "register");
-    redis.call("sadd", serviceIdxKey, serviceId);
+    local affected = redis.call("sadd", serviceIdxKey, serviceId);
+
+    if affected > 0 then
+        redis.call("publish", serviceIdxKey, "set");
+        redis.call("hset", serviceIdxStatKey, serviceId, 0);
+    end
 end
 
 local instanceKeys = redis.call("hkeys", instanceKey)

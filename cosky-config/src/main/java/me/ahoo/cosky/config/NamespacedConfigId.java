@@ -60,4 +60,13 @@ public class NamespacedConfigId implements Namespaced {
     public int hashCode() {
         return Objects.hashCode(namespace, configId);
     }
+    
+    
+    @Override
+    public String toString() {
+        return "NamespacedConfigId{"
+            + "namespace='" + namespace + '\''
+            + ", configId='" + configId + '\''
+            + '}';
+    }
 }

@@ -24,13 +24,16 @@ import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.ServiceInstanceContext;
 import me.ahoo.cosky.discovery.ServiceTopology;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.connection.ReactiveSubscription;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -40,6 +43,7 @@ import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.function.Consumer;
 
 /**
  * Consistency Redis Service Discovery.
@@ -56,14 +60,32 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
     private final ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>> serviceMapInstances;
     private final ConcurrentHashMap<String, Flux<String>> namespaceMapServices;
     
+    @VisibleForTesting
+    @Nullable
+    private final Consumer<ServiceChangedEvent> hookOnResetInstanceCache;
+    
+    @VisibleForTesting
+    @Nullable
+    private final Consumer<String> hookOnResetServiceCache;
+    
     public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate,
                                             ReactiveStringRedisTemplate redisTemplate,
                                             ReactiveRedisMessageListenerContainer listenerContainer) {
+        this(delegate, redisTemplate, listenerContainer, null, null);
+    }
+    
+    public ConsistencyRedisServiceDiscovery(ServiceDiscovery delegate,
+                                            ReactiveStringRedisTemplate redisTemplate,
+                                            ReactiveRedisMessageListenerContainer listenerContainer,
+                                            Consumer<ServiceChangedEvent> hookOnResetInstanceCache,
+                                            Consumer<String> hookOnResetServiceCache) {
         this.redisTemplate = redisTemplate;
         this.serviceMapInstances = new ConcurrentHashMap<>();
         this.namespaceMapServices = new ConcurrentHashMap<>();
         this.delegate = delegate;
         this.listenerContainer = listenerContainer;
+        this.hookOnResetInstanceCache = hookOnResetInstanceCache;
+        this.hookOnResetServiceCache = hookOnResetServiceCache;
     }
     
     @Override
@@ -92,9 +114,19 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
     private Flux<String> listenServiceAndGetCache(String namespace) {
         String serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(namespace);
         listenerContainer.receive(ChannelTopic.of(serviceIdxKey))
-            .doOnNext(message -> namespaceMapServices.put(namespace, delegate.getServices(namespace).cache()))
-            .subscribe();
+            .subscribe(new ServiceChangedSubscriber(this));
         return delegate.getServices(namespace).cache();
+    }
+    
+    private void onServiceChanged(ReactiveSubscription.Message<String, String> message) {
+        if (log.isInfoEnabled()) {
+            log.info("onServiceChanged - channel:[{}] - message:[{}]", message.getChannel(), message.getMessage());
+        }
+        String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(message.getChannel());
+        namespaceMapServices.put(namespace, delegate.getServices(namespace).cache());
+        if (null != hookOnResetServiceCache) {
+            hookOnResetServiceCache.accept(namespace);
+        }
     }
     
     @Override
@@ -104,9 +136,7 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
         
         return serviceMapInstances.computeIfAbsent(NamespacedServiceId.of(namespace, serviceId),
                 (svcId) -> {
-                    listen(svcId)
-                        .doOnNext(this::onInstanceChanged)
-                        .subscribe();
+                    listen(svcId).subscribe(new InstanceChangedEventSubscriber(this));
                     return delegate.getInstances(namespace, serviceId)
                         .collectList()
                         .map(CopyOnWriteArraySet::new)
@@ -124,7 +154,13 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
         
         NamespacedServiceId namespacedServiceId = NamespacedServiceId.of(namespace, serviceId);
         
-        return serviceMapInstances.get(namespacedServiceId)
+        Mono<CopyOnWriteArraySet<ServiceInstance>> instancesMono = serviceMapInstances.get(namespacedServiceId);
+        
+        if (Objects.isNull(instancesMono)) {
+            return delegate.getInstance(namespace, serviceId, instanceId);
+        }
+        
+        return instancesMono
             .flatMapIterable(serviceInstances -> serviceInstances)
             .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
             .filter(itc -> itc.getInstanceId().equals(instanceId))
@@ -159,24 +195,14 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
             .then();
     }
     
-    private void onServiceChanged(@Nullable String pattern, String channel, String message) {
-        if (log.isInfoEnabled()) {
-            log.info("onServiceChanged - pattern:[{}] - channel:[{}] - message:[{}]", pattern, channel, message);
-        }
-        String serviceIdxKey = channel;
-        String namespace = DiscoveryKeyGenerator.getNamespaceOfKey(serviceIdxKey);
-        namespaceMapServices.put(namespace, delegate.getServices(namespace).cache());
-    }
-    
-    
     private void onInstanceChanged(ServiceChangedEvent serviceChangedEvent) {
         if (log.isInfoEnabled()) {
             log.info("onInstanceChanged - instance:[{}] - message:[{}]", serviceChangedEvent.getInstance(), serviceChangedEvent.getEvent());
         }
         
         NamespacedServiceId namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
-        String instanceId = serviceChangedEvent.getInstance().getInstanceId();
         Instance instance = serviceChangedEvent.getInstance();
+        String instanceId = instance.getInstanceId();
         String namespace = namespacedServiceId.getNamespace();
         String serviceId = namespacedServiceId.getServiceId();
         
@@ -192,7 +218,8 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
         instancesMono.flatMap(cachedInstances -> {
             ServiceInstance cachedInstance = cachedInstances.stream()
                 .filter(itc -> itc.getInstanceId().equals(instanceId))
-                .findFirst().orElse(ServiceInstance.NOT_FOUND);
+                .findFirst()
+                .orElse(ServiceInstance.NOT_FOUND);
             
             if (ServiceInstance.NOT_FOUND.equals(cachedInstance)) {
                 if (!ServiceChangedEvent.Event.REGISTER.equals(serviceChangedEvent.getEvent())
@@ -213,32 +240,38 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
             
             switch (serviceChangedEvent.getEvent()) {
                 case REGISTER: {
-                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(registeredInstance -> {
-                        cachedInstance.setSchema(registeredInstance.getSchema());
-                        cachedInstance.setHost(registeredInstance.getHost());
-                        cachedInstance.setPort(registeredInstance.getPort());
-                        cachedInstance.setEphemeral(registeredInstance.isEphemeral());
-                        cachedInstance.setTtlAt(registeredInstance.getTtlAt());
-                        cachedInstance.setWeight(registeredInstance.getWeight());
-                        cachedInstance.setMetadata(registeredInstance.getMetadata());
-                    });
+                    return delegate
+                        .getInstance(namespace, serviceId, instanceId)
+                        .doOnNext(registeredInstance -> {
+                            cachedInstance.setSchema(registeredInstance.getSchema());
+                            cachedInstance.setHost(registeredInstance.getHost());
+                            cachedInstance.setPort(registeredInstance.getPort());
+                            cachedInstance.setEphemeral(registeredInstance.isEphemeral());
+                            cachedInstance.setTtlAt(registeredInstance.getTtlAt());
+                            cachedInstance.setWeight(registeredInstance.getWeight());
+                            cachedInstance.setMetadata(registeredInstance.getMetadata());
+                        });
                 }
                 case RENEW: {
                     if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - instance:[{}] - event:[{}] setTtlAt.", instance, serviceChangedEvent.getEvent());
+                        log.info("onInstanceChanged - instance:[{}] - event:[{}] setTtlAt.", instance, serviceChangedEvent.getEvent());
                     }
-                    return delegate.getInstanceTtl(namespace, serviceId, instanceId).doOnNext(cachedInstance::setTtlAt);
+                    return delegate
+                        .getInstanceTtl(namespace, serviceId, instanceId)
+                        .doOnNext(cachedInstance::setTtlAt);
                 }
                 case SET_METADATA: {
                     if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - instance:[{}] - event:[{}] setMetadata.", instance, serviceChangedEvent.getEvent());
+                        log.info("onInstanceChanged - instance:[{}] - event:[{}] setMetadata.", instance, serviceChangedEvent.getEvent());
                     }
-                    return delegate.getInstance(namespace, serviceId, instanceId).doOnNext(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
+                    return delegate
+                        .getInstance(namespace, serviceId, instanceId)
+                        .doOnNext(nextInstance -> cachedInstance.setMetadata(nextInstance.getMetadata()));
                 }
                 case DEREGISTER:
                 case EXPIRED: {
                     if (log.isInfoEnabled()) {
-                        log.info("onMessage@InstanceListener - instance:[{}] - event:[{}] remove instance.", instance, serviceChangedEvent.getEvent());
+                        log.info("onInstanceChanged - instance:[{}] - event:[{}] remove instance.", instance, serviceChangedEvent.getEvent());
                     }
                     cachedInstances.remove(cachedInstance);
                     return Mono.empty();
@@ -246,7 +279,51 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
                 default:
                     return Mono.error(new IllegalStateException("Unexpected value: " + serviceChangedEvent.getEvent()));
             }
+        }).doOnSuccess(nil -> {
+            if (null != hookOnResetInstanceCache) {
+                hookOnResetInstanceCache.accept(serviceChangedEvent);
+            }
         }).subscribe();
+    }
+    
+    private static class InstanceChangedEventSubscriber extends BaseSubscriber<ServiceChangedEvent> {
+        private final ConsistencyRedisServiceDiscovery serviceDiscovery;
+        
+        public InstanceChangedEventSubscriber(ConsistencyRedisServiceDiscovery serviceDiscovery) {
+            this.serviceDiscovery = serviceDiscovery;
+        }
+        
+        @Override
+        protected void hookOnNext(ServiceChangedEvent value) {
+            serviceDiscovery.onInstanceChanged(value);
+        }
+        
+        @Override
+        protected void hookOnError(Throwable throwable) {
+            if (log.isErrorEnabled()) {
+                log.error("hookOnError - " + throwable.getMessage(), throwable);
+            }
+        }
+    }
+    
+    private static class ServiceChangedSubscriber extends BaseSubscriber<ReactiveSubscription.Message<String, String>> {
+        private final ConsistencyRedisServiceDiscovery serviceDiscovery;
+        
+        public ServiceChangedSubscriber(ConsistencyRedisServiceDiscovery serviceDiscovery) {
+            this.serviceDiscovery = serviceDiscovery;
+        }
+        
+        @Override
+        protected void hookOnNext(ReactiveSubscription.Message<String, String> message) {
+            serviceDiscovery.onServiceChanged(message);
+        }
+        
+        @Override
+        protected void hookOnError(Throwable throwable) {
+            if (log.isErrorEnabled()) {
+                log.error("hookOnError - " + throwable.getMessage(), throwable);
+            }
+        }
     }
     
 }

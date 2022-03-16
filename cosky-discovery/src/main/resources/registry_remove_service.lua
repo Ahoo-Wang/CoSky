@@ -13,6 +13,7 @@ end
 local affected = redis.call("srem", serviceIdxKey, serviceId);
 
 if affected > 0 then
+    redis.call("publish", serviceIdxKey, "remove");
     redis.call("hdel", serviceIdxStatKey, serviceId);
 end
 

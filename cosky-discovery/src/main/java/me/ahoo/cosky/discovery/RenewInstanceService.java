@@ -13,17 +13,24 @@
 
 package me.ahoo.cosky.discovery;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.Synchronized;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Scheduler;
+import reactor.core.scheduler.Schedulers;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 /**
  * Renew Instance Service.
@@ -36,21 +43,34 @@ public class RenewInstanceService {
     private volatile boolean running;
     private final RenewProperties renewProperties;
     private final ServiceRegistry serviceRegistry;
-    private final ScheduledExecutorService scheduledExecutorService;
     private final AtomicInteger renewCounter = new AtomicInteger();
+    private final Scheduler scheduler;
+    private Disposable scheduleDisposable;
+    
+    @VisibleForTesting
+    @Nullable
+    private final Consumer<ServiceInstance> hookOnRenew;
     
     public RenewInstanceService(RenewProperties renewProperties, ServiceRegistry serviceRegistry) {
         this(renewProperties,
             serviceRegistry,
-            new ScheduledThreadPoolExecutor(1, createThreadFactory()));
+            Schedulers.newSingle("CoSky-Renew", true), null);
     }
     
-    public RenewInstanceService(RenewProperties renewProperties, ServiceRegistry serviceRegistry, ScheduledExecutorService scheduledExecutorService) {
+    public RenewInstanceService(RenewProperties renewProperties, ServiceRegistry serviceRegistry, Consumer<ServiceInstance> hookOnRenew) {
+        this(renewProperties,
+            serviceRegistry,
+            Schedulers.newSingle("CoSky-Renew", true), hookOnRenew);
+    }
+    
+    public RenewInstanceService(RenewProperties renewProperties, ServiceRegistry serviceRegistry, Scheduler scheduler, Consumer<ServiceInstance> hookOnRenew) {
         this.renewProperties = renewProperties;
         this.serviceRegistry = serviceRegistry;
-        this.scheduledExecutorService = scheduledExecutorService;
+        this.scheduler = scheduler;
+        this.hookOnRenew = hookOnRenew;
     }
     
+    @Synchronized
     public void start() {
         if (isRunning()) {
             return;
@@ -60,13 +80,14 @@ public class RenewInstanceService {
         }
         running = true;
         
-        scheduledExecutorService.scheduleAtFixedRate(this::renew, renewProperties.getInitialDelay(), renewProperties.getPeriod(), TimeUnit.SECONDS);
+        scheduleDisposable = scheduler.schedulePeriodically(this::renew, renewProperties.getInitialDelay().getSeconds(), renewProperties.getPeriod().getSeconds(), TimeUnit.SECONDS);
     }
     
     public boolean isRunning() {
         return running;
     }
     
+    @Synchronized
     public void stop() {
         if (!running) {
             return;
@@ -75,7 +96,10 @@ public class RenewInstanceService {
             log.info("stop.");
         }
         running = false;
-        scheduledExecutorService.shutdown();
+        if (null != scheduleDisposable && !scheduleDisposable.isDisposed()) {
+            scheduleDisposable.dispose();
+        }
+        scheduler.dispose();
     }
     
     private void renew() {
@@ -94,7 +118,13 @@ public class RenewInstanceService {
         }
         
         Flux.fromIterable(instances.entrySet())
-            .flatMap(namespacedServiceInstance -> serviceRegistry.renew(namespacedServiceInstance.getKey().getNamespace(), namespacedServiceInstance.getValue()))
+            .flatMap(namespacedServiceInstance -> serviceRegistry.renew(namespacedServiceInstance.getKey().getNamespace(), namespacedServiceInstance.getValue())
+                .doOnSuccess(nil -> {
+                    if (null != hookOnRenew) {
+                        hookOnRenew.accept(namespacedServiceInstance.getValue());
+                    }
+                })
+            )
             .doOnError(throwable -> {
                 if (log.isWarnEnabled()) {
                     log.warn("renew - failed.", throwable);
@@ -103,13 +133,7 @@ public class RenewInstanceService {
                 if (log.isDebugEnabled()) {
                     log.debug("renew - instances size:{} end - times@[{}] taken:[{}ms].", instances.size(), times, stopwatch.elapsed(TimeUnit.MILLISECONDS));
                 }
+                
             }).subscribe();
-    }
-    
-    private static ThreadFactory createThreadFactory() {
-        return new ThreadFactoryBuilder()
-            .setNameFormat(RenewInstanceService.class.getSimpleName() + "-%d")
-            .setDaemon(true)
-            .build();
     }
 }

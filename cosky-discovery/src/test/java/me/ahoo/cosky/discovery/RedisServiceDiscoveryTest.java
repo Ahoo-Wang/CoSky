@@ -22,11 +22,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * @author ahoo wang
@@ -51,12 +48,10 @@ public class RedisServiceDiscoveryTest extends AbstractReactiveRedisTest {
     public void destroy() {
         super.destroy();
     }
-    
-    private final static int REPEATED_SIZE = 60000;
-    
+
     @Test
     public void getServices() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
             List<String> serviceIds = redisServiceDiscovery.getServices(namespace).collectList().block();
             Assertions.assertNotNull(serviceIds);
             Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
@@ -65,7 +60,7 @@ public class RedisServiceDiscoveryTest extends AbstractReactiveRedisTest {
     
     @Test
     public void getInstances() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
             List<ServiceInstance> instances = redisServiceDiscovery.getInstances(namespace, instance.getServiceId()).collectList().block();
             Assertions.assertNotNull(instances);
             Assertions.assertEquals(1, instances.size());
@@ -79,7 +74,7 @@ public class RedisServiceDiscoveryTest extends AbstractReactiveRedisTest {
     
     @Test
     public void getInstance() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
             ServiceInstance actualInstance = redisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
             Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
             Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());

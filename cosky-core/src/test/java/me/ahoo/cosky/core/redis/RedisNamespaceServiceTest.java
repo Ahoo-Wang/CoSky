@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.core.redis;
 
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 
@@ -49,7 +50,7 @@ class RedisNamespaceServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void getNamespaces() {
-        String ns = UUID.randomUUID().toString();
+        String ns = MockIdGenerator.INSTANCE.generateAsString();
         StepVerifier
             .create(
                 namespaceService
@@ -62,16 +63,24 @@ class RedisNamespaceServiceTest extends AbstractReactiveRedisTest {
     
     @Test
     void setNamespace() {
-        String ns = UUID.randomUUID().toString();
+        String ns = MockIdGenerator.INSTANCE.generateAsString();
         StepVerifier
             .create(namespaceService.setNamespace(ns))
             .expectNext(Boolean.TRUE)
             .verifyComplete();
     }
     
+    
+    @Test
+    void setNamespaceWhenNull() {
+        StepVerifier
+            .create(namespaceService.setNamespace(null))
+            .verifyError();
+    }
+    
     @Test
     void removeNamespace() {
-        String ns = UUID.randomUUID().toString();
+        String ns = MockIdGenerator.INSTANCE.generateAsString();
         StepVerifier
             .create(
                 namespaceService

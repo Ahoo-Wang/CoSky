@@ -28,6 +28,7 @@ import org.springframework.data.redis.connection.ReactiveSubscription;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.listener.PatternTopic;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -50,8 +51,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class RedisServiceStatistic implements ServiceStatistic {
     private final ReactiveStringRedisTemplate redisTemplate;
     private final ReactiveRedisMessageListenerContainer listenerContainer;
-    private final ConcurrentHashMap<String, Object> listenedNamespaces = new ConcurrentHashMap<>();
-    private static final Object NONE = new Object();
+    private final ConcurrentHashMap<String, Disposable> listenedNamespaces = new ConcurrentHashMap<>();
     
     public RedisServiceStatistic(
         ReactiveStringRedisTemplate redisTemplate, ReactiveRedisMessageListenerContainer listenerContainer) {
@@ -62,9 +62,8 @@ public class RedisServiceStatistic implements ServiceStatistic {
     private void startListeningServiceInstancesOfNamespace(String namespace) {
         listenedNamespaces.computeIfAbsent(namespace, ns -> {
             String instancePattern = DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(namespace);
-            listenerContainer.receive(PatternTopic.of(instancePattern))
+            return listenerContainer.receive(PatternTopic.of(instancePattern))
                 .doOnNext(this::instanceChanged).subscribe();
-            return NONE;
         });
     }
     
@@ -130,7 +129,7 @@ public class RedisServiceStatistic implements ServiceStatistic {
     @Override
     public Flux<ServiceStat> getServiceStats(String namespace) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-    
+        
         String serviceIdxStatKey = DiscoveryKeyGenerator.getServiceStatKey(namespace);
         return redisTemplate
             .<String, String>opsForHash().entries(serviceIdxStatKey)

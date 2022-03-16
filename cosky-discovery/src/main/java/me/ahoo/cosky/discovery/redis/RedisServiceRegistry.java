@@ -58,7 +58,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
             /**
              * local instanceTtl = ARGV[1];
             */
-            serviceInstance.isEphemeral() ? String.valueOf(registryProperties.getInstanceTtl()) : "-1",
+            serviceInstance.isEphemeral() ? String.valueOf(registryProperties.getInstanceTtl().getSeconds()) : "-1",
             /**
              * local serviceId = ARGV[2];
             */
@@ -84,7 +84,6 @@ public class RedisServiceRegistry implements ServiceRegistry {
             */
             String.valueOf(serviceInstance.getWeight())
         };
-        
         
         String[] values = ServiceInstanceCodec.encodeMetadata(infoArgs, serviceInstance.getMetadata());
         
@@ -225,7 +224,7 @@ public class RedisServiceRegistry implements ServiceRegistry {
         return redisTemplate.execute(
                 DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
                 Collections.singletonList(namespace),
-                Arrays.asList(serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl()))
+                Arrays.asList(serviceInstance.getInstanceId(), String.valueOf(registryProperties.getInstanceTtl().getSeconds()))
             )
             .flatMap(status -> {
                 if (status <= 0) {

@@ -19,6 +19,7 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.publisher.Hooks;
 
 /**
  * ReactiveRedisTest .
@@ -32,11 +33,15 @@ public abstract class AbstractReactiveRedisTest implements InitializingBean, Dis
     
     @Override
     public void afterPropertiesSet() {
+        Hooks.onOperatorDebug();
         RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration();
         connectionFactory = new LettuceConnectionFactory(redisConfig);
         connectionFactory.afterPropertiesSet();
+        connectionFactory.setClientResources(null);
+        connectionFactory.setShareNativeConnection(false);
         redisTemplate = new ReactiveStringRedisTemplate(connectionFactory);
         listenerContainer = new ReactiveRedisMessageListenerContainer(connectionFactory);
+        
     }
     
     @Override

@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.discovery;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 /**
  * Registry Properties.
@@ -24,13 +24,13 @@ public class RegistryProperties {
     /**
      * instance time to live.
      */
-    private int instanceTtl = (int) TimeUnit.MINUTES.toSeconds(1);
+    private Duration instanceTtl = Duration.ofMinutes(1);
     
-    public int getInstanceTtl() {
+    public Duration getInstanceTtl() {
         return instanceTtl;
     }
     
-    public void setInstanceTtl(int instanceTtl) {
+    public void setInstanceTtl(Duration instanceTtl) {
         this.instanceTtl = instanceTtl;
     }
 }

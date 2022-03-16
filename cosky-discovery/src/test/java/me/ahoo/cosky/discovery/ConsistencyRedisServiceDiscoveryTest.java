@@ -13,186 +13,210 @@
 
 package me.ahoo.cosky.discovery;
 
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import lombok.var;
-
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 
-import org.junit.jupiter.api.AfterEach;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
+import org.junit.jupiter.api.TestInstance;
+import reactor.test.StepVerifier;
 
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.time.Duration;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
  * @author ahoo wang
  */
-//TODO
-@Disabled
 @Slf4j
-public class ConsistencyRedisServiceDiscoveryTest  extends AbstractReactiveRedisTest {
-
-    private final static String namespace = "test_svc_csy";
-    private ConsistencyRedisServiceDiscovery consistencyRedisServiceDiscovery;
-
-    private ServiceInstance testInstance;
-    private ServiceInstance testFixedInstance;
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class ConsistencyRedisServiceDiscoveryTest extends AbstractReactiveRedisTest {
+    private RedisServiceDiscovery redisServiceDiscovery;
+    private ConsistencyRedisServiceDiscovery serviceDiscovery;
     private RedisServiceRegistry redisServiceRegistry;
     private RegistryProperties registryProperties;
     
-    @BeforeEach
+    @BeforeAll
     @Override
     public void afterPropertiesSet() {
         super.afterPropertiesSet();
-        testInstance = TestServiceInstance.randomInstance();
-        testFixedInstance = TestServiceInstance.randomFixedInstance();
         registryProperties = new RegistryProperties();
-        registryProperties.setInstanceTtl(30);
+        registryProperties.setInstanceTtl(Duration.ofSeconds(5));
         redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
-        consistencyRedisServiceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
+        redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
+        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
-    @AfterEach
+    
+    @AfterAll
     @Override
     public void destroy() {
         super.destroy();
     }
+    
     @Test
     public void getServices() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
-            List<String> serviceIds = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
-            Assertions.assertNotNull(serviceIds);
-            Assertions.assertTrue(serviceIds.contains(instance.getServiceId()));
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
+            StepVerifier.create(serviceDiscovery.getServices(namespace).collectList())
+                .expectNextMatches(serviceIds -> serviceIds.contains(instance.getServiceId()))
+                .verifyComplete();
         }));
     }
-
+    
     @Test
     public void getInstances() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
-            List<ServiceInstance> instances = consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).collectList().block();
-            Assertions.assertNotNull(instances);
-    
-            ServiceInstance expectedInstance = instances.stream().findFirst().get();
-            Assertions.assertNotNull(expectedInstance);
-            Assertions.assertEquals(instance.getServiceId(), expectedInstance.getServiceId());
-            Assertions.assertEquals(instance.getInstanceId(), expectedInstance.getInstanceId());
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
+            StepVerifier.create(serviceDiscovery.getInstances(namespace, instance.getServiceId()).collectList())
+                .expectNextMatches(serviceInstances -> serviceInstances.contains(instance))
+                .verifyComplete();
         }));
     }
-
+    
     @Test
     public void getInstance() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
-            ServiceInstance actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
-            Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
-            Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
+            StepVerifier.create(serviceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()))
+                .expectNext(instance)
+                .verifyComplete();
         }));
     }
-
+    
     @Test
     public void getInstanceWithCache() {
-        TestServiceInstance.registerRandomInstance(namespace, redisServiceRegistry, (instance -> {
-            consistencyRedisServiceDiscovery.getInstances(namespace, instance.getServiceId()).collectList().block();
-            ServiceInstance actualInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
-            Assertions.assertEquals(instance.getServiceId(), actualInstance.getServiceId());
-            Assertions.assertEquals(instance.getInstanceId(), actualInstance.getInstanceId());
-    
-            ServiceInstance cachedInstance = consistencyRedisServiceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId()).block();
-            Assertions.assertEquals(cachedInstance, actualInstance);
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        TestServiceInstance.registerRandomInstanceAndTestThenDeregister(namespace, redisServiceRegistry, (instance -> {
+            StepVerifier.create(serviceDiscovery.getInstances(namespace, instance.getServiceId()).collectList())
+                .expectNextMatches(serviceInstances -> serviceInstances.contains(instance))
+                .verifyComplete();
+            
+            StepVerifier.create(serviceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId())
+                    .zipWith(serviceDiscovery.getInstance(namespace, instance.getServiceId(), instance.getInstanceId())))
+                .expectNextMatches(tuple -> tuple.getT1() == tuple.getT2())
+                .verifyComplete();
         }));
     }
-
-    private final static int SLEEP_FOR_WAIT_MESSAGE = 1;
-
-    @SneakyThrows
-    protected void sleepForWaitNotify() {
-        TimeUnit.SECONDS.sleep(SLEEP_FOR_WAIT_MESSAGE);
-    }
-
-
-    @Test
-    public void getServicesListener() {
-        List<String> services = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
-        sleepForWaitNotify();
-        redisServiceRegistry.register(namespace, testInstance).block();
-        sleepForWaitNotify();
-        services = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
-        Assertions.assertEquals(1, services.size());
-        redisServiceRegistry.register(namespace, testFixedInstance).block();
-        sleepForWaitNotify();
-        services = consistencyRedisServiceDiscovery.getServices(namespace).collectList().block();
-        Assertions.assertEquals(2, services.size());
-    }
-
-
-    @Test
-    public void getInstancesListener() {
-        List<ServiceInstance> instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
-        sleepForWaitNotify();
-        redisServiceRegistry.register(namespace, testInstance).block();
-        sleepForWaitNotify();
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
-        Assertions.assertEquals(1, instances.size());
-        redisServiceRegistry.deregister(namespace, testInstance).block();
-        sleepForWaitNotify();
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
-        Assertions.assertEquals(0, instances.size());
-    }
-
+    
     @SneakyThrows
     @Test
-    public void getInstancesListenerExpire() {
-        List<ServiceInstance> instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
-        sleepForWaitNotify();
-        redisServiceRegistry.register(namespace, testInstance).block();
-        sleepForWaitNotify();
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
-        Assertions.assertEquals(1, instances.size());
-        TimeUnit.SECONDS.sleep(registryProperties.getInstanceTtl());
-        instances = consistencyRedisServiceDiscovery.getInstances(namespace, testInstance.getServiceId()).collectList().block();
-        Assertions.assertEquals(0, instances.size());
+    public void getServicesCache() {
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        final String serviceId = MockIdGenerator.INSTANCE.generateAsString();
+        Semaphore semaphore = new Semaphore(0);
+        ServiceDiscovery serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer,
+            (serviceChangedEvent -> {
+            }),
+            (ns -> semaphore.release())
+        );
+        
+        StepVerifier.create(serviceDiscovery.getServices(namespace))
+            .expectNextCount(0)
+            .verifyComplete();
+        
+        StepVerifier.create(redisServiceRegistry.register(namespace, TestServiceInstance.createInstance(serviceId)))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS));
+        
+        StepVerifier.create(serviceDiscovery.getServices(namespace).collectList())
+            .expectNextMatches(services -> services.contains(serviceId))
+            .verifyComplete();
+        
+        final String serviceId2 = MockIdGenerator.INSTANCE.generateAsString();
+        
+        StepVerifier.create(redisServiceRegistry.register(namespace, TestServiceInstance.createInstance(serviceId2)))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS));
+        
+        StepVerifier.create(serviceDiscovery.getServices(namespace).collectList())
+            .expectNextMatches(services -> {
+                Assertions.assertTrue(services.contains(serviceId));
+                Assertions.assertTrue(services.contains(serviceId2));
+                Assertions.assertEquals(2, services.size());
+                return true;
+            })
+            .verifyComplete();
+        
+        
     }
-
-
-    private final static int REPEATED_SIZE = 60000;
-    private final static int THREAD_COUNT = 5;
-
-    //    @Test
-    public void getInstancesRepeated() {
-        for (int i = 0; i < REPEATED_SIZE; i++) {
-            getInstances();
-        }
+    
+    @SneakyThrows
+    @Test
+    public void getInstancesCache() {
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        final String serviceId = MockIdGenerator.INSTANCE.generateAsString();
+        final ServiceInstance instance = TestServiceInstance.createInstance(serviceId);
+        Semaphore semaphore = new Semaphore(0);
+        ServiceDiscovery serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer,
+            (serviceChangedEvent -> {
+                semaphore.release();
+            }),
+            (ns -> {
+            })
+        );
+        StepVerifier.create(serviceDiscovery.getInstances(namespace, serviceId))
+            .expectNextCount(0)
+            .verifyComplete();
+        
+        StepVerifier.create(redisServiceRegistry.register(namespace, instance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS));
+        
+        StepVerifier.create(serviceDiscovery.getInstances(namespace, serviceId).collectList())
+            .expectNextMatches(serviceInstances -> serviceInstances.contains(instance))
+            .verifyComplete();
+        
+        StepVerifier.create(redisServiceRegistry.deregister(namespace, instance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS));
+        
+        StepVerifier.create(serviceDiscovery.getInstances(namespace, serviceId))
+            .expectNextCount(0)
+            .verifyComplete();
     }
-
-
-    //    @Test
-    public void getServicesRepeatedAsync() {
-        var futures = new Flux[REPEATED_SIZE];
-        for (int i = 0; i < REPEATED_SIZE; i++) {
-            futures[i] = consistencyRedisServiceDiscovery.getServices(namespace);
-        }
-        Mono.when(futures).block();
+    
+    @Test
+    public void getInstancesListenerExpire() throws InterruptedException {
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        final String serviceId = MockIdGenerator.INSTANCE.generateAsString();
+        final ServiceInstance instance = TestServiceInstance.createInstance(serviceId);
+        Semaphore semaphore = new Semaphore(0);
+        ServiceDiscovery serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer,
+            (serviceChangedEvent -> {
+                semaphore.release();
+            }),
+            (ns -> {
+            })
+        );
+        StepVerifier.create(serviceDiscovery.getInstances(namespace, serviceId))
+            .expectNextCount(0)
+            .verifyComplete();
+        
+        StepVerifier.create(redisServiceRegistry.register(namespace, instance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS));
+        
+        StepVerifier.create(serviceDiscovery.getInstances(namespace, serviceId).collectList())
+            .expectNextMatches(serviceInstances -> serviceInstances.contains(instance))
+            .verifyComplete();
+        
+        // wait for ttl
+        TimeUnit.MILLISECONDS.sleep(registryProperties.getInstanceTtl().plusSeconds(1).toMillis());
+        
+        StepVerifier.create(serviceDiscovery.getInstances(namespace, serviceId).collectList())
+            .expectNextMatches(serviceInstances -> serviceInstances.size() == 0)
+            .verifyComplete();
     }
-
-    //    @Test
-    public void getInstancesRepeatedMMultiple() throws InterruptedException {
-        CountDownLatch countDownLatch = new CountDownLatch(THREAD_COUNT);
-        for (int thNum = 0; thNum < THREAD_COUNT; thNum++) {
-            new Thread(() -> {
-                getInstancesRepeated();
-                countDownLatch.countDown();
-            }).start();
-        }
-        countDownLatch.await();
-    }
-
 }

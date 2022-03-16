@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.discovery;
 
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,17 +31,17 @@ import java.util.Optional;
  * @author ahoo wang
  */
 public class RedisServiceStatisticTest extends AbstractReactiveRedisTest {
-    private final static String namespace = "test_svc_stat";
+    private final static String namespace = MockIdGenerator.INSTANCE.generateAsString();
     private RedisServiceStatistic redisServiceStatistic;
     
-    private RedisServiceRegistry redisServiceRegistry;
+    private RedisServiceRegistry serviceRegistry;
     
     @BeforeEach
     @Override
     public void afterPropertiesSet() {
         super.afterPropertiesSet();
         RegistryProperties registryProperties = new RegistryProperties();
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
         redisServiceStatistic = new RedisServiceStatistic(redisTemplate, listenerContainer);
     }
     
@@ -52,15 +54,19 @@ public class RedisServiceStatisticTest extends AbstractReactiveRedisTest {
     @Test
     void statService() {
         ServiceInstance getServiceStatInstance = TestServiceInstance.randomInstance();
+        StepVerifier.create(serviceRegistry.register(namespace, getServiceStatInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
         
-        redisServiceRegistry.register(namespace, getServiceStatInstance).block();
-        redisServiceStatistic.statService(namespace).block();
-    
-        List<ServiceStat> stats = redisServiceStatistic.getServiceStats(namespace).collectList().block();
-        Assertions.assertTrue(stats.size() >= 1);
-        Optional<ServiceStat> statOptional = stats.stream().filter(serviceStat -> serviceStat.getServiceId().equals(getServiceStatInstance.getServiceId())).findFirst();
-        Assertions.assertTrue(statOptional.isPresent());
-        ServiceStat testStat = statOptional.get();
-        Assertions.assertEquals(1, testStat.getInstanceCount());
+        StepVerifier.create(redisServiceStatistic.statService(namespace))
+            .verifyComplete();
+        
+        StepVerifier.create(redisServiceStatistic.getServiceStats(namespace).collectList())
+            .expectNextMatches(serviceStats -> {
+                Assertions.assertEquals(1, serviceStats.size());
+                ServiceStat stat = serviceStats.get(0);
+                Assertions.assertEquals(1, stat.getInstanceCount());
+                return true;
+            });
     }
 }

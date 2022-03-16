@@ -15,51 +15,68 @@ package me.ahoo.cosky.discovery;
 
 import lombok.SneakyThrows;
 
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import reactor.test.StepVerifier;
 
+import java.time.Duration;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * @author ahoo wang
  */
-public class RenewInstanceServiceTest  extends AbstractReactiveRedisTest {
-    private final static String namespace = "test_renew";
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+public class RenewInstanceServiceTest extends AbstractReactiveRedisTest {
     private ServiceInstance testInstance;
     private ServiceInstance testFixedInstance;
     private RedisServiceRegistry redisServiceRegistry;
-    private RenewInstanceService renewService;
+    private final RenewProperties renewProperties = new RenewProperties();
     
-    @BeforeEach
+    @BeforeAll
     @Override
     public void afterPropertiesSet() {
         super.afterPropertiesSet();
         testInstance = TestServiceInstance.randomInstance();
         testFixedInstance = TestServiceInstance.randomFixedInstance();
         RegistryProperties registryProperties = new RegistryProperties();
-        registryProperties.setInstanceTtl(15);
+        registryProperties.setInstanceTtl(Duration.ofSeconds(15));
         redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        RenewProperties renewProperties = new RenewProperties();
-        renewService = new RenewInstanceService(renewProperties, redisServiceRegistry);
     }
     
-    @AfterEach
+    @AfterAll
     @Override
     public void destroy() {
-        renewService.stop();
         super.destroy();
     }
     
     @SneakyThrows
     @Test
     public void start() {
+        final String namespace = MockIdGenerator.INSTANCE.generateAsString();
+        Semaphore semaphore = new Semaphore(0);
+        RenewInstanceService renewService = new RenewInstanceService(renewProperties, redisServiceRegistry, (serviceInstance -> {
+            Assertions.assertEquals(testInstance, serviceInstance);
+            semaphore.release();
+        }));
         renewService.start();
-        redisServiceRegistry.register(namespace, testInstance).block();
-        redisServiceRegistry.register(namespace, testFixedInstance).block();
-        TimeUnit.SECONDS.sleep(20);
+        StepVerifier.create(redisServiceRegistry.register(namespace, testInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        StepVerifier.create(redisServiceRegistry.register(namespace, testFixedInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        Assertions.assertTrue(semaphore.tryAcquire(renewProperties.getInitialDelay().plusSeconds(2).getSeconds(), TimeUnit.SECONDS));
+        renewService.stop();
     }
 }

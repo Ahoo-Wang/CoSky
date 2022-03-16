@@ -57,7 +57,6 @@ public class RedisServiceDiscovery implements ServiceDiscovery {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
         Preconditions.checkArgument(!Strings.isNullOrEmpty(serviceId), "serviceId can not be empty!");
         
-        
         return redisTemplate.execute(
                 DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES,
                 Collections.singletonList(namespace),

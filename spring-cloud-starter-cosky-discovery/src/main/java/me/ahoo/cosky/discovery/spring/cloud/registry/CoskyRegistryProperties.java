@@ -44,7 +44,7 @@ public class CoskyRegistryProperties {
     private String initialStatus = StatusConstants.STATUS_UP;
     private Map<String, String> metadata = new HashMap<>();
     
-    private int ttl = 60;
+    private Duration ttl = Duration.ofSeconds(60);
     
     private Boolean secure;
     
@@ -135,11 +135,11 @@ public class CoskyRegistryProperties {
         }
     }
     
-    public int getTtl() {
+    public Duration getTtl() {
         return ttl;
     }
     
-    public void setTtl(int ttl) {
+    public void setTtl(Duration ttl) {
         this.ttl = ttl;
     }
     

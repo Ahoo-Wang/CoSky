@@ -1,14 +1,16 @@
 spring:
   application:
     name: ${service.name:cosky-rest-api}
-  redis:
-    url: ${cosky.redis.uri:redis://localhost:6379}
+#  redis:
+#    url: ${cosky.redis.uri:redis://localhost:6379}
   cloud:
     cosky:
       namespace: ${cosky.namespace:cosky-{system}}
       config:
         config-id: ${spring.application.name}.yaml
-
+    service-registry:
+      auto-registration:
+        enabled: ${cosky.auto-registry:true}
 logging:
   file:
     name: logs/${spring.application.name}.log

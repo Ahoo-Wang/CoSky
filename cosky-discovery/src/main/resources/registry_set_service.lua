@@ -7,6 +7,7 @@ local serviceIdxStatKey = namespace .. ":svc_stat";
 local affected = redis.call("sadd", serviceIdxKey, serviceId);
 
 if affected > 0 then
+    redis.call("publish", serviceIdxKey, "set");
     redis.call("hset", serviceIdxStatKey, serviceId, 0);
 end
 

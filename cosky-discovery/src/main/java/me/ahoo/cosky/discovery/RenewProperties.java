@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.discovery;
 
+import java.time.Duration;
+
 /**
  * Renew Properties.
  *
@@ -20,26 +22,26 @@ package me.ahoo.cosky.discovery;
  */
 public class RenewProperties {
     
-    private int initialDelay = 1;
+    private Duration initialDelay = Duration.ofSeconds(1);
     /**
      * renew period.
      * {@link #period} must Less than {@link RegistryProperties#getInstanceTtl()}
      */
-    private int period = 10;
+    private Duration period = Duration.ofSeconds(10);
     
-    public int getInitialDelay() {
+    public Duration getInitialDelay() {
         return initialDelay;
     }
     
-    public void setInitialDelay(int initialDelay) {
+    public void setInitialDelay(Duration initialDelay) {
         this.initialDelay = initialDelay;
     }
     
-    public int getPeriod() {
+    public Duration getPeriod() {
         return period;
     }
     
-    public void setPeriod(int period) {
+    public void setPeriod(Duration period) {
         this.period = period;
     }
 }

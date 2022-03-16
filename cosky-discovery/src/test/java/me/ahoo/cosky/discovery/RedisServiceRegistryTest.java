@@ -13,33 +13,32 @@
 
 package me.ahoo.cosky.discovery;
 
+import me.ahoo.cosid.util.MockIdGenerator;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
+
+import java.time.Duration;
 
 /**
  * @author ahoo wang
  */
 public class RedisServiceRegistryTest extends AbstractReactiveRedisTest {
-    private final static String namespace = "test_svc_csy";
-    private ServiceInstance testInstance;
-    private ServiceInstance testFixedInstance;
-    private RedisServiceRegistry redisServiceRegistry;
+    private final static String namespace = MockIdGenerator.INSTANCE.generateAsString();
+    private RedisServiceRegistry serviceRegistry;
     
     @BeforeEach
     @Override
     public void afterPropertiesSet() {
         super.afterPropertiesSet();
-        testInstance = TestServiceInstance.randomInstance();
-        testFixedInstance = TestServiceInstance.randomFixedInstance();
         RegistryProperties registryProperties = new RegistryProperties();
-        registryProperties.setInstanceTtl(10);
+        registryProperties.setInstanceTtl(Duration.ofSeconds(10));
         
-        redisServiceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
+        serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
     }
     
     @AfterEach
@@ -49,38 +48,64 @@ public class RedisServiceRegistryTest extends AbstractReactiveRedisTest {
     }
     
     @Test
+    public void setService() {
+        StepVerifier.create(serviceRegistry.setService(namespace, MockIdGenerator.INSTANCE.generateAsString()))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+    }
+    
+    @Test
     public void register() {
-        Boolean result = redisServiceRegistry.register(namespace, testInstance).block();
-        Assertions.assertEquals(Boolean.TRUE, result);
+        StepVerifier.create(serviceRegistry.register(namespace, TestServiceInstance.randomInstance()))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
     
     @Test
     public void renew() {
-        Boolean result = redisServiceRegistry.renew(namespace, testInstance).block();
-        Assertions.assertEquals(Boolean.TRUE, result);
+        StepVerifier.create(serviceRegistry.renew(namespace, TestServiceInstance.randomInstance()))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
     
     @Test
     public void renewFixed() {
-        Boolean result = redisServiceRegistry.renew(namespace, testFixedInstance).block();
-        Assertions.assertEquals(Boolean.FALSE, result);
+        StepVerifier.create(serviceRegistry.renew(namespace, TestServiceInstance.randomFixedInstance()))
+            .expectNext(Boolean.FALSE)
+            .verifyComplete();
     }
     
     @Test
     public void registerFixed() {
-        Boolean result = redisServiceRegistry.register(namespace, testFixedInstance).block();
-        Assertions.assertEquals(Boolean.TRUE, result);
+        StepVerifier.create(serviceRegistry.register(namespace, TestServiceInstance.randomFixedInstance()))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
     
     @Test
     public void deregister() {
-        redisServiceRegistry.deregister(namespace, testInstance).block();
+        ServiceInstance testInstance = TestServiceInstance.randomInstance();
+        StepVerifier.create(serviceRegistry.deregister(namespace, testInstance))
+            .expectNext(Boolean.FALSE)
+            .verifyComplete();
+        
+        StepVerifier.create(serviceRegistry.register(namespace, testInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
+        
+        StepVerifier.create(serviceRegistry.deregister(namespace, testInstance))
+            .expectNext(Boolean.TRUE)
+            .verifyComplete();
     }
-
+    
     @Test
     public void registerRepeatedSync() {
+        ServiceInstance testInstance = TestServiceInstance.randomInstance();
+        
         for (int i = 0; i < 20; i++) {
-            redisServiceRegistry.register(namespace, testInstance).block();
+            StepVerifier.create(serviceRegistry.register(namespace, testInstance))
+                .expectNext(Boolean.TRUE)
+                .verifyComplete();
         }
     }
 }

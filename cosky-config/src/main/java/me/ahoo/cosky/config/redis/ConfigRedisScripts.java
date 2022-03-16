@@ -18,7 +18,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.data.redis.core.script.RedisScript;
 
 /**
- * ConfigRedisScripts.
+ * Config Redis Scripts.
  *
  * @author ahoo wang
  */

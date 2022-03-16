@@ -22,15 +22,19 @@ import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.ConfigVersion;
 import me.ahoo.cosky.config.NamespacedConfigId;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
+import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.Nullable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
  * Consistency Redis Config Service.
@@ -43,11 +47,23 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
     private final ReactiveRedisMessageListenerContainer listenerContainer;
     private final ConcurrentHashMap<NamespacedConfigId, Mono<Config>> configMapCache;
     
+    @VisibleForTesting
+    @Nullable
+    private final Consumer<ConfigChangedEvent> hookOnResetCache;
+    
     public ConsistencyRedisConfigService(ConfigService delegate,
-                                         ReactiveRedisMessageListenerContainer listenerContainer) {
+                                         ReactiveRedisMessageListenerContainer listenerContainer
+    ) {
+        this(delegate, listenerContainer, null);
+    }
+    
+    public ConsistencyRedisConfigService(ConfigService delegate,
+                                         ReactiveRedisMessageListenerContainer listenerContainer,
+                                         Consumer<ConfigChangedEvent> hookOnResetCache) {
         this.listenerContainer = listenerContainer;
         this.configMapCache = new ConcurrentHashMap<>();
         this.delegate = delegate;
+        this.hookOnResetCache = hookOnResetCache;
     }
     
     @Override
@@ -56,14 +72,16 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
     }
     
     public Flux<ConfigChangedEvent> listen(String namespace, String configId) {
-        String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
-        return listenerContainer
-            .receive(ChannelTopic.of(topicStr))
-            .map(message -> {
-                NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(message.getChannel());
-                ConfigChangedEvent.Event event = ConfigChangedEvent.Event.of(message.getMessage());
-                return new ConfigChangedEvent(namespacedConfigId, event);
-            });
+        return Flux.defer(() -> {
+            String topicStr = ConfigKeyGenerator.getConfigKey(namespace, configId);
+            return listenerContainer
+                .receive(ChannelTopic.of(topicStr))
+                .map(message -> {
+                    NamespacedConfigId namespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(message.getChannel());
+                    ConfigChangedEvent.Event event = ConfigChangedEvent.Event.of(message.getMessage());
+                    return new ConfigChangedEvent(namespacedConfigId, event);
+                });
+        });
     }
     
     @Override
@@ -73,21 +91,21 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
     
     @Override
     public Mono<Config> getConfig(String namespace, String configId) {
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
-        Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
-        
-        return configMapCache.computeIfAbsent(NamespacedConfigId.of(namespace, configId), this::listenAndGetCache);
+        return Mono.defer(() -> {
+            Preconditions.checkArgument(!Strings.isNullOrEmpty(namespace), "namespace can not be empty!");
+            Preconditions.checkArgument(!Strings.isNullOrEmpty(configId), "configId can not be empty!");
+            
+            return configMapCache.computeIfAbsent(NamespacedConfigId.of(namespace, configId), this::listenAndGetCache);
+        });
     }
     
     private Mono<Config> listenAndGetCache(NamespacedConfigId cfgId) {
         final String namespace = cfgId.getNamespace();
         final String configId = cfgId.getConfigId();
         listen(namespace, configId)
-            .doOnNext(configEvent -> configMapCache.put(cfgId, delegate.getConfig(namespace, configId).cache()))
-            .subscribe();
+            .subscribe(new ConfigChangedEventSubscriber(this));
         return delegate.getConfig(namespace, configId).cache();
     }
-    
     
     @Override
     public Mono<Boolean> setConfig(String namespace, String configId, String data) {
@@ -127,6 +145,34 @@ public class ConsistencyRedisConfigService implements ListenableConfigService {
     @Override
     public Mono<ConfigHistory> getConfigHistory(String namespace, String configId, int version) {
         return delegate.getConfigHistory(namespace, configId, version);
+    }
+    
+    private void onConfigChanged(ConfigChangedEvent configChangedEvent) {
+        NamespacedConfigId namespacedConfigId = configChangedEvent.getNamespacedConfigId();
+        configMapCache.put(namespacedConfigId, delegate.getConfig(namespacedConfigId.getNamespace(), namespacedConfigId.getConfigId()).cache());
+        if (null != hookOnResetCache) {
+            hookOnResetCache.accept(configChangedEvent);
+        }
+    }
+    
+    public static class ConfigChangedEventSubscriber extends BaseSubscriber<ConfigChangedEvent> {
+        private final ConsistencyRedisConfigService configService;
+        
+        public ConfigChangedEventSubscriber(ConsistencyRedisConfigService configService) {
+            this.configService = configService;
+        }
+        
+        @Override
+        protected void hookOnNext(ConfigChangedEvent value) {
+            configService.onConfigChanged(value);
+        }
+        
+        @Override
+        protected void hookOnError(Throwable throwable) {
+            if (log.isErrorEnabled()) {
+                log.error("hookOnError - " + throwable.getMessage(), throwable);
+            }
+        }
     }
     
 }

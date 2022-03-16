@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.mirror;
 
+import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.discovery.NamespacedServiceId;
 import me.ahoo.cosky.discovery.ServiceChangedEvent;
 import me.ahoo.cosky.discovery.ServiceInstance;
@@ -76,7 +77,10 @@ public class CoskyToNacosMirror implements Mirror {
             .doOnComplete(() -> {
                 serviceMapListener.computeIfAbsent(serviceId, (key) -> {
                     CoskyServiceChangedListener listener = new CoskyServiceChangedListener(serviceId);
-                    //TODO  coskyServiceDiscovery.addListener(NamespacedServiceId.of(NamespacedContext.GLOBAL.getNamespace(), serviceId), listener);
+                    coskyServiceDiscovery
+                        .listen(NamespacedServiceId.of(NamespacedContext.GLOBAL.getNamespace(), serviceId))
+                        .doOnNext(listener::onChange)
+                        .subscribe();
                     return listener;
                 });
             })
@@ -125,7 +129,7 @@ public class CoskyToNacosMirror implements Mirror {
         return MIRROR_SOURCE_NACOS;
     }
     
-    private class CoskyServiceChangedListener{
+    private class CoskyServiceChangedListener {
         
         public final String serviceId;
         
@@ -133,7 +137,6 @@ public class CoskyToNacosMirror implements Mirror {
             this.serviceId = serviceId;
         }
         
-
         public void onChange(ServiceChangedEvent serviceChangedEvent) {
             me.ahoo.cosky.discovery.Instance instance = serviceChangedEvent.getInstance();
             if (log.isInfoEnabled()) {

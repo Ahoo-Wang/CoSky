@@ -66,9 +66,9 @@ application {
 
 dependencies {
     implementation(platform(project(":cosky-dependencies")))
-    //implementation("io.netty:netty-all")
-    implementation("io.netty:netty-transport-native-epoll:linux-x86_64")
-    implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
+    implementation("io.netty:netty-all")
+//    implementation("io.netty:netty-transport-native-epoll:linux-x86_64")
+//    implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
     implementation("io.springfox:springfox-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     //implementation("org.springframework.boot:spring-boot-starter-mail")
