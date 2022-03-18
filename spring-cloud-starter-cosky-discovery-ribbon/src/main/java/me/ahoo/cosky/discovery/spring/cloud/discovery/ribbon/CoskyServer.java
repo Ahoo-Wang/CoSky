@@ -15,6 +15,7 @@ package me.ahoo.cosky.discovery.spring.cloud.discovery.ribbon;
 
 import me.ahoo.cosky.discovery.ServiceInstance;
 
+import com.google.common.base.Objects;
 import com.netflix.loadbalancer.Server;
 
 /**
@@ -59,5 +60,25 @@ public class CoskyServer extends Server {
     
     public ServiceInstance getInstance() {
         return instance;
+    }
+    
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof CoskyServer)) {
+            return false;
+        }
+        if (!super.equals(o)) {
+            return false;
+        }
+        CoskyServer that = (CoskyServer) o;
+        return Objects.equal(getInstance(), that.getInstance()) && Objects.equal(getMetaInfo(), that.getMetaInfo());
+    }
+    
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(super.hashCode(), getInstance(), getMetaInfo());
     }
 }

@@ -34,6 +34,7 @@ public interface ServiceRegistry {
      * 注册实例.
      *
      * @param serviceInstance serviceInstance
+     * @return If true, the registration succeeds, otherwise it fails
      */
     default Mono<Boolean> register(ServiceInstance serviceInstance) {
         return register(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);
@@ -45,7 +46,7 @@ public interface ServiceRegistry {
      * 服务实例续期.
      *
      * @param serviceInstance serviceInstance
-     * @return successful?
+     * @return If true, the renew succeeds, otherwise it fails
      */
     default Mono<Boolean> renew(ServiceInstance serviceInstance) {
         return renew(NamespacedContext.GLOBAL.getRequiredNamespace(), serviceInstance);

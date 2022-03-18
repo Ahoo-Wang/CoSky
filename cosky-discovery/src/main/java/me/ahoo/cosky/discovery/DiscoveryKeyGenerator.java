@@ -13,9 +13,9 @@
 
 package me.ahoo.cosky.discovery;
 
-import com.google.common.base.Strings;
-
 import me.ahoo.cosky.core.CoSky;
+
+import com.google.common.base.Strings;
 
 /**
  * Discovery Key Generator.

@@ -18,7 +18,6 @@ import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants;
 
 import org.springframework.cloud.client.serviceregistry.ServiceRegistry;
-import org.springframework.cloud.client.serviceregistry.endpoint.ServiceRegistryEndpoint;
 
 /**
  * Cosky Service Registry.
@@ -43,8 +42,8 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
     public void register(CoskyRegistration registration) {
         ServiceInstance instance = registration.of();
         Boolean succeeded = serviceRegistry.register(instance).block(coskyRegistryProperties.getTimeout());
-        
-        if (!succeeded) {
+    
+        if (Boolean.FALSE.equals(succeeded)) {
             throw new RuntimeException("Service registration failed");
         }
         renewInstanceService.start();
@@ -55,7 +54,7 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
         ServiceInstance instance = registration.of();
         Boolean succeeded = serviceRegistry.deregister(instance).block(coskyRegistryProperties.getTimeout());
         
-        if (!succeeded) {
+        if (Boolean.FALSE.equals(succeeded)) {
             throw new RuntimeException("Service deregister failed");
         }
     }
@@ -72,9 +71,9 @@ public class CoskyServiceRegistry implements ServiceRegistry<CoskyRegistration> 
         serviceRegistry
             .setMetadata(instance.getServiceId(), instance.getInstanceId(), StatusConstants.INSTANCE_STATUS_KEY, status)
             .block(coskyRegistryProperties.getTimeout());
-        
     }
     
+    @SuppressWarnings("unchecked")
     @Override
     public <T> T getStatus(CoskyRegistration registration) {
         return (T) registration.getMetadata().get(StatusConstants.INSTANCE_STATUS_KEY);

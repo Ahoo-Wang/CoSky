@@ -12,21 +12,21 @@
  */
 
 plugins {
-    id("io.github.gradle-nexus.publish-plugin") version ("1.1.0")
+    id("io.github.gradle-nexus.publish-plugin")
 }
 
-val bomProjects = listOf(
+val bomProjects = setOf(
     project(":cosky-bom"),
     project(":cosky-dependencies")
 )
-val coreProjects = listOf(
+val coreProjects = setOf(
     project(":cosky-config"),
     project(":cosky-discovery")
 )
 val restApiProject = project(":cosky-rest-api")
 val mirrorProject = project(":cosky-mirror")
-val serverProjects = listOf(restApiProject, mirrorProject)
-val exampleProjects = listOf(
+val serverProjects = setOf(restApiProject, mirrorProject)
+val exampleProjects = setOf(
     project(":cosky-service-provider"),
     project(":cosky-service-provider-api"),
     project(":cosky-service-consumer")
@@ -38,7 +38,7 @@ ext {
     set("lombokVersion", "1.18.20")
     set("springBootVersion", "2.6.4")
     set("springCloudVersion", "2021.0.1")
-    set("jmhVersion", "1.33")
+    set("jmhVersion", "1.34")
     set("guavaVersion", "30.0-jre")
     set("commonsIOVersion", "2.10.0")
     set("springfoxVersion", "3.0.0")
@@ -64,6 +64,14 @@ configure(bomProjects) {
 }
 
 configure(libraryProjects) {
+    apply<CheckstylePlugin>()
+    configure<CheckstyleExtension> {
+        toolVersion = "9.2.1"
+    }
+    apply<com.github.spotbugs.snom.SpotBugsPlugin>()
+    configure<com.github.spotbugs.snom.SpotBugsExtension> {
+        excludeFilter.set(file("${rootDir}/config/spotbugs/exclude.xml"))
+    }
     apply<JavaLibraryPlugin>()
     configure<JavaPluginExtension> {
         toolchain {
@@ -71,6 +79,42 @@ configure(libraryProjects) {
         }
         withJavadocJar()
         withSourcesJar()
+    }
+    apply<me.champeau.jmh.JMHPlugin>()
+    configure<me.champeau.jmh.JmhParameters> {
+        val DELIMITER = ',';
+        val JMH_INCLUDES_KEY = "jmhIncludes"
+        val JMH_EXCLUDES_KEY = "jmhExcludes"
+        val JMH_THREADS_KEY = "jmhThreads"
+        val JMH_MODE_KEY = "jmhMode"
+
+        if (project.hasProperty(JMH_INCLUDES_KEY)) {
+            val jmhIncludes = project.properties[JMH_INCLUDES_KEY].toString().split(DELIMITER)
+            includes.set(jmhIncludes)
+        }
+        if (project.hasProperty(JMH_EXCLUDES_KEY)) {
+            val jmhExcludes = project.properties[JMH_EXCLUDES_KEY].toString().split(DELIMITER)
+            excludes.set(jmhExcludes)
+        }
+
+        jmhVersion.set(rootProject.ext.get("jmhVersion").toString())
+        warmupIterations.set(1)
+        iterations.set(1)
+        resultFormat.set("json")
+
+        var jmhMode = listOf(
+            "thrpt"
+        )
+        if (project.hasProperty(JMH_MODE_KEY)) {
+            jmhMode = project.properties[JMH_MODE_KEY].toString().split(DELIMITER)
+        }
+        benchmarkMode.set(jmhMode)
+        var jmhThreads = 1
+        if (project.hasProperty(JMH_THREADS_KEY)) {
+            jmhThreads = Integer.valueOf(project.properties[JMH_THREADS_KEY].toString())
+        }
+        threads.set(jmhThreads)
+        fork.set(1)
     }
 
     tasks.withType<Test> {
@@ -91,6 +135,8 @@ configure(libraryProjects) {
         this.add("testImplementation", "org.junit.jupiter:junit-jupiter-params")
 //        this.add("testImplementation", "org.junit-pioneer:junit-pioneer")
         this.add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine")
+        add("jmh", "org.openjdk.jmh:jmh-core:${rootProject.ext.get("jmhVersion")}")
+        add("jmh", "org.openjdk.jmh:jmh-generator-annprocess:${rootProject.ext.get("jmhVersion")}")
     }
 }
 

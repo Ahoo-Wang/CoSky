@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Consistency Redis Service Discovery.
@@ -143,7 +144,7 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
                         .cache();
                 }
             )
-            .flatMapIterable(serviceInstances -> serviceInstances)
+            .flatMapIterable(Function.identity())
             .filter(instance -> !instance.isExpired());
     }
     
@@ -161,7 +162,7 @@ public class ConsistencyRedisServiceDiscovery implements ListenableServiceDiscov
         }
         
         return instancesMono
-            .flatMapIterable(serviceInstances -> serviceInstances)
+            .flatMapIterable(Function.identity())
             .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
             .filter(itc -> itc.getInstanceId().equals(instanceId))
             .next();

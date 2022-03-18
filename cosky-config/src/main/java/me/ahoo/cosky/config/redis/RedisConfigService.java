@@ -26,6 +26,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -56,6 +57,7 @@ public class RedisConfigService implements ConfigService {
         if (log.isDebugEnabled()) {
             log.debug("getConfigs  @ namespace:[{}].", namespace);
         }
+        
         String configIdxKey = ConfigKeyGenerator.getConfigIdxKey(namespace);
     
         return redisTemplate.opsForSet().members(configIdxKey)

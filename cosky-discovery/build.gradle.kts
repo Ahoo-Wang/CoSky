@@ -10,29 +10,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-plugins {
-    id("me.champeau.jmh") version "0.6.6"
-}
-
 dependencies {
     api(project(":cosky-core"))
     api("io.lettuce:lettuce-core")
-    jmh("org.openjdk.jmh:jmh-core:${rootProject.ext.get("jmhVersion")}")
-    jmh("org.openjdk.jmh:jmh-generator-annprocess:${rootProject.ext.get("jmhVersion")}")
     testImplementation("me.ahoo.cosid:cosid-core")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("io.netty:netty-all")
 }
 
 jmh {
-    jmhVersion.set(rootProject.ext.get("jmhVersion").toString())
-    warmupIterations.set(1)
-    iterations.set(1)
-    resultFormat.set("json")
-    benchmarkMode.set(listOf(
-        "thrpt"
-    ))
     threads.set(25)
-    fork.set(1)
 }

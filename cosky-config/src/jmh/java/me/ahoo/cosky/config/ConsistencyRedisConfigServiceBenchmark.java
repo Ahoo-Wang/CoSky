@@ -33,7 +33,7 @@ public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedi
     private static final String namespace = "benchmark_csy_cfg";
     public ConfigService configService;
     private final String configId = MockIdGenerator.INSTANCE.generateAsString();
-    private final String configData = "spring:\n" +
+    private static final String configData = "spring:\n" +
         "  application:\n" +
         "    name: cosky-rest-api\n" +
         "  cloud:\n" +
@@ -44,6 +44,7 @@ public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedi
         "      redis:\n" +
         "        mode: standalone\n" +
         "        url: redis://localhost:6379\n";
+    
     @Setup
     public void afterPropertiesSet() {
         System.out.println("\n ----- ConsistencyRedisConfigServiceBenchmark setup ----- \n");

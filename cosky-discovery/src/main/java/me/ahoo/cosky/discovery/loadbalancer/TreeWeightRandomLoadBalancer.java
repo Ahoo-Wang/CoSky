@@ -13,10 +13,10 @@
 
 package me.ahoo.cosky.discovery.loadbalancer;
 
-import lombok.extern.slf4j.Slf4j;
-
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.NavigableMap;

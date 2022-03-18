@@ -34,7 +34,7 @@ public class RedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
     private final static String namespace = "ben_cfg";
     public RedisConfigService configService;
     private final String configId = MockIdGenerator.INSTANCE.generateAsString();
-    private final String configData = "spring:\n" +
+    private static final String configData = "spring:\n" +
         "  application:\n" +
         "    name: cosky-rest-api\n" +
         "  cloud:\n" +

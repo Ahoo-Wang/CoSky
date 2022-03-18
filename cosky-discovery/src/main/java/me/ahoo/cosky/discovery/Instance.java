@@ -114,8 +114,10 @@ public class Instance {
             return false;
         }
         Instance instance = (Instance) o;
-        return getPort() == instance.getPort() && Objects.equal(getServiceId(), instance.getServiceId()) && Objects.equal(getSchema(), instance.getSchema()) &&
-            Objects.equal(getHost(), instance.getHost());
+        return getPort() == instance.getPort()
+            && Objects.equal(getServiceId(), instance.getServiceId())
+            && Objects.equal(getSchema(), instance.getSchema())
+            && Objects.equal(getHost(), instance.getHost());
     }
     
     @Override
