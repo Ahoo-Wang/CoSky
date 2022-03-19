@@ -12,8 +12,9 @@
  */
 
 dependencies {
-    api("io.lettuce:lettuce-core")
+    api("io.projectreactor:reactor-core")
     api("org.springframework.data:spring-data-redis")
+    implementation("io.lettuce:lettuce-core")
     testImplementation("me.ahoo.cosid:cosid-core")
     testImplementation("io.projectreactor:reactor-test")
 }

@@ -12,6 +12,7 @@
  */
 dependencies {
     api(project(":cosky-core"))
+    testImplementation("io.lettuce:lettuce-core")
     testImplementation("me.ahoo.cosid:cosid-core")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("io.netty:netty-all")
