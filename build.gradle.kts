@@ -36,7 +36,7 @@ val libraryProjects = publishProjects - bomProjects
 
 ext {
     set("lombokVersion", "1.18.20")
-    set("springBootVersion", "2.6.4")
+    set("springBootVersion", "2.6.6")
     set("springCloudVersion", "2021.0.1")
     set("jmhVersion", "1.34")
     set("guavaVersion", "30.0-jre")
