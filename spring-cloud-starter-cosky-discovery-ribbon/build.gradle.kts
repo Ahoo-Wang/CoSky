@@ -13,7 +13,7 @@
 
 dependencies {
     api(project(":spring-cloud-starter-cosky-discovery"))
-    api("org.springframework.cloud:spring-cloud-starter-netflix-ribbon:2.2.8.RELEASE") {
+    api("org.springframework.cloud:spring-cloud-starter-netflix-ribbon:2.2.10.RELEASE") {
 //        exclude("com.netflix.hystrix", module = "hystrix-core")
     }
 
