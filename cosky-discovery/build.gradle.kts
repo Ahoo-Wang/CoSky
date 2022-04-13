@@ -12,7 +12,7 @@
  */
 
 plugins {
-    id("me.champeau.jmh") version "0.6.4"
+    id("me.champeau.jmh") version "0.6.6"
 }
 
 dependencies {
