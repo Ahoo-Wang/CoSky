@@ -1,0 +1,11 @@
+coverage:
+  status:
+    patch:
+      default:
+        threshold: 1%
+
+ignore:
+  - "cosky-test/.*"
+  - "examples/.*"
+  - "cosid-benchmark/.*"
+  - "cosky-dashboard/.*"
