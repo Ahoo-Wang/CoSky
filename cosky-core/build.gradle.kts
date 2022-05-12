@@ -16,5 +16,6 @@ dependencies {
     api("org.springframework.data:spring-data-redis")
     implementation("io.lettuce:lettuce-core")
     testImplementation("me.ahoo.cosid:cosid-core")
+    testImplementation("me.ahoo.cosid:cosid-test")
     testImplementation("io.projectreactor:reactor-test")
 }

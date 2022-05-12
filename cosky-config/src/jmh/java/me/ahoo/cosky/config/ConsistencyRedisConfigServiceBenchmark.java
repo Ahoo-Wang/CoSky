@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.config;
 
-import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;

@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.core.redis;
 
-import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.core.NamespaceService;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 
@@ -24,7 +24,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import reactor.test.StepVerifier;
 
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**

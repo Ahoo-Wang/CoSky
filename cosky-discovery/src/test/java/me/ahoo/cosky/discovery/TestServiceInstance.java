@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.discovery;
 
-import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosid.test.MockIdGenerator;
 
 import reactor.test.StepVerifier;
 

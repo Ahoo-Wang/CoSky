@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.discovery.loadbalancer;
 
-import me.ahoo.cosid.util.MockIdGenerator;
+import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.RegistryProperties;
 import me.ahoo.cosky.discovery.ServiceInstance;
