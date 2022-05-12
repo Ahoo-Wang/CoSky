@@ -33,7 +33,7 @@ between process cache and Redis.
 > Kotlin DSL
 
 ``` kotlin
-    val coskyVersion = "1.3.20";
+    val coskyVersion = "lastVersion";
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
@@ -51,7 +51,7 @@ between process cache and Redis.
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>1.3.20</cosky.version>
+        <cosky.version>lastVersion</cosky.version>
     </properties>
 
     <dependencies>
@@ -81,14 +81,16 @@ between process cache and Redis.
 spring:
   application:
     name: ${service.name:cosky-rest-api}
+  redis:
+    url: redis://localhost:6379
   cloud:
     cosky:
       namespace: ${cosky.namespace:cosky-{system}}
       config:
         config-id: ${spring.application.name}.yaml
-      redis:
-        mode: ${cosky.redis.mode:standalone}
-        url: ${cosky.redis.uri:redis://localhost:6379}
+    service-registry:
+      auto-registration:
+        enabled: ${cosky.auto-registry:true}
 logging:
   file:
     name: logs/${spring.application.name}.log
@@ -100,21 +102,21 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/1.3.20/cosky-rest-api-1.3.20.tar)
+> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/2.0.0/cosky-rest-api-lastVersion.tar)
 
-> tar *cosky-rest-api-1.3.20.tar*
+> tar *cosky-rest-api-lastVersion.tar*
 
 ```shell
-cd cosky-rest-api-1.3.20
-# Working directory: cosky-rest-api-1.3.20
-bin/cosky-rest-api --server.port=8080 --cosky.redis.uri=redis://localhost:6379
+cd cosky-rest-api-lastVersion
+# Working directory: cosky-rest-api-lastVersion
+bin/cosky-rest-api --server.port=8080 --spring.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker
 
 ```shell
-docker pull ahoowang/cosky-rest-api:1.3.20
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e COSKY_REDIS_URI=redis://redis:6379  ahoowang/cosky-rest-api:1.3.20
+docker pull ahoowang/cosky-rest-api:lastVersion
+docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379  ahoowang/cosky-rest-api:lastVersion
 ```
 
 #### Option 3：Run On Kubernetes
@@ -138,11 +140,9 @@ spec:
     spec:
       containers:
         - env:
-            - name: COSKY_REDIS_MODE
-              value: standalone
-            - name: COSKY_REDIS_URI
+            - name: SPRING_REDIS_URL
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:1.3.20
+          image: ahoowang/cosky-rest-api:lastVersion
           name: cosky-rest-api
           ports:
             - containerPort: 8080
@@ -345,7 +345,7 @@ spec:
 ``` shell
 gradle cosky-config:jmh
 # or
-java -jar cosky-config/build/libs/cosky-config-1.3.20-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-config/build/libs/cosky-config-lastVersion-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
@@ -360,7 +360,7 @@ RedisConfigServiceBenchmark.setConfig             thrpt          140461.112     
 ``` shell
 gradle cosky-discovery:jmh
 # or
-java -jar cosky-discovery/build/libs/cosky-discovery-1.3.20-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
+java -jar cosky-discovery/build/libs/cosky-discovery-lastVersion-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
 ```
