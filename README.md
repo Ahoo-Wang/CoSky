@@ -102,7 +102,7 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/2.0.0/cosky-rest-api-lastVersion.tar)
+> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-rest-api-2.0.0.tar)
 
 > tar *cosky-rest-api-lastVersion.tar*
 

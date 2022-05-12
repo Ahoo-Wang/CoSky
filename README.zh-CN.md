@@ -101,7 +101,7 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/2.0.0/cosky-rest-api-lastVersion.tar)
+> 下载 [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-rest-api-2.0.0.tar)
 
 > 解压 *cosky-rest-api-lastVersion.tar*
 
