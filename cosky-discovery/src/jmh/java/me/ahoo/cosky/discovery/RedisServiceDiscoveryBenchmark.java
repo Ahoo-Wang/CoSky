@@ -13,9 +13,9 @@
 
 package me.ahoo.cosky.discovery;
 
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -31,35 +31,32 @@ import java.util.List;
  */
 @State(Scope.Benchmark)
 public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
-    private final static String namespace = "benchmark_svc_dvy";
     public ServiceDiscovery serviceDiscovery;
     private final static ServiceInstance testInstance = TestServiceInstance.randomInstance();
     
     @Setup
     public void afterPropertiesSet() {
-        System.out.println("\n ----- RedisServiceDiscoveryBenchmark afterPropertiesSet ----- \n");
         super.afterPropertiesSet();
         RegistryProperties registryProperties = new RegistryProperties();
         RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(testInstance).block();
+        serviceRegistry.register(TestData.NAMESPACE, testInstance).block();
         serviceDiscovery = new RedisServiceDiscovery(redisTemplate);
     }
     
     @Override
-    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
-    
+    protected boolean enableShare() {
+        return true;
     }
     
     @TearDown
-    public void tearDown() {
-        System.out.println("\n ----- RedisServiceDiscoveryBenchmark destroy ----- \n");
+    public void destroy() {
         super.destroy();
     }
     
     @Benchmark
     public List<String> getServices() {
         return serviceDiscovery
-            .getServices(namespace)
+            .getServices(TestData.NAMESPACE)
             .collectList()
             .block();
     }
@@ -67,7 +64,7 @@ public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
     @Benchmark
     public List<ServiceInstance> getInstances() {
         return serviceDiscovery
-            .getInstances(namespace, testInstance.getServiceId())
+            .getInstances(TestData.NAMESPACE, testInstance.getServiceId())
             .collectList()
             .block();
     }

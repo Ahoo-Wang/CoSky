@@ -14,18 +14,15 @@
 package me.ahoo.cosky.discovery;
 
 import me.ahoo.cosid.test.MockIdGenerator;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * @author ahoo wang

@@ -17,7 +17,7 @@ import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.config.ConfigRollback;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.ConfigVersion;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;

@@ -15,14 +15,13 @@ package me.ahoo.cosky.config;
 
 import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.config.redis.RedisConfigService;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,51 +30,37 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 @State(Scope.Benchmark)
 public class RedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
-    private final static String namespace = "ben_cfg";
     public RedisConfigService configService;
-    private final String configId = MockIdGenerator.INSTANCE.generateAsString();
-    private static final String configData = "spring:\n" +
-        "  application:\n" +
-        "    name: cosky-rest-api\n" +
-        "  cloud:\n" +
-        "    cosky:\n" +
-        "      namespace: dev\n" +
-        "      config:\n" +
-        "        config-id: ${spring.application.name}.yml\n" +
-        "      redis:\n" +
-        "        mode: standalone\n" +
-        "        url: redis://localhost:6379\n";
+    private static final String CONFIG_ID = MockIdGenerator.INSTANCE.generateAsString();
     private AtomicInteger atomicInteger;
     
     @Setup
     public void afterPropertiesSet() {
-        System.out.println("\n ----- RedisConfigBenchmark setup ----- \n");
         super.afterPropertiesSet();
         configService = new RedisConfigService(redisTemplate);
-        configService.setConfig(namespace, configId, configData).block();
+        configService.setConfig(TestData.NAMESPACE, CONFIG_ID, TestData.DATA).block();
         atomicInteger = new AtomicInteger();
     }
     
     @Override
-    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
-    
+    protected boolean enableShare() {
+        return true;
     }
     
     @TearDown
     public void destroy() {
-        System.out.println("\n ----- RedisConfigBenchmark tearDown ----- \n");
         super.destroy();
     }
     
     @Benchmark
     public Boolean setConfig() {
         String randomConfigId = String.valueOf(atomicInteger.incrementAndGet());
-        return configService.setConfig(namespace, randomConfigId, configData).block();
+        return configService.setConfig(TestData.NAMESPACE, randomConfigId, TestData.DATA).block();
     }
     
     @Benchmark
     public Config getConfig() {
-        return configService.getConfig(namespace, configId).block();
+        return configService.getConfig(TestData.NAMESPACE, CONFIG_ID).block();
     }
     
 }

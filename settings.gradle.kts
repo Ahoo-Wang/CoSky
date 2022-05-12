@@ -24,6 +24,8 @@ include(":spring-cloud-starter-cosky-discovery")
 include(":spring-cloud-starter-cosky-discovery-ribbon")
 include(":cosky-rest-api")
 include(":cosky-mirror")
+include(":cosky-test")
+
 
 include(":cosky-service-provider")
 project(":cosky-service-provider").projectDir = file("examples/cosky-service-provider")
@@ -45,3 +47,4 @@ buildscript{
         classpath("com.github.spotbugs.snom:spotbugs-gradle-plugin:5.0.6")
     }
 }
+

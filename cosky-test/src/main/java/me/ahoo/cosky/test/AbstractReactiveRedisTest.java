@@ -11,11 +11,13 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.core.test;
+package me.ahoo.cosky.test;
 
+import io.lettuce.core.resource.ClientResources;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
+import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
@@ -27,24 +29,42 @@ import reactor.core.publisher.Hooks;
  * @author ahoo wang
  */
 public abstract class AbstractReactiveRedisTest implements InitializingBean, DisposableBean {
+    public static final ClientResources SHARE = ClientResources.builder().build();
     protected LettuceConnectionFactory connectionFactory;
     protected ReactiveStringRedisTemplate redisTemplate;
     protected ReactiveRedisMessageListenerContainer listenerContainer;
     
     @Override
     public void afterPropertiesSet() {
-        Hooks.onOperatorDebug();
+        if (enableOperatorDebug()) {
+            Hooks.onOperatorDebug();
+        }
+        
+        ClientResources clientResources = enableShare() ? SHARE : ClientResources.builder().build();
+        
+        LettuceClientConfiguration lettuceClientConfiguration = LettuceClientConfiguration
+            .builder()
+            .clientResources(clientResources)
+            .build();
         RedisStandaloneConfiguration redisConfig = new RedisStandaloneConfiguration();
-        connectionFactory = new LettuceConnectionFactory(redisConfig);
+        connectionFactory = new LettuceConnectionFactory(redisConfig, lettuceClientConfiguration);
         connectionFactory.afterPropertiesSet();
+        connectionFactory.setShareNativeConnection(enableShare());
         customizeConnectionFactory(connectionFactory);
         redisTemplate = new ReactiveStringRedisTemplate(connectionFactory);
         listenerContainer = new ReactiveRedisMessageListenerContainer(connectionFactory);
     }
     
     protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
-        connectionFactory.setClientResources(null);
-        connectionFactory.setShareNativeConnection(false);
+    
+    }
+    
+    protected boolean enableOperatorDebug() {
+        return false;
+    }
+    
+    protected boolean enableShare() {
+        return false;
     }
     
     @Override

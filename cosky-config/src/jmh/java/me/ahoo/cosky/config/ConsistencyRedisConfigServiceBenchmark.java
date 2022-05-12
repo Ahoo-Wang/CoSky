@@ -16,57 +16,42 @@ package me.ahoo.cosky.config;
 import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
 public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
-    private static final String namespace = "benchmark_csy_cfg";
     public ConfigService configService;
-    private final String configId = MockIdGenerator.INSTANCE.generateAsString();
-    private static final String configData = "spring:\n" +
-        "  application:\n" +
-        "    name: cosky-rest-api\n" +
-        "  cloud:\n" +
-        "    cosky:\n" +
-        "      namespace: dev\n" +
-        "      config:\n" +
-        "        config-id: ${spring.application.name}.yml\n" +
-        "      redis:\n" +
-        "        mode: standalone\n" +
-        "        url: redis://localhost:6379\n";
+    private static final String CONFIG_ID = MockIdGenerator.INSTANCE.generateAsString();
     
     @Setup
     public void afterPropertiesSet() {
-        System.out.println("\n ----- ConsistencyRedisConfigServiceBenchmark setup ----- \n");
         super.afterPropertiesSet();
         RedisConfigService redisConfigService = new RedisConfigService(redisTemplate);
-        redisConfigService.setConfig(configId, configData).block();
+        redisConfigService.setConfig(TestData.NAMESPACE, CONFIG_ID, TestData.DATA).block();
         configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer);
     }
     
     @Override
-    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
-    
+    protected boolean enableShare() {
+        return true;
     }
     
     @TearDown
     public void destroy() {
-        System.out.println("\n ----- ConsistencyRedisConfigServiceBenchmark tearDown ----- \n");
         super.destroy();
     }
     
     @Benchmark
     public Config getConfig() {
-        return configService.getConfig(namespace, configId).block();
+        return configService.getConfig(TestData.NAMESPACE, CONFIG_ID).block();
     }
 }

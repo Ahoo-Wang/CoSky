@@ -14,13 +14,13 @@
 package me.ahoo.cosky.discovery.loadbalancer;
 
 import me.ahoo.cosid.test.MockIdGenerator;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.RegistryProperties;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.TestServiceInstance;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;

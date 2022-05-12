@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.core.test;
+package me.ahoo.cosky.test;
 
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;

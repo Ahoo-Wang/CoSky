@@ -11,26 +11,12 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.core.util;
-
-import lombok.var;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-/**
- * @author ahoo wang
- */
-class SystemsTest {
-
-    @Test
-    public void getCurrentProcessName() {
-        String currentProcessName = Systems.getCurrentProcessName();
-        Assertions.assertNotNull(currentProcessName);
-    }
-
-    @Test
-    public void getCurrentProcessId() {
-        long processId = Systems.getCurrentProcessId();
-        Assertions.assertTrue(processId > 0);
-    }
+dependencies {
+    api("io.projectreactor:reactor-core")
+    api("org.springframework.data:spring-data-redis")
+    api("io.lettuce:lettuce-core")
+    api("me.ahoo.cosid:cosid-core")
+    api("me.ahoo.cosid:cosid-test")
+    api("io.projectreactor:reactor-test")
+    api("io.netty:netty-all")
 }

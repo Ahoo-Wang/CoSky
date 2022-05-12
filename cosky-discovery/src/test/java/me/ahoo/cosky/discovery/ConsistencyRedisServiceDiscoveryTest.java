@@ -14,10 +14,10 @@
 package me.ahoo.cosky.discovery;
 
 import me.ahoo.cosid.test.MockIdGenerator;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;

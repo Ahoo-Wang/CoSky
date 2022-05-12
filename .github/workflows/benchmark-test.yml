@@ -50,7 +50,7 @@ jobs:
           settings-path: ${{ github.workspace }}
 
       - name: CoSky-Config
-        run: gradle cosky-config:clean cosky-config:jmh
+        run: gradle cosky-config:clean cosky-config:jmh -PjmhThreads=10
 
   cosky-discovery-benchmark:
     name: CoSky Discovery Benchmark
@@ -78,4 +78,4 @@ jobs:
           settings-path: ${{ github.workspace }}
 
       - name: CoSky-Discovery
-        run: gradle cosky-discovery:clean cosky-discovery:jmh
+        run: gradle cosky-discovery:clean cosky-discovery:jmh -PjmhThreads=10

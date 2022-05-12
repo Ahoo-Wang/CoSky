@@ -19,8 +19,8 @@ import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.ServiceRegistry;
 import me.ahoo.cosky.discovery.ServiceStat;
 import me.ahoo.cosky.discovery.ServiceStatistic;
-import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer;
+import me.ahoo.cosky.rest.support.RequestPathPrefix;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -30,7 +30,6 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;

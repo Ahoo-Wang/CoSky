@@ -13,17 +13,16 @@
 
 package me.ahoo.cosky.discovery;
 
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 
 import java.util.List;
 
@@ -32,37 +31,33 @@ import java.util.List;
  */
 @State(Scope.Benchmark)
 public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
-    private final static String namespace = "benchmark_csy_svc_dvy";
     public ServiceDiscovery serviceDiscovery;
     private final static ServiceInstance fixedInstance = TestServiceInstance.randomFixedInstance();
     
     @Setup
     public void afterPropertiesSet() {
-        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark afterPropertiesSet ----- \n");
         super.afterPropertiesSet();
-        
         RegistryProperties registryProperties = new RegistryProperties();
         RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(fixedInstance).block();
+        serviceRegistry.register(TestData.NAMESPACE, fixedInstance).block();
         RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
         serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
     }
     
     @Override
-    protected void customizeConnectionFactory(LettuceConnectionFactory connectionFactory) {
-    
+    protected boolean enableShare() {
+        return true;
     }
     
     @TearDown
     public void destroy() {
-        System.out.println("\n ----- ConsistencyRedisServiceDiscoveryBenchmark destroy ----- \n");
         super.destroy();
     }
     
     @Benchmark
     public List<String> getServices() {
         return serviceDiscovery
-            .getServices(namespace)
+            .getServices(TestData.NAMESPACE)
             .collectList()
             .block();
     }
@@ -70,7 +65,7 @@ public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveR
     @Benchmark
     public List<ServiceInstance> getInstances() {
         return serviceDiscovery
-            .getInstances(namespace, fixedInstance.getServiceId())
+            .getInstances(TestData.NAMESPACE, fixedInstance.getServiceId())
             .collectList()
             .block();
     }

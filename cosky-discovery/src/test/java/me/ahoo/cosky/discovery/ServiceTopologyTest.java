@@ -15,17 +15,16 @@ package me.ahoo.cosky.discovery;
 
 import me.ahoo.cosky.core.NamespacedContext;
 import me.ahoo.cosky.core.redis.RedisNamespaceService;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**

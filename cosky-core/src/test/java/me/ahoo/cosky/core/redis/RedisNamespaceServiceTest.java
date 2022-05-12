@@ -15,7 +15,7 @@ package me.ahoo.cosky.core.redis;
 
 import me.ahoo.cosid.test.MockIdGenerator;
 import me.ahoo.cosky.core.NamespaceService;
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.AfterEach;

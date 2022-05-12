@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.core.redis;
 
-import me.ahoo.cosky.core.test.AbstractReactiveRedisTest;
+import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer;
 

@@ -12,13 +12,5 @@
  */
 dependencies {
     api(project(":cosky-core"))
-    testImplementation("io.lettuce:lettuce-core")
-    testImplementation("me.ahoo.cosid:cosid-core")
-    testImplementation("me.ahoo.cosid:cosid-test")
-    testImplementation("io.projectreactor:reactor-test")
-    testImplementation("io.netty:netty-all")
-}
-
-jmh {
-    threads.set(25)
+    testImplementation(project(":cosky-test"))
 }
