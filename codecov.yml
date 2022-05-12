@@ -7,5 +7,4 @@ coverage:
 ignore:
   - "cosky-test/.*"
   - "examples/.*"
-  - "cosid-benchmark/.*"
   - "cosky-dashboard/.*"
