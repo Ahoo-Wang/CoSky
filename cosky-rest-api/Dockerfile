@@ -1,4 +1,4 @@
-# docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379 ahoowang/cosky-rest-api:spring-data-redis
+# docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379 ahoowang/cosky-rest-api:2.0.0
 
 ARG APP_NAME=cosky-rest-api
 ARG WORK_HOME=/opt/${APP_NAME}
