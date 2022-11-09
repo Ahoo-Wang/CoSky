@@ -10,11 +10,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+plugins {
+    kotlin("plugin.spring") version "1.7.20"
+    kotlin("kapt")
+}
 dependencies {
+    kapt(platform(project(":cosky-dependencies")))
     api(project(":cosky-discovery"))
     api(project(":cosky-spring-cloud-core"))
-
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
-    annotationProcessor("org.springframework.boot:spring-boot-autoconfigure-processor:${rootProject.ext.get("springBootVersion")}")
+    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
 }

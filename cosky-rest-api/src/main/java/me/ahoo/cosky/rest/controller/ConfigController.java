@@ -18,7 +18,7 @@ import me.ahoo.cosky.config.ConfigHistory;
 import me.ahoo.cosky.config.ConfigService;
 import me.ahoo.cosky.config.ConfigVersion;
 import me.ahoo.cosky.core.CoSky;
-import me.ahoo.cosky.core.CoskyException;
+import me.ahoo.cosky.core.CoSkyException;
 import me.ahoo.cosky.rest.dto.config.ImportResponse;
 import me.ahoo.cosky.rest.support.RequestPathPrefix;
 import me.ahoo.cosky.rest.util.Zips;
@@ -81,7 +81,7 @@ public class ConfigController {
         final String importPolicy = policy;
         ImportResponse importResponse = new ImportResponse();
         return importZip
-            .switchIfEmpty(Mono.error(new CoskyException("importZip can not be empty!")))
+            .switchIfEmpty(Mono.error(new CoSkyException("importZip can not be empty!")))
             .doOnNext(filePart -> {
                 String importFileExt = Files.getFileExtension(filePart.filename()).toLowerCase();
                 Preconditions.checkArgument(IMPORT_SUPPORT_EXT.equals(importFileExt), Strings.lenientFormat("Illegal file type:[%s],expect:[zip]!", importFileExt));

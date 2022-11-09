@@ -62,13 +62,13 @@ public class NamespaceController {
     
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
     public String current() {
-        return NamespacedContext.GLOBAL.getNamespace();
+        return NamespacedContext.INSTANCE.getNamespace();
     }
     
     @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
     public void setCurrentContextNamespace(@PathVariable String namespace) {
-        NamespacedContext.GLOBAL.setCurrentContextNamespace(namespace);
+        NamespacedContext.INSTANCE.setNamespace(namespace);
     }
     
     @AdminResource

@@ -41,7 +41,7 @@ public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedi
     }
     
     @Override
-    protected boolean enableShare() {
+    protected boolean getEnableShare() {
         return true;
     }
     

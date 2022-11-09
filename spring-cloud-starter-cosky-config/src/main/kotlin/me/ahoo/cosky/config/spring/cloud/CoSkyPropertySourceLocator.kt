@@ -10,116 +10,106 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.config.spring.cloud
 
-package me.ahoo.cosky.config.spring.cloud;
-
-import me.ahoo.cosky.config.Config;
-import me.ahoo.cosky.config.ConfigService;
-import me.ahoo.cosky.core.CoSky;
-import me.ahoo.cosky.core.NamespacedContext;
-
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.util.Strings;
-import org.springframework.boot.env.OriginTrackedMapPropertySource;
-import org.springframework.boot.env.PropertySourceLoader;
-import org.springframework.cloud.bootstrap.config.PropertySourceLocator;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.PropertySource;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.core.io.support.SpringFactoriesLoader;
-import org.springframework.util.CollectionUtils;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import com.google.common.io.Files
+import me.ahoo.cosky.config.Config
+import me.ahoo.cosky.config.ConfigService
+import me.ahoo.cosky.core.CoSky
+import me.ahoo.cosky.core.NamespacedContext
+import org.slf4j.LoggerFactory
+import org.springframework.boot.env.OriginTrackedMapPropertySource
+import org.springframework.boot.env.PropertySourceLoader
+import org.springframework.cloud.bootstrap.config.PropertySourceLocator
+import org.springframework.core.env.Environment
+import org.springframework.core.env.PropertySource
+import org.springframework.core.io.ByteArrayResource
+import org.springframework.core.io.support.SpringFactoriesLoader
+import java.util.*
 
 /**
  * Cosky Property Source Locator.
  *
  * @author ahoo wang
  */
-@Slf4j
-public class CoskyPropertySourceLocator implements PropertySourceLocator {
-    private final List<PropertySourceLoader> propertySourceLoaders;
-    private final ConfigService configService;
-    private final CoskyConfigProperties configProperties;
-    
-    public CoskyPropertySourceLocator(CoskyConfigProperties configProperties, ConfigService configService) {
-        this.configService = configService;
-        this.configProperties = configProperties;
-        propertySourceLoaders = SpringFactoriesLoader
-            .loadFactories(PropertySourceLoader.class, CoskyPropertySourceLocator.class.getClassLoader());
-    }
-    
-    @Override
-    public PropertySource<?> locate(Environment environment) {
-        String configId = configProperties.getConfigId();
-        
-        String fileExt = Files.getFileExtension(configId);
-        if (Strings.isBlank(fileExt)) {
-            fileExt = configProperties.getFileExtension();
+class CoSkyPropertySourceLocator(
+    private val configProperties: CoSkyConfigProperties,
+    private val configService: ConfigService
+) : PropertySourceLocator {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(CoSkyPropertySourceLocator::class.java)
+        fun getNameOfConfigId(configId: String): String {
+            return CoSky.COSKY + ":" + configId
         }
-        String namespace = NamespacedContext.GLOBAL.getNamespace();
-        
-        log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace);
-        
-        Config config = configService.getConfig(configId).block(configProperties.getTimeout());
-        
-        if (Objects.isNull(config)) {
-            log.warn("locate - can not find configId:[{}] @ namespace:[{}]", configId, namespace);
-            return new OriginTrackedMapPropertySource(getNameOfConfigId(configId), Collections.emptyMap());
-        }
-        
-        PropertySourceLoader sourceLoader = ensureSourceLoader(fileExt);
-        OriginTrackedMapPropertySource coskyPropertySource = getCoSkyPropertySourceOfConfig(sourceLoader, config);
-        return coskyPropertySource;
     }
-    
-    public PropertySourceLoader ensureSourceLoader(String fileExtension) {
-        Optional<PropertySourceLoader> sourceLoaderOptional = propertySourceLoaders
+
+    private val propertySourceLoaders: List<PropertySourceLoader> = SpringFactoriesLoader
+        .loadFactories(PropertySourceLoader::class.java, CoSkyPropertySourceLocator::class.java.classLoader)
+
+    override fun locate(environment: Environment): PropertySource<*> {
+        val configId = requireNotNull(configProperties.configId) { "configId must not be null." }
+        var fileExt = Files.getFileExtension(configId)
+        if (fileExt.isBlank()) {
+            fileExt = configProperties.fileExtension
+        }
+        val namespace = NamespacedContext.namespace
+        log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace)
+        val config = configService.getConfig(configId).block(configProperties.timeout)
+        if (config == null) {
+            log.warn(
+                "locate - can not find configId:[{}] @ namespace:[{}]",
+                configId,
+                namespace
+            )
+            return OriginTrackedMapPropertySource(
+                getNameOfConfigId(configId),
+                emptyMap<Any, Any>()
+            )
+        }
+        val sourceLoader = ensureSourceLoader(fileExt)
+        return getCoSkyPropertySourceOfConfig(sourceLoader, config)
+    }
+
+    private fun ensureSourceLoader(fileExtension: String): PropertySourceLoader {
+        val sourceLoaderOptional = propertySourceLoaders
             .stream()
-            .filter(propertySourceLoader ->
-                Arrays.stream(propertySourceLoader.getFileExtensions())
-                    .anyMatch(fileExt -> fileExt.equals(fileExtension)))
-            .findFirst();
-        if (!sourceLoaderOptional.isPresent()) {
-            throw new IllegalArgumentException(String.format("can not find fileExtension:[%s] PropertySourceLoader.", fileExtension));
+            .filter { propertySourceLoader: PropertySourceLoader ->
+                Arrays.stream(propertySourceLoader.fileExtensions)
+                    .anyMatch { fileExt: String -> fileExt == fileExtension }
+            }
+            .findFirst()
+        require(sourceLoaderOptional.isPresent) {
+            "can not find fileExtension:[$fileExtension] PropertySourceLoader."
         }
-        return sourceLoaderOptional.get();
+        return sourceLoaderOptional.get()
     }
-    
-    @SneakyThrows
-    public OriginTrackedMapPropertySource getCoSkyPropertySourceOfConfig(PropertySourceLoader sourceLoader, Config config) {
-        ByteArrayResource byteArrayResource = new ByteArrayResource(config.getData().getBytes(Charsets.UTF_8));
-        List<PropertySource<?>> propertySourceList = sourceLoader.load(config.getConfigId(), byteArrayResource);
-        Map<String, Object> source = getMapSource(config.getConfigId(), propertySourceList);
-        return new OriginTrackedMapPropertySource(getNameOfConfigId(config.getConfigId()), source);
+
+    private fun getCoSkyPropertySourceOfConfig(
+        sourceLoader: PropertySourceLoader,
+        config: Config
+    ): OriginTrackedMapPropertySource {
+        val byteArrayResource = ByteArrayResource(config.data.toByteArray())
+        val propertySourceList = sourceLoader.load(config.configId, byteArrayResource)
+        val source = getMapSource(config.configId, propertySourceList)
+        return OriginTrackedMapPropertySource(getNameOfConfigId(config.configId), source)
     }
-    
-    private Map<String, Object> getMapSource(String configId, List<PropertySource<?>> propertySourceList) {
-        if (CollectionUtils.isEmpty(propertySourceList)) {
-            return Collections.emptyMap();
+
+    private fun getMapSource(configId: String, propertySourceList: List<PropertySource<*>>): Map<String, Any> {
+        if (propertySourceList.isEmpty()) {
+            return emptyMap()
         }
-        
-        if (propertySourceList.size() == 1) {
-            PropertySource propertySource = propertySourceList.get(0);
-            if (propertySource != null && propertySource.getSource() instanceof Map) {
-                return (Map<String, Object>) propertySource.getSource();
+        if (propertySourceList.size == 1) {
+            val propertySource = propertySourceList[0]
+            if (propertySource.source is Map<*, *>) {
+                @Suppress("UNCHECKED_CAST")
+                return propertySource.source as Map<String, Any>
             }
         }
-        return Collections.singletonMap(
+        return Collections.singletonMap<String, Any>(
             getNameOfConfigId(configId),
-            propertySourceList);
+            propertySourceList
+        )
     }
-    
-    
-    public static String getNameOfConfigId(String configId) {
-        return CoSky.COSKY + ":" + configId;
-    }
+
 }

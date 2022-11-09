@@ -39,7 +39,7 @@ public class RedisServiceRegistryBenchmark extends AbstractReactiveRedisTest {
     }
     
     @Override
-    protected boolean enableShare() {
+    protected boolean getEnableShare() {
         return true;
     }
     

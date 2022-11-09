@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.mirror;
 
-import me.ahoo.cosky.core.CoskyException;
+import me.ahoo.cosky.core.CoSkyException;
 import me.ahoo.cosky.discovery.ServiceInstance;
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
 
@@ -97,7 +97,7 @@ public class NacosToCoskyMirror implements Mirror {
                 namingService().subscribe(serviceId, group, listener);
             } catch (NacosException e) {
                 log.error("nacosToCosky subscribe error.", e);
-                throw new CoskyException(e);
+                throw new CoSkyException(e);
             }
             return listener;
         });

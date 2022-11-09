@@ -78,7 +78,7 @@ public class CoskyToNacosMirror implements Mirror {
                 serviceMapListener.computeIfAbsent(serviceId, (key) -> {
                     CoskyServiceChangedListener listener = new CoskyServiceChangedListener(serviceId);
                     coskyServiceDiscovery
-                        .listen(NamespacedServiceId.of(NamespacedContext.GLOBAL.getNamespace(), serviceId))
+                        .listen(new NamespacedServiceId(NamespacedContext.INSTANCE.getNamespace(), serviceId))
                         .doOnNext(listener::onChange)
                         .subscribe();
                     return listener;

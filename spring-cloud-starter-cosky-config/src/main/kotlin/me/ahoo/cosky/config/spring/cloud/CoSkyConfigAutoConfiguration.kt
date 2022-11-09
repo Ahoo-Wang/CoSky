@@ -10,34 +10,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.config.spring.cloud
 
-package me.ahoo.cosky.config.spring.cloud;
-
-import me.ahoo.cosky.config.ListenableConfigService;
-import me.ahoo.cosky.config.spring.cloud.refresh.CoskyConfigRefresher;
-import me.ahoo.cosky.spring.cloud.CoskyProperties;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
+import me.ahoo.cosky.config.ListenableConfigService
+import me.ahoo.cosky.config.spring.cloud.refresh.CoSkyConfigRefresher
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
+import org.springframework.boot.autoconfigure.AutoConfiguration
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.context.annotation.Bean
 
 /**
- * Cosky Config Auto Configuration.
+ * CoSky Config Auto Configuration.
  *
  * @author ahoo wang
  */
-@Configuration(proxyBeanMethods = false)
-@ConditionalOnCoskyConfigEnabled
-public class CoskyConfigAutoConfiguration {
-    
-    public CoskyConfigAutoConfiguration() {
-    }
-    
+@AutoConfiguration
+@ConditionalOnCoSkyConfigEnabled
+class CoSkyConfigAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
-    public CoskyConfigRefresher coskyConfigRefresher(CoskyProperties coskyProperties,
-                                                     CoskyConfigProperties configProperties,
-                                                     ListenableConfigService listenableConfigService) {
-        return new CoskyConfigRefresher(coskyProperties, configProperties, listenableConfigService);
+    fun coSkyConfigRefresher(
+        coSkyProperties: CoSkyProperties,
+        configProperties: CoSkyConfigProperties,
+        listenableConfigService: ListenableConfigService
+    ): CoSkyConfigRefresher {
+        return CoSkyConfigRefresher(coSkyProperties, configProperties, listenableConfigService)
     }
 }

@@ -13,7 +13,10 @@
 
 plugins {
     id("io.github.gradle-nexus.publish-plugin")
-    java
+    id("io.gitlab.arturbosch.detekt").version("1.21.0")
+    kotlin("jvm") version "1.7.20"
+    id("org.jetbrains.dokka") version "1.7.20"
+    id("me.champeau.jmh")
     jacoco
 }
 
@@ -33,12 +36,13 @@ val exampleProjects = setOf(
     project(":cosky-service-provider-api"),
     project(":cosky-service-consumer")
 )
+val testProject = project(":cosky-test")
 val publishProjects = subprojects - serverProjects - exampleProjects
 val libraryProjects = publishProjects - bomProjects
 
 ext {
     set("lombokVersion", "1.18.20")
-    set("springBootVersion", "2.6.8")
+    set("springBootVersion", "2.7.3")
     set("springCloudVersion", "2021.0.3")
     set("jmhVersion", "1.34")
     set("guavaVersion", "31.1-jre")
@@ -46,7 +50,7 @@ ext {
     set("springfoxVersion", "3.0.0")
     set("metricsVersion", "4.2.0")
     set("jjwtVersion", "0.11.2")
-    set("cosIdVersion", "1.12.0")
+    set("cosIdVersion", "1.13.0")
     set("simbaVersion", "0.3.6")
     set("libraryProjects", libraryProjects)
 }
@@ -66,41 +70,52 @@ configure(bomProjects) {
 }
 
 configure(libraryProjects) {
-    apply<CheckstylePlugin>()
-    configure<CheckstyleExtension> {
-        toolVersion = "9.2.1"
+    apply<io.gitlab.arturbosch.detekt.DetektPlugin>()
+    configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
+        toolVersion = "1.21.0"
+        source = files(
+            io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_JAVA,
+            io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_KOTLIN
+        )
+        config = files("${rootProject.rootDir}/config/detekt/detekt.yml")
+        buildUponDefaultConfig = true
+        autoCorrect = true
     }
-    apply<com.github.spotbugs.snom.SpotBugsPlugin>()
-    configure<com.github.spotbugs.snom.SpotBugsExtension> {
-        excludeFilter.set(file("${rootDir}/config/spotbugs/exclude.xml"))
-    }
+    apply<org.jetbrains.dokka.gradle.DokkaPlugin>()
     apply<JacocoPlugin>()
     apply<JavaLibraryPlugin>()
     configure<JavaPluginExtension> {
-        toolchain {
-            languageVersion.set(JavaLanguageVersion.of(8))
-        }
         withJavadocJar()
         withSourcesJar()
     }
+    apply<org.jetbrains.kotlin.gradle.plugin.KotlinPlatformJvmPlugin>()
+    configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension>() {
+        jvmToolchain {
+            languageVersion.set(JavaLanguageVersion.of(8))
+        }
+    }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        kotlinOptions {
+            freeCompilerArgs = listOf("-Xjsr305=strict", "-Xjvm-default=all-compatibility")
+        }
+    }
     apply<me.champeau.jmh.JMHPlugin>()
     configure<me.champeau.jmh.JmhParameters> {
-        val DELIMITER = ',';
-        val JMH_INCLUDES_KEY = "jmhIncludes"
-        val JMH_EXCLUDES_KEY = "jmhExcludes"
-        val JMH_THREADS_KEY = "jmhThreads"
-        val JMH_MODE_KEY = "jmhMode"
+        val delimiter = ','
+        val jmhIncludesKey = "jmhIncludes"
+        val jmhExcludesKey = "jmhExcludes"
+        val jmhThreadsKey = "jmhThreads"
+        val jmhModeKey = "jmhMode"
 
-        if (project.hasProperty(JMH_INCLUDES_KEY)) {
-            val jmhIncludes = project.properties[JMH_INCLUDES_KEY].toString().split(DELIMITER)
+        if (project.hasProperty(jmhIncludesKey)) {
+            val jmhIncludes = project.properties[jmhIncludesKey].toString().split(delimiter)
             includes.set(jmhIncludes)
         }
-        if (project.hasProperty(JMH_EXCLUDES_KEY)) {
-            val jmhExcludes = project.properties[JMH_EXCLUDES_KEY].toString().split(DELIMITER)
+        if (project.hasProperty(jmhExcludesKey)) {
+            val jmhExcludes = project.properties[jmhExcludesKey].toString().split(delimiter)
             excludes.set(jmhExcludes)
         }
 
-        jmhVersion.set(rootProject.ext.get("jmhVersion").toString())
         warmupIterations.set(1)
         iterations.set(1)
         resultFormat.set("json")
@@ -108,38 +123,34 @@ configure(libraryProjects) {
         var jmhMode = listOf(
             "thrpt"
         )
-        if (project.hasProperty(JMH_MODE_KEY)) {
-            jmhMode = project.properties[JMH_MODE_KEY].toString().split(DELIMITER)
+        if (project.hasProperty(jmhModeKey)) {
+            jmhMode = project.properties[jmhModeKey].toString().split(delimiter)
         }
         benchmarkMode.set(jmhMode)
         var jmhThreads = 1
-        if (project.hasProperty(JMH_THREADS_KEY)) {
-            jmhThreads = Integer.valueOf(project.properties[JMH_THREADS_KEY].toString())
+        if (project.hasProperty(jmhThreadsKey)) {
+            jmhThreads = Integer.valueOf(project.properties[jmhThreadsKey].toString())
         }
         threads.set(jmhThreads)
         fork.set(1)
     }
-
     tasks.withType<Test> {
         useJUnitPlatform()
     }
 
     dependencies {
-        val depLombok = "org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}"
-        this.add("api", platform(project(":cosky-dependencies")))
-        this.add("compileOnly", depLombok)
-        this.add("annotationProcessor", depLombok)
-        this.add("testCompileOnly", depLombok)
-        this.add("testAnnotationProcessor", depLombok)
-        this.add("implementation", "com.google.guava:guava")
-        this.add("implementation", "org.slf4j:slf4j-api")
-        this.add("testImplementation", "ch.qos.logback:logback-classic")
-        this.add("testImplementation", "org.junit.jupiter:junit-jupiter-api")
-        this.add("testImplementation", "org.junit.jupiter:junit-jupiter-params")
-//        this.add("testImplementation", "org.junit-pioneer:junit-pioneer")
-        this.add("testRuntimeOnly", "org.junit.jupiter:junit-jupiter-engine")
-        add("jmh", "org.openjdk.jmh:jmh-core:${rootProject.ext.get("jmhVersion")}")
-        add("jmh", "org.openjdk.jmh:jmh-generator-annprocess:${rootProject.ext.get("jmhVersion")}")
+        api(platform(project(":cosky-dependencies")))
+        detektPlugins(platform(project(":cosky-dependencies")))
+        jmh(platform(project(":cosky-dependencies")))
+        implementation("org.slf4j:slf4j-api")
+        testImplementation("ch.qos.logback:logback-classic")
+        testImplementation("org.hamcrest:hamcrest")
+        testImplementation("io.mockk:mockk")
+        testImplementation("org.junit.jupiter:junit-jupiter-api")
+        testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+        detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting")
+        jmh("org.openjdk.jmh:jmh-core")
+        jmh("org.openjdk.jmh:jmh-generator-annprocess")
     }
 }
 
@@ -230,7 +241,10 @@ fun getPropertyOf(name: String) = project.properties[name]?.toString()
 tasks.register<JacocoReport>("codeCoverageReport") {
     executionData(fileTree(project.rootDir.absolutePath).include("**/build/jacoco/*.exec"))
     libraryProjects.forEach {
-        sourceSets(it.sourceSets.main.get())
+        dependsOn(it.tasks.test)
+        if (testProject != it) {
+            sourceSets(it.sourceSets.main.get())
+        }
     }
     reports {
         xml.required.set(true)

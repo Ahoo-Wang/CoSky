@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.rest.config;
 
-import me.ahoo.cosky.core.CoskyException;
+import me.ahoo.cosky.core.CoSkyException;
 import me.ahoo.cosky.rest.dto.ErrorResponse;
 import me.ahoo.cosky.rest.security.CoSkySecurityException;
 
@@ -43,9 +43,9 @@ public class GlobalRestExceptionHandler {
         return ErrorResponse.of(ex.getMessage());
     }
     
-    @ExceptionHandler(CoskyException.class)
+    @ExceptionHandler(CoSkyException.class)
     @ResponseStatus
-    public ErrorResponse handleCoSkyException(CoskyException ex) {
+    public ErrorResponse handleCoSkyException(CoSkyException ex) {
         if (log.isWarnEnabled()) {
             log.warn(ex.getMessage(), ex);
         }

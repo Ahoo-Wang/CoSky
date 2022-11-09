@@ -13,7 +13,7 @@
 
 package me.ahoo.cosky.rest.security.audit;
 
-import me.ahoo.cosky.core.CoskyException;
+import me.ahoo.cosky.core.CoSkyException;
 import me.ahoo.cosky.core.Namespaced;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -49,7 +49,7 @@ public class AuditLogService {
             return redisTemplate.opsForList()
                 .leftPush(AUDIT_LOG_KEY, logStr);
         } catch (JsonProcessingException e) {
-            throw new CoskyException(e);
+            throw new CoSkyException(e);
         }
     }
     
@@ -61,7 +61,7 @@ public class AuditLogService {
                 try {
                     return this.objectMapper.readValue(logStr, AuditLog.class);
                 } catch (JsonProcessingException e) {
-                    throw new CoskyException(e);
+                    throw new CoSkyException(e);
                 }
             })
             .collect(Collectors.toList());

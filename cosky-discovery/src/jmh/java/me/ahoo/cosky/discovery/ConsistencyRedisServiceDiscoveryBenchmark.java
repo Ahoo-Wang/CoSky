@@ -45,7 +45,7 @@ public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveR
     }
     
     @Override
-    protected boolean enableShare() {
+    protected boolean getEnableShare() {
         return true;
     }
     

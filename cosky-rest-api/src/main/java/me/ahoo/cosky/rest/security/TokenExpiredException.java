@@ -18,7 +18,7 @@ package me.ahoo.cosky.rest.security;
  *
  * @author ahoo wang
  */
-public class TokenExpiredException extends CoSkySecurityException {
+public class TokenExpiredException extends SecurityException {
     
     public TokenExpiredException() {
     }
@@ -34,8 +34,5 @@ public class TokenExpiredException extends CoSkySecurityException {
     public TokenExpiredException(Throwable cause) {
         super(cause);
     }
-    
-    public TokenExpiredException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+
 }

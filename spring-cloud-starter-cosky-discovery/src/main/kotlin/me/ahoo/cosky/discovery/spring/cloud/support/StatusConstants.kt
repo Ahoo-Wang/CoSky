@@ -10,21 +10,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package me.ahoo.cosky.discovery.spring.cloud.support;
-
+package me.ahoo.cosky.discovery.spring.cloud.support
 
 /**
  * Status Constants.
  *
  * @author ahoo wang
  */
-public interface StatusConstants {
-    
-    String INSTANCE_STATUS_KEY = "instance_status";
-    
-    String STATUS_UP = "UP";
-    
-    String STATUS_OUT_OF_SERVICE = "OUT_OF_SERVICE";
-    
+object StatusConstants{
+    const val INSTANCE_STATUS_KEY = "instance_status"
+    const val STATUS_UP = "UP"
+    const val STATUS_OUT_OF_SERVICE = "OUT_OF_SERVICE"
 }

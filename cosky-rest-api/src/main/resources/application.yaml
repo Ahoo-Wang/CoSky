@@ -24,14 +24,15 @@ cosky:
 
 cosid:
   namespace: ${spring.application.name}
+  machine:
+    enabled: true
+    distributor:
+      type: redis
   snowflake:
     enabled: true
     share:
       converter:
         type: radix
-    machine:
-      distributor:
-        type: redis
 
 simba:
   redis:

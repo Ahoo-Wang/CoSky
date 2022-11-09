@@ -10,24 +10,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.config.spring.cloud
 
-package me.ahoo.cosky.config.spring.cloud;
-
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import me.ahoo.cosky.spring.cloud.EnabledSuffix
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 
 /**
- * Conditional On Cosky Config Enabled.
+ * Conditional On CoSky Config Enabled.
  *
  * @author ahoo wang
  */
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.TYPE, ElementType.METHOD})
-@ConditionalOnProperty(value = ConditionalOnCoskyConfigEnabled.ENABLED_KEY, matchIfMissing = true)
-public @interface ConditionalOnCoskyConfigEnabled {
-    String ENABLED_KEY = CoskyConfigProperties.PREFIX + ".enabled";
+
+@ConditionalOnProperty(
+    value = [ConditionalOnCoSkyConfigEnabled.ENABLED_KEY],
+    matchIfMissing = true,
+    havingValue = "true"
+)
+annotation class ConditionalOnCoSkyConfigEnabled {
+    companion object {
+        const val ENABLED_KEY: String = CoSkyConfigProperties.PREFIX + EnabledSuffix.KEY
+    }
 }
