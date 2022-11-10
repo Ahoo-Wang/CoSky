@@ -18,6 +18,7 @@ import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
@@ -40,21 +41,17 @@ class RenewInstanceService(
         private val log = LoggerFactory.getLogger(RenewInstanceService::class.java)
     }
 
-    @Volatile
-    var isRunning = false
-        private set
+    private val running = AtomicBoolean(false)
     private val renewCounter = AtomicInteger()
     private var scheduleDisposable: Disposable? = null
 
-    @Synchronized
     fun start() {
-        if (isRunning) {
+        if (!running.compareAndSet(false, true)) {
             return
         }
         if (log.isInfoEnabled) {
-            log.info("start.")
+            log.info("Start.")
         }
-        isRunning = true
         scheduleDisposable = scheduler.schedulePeriodically(
             { renew() },
             renewProperties.initialDelay.seconds,
@@ -63,18 +60,14 @@ class RenewInstanceService(
         )
     }
 
-    @Synchronized
     fun stop() {
-        if (!isRunning) {
+        if (!running.compareAndSet(true, false)) {
             return
         }
         if (log.isInfoEnabled) {
-            log.info("stop.")
+            log.info("Stop.")
         }
-        isRunning = false
-        if (null != scheduleDisposable && !scheduleDisposable!!.isDisposed) {
-            scheduleDisposable!!.dispose()
-        }
+        scheduleDisposable?.dispose()
         scheduler.dispose()
     }
 
@@ -82,28 +75,27 @@ class RenewInstanceService(
         val times = renewCounter.incrementAndGet()
         val instances = serviceRegistry.registeredEphemeralInstances
         if (log.isDebugEnabled) {
-            log.debug("renew - instances size:{} start - times@[{}] .", instances.size, times)
+            log.debug("Renew - instances size:{} start - times@[{}] .", instances.size, times)
         }
         if (instances.isEmpty()) {
             if (log.isDebugEnabled) {
-                log.debug("renew - instances size:{} end - times@[{}] .", instances.size, times)
+                log.debug("Renew - instances size:{} end - times@[{}] .", instances.size, times)
             }
             return
         }
         Flux.fromIterable(instances.entries)
             .flatMap { (key, value) ->
-                serviceRegistry.renew(
-                    key.namespace, value
-                ).doOnSuccess { hookOnRenew.accept(value) }
+                serviceRegistry.renew(key.namespace, value)
+                    .doOnSuccess { hookOnRenew.accept(value) }
             }
             .doOnError {
                 if (log.isWarnEnabled) {
-                    log.warn("renew - failed.", it)
+                    log.warn("Renew - failed.", it)
                 }
             }.doOnComplete {
                 if (log.isDebugEnabled) {
                     log.debug(
-                        "renew - instances size:{} end - times@[{}].",
+                        "Renew - instances size:{} end - times@[{}].",
                         instances.size,
                         times
                     )

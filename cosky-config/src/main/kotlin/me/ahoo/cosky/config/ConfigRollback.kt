@@ -22,23 +22,18 @@ import reactor.core.publisher.Mono
  * @author ahoo wang
  */
 interface ConfigRollback {
-    fun rollback(configId: String, targetVersion: Int): Mono<Boolean> {
-        return rollback(NamespacedContext.namespace, configId, targetVersion)
-    }
-
-    fun rollback(namespace: String, configId: String, targetVersion: Int): Mono<Boolean>
-    fun getConfigVersions(configId: String): Flux<ConfigVersion> {
-        return getConfigVersions(NamespacedContext.namespace, configId)
-    }
-
-    fun getConfigVersions(namespace: String, configId: String): Flux<ConfigVersion>
-    fun getConfigHistory(configId: String, version: Int): Mono<ConfigHistory> {
-        return getConfigHistory(NamespacedContext.namespace, configId, version)
-    }
-
-    fun getConfigHistory(namespace: String, configId: String, version: Int): Mono<ConfigHistory>
 
     companion object {
         const val HISTORY_SIZE = 10
     }
+
+    fun rollback(namespace: String = NamespacedContext.namespace, configId: String, targetVersion: Int): Mono<Boolean>
+
+    fun getConfigVersions(namespace: String = NamespacedContext.namespace, configId: String): Flux<ConfigVersion>
+
+    fun getConfigHistory(
+        namespace: String = NamespacedContext.namespace,
+        configId: String,
+        version: Int
+    ): Mono<ConfigHistory>
 }

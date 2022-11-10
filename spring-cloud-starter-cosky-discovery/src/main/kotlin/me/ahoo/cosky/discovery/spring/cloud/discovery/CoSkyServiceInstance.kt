@@ -12,13 +12,11 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
-import me.ahoo.cosky.discovery.Instance.Companion.asUri
-import me.ahoo.cosky.discovery.Instance.Companion.isSecure
 import me.ahoo.cosky.discovery.ServiceInstance
 import java.net.URI
 
 /**
- * Cosky Service Instance.
+ * CoSky Service Instance.
  *
  * @author ahoo wang
  */
@@ -45,7 +43,7 @@ class CoSkyServiceInstance(val delegate: ServiceInstance) :
     }
 
     override fun getUri(): URI {
-        return delegate.asUri()
+        return delegate.uri
     }
 
     override fun getMetadata(): Map<String, String> {
@@ -55,5 +53,4 @@ class CoSkyServiceInstance(val delegate: ServiceInstance) :
     override fun getScheme(): String {
         return delegate.schema
     }
-
 }

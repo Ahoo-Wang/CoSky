@@ -25,9 +25,8 @@ import org.springframework.boot.context.properties.ConstructorBinding
  *
  * @author ahoo wang
  */
-@ConstructorBinding
 @ConfigurationProperties(CoSkyProperties.PREFIX)
-class CoSkyProperties(val enabled: Boolean = true) : Namespaced {
+class CoSkyProperties(var enabled: Boolean = true) : Namespaced {
 
     companion object {
         const val PREFIX = "spring.cloud." + CoSky.COSKY
@@ -51,5 +50,4 @@ class CoSkyProperties(val enabled: Boolean = true) : Namespaced {
                 value
             }
         }
-
 }

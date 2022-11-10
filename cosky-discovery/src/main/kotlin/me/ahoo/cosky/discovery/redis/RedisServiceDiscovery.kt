@@ -21,7 +21,6 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
-import java.util.function.Consumer
 
 /**
  * Redis Service Discovery.
@@ -39,7 +38,9 @@ class RedisServiceDiscovery(
         require(namespace.isNotBlank()) { "namespace is blank!" }
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES, listOf(namespace), listOf(serviceId)
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES,
+            listOf(namespace),
+            listOf(serviceId)
         )
             .flatMapIterable { instanceGroups ->
                 @Suppress("UNCHECKED_CAST")
@@ -58,7 +59,8 @@ class RedisServiceDiscovery(
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE, listOf(namespace),
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE,
+            listOf(namespace),
             listOf(serviceId, instanceId)
         )
             .map {
@@ -79,7 +81,8 @@ class RedisServiceDiscovery(
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE_TTL, listOf(namespace),
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE_TTL,
+            listOf(namespace),
             listOf(serviceId, instanceId)
         ).next()
     }

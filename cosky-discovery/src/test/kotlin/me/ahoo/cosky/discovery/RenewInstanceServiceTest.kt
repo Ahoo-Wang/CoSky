@@ -19,7 +19,6 @@ import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.*
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
 import java.time.Duration
@@ -64,7 +63,8 @@ class RenewInstanceServiceTest : AbstractReactiveRedisTest() {
             semaphore.tryAcquire(
                 renewProperties.initialDelay.plusSeconds(2).seconds,
                 TimeUnit.SECONDS
-            ), equalTo(true)
+            ),
+            equalTo(true)
         )
 
         renewService.stop()

@@ -10,10 +10,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.rest.configuration
 
-package me.ahoo.cosky.rest.config;
-
-import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Configuration
 
 /**
  * App Config.
@@ -21,6 +20,4 @@ import org.springframework.context.annotation.Configuration;
  * @author ahoo wang
  */
 @Configuration
-public class AppConfig {
-
-}
+class AppConfig 

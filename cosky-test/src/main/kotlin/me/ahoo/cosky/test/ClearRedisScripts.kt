@@ -30,7 +30,8 @@ object ClearRedisScripts {
     @JvmStatic
     fun clear(redisTemplate: ReactiveStringRedisTemplate, prefix: String): Mono<Void> {
         return redisTemplate.execute(
-            SCRIPT_CLEAN, listOf(prefix)
+            SCRIPT_CLEAN,
+            listOf(prefix)
         ).next()
     }
 }

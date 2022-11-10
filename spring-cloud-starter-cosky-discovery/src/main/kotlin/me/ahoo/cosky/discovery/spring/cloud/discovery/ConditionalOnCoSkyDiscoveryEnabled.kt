@@ -14,8 +14,6 @@ package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.spring.cloud.EnabledSuffix
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
 
 /**
  * Conditional On CoSky Discovery Enabled.

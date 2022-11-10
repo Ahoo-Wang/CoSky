@@ -10,12 +10,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.rest
 
-package me.ahoo.cosky.rest;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
+import org.springframework.boot.SpringApplication
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import springfox.documentation.swagger2.annotations.EnableSwagger2
 
 /**
  * Rest Api Server.
@@ -24,10 +23,8 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
  */
 @EnableSwagger2
 @SpringBootApplication
-public class RestApiServer {
-    
-    public static void main(String[] args) {
-        SpringApplication.run(RestApiServer.class, args);
-    }
-    
+class RestApiServer
+
+fun main(args: Array<String>) {
+    SpringApplication.run(RestApiServer::class.java, *args)
 }

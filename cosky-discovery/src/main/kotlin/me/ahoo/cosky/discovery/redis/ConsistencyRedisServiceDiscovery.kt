@@ -12,39 +12,24 @@
  */
 package me.ahoo.cosky.discovery.redis
 
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdOfKey
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKeyPatternOfService
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getNamespaceOfKey
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
-import me.ahoo.cosky.discovery.Instance
-import me.ahoo.cosky.discovery.Instance.Companion.asInstance
-import me.ahoo.cosky.discovery.ListenableServiceDiscovery
+import me.ahoo.cosky.discovery.InstanceChangedEvent
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
-import me.ahoo.cosky.discovery.ServiceChangedEvent
-import me.ahoo.cosky.discovery.ServiceChangedEvent.Companion.asServiceChangedEvent
 import me.ahoo.cosky.discovery.ServiceDiscovery
+import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceInstance
-import me.ahoo.cosky.discovery.ServiceInstanceContext
-import me.ahoo.cosky.discovery.ServiceTopology
-import me.ahoo.cosky.discovery.ServiceTopology.Companion.consumerName
-import me.ahoo.cosky.discovery.ServiceTopology.Companion.getProducerName
 import org.slf4j.LoggerFactory
-import org.springframework.data.redis.connection.ReactiveSubscription
-import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import org.springframework.data.redis.listener.ChannelTopic
-import org.springframework.data.redis.listener.PatternTopic
-import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.BaseSubscriber
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.toMono
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArraySet
-import java.util.function.Consumer
 import java.util.function.Function
 
-private object NoOpHookOnResetInstanceCache : (ServiceChangedEvent) -> Unit {
-    override fun invoke(p1: ServiceChangedEvent) = Unit
+private object NoOpHookOnResetInstanceCache : (InstanceChangedEvent) -> Unit {
+    override fun invoke(p1: InstanceChangedEvent) = Unit
 }
 
 private object NoOpHookOnResetServiceCache : (String) -> Unit {
@@ -58,35 +43,19 @@ private object NoOpHookOnResetServiceCache : (String) -> Unit {
  */
 class ConsistencyRedisServiceDiscovery(
     private val delegate: ServiceDiscovery,
-    private val redisTemplate: ReactiveStringRedisTemplate,
-    private val listenerContainer: ReactiveRedisMessageListenerContainer,
-    private val hookOnResetInstanceCache: (ServiceChangedEvent) -> Unit = NoOpHookOnResetInstanceCache,
+    private val serviceEventListenerContainer: ServiceEventListenerContainer,
+    private val instanceEventListenerContainer: InstanceEventListenerContainer,
+    private val hookOnResetInstanceCache: (InstanceChangedEvent) -> Unit = NoOpHookOnResetInstanceCache,
     private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache
-) : ListenableServiceDiscovery, ServiceTopology {
+) : ServiceDiscovery {
     companion object {
         private val log = LoggerFactory.getLogger(ConsistencyRedisServiceDiscovery::class.java)
     }
 
     private val serviceMapInstances: ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>> =
         ConcurrentHashMap()
-    private val namespaceMapServices: ConcurrentHashMap<String, Flux<String>> = ConcurrentHashMap()
 
-    override fun listen(topic: NamespacedServiceId): Flux<ServiceChangedEvent> {
-        val instancePattern = getInstanceKeyPatternOfService(topic.namespace, topic.serviceId)
-        return listenerContainer.receive(PatternTopic.of(instancePattern))
-            .map {
-                val namespace = getNamespaceOfKey(it.channel)
-                val instanceId = getInstanceIdOfKey(namespace, it.channel)
-                val instance: Instance = instanceId.asInstance()
-                val serviceId = instance.serviceId
-                val namespacedServiceId = NamespacedServiceId(namespace, serviceId)
-                ServiceChangedEvent(namespacedServiceId, it.message.asServiceChangedEvent(), instance)
-            }
-            .doOnComplete {
-                @Suppress("CallingSubscribeInNonBlockingScope")
-                addTopology(topic.namespace, topic.serviceId).subscribe()
-            }
-    }
+    private val namespaceMapServices: ConcurrentHashMap<String, Flux<String>> = ConcurrentHashMap()
 
     override fun getServices(namespace: String): Flux<String> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
@@ -94,17 +63,12 @@ class ConsistencyRedisServiceDiscovery(
     }
 
     private fun listenServiceAndGetCache(namespace: String): Flux<String> {
-        val serviceIdxKey = getServiceIdxKey(namespace)
-        listenerContainer.receive(ChannelTopic.of(serviceIdxKey))
+        serviceEventListenerContainer.listen(namespace)
             .subscribe(ServiceChangedSubscriber(this))
         return delegate.getServices(namespace).cache()
     }
 
-    private fun onServiceChanged(message: ReactiveSubscription.Message<String, String>) {
-        if (log.isInfoEnabled) {
-            log.info("onServiceChanged - channel:[{}] - message:[{}]", message.channel, message.message)
-        }
-        val namespace = getNamespaceOfKey(message.channel)
+    private fun onServiceChanged(namespace: String) {
         namespaceMapServices[namespace] = delegate.getServices(namespace).cache()
         hookOnResetServiceCache(namespace)
     }
@@ -115,7 +79,7 @@ class ConsistencyRedisServiceDiscovery(
         return serviceMapInstances.computeIfAbsent(
             NamespacedServiceId(namespace, serviceId)
         ) { svcId: NamespacedServiceId ->
-            listen(svcId).subscribe(InstanceChangedEventSubscriber(this))
+            instanceEventListenerContainer.listen(svcId).subscribe(InstanceChangedEventSubscriber(this))
             delegate.getInstances(namespace, serviceId)
                 .collectList()
                 .map {
@@ -135,11 +99,13 @@ class ConsistencyRedisServiceDiscovery(
         val instancesMono = serviceMapInstances[namespacedServiceId]
         return if (instancesMono == null) {
             delegate.getInstance(namespace, serviceId, instanceId)
-        } else instancesMono
-            .flatMapIterable(Function.identity())
-            .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
-            .filter { it.instanceId == instanceId }
-            .next()
+        } else {
+            instancesMono
+                .flatMapIterable(Function.identity())
+                .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
+                .filter { it.instanceId == instanceId }
+                .next()
+        }
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
@@ -151,29 +117,16 @@ class ConsistencyRedisServiceDiscovery(
             .map(ServiceInstance::ttlAt)
     }
 
-    override fun addTopology(producerNamespace: String, producerServiceId: String): Mono<Void> {
-        val consumerNamespace: String = ServiceInstanceContext.namespace
-        val consumerName = consumerName
-        val producerName = getProducerName(producerNamespace, producerServiceId)
-        return if (consumerName == producerName) {
-            Mono.empty()
-        } else redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_TOPOLOGY_ADD, listOf(consumerNamespace),
-            listOf(consumerName, producerName)
-        )
-            .then()
-    }
-
-    private fun onInstanceChanged(serviceChangedEvent: ServiceChangedEvent) {
+    private fun onInstanceChanged(instanceChangedEvent: InstanceChangedEvent) {
         if (log.isInfoEnabled) {
             log.info(
                 "onInstanceChanged - instance:[{}] - message:[{}]",
-                serviceChangedEvent.instance,
-                serviceChangedEvent.event
+                instanceChangedEvent.instance,
+                instanceChangedEvent.event
             )
         }
-        val namespacedServiceId = serviceChangedEvent.namespacedServiceId
-        val instance = serviceChangedEvent.instance
+        val namespacedServiceId = instanceChangedEvent.namespacedServiceId
+        val instance = instanceChangedEvent.instance
         val instanceId = instance.instanceId
         val namespace = namespacedServiceId.namespace
         val serviceId = namespacedServiceId.serviceId
@@ -183,7 +136,7 @@ class ConsistencyRedisServiceDiscovery(
                 log.info(
                     "onInstanceChanged - instance:[{}] - event:[{}] instancesMono is null.",
                     instance,
-                    serviceChangedEvent.event
+                    instanceChangedEvent.event
                 )
             }
             return
@@ -192,14 +145,14 @@ class ConsistencyRedisServiceDiscovery(
             val cachedInstance =
                 cachedInstances.firstOrNull { it.instanceId == instanceId } ?: ServiceInstance.NOT_FOUND
             if (ServiceInstance.NOT_FOUND == cachedInstance) {
-                if (ServiceChangedEvent.Event.REGISTER != serviceChangedEvent.event
-                    && ServiceChangedEvent.Event.RENEW != serviceChangedEvent.event
+                if (InstanceChangedEvent.Event.REGISTER != instanceChangedEvent.event &&
+                    InstanceChangedEvent.Event.RENEW != instanceChangedEvent.event
                 ) {
                     if (log.isWarnEnabled) {
                         log.warn(
                             "onInstanceChanged - instance:[{}] - event:[{}] not found cached Instance.",
                             instance,
-                            serviceChangedEvent.event
+                            instanceChangedEvent.event
                         )
                     }
                     return@flatMap Mono.empty<Any>()
@@ -210,14 +163,14 @@ class ConsistencyRedisServiceDiscovery(
                             log.info(
                                 "onInstanceChanged - instance:[{}] - event:[{}] add registered Instance.",
                                 instance,
-                                serviceChangedEvent.event
+                                instanceChangedEvent.event
                             )
                         }
                         cachedInstances.add(serviceInstance)
                     }
             }
-            when (serviceChangedEvent.event) {
-                ServiceChangedEvent.Event.REGISTER -> {
+            when (instanceChangedEvent.event) {
+                InstanceChangedEvent.Event.REGISTER -> {
                     return@flatMap delegate
                         .getInstance(namespace, serviceId, instanceId)
                         .doOnNext { registeredInstance: ServiceInstance ->
@@ -225,28 +178,28 @@ class ConsistencyRedisServiceDiscovery(
                         }
                 }
 
-                ServiceChangedEvent.Event.RENEW -> {
+                InstanceChangedEvent.Event.RENEW -> {
                     if (log.isInfoEnabled) {
                         log.info(
                             "onInstanceChanged - instance:[{}] - event:[{}] setTtlAt.",
                             instance,
-                            serviceChangedEvent.event
+                            instanceChangedEvent.event
                         )
                     }
                     return@flatMap delegate
                         .getInstanceTtl(namespace, serviceId, instanceId)
                         .doOnNext { ttlAt ->
-
+                            // TODO remove first
                             cachedInstances.add(cachedInstance.copy(ttlAt = ttlAt))
                         }
                 }
 
-                ServiceChangedEvent.Event.SET_METADATA -> {
+                InstanceChangedEvent.Event.SET_METADATA -> {
                     if (log.isInfoEnabled) {
                         log.info(
                             "onInstanceChanged - instance:[{}] - event:[{}] setMetadata.",
                             instance,
-                            serviceChangedEvent.event
+                            instanceChangedEvent.event
                         )
                     }
                     return@flatMap delegate
@@ -256,26 +209,26 @@ class ConsistencyRedisServiceDiscovery(
                         }
                 }
 
-                ServiceChangedEvent.Event.DEREGISTER, ServiceChangedEvent.Event.EXPIRED -> {
+                InstanceChangedEvent.Event.DEREGISTER, InstanceChangedEvent.Event.EXPIRED -> {
                     if (log.isInfoEnabled) {
                         log.info(
                             "onInstanceChanged - instance:[{}] - event:[{}] remove instance.",
                             instance,
-                            serviceChangedEvent.event
+                            instanceChangedEvent.event
                         )
                     }
                     cachedInstances.remove(cachedInstance)
                     return@flatMap Mono.empty<Any>()
                 }
 
-                else -> return@flatMap Mono.error<Any>(IllegalStateException("Unexpected value: " + serviceChangedEvent.event))
+                else -> return@flatMap IllegalStateException("Unexpected value: " + instanceChangedEvent.event).toMono<Any>()
             }
-        }.doOnSuccess { hookOnResetInstanceCache(serviceChangedEvent) }.subscribe()
+        }.doOnSuccess { hookOnResetInstanceCache(instanceChangedEvent) }.subscribe()
     }
 
     private class InstanceChangedEventSubscriber(private val serviceDiscovery: ConsistencyRedisServiceDiscovery) :
-        BaseSubscriber<ServiceChangedEvent>() {
-        override fun hookOnNext(value: ServiceChangedEvent) {
+        BaseSubscriber<InstanceChangedEvent>() {
+        override fun hookOnNext(value: InstanceChangedEvent) {
             serviceDiscovery.onInstanceChanged(value)
         }
 
@@ -287,9 +240,9 @@ class ConsistencyRedisServiceDiscovery(
     }
 
     private class ServiceChangedSubscriber(private val serviceDiscovery: ConsistencyRedisServiceDiscovery) :
-        BaseSubscriber<ReactiveSubscription.Message<String, String>>() {
-        override fun hookOnNext(message: ReactiveSubscription.Message<String, String>) {
-            serviceDiscovery.onServiceChanged(message)
+        BaseSubscriber<String>() {
+        override fun hookOnNext(namespace: String) {
+            serviceDiscovery.onServiceChanged(namespace)
         }
 
         override fun hookOnError(throwable: Throwable) {

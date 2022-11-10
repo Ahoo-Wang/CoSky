@@ -18,7 +18,7 @@ import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient
 import reactor.core.publisher.Flux
 
 /**
- * Cosky Reactive Discovery Client.
+ * CoSky Reactive Discovery Client.
  *
  * @author ahoo wang
  */
@@ -43,5 +43,4 @@ class CoSkyReactiveDiscoveryClient(serviceDiscovery: ServiceDiscovery) : Reactiv
     }
 
     override fun getServices(): Flux<String> = serviceDiscovery.services
-
 }

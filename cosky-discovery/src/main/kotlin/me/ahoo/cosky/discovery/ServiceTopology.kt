@@ -22,8 +22,19 @@ import java.util.*
  */
 interface ServiceTopology {
     fun addTopology(producerNamespace: String, producerServiceId: String): Mono<Void>
+    fun getTopology(namespace: String): Mono<Map<String, Set<String>>>
 
     companion object {
+        val NO_OP: ServiceTopology = object : ServiceTopology {
+            override fun addTopology(producerNamespace: String, producerServiceId: String): Mono<Void> {
+                return Mono.empty()
+            }
+
+            override fun getTopology(namespace: String): Mono<Map<String, Set<String>>> {
+                return Mono.just(emptyMap())
+            }
+        }
+
         @JvmStatic
         val consumerName: String
             get() {
@@ -39,7 +50,9 @@ interface ServiceTopology {
             val consumerNamespace = ServiceInstanceContext.namespace
             return if (producerNamespace == consumerNamespace) {
                 producerServiceId
-            } else "$producerNamespace.$producerServiceId"
+            } else {
+                "$producerNamespace.$producerServiceId"
+            }
         }
 
         const val DEFAULT_CONSUMER_NAME = "_Client_"

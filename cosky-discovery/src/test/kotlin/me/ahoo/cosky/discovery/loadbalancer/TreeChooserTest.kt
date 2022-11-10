@@ -13,11 +13,7 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import me.ahoo.cosky.discovery.ServiceInstance
-import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.loadbalancer.TreeWeightRandomLoadBalancer.TreeChooser
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
-import org.springframework.util.StopWatch
 
 /**
  * @author ahoo wang
@@ -27,5 +23,4 @@ internal class TreeChooserTest : ChooserSpec() {
     override fun createChooser(instances: List<ServiceInstance>): LoadBalancer.Chooser {
         return TreeChooser(instances)
     }
-
 }

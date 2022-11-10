@@ -22,5 +22,4 @@ class RedisConfigServiceTest : ConfigServiceSpec() {
     override fun createConfigService(): ConfigService {
         return RedisConfigService(redisTemplate)
     }
-
 }

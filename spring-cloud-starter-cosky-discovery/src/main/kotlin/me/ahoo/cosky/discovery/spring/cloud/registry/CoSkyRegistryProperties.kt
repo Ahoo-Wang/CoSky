@@ -15,10 +15,8 @@ package me.ahoo.cosky.discovery.spring.cloud.registry
 import me.ahoo.cosky.discovery.RenewProperties
 import me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyDiscoveryProperties
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
-import org.apache.logging.log4j.util.Strings
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.ConstructorBinding
-import org.springframework.cloud.commons.util.InetUtils
 import java.time.Duration
 
 /**
@@ -28,45 +26,24 @@ import java.time.Duration
  */
 @ConstructorBinding
 @ConfigurationProperties(CoSkyRegistryProperties.PREFIX)
-data class CoSkyRegistryProperties(inetUtils: InetUtils) {
+data class CoSkyRegistryProperties(
+    var serviceId: String = "",
+    var schema: String = "http",
+    var host: String = "",
+    var port: Int = 0,
+    var weight: Int = 1,
+    var isEphemeral: Boolean = true,
+    var ttl: Duration = Duration.ofSeconds(60),
+    var timeout: Duration = Duration.ofSeconds(2),
+    var metadata: MutableMap<String, String> = mutableMapOf(),
+    var initialStatus: String = StatusConstants.STATUS_UP,
+    var renew: RenewProperties = RenewProperties()
+) {
     companion object {
         const val PREFIX = CoSkyDiscoveryProperties.PREFIX + ".registry"
     }
 
-    private val hostInfo: InetUtils.HostInfo
-    var serviceId: String? = null
-    var schema = "http"
-    var host: String
-    var port = 0
-    var weight = 1
-    var isEphemeral = true
-    var initialStatus = StatusConstants.STATUS_UP
-    private var metadata: MutableMap<String, String> = HashMap()
-    var ttl = Duration.ofSeconds(60)
-    var secure: Boolean? = null
-        private set
-    var renew = RenewProperties()
-    var timeout = Duration.ofSeconds(2)
-
     init {
-        hostInfo = inetUtils.findFirstNonLoopbackHostInfo()
-        host = hostInfo.ipAddress
         metadata[StatusConstants.INSTANCE_STATUS_KEY] = initialStatus
     }
-
-    fun getMetadata(): Map<String, String> {
-        return metadata
-    }
-
-    fun setMetadata(metadata: MutableMap<String, String>) {
-        this.metadata = metadata
-    }
-
-    fun setSecure(secure: Boolean) {
-        this.secure = secure
-        if (Strings.isBlank(schema)) {
-            schema = if (secure) "http" else "https"
-        }
-    }
-
 }

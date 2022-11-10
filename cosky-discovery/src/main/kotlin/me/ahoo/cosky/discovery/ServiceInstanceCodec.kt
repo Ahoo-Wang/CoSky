@@ -107,16 +107,15 @@ object ServiceInstanceCodec {
                 }
 
                 else -> {
-                    if (key.startsWith(SYSTEM_METADATA_PREFIX)) {
-                        break
-                    }
-                    if (key.startsWith(METADATA_PREFIX)) {
+                    if (key.startsWith(METADATA_PREFIX) &&
+                        !key.startsWith(SYSTEM_METADATA_PREFIX)
+                    ) {
                         val metadataKey = key.substring(METADATA_PREFIX_LENGTH)
                         metadata[metadataKey] = value
                     }
                 }
             }
-            i = i + 2
+            i += 2
         }
         requireNotNull(serviceId) { "serviceId is null" }
         requireNotNull(schema) { "schema is null" }
@@ -124,7 +123,7 @@ object ServiceInstanceCodec {
         requireNotNull(port) { "port is null" }
         requireNotNull(instanceId) { "instanceId is null" }
 
-        val instance = InstanceData(
+        val instance = Instance.asInstance(
             serviceId = serviceId,
             schema = schema,
             host = host,
@@ -135,7 +134,8 @@ object ServiceInstanceCodec {
         requireNotNull(isEphemeral) { "isEphemeral is null" }
         requireNotNull(ttlAt) { "ttlAt is null" }
         return ServiceInstance(
-            delegate = instance, weight = weight,
+            delegate = instance,
+            weight = weight,
             isEphemeral = isEphemeral,
             ttlAt = ttlAt,
             metadata = metadata

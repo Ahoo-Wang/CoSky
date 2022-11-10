@@ -23,13 +23,12 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationP
  */
 class CoSkyAutoServiceRegistration(
     serviceRegistry: CoSkyServiceRegistry,
-    protected val registration: CoSkyRegistration,
-    autoServiceRegistrationProperties: AutoServiceRegistrationProperties
-) : AbstractAutoServiceRegistration<CoSkyRegistration>(serviceRegistry, autoServiceRegistrationProperties) {
+    private val registration: CoSkyRegistration,
     private val autoServiceRegistrationProperties: AutoServiceRegistrationProperties
+) : AbstractAutoServiceRegistration<CoSkyRegistration>(serviceRegistry, autoServiceRegistrationProperties) {
 
-    init {
-        this.autoServiceRegistrationProperties = autoServiceRegistrationProperties
+    override fun getConfiguration(): Any {
+        return autoServiceRegistrationProperties
     }
 
     override fun isEnabled(): Boolean {
@@ -40,20 +39,15 @@ class CoSkyAutoServiceRegistration(
         return registration
     }
 
-    override fun getManagementRegistration(): CoSkyRegistration {
-        TODO("Not yet implemented")
+    override fun getManagementRegistration(): CoSkyRegistration? {
+        return null
     }
 
-
-    protected override fun register() {
-        val serviceInstance = registration.delegate
+    override fun register() {
         if (registration.port == 0) {
-            registration.port = getPort().get()
-            serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance))
+            registration.port = port.get()
         }
-        ServiceInstanceContext.serviceInstance = serviceInstance
+        ServiceInstanceContext.serviceInstance = registration.asServiceInstance()
         super.register()
     }
-
-
 }

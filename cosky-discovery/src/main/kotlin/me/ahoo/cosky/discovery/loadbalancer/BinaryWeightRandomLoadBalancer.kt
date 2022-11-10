@@ -12,9 +12,10 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
+import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer.BinaryChooser
-import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ThreadLocalRandom
@@ -24,8 +25,11 @@ import java.util.concurrent.ThreadLocalRandom
  *
  * @author ahoo wang
  */
-class BinaryWeightRandomLoadBalancer(serviceDiscovery: ConsistencyRedisServiceDiscovery) :
-    AbstractLoadBalancer<BinaryChooser>(serviceDiscovery) {
+class BinaryWeightRandomLoadBalancer(
+    serviceDiscovery: ServiceDiscovery,
+    instanceEventListenerContainer: InstanceEventListenerContainer
+) :
+    AbstractLoadBalancer<BinaryChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {
         private val log = LoggerFactory.getLogger(BinaryWeightRandomLoadBalancer::class.java)
     }
@@ -35,8 +39,8 @@ class BinaryWeightRandomLoadBalancer(serviceDiscovery: ConsistencyRedisServiceDi
     }
 
     class BinaryChooser(private val instanceList: List<ServiceInstance>) : LoadBalancer.Chooser {
-        private val totalWeight : Int
-        private val randomBound  : Int
+        private val totalWeight: Int
+        private val randomBound: Int
         private val weightLine: IntArray
         private val maxLineIndex: Int
 

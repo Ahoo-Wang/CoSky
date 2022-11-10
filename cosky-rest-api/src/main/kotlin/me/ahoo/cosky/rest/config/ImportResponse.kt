@@ -10,40 +10,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package me.ahoo.cosky.rest.dto.config;
+package me.ahoo.cosky.rest.config
 
 /**
  * Import Response.
  *
  * @author ahoo wang
  */
-public class ImportResponse {
-    private int total;
-    private int succeeded;
-    
-    public ImportResponse() {
-    }
-    
-    public ImportResponse(int total, int succeeded) {
-        this.total = total;
-        this.succeeded = succeeded;
-    }
-    
-    public int getTotal() {
-        return total;
-    }
-    
-    public void setTotal(int total) {
-        this.total = total;
-    }
-    
-    public int getSucceeded() {
-        return succeeded;
-    }
-    
-    public void setSucceeded(int succeeded) {
-        this.succeeded = succeeded;
-    }
-    
-}
+data class ImportResponse(
+    var total: Int = 0,
+    var succeeded: Int = 0
+)

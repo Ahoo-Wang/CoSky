@@ -15,7 +15,7 @@ package me.ahoo.cosky.spring.cloud
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 
 /**
- * Conditional On Cosky Enabled.
+ * Conditional On CoSky Enabled.
  *
  * @author ahoo wang
  */

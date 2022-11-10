@@ -12,9 +12,10 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
+import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.TreeWeightRandomLoadBalancer.TreeChooser
-import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
 import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ThreadLocalRandom
@@ -24,8 +25,11 @@ import java.util.concurrent.ThreadLocalRandom
  *
  * @author ahoo wang
  */
-class TreeWeightRandomLoadBalancer(serviceDiscovery: ConsistencyRedisServiceDiscovery) :
-    AbstractLoadBalancer<TreeChooser>(serviceDiscovery) {
+class TreeWeightRandomLoadBalancer(
+    serviceDiscovery: ServiceDiscovery,
+    instanceEventListenerContainer: InstanceEventListenerContainer
+) :
+    AbstractLoadBalancer<TreeChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {
         private val log = LoggerFactory.getLogger(TreeWeightRandomLoadBalancer::class.java)
     }

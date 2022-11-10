@@ -14,7 +14,6 @@ package me.ahoo.cosky.config.spring.cloud
 
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
 import java.time.Duration
 
 /**
@@ -22,13 +21,12 @@ import java.time.Duration
  *
  * @author ahoo wang
  */
-@ConstructorBinding
 @ConfigurationProperties(CoSkyConfigProperties.PREFIX)
 data class CoSkyConfigProperties(
-    val enabled: Boolean = true,
+    var enabled: Boolean = true,
     var configId: String? = null,
-    val fileExtension: String = "yaml",
-    val timeout: Duration = Duration.ofSeconds(2)
+    var fileExtension: String = "yaml",
+    var timeout: Duration = Duration.ofSeconds(2)
 ) {
     companion object {
         const val PREFIX = CoSkyProperties.PREFIX + ".config"

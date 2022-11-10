@@ -32,7 +32,6 @@ import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.function.Function
 
 /**
  * Redis Config Service.
@@ -48,7 +47,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     override fun getConfigs(namespace: String): Flux<String> {
         require(namespace.isNotBlank()) { "namespace can not be blank!" }
         if (log.isDebugEnabled) {
-            log.debug("getConfigs  @ namespace:[{}].", namespace)
+            log.debug("GetConfigs  @ namespace:[{}].", namespace)
         }
         val configIdxKey = getConfigIdxKey(namespace)
         return redisTemplate
@@ -62,7 +61,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     override fun getConfig(namespace: String, configId: String): Mono<Config> {
         ensureNamespacedConfigId(namespace, configId)
         if (log.isDebugEnabled) {
-            log.debug("getConfig - configId:[{}]  @ namespace:[{}].", configId, namespace)
+            log.debug("GetConfig - configId:[{}]  @ namespace:[{}].", configId, namespace)
         }
         val configKey = getConfigKey(namespace, configId)
         return getAndDecodeConfig(configKey) { it.decodeAsConfig() }
@@ -77,10 +76,11 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         ensureNamespacedConfigId(namespace, configId)
         val hash = Hashing.sha256().hashString(data, Charsets.UTF_8).toString()
         if (log.isInfoEnabled) {
-            log.info("setConfig - configId:[{}] - hash:[{}]  @ namespace:[{}].", configId, hash, namespace)
+            log.info("SetConfig - configId:[{}] - hash:[{}]  @ namespace:[{}].", configId, hash, namespace)
         }
         return redisTemplate.execute(
-            ConfigRedisScripts.SCRIPT_CONFIG_SET, listOf(namespace),
+            ConfigRedisScripts.SCRIPT_CONFIG_SET,
+            listOf(namespace),
             listOf(configId, data, hash)
         ).next()
     }
@@ -88,10 +88,12 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     override fun removeConfig(namespace: String, configId: String): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
         if (log.isInfoEnabled) {
-            log.info("removeConfig - configId:[{}] @ namespace:[{}].", configId, namespace)
+            log.info("RemoveConfig - configId:[{}] @ namespace:[{}].", configId, namespace)
         }
         return redisTemplate.execute(
-            ConfigRedisScripts.SCRIPT_CONFIG_REMOVE, listOf(namespace), listOf(configId)
+            ConfigRedisScripts.SCRIPT_CONFIG_REMOVE,
+            listOf(namespace),
+            listOf(configId)
         ).next()
     }
 
@@ -105,14 +107,15 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         ensureNamespacedConfigId(namespace, configId)
         if (log.isInfoEnabled) {
             log.info(
-                "rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].",
+                "Rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].",
                 configId,
                 targetVersion,
                 namespace
             )
         }
         return redisTemplate.execute(
-            ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK, listOf(namespace),
+            ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK,
+            listOf(namespace),
             listOf(configId, targetVersion.toString())
         ).next()
     }
@@ -136,22 +139,18 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     }
 
     private fun <T : Config> getAndDecodeConfig(
-        configHistoryKey: String,
-        decodeFun: Function<Map<String, String>, T>
+        key: String,
+        decode: (Map<String, String>) -> T
     ): Mono<T> {
         return redisTemplate
             .opsForHash<String, String>()
-            .entries(configHistoryKey)
-            .collectMap(
-                { (key, _) -> key },
-                { (_, value) -> value },
-                { HashMap() }
-            )
-            .mapNotNull { map: Map<String, String> ->
-                if (map.isEmpty()) {
+            .entries(key)
+            .collectMap({ it.key }) { it.value }
+            .mapNotNull {
+                if (it.isEmpty()) {
                     return@mapNotNull null
                 }
-                decodeFun.apply(map)
+                decode(it)
             }
     }
 }

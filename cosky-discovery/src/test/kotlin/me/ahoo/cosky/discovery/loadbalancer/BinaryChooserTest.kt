@@ -13,12 +13,7 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import me.ahoo.cosky.discovery.ServiceInstance
-import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer.BinaryChooser
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
-import org.springframework.util.StopWatch
-import java.util.concurrent.TimeUnit
 
 /**
  * @author ahoo wang

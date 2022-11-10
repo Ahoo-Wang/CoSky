@@ -10,169 +10,171 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.mirror
 
-package me.ahoo.cosky.mirror;
-
-import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.discovery.NamespacedServiceId;
-import me.ahoo.cosky.discovery.ServiceChangedEvent;
-import me.ahoo.cosky.discovery.ServiceInstance;
-import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
-
-import com.alibaba.cloud.nacos.NacosDiscoveryProperties;
-import com.alibaba.cloud.nacos.NacosServiceManager;
-import com.alibaba.nacos.api.exception.NacosException;
-import com.alibaba.nacos.api.naming.NamingService;
-import com.alibaba.nacos.api.naming.pojo.Instance;
-import lombok.SneakyThrows;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-
-import java.util.concurrent.ConcurrentHashMap;
+import com.alibaba.cloud.nacos.NacosDiscoveryProperties
+import com.alibaba.cloud.nacos.NacosServiceManager
+import com.alibaba.nacos.api.exception.NacosException
+import com.alibaba.nacos.api.naming.NamingService
+import com.alibaba.nacos.api.naming.pojo.Instance
+import me.ahoo.cosky.core.NamespacedContext
+import me.ahoo.cosky.discovery.InstanceChangedEvent
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
+import me.ahoo.cosky.discovery.NamespacedServiceId
+import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
+import org.slf4j.LoggerFactory
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Service
+import reactor.core.publisher.Flux
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Cosky To Nacos Mirror.
  *
  * @author ahoo wang
  */
-@Slf4j
 @Service
-public class CoskyToNacosMirror implements Mirror {
-    
-    private final ConsistencyRedisServiceDiscovery coskyServiceDiscovery;
-    private final NacosDiscoveryProperties nacosDiscoveryProperties;
-    private final NacosServiceManager nacosServiceManager;
-    private final ConcurrentHashMap<String, CoskyServiceChangedListener> serviceMapListener;
-    
-    public CoskyToNacosMirror(ConsistencyRedisServiceDiscovery coskyServiceDiscovery,
-                              NacosDiscoveryProperties nacosDiscoveryProperties, NacosServiceManager nacosServiceManager) {
-        this.coskyServiceDiscovery = coskyServiceDiscovery;
-        this.nacosDiscoveryProperties = nacosDiscoveryProperties;
-        this.nacosServiceManager = nacosServiceManager;
-        this.serviceMapListener = new ConcurrentHashMap<>();
+class CoskyToNacosMirror(
+    private val coskyServiceDiscovery: ConsistencyRedisServiceDiscovery,
+    private val instanceEventListenerContainer: InstanceEventListenerContainer,
+    private val nacosDiscoveryProperties: NacosDiscoveryProperties,
+    private val nacosServiceManager: NacosServiceManager
+) : Mirror {
+    companion object {
+        private val log = LoggerFactory.getLogger(CoskyToNacosMirror::class.java)
     }
-    
-    public NamingService namingService() {
-        return nacosServiceManager.getNamingService(this.nacosDiscoveryProperties.getNacosProperties());
+
+    private val serviceMapListener: ConcurrentHashMap<String, CoskyServiceChangedListener> = ConcurrentHashMap()
+
+    fun namingService(): NamingService {
+        return nacosServiceManager.getNamingService(nacosDiscoveryProperties.nacosProperties)
     }
-    
-    @Scheduled(initialDelay = 10_000, fixedDelay = 30_000)
-    public void mirror() {
-        coskyServiceDiscovery.getServices()
-            .filter(serviceId -> !serviceMapListener.containsKey(serviceId))
-            .flatMap(this::coskyToNacos)
-            .doOnError(throwable -> {
-                if (log.isErrorEnabled()) {
-                    log.error(throwable.getMessage(), throwable);
+
+    @Scheduled(initialDelay = 10000, fixedDelay = 30000)
+    fun mirror() {
+        coskyServiceDiscovery.services
+            .filter { !serviceMapListener.containsKey(it) }
+            .flatMap { serviceId ->
+                coskyToNacos(serviceId)
+            }
+            .doOnError {
+                if (log.isErrorEnabled) {
+                    log.error(it.message, it)
                 }
-            }).subscribe();
+            }.subscribe()
     }
-    
-    public Flux<Boolean> coskyToNacos(String serviceId) {
+
+    fun coskyToNacos(serviceId: String): Flux<Boolean> {
         return coskyServiceDiscovery.getInstances(serviceId)
-            .filter(serviceInstance -> shouldRegister(serviceInstance.getMetadata()))
-            .map(this::coskyToNacos)
-            .doOnComplete(() -> {
-                serviceMapListener.computeIfAbsent(serviceId, (key) -> {
-                    CoskyServiceChangedListener listener = new CoskyServiceChangedListener(serviceId);
-                    coskyServiceDiscovery
-                        .listen(new NamespacedServiceId(NamespacedContext.INSTANCE.getNamespace(), serviceId))
-                        .doOnNext(listener::onChange)
-                        .subscribe();
-                    return listener;
-                });
-            })
-            .doOnError(throwable -> {
-                if (log.isErrorEnabled()) {
-                    log.error(throwable.getMessage(), throwable);
+            .filter {
+                shouldRegister(it.metadata)
+            }
+            .map { coskyToNacos(it) }
+            .doOnComplete {
+                serviceMapListener.computeIfAbsent(serviceId) {
+                    val listener = CoskyServiceChangedListener(serviceId)
+                    instanceEventListenerContainer
+                        .listen(NamespacedServiceId(NamespacedContext.namespace, serviceId))
+                        .doOnNext { listener.onChange(it) }
+                        .subscribe()
+                    listener
                 }
-            });
+            }
+            .doOnError {
+                if (log.isErrorEnabled) {
+                    log.error(it.message, it)
+                }
+            }
     }
-    
+
     /**
      * cosky To Nacos.
      *
      * @param coskyInstance coskyInstance
      * @see ServiceInstance coskyInstance
      */
-    @SneakyThrows
-    public Boolean coskyToNacos(ServiceInstance coskyInstance) {
-        markRegisterSource(coskyInstance.getMetadata());
-        Instance nacosInstance = getNacosInstanceFromCosky(coskyInstance);
-        markRegisterSource(nacosInstance.getMetadata());
-        String group = nacosDiscoveryProperties.getGroup();
-        namingService().registerInstance(coskyInstance.getServiceId(), group, nacosInstance);
-        return Boolean.TRUE;
+    fun coskyToNacos(coskyInstance: ServiceInstance): Boolean {
+        markRegisterSource(coskyInstance.metadata)
+        val nacosInstance = getNacosInstanceFromCosky(coskyInstance)
+        markRegisterSource(nacosInstance.metadata)
+        val group: String = nacosDiscoveryProperties.group
+        namingService().registerInstance(coskyInstance.serviceId, group, nacosInstance)
+        return java.lang.Boolean.TRUE
     }
-    
-    private Instance getNacosInstanceFromCosky(me.ahoo.cosky.discovery.ServiceInstance serviceInstance) {
-        Instance instance = new Instance();
-        instance.setIp(serviceInstance.getHost());
-        instance.setPort(serviceInstance.getPort());
-        instance.setWeight(serviceInstance.getWeight());
-        instance.setClusterName(nacosDiscoveryProperties.getClusterName());
-        instance.setEnabled(nacosDiscoveryProperties.isInstanceEnabled());
-        instance.setMetadata(serviceInstance.getMetadata());
-        instance.setEphemeral(serviceInstance.isEphemeral());
-        return instance;
+
+    private fun getNacosInstanceFromCosky(serviceInstance: ServiceInstance): Instance {
+        val instance = Instance()
+        instance.ip = serviceInstance.host
+        instance.port = serviceInstance.port
+        instance.weight = serviceInstance.weight.toDouble()
+        instance.clusterName = nacosDiscoveryProperties.clusterName
+        instance.isEnabled = nacosDiscoveryProperties.isInstanceEnabled
+        instance.metadata = serviceInstance.metadata
+        instance.isEphemeral = serviceInstance.isEphemeral
+        return instance
     }
-    
-    @Override
-    public String getSource() {
-        return MIRROR_SOURCE_COSKY;
-    }
-    
-    @Override
-    public String getTarget() {
-        return MIRROR_SOURCE_NACOS;
-    }
-    
-    private class CoskyServiceChangedListener {
-        
-        public final String serviceId;
-        
-        public CoskyServiceChangedListener(String serviceId) {
-            this.serviceId = serviceId;
-        }
-        
-        public void onChange(ServiceChangedEvent serviceChangedEvent) {
-            me.ahoo.cosky.discovery.Instance instance = serviceChangedEvent.getInstance();
-            if (log.isInfoEnabled()) {
-                log.info("CoskyServiceChangedListener - onChange - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getEvent(), instance.getInstanceId());
+
+    override val source: String
+        get() = Mirror.MIRROR_SOURCE_COSKY
+    override val target: String
+        get() = Mirror.MIRROR_SOURCE_NACOS
+
+    private inner class CoskyServiceChangedListener(val serviceId: String) {
+        fun onChange(instanceChangedEvent: InstanceChangedEvent) {
+            val instance: me.ahoo.cosky.discovery.Instance = instanceChangedEvent.instance
+            if (log.isInfoEnabled) {
+                log.info(
+                    "CoskyServiceChangedListener - onChange - @[{}] op:[{}] instanceId:[{}]",
+                    serviceId,
+                    instanceChangedEvent.event,
+                    instance.instanceId
+                )
             }
-            NamespacedServiceId namespacedServiceId = serviceChangedEvent.getNamespacedServiceId();
-            if (ServiceChangedEvent.Event.REGISTER.equals(serviceChangedEvent.getEvent())) {
-                coskyServiceDiscovery.getInstance(namespacedServiceId.getNamespace(), namespacedServiceId.getServiceId(), instance.getInstanceId())
-                    .doOnNext(coskyInstance -> {
-                        if (getTarget().equals(coskyInstance.getMetadata().get(MIRROR_SOURCE))) {
-                            if (log.isInfoEnabled()) {
-                                log.info("CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getEvent(),
-                                    instance.getInstanceId());
+            val namespacedServiceId: NamespacedServiceId = instanceChangedEvent.namespacedServiceId
+            if (InstanceChangedEvent.Event.REGISTER == instanceChangedEvent.event) {
+                coskyServiceDiscovery.getInstance(
+                    namespacedServiceId.namespace,
+                    namespacedServiceId.serviceId,
+                    instance.instanceId
+                )
+                    .doOnNext { coskyInstance: ServiceInstance ->
+                        if (target == coskyInstance.metadata[Mirror.MIRROR_SOURCE]) {
+                            if (log.isInfoEnabled) {
+                                log.info(
+                                    "CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]",
+                                    serviceId,
+                                    instanceChangedEvent.event,
+                                    instance.instanceId
+                                )
                             }
-                            return;
+                            return@doOnNext
                         }
-                        coskyToNacos(coskyInstance);
-                    })
-                    .subscribe();
-                return;
-            }
-            
-            if (ServiceChangedEvent.Event.DEREGISTER.equals(serviceChangedEvent.getEvent()) || ServiceChangedEvent.Event.EXPIRED.equals(serviceChangedEvent.getEvent())) {
-                ServiceInstance coskyInstance = (ServiceInstance) serviceChangedEvent.getInstance();
-                if (getTarget().equals(coskyInstance.getMetadata().get(MIRROR_SOURCE))) {
-                    if (log.isInfoEnabled()) {
-                        log.info("CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]", serviceId, serviceChangedEvent.getEvent(),
-                            instance.getInstanceId());
+                        coskyToNacos(coskyInstance)
                     }
-                    return;
-                }
-                String group = nacosDiscoveryProperties.getGroup();
+                    .subscribe()
+                return
+            }
+            if (InstanceChangedEvent.Event.DEREGISTER == instanceChangedEvent.event || InstanceChangedEvent.Event.EXPIRED == instanceChangedEvent.event) {
+
+                //TODO
+//                instanceChangedEvent.instance.metadata[Mirror.MIRROR_SOURCE] = target
+//                if (target == metadata[Mirror.MIRROR_SOURCE]) {
+//                    if (log.isInfoEnabled) {
+//                        log.info(
+//                            "CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]",
+//                            serviceId,
+//                            instanceChangedEvent.event,
+//                            instance.instanceId
+//                        )
+//                    }
+//                    return
+//                }
+                val group: String = nacosDiscoveryProperties.group
                 try {
-                    namingService().deregisterInstance(instance.getServiceId(), group, instance.getHost(), instance.getPort());
-                } catch (NacosException e) {
-                    log.error("NacosServiceChangedListener - onChange - deregisterInstance error.", e);
+                    namingService().deregisterInstance(instance.serviceId, group, instance.host, instance.port)
+                } catch (e: NacosException) {
+                    log.error("NacosServiceChangedListener - onChange - deregisterInstance error.", e)
                 }
             }
         }

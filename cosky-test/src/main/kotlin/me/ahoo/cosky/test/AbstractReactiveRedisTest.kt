@@ -21,7 +21,6 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceClientConfiguration
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Hooks
 
 /**
@@ -36,7 +35,6 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
 
     protected lateinit var connectionFactory: LettuceConnectionFactory
     protected lateinit var redisTemplate: ReactiveStringRedisTemplate
-    protected lateinit var listenerContainer: ReactiveRedisMessageListenerContainer
 
     @BeforeEach
     override fun afterPropertiesSet() {
@@ -54,7 +52,6 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
         connectionFactory.shareNativeConnection = enableShare
         customizeConnectionFactory(connectionFactory)
         redisTemplate = ReactiveStringRedisTemplate(connectionFactory)
-        listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
         afterInitializedRedisClient()
     }
 
@@ -72,12 +69,11 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
 
     @AfterEach
     override fun destroy() {
-        if (null != listenerContainer) {
-            listenerContainer.destroy()
-        }
         if (null != connectionFactory) {
             connectionFactory.destroy()
         }
+        afterDestroyRedisClient()
     }
 
+    protected open fun afterDestroyRedisClient() = Unit
 }

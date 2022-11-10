@@ -10,30 +10,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package me.ahoo.cosky.mirror;
-
-import java.util.Map;
+package me.ahoo.cosky.mirror
 
 /**
  * Mirror.
  *
  * @author ahoo wang
  */
-public interface Mirror {
-    String MIRROR_SOURCE = "cosky.mirror.source";
-    String MIRROR_SOURCE_NACOS = "nacos";
-    String MIRROR_SOURCE_COSKY = "cosky";
-    
-    String getSource();
-    
-    String getTarget();
-    
-    default void markRegisterSource(Map<String, String> metadata) {
-        metadata.put(MIRROR_SOURCE, getSource());
+interface Mirror {
+    val source: String
+    val target: String
+    fun markRegisterSource(metadata: MutableMap<String, String>) {
+        metadata[MIRROR_SOURCE] = source
     }
-    
-    default boolean shouldRegister(Map<String, String> metadata) {
-        return !getTarget().equals(metadata.get(MIRROR_SOURCE));
+
+    fun shouldRegister(metadata: Map<String, String>): Boolean {
+        return target != metadata[MIRROR_SOURCE]
+    }
+
+    companion object {
+        const val MIRROR_SOURCE = "cosky.mirror.source"
+        const val MIRROR_SOURCE_NACOS = "nacos"
+        const val MIRROR_SOURCE_COSKY = "cosky"
     }
 }

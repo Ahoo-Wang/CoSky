@@ -46,7 +46,7 @@ object ConfigCodec {
             createTime = requireNotNull(this[CREATE_TIME]).toLong(),
             version = requireNotNull(this[VERSION]).toInt(),
             op = requireNotNull(this[OP]),
-            opTime = requireNotNull(this[OP_TIME]).toLong(),
+            opTime = requireNotNull(this[OP_TIME]).toLong()
         )
     }
 }

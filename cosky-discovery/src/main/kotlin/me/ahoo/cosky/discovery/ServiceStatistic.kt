@@ -25,5 +25,4 @@ interface ServiceStatistic {
     fun statService(namespace: String, serviceId: String): Mono<Void>
     fun getServiceStats(namespace: String): Flux<ServiceStat>
     fun getInstanceCount(namespace: String): Mono<Long>
-    fun getTopology(namespace: String): Mono<Map<String, Set<String>>>
 }

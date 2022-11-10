@@ -13,6 +13,9 @@
 
 plugins {
     application
+    kotlin("jvm") version "1.7.20"
+    kotlin("plugin.spring") version "1.7.20"
+    kotlin("kapt")
 }
 
 java {
@@ -33,7 +36,7 @@ tasks.jar.configure {
 distributions {
     main {
         contents {
-            val dashboardDistPath = "${rootDir.absolutePath}/cosky-dashboard/dist";
+            val dashboardDistPath = "${rootDir.absolutePath}/cosky-dashboard/dist"
             from(dashboardDistPath).include("**")
         }
     }
@@ -50,7 +53,7 @@ application {
         "-Xss1m",
         "-server",
         "-XX:+UseG1GC",
-        "-Xlog:gc*:file=logs/${applicationName}-gc.log:time,tags:filecount=10,filesize=32M",
+        "-Xlog:gc*:file=logs/$applicationName-gc.log:time,tags:filecount=10,filesize=32M",
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=data",
         "-Dcom.sun.management.jmxremote",
@@ -63,15 +66,12 @@ application {
     )
 }
 
-
 dependencies {
+    kapt(platform(project(":cosky-dependencies")))
     implementation(platform(project(":cosky-dependencies")))
     implementation("io.netty:netty-all")
-//    implementation("io.netty:netty-transport-native-epoll:linux-x86_64")
-//    implementation("io.netty:netty-transport-native-kqueue:osx-x86_64")
     implementation("io.springfox:springfox-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    //implementation("org.springframework.boot:spring-boot-starter-mail")
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
@@ -84,9 +84,8 @@ dependencies {
     implementation("io.jsonwebtoken:jjwt-api:${rootProject.ext.get("jjwtVersion")}")
     implementation("io.jsonwebtoken:jjwt-impl:${rootProject.ext.get("jjwtVersion")}")
     implementation("io.jsonwebtoken:jjwt-jackson:${rootProject.ext.get("jjwtVersion")}")
-    compileOnly("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
-    annotationProcessor("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
+    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("io.projectreactor:reactor-test")
 }

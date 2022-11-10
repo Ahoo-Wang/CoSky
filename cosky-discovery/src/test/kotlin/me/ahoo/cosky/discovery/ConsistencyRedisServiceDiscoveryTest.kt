@@ -16,11 +16,14 @@ import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.registerRandomInstanceAndTestThenDeregister
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
+import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
+import me.ahoo.cosky.discovery.redis.RedisServiceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.kotlin.test.test
 import reactor.test.StepVerifier
 import java.time.Duration
@@ -35,12 +38,23 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     private lateinit var serviceDiscovery: ConsistencyRedisServiceDiscovery
     private lateinit var redisServiceRegistry: RedisServiceRegistry
     private lateinit var registryProperties: RegistryProperties
-
+    private lateinit var serviceEventListenerContainer: ServiceEventListenerContainer
+    private lateinit var instanceEventListenerContainer: InstanceEventListenerContainer
     override fun afterInitializedRedisClient() {
         registryProperties = RegistryProperties(Duration.ofSeconds(5))
         redisServiceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
         redisServiceDiscovery = RedisServiceDiscovery(redisTemplate)
-        serviceDiscovery = ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer)
+        serviceEventListenerContainer = RedisServiceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
+        instanceEventListenerContainer = RedisInstanceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
+        serviceDiscovery = ConsistencyRedisServiceDiscovery(
+            delegate = redisServiceDiscovery,
+            serviceEventListenerContainer = serviceEventListenerContainer,
+            instanceEventListenerContainer = instanceEventListenerContainer
+        )
     }
 
     @Test
@@ -110,7 +124,9 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val serviceId = MockIdGenerator.INSTANCE.generateAsString()
         val semaphore = Semaphore(0)
         val serviceDiscovery: ServiceDiscovery = ConsistencyRedisServiceDiscovery(
-            redisServiceDiscovery, redisTemplate, listenerContainer,
+            delegate = redisServiceDiscovery,
+            serviceEventListenerContainer = serviceEventListenerContainer,
+            instanceEventListenerContainer = instanceEventListenerContainer
         ) { semaphore.release() }
 
         serviceDiscovery.getServices(namespace)
@@ -150,8 +166,10 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val instance = createInstance(serviceId)
         val semaphore = Semaphore(0)
         val serviceDiscovery: ServiceDiscovery = ConsistencyRedisServiceDiscovery(
-            redisServiceDiscovery, redisTemplate, listenerContainer,
-            { semaphore.release() }
+            delegate = redisServiceDiscovery,
+            serviceEventListenerContainer = serviceEventListenerContainer,
+            instanceEventListenerContainer = instanceEventListenerContainer,
+            hookOnResetInstanceCache = { semaphore.release() }
         )
         serviceDiscovery.getInstances(namespace, serviceId)
             .test()
@@ -184,8 +202,10 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val instance = createInstance(serviceId)
         val semaphore = Semaphore(0)
         val serviceDiscovery: ServiceDiscovery = ConsistencyRedisServiceDiscovery(
-            redisServiceDiscovery, redisTemplate, listenerContainer,
-            { semaphore.release() }
+            delegate = redisServiceDiscovery,
+            serviceEventListenerContainer = serviceEventListenerContainer,
+            instanceEventListenerContainer = instanceEventListenerContainer,
+            hookOnResetInstanceCache = { semaphore.release() }
         )
         serviceDiscovery.getInstances(namespace, serviceId)
             .test()

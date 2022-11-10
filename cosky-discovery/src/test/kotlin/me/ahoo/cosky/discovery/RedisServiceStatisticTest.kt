@@ -14,13 +14,14 @@ package me.ahoo.cosky.discovery
 
 import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
+import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.*
-import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.kotlin.test.test
 
 /**
@@ -29,11 +30,14 @@ import reactor.kotlin.test.test
 class RedisServiceStatisticTest : AbstractReactiveRedisTest() {
     private lateinit var redisServiceStatistic: RedisServiceStatistic
     private lateinit var serviceRegistry: RedisServiceRegistry
-
+    private lateinit var instanceEventListenerContainer: InstanceEventListenerContainer
     override fun afterInitializedRedisClient() {
         val registryProperties = RegistryProperties()
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
-        redisServiceStatistic = RedisServiceStatistic(redisTemplate, listenerContainer)
+        instanceEventListenerContainer = RedisInstanceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
+        redisServiceStatistic = RedisServiceStatistic(redisTemplate, instanceEventListenerContainer)
     }
 
     @Test

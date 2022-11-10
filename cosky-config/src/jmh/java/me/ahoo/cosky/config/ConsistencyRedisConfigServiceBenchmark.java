@@ -14,7 +14,7 @@
 package me.ahoo.cosky.config;
 
 import me.ahoo.cosid.test.MockIdGenerator;
-import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService;
+import me.ahoo.cosky.config.redis.RedisConsistencyConfigService;
 import me.ahoo.cosky.config.redis.RedisConfigService;
 import me.ahoo.cosky.test.AbstractReactiveRedisTest;
 
@@ -37,7 +37,7 @@ public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedi
         super.afterPropertiesSet();
         RedisConfigService redisConfigService = new RedisConfigService(redisTemplate);
         redisConfigService.setConfig(TestData.NAMESPACE, CONFIG_ID, TestData.DATA).block();
-        configService = new ConsistencyRedisConfigService(redisConfigService, listenerContainer);
+        configService = new RedisConsistencyConfigService(redisConfigService, listenerContainer);
     }
     
     @Override

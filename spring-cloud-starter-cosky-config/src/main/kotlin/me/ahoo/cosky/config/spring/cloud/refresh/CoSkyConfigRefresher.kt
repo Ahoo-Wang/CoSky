@@ -12,7 +12,7 @@
  */
 package me.ahoo.cosky.config.spring.cloud.refresh
 
-import me.ahoo.cosky.config.ListenableConfigService
+import me.ahoo.cosky.config.ConfigEventListenerContainer
 import me.ahoo.cosky.config.NamespacedConfigId
 import me.ahoo.cosky.config.spring.cloud.CoSkyConfigProperties
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
@@ -32,7 +32,7 @@ import org.springframework.context.ApplicationListener
 class CoSkyConfigRefresher(
     private val coSkyProperties: CoSkyProperties,
     private val configProperties: CoSkyConfigProperties,
-    private val listenableConfigService: ListenableConfigService
+    private val configEventListenerContainer: ConfigEventListenerContainer
 ) : ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware {
     private lateinit var applicationContext: ApplicationContext
 
@@ -42,7 +42,7 @@ class CoSkyConfigRefresher(
     }
 
     override fun onApplicationEvent(event: ApplicationReadyEvent) {
-        listenableConfigService.listen(
+        configEventListenerContainer.listen(
             NamespacedConfigId(
                 coSkyProperties.namespace,
                 requireNotNull(configProperties.configId) { "configId must not be null." }

@@ -13,20 +13,10 @@
 package me.ahoo.cosky.config.spring.cloud
 
 import me.ahoo.cosky.config.ConfigService
-import me.ahoo.cosky.config.redis.ConsistencyRedisConfigService
-import me.ahoo.cosky.config.redis.RedisConfigService
-import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
-import me.ahoo.cosky.spring.cloud.support.AppSupport.getAppName
-import org.apache.logging.log4j.util.Strings
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.AutoConfigureAfter
+import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Primary
-import org.springframework.core.env.Environment
-import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
 /**
  * CoSky Config Bootstrap Configuration.
@@ -36,33 +26,10 @@ import org.springframework.data.redis.listener.ReactiveRedisMessageListenerConta
  */
 @AutoConfiguration
 @ConditionalOnCoSkyConfigEnabled
-@EnableConfigurationProperties(
-    CoSkyConfigProperties::class
+@ImportAutoConfiguration(
+    CoSkyConfigAutoConfiguration::class
 )
-@AutoConfigureAfter(CoSkyAutoConfiguration::class)
-class CoSkyConfigBootstrapConfiguration(coSkyConfigProperties: CoSkyConfigProperties, environment: Environment) {
-    init {
-        var configId = coSkyConfigProperties.configId
-        if (configId.isNullOrBlank()) {
-            configId = getAppName(environment) + "." + coSkyConfigProperties.fileExtension
-        }
-        coSkyConfigProperties.configId = configId
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    fun redisConfigService(redisTemplate: ReactiveStringRedisTemplate): RedisConfigService {
-        return RedisConfigService(redisTemplate)
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    @Primary
-    fun consistencyRedisConfigService(
-        delegate: RedisConfigService, listenerContainer: ReactiveRedisMessageListenerContainer
-    ): ConsistencyRedisConfigService {
-        return ConsistencyRedisConfigService(delegate, listenerContainer)
-    }
+class CoSkyConfigBootstrapConfiguration {
 
     @Bean
     @ConditionalOnMissingBean

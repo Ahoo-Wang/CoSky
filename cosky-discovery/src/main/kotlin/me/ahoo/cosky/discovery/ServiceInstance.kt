@@ -36,10 +36,10 @@ data class ServiceInstance(
             return ttlAt < nowTimeSeconds
         }
 
-
     companion object {
         @JvmField
-        val NOT_FOUND = ServiceInstance(delegate = InstanceData(serviceId = "", schema = "", host = "", port = 0))
+        val NOT_FOUND =
+            ServiceInstance(delegate = Instance.asInstance(serviceId = "", schema = "", host = "", port = 0))
     }
 
     override fun equals(other: Any?): Boolean {

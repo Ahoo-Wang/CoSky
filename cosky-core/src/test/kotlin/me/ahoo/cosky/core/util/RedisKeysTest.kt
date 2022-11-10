@@ -25,7 +25,6 @@ import org.junit.jupiter.api.Test
 class RedisKeysTest {
     @Test
     fun isCluster() {
-
     }
 
     @Test

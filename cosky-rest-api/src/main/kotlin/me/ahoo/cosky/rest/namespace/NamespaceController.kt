@@ -10,28 +10,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.rest.namespace
 
-package me.ahoo.cosky.rest.controller;
-
-import me.ahoo.cosky.core.NamespaceService;
-import me.ahoo.cosky.core.NamespacedContext;
-import me.ahoo.cosky.rest.security.annotation.AdminResource;
-import me.ahoo.cosky.rest.security.rbac.AuthorizeService;
-import me.ahoo.cosky.rest.security.rbac.RbacService;
-import me.ahoo.cosky.rest.security.user.User;
-import me.ahoo.cosky.rest.support.RequestPathPrefix;
-
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ServerWebExchange;
-import reactor.core.publisher.Mono;
-
-import java.util.List;
+import me.ahoo.cosky.core.NamespaceService
+import me.ahoo.cosky.core.NamespacedContext
+import me.ahoo.cosky.core.NamespacedContext.namespace
+import me.ahoo.cosky.rest.security.annotation.AdminResource
+import me.ahoo.cosky.rest.security.rbac.AuthorizeService
+import me.ahoo.cosky.rest.security.rbac.RbacService
+import me.ahoo.cosky.rest.support.RequestPathPrefix
+import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.server.ServerWebExchange
+import reactor.core.publisher.Mono
 
 /**
  * Namespace Controller.
@@ -41,45 +37,35 @@ import java.util.List;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.NAMESPACES_PREFIX)
-public class NamespaceController {
-    
-    private final NamespaceService namespaceService;
-    private final RbacService rbacService;
-    
-    public NamespaceController(NamespaceService namespaceService, RbacService rbacService) {
-        this.namespaceService = namespaceService;
-        this.rbacService = rbacService;
-    }
-    
+class NamespaceController(private val namespaceService: NamespaceService, private val rbacService: RbacService) {
     @GetMapping
-    public Mono<List<String>> getNamespaces(ServerWebExchange serverWebExchange) {
-        User user = AuthorizeService.getRequiredUserOfRequest(serverWebExchange);
-        if (user.isAdmin()) {
-            return namespaceService.getNamespaces().collectList();
-        }
-        return rbacService.getCurrentUserNamespace(user).collectList();
+    fun getNamespaces(serverWebExchange: ServerWebExchange): Mono<List<String>> {
+        val user = AuthorizeService.getRequiredUserOfRequest(serverWebExchange)
+        return if (user.isAdmin) {
+            namespaceService.namespaces.collectList()
+        } else rbacService.getCurrentUserNamespace(user).collectList()
     }
-    
+
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
-    public String current() {
-        return NamespacedContext.INSTANCE.getNamespace();
+    fun current(): String {
+        return namespace
     }
-    
+
     @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
-    public void setCurrentContextNamespace(@PathVariable String namespace) {
-        NamespacedContext.INSTANCE.setNamespace(namespace);
+    fun setCurrentContextNamespace(@PathVariable namespace: String) {
+        NamespacedContext.namespace = namespace
     }
-    
+
     @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
-    public Mono<Boolean> setNamespace(@PathVariable String namespace) {
-        return namespaceService.setNamespace(namespace);
+    fun setNamespace(@PathVariable namespace: String): Mono<Boolean> {
+        return namespaceService.setNamespace(namespace)
     }
-    
+
     @AdminResource
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
-    public Mono<Boolean> removeNamespace(@PathVariable String namespace) {
-        return namespaceService.removeNamespace(namespace);
+    fun removeNamespace(@PathVariable namespace: String): Mono<Boolean> {
+        return namespaceService.removeNamespace(namespace)
     }
 }

@@ -25,5 +25,4 @@ object ServiceInstanceContext : Namespaced {
     var serviceInstance: ServiceInstance = ServiceInstance.NOT_FOUND
     override val namespace: String
         get() = NamespacedContext.namespace
-
 }

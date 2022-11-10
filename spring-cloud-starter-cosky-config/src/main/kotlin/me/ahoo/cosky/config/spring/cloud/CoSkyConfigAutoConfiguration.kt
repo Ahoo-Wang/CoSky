@@ -12,28 +12,76 @@
  */
 package me.ahoo.cosky.config.spring.cloud
 
-import me.ahoo.cosky.config.ListenableConfigService
+import me.ahoo.cosky.config.ConfigEventListenerContainer
+import me.ahoo.cosky.config.redis.RedisConfigEventListenerContainer
+import me.ahoo.cosky.config.redis.RedisConfigService
+import me.ahoo.cosky.config.redis.RedisConsistencyConfigService
 import me.ahoo.cosky.config.spring.cloud.refresh.CoSkyConfigRefresher
+import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
+import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Primary
+import org.springframework.core.env.Environment
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
 /**
  * CoSky Config Auto Configuration.
  *
  * @author ahoo wang
  */
-@AutoConfiguration
+@AutoConfiguration(after = [CoSkyAutoConfiguration::class])
 @ConditionalOnCoSkyConfigEnabled
-class CoSkyConfigAutoConfiguration {
+@EnableConfigurationProperties(
+    CoSkyConfigProperties::class
+)
+class CoSkyConfigAutoConfiguration(
+    coSkyConfigProperties: CoSkyConfigProperties,
+    environment: Environment
+) {
+    init {
+        var configId = coSkyConfigProperties.configId
+        if (configId.isNullOrBlank()) {
+            configId = AppSupport.getAppName(environment) + "." + coSkyConfigProperties.fileExtension
+        }
+        coSkyConfigProperties.configId = configId
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun configEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): ConfigEventListenerContainer {
+        val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
+        return RedisConfigEventListenerContainer(listenerContainer)
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    fun redisConfigService(redisTemplate: ReactiveStringRedisTemplate): RedisConfigService {
+        return RedisConfigService(redisTemplate)
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    @Primary
+    fun consistencyRedisConfigService(
+        delegate: RedisConfigService,
+        configEventListenerContainer: ConfigEventListenerContainer
+    ): RedisConsistencyConfigService {
+        return RedisConsistencyConfigService(delegate, configEventListenerContainer)
+    }
+
     @Bean
     @ConditionalOnMissingBean
     fun coSkyConfigRefresher(
         coSkyProperties: CoSkyProperties,
         configProperties: CoSkyConfigProperties,
-        listenableConfigService: ListenableConfigService
+        configEventListenerContainer: ConfigEventListenerContainer
     ): CoSkyConfigRefresher {
-        return CoSkyConfigRefresher(coSkyProperties, configProperties, listenableConfigService)
+        return CoSkyConfigRefresher(coSkyProperties, configProperties, configEventListenerContainer)
     }
 }

@@ -14,15 +14,12 @@ package me.ahoo.cosky.spring.cloud
 
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.core.NamespacedContext
-
 import me.ahoo.cosky.core.redis.RedisNamespaceService
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
-import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
 /**
  * CoSky Auto Configuration.
@@ -31,9 +28,7 @@ import org.springframework.data.redis.listener.ReactiveRedisMessageListenerConta
  */
 @AutoConfiguration
 @ConditionalOnCoSkyEnabled
-@EnableConfigurationProperties(
-    CoSkyProperties::class
-)
+@EnableConfigurationProperties(CoSkyProperties::class)
 class CoSkyAutoConfiguration(coSkyProperties: CoSkyProperties) {
     init {
         NamespacedContext.namespace = coSkyProperties.namespace
@@ -43,11 +38,5 @@ class CoSkyAutoConfiguration(coSkyProperties: CoSkyProperties) {
     @ConditionalOnMissingBean
     fun namespaceService(redisTemplate: ReactiveStringRedisTemplate): NamespaceService {
         return RedisNamespaceService(redisTemplate)
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    fun reactiveRedisMessageListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): ReactiveRedisMessageListenerContainer {
-        return ReactiveRedisMessageListenerContainer(connectionFactory)
     }
 }

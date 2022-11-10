@@ -28,7 +28,7 @@ import org.springframework.core.io.support.SpringFactoriesLoader
 import java.util.*
 
 /**
- * Cosky Property Source Locator.
+ * CoSky Property Source Locator.
  *
  * @author ahoo wang
  */
@@ -54,7 +54,9 @@ class CoSkyPropertySourceLocator(
             fileExt = configProperties.fileExtension
         }
         val namespace = NamespacedContext.namespace
-        log.info("locate - configId:[{}] @ namespace:[{}]", configId, namespace)
+        if (log.isInfoEnabled) {
+            log.info("Locate - configId:[{}] @ namespace:[{}]", configId, namespace)
+        }
         val config = configService.getConfig(configId).block(configProperties.timeout)
         if (config == null) {
             log.warn(
@@ -111,5 +113,4 @@ class CoSkyPropertySourceLocator(
             propertySourceList
         )
     }
-
 }

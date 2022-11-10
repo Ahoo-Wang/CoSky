@@ -12,8 +12,7 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.registry
 
-import me.ahoo.cosky.discovery.Instance.Companion.asUri
-import me.ahoo.cosky.discovery.Instance.Companion.isSecure
+import me.ahoo.cosky.discovery.Instance
 import me.ahoo.cosky.discovery.ServiceInstance
 import org.springframework.cloud.client.serviceregistry.Registration
 import java.net.URI
@@ -23,33 +22,51 @@ import java.net.URI
  *
  * @author ahoo wang
  */
-class CoSkyRegistration(val delegate: ServiceInstance) : Registration {
-    override fun getServiceId(): String {
-        return delegate.serviceId
+data class CoSkyRegistration(
+    private val serviceId: String,
+    private var scheme: String,
+    private val host: String,
+    private var port: Int,
+    val weight: Int = 1,
+    val isEphemeral: Boolean = true,
+    private val metadata: MutableMap<String, String> = mutableMapOf()
+) : Registration {
+
+    fun asServiceInstance(): ServiceInstance {
+        val instance = Instance.asInstance(serviceId, scheme, host, port)
+        return ServiceInstance(
+            delegate = instance,
+            weight = weight,
+            isEphemeral = isEphemeral,
+            metadata = metadata
+        )
     }
 
-    override fun getHost(): String {
-        return delegate.host
-    }
+    override fun getServiceId(): String = serviceId
 
-    override fun getPort(): Int {
-        return delegate.port
-    }
+    override fun getHost(): String = host
+
+    override fun getPort(): Int = port
 
     fun setPort(port: Int) {
-        delegate.setPort(port)
+        this.port = port
     }
 
     override fun isSecure(): Boolean {
-        return delegate.isSecure
+        return Instance.isSecure(scheme)
     }
 
-    override fun getUri(): URI {
-        return delegate.asUri()
+    override fun getUri(): URI = Instance.asUri(scheme, host, port)
+
+    override fun getMetadata(): MutableMap<String, String> = metadata
+
+    override fun getScheme(): String = scheme
+
+    fun setSchema(scheme: String) {
+        this.scheme = scheme
     }
 
-    override fun getMetadata(): Map<String, String> {
-        return delegate.metadata
+    override fun getInstanceId(): String {
+        return Instance.asInstanceId(serviceId, scheme, host, port)
     }
-
 }

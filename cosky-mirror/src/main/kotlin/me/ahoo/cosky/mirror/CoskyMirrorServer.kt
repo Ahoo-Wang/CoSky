@@ -10,12 +10,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.mirror
 
-package me.ahoo.cosky.mirror;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.boot.SpringApplication
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.scheduling.annotation.EnableScheduling
 
 /**
  * Cosky Mirror Server.
@@ -24,10 +23,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  */
 @EnableScheduling
 @SpringBootApplication
-public class CoskyMirrorServer {
-    
-    public static void main(String[] args) {
-        SpringApplication.run(CoskyMirrorServer.class, args);
-    }
-    
+class CoskyMirrorServer
+
+fun main(args: Array<String>) {
+    SpringApplication.run(CoskyMirrorServer::class.java, *args)
 }

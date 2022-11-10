@@ -30,16 +30,6 @@ interface ServiceRegistry {
      * @param serviceInstance serviceInstance
      * @return If true, the registration succeeds, otherwise it fails
      */
-    fun register(serviceInstance: ServiceInstance): Mono<Boolean> {
-        return register(NamespacedContext.namespace, serviceInstance)
-    }
-
-    /**
-     * 注册实例.
-     *
-     * @param serviceInstance serviceInstance
-     * @return If true, the registration succeeds, otherwise it fails
-     */
     fun register(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
 
     /**
@@ -48,19 +38,9 @@ interface ServiceRegistry {
      * @param serviceInstance serviceInstance
      * @return If true, the renew succeeds, otherwise it fails
      */
-    fun renew(serviceInstance: ServiceInstance): Mono<Boolean> {
-        return renew(NamespacedContext.namespace, serviceInstance)
-    }
-
     fun renew(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
-    fun deregister(serviceInstance: ServiceInstance): Mono<Boolean> {
-        return deregister(NamespacedContext.namespace, serviceInstance)
-    }
 
-    fun deregister(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
-    fun deregister(serviceId: String, instanceId: String): Mono<Boolean> {
-        return deregister(NamespacedContext.namespace, serviceId, instanceId)
-    }
+    fun deregister(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
 
     fun deregister(
         namespace: String = NamespacedContext.namespace,
@@ -69,22 +49,14 @@ interface ServiceRegistry {
     ): Mono<Boolean>
 
     val registeredEphemeralInstances: Map<NamespacedInstanceId, ServiceInstance>
-    fun setMetadata(serviceId: String, instanceId: String, key: String, value: String): Mono<Boolean> {
-        return setMetadata(NamespacedContext.namespace, serviceId, instanceId, key, value)
-    }
 
     fun setMetadata(
-        namespace: String,
+        namespace: String = NamespacedContext.namespace,
         serviceId: String,
         instanceId: String,
         key: String,
         value: String
     ): Mono<Boolean>
-
-
-    fun setMetadata(serviceId: String, instanceId: String, metadata: Map<String, String>): Mono<Boolean> {
-        return setMetadata(NamespacedContext.namespace, serviceId, instanceId, metadata)
-    }
 
     fun setMetadata(
         namespace: String = NamespacedContext.namespace,

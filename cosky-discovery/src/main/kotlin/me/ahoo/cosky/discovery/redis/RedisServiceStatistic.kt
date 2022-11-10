@@ -12,21 +12,14 @@
  */
 package me.ahoo.cosky.discovery.redis
 
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdOfKey
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace
-import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getNamespaceOfKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
-import me.ahoo.cosky.discovery.Instance
-import me.ahoo.cosky.discovery.Instance.Companion.asInstance
-import me.ahoo.cosky.discovery.ServiceChangedEvent
-import me.ahoo.cosky.discovery.ServiceChangedEvent.Companion.asServiceChangedEvent
+import me.ahoo.cosky.discovery.InstanceChangedEvent
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
+import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
 import org.slf4j.LoggerFactory
-import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import org.springframework.data.redis.listener.PatternTopic
-import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -40,7 +33,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class RedisServiceStatistic(
     private val redisTemplate: ReactiveStringRedisTemplate,
-    private val listenerContainer: ReactiveRedisMessageListenerContainer
+    private val instanceEventListenerContainer: InstanceEventListenerContainer
 ) : ServiceStatistic {
     companion object {
         private val log = LoggerFactory.getLogger(RedisServiceStatistic::class.java)
@@ -49,8 +42,7 @@ class RedisServiceStatistic(
     private val listenedNamespaces = ConcurrentHashMap<String, Disposable>()
     private fun startListeningServiceInstancesOfNamespace(namespace: String) {
         listenedNamespaces.computeIfAbsent(namespace) {
-            val instancePattern = getInstanceKeyPatternOfNamespace(namespace)
-            listenerContainer.receive(PatternTopic.of(instancePattern))
+            instanceEventListenerContainer.listen(NamespacedServiceId(namespace, ""))
                 .doOnNext {
                     instanceChanged(it)
                 }
@@ -58,24 +50,14 @@ class RedisServiceStatistic(
         }
     }
 
-    private fun instanceChanged(message: ReactiveSubscription.PatternMessage<String, String, String>) {
+    private fun instanceChanged(event: InstanceChangedEvent) {
         if (log.isInfoEnabled) {
-            log.info(
-                "instanceChanged - pattern:[{}] - channel:[{}] - message:[{}]",
-                message.pattern,
-                message.channel,
-                message.message
-            )
+            log.info("instanceChanged - event:[{}]", event)
         }
-        if (ServiceChangedEvent.Event.RENEW == message.message.asServiceChangedEvent()) {
+        if (InstanceChangedEvent.Event.RENEW == event.event) {
             return
         }
-        val instanceKey = message.channel
-        val namespace = getNamespaceOfKey(instanceKey)
-        val instanceId = getInstanceIdOfKey(namespace, instanceKey)
-        val instance: Instance = instanceId.asInstance()
-        val serviceId = instance.serviceId
-        statService0(namespace, serviceId).subscribe()
+        statService0(event.namespacedServiceId.namespace, event.namespacedServiceId.serviceId).subscribe()
     }
 
     override fun statService(namespace: String): Mono<Void> {
@@ -98,7 +80,8 @@ class RedisServiceStatistic(
             listOf()
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_SERVICE_STAT, listOf(namespace),
+            DiscoveryRedisScripts.SCRIPT_SERVICE_STAT,
+            listOf(namespace),
             values
         ).then()
     }
@@ -123,30 +106,8 @@ class RedisServiceStatistic(
 
     override fun getInstanceCount(namespace: String): Mono<Long> {
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_INSTANCE_COUNT_STAT, listOf(namespace)
-        )
-            .next()
-    }
-
-    override fun getTopology(namespace: String): Mono<Map<String, Set<String>>> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
-        return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_SERVICE_TOPOLOGY_GET, listOf(namespace)
-        )
-            .map<Map<String, Set<String>>> { result: List<*> ->
-                val deps = result as List<Any>
-                val topology: MutableMap<String, Set<String>> = HashMap(deps.size)
-                var consumerName = ""
-                for (dep in deps) {
-                    if (dep is String) {
-                        consumerName = dep.toString()
-                    }
-                    if (dep is List<*>) {
-                        topology[consumerName] = HashSet(dep as List<String>)
-                    }
-                }
-                topology
-            }
-            .next()
+            DiscoveryRedisScripts.SCRIPT_INSTANCE_COUNT_STAT,
+            listOf(namespace)
+        ).next()
     }
 }

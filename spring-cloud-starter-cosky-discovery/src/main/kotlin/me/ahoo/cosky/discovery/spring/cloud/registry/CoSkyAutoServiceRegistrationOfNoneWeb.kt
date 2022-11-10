@@ -44,16 +44,14 @@ class CoSkyAutoServiceRegistrationOfNoneWeb(
             }
             return
         }
-        val serviceInstance = registration.delegate
-        if (serviceInstance.port == 0) {
+        if (registration.port == 0) {
             /**
              * use PID as port
              */
-            serviceInstance.setSchema("__")
-            serviceInstance.setPort(ProcessId.currentProcessId.toInt())
-            serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance))
+            registration.setSchema("__")
+            registration.port = ProcessId.currentProcessId.toInt()
         }
-        ServiceInstanceContext.serviceInstance = serviceInstance
+        ServiceInstanceContext.serviceInstance = registration.asServiceInstance()
         serviceRegistry.register(registration)
     }
 

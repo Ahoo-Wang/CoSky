@@ -12,9 +12,6 @@
  */
 package me.ahoo.cosky.core.util
 
-import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands
-import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
-
 /**
  * RedisKeys.
  *
@@ -24,19 +21,13 @@ object RedisKeys {
     private const val WRAP_LEFT = "{"
     private const val WRAP_RIGHT = "}"
 
-    fun isCluster(asyncCommands: RedisClusterAsyncCommands<String, String>): Boolean {
-        return asyncCommands is RedisAdvancedClusterAsyncCommands<*, *>
-    }
-
-    fun ofKey(asyncCommands: RedisClusterAsyncCommands<String, String>, key: String): String {
-        return ofKey(isCluster(asyncCommands), key)
-    }
-
     @JvmStatic
     fun ofKey(isCluster: Boolean, key: String): String {
         return if (!isCluster) {
             key
-        } else hashTag(key)
+        } else {
+            hashTag(key)
+        }
     }
 
     /**
@@ -77,6 +68,8 @@ object RedisKeys {
     fun hashTag(key: String): String {
         return if (hasWrap(key)) {
             key
-        } else wrap(key)
+        } else {
+            wrap(key)
+        }
     }
 }

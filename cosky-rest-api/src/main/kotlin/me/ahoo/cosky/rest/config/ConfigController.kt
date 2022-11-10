@@ -10,42 +10,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.rest.config
 
-package me.ahoo.cosky.rest.controller;
-
-import me.ahoo.cosky.config.Config;
-import me.ahoo.cosky.config.ConfigHistory;
-import me.ahoo.cosky.config.ConfigService;
-import me.ahoo.cosky.config.ConfigVersion;
-import me.ahoo.cosky.core.CoSky;
-import me.ahoo.cosky.core.CoSkyException;
-import me.ahoo.cosky.rest.dto.config.ImportResponse;
-import me.ahoo.cosky.rest.support.RequestPathPrefix;
-import me.ahoo.cosky.rest.util.Zips;
-
-import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
-import com.google.common.io.Files;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
-import reactor.core.publisher.Mono;
-
-import java.util.List;
+import com.google.common.io.Files
+import me.ahoo.cosky.config.Config
+import me.ahoo.cosky.config.ConfigHistory
+import me.ahoo.cosky.config.ConfigService
+import me.ahoo.cosky.config.ConfigVersion
+import me.ahoo.cosky.core.CoSky
+import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.util.Zips.ZipItem.Companion.of
+import me.ahoo.cosky.rest.util.Zips.unzip
+import me.ahoo.cosky.rest.util.Zips.zip
+import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
+import org.springframework.http.ResponseEntity
+import org.springframework.http.codec.multipart.FilePart
+import org.springframework.web.bind.annotation.CrossOrigin
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RequestPart
+import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
+import java.util.*
 
 /**
  * Config Controller.
@@ -55,127 +51,155 @@ import java.util.List;
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.CONFIGS_PREFIX)
-@Slf4j
-public class ConfigController {
-    
-    public static final String IMPORT_SUPPORT_EXT = "zip";
-    public static final String IMPORT_POLICY_SKIP = "skip";
-    public static final String IMPORT_POLICY_OVERWRITE = "overwrite";
-    public static final String NACOS_DEFAULT_GROUP = "DEFAULT_GROUP/";
-    private final ConfigService configService;
-    
-    public ConfigController(ConfigService configService) {
-        this.configService = configService;
+class ConfigController(private val configService: ConfigService) {
+
+    companion object {
+        private val log = LoggerFactory.getLogger(ConfigController::class.java)
+        const val IMPORT_SUPPORT_EXT = "zip"
+        const val IMPORT_POLICY_SKIP = "skip"
+        const val IMPORT_POLICY_OVERWRITE = "overwrite"
+        const val NACOS_DEFAULT_GROUP = "DEFAULT_GROUP/"
     }
-    
+
     @GetMapping
-    public Mono<List<String>> getConfigs(@PathVariable String namespace) {
-        return configService.getConfigs(namespace).collectList();
+    fun getConfigs(@PathVariable namespace: String): Mono<List<String>> {
+        return configService.getConfigs(namespace).collectList()
     }
-    
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Mono<ImportResponse> importZip(@PathVariable String namespace, @RequestParam(required = false) String policy, @RequestPart Mono<FilePart> importZip) {
-        if (Strings.isNullOrEmpty(policy)) {
-            policy = IMPORT_POLICY_SKIP;
-        }
-        final String importPolicy = policy;
-        ImportResponse importResponse = new ImportResponse();
+
+    @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
+    fun importZip(
+        @PathVariable namespace: String,
+        @RequestParam(required = false) policy: String?,
+        @RequestPart importZip: Mono<FilePart>
+    ): Mono<ImportResponse> {
+        val importPolicy = if (policy.isNullOrEmpty()) {
+            IMPORT_POLICY_SKIP
+        } else policy
+
+        val importResponse = ImportResponse()
         return importZip
-            .switchIfEmpty(Mono.error(new CoSkyException("importZip can not be empty!")))
-            .doOnNext(filePart -> {
-                String importFileExt = Files.getFileExtension(filePart.filename()).toLowerCase();
-                Preconditions.checkArgument(IMPORT_SUPPORT_EXT.equals(importFileExt), Strings.lenientFormat("Illegal file type:[%s],expect:[zip]!", importFileExt));
-            })
-            .flatMapMany(filePart -> filePart
-                .content()
-                .flatMapIterable(dataBuffer -> {
-                    List<Zips.ZipItem> zipItems = Zips.unzip(dataBuffer.asInputStream());
-                    importResponse.setTotal(zipItems.size());
-                    return zipItems;
-                })
-            )
-            .flatMap(zipItem -> {
-                String zipItemName = zipItem.getName();
+            .switchIfEmpty(Mono.error(IllegalArgumentException("importZip can not be empty!")))
+            .doOnNext {
+                val importFileExt = Files.getFileExtension(it.filename()).lowercase(Locale.getDefault())
+                require(IMPORT_SUPPORT_EXT == importFileExt) { "Illegal file type:[$importFileExt],expect:[zip]!" }
+            }
+            .flatMapMany { filePart ->
+                filePart
+                    .content()
+                    .flatMapIterable { dataBuffer ->
+                        val zipItems = unzip(dataBuffer.asInputStream())
+                        importResponse.total = zipItems.size
+                        zipItems
+                    }
+            }
+            .flatMap { zipItem ->
+                var zipItemName = zipItem.name
                 if (zipItemName.startsWith(NACOS_DEFAULT_GROUP)) {
-                    zipItemName = zipItemName.substring(NACOS_DEFAULT_GROUP.length());
+                    zipItemName = zipItemName.substring(NACOS_DEFAULT_GROUP.length)
                 }
                 if (zipItemName.contains("/")) {
-                    zipItemName = zipItemName.replaceAll("/", "-");
+                    zipItemName = zipItemName.replace("/".toRegex(), "-")
                 }
-                final String configId = zipItemName;
-                final String configData = zipItem.getData();
-                switch (importPolicy) {
-                    case IMPORT_POLICY_OVERWRITE: {
-                        return configService.setConfig(namespace, configId, configData);
+                val configId = zipItemName
+                val configData = zipItem.data
+                when (importPolicy) {
+                    IMPORT_POLICY_OVERWRITE -> {
+                        return@flatMap configService.setConfig(namespace, configId, configData)
                     }
-                    case IMPORT_POLICY_SKIP: {
-                        return configService.containsConfig(namespace, configId)
-                            .filter(contained -> {
+
+                    IMPORT_POLICY_SKIP -> {
+                        return@flatMap configService.containsConfig(namespace, configId)
+                            .filter { contained ->
                                 if (contained) {
-                                    if (log.isInfoEnabled()) {
-                                        log.info("importZip - Skip - [{}]@[{}] has contained.", configId, namespace);
+                                    if (log.isInfoEnabled) {
+                                        log.info("importZip - Skip - [{}]@[{}] has contained.", configId, namespace)
                                     }
                                 }
-                                return !contained;
-                            })
-                            .flatMap(contained -> configService.setConfig(namespace, configId, configData));
+                                !contained
+                            }
+                            .flatMap {
+                                configService.setConfig(
+                                    namespace, configId, configData
+                                )
+                            }
                     }
-                    default:
-                        return reactor.core.publisher.Flux.error(new IllegalStateException("Unexpected policy[skip,overwrite] value: " + importPolicy));
+
+                    else -> return@flatMap Flux.error<Boolean>(IllegalStateException("Unexpected policy[skip,overwrite] value: $importPolicy"))
                 }
-            })
-            .map(result -> result ? 1 : 0)
-            .reduce(Integer::sum)
-            .map(succeeded -> {
-                importResponse.setSucceeded(succeeded);
-                return importResponse;
-            })
-            .defaultIfEmpty(new ImportResponse());
+            }
+            .map { result -> if (result) 1 else 0 }
+            .reduce { a: Int, b: Int ->
+                Integer.sum(
+                    a, b
+                )
+            }
+            .map { succeeded ->
+                importResponse.succeeded = succeeded
+                importResponse
+            }
+            .defaultIfEmpty(ImportResponse())
     }
-    
+
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_EXPORT)
-    public Mono<ResponseEntity<byte[]>> exportZip(@PathVariable String namespace) {
+    fun exportZip(@PathVariable namespace: String): Mono<ResponseEntity<ByteArray>> {
         return configService.getConfigs(namespace)
-            .flatMap(cfg -> configService.getConfig(namespace, cfg))
-            .map(config -> Zips.ZipItem.of(config.getConfigId(), config.getData()))
+            .flatMap {
+                configService.getConfig(namespace, it)
+            }
+            .map { of(it.configId, it.data) }
             .collectList()
-            .map(zipItems -> {
-                HttpHeaders headers = new HttpHeaders();
-                String fileName = CoSky.COSKY + "_export_config_" + System.currentTimeMillis() / 1000 + ".zip";
-                headers.add("Content-Disposition", "attachment;filename=" + fileName);
-                headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-                return new ResponseEntity<>(Zips.zip(zipItems), headers, HttpStatus.OK);
-            });
+            .map {
+                val headers = HttpHeaders()
+                val fileName = CoSky.COSKY + "_export_config_" + System.currentTimeMillis() / 1000 + ".zip"
+                headers.add("Content-Disposition", "attachment;filename=$fileName")
+                headers.contentType = MediaType.APPLICATION_OCTET_STREAM
+                ResponseEntity(zip(it), headers, HttpStatus.OK)
+            }
     }
-    
+
     @PutMapping(RequestPathPrefix.CONFIGS_CONFIG)
-    public Mono<Boolean> setConfig(@PathVariable String namespace, @PathVariable String configId, @RequestBody String data) {
-        return configService.setConfig(namespace, configId, data);
+    fun setConfig(
+        @PathVariable namespace: String,
+        @PathVariable configId: String,
+        @RequestBody data: String
+    ): Mono<Boolean> {
+        return configService.setConfig(namespace, configId, data)
     }
-    
+
     @DeleteMapping(RequestPathPrefix.CONFIGS_CONFIG)
-    public Mono<Boolean> removeConfig(@PathVariable String namespace, @PathVariable String configId) {
-        return configService.removeConfig(namespace, configId);
+    fun removeConfig(@PathVariable namespace: String, @PathVariable configId: String): Mono<Boolean> {
+        return configService.removeConfig(namespace, configId)
     }
-    
+
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG)
-    public Mono<Config> getConfig(@PathVariable String namespace, @PathVariable String configId) {
-        return configService.getConfig(namespace, configId);
+    fun getConfig(@PathVariable namespace: String, @PathVariable configId: String): Mono<Config> {
+        return configService.getConfig(namespace, configId)
     }
-    
+
     @PutMapping(RequestPathPrefix.CONFIGS_CONFIG_TO)
-    public Mono<Boolean> rollback(@PathVariable String namespace, @PathVariable String configId, @PathVariable int targetVersion) {
-        return configService.rollback(namespace, configId, targetVersion);
+    fun rollback(
+        @PathVariable namespace: String,
+        @PathVariable configId: String,
+        @PathVariable targetVersion: Int
+    ): Mono<Boolean> {
+        return configService.rollback(namespace, configId, targetVersion)
     }
-    
+
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS)
-    public Mono<List<ConfigVersion>> getConfigVersions(@PathVariable String namespace, @PathVariable String configId) {
-        return configService.getConfigVersions(namespace, configId).collectList();
+    fun getConfigVersions(
+        @PathVariable namespace: String,
+        @PathVariable configId: String
+    ): Mono<List<ConfigVersion>> {
+        return configService.getConfigVersions(namespace, configId).collectList()
     }
-    
+
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS_VERSION)
-    public Mono<ConfigHistory> getConfigHistory(@PathVariable String namespace, @PathVariable String configId, @PathVariable int version) {
-        return configService.getConfigHistory(namespace, configId, version);
+    fun getConfigHistory(
+        @PathVariable namespace: String,
+        @PathVariable configId: String,
+        @PathVariable version: Int
+    ): Mono<ConfigHistory> {
+        return configService.getConfigHistory(namespace, configId, version)
     }
-    
+
 }

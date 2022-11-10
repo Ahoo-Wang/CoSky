@@ -37,7 +37,8 @@ class CoSkyDiscoveryClientConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun coSkyDiscoveryClient(
-        serviceDiscovery: ServiceDiscovery, coSkyDiscoveryProperties: CoSkyDiscoveryProperties
+        serviceDiscovery: ServiceDiscovery,
+        coSkyDiscoveryProperties: CoSkyDiscoveryProperties
     ): CoSkyDiscoveryClient {
         return CoSkyDiscoveryClient(serviceDiscovery, coSkyDiscoveryProperties)
     }

@@ -13,12 +13,8 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import me.ahoo.cosky.discovery.ServiceInstance
-import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.loadbalancer.ArrayWeightRandomLoadBalancer.ArrayChooser
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Test
 import java.util.*
-import java.util.concurrent.TimeUnit
 
 /**
  * @author ahoo wang
@@ -27,5 +23,4 @@ internal class ArrayChooserTest : ChooserSpec() {
     override fun createChooser(instances: List<ServiceInstance>): LoadBalancer.Chooser {
         return ArrayChooser(instances)
     }
-
 }

@@ -44,11 +44,10 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
                 .test()
                 .expectNextMatches {
                     assertThat(it, notNullValue())
-                    //TODO
+                    // TODO
                     true
 //                    assertThat(serviceIds, hasItem(it.serviceId))
                 }
-
         }
     }
 
@@ -78,7 +77,6 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
                 redisServiceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId).block()
             requireNotNull(actualInstance)
             assertThat(actualInstance, equalTo(instance))
-
         }
     }
 

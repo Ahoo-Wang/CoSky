@@ -17,7 +17,7 @@ package me.ahoo.cosky.discovery.spring.cloud.support
  *
  * @author ahoo wang
  */
-object StatusConstants{
+object StatusConstants {
     const val INSTANCE_STATUS_KEY = "instance_status"
     const val STATUS_UP = "UP"
     const val STATUS_OUT_OF_SERVICE = "OUT_OF_SERVICE"

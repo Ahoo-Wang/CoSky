@@ -15,30 +15,24 @@ package me.ahoo.cosky.discovery
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.core.redis.RedisNamespaceService
-import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
-import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.discovery.redis.RedisServiceTopology
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
-import reactor.test.StepVerifier
 import java.util.concurrent.ThreadLocalRandom
 
 /**
  * @author ahoo wang
  */
 class ServiceTopologyTest : AbstractReactiveRedisTest() {
-    private lateinit var serviceDiscovery: ConsistencyRedisServiceDiscovery
+    private lateinit var serviceTopology: ServiceTopology
     private lateinit var serviceRegistry: ServiceRegistry
     private lateinit var redisNamespaceService: NamespaceService
     override fun afterInitializedRedisClient() {
         serviceRegistry = RedisServiceRegistry(RegistryProperties(), redisTemplate)
-        serviceDiscovery =
-            ConsistencyRedisServiceDiscovery(RedisServiceDiscovery(redisTemplate), redisTemplate, listenerContainer)
+        serviceTopology = RedisServiceTopology(redisTemplate)
         redisNamespaceService = RedisNamespaceService(redisTemplate)
-
     }
 
     @Test
@@ -61,7 +55,7 @@ class ServiceTopologyTest : AbstractReactiveRedisTest() {
                     .test()
                     .expectNextCount(1)
                     .verifyComplete()
-                serviceDiscovery.addTopology(namespace, serviceId)
+                serviceTopology.addTopology(namespace, serviceId)
                     .test()
                     .verifyComplete()
             }

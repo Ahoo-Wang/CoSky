@@ -56,7 +56,8 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REGISTER,
-            listOf(namespace), values
+            listOf(namespace),
+            values
         ).next()
     }
 
@@ -67,7 +68,9 @@ class RedisServiceRegistry(
             log.info("setService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace)
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_SERVICE, listOf(namespace), listOf(serviceId)
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_SERVICE,
+            listOf(namespace),
+            listOf(serviceId)
         ).next()
     }
 
@@ -78,7 +81,9 @@ class RedisServiceRegistry(
             log.warn("removeService - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace)
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_REMOVE_SERVICE, listOf(namespace), listOf(serviceId)
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_REMOVE_SERVICE,
+            listOf(namespace),
+            listOf(serviceId)
         ).next()
     }
 
@@ -142,7 +147,8 @@ class RedisServiceRegistry(
             log.info("setMetadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace)
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA, listOf(namespace),
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA,
+            listOf(namespace),
             args
         )
             .next()
@@ -164,7 +170,8 @@ class RedisServiceRegistry(
             return Mono.just(java.lang.Boolean.FALSE)
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW, listOf(namespace),
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
+            listOf(namespace),
             listOf(serviceInstance.instanceId, registryProperties.instanceTtl.seconds.toString())
         )
             .flatMap { status ->
@@ -205,7 +212,8 @@ class RedisServiceRegistry(
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_DEREGISTER, listOf(namespace),
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_DEREGISTER,
+            listOf(namespace),
             listOf(serviceId, instanceId)
         ).next()
     }

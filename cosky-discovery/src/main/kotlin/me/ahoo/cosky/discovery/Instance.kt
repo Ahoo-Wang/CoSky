@@ -12,6 +12,8 @@
  */
 package me.ahoo.cosky.discovery
 
+import me.ahoo.cosky.discovery.Instance.Companion.asUri
+import me.ahoo.cosky.discovery.Instance.Companion.isSecure
 import java.net.URI
 
 /**
@@ -25,6 +27,8 @@ interface Instance {
     val schema: String
     val host: String
     val port: Int
+    val uri: URI
+    val isSecure: Boolean
 
     companion object {
         private val secureSchemas: Set<String> = setOf("https", "wss")
@@ -37,11 +41,14 @@ interface Instance {
          * @return URI of the form [schema]://[host]:[port]".
          */
         fun Instance.asUri(): URI {
+            return asUri(schema, host, port)
+        }
+
+        fun asUri(schema: String, host: String, port: Int): URI {
             return URI.create("$schema://$host:$port")
         }
 
-        val Instance.isSecure: Boolean
-            get() = secureSchemas.contains(schema)
+        fun isSecure(schema: String): Boolean = secureSchemas.contains(schema)
 
         /**
          * [Instance.serviceId]@[Instance.schema]#[Instance.host]#[Instance.port]}
@@ -49,6 +56,20 @@ interface Instance {
          */
         fun asInstanceId(serviceId: String, schema: String, host: String, port: Int): String {
             return "$serviceId$SERVICE_ID_DELIMITER$schema$HOST_DELIMITER$host$HOST_DELIMITER$port"
+        }
+
+        fun asInstance(serviceId: String, schema: String, host: String, port: Int): Instance {
+            return asInstance(serviceId, schema, host, port, asInstanceId(serviceId, schema, host, port))
+        }
+
+        fun asInstance(serviceId: String, schema: String, host: String, port: Int, instanceId: String): Instance {
+            return InstanceData(
+                serviceId = serviceId,
+                schema = schema,
+                host = host,
+                port = port,
+                instanceId = instanceId
+            )
         }
 
         fun String.asInstance(): Instance {
@@ -68,18 +89,18 @@ interface Instance {
             val schema = instanceSpits[0]
             val host = instanceSpits[1]
             val port = instanceSpits[2].toInt()
-            return InstanceData(serviceId, schema, host, port)
+            return asInstance(serviceId, schema, host, port)
         }
     }
 }
 
-internal data class InstanceData(
+private data class InstanceData(
     override val serviceId: String,
     override val schema: String,
     override val host: String,
     override val port: Int,
     override val instanceId: String
 ) : Instance {
-    constructor(serviceId: String, schema: String, host: String, port: Int) :
-            this(serviceId, schema, host, port, Instance.asInstanceId(serviceId, schema, host, port))
+    override val uri: URI by lazy { asUri() }
+    override val isSecure: Boolean by lazy { isSecure(schema) }
 }

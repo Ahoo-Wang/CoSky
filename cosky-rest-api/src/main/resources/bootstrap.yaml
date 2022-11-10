@@ -1,8 +1,4 @@
 spring:
-  redis:
-    sentinel:
-      master: mymaster
-      nodes: redis-sentinel:26379
   application:
     name: ${service.name:cosky-rest-api}
   cloud:

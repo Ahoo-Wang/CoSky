@@ -24,18 +24,19 @@ import kotlin.String
  */
 class CoSkyServiceRegistry(
     private val serviceRegistry: ServiceRegistry,
-    private val renewInstanceService: RenewInstanceService, private val coskyRegistryProperties: CoSkyRegistryProperties
+    private val renewInstanceService: RenewInstanceService,
+    private val coSkyRegistryProperties: CoSkyRegistryProperties
 ) : org.springframework.cloud.client.serviceregistry.ServiceRegistry<CoSkyRegistration> {
     override fun register(registration: CoSkyRegistration) {
-        val instance = registration.delegate
-        val succeeded = serviceRegistry.register(instance).block(coskyRegistryProperties.timeout)
+        val instance = registration.asServiceInstance()
+        val succeeded = serviceRegistry.register(serviceInstance = instance).block(coSkyRegistryProperties.timeout)
         check(succeeded == true) { "register instance failed! $instance" }
         renewInstanceService.start()
     }
 
     override fun deregister(registration: CoSkyRegistration) {
-        val instance = registration.delegate
-        val succeeded = serviceRegistry.deregister(instance).block(coskyRegistryProperties.timeout)
+        val instance = registration.asServiceInstance()
+        val succeeded = serviceRegistry.deregister(serviceInstance = instance).block(coSkyRegistryProperties.timeout)
         check(succeeded == true) { "deregister instance failed! $instance" }
     }
 
@@ -45,13 +46,18 @@ class CoSkyServiceRegistry(
 
     override fun setStatus(registration: CoSkyRegistration, status: String) {
         registration.metadata[StatusConstants.INSTANCE_STATUS_KEY] = status
-        val instance = registration.delegate
         serviceRegistry
-            .setMetadata(instance.serviceId, instance.instanceId, StatusConstants.INSTANCE_STATUS_KEY, status)
-            .block(coskyRegistryProperties.timeout)
+            .setMetadata(
+                serviceId = registration.serviceId,
+                instanceId = registration.instanceId,
+                key = StatusConstants.INSTANCE_STATUS_KEY,
+                value = status
+            )
+            .block(coSkyRegistryProperties.timeout)
     }
 
     override fun <T> getStatus(registration: CoSkyRegistration): T {
+        @Suppress("UNCHECKED_CAST")
         return registration.metadata[StatusConstants.INSTANCE_STATUS_KEY] as T
     }
 }

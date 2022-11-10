@@ -14,17 +14,15 @@ package me.ahoo.cosky.discovery.spring.cloud.registry
 
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewInstanceService
-import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceRegistry
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
-import me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyDiscoveryAutoConfiguration
-import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoSkyDiscoveryEnabled
+import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationAutoConfiguration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
+import org.springframework.cloud.commons.util.InetUtils
 import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
@@ -36,17 +34,11 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
  * @author ahoo wang
  */
 @AutoConfiguration(
-    before = [AutoServiceRegistrationAutoConfiguration::class],
-    after = [CoSkyDiscoveryAutoConfiguration::class]
+    before = [AutoServiceRegistrationAutoConfiguration::class]
 )
-@ConditionalOnCoSkyDiscoveryEnabled
+@ConditionalOnAutoRegistrationEnabled
 @EnableConfigurationProperties(
     CoSkyRegistryProperties::class
-)
-@ConditionalOnProperty(
-    value = ["spring.cloud.service-registry.auto-registration.enabled"],
-    matchIfMissing = true,
-    havingValue = "true"
 )
 class CoSkyAutoServiceRegistrationAutoConfiguration {
     @Bean
@@ -54,9 +46,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun registryProperties(
         coSkyRegistryProperties: CoSkyRegistryProperties
     ): RegistryProperties {
-        val registryProperties = RegistryProperties()
-        registryProperties.setInstanceTtl(coSkyRegistryProperties.ttl)
-        return registryProperties
+        return RegistryProperties(coSkyRegistryProperties.ttl)
     }
 
     @Bean
@@ -70,37 +60,36 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
 
     @Bean
     fun renewInstanceService(
-        coskyRegistryProperties: CoSkyRegistryProperties,
+        coSkyRegistryProperties: CoSkyRegistryProperties,
         redisServiceRegistry: RedisServiceRegistry
     ): RenewInstanceService {
-        return RenewInstanceService(coskyRegistryProperties.renew, redisServiceRegistry)
+        return RenewInstanceService(coSkyRegistryProperties.renew, redisServiceRegistry)
     }
 
     @Bean
     @Primary
     @ConditionalOnMissingBean(CoSkyRegistration::class)
-    fun coskyRegistration(
-        context: ApplicationContext, properties: CoSkyRegistryProperties
+    fun coSkyRegistration(
+        inetUtils: InetUtils,
+        context: ApplicationContext,
+        properties: CoSkyRegistryProperties
     ): CoSkyRegistration {
-        val serviceInstance = ServiceInstance()
-        serviceInstance.setMetadata(properties.metadata)
-        if (Strings.isNullOrEmpty(properties.serviceId)) {
-            val serviceId: String = AppSupport.getAppName(context.environment)
-            serviceInstance.setServiceId(serviceId)
-        } else {
-            serviceInstance.setServiceId(properties.serviceId)
+        val serviceId = properties.serviceId.ifEmpty {
+            AppSupport.getAppName(context.environment)
         }
-        if (!Strings.isNullOrEmpty(properties.schema)) {
-            serviceInstance.setSchema(properties.schema)
+        val host = properties.host.ifEmpty {
+            val hostInfo = inetUtils.findFirstNonLoopbackHostInfo()
+            hostInfo.ipAddress
         }
-        if (!Strings.isNullOrEmpty(properties.host)) {
-            serviceInstance.setHost(properties.host)
-        }
-        serviceInstance.setPort(properties.port)
-        serviceInstance.setWeight(properties.weight)
-        serviceInstance.setEphemeral(properties.isEphemeral)
-        serviceInstance.setInstanceId(InstanceIdGenerator.DEFAULT.generate(serviceInstance))
-        return CoSkyRegistration(serviceInstance)
+        return CoSkyRegistration(
+            serviceId = serviceId,
+            scheme = properties.schema,
+            host = host,
+            port = properties.port,
+            weight = properties.weight,
+            isEphemeral = properties.isEphemeral,
+            metadata = properties.metadata
+        )
     }
 
     @Bean

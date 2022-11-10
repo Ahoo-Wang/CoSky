@@ -12,9 +12,10 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
+import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
-import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
 import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
 
@@ -24,7 +25,8 @@ import java.util.concurrent.ConcurrentHashMap
  * @author ahoo wang
  */
 abstract class AbstractLoadBalancer<C : LoadBalancer.Chooser>(
-    private val serviceDiscovery: ConsistencyRedisServiceDiscovery
+    private val serviceDiscovery: ServiceDiscovery,
+    private val instanceEventListenerContainer: InstanceEventListenerContainer
 ) : LoadBalancer {
     private val serviceMapChooser: ConcurrentHashMap<NamespacedServiceId, Mono<C>> = ConcurrentHashMap()
 
@@ -33,7 +35,7 @@ abstract class AbstractLoadBalancer<C : LoadBalancer.Chooser>(
             namespacedServiceId
         ) { key: NamespacedServiceId ->
             @Suppress("CallingSubscribeInNonBlockingScope")
-            serviceDiscovery.listen(key)
+            instanceEventListenerContainer.listen(key)
                 .doOnNext {
                     @Suppress("ReactiveStreamsUnusedPublisher")
                     serviceMapChooser[key] = getCachedInstances(namespacedServiceId)

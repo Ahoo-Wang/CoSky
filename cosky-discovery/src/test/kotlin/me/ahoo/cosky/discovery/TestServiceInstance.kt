@@ -27,7 +27,7 @@ object TestServiceInstance {
 
     @JvmStatic
     fun createInstance(serviceId: String): ServiceInstance {
-        val instance = InstanceData(serviceId, "http", "127.0.0.1", ThreadLocalRandom.current().nextInt(65535))
+        val instance = Instance.asInstance(serviceId, "http", "127.0.0.1", ThreadLocalRandom.current().nextInt(65535))
         return ServiceInstance(instance, metadata = mapOf("from" to "test"))
     }
 
@@ -46,6 +46,5 @@ object TestServiceInstance {
         serviceRegistry.register(namespace, randomInstance).test().expectNext(true).verifyComplete()
         doTest(randomInstance)
         serviceRegistry.deregister(namespace, randomInstance).test().expectNext(true).verifyComplete()
-
     }
 }

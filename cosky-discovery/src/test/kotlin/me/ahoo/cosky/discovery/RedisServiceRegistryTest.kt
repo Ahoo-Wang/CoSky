@@ -31,7 +31,6 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
     }
 
-
     @Test
     fun setService() {
         serviceRegistry.setService(namespace, MockIdGenerator.INSTANCE.generateAsString())

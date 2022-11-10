@@ -29,8 +29,10 @@ val coreProjects = setOf(
     project(":cosky-discovery")
 )
 val restApiProject = project(":cosky-rest-api")
-val mirrorProject = project(":cosky-mirror")
-val serverProjects = setOf(restApiProject, mirrorProject)
+//TODO
+//val mirrorProject = project(":cosky-mirror")
+//val serverProjects = setOf(restApiProject, mirrorProject)
+val serverProjects = setOf(restApiProject)
 val exampleProjects = setOf(
     project(":cosky-service-provider"),
     project(":cosky-service-provider-api"),
@@ -211,7 +213,7 @@ configure(publishProjects) {
         }
     }
     configure<SigningExtension> {
-        val isInCI = null != System.getenv("CI");
+        val isInCI = null != System.getenv("CI")
         if (isInCI) {
             val signingKeyId = System.getenv("SIGNING_KEYID")
             val signingKey = System.getenv("SIGNING_SECRETKEY")
@@ -248,7 +250,7 @@ tasks.register<JacocoReport>("codeCoverageReport") {
     }
     reports {
         xml.required.set(true)
-        html.outputLocation.set(file("${buildDir}/reports/jacoco/report.xml"))
+        html.outputLocation.set(file("$buildDir/reports/jacoco/report.xml"))
         csv.required.set(false)
         html.required.set(true)
         html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/"))
