@@ -63,9 +63,9 @@
   <nz-form-item>
     <nz-form-label [nzSpan]="6" nzRequired>Is Ephemeral?</nz-form-label>
     <nz-form-control [nzSpan]="18">
-      <nz-switch formControlName="ephemeral" [(ngModel)]="instance.ephemeral"
+      <nz-switch formControlName="isEphemeral" [(ngModel)]="instance.isEphemeral"
                  nzUnCheckedChildren="fixed"
-                 nzCheckedChildren="ephemeral"></nz-switch>
+                 nzCheckedChildren="isEphemeral"></nz-switch>
     </nz-form-control>
   </nz-form-item>
   <nz-divider nzText="Metadata (JSON)"></nz-divider>

@@ -33,7 +33,7 @@ export class InstanceEditorService {
       editInstance = Instances.of();
       editInstance.schema = 'http';
       editInstance.serviceId = serviceId;
-      editInstance.ephemeral = true;
+      editInstance.isEphemeral = true;
     } else {
       editInstance = Clone.deep(instance);
     }

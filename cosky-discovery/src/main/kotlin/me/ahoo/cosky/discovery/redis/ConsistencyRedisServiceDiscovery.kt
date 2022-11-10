@@ -174,6 +174,8 @@ class ConsistencyRedisServiceDiscovery(
                     return@flatMap delegate
                         .getInstance(namespace, serviceId, instanceId)
                         .doOnNext { registeredInstance: ServiceInstance ->
+                            // TODO remove first
+                            cachedInstances.remove(cachedInstance)
                             cachedInstances.add(registeredInstance)
                         }
                 }
@@ -190,6 +192,7 @@ class ConsistencyRedisServiceDiscovery(
                         .getInstanceTtl(namespace, serviceId, instanceId)
                         .doOnNext { ttlAt ->
                             // TODO remove first
+                            cachedInstances.remove(cachedInstance)
                             cachedInstances.add(cachedInstance.copy(ttlAt = ttlAt))
                         }
                 }
@@ -205,6 +208,8 @@ class ConsistencyRedisServiceDiscovery(
                     return@flatMap delegate
                         .getInstance(namespace, serviceId, instanceId)
                         .doOnNext { updatedInstance ->
+                            // TODO remove first
+                            cachedInstances.remove(cachedInstance)
                             cachedInstances.add(updatedInstance)
                         }
                 }

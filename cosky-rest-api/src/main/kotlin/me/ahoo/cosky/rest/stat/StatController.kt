@@ -59,11 +59,12 @@ class StatController(
                 val services = GetStatResponse.Services()
                 val serviceStats = it.t3
                 services.total = serviceStats.size
+
                 services.health =
                     serviceStats.count { (_, instanceCount) -> instanceCount > 0 }
                 statResponse.services = services
                 val instances = serviceStats.map(ServiceStat::instanceCount)
-                    .reduce { a, b -> Integer.sum(a, b) }
+                    .reduceOrNull { acc, i -> acc + i } ?: 0
                 statResponse.instances = instances
                 statResponse
             }

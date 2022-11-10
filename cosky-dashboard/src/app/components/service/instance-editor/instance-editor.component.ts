@@ -48,7 +48,7 @@ export class InstanceEditorComponent implements OnInit {
       host: [this.instance.host, [Validators.required]],
       port: [this.instance.port, [Validators.required]],
       weight: [this.instance.weight, [Validators.required]],
-      ephemeral: [this.instance.ephemeral, [Validators.required]],
+      isEphemeral: [this.instance.isEphemeral, [Validators.required]],
       metadata: [this.metadata]
     });
   }

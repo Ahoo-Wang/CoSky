@@ -18,7 +18,6 @@ import me.ahoo.cosky.core.util.RedisKeys.hasWrap
 import me.ahoo.cosky.core.util.RedisKeys.ofKey
 import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
 
 /**
  * Cosky Properties.
