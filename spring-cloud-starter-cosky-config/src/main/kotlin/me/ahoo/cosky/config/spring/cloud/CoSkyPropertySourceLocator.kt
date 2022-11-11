@@ -108,9 +108,6 @@ class CoSkyPropertySourceLocator(
                 return propertySource.source as Map<String, Any>
             }
         }
-        return Collections.singletonMap<String, Any>(
-            getNameOfConfigId(configId),
-            propertySourceList
-        )
+        return mapOf(getNameOfConfigId(configId) to propertySourceList)
     }
 }

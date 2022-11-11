@@ -23,6 +23,7 @@ import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
 import org.springframework.context.ApplicationListener
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * CoSky Config Refresher.
@@ -35,6 +36,7 @@ class CoSkyConfigRefresher(
     private val configEventListenerContainer: ConfigEventListenerContainer
 ) : ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware {
     private lateinit var applicationContext: ApplicationContext
+    private val ready = AtomicBoolean(false)
 
     @Throws(BeansException::class)
     override fun setApplicationContext(applicationContext: ApplicationContext) {
@@ -42,6 +44,9 @@ class CoSkyConfigRefresher(
     }
 
     override fun onApplicationEvent(event: ApplicationReadyEvent) {
+        if (!ready.compareAndSet(false, true)) {
+            return
+        }
         configEventListenerContainer.listen(
             NamespacedConfigId(
                 coSkyProperties.namespace,
