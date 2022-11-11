@@ -1,6 +1,7 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withWeight
 import me.ahoo.cosky.discovery.TestServiceInstance
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.*
@@ -24,9 +25,9 @@ abstract class ChooserSpec {
         val instance1Weight = 2
         val instance2Weight = 3
         val instance3Weight = 5
-        val instance1 = TestServiceInstance.createInstance(serviceId).copy(weight = instance1Weight)
-        val instance2 = TestServiceInstance.createInstance(serviceId).copy(weight = instance2Weight)
-        val instance3 = TestServiceInstance.createInstance(serviceId).copy(weight = instance3Weight)
+        val instance1 = TestServiceInstance.createInstance(serviceId).withWeight(weight = instance1Weight)
+        val instance2 = TestServiceInstance.createInstance(serviceId).withWeight(weight = instance2Weight)
+        val instance3 = TestServiceInstance.createInstance(serviceId).withWeight(weight = instance3Weight)
         val instance1ExpectedHits = totalTimes * instance1Weight / totalWeight
         val instance2ExpectedHits = totalTimes * instance2Weight / totalWeight
         val instance3ExpectedHits = totalTimes * instance3Weight / totalWeight

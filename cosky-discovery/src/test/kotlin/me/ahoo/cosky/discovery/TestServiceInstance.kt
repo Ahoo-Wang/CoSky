@@ -13,6 +13,8 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
 import reactor.kotlin.test.test
 import java.util.concurrent.ThreadLocalRandom
 
@@ -28,12 +30,12 @@ object TestServiceInstance {
     @JvmStatic
     fun createInstance(serviceId: String): ServiceInstance {
         val instance = Instance.asInstance(serviceId, "http", "127.0.0.1", ThreadLocalRandom.current().nextInt(65535))
-        return ServiceInstance(instance, metadata = mapOf("from" to "test"))
+        return instance.asServiceInstance(metadata = mapOf("from" to "test"))
     }
 
     @JvmStatic
     fun randomFixedInstance(): ServiceInstance {
-        return randomInstance().copy(isEphemeral = false)
+        return randomInstance().withIsEphemeral(isEphemeral = false)
     }
 
     @JvmStatic

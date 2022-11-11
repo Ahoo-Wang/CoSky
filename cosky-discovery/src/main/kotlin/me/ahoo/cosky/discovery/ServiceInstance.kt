@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.discovery
 
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.TTL_AT_FOREVER
 import java.util.concurrent.TimeUnit
 
 /**
@@ -19,14 +20,16 @@ import java.util.concurrent.TimeUnit
  *
  * @author ahoo wang
  */
-data class ServiceInstance(
-    val delegate: Instance,
-    val weight: Int = 1,
-    val isEphemeral: Boolean = true,
-    val ttlAt: Long = TTL_AT_FOREVER,
-    val metadata: Map<String, String> = mapOf()
-) : Instance by delegate {
+interface ServiceInstance : Instance {
 
+    val weight: Int
+        get() = 1
+    val isEphemeral: Boolean
+        get() = true
+    val ttlAt: Long
+        get() = TTL_AT_FOREVER
+    val metadata: Map<String, String>
+        get() = mapOf()
     val isExpired: Boolean
         get() {
             if (!isEphemeral) {
@@ -37,16 +40,70 @@ data class ServiceInstance(
         }
 
     companion object {
-        @JvmField
-        val NOT_FOUND =
-            ServiceInstance(delegate = Instance.asInstance(serviceId = "", schema = "", host = "", port = 0))
+        val NOT_FOUND: ServiceInstance =
+            ServiceInstanceData(delegate = Instance.asInstance(serviceId = "", schema = "", host = "", port = 0))
 
         const val TTL_AT_FOREVER = -1L
+
+        fun Instance.asServiceInstance(
+            weight: Int = 1,
+            isEphemeral: Boolean = true,
+            ttlAt: Long = TTL_AT_FOREVER,
+            metadata: Map<String, String> = mapOf()
+        ): ServiceInstance {
+            return ServiceInstanceData(
+                delegate = if (this is ServiceInstanceData) this.delegate else this,
+                weight = weight,
+                isEphemeral = isEphemeral,
+                ttlAt = ttlAt,
+                metadata = metadata
+            )
+        }
+
+        fun ServiceInstance.withTtlAt(ttlAt: Long): ServiceInstance {
+            return asServiceInstance(
+                weight = weight,
+                isEphemeral = isEphemeral,
+                ttlAt = ttlAt,
+                metadata = metadata
+            )
+        }
+
+        fun ServiceInstance.withWeight(
+            weight: Int
+        ): ServiceInstance {
+            return asServiceInstance(
+                weight = weight,
+                isEphemeral = isEphemeral,
+                ttlAt = ttlAt,
+                metadata = metadata
+            )
+        }
+
+        fun ServiceInstance.withIsEphemeral(
+            isEphemeral: Boolean
+        ): ServiceInstance {
+            return asServiceInstance(
+                weight = weight,
+                isEphemeral = isEphemeral,
+                ttlAt = ttlAt,
+                metadata = metadata
+            )
+        }
     }
+}
+
+private data class ServiceInstanceData(
+    val delegate: Instance,
+    override val weight: Int = 1,
+    override val isEphemeral: Boolean = true,
+    override val ttlAt: Long = TTL_AT_FOREVER,
+    override val metadata: Map<String, String> = mapOf()
+) : ServiceInstance, Instance by delegate {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other !is ServiceInstance) return false
+        if (other !is ServiceInstanceData) return false
 
         if (delegate != other.delegate) return false
 

@@ -2,6 +2,7 @@ package me.ahoo.cosky.rest.service
 
 import me.ahoo.cosky.discovery.Instance
 import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 
 data class InstanceDto(
     val schema: String,
@@ -13,7 +14,7 @@ data class InstanceDto(
     val metadata: Map<String, String> = mapOf()
 ) {
     fun asServiceInstance(serviceId: String): ServiceInstance {
-        val instance = Instance.asInstance(serviceId, schema, host, port)
-        return ServiceInstance(instance, weight, isEphemeral, ttlAt, metadata)
+        return Instance.asInstance(serviceId, schema, host, port)
+            .asServiceInstance(weight, isEphemeral, ttlAt, metadata)
     }
 }

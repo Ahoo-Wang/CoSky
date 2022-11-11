@@ -112,12 +112,18 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
 
         redisServiceDiscovery.getInstance(namespace, fixedInstance.serviceId, fixedInstance.instanceId)
             .test()
-            .expectNext(fixedInstance)
+            .expectNextMatches {
+                assertThat(it, equalTo(fixedInstance))
+                true
+            }
             .verifyComplete()
 
         redisServiceDiscovery.getInstances(namespace, fixedInstance.serviceId)
             .test()
-            .expectNext(fixedInstance)
+            .expectNextMatches {
+                assertThat(it, equalTo(fixedInstance))
+                true
+            }
             .verifyComplete()
 
         redisServiceDiscovery.getInstanceTtl(namespace, fixedInstance.serviceId, fixedInstance.instanceId)

@@ -63,7 +63,6 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
     open fun containsConfig() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         val testConfigId = MockIdGenerator.INSTANCE.generateAsString()
-        val getConfigData = "getConfigData"
         configService.containsConfig(namespace, testConfigId)
             .test()
             .expectNext(false)

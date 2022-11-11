@@ -14,6 +14,7 @@ package me.ahoo.cosky.discovery.spring.cloud.registry
 
 import me.ahoo.cosky.discovery.Instance
 import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import org.springframework.cloud.client.serviceregistry.Registration
 import java.net.URI
 
@@ -33,13 +34,12 @@ data class CoSkyRegistration(
 ) : Registration {
 
     fun asServiceInstance(): ServiceInstance {
-        val instance = Instance.asInstance(serviceId, scheme, host, port)
-        return ServiceInstance(
-            delegate = instance,
-            weight = weight,
-            isEphemeral = isEphemeral,
-            metadata = metadata
-        )
+        return Instance.asInstance(serviceId, scheme, host, port)
+            .asServiceInstance(
+                weight = weight,
+                isEphemeral = isEphemeral,
+                metadata = metadata
+            )
     }
 
     override fun getServiceId(): String = serviceId

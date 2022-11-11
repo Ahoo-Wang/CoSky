@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.TTL_AT_FOREVER
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 
 /**
  * Service Instance Codec.
@@ -128,8 +129,7 @@ object ServiceInstanceCodec {
         if (isEphemeral) {
             requireNotNull(ttlAt) { "ttlAt is null" }
         }
-        return ServiceInstance(
-            delegate = instance,
+        return instance.asServiceInstance(
             weight = weight,
             isEphemeral = isEphemeral,
             ttlAt = ttlAt ?: TTL_AT_FOREVER,

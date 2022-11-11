@@ -18,6 +18,7 @@ import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withTtlAt
 import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -182,8 +183,6 @@ class ConsistencyRedisServiceDiscovery(
                     return@flatMap delegate
                         .getInstance(namespace, serviceId, instanceId)
                         .doOnNext { registeredInstance: ServiceInstance ->
-
-                            // TODO remove first
                             cachedInstances.remove(cachedInstance)
                             cachedInstances.add(registeredInstance)
                         }
@@ -202,7 +201,7 @@ class ConsistencyRedisServiceDiscovery(
                         .doOnNext { ttlAt ->
                             // TODO remove first
                             cachedInstances.remove(cachedInstance)
-                            cachedInstances.add(cachedInstance.copy(ttlAt = ttlAt))
+                            cachedInstances.add(cachedInstance.withTtlAt(ttlAt = ttlAt))
                         }
                 }
 
@@ -217,7 +216,6 @@ class ConsistencyRedisServiceDiscovery(
                     return@flatMap delegate
                         .getInstance(namespace, serviceId, instanceId)
                         .doOnNext { updatedInstance ->
-                            // TODO remove first
                             cachedInstances.remove(cachedInstance)
                             cachedInstances.add(updatedInstance)
                         }
