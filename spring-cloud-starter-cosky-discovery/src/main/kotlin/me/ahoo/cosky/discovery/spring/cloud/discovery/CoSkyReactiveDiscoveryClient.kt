@@ -36,11 +36,11 @@ class CoSkyReactiveDiscoveryClient(serviceDiscovery: ServiceDiscovery) : Reactiv
     }
 
     override fun getInstances(serviceId: String): Flux<ServiceInstance> {
-        return serviceDiscovery.getInstances(serviceId)
+        return serviceDiscovery.getInstances(serviceId = serviceId)
             .map {
                 CoSkyServiceInstance(it)
             }
     }
 
-    override fun getServices(): Flux<String> = serviceDiscovery.services
+    override fun getServices(): Flux<String> = serviceDiscovery.getServices()
 }

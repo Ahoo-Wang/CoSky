@@ -10,15 +10,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package me.ahoo.cosky.examples.service.provider;
+package me.ahoo.cosky.examples.service.provider
 
 /**
  * Constants.
  *
  * @author ahoo wang
  */
-public final class Constants {
-    public static final String SERVICE_NAME = "example-provider";
-    public static final String SERVICE_NAME_PREFIX = SERVICE_NAME + ".";
+object Constants {
+    const val SERVICE_NAME = "example-provider"
+    const val SERVICE_NAME_PREFIX = SERVICE_NAME + "."
 }

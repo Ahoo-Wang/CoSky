@@ -10,48 +10,49 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.config
 
-package me.ahoo.cosky.config;
-
-import me.ahoo.cosid.test.MockIdGenerator;
-import me.ahoo.cosky.config.redis.RedisConsistencyConfigService;
-import me.ahoo.cosky.config.redis.RedisConfigService;
-import me.ahoo.cosky.test.AbstractReactiveRedisTest;
-
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
+import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.config.redis.RedisConfigEventListenerContainer
+import me.ahoo.cosky.config.redis.RedisConfigService
+import me.ahoo.cosky.config.redis.RedisConsistencyConfigService
+import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class ConsistencyRedisConfigServiceBenchmark extends AbstractReactiveRedisTest {
-    public ConfigService configService;
-    private static final String CONFIG_ID = MockIdGenerator.INSTANCE.generateAsString();
-    
+open class ConsistencyRedisConfigServiceBenchmark : AbstractReactiveRedisTest() {
+    private lateinit var configService: ConfigService
+
     @Setup
-    public void afterPropertiesSet() {
-        super.afterPropertiesSet();
-        RedisConfigService redisConfigService = new RedisConfigService(redisTemplate);
-        redisConfigService.setConfig(TestData.NAMESPACE, CONFIG_ID, TestData.DATA).block();
-        configService = new RedisConsistencyConfigService(redisConfigService, listenerContainer);
+    override fun afterPropertiesSet() {
+        super.afterPropertiesSet()
+        val redisConfigService = RedisConfigService(redisTemplate)
+        redisConfigService.setConfig(TestData.NAMESPACE, CONFIG_ID, TestData.DATA).block()
+        val configEventListenerContainer =
+            RedisConfigEventListenerContainer(ReactiveRedisMessageListenerContainer(connectionFactory))
+        configService = RedisConsistencyConfigService(redisConfigService, configEventListenerContainer)
     }
-    
-    @Override
-    protected boolean getEnableShare() {
-        return true;
-    }
-    
+
+    override val enableShare: Boolean
+        get() = true
+
     @TearDown
-    public void destroy() {
-        super.destroy();
+    override fun destroy() {
+        super.destroy()
     }
-    
+
     @Benchmark
-    public Config getConfig() {
-        return configService.getConfig(TestData.NAMESPACE, CONFIG_ID).block();
+    fun getConfig() = configService.getConfig(TestData.NAMESPACE, CONFIG_ID).block()!!
+
+    companion object {
+        private val CONFIG_ID = MockIdGenerator.INSTANCE.generateAsString()
     }
 }

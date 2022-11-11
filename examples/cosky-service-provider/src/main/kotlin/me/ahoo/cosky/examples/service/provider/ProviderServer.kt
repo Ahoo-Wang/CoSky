@@ -10,11 +10,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.examples.service.provider
 
-package me.ahoo.cosky.examples.service.provider;
-
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.SpringApplication
+import org.springframework.boot.autoconfigure.SpringBootApplication
 
 /**
  * Provider Server.
@@ -22,8 +21,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * @author ahoo wang
  */
 @SpringBootApplication
-public class ProviderServer {
-    public static void main(String[] args) {
-        SpringApplication.run(ProviderServer.class, args);
-    }
+class ProviderServer
+fun main(args: Array<String>) {
+    SpringApplication.run(ProviderServer::class.java, *args)
 }

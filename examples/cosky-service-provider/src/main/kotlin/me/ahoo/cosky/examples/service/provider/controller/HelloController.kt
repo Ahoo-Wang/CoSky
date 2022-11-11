@@ -10,13 +10,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.examples.service.provider.controller
 
-package me.ahoo.cosky.examples.service.provider.controller;
-
-import me.ahoo.cosky.examples.service.provider.api.HelloApi;
-
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import me.ahoo.cosky.examples.service.provider.api.HelloApi
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
 
 /**
  * Hello Controller.
@@ -25,10 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping(HelloApi.PATH)
-public class HelloController implements HelloApi {
-    
-    @Override
-    public String hi(String name) {
-        return "hello " + name;
+class HelloController : HelloApi {
+    override fun hi(name: String): String {
+        return "hello $name"
     }
 }

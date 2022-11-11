@@ -10,37 +10,38 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.examples.service.consumer
 
-package me.ahoo.cosky.examples.service.consumer;
-
-import me.ahoo.cosky.examples.service.provider.client.HelloClient;
-
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.cloud.openfeign.EnableFeignClients;
+import me.ahoo.cosky.examples.service.provider.client.HelloClient
+import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.CommandLineRunner
+import org.springframework.boot.SpringApplication
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.cloud.openfeign.EnableFeignClients
 
 /**
  * Consumer Server.
  *
  * @author ahoo wang
  */
-@Slf4j
 @SpringBootApplication
-@EnableFeignClients(basePackages = {"me.ahoo.cosky.examples.service.provider.client"})
-public class ConsumerServer implements CommandLineRunner {
-    public static void main(String[] args) {
-        SpringApplication.run(ConsumerServer.class, args);
-    }
-    
+@EnableFeignClients(basePackages = ["me.ahoo.cosky.examples.service.provider.client"])
+class ConsumerServer : CommandLineRunner {
     @Autowired
-    private HelloClient helloClient;
+    private lateinit var helloClient: HelloClient
 
-    @Override
-    public void run(String... args) throws Exception {
-        String rpcResponse = helloClient.hi("consumer");
-        log.warn(rpcResponse);
+    @Throws(Exception::class)
+    override fun run(vararg args: String) {
+        val rpcResponse = helloClient.hi("consumer")
+        log.warn(rpcResponse)
     }
+
+    companion object {
+        private val log = LoggerFactory.getLogger(ConsumerServer::class.java)
+    }
+}
+
+fun main(args: Array<String>) {
+    SpringApplication.run(ConsumerServer::class.java, *args)
 }

@@ -23,14 +23,8 @@ import reactor.core.publisher.Mono
  */
 interface ConfigService : ConfigRollback {
     fun getConfigs(namespace: String = NamespacedContext.namespace): Flux<String>
-    fun getConfig(configId: String): Mono<Config> {
-        return getConfig(NamespacedContext.namespace, configId)
-    }
-
     fun getConfig(namespace: String = NamespacedContext.namespace, configId: String): Mono<Config>
-
     fun setConfig(namespace: String = NamespacedContext.namespace, configId: String, data: String): Mono<Boolean>
-
     fun removeConfig(namespace: String = NamespacedContext.namespace, configId: String): Mono<Boolean>
     fun containsConfig(namespace: String = NamespacedContext.namespace, configId: String): Mono<Boolean>
 }

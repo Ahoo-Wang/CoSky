@@ -26,7 +26,7 @@ import java.net.URI
  * @author ahoo wang
  */
 @Controller
-class DashboardConfig {
+class DashboardConfiguration {
     @GetMapping(
         *["/",
             RequestPathPrefix.DASHBOARD,

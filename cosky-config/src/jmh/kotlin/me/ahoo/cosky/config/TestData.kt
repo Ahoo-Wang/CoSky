@@ -1,29 +1,39 @@
-package me.ahoo.cosky.config;
+package me.ahoo.cosky.config
 
 /**
  * ConfigData .
  *
  * @author ahoo wang
  */
-public class TestData {
-    private TestData() {
-    }
-    
-    public static final String NAMESPACE = "ben_cfg";
-    
-    public static final String DATA = "spring:\n" +
-        "  application:\n" +
-        "    name: ${service.name:cosky-rest-api}\n" +
-        "  cloud:\n" +
-        "    cosky:\n" +
-        "      namespace: ${cosky.namespace:cosky-{system}}\n" +
-        "      config:\n" +
-        "        config-id: ${spring.application.name}.yaml\n" +
-        "    service-registry:\n" +
-        "      auto-registration:\n" +
-        "        enabled: ${cosky.auto-registry:true}\n" +
-        "logging:\n" +
-        "  file:\n" +
-        "    name: logs/${spring.application.name}.log\n" +
-        "\n";
+object TestData {
+    const val NAMESPACE = "ben_cfg"
+    const val DATA = """
+        spring:
+          cloud:
+            cosky:
+              discovery:
+                registry:
+                  weight: 8
+          web:
+            resources:
+              static-locations: file:./cosky-dashboard/dist/dashboard/
+          webflux:
+            static-path-pattern: /dashboard/**
+        cosky:
+          security:
+            enabled: true
+            audit-log:
+              action: write
+        cosid:
+          namespace: cosky
+          machine:
+            enabled: true
+            distributor:
+              type: redis
+          snowflake:
+            enabled: true
+            share:
+              converter:
+                type: radix
+    """
 }

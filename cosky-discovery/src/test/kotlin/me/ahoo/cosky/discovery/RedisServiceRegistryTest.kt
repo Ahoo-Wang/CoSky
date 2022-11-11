@@ -15,6 +15,7 @@ package me.ahoo.cosky.discovery
 import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.discovery.TestServiceInstance.randomFixedInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
+import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import org.junit.jupiter.api.Test
@@ -26,9 +27,11 @@ import java.time.Duration
  */
 class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     private lateinit var serviceRegistry: RedisServiceRegistry
+    private lateinit var serviceDiscovery: ServiceDiscovery
     override fun afterInitializedRedisClient() {
         val registryProperties = RegistryProperties(Duration.ofSeconds(10))
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
+        serviceDiscovery = RedisServiceDiscovery(redisTemplate)
     }
 
     @Test
@@ -40,10 +43,55 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     }
 
     @Test
+    fun removeService() {
+        val serviceId = MockIdGenerator.INSTANCE.generateAsString()
+        serviceRegistry.setService(namespace, serviceId)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        serviceRegistry.removeService(namespace, serviceId)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+    }
+
+    @Test
     fun register() {
         serviceRegistry.register(namespace, randomInstance())
             .test()
             .expectNext(true)
+            .verifyComplete()
+    }
+
+    @Test
+    fun setMetadata() {
+        val instance = randomInstance()
+        serviceRegistry.setMetadata(
+            namespace, instance.serviceId, instanceId = instance.instanceId,
+            "test", "test"
+        )
+            .test()
+            .expectNext(false)
+            .verifyComplete()
+
+        serviceRegistry.register(namespace, instance)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        serviceRegistry.setMetadata(
+            namespace, instance.serviceId, instanceId = instance.instanceId,
+            mapOf("test" to "testV")
+        )
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
+            .test()
+            .expectNextMatches {
+                it.metadata["test"] == "testV"
+            }
             .verifyComplete()
     }
 
@@ -82,7 +130,7 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
-        serviceRegistry.deregister(namespace, testInstance)
+        serviceRegistry.deregister(namespace, testInstance.serviceId, testInstance.instanceId)
             .test()
             .expectNext(true)
             .verifyComplete()

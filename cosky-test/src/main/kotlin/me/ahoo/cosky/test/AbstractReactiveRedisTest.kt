@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.test
 
-import io.lettuce.core.resource.ClientResources
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.springframework.beans.factory.DisposableBean
@@ -29,9 +28,6 @@ import reactor.core.publisher.Hooks
  * @author ahoo wang
  */
 abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
-    companion object {
-        val SHARE: ClientResources = ClientResources.builder().build()
-    }
 
     protected lateinit var connectionFactory: LettuceConnectionFactory
     protected lateinit var redisTemplate: ReactiveStringRedisTemplate
@@ -41,10 +37,9 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
         if (enableOperatorDebug) {
             Hooks.onOperatorDebug()
         }
-        val clientResources = if (enableShare) SHARE else ClientResources.builder().build()
+
         val lettuceClientConfiguration = LettuceClientConfiguration
             .builder()
-            .clientResources(clientResources)
             .build()
         val redisConfig = RedisStandaloneConfiguration()
         connectionFactory = LettuceConnectionFactory(redisConfig, lettuceClientConfiguration)
@@ -69,9 +64,7 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
 
     @AfterEach
     override fun destroy() {
-        if (null != connectionFactory) {
-            connectionFactory.destroy()
-        }
+        connectionFactory.destroy()
         afterDestroyRedisClient()
     }
 

@@ -81,6 +81,7 @@ class AuthorizeHandlerInterceptor(
         val requestPath = request.path.value()
         return if ((requestPath.startsWith(RequestPathPrefix.DASHBOARD)
                     || requestPath.startsWith(RequestPathPrefix.SWAGGER_UI)
+                    || requestPath.startsWith(RequestPathPrefix.SWAGGER_UI_RESOURCE)
                     || requestPath.startsWith("/actuator/health")
                     || requestPath.startsWith("/v3/api-docs"))
             || "/" == requestPath

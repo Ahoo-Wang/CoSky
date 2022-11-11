@@ -14,6 +14,7 @@ package me.ahoo.cosky.rest.configuration
 
 import me.ahoo.cosid.snowflake.SnowflakeId
 import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor
+import me.ahoo.cosky.rest.security.ConditionalOnSecurityEnabled
 import me.ahoo.cosky.rest.security.JwtProvider
 import me.ahoo.cosky.rest.security.SecurityProperties
 import me.ahoo.cosky.rest.security.audit.AuditLogService
@@ -35,6 +36,7 @@ class SecurityConfiguration(private val securityProperties: SecurityProperties) 
         return JwtProvider(securityProperties.jwt, snowflakeFriendlyId)
     }
 
+    @ConditionalOnSecurityEnabled
     @Bean
     fun authorizeHandlerInterceptor(
         authorizeService: AuthorizeService,

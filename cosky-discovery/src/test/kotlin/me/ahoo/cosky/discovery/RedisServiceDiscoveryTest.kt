@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.discovery
 
+import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.discovery.TestServiceInstance.registerRandomInstanceAndTestThenDeregister
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
@@ -20,6 +21,7 @@ import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.*
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
+import java.time.Duration
 
 /**
  * @author ahoo wang
@@ -42,12 +44,8 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         ) {
             redisServiceDiscovery.getServices(namespace).collectList()
                 .test()
-                .expectNextMatches {
-                    assertThat(it, notNullValue())
-                    // TODO
-                    true
-//                    assertThat(serviceIds, hasItem(it.serviceId))
-                }
+                .expectNextMatches { services -> services.contains(it.serviceId) }
+                .verifyComplete()
         }
     }
 
@@ -57,13 +55,10 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             namespace,
             redisServiceRegistry
         ) {
-            val instances =
-                redisServiceDiscovery.getInstances(namespace, it.serviceId).collectList().block()
-            assertThat(instances, notNullValue())
-            requireNotNull(instances)
-            assertThat(instances.size, equalTo(1))
-            val expectedInstance = instances.first()
-            assertThat(expectedInstance, equalTo(it))
+            redisServiceDiscovery.getInstances(namespace, it.serviceId)
+                .test()
+                .expectNext(it)
+                .verifyComplete()
         }
     }
 
@@ -72,12 +67,66 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         registerRandomInstanceAndTestThenDeregister(
             namespace,
             redisServiceRegistry
-        ) { instance: ServiceInstance ->
-            val actualInstance =
-                redisServiceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId).block()
-            requireNotNull(actualInstance)
-            assertThat(actualInstance, equalTo(instance))
+        ) {
+            redisServiceDiscovery.getInstance(namespace, it.serviceId, it.instanceId)
+                .test()
+                .expectNext(it)
+                .verifyComplete()
         }
+    }
+
+    @Test
+    fun getInstanceNone() {
+        redisServiceDiscovery.getInstance(
+            namespace = namespace,
+            serviceId = MockIdGenerator.INSTANCE.generateAsString(),
+            instanceId = MockIdGenerator.INSTANCE.generateAsString()
+        )
+            .test()
+            .verifyComplete()
+    }
+
+    @Test
+    fun getInstanceTtl() {
+        registerRandomInstanceAndTestThenDeregister(
+            namespace,
+            redisServiceRegistry
+        ) {
+            redisServiceDiscovery.getInstanceTtl(namespace, it.serviceId, it.instanceId)
+                .test()
+                .expectNextMatches {
+                    assertThat(it, greaterThan(0L))
+                    true
+                }
+                .verifyComplete()
+        }
+    }
+
+    @Test
+    fun getFixedInstance() {
+        val fixedInstance = TestServiceInstance.randomFixedInstance()
+        redisServiceRegistry.register(namespace, fixedInstance)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        redisServiceDiscovery.getInstance(namespace, fixedInstance.serviceId, fixedInstance.instanceId)
+            .test()
+            .expectNext(fixedInstance)
+            .verifyComplete()
+
+        redisServiceDiscovery.getInstances(namespace, fixedInstance.serviceId)
+            .test()
+            .expectNext(fixedInstance)
+            .verifyComplete()
+
+        redisServiceDiscovery.getInstanceTtl(namespace, fixedInstance.serviceId, fixedInstance.instanceId)
+            .test()
+            .expectNextMatches {
+                assertThat(it, equalTo(-1L))
+                true
+            }
+            .verifyComplete()
     }
 
     companion object {

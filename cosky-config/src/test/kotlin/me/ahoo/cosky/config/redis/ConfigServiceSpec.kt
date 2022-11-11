@@ -60,6 +60,25 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
     }
 
     @Test
+    open fun containsConfig() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val testConfigId = MockIdGenerator.INSTANCE.generateAsString()
+        val getConfigData = "getConfigData"
+        configService.containsConfig(namespace, testConfigId)
+            .test()
+            .expectNext(false)
+            .verifyComplete()
+        configService.setConfig(namespace, testConfigId, "setConfigData")
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        configService.containsConfig(namespace, testConfigId)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+    }
+
+    @Test
     open fun rollback() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         val testConfigId = MockIdGenerator.INSTANCE.generateAsString()

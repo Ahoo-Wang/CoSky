@@ -57,7 +57,7 @@ class CoSkyPropertySourceLocator(
         if (log.isInfoEnabled) {
             log.info("Locate - configId:[{}] @ namespace:[{}]", configId, namespace)
         }
-        val config = configService.getConfig(configId).block(configProperties.timeout)
+        val config = configService.getConfig(namespace, configId).block(configProperties.timeout)
         if (config == null) {
             log.warn(
                 "locate - can not find configId:[{}] @ namespace:[{}]",

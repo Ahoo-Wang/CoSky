@@ -12,6 +12,8 @@
  */
 package me.ahoo.cosky.discovery
 
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.TTL_AT_FOREVER
+
 /**
  * Service Instance Codec.
  *
@@ -30,21 +32,12 @@ object ServiceInstanceCodec {
     private const val EPHEMERAL = "ephemeral"
     private const val TTL_AT = "ttl_at"
 
-    @Deprecated("")
-    fun encode(serviceInstance: ServiceInstance): Map<String, String> {
-        return buildMap {
-            this[INSTANCE_ID] = serviceInstance.instanceId
-            this[SERVICE_ID] = serviceInstance.serviceId
-            this[SCHEMA] = serviceInstance.schema
-            this[HOST] = serviceInstance.host
-            this[PORT] = serviceInstance.port.toString()
-            this[WEIGHT] = serviceInstance.weight.toString()
-            this[EPHEMERAL] = serviceInstance.isEphemeral.toString()
-            serviceInstance.metadata.forEach { (key: String, value: String) ->
-                val metadataKey = METADATA_PREFIX + key
-                this[metadataKey] = value
-            }
-        }
+    fun encodeMetadataKey(key: String): String {
+        return METADATA_PREFIX + key
+    }
+
+    fun decodeMetadataKey(key: String): String {
+        return key.substring(METADATA_PREFIX_LENGTH)
     }
 
     @JvmStatic
@@ -53,7 +46,7 @@ object ServiceInstanceCodec {
             return preArgs
         }
         instanceMetadata.forEach {
-            preArgs.add(METADATA_PREFIX + it.key)
+            preArgs.add(encodeMetadataKey(it.key))
             preArgs.add(it.value)
         }
         return preArgs
@@ -110,7 +103,7 @@ object ServiceInstanceCodec {
                     if (key.startsWith(METADATA_PREFIX) &&
                         !key.startsWith(SYSTEM_METADATA_PREFIX)
                     ) {
-                        val metadataKey = key.substring(METADATA_PREFIX_LENGTH)
+                        val metadataKey = decodeMetadataKey(key)
                         metadata[metadataKey] = value
                     }
                 }
@@ -132,12 +125,14 @@ object ServiceInstanceCodec {
         )
         requireNotNull(weight) { "weight is null" }
         requireNotNull(isEphemeral) { "isEphemeral is null" }
-        requireNotNull(ttlAt) { "ttlAt is null" }
+        if (isEphemeral) {
+            requireNotNull(ttlAt) { "ttlAt is null" }
+        }
         return ServiceInstance(
             delegate = instance,
             weight = weight,
             isEphemeral = isEphemeral,
-            ttlAt = ttlAt,
+            ttlAt = ttlAt ?: TTL_AT_FOREVER,
             metadata = metadata
         )
     }

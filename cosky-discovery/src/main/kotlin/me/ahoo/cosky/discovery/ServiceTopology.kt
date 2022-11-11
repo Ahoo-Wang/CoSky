@@ -31,7 +31,7 @@ interface ServiceTopology {
             }
 
             override fun getTopology(namespace: String): Mono<Map<String, Set<String>>> {
-                return Mono.just(emptyMap())
+                return Mono.empty()
             }
         }
 

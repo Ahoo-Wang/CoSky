@@ -30,14 +30,14 @@ class CoSkyDiscoveryClient(
     }
 
     override fun getInstances(serviceId: String): List<ServiceInstance> {
-        return serviceDiscovery.getInstances(serviceId)
+        return serviceDiscovery.getInstances(serviceId = serviceId)
             .map { CoSkyServiceInstance(it) }
             .collectList()
             .block(coSkyDiscoveryProperties.timeout)!!
     }
 
     override fun getServices(): List<String> {
-        return serviceDiscovery.services.collectList().block(coSkyDiscoveryProperties.timeout)!!
+        return serviceDiscovery.getServices().collectList().block(coSkyDiscoveryProperties.timeout)!!
     }
 
     override fun getOrder(): Int {

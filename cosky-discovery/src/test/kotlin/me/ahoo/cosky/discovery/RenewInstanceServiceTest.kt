@@ -46,10 +46,14 @@ class RenewInstanceServiceTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         val semaphore = Semaphore(0)
         val renewService =
-            RenewInstanceService(renewProperties, redisServiceRegistry, hookOnRenew = {
-                assertThat(it, equalTo(testInstance))
-                semaphore.release()
-            })
+            RenewInstanceService(
+                renewProperties = renewProperties,
+                serviceRegistry = redisServiceRegistry,
+                hookOnRenew = {
+                    assertThat(it, equalTo(testInstance))
+                    semaphore.release()
+                }
+            )
         renewService.start()
         redisServiceRegistry.register(namespace, testInstance)
             .test()

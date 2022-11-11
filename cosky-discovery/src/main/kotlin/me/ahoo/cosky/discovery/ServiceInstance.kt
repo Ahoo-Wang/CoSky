@@ -23,7 +23,7 @@ data class ServiceInstance(
     val delegate: Instance,
     val weight: Int = 1,
     val isEphemeral: Boolean = true,
-    val ttlAt: Long = -1,
+    val ttlAt: Long = TTL_AT_FOREVER,
     val metadata: Map<String, String> = mapOf()
 ) : Instance by delegate {
 
@@ -40,6 +40,8 @@ data class ServiceInstance(
         @JvmField
         val NOT_FOUND =
             ServiceInstance(delegate = Instance.asInstance(serviceId = "", schema = "", host = "", port = 0))
+
+        const val TTL_AT_FOREVER = -1L
     }
 
     override fun equals(other: Any?): Boolean {

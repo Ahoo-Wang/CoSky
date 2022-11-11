@@ -10,62 +10,55 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.discovery
 
-package me.ahoo.cosky.discovery;
-
-import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
-import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
-import me.ahoo.cosky.test.AbstractReactiveRedisTest;
-
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
-
-import java.util.List;
+import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
+import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
+import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class RedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
-    public ServiceDiscovery serviceDiscovery;
-    private final static ServiceInstance testInstance = TestServiceInstance.randomInstance();
-    
+open class RedisServiceDiscoveryBenchmark : AbstractReactiveRedisTest() {
+    private lateinit var serviceDiscovery: ServiceDiscovery
+
     @Setup
-    public void afterPropertiesSet() {
-        super.afterPropertiesSet();
-        RegistryProperties registryProperties = new RegistryProperties();
-        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(TestData.NAMESPACE, testInstance).block();
-        serviceDiscovery = new RedisServiceDiscovery(redisTemplate);
+    override fun afterPropertiesSet() {
+        super.afterPropertiesSet()
+        val registryProperties = RegistryProperties()
+        val serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
+        serviceRegistry.register(TestData.NAMESPACE, testInstance).block()
+        serviceDiscovery = RedisServiceDiscovery(redisTemplate)
     }
-    
-    @Override
-    protected boolean getEnableShare() {
-        return true;
-    }
-    
+
+    override val enableShare: Boolean
+        get() = true
+
     @TearDown
-    public void destroy() {
-        super.destroy();
+    override fun destroy() {
+        super.destroy()
     }
-    
+
     @Benchmark
-    public List<String> getServices() {
-        return serviceDiscovery
-            .getServices(TestData.NAMESPACE)
-            .collectList()
-            .block();
-    }
-    
+    fun getServices(): List<String> = serviceDiscovery
+        .getServices(TestData.NAMESPACE)
+        .collectList()
+        .block()!!
+
     @Benchmark
-    public List<ServiceInstance> getInstances() {
-        return serviceDiscovery
-            .getInstances(TestData.NAMESPACE, testInstance.getServiceId())
-            .collectList()
-            .block();
+    fun getInstances(): List<ServiceInstance> = serviceDiscovery
+        .getInstances(TestData.NAMESPACE, testInstance.serviceId)
+        .collectList()
+        .block()!!
+
+    companion object {
+        private val testInstance = randomInstance()
     }
 }

@@ -10,63 +10,62 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.discovery
 
-package me.ahoo.cosky.discovery;
-
-import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
-import me.ahoo.cosky.test.AbstractReactiveRedisTest;
-
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
+import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
+import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class RedisServiceRegistryBenchmark extends AbstractReactiveRedisTest {
-    public ServiceRegistry serviceRegistry;
-    private final static ServiceInstance testInstance = TestServiceInstance.randomInstance();
-    
+open class RedisServiceRegistryBenchmark : AbstractReactiveRedisTest() {
+    private lateinit var serviceRegistry: ServiceRegistry
+
     @Setup
-    public void afterPropertiesSet() {
-        super.afterPropertiesSet();
-        RegistryProperties registryProperties = new RegistryProperties();
-        serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(TestData.NAMESPACE, testInstance).block();
+    override fun afterPropertiesSet() {
+        super.afterPropertiesSet()
+        val registryProperties = RegistryProperties()
+        serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
+        serviceRegistry.register(TestData.NAMESPACE, testInstance).block()
     }
-    
-    @Override
-    protected boolean getEnableShare() {
-        return true;
-    }
-    
+
+    override val enableShare: Boolean
+        get() = true
+
     @TearDown
-    public void destroy() {
-        super.destroy();
+    override fun destroy() {
+        super.destroy()
     }
-    
+
     @Benchmark
-    public Boolean register() {
+    fun register(): Boolean {
         return serviceRegistry
             .register(TestData.NAMESPACE, testInstance)
-            .block();
+            .block()!!
     }
-    
+
     @Benchmark
-    public Boolean deregister() {
+    fun deregister(): Boolean {
         return serviceRegistry
             .deregister(TestData.NAMESPACE, testInstance)
-            .block();
+            .block()!!
     }
-    
+
     @Benchmark
-    public Boolean renew() {
+    fun renew(): Boolean {
         return serviceRegistry
             .renew(TestData.NAMESPACE, testInstance)
-            .block();
+            .block()!!
     }
-    
+
+    companion object {
+        private val testInstance = randomInstance()
+    }
 }

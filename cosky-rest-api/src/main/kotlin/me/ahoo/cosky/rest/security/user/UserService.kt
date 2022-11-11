@@ -17,7 +17,6 @@ import com.google.common.base.Strings
 import com.google.common.hash.Hashing
 import me.ahoo.cosky.core.Namespaced
 import me.ahoo.cosky.rest.security.JwtProvider
-import net.bytebuddy.utility.RandomString
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Service
@@ -25,6 +24,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import java.time.Duration
+import java.util.*
 import java.util.stream.Collectors
 
 /**
@@ -33,19 +33,25 @@ import java.util.stream.Collectors
  * @author ahoo wang
  */
 @Service
-class UserService(private val jwtProvider: JwtProvider, private val redisTemplate: ReactiveStringRedisTemplate) {
+class UserService(
+    private val jwtProvider: JwtProvider,
+    private val redisTemplate: ReactiveStringRedisTemplate
+) {
+
     fun initRoot(enforce: Boolean): Mono<Boolean> {
         return Mono.from(if (enforce) removeUser(User.SUPER_USER) else Mono.empty())
-            .then(Mono.defer {
-                val coskyPwd = RandomString.make(10)
-                addUser(User.SUPER_USER, coskyPwd)
-                    .map { result: Boolean ->
-                        if (result) {
-                            printSuperUserPwd(coskyPwd)
+            .then(
+                Mono.defer {
+                    val coskyPwd = randomPwd(10)
+                    addUser(User.SUPER_USER, coskyPwd)
+                        .map { result: Boolean ->
+                            if (result) {
+                                printSuperUserPwd(coskyPwd)
+                            }
+                            result
                         }
-                        result
-                    }
-            })
+                }
+            )
     }
 
     private fun printSuperUserPwd(coskyPwd: String) {
@@ -100,7 +106,7 @@ class UserService(private val jwtProvider: JwtProvider, private val redisTemplat
             .then()
     }
 
-    fun getRoleBind(username: String?): Flux<String> {
+    fun getRoleBind(username: String): Flux<String> {
         val userRoleBindKey = getUserRoleBindKey(username)
         return redisTemplate
             .opsForSet()
@@ -137,16 +143,11 @@ class UserService(private val jwtProvider: JwtProvider, private val redisTemplat
                 val expansion = Math.max(tryCount / MAX_LOGIN_ERROR_TIMES, 1).toInt().toLong()
                 val loginLockExpire = Math.min(LOGIN_LOCK_EXPIRE * expansion, MAX_LOGIN_LOCK_EXPIRE)
                 if (tryCount > MAX_LOGIN_ERROR_TIMES) {
-                    return@flatMap Mono.error<Boolean>(
-                        SecurityException(
-                            Strings.lenientFormat(
-                                "User:[%s] sign in freezes for [%s] minutes,Too many:[%s] sign in errors!",
-                                username,
-                                Duration.ofMillis(loginLockExpire).toMinutes(),
-                                tryCount
-                            )
-                        )
-                    )
+                    return@flatMap SecurityException(
+                        "User:[$username] sign in freezes for [${
+                        Duration.ofMillis(loginLockExpire).toMinutes()
+                        }] minutes,Too many:[$tryCount] sign in errors!"
+                    ).toMono()
                 }
                 redisTemplate.expire(loginLockKey, Duration.ofMillis(loginLockExpire))
             }
@@ -154,26 +155,16 @@ class UserService(private val jwtProvider: JwtProvider, private val redisTemplat
                 redisTemplate
                     .opsForHash<String, String>()[USER_IDX, username]
                     .switchIfEmpty(
-                        Mono.error(
-                            SecurityException(
-                                Strings.lenientFormat(
-                                    "username:[%s] not exists!",
-                                    username
-                                )
-                            )
-                        )
+                        SecurityException(
+                            "username:[$username] - password is incorrect.!"
+                        ).toMono()
                     )
                     .flatMap { realEncodedPwd: String ->
                         val encodedPwd = encodePwd(pwd)
                         if (realEncodedPwd != encodedPwd) {
-                            return@flatMap Mono.error<Long>(
-                                SecurityException(
-                                    Strings.lenientFormat(
-                                        "username:[%s] - password is incorrect.!",
-                                        username
-                                    )
-                                )
-                            )
+                            return@flatMap SecurityException(
+                                "username:[$username] - password is incorrect.!"
+                            ).toMono()
                         }
                         redisTemplate.delete(loginLockKey)
                     }
@@ -197,19 +188,28 @@ class UserService(private val jwtProvider: JwtProvider, private val redisTemplat
             .map { affected: Long -> affected > 0 }
     }
 
-    fun logout() {}
+    fun logout() = Unit
 
     companion object {
         private val log = LoggerFactory.getLogger(UserService::class.java)
         const val USER_IDX = Namespaced.SYSTEM + ":user_idx"
         const val USER_ROLE_BIND = Namespaced.SYSTEM + ":user_role_bind:%s"
         const val USER_LOGIN_LOCK = Namespaced.SYSTEM + ":login_lock:%s"
-        private fun getUserRoleBindKey(username: String?): String {
+        private fun getUserRoleBindKey(username: String): String {
             return Strings.lenientFormat(USER_ROLE_BIND, username)
         }
 
         const val MAX_LOGIN_ERROR_TIMES = 10
         val LOGIN_LOCK_EXPIRE = Duration.ofMinutes(15).toMillis()
         val MAX_LOGIN_LOCK_EXPIRE = Duration.ofDays(3).toMillis()
+        private const val CANDIDATE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvxyz"
+
+        fun randomPwd(pwdLength: Int): String {
+            return buildString(pwdLength) {
+                repeat(pwdLength) {
+                    append(CANDIDATE_CHARS.random())
+                }
+            }
+        }
     }
 }

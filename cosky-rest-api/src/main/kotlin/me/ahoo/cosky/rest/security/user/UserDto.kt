@@ -23,7 +23,6 @@ data class LoginResponse(
     override val refreshToken: String,
 ) : TokenResponse
 
-
 data class RefreshRequest(
     override val accessToken: String,
     override val refreshToken: String,

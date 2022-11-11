@@ -22,14 +22,7 @@ import reactor.core.publisher.Mono
  * @author ahoo wang
  */
 interface ServiceDiscovery {
-    fun getServices(namespace: String): Flux<String>
-    val services: Flux<String>
-        get() = getServices(NamespacedContext.namespace)
-
-    fun getInstances(serviceId: String): Flux<ServiceInstance> {
-        return getInstances(NamespacedContext.namespace, serviceId)
-    }
-
+    fun getServices(namespace: String = NamespacedContext.namespace): Flux<String>
     fun getInstances(namespace: String = NamespacedContext.namespace, serviceId: String): Flux<ServiceInstance>
     fun getInstance(
         namespace: String = NamespacedContext.namespace,

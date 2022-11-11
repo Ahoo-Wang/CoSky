@@ -4,6 +4,9 @@ local instanceId = ARGV[1];
 local instanceKey = namespace .. ":svc_itc:" .. instanceId;
 
 local instanceKeys = redis.call("hkeys", instanceKey)
+if #instanceKeys == 0 then
+    return 0
+end
 if #instanceKeys > 0 then
     for i, key in ipairs(instanceKeys) do
         if string.find(key, '_', 1) == 1 and string.find(key, '__', 1) == nil then

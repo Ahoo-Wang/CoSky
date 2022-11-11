@@ -10,19 +10,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.examples.service.provider.client
 
-package me.ahoo.cosky.examples.service.provider.client;
-
-import me.ahoo.cosky.examples.service.provider.Constants;
-import me.ahoo.cosky.examples.service.provider.api.HelloApi;
-
-import org.springframework.cloud.openfeign.FeignClient;
+import me.ahoo.cosky.examples.service.provider.Constants
+import me.ahoo.cosky.examples.service.provider.api.HelloApi
+import org.springframework.cloud.openfeign.FeignClient
 
 /**
  * Hello Client.
  *
  * @author ahoo wang
  */
-@FeignClient(name = Constants.SERVICE_NAME, contextId = Constants.SERVICE_NAME_PREFIX + "HelloClient", path = HelloApi.PATH)
-public interface HelloClient extends HelloApi {
-}
+@FeignClient(
+    name = Constants.SERVICE_NAME,
+    contextId = Constants.SERVICE_NAME_PREFIX + "HelloClient",
+    path = HelloApi.PATH
+)
+interface HelloClient : HelloApi

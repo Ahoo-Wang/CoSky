@@ -12,9 +12,6 @@
  */
 package me.ahoo.cosky.rest.security.annotation
 
-import java.lang.annotation.Retention
-import java.lang.annotation.RetentionPolicy
-
 /**
  * Allow anonymous access.
  *

@@ -23,7 +23,6 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -51,25 +50,25 @@ class RedisServiceStatistic(
     }
 
     private fun instanceChanged(event: InstanceChangedEvent) {
-        if (log.isInfoEnabled) {
-            log.info("instanceChanged - event:[{}]", event)
+        if (log.isDebugEnabled) {
+            log.debug("instanceChanged - event:[{}]", event)
         }
         if (InstanceChangedEvent.Event.RENEW == event.event) {
             return
         }
-        statService0(event.namespacedServiceId.namespace, event.namespacedServiceId.serviceId).subscribe()
+        statServiceInternal(event.namespacedServiceId.namespace, event.namespacedServiceId.serviceId).subscribe()
     }
 
     override fun statService(namespace: String): Mono<Void> {
         startListeningServiceInstancesOfNamespace(namespace)
-        return statService0(namespace, null)
+        return statServiceInternal(namespace, null)
     }
 
     override fun statService(namespace: String, serviceId: String): Mono<Void> {
-        return statService0(namespace, serviceId)
+        return statServiceInternal(namespace, serviceId)
     }
 
-    private fun statService0(namespace: String, serviceId: String?): Mono<Void> {
+    private fun statServiceInternal(namespace: String, serviceId: String?): Mono<Void> {
         require(namespace.isNotBlank()) { "namespace can not be blank!" }
         if (log.isInfoEnabled) {
             log.info("statService  @ namespace:[{}].", namespace)

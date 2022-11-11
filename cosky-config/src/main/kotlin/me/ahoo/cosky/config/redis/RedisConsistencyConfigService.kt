@@ -18,7 +18,6 @@ import me.ahoo.cosky.config.ConfigEventListenerContainer
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.NamespacedConfigId
 import org.slf4j.LoggerFactory
-import reactor.core.publisher.BaseSubscriber
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
@@ -29,7 +28,6 @@ private object NoOpHookOnResetCache : (ConfigChangedEvent) -> Unit {
 
 /**
  * Consistency Redis Config Service.
- * TODO CACHE
  * @author ahoo wang
  */
 class RedisConsistencyConfigService(
@@ -50,37 +48,26 @@ class RedisConsistencyConfigService(
         require(configId.isNotBlank()) { "configId can not be blank!" }
         return configMapCache.computeIfAbsent(
             NamespacedConfigId(namespace, configId)
-        ) { listenAndGetCache(it) }
-    }
-
-    private fun listenAndGetCache(cfgId: NamespacedConfigId): Mono<Config> {
-        configEventListenerContainer.listen(cfgId)
-            .subscribe(ConfigChangedEventSubscriber(this))
-        return delegate.getConfig(cfgId.namespace, cfgId.configId).cache()
+        ) {
+            @Suppress("CallingSubscribeInNonBlockingScope")
+            configEventListenerContainer.listen(it)
+                .doOnNext { changedEvent ->
+                    onConfigChanged(changedEvent)
+                }
+                .subscribe()
+            delegate.getConfig(it.namespace, it.configId).cache()
+        }
     }
 
     private fun onConfigChanged(configChangedEvent: ConfigChangedEvent) {
+        if (log.isInfoEnabled) {
+            log.info("onConfigChanged:{}", configChangedEvent)
+        }
         val namespacedConfigId: NamespacedConfigId = configChangedEvent.namespacedConfigId
         configMapCache[namespacedConfigId] =
             @Suppress("ReactiveStreamsUnusedPublisher")
             delegate.getConfig(namespacedConfigId.namespace, namespacedConfigId.configId)
                 .cache(CONFIG_CACHE_TTL)
         hookOnResetCache(configChangedEvent)
-    }
-
-    class ConfigChangedEventSubscriber(private val configService: RedisConsistencyConfigService) :
-        BaseSubscriber<ConfigChangedEvent>() {
-        override fun hookOnNext(value: ConfigChangedEvent) {
-            if (log.isInfoEnabled) {
-                log.info("HookOnNext - NamespacedConfigId:[{}] - Event:[{}].", value.namespacedConfigId, value.event)
-            }
-            configService.onConfigChanged(value)
-        }
-
-        override fun hookOnError(throwable: Throwable) {
-            if (log.isErrorEnabled) {
-                log.error("HookOnError - " + throwable.message, throwable)
-            }
-        }
     }
 }

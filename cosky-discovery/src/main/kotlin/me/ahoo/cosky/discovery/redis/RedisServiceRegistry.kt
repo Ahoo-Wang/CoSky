@@ -16,6 +16,7 @@ import me.ahoo.cosky.discovery.NamespacedInstanceId
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadata
+import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadataKey
 import me.ahoo.cosky.discovery.ServiceRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
@@ -38,7 +39,7 @@ class RedisServiceRegistry(
     override val registeredEphemeralInstances: ConcurrentHashMap<NamespacedInstanceId, ServiceInstance> =
         ConcurrentHashMap()
 
-    private fun register0(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
+    private fun registerInternal(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
         val argVCapacity = 6 + serviceInstance.metadata.size * 2
 
         /**
@@ -92,8 +93,9 @@ class RedisServiceRegistry(
         if (log.isInfoEnabled) {
             log.info("register - instanceId:[{}]  @ namespace:[{}].", serviceInstance.instanceId, namespace)
         }
-        addEphemeralInstance(namespace, serviceInstance)
-        return register0(namespace, serviceInstance)
+        return registerInternal(namespace, serviceInstance).doOnSubscribe {
+            addEphemeralInstance(namespace, serviceInstance)
+        }
     }
 
     private fun addEphemeralInstance(namespace: String, serviceInstance: ServiceInstance) {
@@ -122,8 +124,8 @@ class RedisServiceRegistry(
         key: String,
         value: String
     ): Mono<Boolean> {
-        val values = listOf(instanceId, key, value)
-        return setMetadata0(namespace, instanceId, values)
+        val values = listOf(instanceId, encodeMetadataKey(key), value)
+        return setMetadataInternal(namespace, instanceId, values)
     }
 
     override fun setMetadata(
@@ -134,13 +136,13 @@ class RedisServiceRegistry(
     ): Mono<Boolean> {
         val argVCapacity = 1 + metadata.size * 2
         val values = buildList(argVCapacity) {
-            this[0] = instanceId
+            add(instanceId)
             encodeMetadata(this, metadata)
         }
-        return setMetadata0(namespace, instanceId, values)
+        return setMetadataInternal(namespace, instanceId, values)
     }
 
-    private fun setMetadata0(namespace: String, instanceId: String, args: List<String>): Mono<Boolean> {
+    private fun setMetadataInternal(namespace: String, instanceId: String, args: List<String>): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         if (log.isInfoEnabled) {
@@ -195,19 +197,24 @@ class RedisServiceRegistry(
         if (log.isInfoEnabled) {
             log.info("deregister - instanceId:[{}] @ namespace:[{}].", instanceId, namespace)
         }
-        removeEphemeralInstance(namespace, instanceId)
-        return deregister0(namespace, serviceId, instanceId)
+
+        return deregisterInternal(namespace, serviceId, instanceId)
+            .doOnSubscribe {
+                removeEphemeralInstance(namespace, instanceId)
+            }
     }
 
     override fun deregister(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
         if (log.isInfoEnabled) {
             log.info("deregister - instanceId:[{}] @ namespace:[{}].", serviceInstance.instanceId, namespace)
         }
-        removeEphemeralInstance(namespace, serviceInstance)
-        return deregister0(namespace, serviceInstance.serviceId, serviceInstance.instanceId)
+        return deregisterInternal(namespace, serviceInstance.serviceId, serviceInstance.instanceId)
+            .doOnSubscribe {
+                removeEphemeralInstance(namespace, serviceInstance)
+            }
     }
 
-    private fun deregister0(namespace: String, serviceId: String, instanceId: String): Mono<Boolean> {
+    private fun deregisterInternal(namespace: String, serviceId: String, instanceId: String): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }

@@ -34,35 +34,41 @@ import java.util.concurrent.TimeUnit
  * @author ahoo wang
  */
 class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
-    private lateinit var redisServiceDiscovery: RedisServiceDiscovery
+    private lateinit var delegate: RedisServiceDiscovery
     private lateinit var serviceDiscovery: ConsistencyRedisServiceDiscovery
-    private lateinit var redisServiceRegistry: RedisServiceRegistry
+    private lateinit var serviceRegistry: RedisServiceRegistry
     private lateinit var registryProperties: RegistryProperties
     private lateinit var serviceEventListenerContainer: ServiceEventListenerContainer
     private lateinit var instanceEventListenerContainer: InstanceEventListenerContainer
     override fun afterInitializedRedisClient() {
         registryProperties = RegistryProperties(Duration.ofSeconds(5))
-        redisServiceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
-        redisServiceDiscovery = RedisServiceDiscovery(redisTemplate)
-        serviceEventListenerContainer = RedisServiceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
-        )
-        instanceEventListenerContainer = RedisInstanceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
-        )
+        serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
+        delegate = RedisServiceDiscovery(redisTemplate)
+        serviceEventListenerContainer = createServiceEventListenerContainer()
+        instanceEventListenerContainer = createInstanceEventListenerContainer()
         serviceDiscovery = ConsistencyRedisServiceDiscovery(
-            delegate = redisServiceDiscovery,
+            delegate = delegate,
             serviceEventListenerContainer = serviceEventListenerContainer,
             instanceEventListenerContainer = instanceEventListenerContainer
         )
     }
+
+    private fun createServiceEventListenerContainer(): ServiceEventListenerContainer =
+        RedisServiceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
+
+    private fun createInstanceEventListenerContainer(): InstanceEventListenerContainer =
+        RedisInstanceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
 
     @Test
     fun getServices() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            serviceRegistry
         ) { instance: ServiceInstance ->
             serviceDiscovery.getServices(namespace).collectList()
                 .test()
@@ -76,7 +82,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            serviceRegistry
         ) { instance: ServiceInstance ->
             serviceDiscovery.getInstances(namespace, instance.serviceId).collectList()
                 .test()
@@ -90,7 +96,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            serviceRegistry
         ) { instance: ServiceInstance ->
             serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
                 .test()
@@ -104,7 +110,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            serviceRegistry
         ) { instance: ServiceInstance ->
             serviceDiscovery.getInstances(namespace, instance.serviceId).collectList()
                 .test()
@@ -124,16 +130,21 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val serviceId = MockIdGenerator.INSTANCE.generateAsString()
         val semaphore = Semaphore(0)
         val serviceDiscovery: ServiceDiscovery = ConsistencyRedisServiceDiscovery(
-            delegate = redisServiceDiscovery,
+            delegate = delegate,
             serviceEventListenerContainer = serviceEventListenerContainer,
-            instanceEventListenerContainer = instanceEventListenerContainer
-        ) { semaphore.release() }
+            instanceEventListenerContainer = instanceEventListenerContainer,
+            hookOnResetServiceCache = {
+                if (it == namespace) {
+                    semaphore.release()
+                }
+            }
+        )
 
         serviceDiscovery.getServices(namespace)
             .test()
             .expectNextCount(0)
             .verifyComplete()
-        redisServiceRegistry.register(namespace, createInstance(serviceId))
+        serviceRegistry.register(namespace, createInstance(serviceId))
             .test()
             .expectNext(true)
             .verifyComplete()
@@ -143,7 +154,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .expectNextMatches { it.contains(serviceId) }
             .verifyComplete()
         val serviceId2 = MockIdGenerator.INSTANCE.generateAsString()
-        redisServiceRegistry.register(namespace, createInstance(serviceId2))
+        serviceRegistry.register(namespace, createInstance(serviceId2))
             .test()
             .expectNext(true)
             .verifyComplete()
@@ -166,16 +177,20 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val instance = createInstance(serviceId)
         val semaphore = Semaphore(0)
         val serviceDiscovery: ServiceDiscovery = ConsistencyRedisServiceDiscovery(
-            delegate = redisServiceDiscovery,
+            delegate = delegate,
             serviceEventListenerContainer = serviceEventListenerContainer,
             instanceEventListenerContainer = instanceEventListenerContainer,
-            hookOnResetInstanceCache = { semaphore.release() }
+            hookOnResetInstanceCache = {
+                if (it.namespacedServiceId.namespace == namespace) {
+                    semaphore.release()
+                }
+            }
         )
         serviceDiscovery.getInstances(namespace, serviceId)
             .test()
             .expectNextCount(0)
             .verifyComplete()
-        redisServiceRegistry.register(namespace, instance)
+        serviceRegistry.register(namespace, instance)
             .test()
             .expectNext(true)
             .verifyComplete()
@@ -184,7 +199,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNextMatches { it.contains(instance) }
             .verifyComplete()
-        StepVerifier.create(redisServiceRegistry.deregister(namespace, instance))
+        StepVerifier.create(serviceRegistry.deregister(namespace, instance))
             .expectNext(true)
             .verifyComplete()
         Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
@@ -192,35 +207,6 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNextCount(0)
             .verifyComplete()
-    }
-
-    // wait for ttl
-    @Test
-    fun instancesListenerExpire() {
-        val namespace = MockIdGenerator.INSTANCE.generateAsString()
-        val serviceId = MockIdGenerator.INSTANCE.generateAsString()
-        val instance = createInstance(serviceId)
-        val semaphore = Semaphore(0)
-        val serviceDiscovery: ServiceDiscovery = ConsistencyRedisServiceDiscovery(
-            delegate = redisServiceDiscovery,
-            serviceEventListenerContainer = serviceEventListenerContainer,
-            instanceEventListenerContainer = instanceEventListenerContainer,
-            hookOnResetInstanceCache = { semaphore.release() }
-        )
-        serviceDiscovery.getInstances(namespace, serviceId)
-            .test()
-            .expectNextCount(0)
-            .verifyComplete()
-        redisServiceRegistry.register(namespace, instance)
-            .test()
-            .expectNext(true)
-            .verifyComplete()
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
-        serviceDiscovery.getInstances(namespace, serviceId).collectList()
-            .test()
-            .expectNextMatches { it.contains(instance) }
-            .verifyComplete()
-
         // wait for ttl
         TimeUnit.MILLISECONDS.sleep(registryProperties.instanceTtl.plusSeconds(1).toMillis())
         serviceDiscovery.getInstances(namespace, serviceId).collectList()
@@ -228,4 +214,5 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .expectNextMatches { it.isEmpty() }
             .verifyComplete()
     }
+
 }

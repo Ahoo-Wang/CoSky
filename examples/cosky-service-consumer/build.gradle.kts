@@ -13,6 +13,9 @@
 
 plugins {
     application
+    kotlin("jvm") version "1.7.20"
+    kotlin("plugin.spring") version "1.7.20"
+    kotlin("kapt")
 }
 
 java {
@@ -23,7 +26,7 @@ java {
 
 dependencies {
     implementation(project(":cosky-service-provider-api"))
-
+    kapt(platform(project(":cosky-dependencies")))
     implementation(platform(project(":cosky-dependencies")))
 //    implementation("io.springfox:springfox-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
@@ -32,9 +35,8 @@ dependencies {
     implementation("com.google.guava:guava")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
-    compileOnly("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
-    annotationProcessor("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
+    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 

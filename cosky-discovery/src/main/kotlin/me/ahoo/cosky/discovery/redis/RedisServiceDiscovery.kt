@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery.redis
 
-import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -30,11 +29,11 @@ import java.util.*
 class RedisServiceDiscovery(
     private val redisTemplate: ReactiveStringRedisTemplate
 ) : ServiceDiscovery {
-    override fun getInstances(serviceId: String): Flux<ServiceInstance> {
-        return getInstances(NamespacedContext.namespace, serviceId)
-    }
 
-    override fun getInstances(namespace: String, serviceId: String): Flux<ServiceInstance> {
+    override fun getInstances(
+        namespace: String,
+        serviceId: String
+    ): Flux<ServiceInstance> {
         require(namespace.isNotBlank()) { "namespace is blank!" }
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(

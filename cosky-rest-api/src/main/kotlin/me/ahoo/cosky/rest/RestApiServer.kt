@@ -14,14 +14,12 @@ package me.ahoo.cosky.rest
 
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
-import springfox.documentation.swagger2.annotations.EnableSwagger2
 
 /**
  * Rest Api Server.
  *
  * @author ahoo wang
  */
-@EnableSwagger2
 @SpringBootApplication
 class RestApiServer
 

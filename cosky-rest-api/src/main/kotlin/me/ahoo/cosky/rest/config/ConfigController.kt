@@ -112,7 +112,7 @@ class ConfigController(private val configService: ConfigService) {
                             .filter { contained ->
                                 if (contained) {
                                     if (log.isInfoEnabled) {
-                                        log.info("importZip - Skip - [{}]@[{}] has contained.", configId, namespace)
+                                        log.info("ImportZip - Skip - [{}]@[{}] has contained.", configId, namespace)
                                     }
                                 }
                                 !contained

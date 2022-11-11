@@ -20,6 +20,6 @@ dependencies {
     api(project(":cosky-spring-cloud-core"))
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
-
+    testImplementation("org.springframework:spring-webflux")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

@@ -13,19 +13,22 @@
 
 dependencies {
     api(platform("org.springframework.boot:spring-boot-dependencies:2.7.5"))
-    api(platform("org.springframework.cloud:spring-cloud-dependencies:2021.0.4"))
+    api(platform("org.springframework.cloud:spring-cloud-dependencies:2021.0.5"))
     api(platform("me.ahoo.cosid:cosid-bom:1.15.2"))
     api(platform("me.ahoo.simba:simba-bom:0.5.2"))
     constraints {
-        api("org.projectlombok:lombok:1.18.24")
         api("com.google.guava:guava:31.1-jre")
         api("commons-io:commons-io:2.11.0")
-        api("io.springfox:springfox-boot-starter:3.0.0")
+        api("org.springdoc:springdoc-openapi-kotlin:1.6.12")
+        api("org.springdoc:springdoc-openapi-webflux-ui:1.6.12")
         api("org.junit-pioneer:junit-pioneer:1.4.2")
         api("org.hamcrest:hamcrest:2.2")
         api("io.mockk:mockk:1.13.2")
         api("org.openjdk.jmh:jmh-core:1.35")
         api("org.openjdk.jmh:jmh-generator-annprocess:1.35")
         api("io.gitlab.arturbosch.detekt:detekt-formatting:1.21.0")
+        api("io.jsonwebtoken:jjwt-api:0.11.2")
+        api("io.jsonwebtoken:jjwt-impl:0.11.2")
+        api("io.jsonwebtoken:jjwt-jackson:0.11.2")
     }
 }

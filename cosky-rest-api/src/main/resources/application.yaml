@@ -10,7 +10,6 @@ spring:
       static-locations: file:./cosky-dashboard/dist/dashboard/
   webflux:
     static-path-pattern: /dashboard/**
-
 cosky:
   security:
     enabled: true

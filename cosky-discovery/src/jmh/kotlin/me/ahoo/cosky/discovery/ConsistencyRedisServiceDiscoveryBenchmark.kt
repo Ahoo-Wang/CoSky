@@ -10,63 +10,70 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.discovery
 
-package me.ahoo.cosky.discovery;
-
-import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery;
-import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery;
-import me.ahoo.cosky.discovery.redis.RedisServiceRegistry;
-import me.ahoo.cosky.test.AbstractReactiveRedisTest;
-
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
-
-import java.util.List;
+import me.ahoo.cosky.discovery.TestServiceInstance.randomFixedInstance
+import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
+import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
+import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
+import me.ahoo.cosky.discovery.redis.RedisServiceEventListenerContainer
+import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import org.openjdk.jmh.annotations.Benchmark
+import org.openjdk.jmh.annotations.Scope
+import org.openjdk.jmh.annotations.Setup
+import org.openjdk.jmh.annotations.State
+import org.openjdk.jmh.annotations.TearDown
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
 /**
  * @author ahoo wang
  */
 @State(Scope.Benchmark)
-public class ConsistencyRedisServiceDiscoveryBenchmark extends AbstractReactiveRedisTest {
-    public ServiceDiscovery serviceDiscovery;
-    private final static ServiceInstance fixedInstance = TestServiceInstance.randomFixedInstance();
-    
+open class ConsistencyRedisServiceDiscoveryBenchmark : AbstractReactiveRedisTest() {
+    private lateinit var serviceDiscovery: ServiceDiscovery
+
     @Setup
-    public void afterPropertiesSet() {
-        super.afterPropertiesSet();
-        RegistryProperties registryProperties = new RegistryProperties();
-        RedisServiceRegistry serviceRegistry = new RedisServiceRegistry(registryProperties, redisTemplate);
-        serviceRegistry.register(TestData.NAMESPACE, fixedInstance).block();
-        RedisServiceDiscovery redisServiceDiscovery = new RedisServiceDiscovery(redisTemplate);
-        serviceDiscovery = new ConsistencyRedisServiceDiscovery(redisServiceDiscovery, redisTemplate, listenerContainer);
+    override fun afterPropertiesSet() {
+        super.afterPropertiesSet()
+        val registryProperties = RegistryProperties()
+        val serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
+        serviceRegistry.register(TestData.NAMESPACE, fixedInstance).block()
+        val redisServiceDiscovery = RedisServiceDiscovery(redisTemplate)
+        val serviceEventListenerContainer = RedisServiceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
+        val serviceInstanceEventListenerContainer = RedisInstanceEventListenerContainer(
+            ReactiveRedisMessageListenerContainer(connectionFactory)
+        )
+        serviceDiscovery = ConsistencyRedisServiceDiscovery(
+            redisServiceDiscovery,
+            serviceEventListenerContainer,
+            serviceInstanceEventListenerContainer
+        )
     }
-    
-    @Override
-    protected boolean getEnableShare() {
-        return true;
-    }
-    
+
+    override val enableShare: Boolean
+        get() = true
+
     @TearDown
-    public void destroy() {
-        super.destroy();
+    override fun destroy() {
+        super.destroy()
     }
-    
+
     @Benchmark
-    public List<String> getServices() {
-        return serviceDiscovery
-            .getServices(TestData.NAMESPACE)
-            .collectList()
-            .block();
-    }
-    
+    fun getServices(): List<String> = serviceDiscovery
+        .getServices(TestData.NAMESPACE)
+        .collectList()
+        .block()!!
+
     @Benchmark
-    public List<ServiceInstance> getInstances() {
-        return serviceDiscovery
-            .getInstances(TestData.NAMESPACE, fixedInstance.getServiceId())
-            .collectList()
-            .block();
+    fun getInstances(): List<ServiceInstance> = serviceDiscovery
+        .getInstances(TestData.NAMESPACE, fixedInstance.serviceId)
+        .collectList()
+        .block()!!
+
+    companion object {
+        private val fixedInstance = randomFixedInstance()
     }
 }

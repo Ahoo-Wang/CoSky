@@ -10,21 +10,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package me.ahoo.cosky.examples.service.provider.api
 
-package me.ahoo.cosky.examples.service.provider.api;
-
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 
 /**
  * Hello Api.
  *
  * @author ahoo wang
  */
-public interface HelloApi {
-    String PATH = "hello";
-    
+interface HelloApi {
     @GetMapping("hi/{name}")
-    String hi(@PathVariable("name") String name);
-    
+    fun hi(@PathVariable("name") name: String): String
+
+    companion object {
+        const val PATH = "hello"
+    }
 }

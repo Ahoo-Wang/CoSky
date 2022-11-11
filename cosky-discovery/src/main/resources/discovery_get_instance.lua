@@ -36,5 +36,6 @@ if instanceTtl ~= -2 then
     return instanceData;
 end
 
+return {  }
 
 

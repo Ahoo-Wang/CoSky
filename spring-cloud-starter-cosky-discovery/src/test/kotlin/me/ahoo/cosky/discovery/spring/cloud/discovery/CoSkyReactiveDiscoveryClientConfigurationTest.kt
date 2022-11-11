@@ -1,9 +1,6 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
-import org.assertj.core.api.AssertionsForInterfaceTypes.*
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
-import org.junit.jupiter.api.Assertions.*
+import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
 import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration

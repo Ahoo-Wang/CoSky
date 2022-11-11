@@ -23,6 +23,7 @@ object RequestPathPrefix {
      */
     const val DASHBOARD = "/dashboard/"
     const val SWAGGER_UI = "/swagger"
+    const val SWAGGER_UI_RESOURCE = "/webjars/swagger"
     const val V1 = "/v1/"
     //region Authenticate
     /**
