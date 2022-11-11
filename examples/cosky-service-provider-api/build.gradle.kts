@@ -13,12 +13,16 @@
 
 plugins {
     `java-library`
+    kotlin("jvm") version "1.7.20"
+    kotlin("plugin.spring") version "1.7.20"
 }
+
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(8))
     }
 }
+
 dependencies {
     implementation(platform(project(":cosky-dependencies")))
     api("org.springframework.cloud:spring-cloud-openfeign-core")

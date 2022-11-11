@@ -13,6 +13,7 @@
 
 dependencies {
     api("io.projectreactor:reactor-core")
+    api("io.projectreactor.kotlin:reactor-kotlin-extensions")
     api("org.springframework.data:spring-data-redis")
     api("io.lettuce:lettuce-core")
     testImplementation(project(":cosky-test"))

@@ -18,7 +18,7 @@ export interface ServiceInstanceDto {
   host: string;
   port: number;
   weight: number;
-  ephemeral: boolean;
+  isEphemeral: boolean;
   ttlAt?: number;
   metadata: object;
 

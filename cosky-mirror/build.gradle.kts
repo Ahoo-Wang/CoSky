@@ -13,6 +13,9 @@
 
 plugins {
     application
+    kotlin("jvm") version "1.7.20"
+    kotlin("plugin.spring") version "1.7.20"
+    kotlin("kapt")
 }
 
 java {
@@ -26,7 +29,7 @@ tasks.jar.configure {
 }
 
 application {
-    mainClass.set("me.ahoo.cosky.mirror.CoskyMirrorServer")
+    mainClass.set("me.ahoo.cosky.mirror.CoskyMirrorServerKt")
 
     applicationDefaultJvmArgs = listOf(
         "-Xms512M",
@@ -36,7 +39,7 @@ application {
         "-Xss1m",
         "-server",
         "-XX:+UseG1GC",
-        "-Xlog:gc*:file=logs/${applicationName}-gc.log:time,tags:filecount=10,filesize=32M",
+        "-Xlog:gc*:file=logs/$applicationName-gc.log:time,tags:filecount=10,filesize=32M",
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=data",
         "-Dcom.sun.management.jmxremote",
@@ -49,16 +52,15 @@ application {
     )
 }
 
-
 dependencies {
+    kapt(platform(project(":cosky-dependencies")))
     implementation(platform(project(":cosky-dependencies")))
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
     implementation("com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:2021.1")
-    compileOnly("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
-    annotationProcessor("org.projectlombok:lombok:${rootProject.ext.get("lombokVersion")}")
+    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
 

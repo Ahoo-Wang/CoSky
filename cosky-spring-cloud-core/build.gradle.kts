@@ -10,15 +10,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+plugins {
+    kotlin("plugin.spring") version "1.7.20"
+    kotlin("kapt")
+}
 dependencies {
+    kapt(platform(project(":cosky-dependencies")))
     api(project(":cosky-core"))
-
+    api("com.fasterxml.jackson.module:jackson-module-kotlin")
     api("org.springframework.boot:spring-boot-starter")
     api("org.springframework.cloud:spring-cloud-commons")
     api("org.springframework.cloud:spring-cloud-context")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
-    annotationProcessor("org.springframework.boot:spring-boot-autoconfigure-processor:${rootProject.ext.get("springBootVersion")}")
+    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
 
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

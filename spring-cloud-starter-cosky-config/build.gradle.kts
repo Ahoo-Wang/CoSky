@@ -10,12 +10,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+plugins {
+    kotlin("plugin.spring") version "1.7.20"
+    kotlin("kapt")
+}
 dependencies {
+    kapt(platform(project(":cosky-dependencies")))
     api(project(":cosky-config"))
     api(project(":cosky-spring-cloud-core"))
+    implementation("com.google.guava:guava")
+    kapt("org.springframework.boot:spring-boot-configuration-processor")
+    kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
 
-    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor:${rootProject.ext.get("springBootVersion")}")
-    annotationProcessor("org.springframework.boot:spring-boot-autoconfigure-processor:${rootProject.ext.get("springBootVersion")}")
-
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(project(":cosky-test"))
 }

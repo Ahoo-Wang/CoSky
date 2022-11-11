@@ -19,4 +19,6 @@ dependencies {
     api("me.ahoo.cosid:cosid-test")
     api("io.projectreactor:reactor-test")
     api("io.netty:netty-all")
+    api("io.projectreactor.kotlin:reactor-kotlin-extensions")
+    api("org.junit.jupiter:junit-jupiter-api")
 }

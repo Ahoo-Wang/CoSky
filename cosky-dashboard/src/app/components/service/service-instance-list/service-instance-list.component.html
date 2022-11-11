@@ -30,7 +30,7 @@
     <td>{{ instance.host }}</td>
     <td>{{ instance.port }}</td>
     <td>{{ instance.weight }}</td>
-    <td>{{ instance.ephemeral }}</td>
+    <td>{{ instance.isEphemeral }}</td>
     <td>{{ (instance.ttlAt ? instance.ttlAt : 0) * 1000  | date:'yyyy-MM-dd HH:mm:ss'}}</td>
     <td>{{ instance.metadata|json }}</td>
     <td>

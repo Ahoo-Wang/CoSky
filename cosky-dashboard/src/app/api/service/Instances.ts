@@ -24,7 +24,7 @@ export class Instances {
       host: '',
       port: 80,
       weight: 1,
-      ephemeral: true,
+      isEphemeral: true,
       ttlAt: -1,
       metadata: new Object()
     };

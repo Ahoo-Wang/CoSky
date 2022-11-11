@@ -12,5 +12,6 @@
  */
 dependencies {
     api(project(":cosky-core"))
+    implementation("com.google.guava:guava")
     testImplementation(project(":cosky-test"))
 }

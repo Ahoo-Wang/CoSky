@@ -21,11 +21,10 @@ include(":cosky-dependencies")
 include(":cosky-spring-cloud-core")
 include(":spring-cloud-starter-cosky-config")
 include(":spring-cloud-starter-cosky-discovery")
-include(":spring-cloud-starter-cosky-discovery-ribbon")
 include(":cosky-rest-api")
-include(":cosky-mirror")
+//TODO
+//include(":cosky-mirror")
 include(":cosky-test")
-
 
 include(":cosky-service-provider")
 project(":cosky-service-provider").projectDir = file("examples/cosky-service-provider")
@@ -36,15 +35,13 @@ project(":cosky-service-provider-api").projectDir = file("examples/cosky-service
 include(":cosky-service-consumer")
 project(":cosky-service-consumer").projectDir = file("examples/cosky-service-consumer")
 
-
-buildscript{
-    repositories{
+buildscript {
+    repositories {
         gradlePluginPortal()
     }
-    dependencies{
+    dependencies {
         classpath("me.champeau.jmh:jmh-gradle-plugin:0.6.8")
         classpath("io.github.gradle-nexus:publish-plugin:1.1.0")
         classpath("com.github.spotbugs.snom:spotbugs-gradle-plugin:5.0.13")
     }
 }
-
