@@ -23,4 +23,5 @@ dependencies {
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(project(":cosky-test"))
 }
