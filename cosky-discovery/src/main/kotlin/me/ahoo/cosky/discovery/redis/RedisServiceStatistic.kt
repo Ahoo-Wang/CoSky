@@ -70,8 +70,8 @@ class RedisServiceStatistic(
 
     private fun statServiceInternal(namespace: String, serviceId: String?): Mono<Void> {
         require(namespace.isNotBlank()) { "namespace can not be blank!" }
-        if (log.isInfoEnabled) {
-            log.info("statService  @ namespace:[{}].", namespace)
+        if (log.isDebugEnabled) {
+            log.debug("statService  @ namespace:[{}].", namespace)
         }
         val values: List<String> = if (!serviceId.isNullOrEmpty()) {
             listOf(serviceId)

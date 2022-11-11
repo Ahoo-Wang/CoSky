@@ -47,8 +47,8 @@ class StatServiceScheduler(
         get() = javaClass.simpleName
 
     override fun work() {
-        if (log.isInfoEnabled) {
-            log.info("work - start.")
+        if (log.isDebugEnabled) {
+            log.debug("work - start.")
         }
         val currentNamespace = namespace
         namespaceService.namespaces
@@ -66,8 +66,8 @@ class StatServiceScheduler(
                 )
             }
             .doOnComplete {
-                if (log.isInfoEnabled) {
-                    log.info("work - end.")
+                if (log.isDebugEnabled) {
+                    log.debug("work - end.")
                 }
             }
             .subscribe()

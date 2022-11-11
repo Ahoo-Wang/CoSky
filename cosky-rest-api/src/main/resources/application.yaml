@@ -32,7 +32,8 @@ cosid:
     share:
       converter:
         type: radix
-
+  segment:
+    enabled: false
 simba:
   redis:
     enabled: true
