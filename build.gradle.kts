@@ -124,9 +124,12 @@ configure(libraryProjects) {
         }
         threads.set(jmhThreads)
         fork.set(1)
+        jvmArgs.set(listOf("-Dlogback.configurationFile=${rootProject.rootDir}/config/logback-jmh.xml"))
     }
     tasks.withType<Test> {
         useJUnitPlatform()
+        // fix logging missing code for JacocoPlugin
+        jvmArgs = listOf("-Dlogback.configurationFile=${rootProject.rootDir}/config/logback.xml")
     }
 
     dependencies {
