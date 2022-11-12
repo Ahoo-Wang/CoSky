@@ -60,6 +60,10 @@ class ServiceTopologyTest : AbstractReactiveRedisTest() {
                     .verifyComplete()
             }
         }
+        serviceTopology.getTopology(namespace)
+            .test()
+            .expectNextCount(1)
+            .verifyComplete()
     }
 
     companion object {

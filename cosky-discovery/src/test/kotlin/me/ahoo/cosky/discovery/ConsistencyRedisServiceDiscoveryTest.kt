@@ -171,7 +171,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     }
 
     @Test
-    fun getInstancesCache() {
+    fun instanceChangedEvent() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         val serviceId = MockIdGenerator.INSTANCE.generateAsString()
         val instance = createInstance(serviceId)
@@ -212,6 +212,25 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         serviceDiscovery.getInstances(namespace, serviceId).collectList()
             .test()
             .expectNextMatches { it.isEmpty() }
+            .verifyComplete()
+
+        serviceRegistry.renew(namespace, instance)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+
+        serviceRegistry.setMetadata(namespace, instance.serviceId, instance.instanceId, mapOf("key" to "value"))
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+
+        serviceRegistry.deregister(namespace, instance)
+            .test()
+            .expectNext(true)
             .verifyComplete()
     }
 
