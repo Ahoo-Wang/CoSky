@@ -18,7 +18,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.cloud.client.ConditionalOnDiscoveryEnabled
 import org.springframework.cloud.client.ConditionalOnReactiveDiscoveryEnabled
 import org.springframework.cloud.client.ReactiveCommonsClientAutoConfiguration
-import org.springframework.cloud.client.discovery.composite.reactive.ReactiveCompositeDiscoveryClientAutoConfiguration
 import org.springframework.context.annotation.Bean
 
 /**
