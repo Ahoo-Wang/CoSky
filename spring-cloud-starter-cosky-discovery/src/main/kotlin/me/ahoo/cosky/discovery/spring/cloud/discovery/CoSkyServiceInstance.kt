@@ -20,7 +20,7 @@ import java.net.URI
  *
  * @author ahoo wang
  */
-class CoSkyServiceInstance(val delegate: ServiceInstance) :
+data class CoSkyServiceInstance(val delegate: ServiceInstance) :
     org.springframework.cloud.client.ServiceInstance {
     override fun getInstanceId(): String {
         return delegate.instanceId
