@@ -10,7 +10,6 @@ spring:
       static-locations: file:./dashboard/
   webflux:
     static-path-pattern: /dashboard/**
-
 cosky:
   security:
     enabled: true
@@ -24,15 +23,20 @@ cosky:
 
 cosid:
   namespace: ${spring.application.name}
+  machine:
+    enabled: true
+    distributor:
+      type: redis
   snowflake:
     enabled: true
     share:
       converter:
         type: radix
-    machine:
-      distributor:
-        type: redis
-
+  segment:
+    enabled: false
 simba:
   redis:
     enabled: true
+logging:
+  file:
+    name: logs/${spring.application.name}.log

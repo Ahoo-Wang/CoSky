@@ -9,7 +9,3 @@ spring:
     service-registry:
       auto-registration:
         enabled: ${cosky.auto-registry:true}
-logging:
-  file:
-    name: logs/${spring.application.name}.log
-

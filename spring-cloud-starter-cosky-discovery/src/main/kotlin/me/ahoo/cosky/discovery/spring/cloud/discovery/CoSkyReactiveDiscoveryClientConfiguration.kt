@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Bean
  */
 @AutoConfiguration(
     before = [ReactiveCommonsClientAutoConfiguration::class],
-    after = [CoSkyDiscoveryAutoConfiguration::class, ReactiveCompositeDiscoveryClientAutoConfiguration::class]
+    after = [CoSkyDiscoveryAutoConfiguration::class]
 )
 @ConditionalOnCoSkyDiscoveryEnabled
 @ConditionalOnDiscoveryEnabled

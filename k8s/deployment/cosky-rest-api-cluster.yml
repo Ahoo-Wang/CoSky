@@ -17,8 +17,10 @@ spec:
     spec:
       containers:
         - env:
-            - name: SPRING_REDIS_HOST
-              value: redis-uri:6379
+            - name: SPRING_REDIS_CLUSTER_NODES
+              value: redis-host:6379
+            - name: SPRING_REDIS_CLUSTER_MAX_REDIRECTS
+              value: "3"
             - name: SPRING_REDIS_PASSWORD
               value: redis-pwd
             - name: TZ
@@ -27,11 +29,11 @@ spec:
           livenessProbe:
             httpGet:
               port: 8080
-              path: /actuator/health/liveness
+              path: /actuator/health
           readinessProbe:
             httpGet:
               port: 8080
-              path: /actuator/health/readiness
+              path: /actuator/health
           startupProbe:
             httpGet:
               port: 8080

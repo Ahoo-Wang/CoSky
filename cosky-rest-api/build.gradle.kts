@@ -43,7 +43,7 @@ distributions {
 }
 
 application {
-    mainClass.set("me.ahoo.cosky.rest.RestApiServer")
+    mainClass.set("me.ahoo.cosky.rest.RestApiServerKt")
 
     applicationDefaultJvmArgs = listOf(
         "-Xms512M",
@@ -80,7 +80,6 @@ dependencies {
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
     implementation("me.ahoo.simba:simba-spring-redis")
     implementation("me.ahoo.simba:simba-spring-boot-starter")
-
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("io.jsonwebtoken:jjwt-api")
     implementation("io.jsonwebtoken:jjwt-impl")
