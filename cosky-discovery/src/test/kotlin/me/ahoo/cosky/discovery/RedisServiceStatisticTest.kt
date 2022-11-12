@@ -60,6 +60,32 @@ class RedisServiceStatisticTest : AbstractReactiveRedisTest() {
             }
     }
 
+    @Test
+    fun statServiceWhenServiceIdIsNull() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        redisServiceStatistic.statService(namespace)
+            .test()
+            .verifyComplete()
+    }
+
+    @Test
+    fun countService() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        redisServiceStatistic.countService(namespace)
+            .test()
+            .expectNext(0)
+            .verifyComplete()
+    }
+
+    @Test
+    fun getInstanceCount() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        redisServiceStatistic.getInstanceCount(namespace)
+            .test()
+            .expectNext(0)
+            .verifyComplete()
+    }
+
     companion object {
         private val namespace = MockIdGenerator.INSTANCE.generateAsString()
     }
