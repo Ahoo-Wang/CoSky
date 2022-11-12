@@ -232,6 +232,8 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
+
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
     }
 
 }

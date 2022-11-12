@@ -168,13 +168,6 @@ class ConsistencyRedisServiceDiscovery(
                 }
                 return@flatMap delegate.getInstance(namespace, serviceId, instanceId)
                     .doOnNext { serviceInstance: ServiceInstance ->
-                        if (log.isDebugEnabled) {
-                            log.debug(
-                                "onInstanceChanged - instance:[{}] - event:[{}] add registered Instance.",
-                                instance,
-                                instanceChangedEvent.event
-                            )
-                        }
                         cachedInstances.add(serviceInstance)
                     }
             }
@@ -189,13 +182,6 @@ class ConsistencyRedisServiceDiscovery(
                 }
 
                 InstanceChangedEvent.Event.RENEW -> {
-                    if (log.isDebugEnabled) {
-                        log.debug(
-                            "onInstanceChanged - instance:[{}] - event:[{}] setTtlAt.",
-                            instance,
-                            instanceChangedEvent.event
-                        )
-                    }
                     return@flatMap delegate
                         .getInstanceTtl(namespace, serviceId, instanceId)
                         .doOnNext { ttlAt ->
@@ -206,13 +192,6 @@ class ConsistencyRedisServiceDiscovery(
                 }
 
                 InstanceChangedEvent.Event.SET_METADATA -> {
-                    if (log.isDebugEnabled) {
-                        log.debug(
-                            "onInstanceChanged - instance:[{}] - event:[{}] setMetadata.",
-                            instance,
-                            instanceChangedEvent.event
-                        )
-                    }
                     return@flatMap delegate
                         .getInstance(namespace, serviceId, instanceId)
                         .doOnNext { updatedInstance ->
@@ -222,13 +201,6 @@ class ConsistencyRedisServiceDiscovery(
                 }
 
                 InstanceChangedEvent.Event.DEREGISTER, InstanceChangedEvent.Event.EXPIRED -> {
-                    if (log.isDebugEnabled) {
-                        log.debug(
-                            "onInstanceChanged - instance:[{}] - event:[{}] remove instance.",
-                            instance,
-                            instanceChangedEvent.event
-                        )
-                    }
                     cachedInstances.remove(cachedInstance)
                     return@flatMap Mono.empty<Any>()
                 }
