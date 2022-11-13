@@ -21,7 +21,7 @@ dependencies {
         api("commons-io:commons-io:2.11.0")
         api("org.springdoc:springdoc-openapi-kotlin:1.6.12")
         api("org.springdoc:springdoc-openapi-webflux-ui:1.6.12")
-        api("org.junit-pioneer:junit-pioneer:1.4.2")
+        api("org.junit-pioneer:junit-pioneer:1.8.0")
         api("org.hamcrest:hamcrest:2.2")
         api("io.mockk:mockk:1.13.2")
         api("org.openjdk.jmh:jmh-core:1.35")
