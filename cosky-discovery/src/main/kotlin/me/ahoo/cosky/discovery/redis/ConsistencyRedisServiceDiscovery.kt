@@ -63,6 +63,11 @@ class ConsistencyRedisServiceDiscovery(
             serviceEventListenerContainer.listen(namespace)
                 .doOnNext {
                     onServiceChanged(it)
+                }.doFinally {
+                    if (log.isInfoEnabled) {
+                        log.info("Listen topic[{}] finally - [{}].", namespace, it)
+                    }
+                    namespaceMapServices.remove(namespace)
                 }
                 .subscribe()
             delegate.getServices(namespace).cache()
@@ -88,6 +93,12 @@ class ConsistencyRedisServiceDiscovery(
             instanceEventListenerContainer.listen(svcId)
                 .doOnNext {
                     onInstanceChanged(it)
+                }
+                .doFinally {
+                    if (log.isInfoEnabled) {
+                        log.info("Listen topic[{}] finally - [{}].", svcId, it)
+                    }
+                    serviceMapInstances.remove(svcId)
                 }.subscribe()
             delegate.getInstances(namespace, serviceId)
                 .collectList()

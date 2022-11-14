@@ -46,13 +46,19 @@ class RedisConsistencyConfigService(
     override fun getConfig(namespace: String, configId: String): Mono<Config> {
         require(namespace.isNotBlank()) { "namespace can not be blank!" }
         require(configId.isNotBlank()) { "configId can not be blank!" }
+        val namespacedConfigId = NamespacedConfigId(namespace, configId)
         return configMapCache.computeIfAbsent(
-            NamespacedConfigId(namespace, configId)
+            namespacedConfigId
         ) {
             @Suppress("CallingSubscribeInNonBlockingScope")
             configEventListenerContainer.listen(it)
                 .doOnNext { changedEvent ->
                     onConfigChanged(changedEvent)
+                }.doFinally { signalType ->
+                    if (log.isInfoEnabled) {
+                        log.info("Listen topic[{}] finally - [{}].", namespacedConfigId, signalType)
+                    }
+                    configMapCache.remove(namespacedConfigId)
                 }
                 .subscribe()
             delegate.getConfig(it.namespace, it.configId).cache()

@@ -53,6 +53,11 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         )
     }
 
+    override fun afterDestroyRedisClient() {
+        serviceEventListenerContainer.close()
+        instanceEventListenerContainer.close()
+    }
+
     private fun createServiceEventListenerContainer(): ServiceEventListenerContainer =
         RedisServiceEventListenerContainer(
             ReactiveRedisMessageListenerContainer(connectionFactory)
@@ -214,6 +219,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .expectNextMatches { it.isEmpty() }
             .verifyComplete()
 
+        // local shouldPub = (lastRenewPublishTtlAt - nowTime - pubTolerance) < 0;
         serviceRegistry.renew(namespace, instance)
             .test()
             .expectNext(true)
@@ -228,6 +234,13 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
 
         Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
 
+        serviceRegistry.register(namespace, instance)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+
         serviceRegistry.deregister(namespace, instance)
             .test()
             .expectNext(true)
@@ -235,5 +248,4 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
 
         Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
     }
-
 }

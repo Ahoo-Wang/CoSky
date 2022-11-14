@@ -39,8 +39,8 @@ class CoSkyAutoServiceRegistrationOfNoneWeb(
     private var isWebApp = false
     override fun onApplicationEvent(event: ApplicationStartedEvent) {
         if (isWebApp) {
-            if (log.isInfoEnabled) {
-                log.info("onApplicationEvent - Ignoring registration service of WebServerApplicationContext")
+            if (log.isDebugEnabled) {
+                log.debug("OnApplicationEvent - Ignoring registration service of WebServerApplicationContext")
             }
             return
         }

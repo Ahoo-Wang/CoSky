@@ -12,6 +12,8 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
+import me.ahoo.cosky.discovery.InstanceEventListenerContainer
+import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
@@ -56,14 +58,14 @@ class CoSkyDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun redisServiceEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): RedisServiceEventListenerContainer {
+    fun redisServiceEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): ServiceEventListenerContainer {
         val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
         return RedisServiceEventListenerContainer(listenerContainer)
     }
 
     @Bean
     @ConditionalOnMissingBean
-    fun redisInstanceEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): RedisInstanceEventListenerContainer {
+    fun redisInstanceEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): InstanceEventListenerContainer {
         val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
         return RedisInstanceEventListenerContainer(listenerContainer)
     }
@@ -73,8 +75,8 @@ class CoSkyDiscoveryAutoConfiguration {
     @Primary
     fun consistencyRedisServiceDiscovery(
         redisServiceDiscovery: RedisServiceDiscovery,
-        serviceEventListenerContainer: RedisServiceEventListenerContainer,
-        instanceEventListenerContainer: RedisInstanceEventListenerContainer
+        serviceEventListenerContainer: ServiceEventListenerContainer,
+        instanceEventListenerContainer: InstanceEventListenerContainer
     ): ConsistencyRedisServiceDiscovery {
         return ConsistencyRedisServiceDiscovery(
             delegate = redisServiceDiscovery,
@@ -87,7 +89,7 @@ class CoSkyDiscoveryAutoConfiguration {
     @ConditionalOnMissingBean
     fun redisServiceStatistic(
         redisTemplate: ReactiveStringRedisTemplate,
-        instanceEventListenerContainer: RedisInstanceEventListenerContainer
+        instanceEventListenerContainer: InstanceEventListenerContainer
     ): RedisServiceStatistic {
         return RedisServiceStatistic(redisTemplate, instanceEventListenerContainer)
     }
@@ -96,7 +98,7 @@ class CoSkyDiscoveryAutoConfiguration {
     @ConditionalOnMissingBean
     fun coSkyLoadBalancer(
         serviceDiscovery: ConsistencyRedisServiceDiscovery,
-        instanceEventListenerContainer: RedisInstanceEventListenerContainer
+        instanceEventListenerContainer: InstanceEventListenerContainer
     ): LoadBalancer {
         return BinaryWeightRandomLoadBalancer(serviceDiscovery, instanceEventListenerContainer)
     }

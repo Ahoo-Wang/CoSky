@@ -6,7 +6,7 @@ data class AddUserRequest(
 
 data class ChangePwdRequest(
     val oldPassword: String,
-    val newPassword: String,
+    val newPassword: String
 )
 
 class LoginRequest(
@@ -20,10 +20,10 @@ interface TokenResponse {
 
 data class LoginResponse(
     override val accessToken: String,
-    override val refreshToken: String,
+    override val refreshToken: String
 ) : TokenResponse
 
 data class RefreshRequest(
     override val accessToken: String,
-    override val refreshToken: String,
+    override val refreshToken: String
 ) : TokenResponse

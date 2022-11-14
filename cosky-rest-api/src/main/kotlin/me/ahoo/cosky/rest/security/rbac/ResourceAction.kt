@@ -24,6 +24,8 @@ data class ResourceAction(override val namespace: String, val action: Action) : 
     fun check(requestAction: ResourceAction): Boolean {
         return if (namespace != requestAction.namespace) {
             false
-        } else action.check(requestAction.action)
+        } else {
+            action.check(requestAction.action)
+        }
     }
 }

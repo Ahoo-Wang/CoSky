@@ -156,8 +156,7 @@ class CoskyToNacosMirror(
                 return
             }
             if (InstanceChangedEvent.Event.DEREGISTER == instanceChangedEvent.event || InstanceChangedEvent.Event.EXPIRED == instanceChangedEvent.event) {
-
-                //TODO
+                // TODO
 //                instanceChangedEvent.instance.metadata[Mirror.MIRROR_SOURCE] = target
 //                if (target == metadata[Mirror.MIRROR_SOURCE]) {
 //                    if (log.isInfoEnabled) {

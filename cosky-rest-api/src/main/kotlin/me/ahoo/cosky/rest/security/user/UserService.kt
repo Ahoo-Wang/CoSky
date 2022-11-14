@@ -67,7 +67,8 @@ class UserService(
                     .collect(Collectors.toSet())
                     .map { roleBind ->
                         User(
-                            username!!, roleBind!!
+                            username!!,
+                            roleBind!!
                         )
                     }
             }
@@ -172,7 +173,8 @@ class UserService(
             .flatMap { getRoleBind(username).collect(Collectors.toSet()) }
             .map { roleBind ->
                 val user = User(
-                    username, roleBind!!
+                    username,
+                    roleBind!!
                 )
                 jwtProvider.generateToken(user)
             }

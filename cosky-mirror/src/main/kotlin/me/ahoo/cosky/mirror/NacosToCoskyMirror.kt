@@ -75,11 +75,13 @@ class NacosToCoskyMirror(
         val nacosServices = nacosServices
         Flux.fromIterable<String>(nacosServices)
             .filter(Predicate { serviceId: String -> !serviceMapListener.containsKey(serviceId) })
-            .flatMap<Boolean>(Function<String, Publisher<out Boolean>> { serviceId: String ->
-                this.nacosToCosky(
-                    serviceId
-                )
-            })
+            .flatMap<Boolean>(
+                Function<String, Publisher<out Boolean>> { serviceId: String ->
+                    this.nacosToCosky(
+                        serviceId
+                    )
+                }
+            )
             .subscribe()
     }
 
@@ -99,22 +101,26 @@ class NacosToCoskyMirror(
         }
         return Flux.fromIterable<Instance>(nacosInstances)
             .filter(Predicate { serviceInstance: Instance -> shouldRegister(serviceInstance.metadata) })
-            .flatMap<Boolean>(Function<Instance, Publisher<out Boolean?>> { serviceInstance: Instance ->
-                nacosToCosky(
-                    serviceId,
-                    serviceInstance
-                )
-            })
+            .flatMap<Boolean>(
+                Function<Instance, Publisher<out Boolean?>> { serviceInstance: Instance ->
+                    nacosToCosky(
+                        serviceId,
+                        serviceInstance
+                    )
+                }
+            )
     }
 
     fun nacosToCosky(serviceId: String, instance: Instance): Mono<Boolean?> {
         val coskyInstance = getCoskyInstanceFromNacos(serviceId, instance)
         return coskyServiceRegistry.register(coskyInstance)
-            .doOnError(Consumer { throwable: Throwable ->
-                if (log.isErrorEnabled()) {
-                    log.error(throwable.message, throwable)
+            .doOnError(
+                Consumer { throwable: Throwable ->
+                    if (log.isErrorEnabled()) {
+                        log.error(throwable.message, throwable)
+                    }
                 }
-            })
+            )
             .retry(1)
     }
 
@@ -168,29 +174,33 @@ class NacosToCoskyMirror(
                 currentInstances.stream().noneMatch { current: Instance -> last.instanceId == current.instanceId }
             }
                 .collect(Collectors.toList())
-            addedInstances.forEach(Consumer { addedInstance: Instance ->
-                if (log.isInfoEnabled()) {
-                    log.info("NacosServiceChangedListener - onEvent - add {}", addedInstance)
-                }
-                if (target == addedInstance.metadata[Mirror.Companion.MIRROR_SOURCE]) {
+            addedInstances.forEach(
+                Consumer { addedInstance: Instance ->
                     if (log.isInfoEnabled()) {
-                        log.info(
-                            "NacosServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] instanceId:[{}]",
-                            serviceId,
-                            addedInstance.instanceId
-                        )
+                        log.info("NacosServiceChangedListener - onEvent - add {}", addedInstance)
                     }
-                    return@forEach
+                    if (target == addedInstance.metadata[Mirror.Companion.MIRROR_SOURCE]) {
+                        if (log.isInfoEnabled()) {
+                            log.info(
+                                "NacosServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] instanceId:[{}]",
+                                serviceId,
+                                addedInstance.instanceId
+                            )
+                        }
+                        return@forEach
+                    }
+                    nacosToCosky(serviceId, addedInstance).subscribe()
                 }
-                nacosToCosky(serviceId, addedInstance).subscribe()
-            })
-            removedInstances.forEach(Consumer { removedInstance: Instance ->
-                if (log.isInfoEnabled()) {
-                    log.info("NacosServiceChangedListener - onEvent - remove {}", removedInstance)
+            )
+            removedInstances.forEach(
+                Consumer { removedInstance: Instance ->
+                    if (log.isInfoEnabled()) {
+                        log.info("NacosServiceChangedListener - onEvent - remove {}", removedInstance)
+                    }
+                    val coskyInstance = getCoskyInstanceFromNacos(serviceId, removedInstance)
+                    coskyServiceRegistry.deregister(coskyInstance).subscribe()
                 }
-                val coskyInstance = getCoskyInstanceFromNacos(serviceId, removedInstance)
-                coskyServiceRegistry.deregister(coskyInstance).subscribe()
-            })
+            )
             lastInstances = currentInstances
         }
     }

@@ -28,7 +28,8 @@ import java.net.URI
 @Controller
 class DashboardConfiguration {
     @GetMapping(
-        *["/",
+        *[
+            "/",
             RequestPathPrefix.DASHBOARD,
             "${RequestPathPrefix.DASHBOARD}home",
             "${RequestPathPrefix.DASHBOARD}topology",
@@ -38,7 +39,8 @@ class DashboardConfiguration {
             "${RequestPathPrefix.DASHBOARD}user",
             "${RequestPathPrefix.DASHBOARD}role",
             "${RequestPathPrefix.DASHBOARD}audit-log",
-            "${RequestPathPrefix.DASHBOARD}login"]
+            "${RequestPathPrefix.DASHBOARD}login"
+        ]
     )
     fun home(response: ServerHttpResponse): Mono<Void> {
         response.statusCode = HttpStatus.TEMPORARY_REDIRECT

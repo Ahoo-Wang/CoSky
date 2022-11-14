@@ -36,6 +36,10 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
         return RedisConsistencyConfigService(delegate, configEventListenerContainer)
     }
 
+    override fun afterDestroyRedisClient() {
+        configEventListenerContainer.close()
+    }
+
     @Test
     fun config() {
         val namespace: String = MockIdGenerator.INSTANCE.generateAsString()

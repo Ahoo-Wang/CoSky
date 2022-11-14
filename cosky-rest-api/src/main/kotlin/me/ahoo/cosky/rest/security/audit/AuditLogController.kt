@@ -33,7 +33,8 @@ class AuditLogController(private val auditService: AuditLogService) {
     @GetMapping
     fun queryLog(offset: Long, limit: Long): Mono<QueryLogResponse> {
         return Mono.zip(
-            auditService.total, auditService.queryLog(offset, limit)
+            auditService.total,
+            auditService.queryLog(offset, limit)
         )
             .map { QueryLogResponse(it.t2, it.t1) }
     }

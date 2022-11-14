@@ -9,7 +9,6 @@ import me.ahoo.cosky.discovery.InstanceChangedEvent.Companion.asServiceChangedEv
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceTopology
-import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.listener.PatternTopic
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
@@ -20,31 +19,23 @@ class RedisInstanceEventListenerContainer(
     private val serviceTopology: ServiceTopology = ServiceTopology.NO_OP
 ) :
     InstanceEventListenerContainer, RedisEventListenerContainer<NamespacedServiceId, InstanceChangedEvent>(delegate) {
-    companion object {
-        private val log = LoggerFactory.getLogger(RedisInstanceEventListenerContainer::class.java)
-    }
 
     override fun receive(topic: NamespacedServiceId): Flux<ReactiveSubscription.Message<String, String>> {
-        return Flux.defer {
-            if (log.isDebugEnabled) {
-                log.debug("Receive - topic:{}", topic)
-            }
-            val instancePattern = if (topic.serviceId.isNotBlank()) {
-                DiscoveryKeyGenerator.getInstanceKeyPatternOfService(topic.namespace, topic.serviceId)
-            } else {
-                DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(topic.namespace)
-            }
-
-            @Suppress("UNCHECKED_CAST")
-            delegate
-                .receive(PatternTopic.of(instancePattern))
-                .doOnSubscribe {
-                    if (topic.serviceId.isNotBlank()) {
-                        @Suppress("CallingSubscribeInNonBlockingScope")
-                        serviceTopology.addTopology(topic.namespace, topic.serviceId).subscribe()
-                    }
-                } as Flux<ReactiveSubscription.Message<String, String>>
+        val instancePattern = if (topic.serviceId.isNotBlank()) {
+            DiscoveryKeyGenerator.getInstanceKeyPatternOfService(topic.namespace, topic.serviceId)
+        } else {
+            DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(topic.namespace)
         }
+
+        @Suppress("UNCHECKED_CAST")
+        return delegate
+            .receive(PatternTopic.of(instancePattern))
+            .doOnSubscribe {
+                if (topic.serviceId.isNotBlank()) {
+                    @Suppress("CallingSubscribeInNonBlockingScope")
+                    serviceTopology.addTopology(topic.namespace, topic.serviceId).subscribe()
+                }
+            } as Flux<ReactiveSubscription.Message<String, String>>
     }
 
     override fun asEvent(message: ReactiveSubscription.Message<String, String>): InstanceChangedEvent {

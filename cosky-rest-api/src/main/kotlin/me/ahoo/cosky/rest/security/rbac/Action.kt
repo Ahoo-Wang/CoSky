@@ -25,7 +25,9 @@ enum class Action(val value: String) {
     fun check(requestAction: Action): Boolean {
         return if (READ_WRITE.value == value) {
             true
-        } else this == requestAction
+        } else {
+            this == requestAction
+        }
     }
 
     companion object {

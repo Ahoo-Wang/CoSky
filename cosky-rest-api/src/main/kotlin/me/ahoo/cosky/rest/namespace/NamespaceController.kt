@@ -43,7 +43,9 @@ class NamespaceController(private val namespaceService: NamespaceService, privat
         val user = AuthorizeService.getRequiredUserOfRequest(serverWebExchange)
         return if (user.isAdmin) {
             namespaceService.namespaces.collectList()
-        } else rbacService.getCurrentUserNamespace(user).collectList()
+        } else {
+            rbacService.getCurrentUserNamespace(user).collectList()
+        }
     }
 
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
