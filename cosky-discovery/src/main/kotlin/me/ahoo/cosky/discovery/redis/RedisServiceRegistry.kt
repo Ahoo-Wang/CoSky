@@ -21,6 +21,7 @@ import me.ahoo.cosky.discovery.ServiceRegistry
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.toMono
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -169,7 +170,7 @@ class RedisServiceRegistry(
                     namespace
                 )
             }
-            return Mono.just(java.lang.Boolean.FALSE)
+            return false.toMono()
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
@@ -188,7 +189,7 @@ class RedisServiceRegistry(
                     }
                     return@flatMap register(namespace, serviceInstance)
                 }
-                Mono.just(java.lang.Boolean.TRUE)
+                true.toMono()
             }
             .next()
     }

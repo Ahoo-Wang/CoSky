@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 import java.util.concurrent.CancellationException
 
 abstract class RedisEventListenerContainer<T, E>(
@@ -43,6 +44,6 @@ abstract class RedisEventListenerContainer<T, E>(
                 delegate.activeSubscriptions.size
             )
         }
-        delegate.destroy()
+        delegate.destroyLater().subscribeOn(Schedulers.boundedElastic()).subscribe()
     }
 }

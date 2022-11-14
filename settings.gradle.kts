@@ -22,8 +22,8 @@ include(":cosky-spring-cloud-core")
 include(":spring-cloud-starter-cosky-config")
 include(":spring-cloud-starter-cosky-discovery")
 include(":cosky-rest-api")
-//TODO
-//include(":cosky-mirror")
+// TODO
+// include(":cosky-mirror")
 include(":cosky-test")
 
 include(":cosky-service-provider")

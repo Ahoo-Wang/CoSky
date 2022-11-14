@@ -90,7 +90,8 @@ class RbacService(private val redisTemplate: ReactiveStringRedisTemplate) {
             .switchIfEmpty(Mono.error(NotFoundRoleException(roleName)))
             .map { (key, value) ->
                 ResourceAction(
-                    key, of(value)
+                    key,
+                    of(value)
                 )
             }
     }

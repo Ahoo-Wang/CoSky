@@ -67,8 +67,11 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     fun setMetadata() {
         val instance = randomInstance()
         serviceRegistry.setMetadata(
-            namespace, instance.serviceId, instanceId = instance.instanceId,
-            "test", "test"
+            namespace,
+            instance.serviceId,
+            instanceId = instance.instanceId,
+            "test",
+            "test"
         )
             .test()
             .expectNext(false)
@@ -80,7 +83,9 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .verifyComplete()
 
         serviceRegistry.setMetadata(
-            namespace, instance.serviceId, instanceId = instance.instanceId,
+            namespace,
+            instance.serviceId,
+            instanceId = instance.instanceId,
             mapOf("test" to "testV")
         )
             .test()

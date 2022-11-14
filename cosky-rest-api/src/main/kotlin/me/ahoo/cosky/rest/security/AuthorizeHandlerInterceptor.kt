@@ -62,7 +62,9 @@ class AuthorizeHandlerInterceptor(
             val splitIdx = operatorPath.indexOf("/")
             if (splitIdx > 0) {
                 operatorPath.substring(0, splitIdx)
-            } else operatorPath
+            } else {
+                operatorPath
+            }
         } else {
             AuthorizeService.getRequiredUserOfRequest(exchange).username
         }
@@ -79,16 +81,20 @@ class AuthorizeHandlerInterceptor(
     fun authorize(exchange: ServerWebExchange): Mono<AuthorizeResult> {
         val request = exchange.request
         val requestPath = request.path.value()
-        return if ((requestPath.startsWith(RequestPathPrefix.DASHBOARD)
-                    || requestPath.startsWith(RequestPathPrefix.SWAGGER_UI)
-                    || requestPath.startsWith(RequestPathPrefix.SWAGGER_UI_RESOURCE)
-                    || requestPath.startsWith("/actuator/health")
-                    || requestPath.startsWith("/v3/api-docs"))
-            || "/" == requestPath
-            || HttpMethod.OPTIONS == request.method
+        return if ((
+            requestPath.startsWith(RequestPathPrefix.DASHBOARD) ||
+                requestPath.startsWith(RequestPathPrefix.SWAGGER_UI) ||
+                requestPath.startsWith(RequestPathPrefix.SWAGGER_UI_RESOURCE) ||
+                requestPath.startsWith("/actuator/health") ||
+                requestPath.startsWith("/v3/api-docs")
+            ) ||
+            "/" == requestPath ||
+            HttpMethod.OPTIONS == request.method
         ) {
             Mono.just(AuthorizeResult.ALLOW_ANONYMOUS)
-        } else authorizeService.authorize(exchange)
+        } else {
+            authorizeService.authorize(exchange)
+        }
     }
 
     companion object {

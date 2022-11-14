@@ -101,7 +101,9 @@ class AuthorizeService(
         val splitIdx = namespace.indexOf("/")
         return if (splitIdx > 0) {
             namespace.substring(0, splitIdx)
-        } else namespace
+        } else {
+            namespace
+        }
     }
 
     fun checkRolePermissions(user: User, requestAction: ResourceAction): Mono<Boolean> {
@@ -147,7 +149,9 @@ class AuthorizeService(
             val queryToken = request.queryParams.getFirst(QUERY_PARAM_TOKEN)
             return if (!queryToken.isNullOrEmpty()) {
                 Optional.of(queryToken)
-            } else Optional.empty()
+            } else {
+                Optional.empty()
+            }
         }
 
         fun getUserOfRequest(serverWebExchange: ServerWebExchange): Optional<User> {
@@ -161,8 +165,10 @@ class AuthorizeService(
         }
 
         fun hasAnnotation(handlerMethod: HandlerMethod, annotationType: Class<out Annotation>): Boolean {
-            return (AnnotatedElementUtils.hasAnnotation(handlerMethod.beanType, annotationType)
-                    || handlerMethod.hasMethodAnnotation(annotationType))
+            return (
+                AnnotatedElementUtils.hasAnnotation(handlerMethod.beanType, annotationType) ||
+                    handlerMethod.hasMethodAnnotation(annotationType)
+                )
         }
     }
 }

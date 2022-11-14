@@ -74,7 +74,9 @@ class ConfigController(private val configService: ConfigService) {
     ): Mono<ImportResponse> {
         val importPolicy = if (policy.isNullOrEmpty()) {
             IMPORT_POLICY_SKIP
-        } else policy
+        } else {
+            policy
+        }
 
         val importResponse = ImportResponse()
         return importZip
@@ -119,7 +121,9 @@ class ConfigController(private val configService: ConfigService) {
                             }
                             .flatMap {
                                 configService.setConfig(
-                                    namespace, configId, configData
+                                    namespace,
+                                    configId,
+                                    configData
                                 )
                             }
                     }
@@ -130,7 +134,8 @@ class ConfigController(private val configService: ConfigService) {
             .map { result -> if (result) 1 else 0 }
             .reduce { a: Int, b: Int ->
                 Integer.sum(
-                    a, b
+                    a,
+                    b
                 )
             }
             .map { succeeded ->
@@ -201,5 +206,4 @@ class ConfigController(private val configService: ConfigService) {
     ): Mono<ConfigHistory> {
         return configService.getConfigHistory(namespace, configId, version)
     }
-
 }

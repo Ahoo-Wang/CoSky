@@ -35,8 +35,11 @@ class StatServiceScheduler(
     private val serviceStatistic: ServiceStatistic,
     contendServiceFactory: MutexContendServiceFactory
 ) : AbstractScheduler(
-    STAT_MUTEX, ScheduleConfig.delay(Duration.ofSeconds(1), Duration.ofSeconds(10)), contendServiceFactory
-), SmartLifecycle {
+    STAT_MUTEX,
+    ScheduleConfig.delay(Duration.ofSeconds(1), Duration.ofSeconds(10)),
+    contendServiceFactory
+),
+    SmartLifecycle {
 
     companion object {
         private val log = LoggerFactory.getLogger(StatServiceScheduler::class.java)
@@ -76,5 +79,4 @@ class StatServiceScheduler(
     override fun isRunning(): Boolean {
         return running
     }
-
 }
