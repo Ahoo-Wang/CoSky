@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 plugins {
-    kotlin("plugin.spring") version "1.7.20"
+    kotlin("plugin.spring") version "1.7.21"
     kotlin("kapt")
 }
 dependencies {

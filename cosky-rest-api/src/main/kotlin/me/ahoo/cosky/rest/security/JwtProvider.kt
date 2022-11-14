@@ -14,7 +14,6 @@ package me.ahoo.cosky.rest.security
 
 import com.google.common.base.Charsets
 import com.google.common.base.Joiner
-import com.google.common.base.Splitter
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtParser
@@ -24,7 +23,6 @@ import me.ahoo.cosky.rest.security.user.LoginResponse
 import me.ahoo.cosky.rest.security.user.User
 import java.security.Key
 import java.util.*
-import java.util.stream.Collectors
 import javax.crypto.spec.SecretKeySpec
 
 /**
@@ -70,8 +68,7 @@ class JwtProvider(private val jwt: SecurityProperties.Jwt, private val idGenerat
 
     fun refresh(accessToken: String, refreshToken: String): LoginResponse {
         val refreshTokenClaims = decode(refreshToken)
-        val accessTokenClaims: Claims
-        accessTokenClaims = try {
+        val accessTokenClaims: Claims = try {
             decode(accessToken)
         } catch (expiredJwtException: ExpiredJwtException) {
             expiredJwtException.claims
@@ -108,12 +105,7 @@ class JwtProvider(private val jwt: SecurityProperties.Jwt, private val idGenerat
                 .join(roleBind)
         }
 
-        fun stringAsRoleBind(roleBindStr: String): Set<String> {
-            return Splitter
-                .on(ROLE_SEPARATOR)
-                .omitEmptyStrings()
-                .splitToStream(roleBindStr)
-                .collect(Collectors.toSet())
-        }
+        fun stringAsRoleBind(roleBindStr: String): Set<String> = roleBindStr.split(ROLE_SEPARATOR.toRegex())
+            .toSet()
     }
 }
