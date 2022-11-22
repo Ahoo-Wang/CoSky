@@ -26,7 +26,7 @@ dependencies {
         api("io.mockk:mockk:1.13.2")
         api("org.openjdk.jmh:jmh-core:1.36")
         api("org.openjdk.jmh:jmh-generator-annprocess:1.36")
-        api("io.gitlab.arturbosch.detekt:detekt-formatting:1.21.0")
+        api("io.gitlab.arturbosch.detekt:detekt-formatting:1.22.0")
         api("io.jsonwebtoken:jjwt-api:0.11.5")
         api("io.jsonwebtoken:jjwt-impl:0.11.5")
         api("io.jsonwebtoken:jjwt-jackson:0.11.5")
