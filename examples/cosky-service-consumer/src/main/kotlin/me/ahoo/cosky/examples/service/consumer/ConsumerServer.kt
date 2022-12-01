@@ -15,24 +15,26 @@ package me.ahoo.cosky.examples.service.consumer
 import me.ahoo.cosky.examples.service.provider.client.HelloClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.cloud.openfeign.EnableFeignClients
+import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.Scheduled
 
 /**
  * Consumer Server.
  *
  * @author ahoo wang
  */
+@EnableScheduling
 @SpringBootApplication
 @EnableFeignClients(basePackages = ["me.ahoo.cosky.examples.service.provider.client"])
-class ConsumerServer : CommandLineRunner {
+class ConsumerServer {
     @Autowired
     private lateinit var helloClient: HelloClient
 
-    @Throws(Exception::class)
-    override fun run(vararg args: String) {
+    @Scheduled(fixedDelay = 2000)
+    fun run() {
         val rpcResponse = helloClient.hi("consumer")
         log.warn(rpcResponse)
     }

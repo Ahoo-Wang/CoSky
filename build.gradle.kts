@@ -13,7 +13,7 @@
 
 plugins {
     id("io.github.gradle-nexus.publish-plugin")
-    id("io.gitlab.arturbosch.detekt").version("1.21.0")
+    id("io.gitlab.arturbosch.detekt") version "1.22.0"
     kotlin("jvm") version "1.7.21"
     id("org.jetbrains.dokka") version "1.7.20"
     id("me.champeau.jmh")
@@ -63,7 +63,6 @@ configure(bomProjects) {
 configure(libraryProjects) {
     apply<io.gitlab.arturbosch.detekt.DetektPlugin>()
     configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
-        toolVersion = "1.21.0"
         source = files(
             io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_JAVA,
             io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_KOTLIN

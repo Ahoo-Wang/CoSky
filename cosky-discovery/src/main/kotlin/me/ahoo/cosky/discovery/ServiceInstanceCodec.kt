@@ -53,6 +53,7 @@ object ServiceInstanceCodec {
         return preArgs
     }
 
+    @Suppress("CyclomaticComplexMethod")
     fun decode(instanceData: List<String>): ServiceInstance {
         var instanceId: String? = null
         var serviceId: String? = null
