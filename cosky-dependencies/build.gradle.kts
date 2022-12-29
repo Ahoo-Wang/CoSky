@@ -19,7 +19,7 @@ dependencies {
     constraints {
         api("com.google.guava:guava:31.1-jre")
         api("commons-io:commons-io:2.11.0")
-        api("org.springdoc:springdoc-openapi-kotlin:1.6.13")
+        api("org.springdoc:springdoc-openapi-kotlin:1.6.14")
         api("org.springdoc:springdoc-openapi-webflux-ui:1.6.14")
         api("org.junit-pioneer:junit-pioneer:1.9.1")
         api("org.hamcrest:hamcrest:2.2")
