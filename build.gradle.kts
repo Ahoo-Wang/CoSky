@@ -13,9 +13,9 @@
 
 plugins {
     id("io.github.gradle-nexus.publish-plugin")
-    id("io.gitlab.arturbosch.detekt") version "1.22.0"
-    kotlin("jvm") version "1.8.10"
-    id("org.jetbrains.dokka") version "1.7.20"
+    id("io.gitlab.arturbosch.detekt")
+    kotlin("jvm")
+    id("org.jetbrains.dokka")
     id("me.champeau.jmh")
     jacoco
 }
