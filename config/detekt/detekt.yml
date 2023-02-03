@@ -8,7 +8,7 @@ complexity:
     active: false
   LongMethod:
     active: false
-  ComplexMethod:
+  CyclomaticComplexMethod:
     active: false
 style:
   MaxLineLength:
