@@ -25,6 +25,7 @@ include(":cosky-rest-api")
 // TODO
 // include(":cosky-mirror")
 include(":cosky-test")
+include(":code-coverage-report")
 
 include(":cosky-service-provider")
 project(":cosky-service-provider").projectDir = file("examples/cosky-service-provider")
@@ -45,3 +46,4 @@ pluginManagement {
         id("io.github.gradle-nexus.publish-plugin") version "1.1.0" apply false
     }
 }
+
