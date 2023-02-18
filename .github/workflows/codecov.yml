@@ -27,9 +27,6 @@ jobs:
           server-id: github
           settings-path: ${{ github.workspace }}
 
-      - name: Check
-        run: gradle check
-
       - name: Build Code Coverage Report
         run: gradle codeCoverageReport
 
@@ -41,5 +38,5 @@ jobs:
           name: codecov-umbrella # optional
           fail_ci_if_error: true # optional (default = false)
           verbose: true # optional (default = false)
-          files: ./build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+          files: ./code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
           path_to_write_report: ./coverage/codecov_report.txt
