@@ -20,7 +20,7 @@
     "@angular/platform-browser-dynamic": "~11.2.13",
     "@angular/router": "~11.2.13",
     "echarts": "^5.1.2",
-    "monaco-editor": "^0.35.0",
+    "monaco-editor": "^0.36.0",
     "ng-zorro-antd": "^11.4.1",
     "ngx-monaco-editor": "^9.0.0",
     "rxjs": "~6.6.0",
