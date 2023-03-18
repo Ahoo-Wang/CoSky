@@ -14,7 +14,7 @@
 dependencies {
     api(platform("org.springframework.boot:spring-boot-dependencies:2.7.9"))
     api(platform("org.springframework.cloud:spring-cloud-dependencies:2021.0.6"))
-    api(platform("me.ahoo.cosid:cosid-bom:1.18.3"))
+    api(platform("me.ahoo.cosid:cosid-bom:1.18.5"))
     api(platform("me.ahoo.simba:simba-bom:0.6.5"))
     constraints {
         api("com.google.guava:guava:31.1-jre")
