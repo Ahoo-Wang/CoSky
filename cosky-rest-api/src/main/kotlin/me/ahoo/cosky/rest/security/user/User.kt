@@ -22,7 +22,7 @@ import me.ahoo.cosky.rest.security.rbac.Role
  */
 data class User(
     val username: String,
-    val roleBind: Set<String>
+    val roleBind: Set<String>,
 ) {
     val isAdmin: Boolean
         get() = SUPER_USER == username || roleBind.contains(Role.ADMIN_ROLE)

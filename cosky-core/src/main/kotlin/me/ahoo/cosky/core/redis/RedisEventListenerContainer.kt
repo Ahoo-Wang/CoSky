@@ -9,7 +9,7 @@ import reactor.core.scheduler.Schedulers
 import java.util.concurrent.CancellationException
 
 abstract class RedisEventListenerContainer<T, E>(
-    val delegate: ReactiveRedisMessageListenerContainer
+    val delegate: ReactiveRedisMessageListenerContainer,
 ) :
     EventListenerContainer<T, E> {
     companion object {
@@ -41,7 +41,7 @@ abstract class RedisEventListenerContainer<T, E>(
             log.info(
                 "Closing {} activeSubscriptions:[{}]",
                 this,
-                delegate.activeSubscriptions.size
+                delegate.activeSubscriptions.size,
             )
         }
         delegate.destroyLater().subscribeOn(Schedulers.boundedElastic()).subscribe()

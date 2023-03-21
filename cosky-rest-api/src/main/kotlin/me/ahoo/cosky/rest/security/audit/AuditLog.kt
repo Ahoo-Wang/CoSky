@@ -39,5 +39,5 @@ data class AuditLog(
      * 操作消息.
      */
     var msg: String,
-    var opTime: Long = 0
+    var opTime: Long = 0,
 )

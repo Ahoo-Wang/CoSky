@@ -40,7 +40,7 @@ class SecurityConfiguration(private val securityProperties: SecurityProperties) 
     @Bean
     fun authorizeHandlerInterceptor(
         authorizeService: AuthorizeService,
-        auditService: AuditLogService
+        auditService: AuditLogService,
     ): AuthorizeHandlerInterceptor {
         return AuthorizeHandlerInterceptor(authorizeService, auditService, securityProperties)
     }

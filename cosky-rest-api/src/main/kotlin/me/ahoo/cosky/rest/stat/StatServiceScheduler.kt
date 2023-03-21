@@ -33,11 +33,11 @@ import java.time.Duration
 class StatServiceScheduler(
     private val namespaceService: NamespaceService,
     private val serviceStatistic: ServiceStatistic,
-    contendServiceFactory: MutexContendServiceFactory
+    contendServiceFactory: MutexContendServiceFactory,
 ) : AbstractScheduler(
     STAT_MUTEX,
     ScheduleConfig.delay(Duration.ofSeconds(1), Duration.ofSeconds(10)),
-    contendServiceFactory
+    contendServiceFactory,
 ),
     SmartLifecycle {
 
@@ -65,7 +65,7 @@ class StatServiceScheduler(
             }
             .flatMap { namespace ->
                 serviceStatistic.statService(
-                    namespace
+                    namespace,
                 )
             }
             .doOnComplete {

@@ -48,7 +48,7 @@ class SwaggerConfiguration {
                 .`in`(SecurityScheme.In.HEADER)
                 .name("Authorization")
                 .description("API Key")
-                .bearerFormat("JWT")
+                .bearerFormat("JWT"),
         )
     }
 }

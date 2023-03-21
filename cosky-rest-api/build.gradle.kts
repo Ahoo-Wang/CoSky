@@ -28,7 +28,7 @@ tasks.jar.configure {
     manifest {
         attributes(
             "Implementation-Title" to application.applicationName,
-            "Implementation-Version" to archiveVersion
+            "Implementation-Version" to archiveVersion,
         )
     }
 }
@@ -62,7 +62,7 @@ application {
         "-Dcom.sun.management.jmxremote.port=5555",
         "-Dspring.cloud.bootstrap.enabled=true",
         "-Dspring.cloud.bootstrap.location=config/bootstrap.yaml",
-        "-Dspring.config.location=file:./config/"
+        "-Dspring.config.location=file:./config/",
     )
 }
 

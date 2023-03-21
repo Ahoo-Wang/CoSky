@@ -29,19 +29,19 @@ class SecurityProperties(
     val enabled: Boolean = true,
     val enforceInitSuperUser: Boolean = false,
     val jwt: Jwt = Jwt(),
-    val auditLog: AuditLog = AuditLog()
+    val auditLog: AuditLog = AuditLog(),
 ) {
     @ConstructorBinding
     data class Jwt(
         var algorithm: String = "HmacSHA256",
         var signingKey: String = "",
         var accessTokenValidity: Duration = Duration.ofMinutes(10),
-        var refreshTokenValidity: Duration = Duration.ofDays(7)
+        var refreshTokenValidity: Duration = Duration.ofDays(7),
     )
 
     @ConstructorBinding
     data class AuditLog(
-        val action: Action = Action.WRITE
+        val action: Action = Action.WRITE,
     )
 
     companion object {

@@ -19,7 +19,7 @@ package me.ahoo.cosky.rest.security.rbac
  */
 data class RoleDto(
     val name: String,
-    val desc: String
+    val desc: String,
 ) {
     companion object {
         @JvmField

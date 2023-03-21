@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component
 @Component
 class SecurityCommand(
     private val securityProperties: SecurityProperties,
-    private val userService: UserService
+    private val userService: UserService,
 ) :
     CommandLineRunner {
     @Throws(Exception::class)

@@ -70,7 +70,7 @@ class ConfigController(private val configService: ConfigService) {
     fun importZip(
         @PathVariable namespace: String,
         @RequestParam(required = false) policy: String?,
-        @RequestPart importZip: Mono<FilePart>
+        @RequestPart importZip: Mono<FilePart>,
     ): Mono<ImportResponse> {
         val importPolicy = if (policy.isNullOrEmpty()) {
             IMPORT_POLICY_SKIP
@@ -123,7 +123,7 @@ class ConfigController(private val configService: ConfigService) {
                                 configService.setConfig(
                                     namespace,
                                     configId,
-                                    configData
+                                    configData,
                                 )
                             }
                     }
@@ -135,7 +135,7 @@ class ConfigController(private val configService: ConfigService) {
             .reduce { a: Int, b: Int ->
                 Integer.sum(
                     a,
-                    b
+                    b,
                 )
             }
             .map { succeeded ->
@@ -166,7 +166,7 @@ class ConfigController(private val configService: ConfigService) {
     fun setConfig(
         @PathVariable namespace: String,
         @PathVariable configId: String,
-        @RequestBody data: String
+        @RequestBody data: String,
     ): Mono<Boolean> {
         return configService.setConfig(namespace, configId, data)
     }
@@ -185,7 +185,7 @@ class ConfigController(private val configService: ConfigService) {
     fun rollback(
         @PathVariable namespace: String,
         @PathVariable configId: String,
-        @PathVariable targetVersion: Int
+        @PathVariable targetVersion: Int,
     ): Mono<Boolean> {
         return configService.rollback(namespace, configId, targetVersion)
     }
@@ -193,7 +193,7 @@ class ConfigController(private val configService: ConfigService) {
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS)
     fun getConfigVersions(
         @PathVariable namespace: String,
-        @PathVariable configId: String
+        @PathVariable configId: String,
     ): Mono<List<ConfigVersion>> {
         return configService.getConfigVersions(namespace, configId).collectList()
     }
@@ -202,7 +202,7 @@ class ConfigController(private val configService: ConfigService) {
     fun getConfigHistory(
         @PathVariable namespace: String,
         @PathVariable configId: String,
-        @PathVariable version: Int
+        @PathVariable version: Int,
     ): Mono<ConfigHistory> {
         return configService.getConfigHistory(namespace, configId, version)
     }

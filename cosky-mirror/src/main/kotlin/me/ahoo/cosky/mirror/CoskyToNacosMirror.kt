@@ -39,7 +39,7 @@ class CoskyToNacosMirror(
     private val coskyServiceDiscovery: ConsistencyRedisServiceDiscovery,
     private val instanceEventListenerContainer: InstanceEventListenerContainer,
     private val nacosDiscoveryProperties: NacosDiscoveryProperties,
-    private val nacosServiceManager: NacosServiceManager
+    private val nacosServiceManager: NacosServiceManager,
 ) : Mirror {
     companion object {
         private val log = LoggerFactory.getLogger(CoskyToNacosMirror::class.java)
@@ -128,7 +128,7 @@ class CoskyToNacosMirror(
                     "CoskyServiceChangedListener - onChange - @[{}] op:[{}] instanceId:[{}]",
                     serviceId,
                     instanceChangedEvent.event,
-                    instance.instanceId
+                    instance.instanceId,
                 )
             }
             val namespacedServiceId: NamespacedServiceId = instanceChangedEvent.namespacedServiceId
@@ -136,7 +136,7 @@ class CoskyToNacosMirror(
                 coskyServiceDiscovery.getInstance(
                     namespacedServiceId.namespace,
                     namespacedServiceId.serviceId,
-                    instance.instanceId
+                    instance.instanceId,
                 )
                     .doOnNext { coskyInstance: ServiceInstance ->
                         if (target == coskyInstance.metadata[Mirror.MIRROR_SOURCE]) {
@@ -145,7 +145,7 @@ class CoskyToNacosMirror(
                                     "CoskyServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] op:[{}] instanceId:[{}]",
                                     serviceId,
                                     instanceChangedEvent.event,
-                                    instance.instanceId
+                                    instance.instanceId,
                                 )
                             }
                             return@doOnNext

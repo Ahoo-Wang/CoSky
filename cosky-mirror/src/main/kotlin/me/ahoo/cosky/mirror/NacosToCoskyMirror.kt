@@ -39,7 +39,7 @@ import java.util.stream.Collectors
 class NacosToCoskyMirror(
     coskyServiceRegistry: RedisServiceRegistry,
     nacosDiscoveryProperties: NacosDiscoveryProperties,
-    nacosServiceManager: NacosServiceManager
+    nacosServiceManager: NacosServiceManager,
 ) : Mirror {
     private val coskyServiceRegistry: RedisServiceRegistry
     private val nacosDiscoveryProperties: NacosDiscoveryProperties
@@ -78,9 +78,9 @@ class NacosToCoskyMirror(
             .flatMap<Boolean>(
                 Function<String, Publisher<out Boolean>> { serviceId: String ->
                     this.nacosToCosky(
-                        serviceId
+                        serviceId,
                     )
-                }
+                },
             )
             .subscribe()
     }
@@ -105,9 +105,9 @@ class NacosToCoskyMirror(
                 Function<Instance, Publisher<out Boolean?>> { serviceInstance: Instance ->
                     nacosToCosky(
                         serviceId,
-                        serviceInstance
+                        serviceInstance,
                     )
-                }
+                },
             )
     }
 
@@ -119,7 +119,7 @@ class NacosToCoskyMirror(
                     if (log.isErrorEnabled()) {
                         log.error(throwable.message, throwable)
                     }
-                }
+                },
             )
             .retry(1)
     }
@@ -152,7 +152,7 @@ class NacosToCoskyMirror(
 
     private inner class NacosServiceChangedListener(
         private val serviceId: String,
-        @field:Volatile private var lastInstances: List<Instance>
+        @field:Volatile private var lastInstances: List<Instance>,
     ) : EventListener {
         /**
          * callback event.
@@ -184,13 +184,13 @@ class NacosToCoskyMirror(
                             log.info(
                                 "NacosServiceChangedListener - Ignore [cosky.mirror.source is target] - @[{}] instanceId:[{}]",
                                 serviceId,
-                                addedInstance.instanceId
+                                addedInstance.instanceId,
                             )
                         }
                         return@forEach
                     }
                     nacosToCosky(serviceId, addedInstance).subscribe()
-                }
+                },
             )
             removedInstances.forEach(
                 Consumer { removedInstance: Instance ->
@@ -199,7 +199,7 @@ class NacosToCoskyMirror(
                     }
                     val coskyInstance = getCoskyInstanceFromNacos(serviceId, removedInstance)
                     coskyServiceRegistry.deregister(coskyInstance).subscribe()
-                }
+                },
             )
             lastInstances = currentInstances
         }

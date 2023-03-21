@@ -91,7 +91,7 @@ class RbacService(private val redisTemplate: ReactiveStringRedisTemplate) {
             .map { (key, value) ->
                 ResourceAction(
                     key,
-                    of(value)
+                    of(value),
                 )
             }
     }

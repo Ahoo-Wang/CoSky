@@ -34,7 +34,7 @@ import java.util.*
 class AuthorizeHandlerInterceptor(
     private val authorizeService: AuthorizeService,
     private val auditService: AuditLogService,
-    private val securityProperties: SecurityProperties
+    private val securityProperties: SecurityProperties,
 ) : WebFilter {
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
         return authorize(exchange)
@@ -82,12 +82,12 @@ class AuthorizeHandlerInterceptor(
         val request = exchange.request
         val requestPath = request.path.value()
         return if ((
-            requestPath.startsWith(RequestPathPrefix.DASHBOARD) ||
-                requestPath.startsWith(RequestPathPrefix.SWAGGER_UI) ||
-                requestPath.startsWith(RequestPathPrefix.SWAGGER_UI_RESOURCE) ||
-                requestPath.startsWith("/actuator/health") ||
-                requestPath.startsWith("/v3/api-docs")
-            ) ||
+                requestPath.startsWith(RequestPathPrefix.DASHBOARD) ||
+                    requestPath.startsWith(RequestPathPrefix.SWAGGER_UI) ||
+                    requestPath.startsWith(RequestPathPrefix.SWAGGER_UI_RESOURCE) ||
+                    requestPath.startsWith("/actuator/health") ||
+                    requestPath.startsWith("/v3/api-docs")
+                ) ||
             "/" == requestPath ||
             HttpMethod.OPTIONS == request.method
         ) {

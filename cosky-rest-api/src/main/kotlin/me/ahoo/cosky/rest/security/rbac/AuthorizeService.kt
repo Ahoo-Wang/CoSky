@@ -42,7 +42,7 @@ import java.util.*
 class AuthorizeService(
     private val rbacService: RbacService,
     private val jwtProvider: JwtProvider,
-    private val requestMappingHandlerMapping: RequestMappingHandlerMapping
+    private val requestMappingHandlerMapping: RequestMappingHandlerMapping,
 ) {
     @Throws(TokenExpiredException::class)
     fun authorize(exchange: ServerWebExchange): Mono<AuthorizeResult> {
@@ -110,12 +110,12 @@ class AuthorizeService(
         return Flux.fromIterable(user.roleBind)
             .flatMap { roleName: String ->
                 rbacService.getRole(
-                    roleName
+                    roleName,
                 )
             }
             .any { role: Role ->
                 role.check(
-                    requestAction
+                    requestAction,
                 )
             }
     }

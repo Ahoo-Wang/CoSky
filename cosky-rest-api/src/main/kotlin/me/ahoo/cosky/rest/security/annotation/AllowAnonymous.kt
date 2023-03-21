@@ -22,6 +22,6 @@ package me.ahoo.cosky.rest.security.annotation
     AnnotationTarget.CLASS,
     AnnotationTarget.FUNCTION,
     AnnotationTarget.PROPERTY_GETTER,
-    AnnotationTarget.PROPERTY_SETTER
+    AnnotationTarget.PROPERTY_SETTER,
 )
 annotation class AllowAnonymous
