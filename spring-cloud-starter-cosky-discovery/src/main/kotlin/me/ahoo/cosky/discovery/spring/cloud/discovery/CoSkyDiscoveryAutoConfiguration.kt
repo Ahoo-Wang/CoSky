@@ -14,6 +14,7 @@ package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceEventListenerContainer
+import me.ahoo.cosky.discovery.ServiceTopology
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
@@ -65,9 +66,12 @@ class CoSkyDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun redisInstanceEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): InstanceEventListenerContainer {
+    fun redisInstanceEventListenerContainer(
+        connectionFactory: ReactiveRedisConnectionFactory,
+        serviceTopology: ServiceTopology
+    ): InstanceEventListenerContainer {
         val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
-        return RedisInstanceEventListenerContainer(listenerContainer)
+        return RedisInstanceEventListenerContainer(listenerContainer, serviceTopology)
     }
 
     @Bean
