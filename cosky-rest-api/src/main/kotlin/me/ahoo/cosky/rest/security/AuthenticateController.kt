@@ -17,7 +17,6 @@ import me.ahoo.cosec.token.TokenCompositeAuthentication
 import me.ahoo.cosky.rest.security.authentication.DefaultRefreshTokenCredentials
 import me.ahoo.cosky.rest.security.authentication.UserPasswordCredentials
 import me.ahoo.cosky.rest.security.user.LoginRequest
-import me.ahoo.cosky.rest.security.user.RefreshRequest
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.PathVariable
@@ -47,12 +46,12 @@ class AuthenticateController(private val tokenCompositeAuthentication: TokenComp
     }
 
     @PostMapping("/{username}/refresh")
-    fun refresh(@PathVariable username: String, @RequestBody refreshRequest: RefreshRequest): Mono<out CompositeToken> {
+    fun refresh(
+        @PathVariable username: String,
+        @RequestBody refreshRequest: DefaultRefreshTokenCredentials,
+    ): Mono<out CompositeToken> {
         return tokenCompositeAuthentication.authenticateAsToken(
-            DefaultRefreshTokenCredentials(
-                refreshRequest.accessToken,
-                refreshRequest.refreshToken,
-            ),
+            refreshRequest,
         )
     }
 }

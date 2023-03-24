@@ -12,18 +12,3 @@ data class ChangePwdRequest(
 class LoginRequest(
     var password: String,
 )
-
-interface TokenResponse {
-    val accessToken: String
-    val refreshToken: String
-}
-
-data class LoginResponse(
-    override val accessToken: String,
-    override val refreshToken: String,
-) : TokenResponse
-
-data class RefreshRequest(
-    override val accessToken: String,
-    override val refreshToken: String,
-) : TokenResponse
