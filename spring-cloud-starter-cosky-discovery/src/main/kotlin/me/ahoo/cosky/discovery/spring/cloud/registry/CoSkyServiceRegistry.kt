@@ -25,7 +25,7 @@ import kotlin.String
 class CoSkyServiceRegistry(
     private val serviceRegistry: ServiceRegistry,
     private val renewInstanceService: RenewInstanceService,
-    private val coSkyRegistryProperties: CoSkyRegistryProperties
+    private val coSkyRegistryProperties: CoSkyRegistryProperties,
 ) : org.springframework.cloud.client.serviceregistry.ServiceRegistry<CoSkyRegistration> {
     override fun register(registration: CoSkyRegistration) {
         val instance = registration.asServiceInstance()
@@ -51,7 +51,7 @@ class CoSkyServiceRegistry(
                 serviceId = registration.serviceId,
                 instanceId = registration.instanceId,
                 key = StatusConstants.INSTANCE_STATUS_KEY,
-                value = status
+                value = status,
             )
             .block(coSkyRegistryProperties.timeout)
     }

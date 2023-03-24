@@ -12,8 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.user
 
-import me.ahoo.cosky.rest.security.annotation.AdminResource
-import me.ahoo.cosky.rest.security.annotation.OwnerResource
+import me.ahoo.cosec.api.principal.CoSecPrincipal
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_PASSWORD
@@ -38,14 +37,12 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.USERS_PREFIX)
-@AdminResource
 class UserController(private val userService: UserService) {
     @GetMapping
-    fun query(): Mono<List<User>> {
+    fun query(): Mono<out List<CoSecPrincipal>> {
         return userService.query()
     }
 
-    @OwnerResource
     @PatchMapping(USERS_USER_PASSWORD)
     fun changePwd(@PathVariable username: String, @RequestBody changePwdRequest: ChangePwdRequest): Mono<Boolean> {
         return userService.changePwd(username, changePwdRequest.oldPassword, changePwdRequest.newPassword)

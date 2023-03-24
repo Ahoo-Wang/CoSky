@@ -34,7 +34,7 @@ class SwaggerConfiguration {
         .description("High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service.")
         .contact(Contact().name("Ahoo Wang").url("https://github.com/Ahoo-Wang/CoSky"))
         .license(License().url("https://github.com/Ahoo-Wang/CoSky/blob/main/LICENSE").name("Apache 2.0"))
-        .version("3.0.3")
+        .version("3.3.0")
 
     @Bean
     fun openApi(): OpenAPI = OpenAPI().apply {

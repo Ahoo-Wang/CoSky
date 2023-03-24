@@ -81,7 +81,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_SET,
             listOf(namespace),
-            listOf(configId, data, hash)
+            listOf(configId, data, hash),
         ).next()
     }
 
@@ -93,7 +93,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_REMOVE,
             listOf(namespace),
-            listOf(configId)
+            listOf(configId),
         ).next()
     }
 
@@ -110,13 +110,13 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
                 "Rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].",
                 configId,
                 targetVersion,
-                namespace
+                namespace,
             )
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK,
             listOf(namespace),
-            listOf(configId, targetVersion.toString())
+            listOf(configId, targetVersion.toString()),
         ).next()
     }
 
@@ -127,7 +127,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
             .opsForZSet()
             .reverseRange(
                 configHistoryIdxKey,
-                Range.closed(0L, HISTORY_STOP)
+                Range.closed(0L, HISTORY_STOP),
             )
             .map { getConfigVersionOfHistoryKey(namespace, it) }
     }
@@ -140,7 +140,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
 
     private fun <T : Config> getAndDecodeConfig(
         key: String,
-        decode: (Map<String, String>) -> T
+        decode: (Map<String, String>) -> T,
     ): Mono<T> {
         return redisTemplate
             .opsForHash<String, String>()

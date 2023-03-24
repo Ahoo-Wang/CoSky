@@ -22,11 +22,11 @@ plugins {
 
 val bomProjects = setOf(
     project(":cosky-bom"),
-    project(":cosky-dependencies")
+    project(":cosky-dependencies"),
 )
 val coreProjects = setOf(
     project(":cosky-config"),
-    project(":cosky-discovery")
+    project(":cosky-discovery"),
 )
 val restApiProject = project(":cosky-rest-api")
 // TODO
@@ -36,7 +36,7 @@ val serverProjects = setOf(restApiProject)
 val exampleProjects = setOf(
     project(":cosky-service-provider"),
     project(":cosky-service-provider-api"),
-    project(":cosky-service-consumer")
+    project(":cosky-service-consumer"),
 )
 val testProject = project(":cosky-test")
 val codeCoverageReportProject = project(":code-coverage-report")
@@ -66,7 +66,7 @@ configure(libraryProjects) {
     configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
         source = files(
             io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_JAVA,
-            io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_KOTLIN
+            io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_KOTLIN,
         )
         config = files("${rootProject.rootDir}/config/detekt/detekt.yml")
         buildUponDefaultConfig = true
@@ -112,7 +112,7 @@ configure(libraryProjects) {
         resultFormat.set("json")
 
         var jmhMode = listOf(
-            "thrpt"
+            "thrpt",
         )
         if (project.hasProperty(jmhModeKey)) {
             jmhMode = project.properties[jmhModeKey].toString().split(delimiter)

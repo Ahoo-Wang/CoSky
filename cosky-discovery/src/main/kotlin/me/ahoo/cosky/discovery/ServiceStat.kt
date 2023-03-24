@@ -19,5 +19,5 @@ package me.ahoo.cosky.discovery
  */
 data class ServiceStat(
     val serviceId: String,
-    val instanceCount: Int
+    val instanceCount: Int,
 )

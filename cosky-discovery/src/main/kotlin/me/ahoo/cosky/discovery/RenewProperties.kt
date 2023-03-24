@@ -25,5 +25,5 @@ data class RenewProperties(
      * renew period.
      * [period] must Less than [RegistryProperties.instanceTtl]
      */
-    val period: Duration = Duration.ofSeconds(10)
+    val period: Duration = Duration.ofSeconds(10),
 )

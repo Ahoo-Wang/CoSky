@@ -49,14 +49,14 @@ interface ServiceInstance : Instance {
             weight: Int = 1,
             isEphemeral: Boolean = true,
             ttlAt: Long = TTL_AT_FOREVER,
-            metadata: Map<String, String> = mapOf()
+            metadata: Map<String, String> = mapOf(),
         ): ServiceInstance {
             return ServiceInstanceData(
                 delegate = if (this is ServiceInstanceData) this.delegate else this,
                 weight = weight,
                 isEphemeral = isEphemeral,
                 ttlAt = ttlAt,
-                metadata = metadata
+                metadata = metadata,
             )
         }
 
@@ -65,29 +65,29 @@ interface ServiceInstance : Instance {
                 weight = weight,
                 isEphemeral = isEphemeral,
                 ttlAt = ttlAt,
-                metadata = metadata
+                metadata = metadata,
             )
         }
 
         fun ServiceInstance.withWeight(
-            weight: Int
+            weight: Int,
         ): ServiceInstance {
             return asServiceInstance(
                 weight = weight,
                 isEphemeral = isEphemeral,
                 ttlAt = ttlAt,
-                metadata = metadata
+                metadata = metadata,
             )
         }
 
         fun ServiceInstance.withIsEphemeral(
-            isEphemeral: Boolean
+            isEphemeral: Boolean,
         ): ServiceInstance {
             return asServiceInstance(
                 weight = weight,
                 isEphemeral = isEphemeral,
                 ttlAt = ttlAt,
-                metadata = metadata
+                metadata = metadata,
             )
         }
     }
@@ -98,7 +98,7 @@ private data class ServiceInstanceData(
     override val weight: Int = 1,
     override val isEphemeral: Boolean = true,
     override val ttlAt: Long = TTL_AT_FOREVER,
-    override val metadata: Map<String, String> = mapOf()
+    override val metadata: Map<String, String> = mapOf(),
 ) : ServiceInstance, Instance by delegate {
 
     override fun equals(other: Any?): Boolean {

@@ -27,7 +27,7 @@ import java.time.Duration
 data class CoSkyDiscoveryProperties(
     val enabled: Boolean = true,
     val order: Int = 0,
-    val timeout: Duration = Duration.ofSeconds(2)
+    val timeout: Duration = Duration.ofSeconds(2),
 ) {
     companion object {
         const val PREFIX = CoSkyProperties.PREFIX + ".discovery"

@@ -16,7 +16,6 @@ import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.rest.security.rbac.Action
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.ConstructorBinding
-import java.time.Duration
 
 /**
  * Security Properties.
@@ -28,17 +27,8 @@ import java.time.Duration
 class SecurityProperties(
     val enabled: Boolean = true,
     val enforceInitSuperUser: Boolean = false,
-    val jwt: Jwt = Jwt(),
     val auditLog: AuditLog = AuditLog(),
 ) {
-    @ConstructorBinding
-    data class Jwt(
-        var algorithm: String = "HmacSHA256",
-        var signingKey: String = "",
-        var accessTokenValidity: Duration = Duration.ofMinutes(10),
-        var refreshTokenValidity: Duration = Duration.ofDays(7),
-    )
-
     @ConstructorBinding
     data class AuditLog(
         val action: Action = Action.WRITE,

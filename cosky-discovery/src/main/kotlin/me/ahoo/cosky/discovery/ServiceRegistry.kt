@@ -45,7 +45,7 @@ interface ServiceRegistry {
     fun deregister(
         namespace: String = NamespacedContext.namespace,
         serviceId: String,
-        instanceId: String
+        instanceId: String,
     ): Mono<Boolean>
 
     val registeredEphemeralInstances: Map<NamespacedInstanceId, ServiceInstance>
@@ -55,13 +55,13 @@ interface ServiceRegistry {
         serviceId: String,
         instanceId: String,
         key: String,
-        value: String
+        value: String,
     ): Mono<Boolean>
 
     fun setMetadata(
         namespace: String = NamespacedContext.namespace,
         serviceId: String,
         instanceId: String,
-        metadata: Map<String, String>
+        metadata: Map<String, String>,
     ): Mono<Boolean>
 }

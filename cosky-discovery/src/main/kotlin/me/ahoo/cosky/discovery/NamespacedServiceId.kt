@@ -21,5 +21,5 @@ import me.ahoo.cosky.core.Namespaced
  */
 data class NamespacedServiceId(
     override val namespace: String,
-    val serviceId: String
+    val serviceId: String,
 ) : Namespaced

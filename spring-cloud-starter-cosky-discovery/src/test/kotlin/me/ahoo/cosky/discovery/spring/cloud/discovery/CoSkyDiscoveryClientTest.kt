@@ -36,7 +36,7 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
             MockIdGenerator.INSTANCE.generateAsString(),
             "http",
             "127.0.0.1",
-            ThreadLocalRandom.current().nextInt(65535)
+            ThreadLocalRandom.current().nextInt(65535),
         ).asServiceInstance(metadata = mapOf("from" to "test"))
         serviceRegistry.register(NamespacedContext.namespace, instance)
             .test()

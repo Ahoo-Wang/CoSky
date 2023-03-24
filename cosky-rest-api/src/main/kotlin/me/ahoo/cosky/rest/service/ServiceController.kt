@@ -41,7 +41,7 @@ class ServiceController(
     private val serviceRegistry: ServiceRegistry,
     private val discoveryService: ServiceDiscovery,
     private val serviceStatistic: ServiceStatistic,
-    private val loadBalancer: LoadBalancer
+    private val loadBalancer: LoadBalancer,
 ) {
     @GetMapping
     fun getServices(@PathVariable namespace: String): Mono<List<String>> {
@@ -67,7 +67,7 @@ class ServiceController(
     fun register(
         @PathVariable namespace: String,
         @PathVariable serviceId: String,
-        @RequestBody instanceDto: InstanceDto
+        @RequestBody instanceDto: InstanceDto,
     ): Mono<Boolean> {
         return serviceRegistry.register(namespace, instanceDto.asServiceInstance(serviceId))
     }
@@ -76,7 +76,7 @@ class ServiceController(
     fun deregister(
         @PathVariable namespace: String,
         @PathVariable serviceId: String,
-        @PathVariable instanceId: String
+        @PathVariable instanceId: String,
     ): Mono<Boolean> {
         return serviceRegistry.deregister(namespace, serviceId, instanceId)
     }
@@ -86,7 +86,7 @@ class ServiceController(
         @PathVariable namespace: String,
         @PathVariable serviceId: String,
         @PathVariable instanceId: String,
-        @RequestBody metadata: Map<String, String>
+        @RequestBody metadata: Map<String, String>,
     ): Mono<Boolean> {
         return serviceRegistry.setMetadata(namespace, serviceId, instanceId, metadata)
     }

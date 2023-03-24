@@ -88,12 +88,12 @@ object RequestPathPrefix {
     /**
      * /v1/namespaces/{namespace} .
      */
-    const val STAT_PREFIX = NAMESPACES_NAMESPACE_PREFIX + "/stat"
+    const val STAT_PREFIX = "$NAMESPACES_NAMESPACE_PREFIX/stat"
     //region configs
     /**
      * /v1/namespaces/{namespace}/configs .
      */
-    const val CONFIGS_PREFIX = NAMESPACES_NAMESPACE_PREFIX + "/configs"
+    const val CONFIGS_PREFIX = "$NAMESPACES_NAMESPACE_PREFIX/configs"
 
     /**
      * /v1/namespaces/{namespace}/configs/{configId}/export .
@@ -108,23 +108,23 @@ object RequestPathPrefix {
     /**
      * /v1/namespaces/{namespace}/configs/{configId}/versions .
      */
-    const val CONFIGS_CONFIG_VERSIONS = CONFIGS_CONFIG + "/versions"
+    const val CONFIGS_CONFIG_VERSIONS = "$CONFIGS_CONFIG/versions"
 
     /**
      * /v1/namespaces/{namespace}/configs/{configId}/versions/{version} .
      */
-    const val CONFIGS_CONFIG_VERSIONS_VERSION = CONFIGS_CONFIG_VERSIONS + "/{version}"
+    const val CONFIGS_CONFIG_VERSIONS_VERSION = "$CONFIGS_CONFIG_VERSIONS/{version}"
 
     /**
      * /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion} .
      */
-    const val CONFIGS_CONFIG_TO = CONFIGS_CONFIG + "/to/{targetVersion}"
+    const val CONFIGS_CONFIG_TO = "$CONFIGS_CONFIG/to/{targetVersion}"
     //endregion
     //region services
     /**
      * /v1/namespaces/{namespace}/services/ .
      */
-    const val SERVICES_PREFIX = NAMESPACES_NAMESPACE_PREFIX + "/services"
+    const val SERVICES_PREFIX = "$NAMESPACES_NAMESPACE_PREFIX/services"
 
     /**
      * /v1/namespaces/{namespace}/services/stats .
@@ -139,20 +139,21 @@ object RequestPathPrefix {
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/lb .
      */
-    const val SERVICES_LB = SERVICES_SERVICE + "/lb"
+    const val SERVICES_LB = "$SERVICES_SERVICE/lb"
 
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances .
      */
-    const val SERVICES_INSTANCES = SERVICES_SERVICE + "/instances"
+    const val SERVICES_INSTANCES = "$SERVICES_SERVICE/instances"
 
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId} .
      */
-    const val SERVICES_INSTANCES_INSTANCE = SERVICES_INSTANCES + "/{instanceId}"
+    const val SERVICES_INSTANCES_INSTANCE = "$SERVICES_INSTANCES/{instanceId}"
 
     /**
      * /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata .
      */
-    const val SERVICES_INSTANCES_INSTANCE_METADATA = SERVICES_INSTANCES_INSTANCE + "/metadata" //endregion
+    const val SERVICES_INSTANCES_INSTANCE_METADATA = "$SERVICES_INSTANCES_INSTANCE/metadata"
+//endregion
 }

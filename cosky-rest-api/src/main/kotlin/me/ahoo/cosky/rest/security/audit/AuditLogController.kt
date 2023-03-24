@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.rest.security.audit
 
-import me.ahoo.cosky.rest.security.annotation.AdminResource
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
@@ -28,7 +27,6 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUDIT_LOG_PREFIX)
-@AdminResource
 class AuditLogController(private val auditService: AuditLogService) {
     @GetMapping
     fun queryLog(offset: Long, limit: Long): Mono<QueryLogResponse> {

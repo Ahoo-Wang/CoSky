@@ -12,46 +12,34 @@
  */
 package me.ahoo.cosky.rest.security
 
+import me.ahoo.cosec.webflux.ServerWebExchanges.getSecurityContext
 import me.ahoo.cosky.rest.security.audit.AuditLog
 import me.ahoo.cosky.rest.security.audit.AuditLogService
 import me.ahoo.cosky.rest.security.rbac.Action
-import me.ahoo.cosky.rest.security.rbac.AuthorizeService
-import me.ahoo.cosky.rest.security.rbac.AuthorizeService.AuthorizeResult
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.slf4j.LoggerFactory
-import org.springframework.http.HttpMethod
 import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
-import java.util.*
 
 /**
- * Authorize Handler Interceptor.
+ * Audit Log Handler Interceptor.
  *
  * @author ahoo wang
  */
-class AuthorizeHandlerInterceptor(
-    private val authorizeService: AuthorizeService,
+class AuditLogHandlerInterceptor(
     private val auditService: AuditLogService,
     private val securityProperties: SecurityProperties,
 ) : WebFilter {
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
-        return authorize(exchange)
-            .flatMap {
-                if (it.isAuthorized) {
-                    return@flatMap chain.filter(exchange)
-                }
-                exchange.response.statusCode = it.status
-                Mono.empty()
-            }
+        return chain.filter(exchange)
             .doOnSuccess { writeAuditLog(exchange, null) }
             .doOnError { throwable -> writeAuditLog(exchange, throwable) }
     }
 
     private fun writeAuditLog(exchange: ServerWebExchange, throwable: Throwable?) {
         val request = exchange.request
-        val requestAction = Action.ofHttpMethod(Objects.requireNonNull(request.method))
+        val requestAction = Action.ofHttpMethod(requireNotNull(request.method))
         if (!securityProperties.auditLog.action.check(requestAction)) {
             return
         }
@@ -66,7 +54,7 @@ class AuthorizeHandlerInterceptor(
                 operatorPath
             }
         } else {
-            AuthorizeService.getRequiredUserOfRequest(exchange).username
+            exchange.getSecurityContext()?.principal?.id.orEmpty()
         }
         val action = request.method!!.name
         val ip = requireNotNull(request.remoteAddress).hostString
@@ -76,28 +64,5 @@ class AuthorizeHandlerInterceptor(
 
         val auditLog = AuditLog(operator, ip, requestPath, action, status, msg, opTime)
         auditService.addLog(auditLog).subscribe()
-    }
-
-    fun authorize(exchange: ServerWebExchange): Mono<AuthorizeResult> {
-        val request = exchange.request
-        val requestPath = request.path.value()
-        return if ((
-                requestPath.startsWith(RequestPathPrefix.DASHBOARD) ||
-                    requestPath.startsWith(RequestPathPrefix.SWAGGER_UI) ||
-                    requestPath.startsWith(RequestPathPrefix.SWAGGER_UI_RESOURCE) ||
-                    requestPath.startsWith("/actuator/health") ||
-                    requestPath.startsWith("/v3/api-docs")
-                ) ||
-            "/" == requestPath ||
-            HttpMethod.OPTIONS == request.method
-        ) {
-            Mono.just(AuthorizeResult.ALLOW_ANONYMOUS)
-        } else {
-            authorizeService.authorize(exchange)
-        }
-    }
-
-    companion object {
-        private val log = LoggerFactory.getLogger(AuthorizeHandlerInterceptor::class.java)
     }
 }

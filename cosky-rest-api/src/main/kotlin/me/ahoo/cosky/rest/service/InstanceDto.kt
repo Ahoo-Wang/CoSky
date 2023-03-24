@@ -11,7 +11,7 @@ data class InstanceDto(
     val weight: Int = 1,
     val isEphemeral: Boolean = true,
     val ttlAt: Long = -1,
-    val metadata: Map<String, String> = mapOf()
+    val metadata: Map<String, String> = mapOf(),
 ) {
     fun asServiceInstance(serviceId: String): ServiceInstance {
         return Instance.asInstance(serviceId, schema, host, port)

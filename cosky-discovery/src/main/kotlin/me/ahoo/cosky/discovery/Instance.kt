@@ -68,7 +68,7 @@ interface Instance {
                 schema = schema,
                 host = host,
                 port = port,
-                instanceId = instanceId
+                instanceId = instanceId,
             )
         }
 
@@ -99,7 +99,7 @@ private data class InstanceData(
     override val schema: String,
     override val host: String,
     override val port: Int,
-    override val instanceId: String
+    override val instanceId: String,
 ) : Instance {
     override val uri: URI by lazy { asUri() }
     override val isSecure: Boolean by lazy { isSecure(schema) }

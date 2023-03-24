@@ -22,7 +22,7 @@ internal class CoSkyConfigBootstrapConfigurationTest {
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
-                CoSkyConfigBootstrapConfiguration::class.java
+                CoSkyConfigBootstrapConfiguration::class.java,
             )
             .run {
                 AssertionsForInterfaceTypes.assertThat(it)

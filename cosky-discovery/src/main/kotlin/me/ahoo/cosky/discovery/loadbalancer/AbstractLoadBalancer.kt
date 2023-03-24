@@ -26,13 +26,13 @@ import java.util.concurrent.ConcurrentHashMap
  */
 abstract class AbstractLoadBalancer<C : LoadBalancer.Chooser>(
     private val serviceDiscovery: ServiceDiscovery,
-    private val instanceEventListenerContainer: InstanceEventListenerContainer
+    private val instanceEventListenerContainer: InstanceEventListenerContainer,
 ) : LoadBalancer {
     private val serviceMapChooser: ConcurrentHashMap<NamespacedServiceId, Mono<C>> = ConcurrentHashMap()
 
     private fun ensureChooser(namespacedServiceId: NamespacedServiceId): Mono<C> {
         return serviceMapChooser.computeIfAbsent(
-            namespacedServiceId
+            namespacedServiceId,
         ) { key: NamespacedServiceId ->
             @Suppress("CallingSubscribeInNonBlockingScope")
             instanceEventListenerContainer.listen(key)

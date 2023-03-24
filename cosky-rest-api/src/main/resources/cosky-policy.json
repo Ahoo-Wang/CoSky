@@ -1,0 +1,87 @@
+{
+  "id": "(global)",
+  "name": "全局策略",
+  "category": "Global",
+  "description": "全局策略",
+  "type": "global",
+  "tenantId": "(platform)",
+  "statements": [
+    {
+      "name": "options",
+      "action": {
+        "path": {
+          "method": "OPTIONS",
+          "pattern": "*"
+        }
+      }
+    },
+    {
+      "name": "swaggerUI",
+      "action": {
+        "path": {
+          "method": "GET",
+          "pattern": [
+            "/swagger",
+            "/swagger-ui.html",
+            "/webjars/swagger-ui/**",
+            "/v3/api-docs/**"
+          ]
+        }
+      }
+    },
+    {
+      "name": "dashboard",
+      "action": {
+        "path": {
+          "method": "GET",
+          "pattern": [
+            "/dashboard/**"
+          ]
+        }
+      }
+    },
+    {
+      "name": "actuatorHealth",
+      "action": "/actuator/health"
+    },
+    {
+      "name": "authenticate",
+      "action": [
+        "/v1/authenticate/{username}/login",
+        "/v1/authenticate/{username}/refresh"
+      ]
+    },
+    {
+      "name": "namespace",
+      "action": {
+        "path": {
+          "method": "GET",
+          "pattern": "/v1/namespaces/**"
+        }
+      },
+      "condition": {
+        "authenticated": {
+        }
+      }
+    },
+    {
+      "name": "admin",
+      "action": "*",
+      "condition": {
+        "bool": {
+          "and": [
+            {
+              "authenticated": {
+              }
+            },
+            {
+              "spel": {
+                "expression": "context.principal.roles.contains('admin')"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

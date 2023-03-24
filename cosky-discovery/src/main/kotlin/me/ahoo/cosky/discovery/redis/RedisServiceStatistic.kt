@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class RedisServiceStatistic(
     private val redisTemplate: ReactiveStringRedisTemplate,
-    private val instanceEventListenerContainer: InstanceEventListenerContainer
+    private val instanceEventListenerContainer: InstanceEventListenerContainer,
 ) : ServiceStatistic {
     companion object {
         private val log = LoggerFactory.getLogger(RedisServiceStatistic::class.java)
@@ -81,7 +81,7 @@ class RedisServiceStatistic(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_SERVICE_STAT,
             listOf(namespace),
-            values
+            values,
         ).then()
     }
 
@@ -106,7 +106,7 @@ class RedisServiceStatistic(
     override fun getInstanceCount(namespace: String): Mono<Long> {
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_INSTANCE_COUNT_STAT,
-            listOf(namespace)
+            listOf(namespace),
         ).next()
     }
 }

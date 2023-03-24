@@ -15,9 +15,9 @@ package me.ahoo.cosky.rest.security.user
 import com.google.common.base.Charsets
 import com.google.common.base.Strings
 import com.google.common.hash.Hashing
+import me.ahoo.cosec.api.principal.CoSecPrincipal
+import me.ahoo.cosec.principal.SimplePrincipal
 import me.ahoo.cosky.core.Namespaced
-import me.ahoo.cosky.rest.security.JwtProvider
-import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
@@ -34,41 +34,40 @@ import java.util.stream.Collectors
  */
 @Service
 class UserService(
-    private val jwtProvider: JwtProvider,
-    private val redisTemplate: ReactiveStringRedisTemplate
+    private val redisTemplate: ReactiveStringRedisTemplate,
 ) {
 
     fun initRoot(enforce: Boolean): Mono<Boolean> {
-        return Mono.from(if (enforce) removeUser(User.SUPER_USER) else Mono.empty())
+        return Mono.from(if (enforce) removeUser(CoSecPrincipal.ROOT_ID) else Mono.empty())
             .then(
                 Mono.defer {
                     val coskyPwd = randomPwd(10)
-                    addUser(User.SUPER_USER, coskyPwd)
+                    addUser(CoSecPrincipal.ROOT_ID, coskyPwd)
                         .map { result: Boolean ->
                             if (result) {
                                 printSuperUserPwd(coskyPwd)
                             }
                             result
                         }
-                }
+                },
             )
     }
 
     private fun printSuperUserPwd(coskyPwd: String) {
         println(
-            "---------------- ****** CoSky -  init super user:[${User.SUPER_USER}] password:[$coskyPwd] ****** ----------------"
+            "---------------- ****** CoSky -  init super user:[${CoSecPrincipal.ROOT_ID}] password:[$coskyPwd] ****** ----------------",
         )
     }
 
-    fun query(): Mono<List<User>> {
+    fun query(): Mono<out List<CoSecPrincipal>> {
         return redisTemplate.opsForHash<String, String>().keys(USER_IDX)
             .flatMap { username ->
                 getRoleBind(username)
                     .collect(Collectors.toSet())
                     .map { roleBind ->
-                        User(
-                            username!!,
-                            roleBind!!
+                        SimplePrincipal(
+                            id = username!!,
+                            roles = roleBind!!,
                         )
                     }
             }
@@ -93,7 +92,7 @@ class UserService(
             .then(
                 redisTemplate
                     .opsForHash<Any, Any>()
-                    .remove(USER_IDX, username)
+                    .remove(USER_IDX, username),
             ).map { affected -> affected > 0 }
     }
 
@@ -119,15 +118,15 @@ class UserService(
             .opsForHash<String, String>()[USER_IDX, username]
             .switchIfEmpty(
                 IllegalArgumentException(
-                    "username:[$username] not exists!"
-                ).toMono()
+                    "username:[$username] not exists!",
+                ).toMono(),
             )
             .flatMap { preEncodePwd: String ->
                 val oldEncodePwd = encodePwd(oldPwd)
                 val newEncodePwd = encodePwd(newPwd)
                 if (preEncodePwd != oldEncodePwd) {
                     return@flatMap SecurityException(
-                        "username:[$username] - old password is incorrect!"
+                        "username:[$username] - old password is incorrect!",
                     ).toMono()
                 }
                 redisTemplate.opsForHash<Any, Any>().put(USER_IDX, username, newEncodePwd)
@@ -135,7 +134,7 @@ class UserService(
     }
 
     @Throws(SecurityException::class)
-    fun login(username: String, pwd: String): Mono<LoginResponse> {
+    fun auth(username: String, pwd: String): Mono<out CoSecPrincipal> {
         val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
         return redisTemplate
             .opsForValue()
@@ -146,8 +145,8 @@ class UserService(
                 if (tryCount > MAX_LOGIN_ERROR_TIMES) {
                     return@flatMap SecurityException(
                         "User:[$username] sign in freezes for [${
-                        Duration.ofMillis(loginLockExpire).toMinutes()
-                        }] minutes,Too many:[$tryCount] sign in errors!"
+                            Duration.ofMillis(loginLockExpire).toMinutes()
+                        }] minutes,Too many:[$tryCount] sign in errors!",
                     ).toMono()
                 }
                 redisTemplate.expire(loginLockKey, Duration.ofMillis(loginLockExpire))
@@ -157,14 +156,14 @@ class UserService(
                     .opsForHash<String, String>()[USER_IDX, username]
                     .switchIfEmpty(
                         SecurityException(
-                            "username:[$username] - password is incorrect.!"
-                        ).toMono()
+                            "username:[$username] - password is incorrect.!",
+                        ).toMono(),
                     )
                     .flatMap { realEncodedPwd: String ->
                         val encodedPwd = encodePwd(pwd)
                         if (realEncodedPwd != encodedPwd) {
                             return@flatMap SecurityException(
-                                "username:[$username] - password is incorrect.!"
+                                "username:[$username] - password is incorrect.!",
                             ).toMono()
                         }
                         redisTemplate.delete(loginLockKey)
@@ -172,11 +171,10 @@ class UserService(
             }
             .flatMap { getRoleBind(username).collect(Collectors.toSet()) }
             .map { roleBind ->
-                val user = User(
-                    username,
-                    roleBind!!
+                SimplePrincipal(
+                    id = username,
+                    roles = roleBind!!,
                 )
-                jwtProvider.generateToken(user)
             }
     }
 
@@ -193,7 +191,6 @@ class UserService(
     fun logout() = Unit
 
     companion object {
-        private val log = LoggerFactory.getLogger(UserService::class.java)
         const val USER_IDX = Namespaced.SYSTEM + ":user_idx"
         const val USER_ROLE_BIND = Namespaced.SYSTEM + ":user_role_bind:%s"
         const val USER_LOGIN_LOCK = Namespaced.SYSTEM + ":login_lock:%s"

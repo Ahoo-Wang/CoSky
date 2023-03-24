@@ -17,6 +17,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 @ConditionalOnProperty(
     value = ["spring.cloud.service-registry.auto-registration.enabled"],
     matchIfMissing = true,
-    havingValue = "true"
+    havingValue = "true",
 )
 annotation class ConditionalOnAutoRegistrationEnabled

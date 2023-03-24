@@ -123,7 +123,7 @@ object ServiceInstanceCodec {
             schema = schema,
             host = host,
             port = port,
-            instanceId = instanceId
+            instanceId = instanceId,
         )
         requireNotNull(weight) { "weight is null" }
         requireNotNull(isEphemeral) { "isEphemeral is null" }
@@ -134,7 +134,7 @@ object ServiceInstanceCodec {
             weight = weight,
             isEphemeral = isEphemeral,
             ttlAt = ttlAt ?: TTL_AT_FOREVER,
-            metadata = metadata
+            metadata = metadata,
         )
     }
 }

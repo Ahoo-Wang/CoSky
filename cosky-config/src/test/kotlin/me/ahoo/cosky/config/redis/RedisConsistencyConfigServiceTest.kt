@@ -73,7 +73,7 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
         val semaphore = Semaphore(0)
         val configService: ConfigService = RedisConsistencyConfigService(
             delegate,
-            configEventListenerContainer
+            configEventListenerContainer,
         ) { (namespacedConfigId) ->
             if (namespacedConfigId.namespace == namespace) {
                 semaphore.release()
@@ -107,7 +107,7 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
         val semaphore = Semaphore(0)
         val configService: ConfigService = RedisConsistencyConfigService(
             delegate,
-            configEventListenerContainer
+            configEventListenerContainer,
         ) { semaphore.release() }
         configService.getConfig(namespace, testConfigId)
             .test()
@@ -141,7 +141,7 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
         val semaphore = Semaphore(0)
         val configService: ConfigService = RedisConsistencyConfigService(
             delegate,
-            configEventListenerContainer
+            configEventListenerContainer,
         ) { semaphore.release() }
         configService.getConfig(namespace, testConfigId)
             .test()

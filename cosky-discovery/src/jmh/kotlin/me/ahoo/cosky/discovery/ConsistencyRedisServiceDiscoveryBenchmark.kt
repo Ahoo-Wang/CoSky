@@ -41,15 +41,15 @@ open class ConsistencyRedisServiceDiscoveryBenchmark : AbstractReactiveRedisTest
         serviceRegistry.register(TestData.NAMESPACE, fixedInstance).block()
         val redisServiceDiscovery = RedisServiceDiscovery(redisTemplate)
         val serviceEventListenerContainer = RedisServiceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
+            ReactiveRedisMessageListenerContainer(connectionFactory),
         )
         val serviceInstanceEventListenerContainer = RedisInstanceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
+            ReactiveRedisMessageListenerContainer(connectionFactory),
         )
         serviceDiscovery = ConsistencyRedisServiceDiscovery(
             redisServiceDiscovery,
             serviceEventListenerContainer,
-            serviceInstanceEventListenerContainer
+            serviceInstanceEventListenerContainer,
         )
     }
 

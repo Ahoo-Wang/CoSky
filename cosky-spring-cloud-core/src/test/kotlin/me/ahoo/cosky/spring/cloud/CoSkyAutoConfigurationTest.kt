@@ -18,7 +18,7 @@ internal class CoSkyAutoConfigurationTest {
             .withUserConfiguration(
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
-                CoSkyAutoConfiguration::class.java
+                CoSkyAutoConfiguration::class.java,
             )
             .run {
                 assertThat(it)
@@ -37,12 +37,12 @@ internal class CoSkyAutoConfigurationTest {
         contextRunner
             .withPropertyValues(
                 "${ConditionalOnCoSkyEnabled.ENABLED_KEY}=false",
-                "spring.cloud.cosky.namespace=contextLoads"
+                "spring.cloud.cosky.namespace=contextLoads",
             )
             .withUserConfiguration(
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
-                CoSkyAutoConfiguration::class.java
+                CoSkyAutoConfiguration::class.java,
             )
             .run {
                 assertThat(it)

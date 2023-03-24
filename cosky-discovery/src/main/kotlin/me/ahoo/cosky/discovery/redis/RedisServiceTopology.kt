@@ -18,7 +18,7 @@ class RedisServiceTopology(private val redisTemplate: ReactiveStringRedisTemplat
             redisTemplate.execute(
                 DiscoveryRedisScripts.SCRIPT_TOPOLOGY_ADD,
                 listOf(consumerNamespace),
-                listOf(consumerName, producerName)
+                listOf(consumerName, producerName),
             ).then()
         }
     }
@@ -28,7 +28,7 @@ class RedisServiceTopology(private val redisTemplate: ReactiveStringRedisTemplat
         @Suppress("UNCHECKED_CAST")
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_SERVICE_TOPOLOGY_GET,
-            listOf(namespace)
+            listOf(namespace),
         )
             .map<Map<String, Set<String>>> {
                 val deps = it as List<Any>

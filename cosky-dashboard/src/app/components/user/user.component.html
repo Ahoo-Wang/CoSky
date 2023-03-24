@@ -31,8 +31,8 @@
   </thead>
   <tbody>
   <tr *ngFor="let user of basicTable.data">
-    <td>{{user.username}}</td>
-    <td>{{user.roleBind|json}}</td>
+    <td>{{user.name}}</td>
+    <td>{{user.roles|json}}</td>
     <td>
       <nz-button-group>
         <button

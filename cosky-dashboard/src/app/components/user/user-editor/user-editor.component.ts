@@ -39,13 +39,13 @@ export class UserEditorComponent implements OnInit {
       this.roles = resp;
     })
     const controlsConfig = {
-      roleBind: [this.user.roleBind, [Validators.required]]
+      roleBind: [this.user.roles, [Validators.required]]
     };
     this.editorForm = this.formBuilder.group(controlsConfig);
   }
 
   bindRole() {
-    this.userClient.bindRole(this.user.username, this.user.roleBind).subscribe(bindResp => {
+    this.userClient.bindRole(this.user.id, this.user.roles).subscribe(bindResp => {
       this.afterSave.emit(true);
     })
   }

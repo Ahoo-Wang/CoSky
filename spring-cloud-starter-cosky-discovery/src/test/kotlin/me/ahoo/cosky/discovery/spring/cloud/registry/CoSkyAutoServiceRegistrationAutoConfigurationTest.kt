@@ -24,14 +24,14 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
         contextRunner
             .withPropertyValues(
                 "spring.cloud.cosky.namespace=contextLoads",
-                "spring.application.name=app"
+                "spring.application.name=app",
             )
             .withUserConfiguration(
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
-                CoSkyAutoServiceRegistrationAutoConfiguration::class.java
+                CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
             )
             .run {
                 assertThat(it)
@@ -86,14 +86,14 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 "${CoSkyRegistryProperties.PREFIX}.ttl=120s",
                 "${CoSkyRegistryProperties.PREFIX}.metadata.key=value",
                 "${CoSkyRegistryProperties.PREFIX}.initial-status=OUT_OF_SERVICE",
-                "${CoSkyRegistryProperties.PREFIX}.renew.initialDelay=2s"
+                "${CoSkyRegistryProperties.PREFIX}.renew.initialDelay=2s",
             )
             .withUserConfiguration(
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
-                CoSkyAutoServiceRegistrationAutoConfiguration::class.java
+                CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
             )
             .run {
                 assertThat(it)

@@ -30,7 +30,7 @@ import javax.annotation.PreDestroy
  */
 class CoSkyAutoServiceRegistrationOfNoneWeb(
     private val serviceRegistry: CoSkyServiceRegistry,
-    private val registration: CoSkyRegistration
+    private val registration: CoSkyRegistration,
 ) : ApplicationListener<ApplicationStartedEvent>, ApplicationContextAware {
     companion object {
         private val log = LoggerFactory.getLogger(CoSkyAutoServiceRegistrationOfNoneWeb::class.java)

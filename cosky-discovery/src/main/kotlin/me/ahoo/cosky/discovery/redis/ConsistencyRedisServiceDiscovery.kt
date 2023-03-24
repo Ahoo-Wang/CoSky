@@ -45,7 +45,7 @@ class ConsistencyRedisServiceDiscovery(
     private val serviceEventListenerContainer: ServiceEventListenerContainer,
     private val instanceEventListenerContainer: InstanceEventListenerContainer,
     private val hookOnResetInstanceCache: (InstanceChangedEvent) -> Unit = NoOpHookOnResetInstanceCache,
-    private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache
+    private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache,
 ) : ServiceDiscovery {
     companion object {
         private val log = LoggerFactory.getLogger(ConsistencyRedisServiceDiscovery::class.java)
@@ -87,7 +87,7 @@ class ConsistencyRedisServiceDiscovery(
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         return serviceMapInstances.computeIfAbsent(
-            NamespacedServiceId(namespace, serviceId)
+            NamespacedServiceId(namespace, serviceId),
         ) { svcId ->
             @Suppress("CallingSubscribeInNonBlockingScope")
             instanceEventListenerContainer.listen(svcId)
@@ -142,7 +142,7 @@ class ConsistencyRedisServiceDiscovery(
             log.debug(
                 "onInstanceChanged - instance:[{}] - message:[{}]",
                 instanceChangedEvent.instance,
-                instanceChangedEvent.event
+                instanceChangedEvent.event,
             )
         }
         val namespacedServiceId = instanceChangedEvent.namespacedServiceId
@@ -156,7 +156,7 @@ class ConsistencyRedisServiceDiscovery(
                 log.debug(
                     "onInstanceChanged - instance:[{}] - event:[{}] instancesMono is null.",
                     instance,
-                    instanceChangedEvent.event
+                    instanceChangedEvent.event,
                 )
             }
             return
@@ -172,7 +172,7 @@ class ConsistencyRedisServiceDiscovery(
                         log.debug(
                             "onInstanceChanged - instance:[{}] - event:[{}] not found cached Instance.",
                             instance,
-                            instanceChangedEvent.event
+                            instanceChangedEvent.event,
                         )
                     }
                     return@flatMap Mono.empty<Any>()
