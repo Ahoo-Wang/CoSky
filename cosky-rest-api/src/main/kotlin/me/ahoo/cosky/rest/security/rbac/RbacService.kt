@@ -13,9 +13,9 @@
 package me.ahoo.cosky.rest.security.rbac
 
 import com.google.common.base.Strings
+import me.ahoo.cosec.api.principal.CoSecPrincipal
 import me.ahoo.cosky.core.Namespaced
 import me.ahoo.cosky.rest.security.rbac.Action.Companion.of
-import me.ahoo.cosky.rest.security.user.User
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
@@ -96,8 +96,8 @@ class RbacService(private val redisTemplate: ReactiveStringRedisTemplate) {
             }
     }
 
-    fun getCurrentUserNamespace(user: User): Flux<String> {
-        val userRoleBind = user.roleBind
+    fun getCurrentUserNamespace(coSecPrincipal: CoSecPrincipal): Flux<String> {
+        val userRoleBind = coSecPrincipal.roles
         return Flux.fromIterable(userRoleBind)
             .flatMap { roleName -> getRole(roleName) }
             .flatMapIterable { (_, _, resourceActionBind) -> resourceActionBind.keys }

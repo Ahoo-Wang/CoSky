@@ -49,7 +49,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         serviceDiscovery = ConsistencyRedisServiceDiscovery(
             delegate = delegate,
             serviceEventListenerContainer = serviceEventListenerContainer,
-            instanceEventListenerContainer = instanceEventListenerContainer
+            instanceEventListenerContainer = instanceEventListenerContainer,
         )
     }
 
@@ -60,12 +60,12 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
 
     private fun createServiceEventListenerContainer(): ServiceEventListenerContainer =
         RedisServiceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
+            ReactiveRedisMessageListenerContainer(connectionFactory),
         )
 
     private fun createInstanceEventListenerContainer(): InstanceEventListenerContainer =
         RedisInstanceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
+            ReactiveRedisMessageListenerContainer(connectionFactory),
         )
 
     @Test
@@ -73,7 +73,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            serviceRegistry
+            serviceRegistry,
         ) { instance: ServiceInstance ->
             serviceDiscovery.getServices(namespace).collectList()
                 .test()
@@ -87,7 +87,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            serviceRegistry
+            serviceRegistry,
         ) { instance: ServiceInstance ->
             serviceDiscovery.getInstances(namespace, instance.serviceId).collectList()
                 .test()
@@ -101,7 +101,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            serviceRegistry
+            serviceRegistry,
         ) { instance: ServiceInstance ->
             serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
                 .test()
@@ -115,7 +115,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val namespace = MockIdGenerator.INSTANCE.generateAsString()
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            serviceRegistry
+            serviceRegistry,
         ) { instance: ServiceInstance ->
             serviceDiscovery.getInstances(namespace, instance.serviceId).collectList()
                 .test()
@@ -142,7 +142,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
                 if (it == namespace) {
                     semaphore.release()
                 }
-            }
+            },
         )
 
         serviceDiscovery.getServices(namespace)
@@ -189,7 +189,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
                 if (it.namespacedServiceId.namespace == namespace) {
                     semaphore.release()
                 }
-            }
+            },
         )
         serviceDiscovery.getInstances(namespace, serviceId)
             .test()

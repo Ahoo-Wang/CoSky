@@ -23,5 +23,5 @@ data class RegistryProperties(
     /**
      * instance time to live.
      */
-    val instanceTtl: Duration = Duration.ofMinutes(1)
+    val instanceTtl: Duration = Duration.ofMinutes(1),
 )

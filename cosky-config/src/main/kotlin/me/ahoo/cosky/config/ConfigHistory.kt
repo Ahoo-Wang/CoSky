@@ -27,5 +27,5 @@ data class ConfigHistory(
      * @see ConfigChangedEvent.Event
      */
     val op: String,
-    val opTime: Long
+    val opTime: Long,
 ) : Config

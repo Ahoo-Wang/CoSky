@@ -20,7 +20,7 @@ internal class CoSkyReactiveDiscoveryClientConfigurationTest {
                 RedisReactiveAutoConfiguration::class.java,
                 CoSkyDiscoveryAutoConfiguration::class.java,
                 ReactiveCompositeDiscoveryClientAutoConfiguration::class.java,
-                CoSkyReactiveDiscoveryClientConfiguration::class.java
+                CoSkyReactiveDiscoveryClientConfiguration::class.java,
             )
             .run {
                 assertThat(it)

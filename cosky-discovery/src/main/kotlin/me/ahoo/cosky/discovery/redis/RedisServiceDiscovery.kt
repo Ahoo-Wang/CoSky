@@ -27,19 +27,19 @@ import java.util.*
  * @author ahoo wang
  */
 class RedisServiceDiscovery(
-    private val redisTemplate: ReactiveStringRedisTemplate
+    private val redisTemplate: ReactiveStringRedisTemplate,
 ) : ServiceDiscovery {
 
     override fun getInstances(
         namespace: String,
-        serviceId: String
+        serviceId: String,
     ): Flux<ServiceInstance> {
         require(namespace.isNotBlank()) { "namespace is blank!" }
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES,
             listOf(namespace),
-            listOf(serviceId)
+            listOf(serviceId),
         )
             .flatMapIterable { instanceGroups ->
                 @Suppress("UNCHECKED_CAST")
@@ -60,7 +60,7 @@ class RedisServiceDiscovery(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE,
             listOf(namespace),
-            listOf(serviceId, instanceId)
+            listOf(serviceId, instanceId),
         )
             .map {
                 @Suppress("UNCHECKED_CAST")
@@ -82,7 +82,7 @@ class RedisServiceDiscovery(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE_TTL,
             listOf(namespace),
-            listOf(serviceId, instanceId)
+            listOf(serviceId, instanceId),
         ).next()
     }
 

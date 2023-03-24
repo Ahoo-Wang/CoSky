@@ -20,7 +20,7 @@ package me.ahoo.cosky.discovery
 class InstanceChangedEvent(
     val namespacedServiceId: NamespacedServiceId,
     val event: Event,
-    val instance: Instance
+    val instance: Instance,
 ) {
 
     enum class Event(val op: String) {
@@ -28,7 +28,7 @@ class InstanceChangedEvent(
         DEREGISTER("deregister"),
         EXPIRED("expired"),
         RENEW("renew"),
-        SET_METADATA("set_metadata");
+        SET_METADATA("set_metadata"),
     }
 
     companion object {

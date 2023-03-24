@@ -27,7 +27,7 @@ import org.springframework.context.annotation.Bean
 @AutoConfiguration
 @ConditionalOnCoSkyConfigEnabled
 @ImportAutoConfiguration(
-    CoSkyConfigAutoConfiguration::class
+    CoSkyConfigAutoConfiguration::class,
 )
 class CoSkyConfigBootstrapConfiguration {
 
@@ -35,7 +35,7 @@ class CoSkyConfigBootstrapConfiguration {
     @ConditionalOnMissingBean
     fun coSkyPropertySourceLocator(
         configProperties: CoSkyConfigProperties,
-        configService: ConfigService
+        configService: ConfigService,
     ): CoSkyPropertySourceLocator {
         return CoSkyPropertySourceLocator(configProperties, configService)
     }

@@ -34,6 +34,6 @@ interface ConfigRollback {
     fun getConfigHistory(
         namespace: String = NamespacedContext.namespace,
         configId: String,
-        version: Int
+        version: Int,
     ): Mono<ConfigHistory>
 }

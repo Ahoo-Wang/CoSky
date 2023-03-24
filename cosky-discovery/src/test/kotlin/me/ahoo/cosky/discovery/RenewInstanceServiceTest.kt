@@ -52,7 +52,7 @@ class RenewInstanceServiceTest : AbstractReactiveRedisTest() {
                 hookOnRenew = {
                     assertThat(it, equalTo(testInstance))
                     semaphore.release()
-                }
+                },
             )
         renewService.start()
         redisServiceRegistry.register(namespace, testInstance)
@@ -66,9 +66,9 @@ class RenewInstanceServiceTest : AbstractReactiveRedisTest() {
         assertThat(
             semaphore.tryAcquire(
                 renewProperties.initialDelay.plusSeconds(2).seconds,
-                TimeUnit.SECONDS
+                TimeUnit.SECONDS,
             ),
-            equalTo(true)
+            equalTo(true),
         )
 
         renewService.stop()

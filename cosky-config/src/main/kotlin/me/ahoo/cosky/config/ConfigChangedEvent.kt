@@ -20,7 +20,7 @@ package me.ahoo.cosky.config
 data class ConfigChangedEvent(val namespacedConfigId: NamespacedConfigId, val event: Event) {
 
     enum class Event(val op: String) {
-        SET("set"), ROLLBACK("rollback"), REMOVE("remove");
+        SET("set"), ROLLBACK("rollback"), REMOVE("remove")
     }
 
     companion object {

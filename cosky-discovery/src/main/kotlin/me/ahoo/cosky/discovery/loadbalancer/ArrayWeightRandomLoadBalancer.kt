@@ -26,7 +26,7 @@ import java.util.concurrent.ThreadLocalRandom
  */
 class ArrayWeightRandomLoadBalancer(
     serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer
+    instanceEventListenerContainer: InstanceEventListenerContainer,
 ) :
     AbstractLoadBalancer<ArrayChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {
@@ -77,7 +77,7 @@ class ArrayWeightRandomLoadBalancer(
             if (LoadBalancer.ZERO == totalWeight) {
                 log.warn(
                     "choose - The size of connector instances is [{}],but total weight is 0!",
-                    instanceLine.size
+                    instanceLine.size,
                 )
                 return null
             }

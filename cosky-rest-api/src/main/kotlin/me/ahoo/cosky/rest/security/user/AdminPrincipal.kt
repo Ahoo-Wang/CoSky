@@ -10,16 +10,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.rest.security
+package me.ahoo.cosky.rest.security.user
+
+import me.ahoo.cosec.api.principal.CoSecPrincipal
+import me.ahoo.cosec.api.principal.CoSecPrincipal.Companion.isRoot
+import me.ahoo.cosky.rest.security.rbac.Role
 
 /**
- * Token Expired Exception.
+ * User.
  *
  * @author ahoo wang
  */
-class TokenExpiredException : SecurityException {
-    constructor() {}
-    constructor(message: String?) : super(message) {}
-    constructor(message: String?, cause: Throwable?) : super(message, cause) {}
-    constructor(cause: Throwable?) : super(cause) {}
+object AdminPrincipal {
+    val CoSecPrincipal.isAdmin: Boolean
+        get() = isRoot() || roles.contains(Role.ADMIN_ROLE)
 }

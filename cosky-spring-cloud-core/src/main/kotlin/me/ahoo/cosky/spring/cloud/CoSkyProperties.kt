@@ -41,7 +41,7 @@ class CoSkyProperties(var enabled: Boolean = true) : Namespaced {
                         "When Redis is in cluster mode, namespace:[{}-->{}] must be wrapped by {}(hashtag).",
                         value,
                         clusterNamespace,
-                        "{}"
+                        "{}",
                     )
                 }
                 clusterNamespace

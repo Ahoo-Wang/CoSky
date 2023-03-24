@@ -39,7 +39,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     fun getServices() {
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            redisServiceRegistry,
         ) {
             redisServiceDiscovery.getServices(namespace).collectList()
                 .test()
@@ -52,7 +52,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     fun getInstances() {
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            redisServiceRegistry,
         ) {
             redisServiceDiscovery.getInstances(namespace, it.serviceId)
                 .test()
@@ -65,7 +65,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     fun getInstance() {
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            redisServiceRegistry,
         ) {
             redisServiceDiscovery.getInstance(namespace, it.serviceId, it.instanceId)
                 .test()
@@ -79,7 +79,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         redisServiceDiscovery.getInstance(
             namespace = namespace,
             serviceId = MockIdGenerator.INSTANCE.generateAsString(),
-            instanceId = MockIdGenerator.INSTANCE.generateAsString()
+            instanceId = MockIdGenerator.INSTANCE.generateAsString(),
         )
             .test()
             .verifyComplete()
@@ -89,7 +89,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     fun getInstanceTtl() {
         registerRandomInstanceAndTestThenDeregister(
             namespace,
-            redisServiceRegistry
+            redisServiceRegistry,
         ) {
             redisServiceDiscovery.getInstanceTtl(namespace, it.serviceId, it.instanceId)
                 .test()

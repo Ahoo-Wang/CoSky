@@ -12,13 +12,10 @@
  */
 package me.ahoo.cosky.rest.configuration
 
-import me.ahoo.cosid.snowflake.SnowflakeId
-import me.ahoo.cosky.rest.security.AuthorizeHandlerInterceptor
+import me.ahoo.cosky.rest.security.AuditLogHandlerInterceptor
 import me.ahoo.cosky.rest.security.ConditionalOnSecurityEnabled
-import me.ahoo.cosky.rest.security.JwtProvider
 import me.ahoo.cosky.rest.security.SecurityProperties
 import me.ahoo.cosky.rest.security.audit.AuditLogService
-import me.ahoo.cosky.rest.security.rbac.AuthorizeService
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -31,17 +28,12 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @EnableConfigurationProperties(SecurityProperties::class)
 class SecurityConfiguration(private val securityProperties: SecurityProperties) {
-    @Bean
-    fun jwtProvider(snowflakeFriendlyId: SnowflakeId): JwtProvider {
-        return JwtProvider(securityProperties.jwt, snowflakeFriendlyId)
-    }
 
     @ConditionalOnSecurityEnabled
     @Bean
-    fun authorizeHandlerInterceptor(
-        authorizeService: AuthorizeService,
+    fun auditLogHandlerInterceptor(
         auditService: AuditLogService,
-    ): AuthorizeHandlerInterceptor {
-        return AuthorizeHandlerInterceptor(authorizeService, auditService, securityProperties)
+    ): AuditLogHandlerInterceptor {
+        return AuditLogHandlerInterceptor(auditService, securityProperties)
     }
 }

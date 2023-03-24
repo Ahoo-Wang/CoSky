@@ -24,6 +24,6 @@ import org.springframework.cloud.openfeign.FeignClient
 @FeignClient(
     name = Constants.SERVICE_NAME,
     contextId = Constants.SERVICE_NAME_PREFIX + "HelloClient",
-    path = HelloApi.PATH
+    path = HelloApi.PATH,
 )
 interface HelloClient : HelloApi

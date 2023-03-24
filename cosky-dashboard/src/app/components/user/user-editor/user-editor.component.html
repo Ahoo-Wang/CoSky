@@ -19,7 +19,7 @@
         nzMode="multiple"
         nzPlaceHolder="Please bind role!"
         formControlName="roleBind"
-        [(ngModel)]="user.roleBind"
+        [(ngModel)]="user.roles"
       >
         <nz-option *ngFor="let item of roles" [nzLabel]="item.name" [nzValue]="item.name"></nz-option>
       </nz-select>

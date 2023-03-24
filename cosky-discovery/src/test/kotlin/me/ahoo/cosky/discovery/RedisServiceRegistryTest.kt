@@ -71,7 +71,7 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             instance.serviceId,
             instanceId = instance.instanceId,
             "test",
-            "test"
+            "test",
         )
             .test()
             .expectNext(false)
@@ -86,7 +86,7 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             namespace,
             instance.serviceId,
             instanceId = instance.instanceId,
-            mapOf("test" to "testV")
+            mapOf("test" to "testV"),
         )
             .test()
             .expectNext(true)

@@ -12,12 +12,12 @@
  */
 package me.ahoo.cosky.rest.namespace
 
+import me.ahoo.cosec.webflux.ReactiveSecurityContexts.getSecurityContext
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.core.NamespacedContext.namespace
-import me.ahoo.cosky.rest.security.annotation.AdminResource
-import me.ahoo.cosky.rest.security.rbac.AuthorizeService
 import me.ahoo.cosky.rest.security.rbac.RbacService
+import me.ahoo.cosky.rest.security.user.AdminPrincipal.isAdmin
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.DeleteMapping
@@ -26,7 +26,6 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.server.ServerWebExchange
 import reactor.core.publisher.Mono
 
 /**
@@ -39,12 +38,13 @@ import reactor.core.publisher.Mono
 @RequestMapping(RequestPathPrefix.NAMESPACES_PREFIX)
 class NamespaceController(private val namespaceService: NamespaceService, private val rbacService: RbacService) {
     @GetMapping
-    fun getNamespaces(serverWebExchange: ServerWebExchange): Mono<List<String>> {
-        val user = AuthorizeService.getRequiredUserOfRequest(serverWebExchange)
-        return if (user.isAdmin) {
-            namespaceService.namespaces.collectList()
-        } else {
-            rbacService.getCurrentUserNamespace(user).collectList()
+    fun getNamespaces(): Mono<List<String>> {
+        return Mono.deferContextual {
+            val principal = it.getSecurityContext().principal
+            if (principal.isAdmin) {
+                return@deferContextual namespaceService.namespaces.collectList()
+            }
+            rbacService.getCurrentUserNamespace(principal).collectList()
         }
     }
 
@@ -53,19 +53,16 @@ class NamespaceController(private val namespaceService: NamespaceService, privat
         return namespace
     }
 
-    @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
     fun setCurrentContextNamespace(@PathVariable namespace: String) {
         NamespacedContext.namespace = namespace
     }
 
-    @AdminResource
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     fun setNamespace(@PathVariable namespace: String): Mono<Boolean> {
         return namespaceService.setNamespace(namespace)
     }
 
-    @AdminResource
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     fun removeNamespace(@PathVariable namespace: String): Mono<Boolean> {
         return namespaceService.removeNamespace(namespace)

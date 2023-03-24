@@ -30,7 +30,7 @@ export class AuthInterceptor implements HttpInterceptor {
     let accessToken = this.securityService.getAccessToken();
 
     return req.clone({
-      headers: req.headers.set('Authorization', accessToken)
+      headers: req.headers.set('Authorization', 'Bearer ' +accessToken)
     });
   }
 

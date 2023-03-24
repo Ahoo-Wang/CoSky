@@ -23,7 +23,7 @@ internal class CoSkyConfigAutoConfigurationTest {
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
-                CoSkyConfigAutoConfiguration::class.java
+                CoSkyConfigAutoConfiguration::class.java,
             )
             .run {
                 assertThat(it)
@@ -48,13 +48,13 @@ internal class CoSkyConfigAutoConfigurationTest {
                 "spring.cloud.cosky.namespace=contextLoads",
                 "spring.application.name=app",
                 "spring.cloud.cosky.config.configId=test.yaml",
-                "spring.cloud.cosky.config.timeout=3s"
+                "spring.cloud.cosky.config.timeout=3s",
             )
             .withUserConfiguration(
                 RedisAutoConfiguration::class.java,
                 RedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
-                CoSkyConfigAutoConfiguration::class.java
+                CoSkyConfigAutoConfiguration::class.java,
             )
             .run {
                 assertThat(it)

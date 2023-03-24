@@ -34,7 +34,7 @@ abstract class ChooserSpec {
         val instances = listOf(
             instance1,
             instance2,
-            instance3
+            instance3,
         )
         val chooser = createChooser(instances)
         val instance = chooser.choose()
@@ -73,7 +73,7 @@ abstract class ChooserSpec {
                 instance1Hits,
                 instance2Hits,
                 instance3Hits,
-                TimeUnit.MILLISECONDS.convert(totalTimeMillis, TimeUnit.NANOSECONDS)
+                TimeUnit.MILLISECONDS.convert(totalTimeMillis, TimeUnit.NANOSECONDS),
             )
         }
     }

@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class RedisServiceRegistry(
     private val registryProperties: RegistryProperties,
-    private val redisTemplate: ReactiveStringRedisTemplate
+    private val redisTemplate: ReactiveStringRedisTemplate,
 ) : ServiceRegistry {
     companion object {
         private val log = LoggerFactory.getLogger(RedisServiceRegistry::class.java)
@@ -59,7 +59,7 @@ class RedisServiceRegistry(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REGISTER,
             listOf(namespace),
-            values
+            values,
         ).next()
     }
 
@@ -72,7 +72,7 @@ class RedisServiceRegistry(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_SERVICE,
             listOf(namespace),
-            listOf(serviceId)
+            listOf(serviceId),
         ).next()
     }
 
@@ -85,7 +85,7 @@ class RedisServiceRegistry(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REMOVE_SERVICE,
             listOf(namespace),
-            listOf(serviceId)
+            listOf(serviceId),
         ).next()
     }
 
@@ -123,7 +123,7 @@ class RedisServiceRegistry(
         serviceId: String,
         instanceId: String,
         key: String,
-        value: String
+        value: String,
     ): Mono<Boolean> {
         val values = listOf(instanceId, encodeMetadataKey(key), value)
         return setMetadataInternal(namespace, instanceId, values)
@@ -133,7 +133,7 @@ class RedisServiceRegistry(
         namespace: String,
         serviceId: String,
         instanceId: String,
-        metadata: Map<String, String>
+        metadata: Map<String, String>,
     ): Mono<Boolean> {
         val argVCapacity = 1 + metadata.size * 2
         val values = buildList(argVCapacity) {
@@ -152,7 +152,7 @@ class RedisServiceRegistry(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA,
             listOf(namespace),
-            args
+            args,
         )
             .next()
     }
@@ -167,7 +167,7 @@ class RedisServiceRegistry(
                 log.warn(
                     "Renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.",
                     serviceInstance.instanceId,
-                    namespace
+                    namespace,
                 )
             }
             return false.toMono()
@@ -175,7 +175,7 @@ class RedisServiceRegistry(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
             listOf(namespace),
-            listOf(serviceInstance.instanceId, registryProperties.instanceTtl.seconds.toString())
+            listOf(serviceInstance.instanceId, registryProperties.instanceTtl.seconds.toString()),
         )
             .flatMap { status ->
                 if (status <= 0) {
@@ -184,7 +184,7 @@ class RedisServiceRegistry(
                             "Renew - instanceId:[{}] @ namespace:[{}] status is [{}],register again.",
                             serviceInstance.instanceId,
                             namespace,
-                            status
+                            status,
                         )
                     }
                     return@flatMap register(namespace, serviceInstance)
@@ -222,7 +222,7 @@ class RedisServiceRegistry(
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_DEREGISTER,
             listOf(namespace),
-            listOf(serviceId, instanceId)
+            listOf(serviceId, instanceId),
         ).next()
     }
 }

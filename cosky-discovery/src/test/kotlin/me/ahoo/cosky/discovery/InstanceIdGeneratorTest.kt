@@ -26,7 +26,7 @@ class InstanceIdGeneratorTest {
     fun asInstanceId() {
         assertThat(
             Instance.asInstanceId("order_service", "http", "127.0.0.1", 8080),
-            equalTo("order_service@http#127.0.0.1#8080")
+            equalTo("order_service@http#127.0.0.1#8080"),
         )
     }
 

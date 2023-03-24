@@ -31,7 +31,7 @@ object ClearRedisScripts {
     fun clear(redisTemplate: ReactiveStringRedisTemplate, prefix: String): Mono<Void> {
         return redisTemplate.execute(
             SCRIPT_CLEAN,
-            listOf(prefix)
+            listOf(prefix),
         ).next()
     }
 }

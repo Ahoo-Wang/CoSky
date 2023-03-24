@@ -32,5 +32,5 @@ data class ConfigData(
     override val data: String,
     override val hash: String,
     override val createTime: Long,
-    override val version: Int
+    override val version: Int,
 ) : Config

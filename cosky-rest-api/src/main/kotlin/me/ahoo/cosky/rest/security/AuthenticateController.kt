@@ -12,11 +12,12 @@
  */
 package me.ahoo.cosky.rest.security
 
-import me.ahoo.cosky.rest.security.annotation.AllowAnonymous
+import me.ahoo.cosec.api.token.CompositeToken
+import me.ahoo.cosec.token.TokenCompositeAuthentication
+import me.ahoo.cosky.rest.security.authentication.DefaultRefreshTokenCredentials
+import me.ahoo.cosky.rest.security.authentication.UserPasswordCredentials
 import me.ahoo.cosky.rest.security.user.LoginRequest
-import me.ahoo.cosky.rest.security.user.LoginResponse
 import me.ahoo.cosky.rest.security.user.RefreshRequest
-import me.ahoo.cosky.rest.security.user.UserService
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.PathVariable
@@ -34,15 +35,24 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUTHENTICATE_PREFIX)
-@AllowAnonymous
-class AuthenticateController(private val jwtProvider: JwtProvider, private val userService: UserService) {
+class AuthenticateController(private val tokenCompositeAuthentication: TokenCompositeAuthentication) {
     @PostMapping("/{username}/login")
-    fun login(@PathVariable username: String, @RequestBody loginRequest: LoginRequest): Mono<LoginResponse> {
-        return userService.login(username, loginRequest.password)
+    fun login(@PathVariable username: String, @RequestBody loginRequest: LoginRequest): Mono<out CompositeToken> {
+        return tokenCompositeAuthentication.authenticateAsToken(
+            UserPasswordCredentials(
+                username,
+                loginRequest.password,
+            ),
+        )
     }
 
     @PostMapping("/{username}/refresh")
-    fun refresh(@PathVariable username: String, @RequestBody refreshRequest: RefreshRequest): LoginResponse {
-        return jwtProvider.refresh(refreshRequest.accessToken, refreshRequest.refreshToken)
+    fun refresh(@PathVariable username: String, @RequestBody refreshRequest: RefreshRequest): Mono<out CompositeToken> {
+        return tokenCompositeAuthentication.authenticateAsToken(
+            DefaultRefreshTokenCredentials(
+                refreshRequest.accessToken,
+                refreshRequest.refreshToken,
+            ),
+        )
     }
 }

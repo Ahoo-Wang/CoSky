@@ -42,19 +42,19 @@ export class UserComponent implements OnInit {
   }
 
   removeUser(user: UserDto) {
-    this.userClient.removeUser(user.username).subscribe(resp => {
+    this.userClient.removeUser(user.id).subscribe(resp => {
       this.loadUsers();
     })
   }
 
   unlock(user: UserDto) {
-    this.userClient.unlock(user.username).subscribe(resp => {
-      this.messageService.success(`user:${user.username} unlock success!`)
+    this.userClient.unlock(user.id).subscribe(resp => {
+      this.messageService.success(`user:${user.id} unlock success!`)
     })
   }
 
   isSystem(user: UserDto) {
-    return 'cosky' === user.username;
+    return 'cosky' === user.id;
   }
 
   openAdd() {
@@ -76,7 +76,7 @@ export class UserComponent implements OnInit {
 
   openEditor(user: UserDto) {
     const drawerRef = this.drawerService.create<UserEditorComponent, {}, string>({
-      nzTitle: `Edit User [${user.username}] Role`,
+      nzTitle: `Edit User [${user.id}] Role`,
       nzWidth: '30%',
       nzContent: UserEditorComponent,
       nzContentParams: {

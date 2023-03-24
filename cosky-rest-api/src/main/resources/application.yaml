@@ -15,12 +15,15 @@ cosky:
     enabled: true
     audit-log:
       action: write
-    jwt:
-      signing-key: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
-      access-token-validity: 15m
-      refresh-token-validity: 3H
     enforce-init-super-user: ${cosky.super.init:true}
 
+cosec:
+  jwt:
+    algorithm: hmac256
+    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+    token-validity:
+      access: 15m
+      refresh: 3H
 cosid:
   namespace: ${spring.application.name}
   machine:

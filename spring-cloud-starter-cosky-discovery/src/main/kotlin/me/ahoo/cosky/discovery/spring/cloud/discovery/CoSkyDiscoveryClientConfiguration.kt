@@ -28,7 +28,7 @@ import org.springframework.context.annotation.Bean
  */
 @AutoConfiguration(
     before = [CommonsClientAutoConfiguration::class, SimpleDiscoveryClientAutoConfiguration::class],
-    after = [CoSkyDiscoveryAutoConfiguration::class]
+    after = [CoSkyDiscoveryAutoConfiguration::class],
 )
 @ConditionalOnCoSkyDiscoveryEnabled
 @ConditionalOnDiscoveryEnabled
@@ -38,7 +38,7 @@ class CoSkyDiscoveryClientConfiguration {
     @ConditionalOnMissingBean
     fun coSkyDiscoveryClient(
         serviceDiscovery: ServiceDiscovery,
-        coSkyDiscoveryProperties: CoSkyDiscoveryProperties
+        coSkyDiscoveryProperties: CoSkyDiscoveryProperties,
     ): CoSkyDiscoveryClient {
         return CoSkyDiscoveryClient(serviceDiscovery, coSkyDiscoveryProperties)
     }

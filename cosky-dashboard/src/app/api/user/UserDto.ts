@@ -12,6 +12,7 @@
  */
 
 export interface UserDto {
-  username: string;
-  roleBind: string[];
+  id: string;
+  name: string;
+  roles: string[];
 }

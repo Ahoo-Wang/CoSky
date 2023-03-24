@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.rest.security.rbac
 
-import me.ahoo.cosky.rest.security.annotation.AdminResource
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.support.RequestPathPrefix.ROLES_ROLE
 import me.ahoo.cosky.rest.support.RequestPathPrefix.ROLES_ROLE_BIND
@@ -34,7 +33,6 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.ROLES_PREFIX)
-@AdminResource
 class RoleController(private val rbacService: RbacService) {
     @get:GetMapping
     val allRole: Mono<Set<RoleDto>>

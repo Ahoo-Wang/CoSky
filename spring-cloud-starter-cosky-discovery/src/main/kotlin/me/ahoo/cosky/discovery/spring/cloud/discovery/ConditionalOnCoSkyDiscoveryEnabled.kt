@@ -23,7 +23,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 @ConditionalOnProperty(
     value = [ConditionalOnCoSkyDiscoveryEnabled.ENABLED_KEY],
     matchIfMissing = true,
-    havingValue = "true"
+    havingValue = "true",
 )
 annotation class ConditionalOnCoSkyDiscoveryEnabled {
     companion object {

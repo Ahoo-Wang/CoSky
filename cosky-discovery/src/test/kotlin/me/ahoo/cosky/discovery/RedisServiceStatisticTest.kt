@@ -35,7 +35,7 @@ class RedisServiceStatisticTest : AbstractReactiveRedisTest() {
         val registryProperties = RegistryProperties()
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
         instanceEventListenerContainer = RedisInstanceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory)
+            ReactiveRedisMessageListenerContainer(connectionFactory),
         )
         redisServiceStatistic = RedisServiceStatistic(redisTemplate, instanceEventListenerContainer)
     }

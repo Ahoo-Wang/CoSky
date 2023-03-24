@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class CoSkyConfigRefresher(
     private val coSkyProperties: CoSkyProperties,
     private val configProperties: CoSkyConfigProperties,
-    private val configEventListenerContainer: ConfigEventListenerContainer
+    private val configEventListenerContainer: ConfigEventListenerContainer,
 ) : ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware {
     private lateinit var applicationContext: ApplicationContext
     private val ready = AtomicBoolean(false)
@@ -50,14 +50,14 @@ class CoSkyConfigRefresher(
         configEventListenerContainer.listen(
             NamespacedConfigId(
                 coSkyProperties.namespace,
-                requireNotNull(configProperties.configId) { "configId must not be null." }
-            )
+                requireNotNull(configProperties.configId) { "configId must not be null." },
+            ),
         ).doOnNext {
             if (log.isInfoEnabled) {
                 log.info("Refresh - CoSky - configId:[{}] - [{}]", configProperties.configId, it.event)
             }
             applicationContext.publishEvent(
-                RefreshEvent(this, it.event, "Refresh CoSky config")
+                RefreshEvent(this, it.event, "Refresh CoSky config"),
             )
         }.subscribe()
     }

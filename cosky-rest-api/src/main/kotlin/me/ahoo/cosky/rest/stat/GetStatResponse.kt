@@ -21,10 +21,10 @@ data class GetStatResponse(
     var namespaces: Int = 0,
     var services: Services = Services(),
     var instances: Int = 0,
-    var configs: Int = 0
+    var configs: Int = 0,
 ) {
     data class Services(
         var total: Int = 0,
-        var health: Int = 0
+        var health: Int = 0,
     )
 }
