@@ -35,6 +35,7 @@
         "path": {
           "method": "GET",
           "pattern": [
+            "/",
             "/dashboard/**"
           ]
         }
