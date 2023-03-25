@@ -71,8 +71,6 @@ dependencies {
     kapt(platform(project(":cosky-dependencies")))
     implementation(platform(project(":cosky-dependencies")))
     implementation("me.ahoo.cosec:cosec-webflux")
-    implementation("me.ahoo.cosec:cosec-opentelemetry")
-    implementation("me.ahoo.cosec:cosec-ip2region")
     implementation("me.ahoo.cosec:cosec-spring-boot-starter")
     implementation("io.netty:netty-all")
     implementation("org.springdoc:springdoc-openapi-kotlin")
