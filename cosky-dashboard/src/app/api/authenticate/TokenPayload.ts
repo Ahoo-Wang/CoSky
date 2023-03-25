@@ -14,7 +14,7 @@
 export interface TokenPayload {
   jti: string;
   sub: string;
-  role: string;
+  roles: string[];
   iat: number;
   exp: number;
 }

@@ -31,7 +31,7 @@ export const HOME_PATH = 'home';
 const USER_UNAUTHORIZED: TokenPayload = {
   jti: "",
   sub: "UNAUTHORIZED",
-  role: "",
+  roles: [],
   iat: 0,
   exp: 0
 };
