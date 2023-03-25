@@ -10,6 +10,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import io.gitlab.arturbosch.detekt.DetektPlugin
+import io.gitlab.arturbosch.detekt.extensions.DetektExtension
+import io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_JAVA
+import io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_KOTLIN
+import org.jetbrains.dokka.gradle.DokkaPlugin
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.plugin.KotlinPlatformJvmPlugin
 
 plugins {
     id("io.github.gradle-nexus.publish-plugin")
@@ -62,25 +69,22 @@ configure(bomProjects) {
 }
 
 configure(libraryProjects) {
-    apply<io.gitlab.arturbosch.detekt.DetektPlugin>()
-    configure<io.gitlab.arturbosch.detekt.extensions.DetektExtension> {
-        source = files(
-            io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_JAVA,
-            io.gitlab.arturbosch.detekt.extensions.DetektExtension.Companion.DEFAULT_SRC_DIR_KOTLIN,
-        )
+    apply<DetektPlugin>()
+    configure<DetektExtension> {
+        source = files(DEFAULT_SRC_DIR_JAVA, DEFAULT_SRC_DIR_KOTLIN)
         config = files("${rootProject.rootDir}/config/detekt/detekt.yml")
         buildUponDefaultConfig = true
         autoCorrect = true
     }
-    apply<org.jetbrains.dokka.gradle.DokkaPlugin>()
+    apply<DokkaPlugin>()
     apply<JacocoPlugin>()
     apply<JavaLibraryPlugin>()
     configure<JavaPluginExtension> {
         withJavadocJar()
         withSourcesJar()
     }
-    apply<org.jetbrains.kotlin.gradle.plugin.KotlinPlatformJvmPlugin>()
-    configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension>() {
+    apply<KotlinPlatformJvmPlugin>()
+    configure<KotlinJvmProjectExtension>() {
         jvmToolchain {
             languageVersion.set(JavaLanguageVersion.of(8))
         }

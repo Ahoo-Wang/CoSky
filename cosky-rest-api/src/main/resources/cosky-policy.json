@@ -36,7 +36,8 @@
           "method": "GET",
           "pattern": [
             "/",
-            "/dashboard/**"
+            "/dashboard/**",
+            "/favicon.ico"
           ]
         }
       }

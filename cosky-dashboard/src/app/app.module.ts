@@ -23,24 +23,6 @@ import {FormsModule, ReactiveFormsModule} from '@angular/forms';
 import {HTTP_INTERCEPTORS, HttpClientModule} from '@angular/common/http';
 import {BrowserAnimationsModule} from '@angular/platform-browser/animations';
 import {IconsProviderModule} from './icons-provider.module';
-import {NzLayoutModule} from 'ng-zorro-antd/layout';
-import {NzMenuModule} from 'ng-zorro-antd/menu';
-import {NzTableModule} from 'ng-zorro-antd/table';
-import {NzSelectModule} from 'ng-zorro-antd/select';
-import {NzInputModule} from 'ng-zorro-antd/input';
-import {NzPopconfirmModule} from 'ng-zorro-antd/popconfirm';
-import {NzCardModule} from 'ng-zorro-antd/card';
-import {NzDividerModule} from 'ng-zorro-antd/divider';
-import {NzButtonModule} from 'ng-zorro-antd/button';
-import {NzNotificationModule} from 'ng-zorro-antd/notification';
-import {NzDrawerModule} from 'ng-zorro-antd/drawer';
-import {NzFormModule} from 'ng-zorro-antd/form';
-import {NzInputNumberModule} from 'ng-zorro-antd/input-number';
-import {NzSwitchModule} from 'ng-zorro-antd/switch';
-import {NzDropDownModule} from 'ng-zorro-antd/dropdown';
-import {NzStatisticModule} from 'ng-zorro-antd/statistic';
-import {NzUploadModule} from 'ng-zorro-antd/upload';
-import {MonacoEditorModule} from 'ngx-monaco-editor';
 
 import {NamespaceSelectorComponent} from './components/namespace/namespace-selector/namespace-selector.component';
 import {NamespaceComponent} from './components/namespace/namespace.component';
@@ -49,22 +31,23 @@ import {ServiceComponent} from './components/service/service.component';
 import {ConfigEditorComponent} from './components/config/config-editor/config-editor.component';
 import {ServiceInstanceListComponent} from './components/service/service-instance-list/service-instance-list.component';
 import {InstanceEditorComponent} from './components/service/instance-editor/instance-editor.component';
-import {NzMessageModule} from 'ng-zorro-antd/message';
 import {ConfigVersionListComponent} from './components/config/config-version-list/config-version-list.component';
 import {ConfigVersionComponent} from './components/config/config-version/config-version.component';
 import {DashboardComponent} from './components/dashboard/dashboard.component';
 import {ConfigImporterComponent} from './components/config/config-importer/config-importer.component';
 import {AuthInterceptor} from "./security/AuthInterceptor";
-import { LoginComponent } from './components/login/login.component';
-import { UserComponent } from './components/user/user.component';
-import { RoleComponent } from './components/role/role.component';
-import { RoleEditorComponent } from './components/role/role-editor/role-editor.component';
-import { UserEditorComponent } from './components/user/user-editor/user-editor.component';
-import { AuthenticatedComponent } from './components/authenticated/authenticated.component';
-import { UserChangePwdComponent } from './components/user/user-change-pwd/user-change-pwd.component';
-import { UserAddComponent } from './components/user/user-add/user-add.component';
-import { AuditLogComponent } from './components/audit-log/audit-log.component';
-import { TopologyComponent } from './components/topology/topology.component';
+import {LoginComponent} from './components/login/login.component';
+import {UserComponent} from './components/user/user.component';
+import {RoleComponent} from './components/role/role.component';
+import {RoleEditorComponent} from './components/role/role-editor/role-editor.component';
+import {UserEditorComponent} from './components/user/user-editor/user-editor.component';
+import {AuthenticatedComponent} from './components/authenticated/authenticated.component';
+import {UserChangePwdComponent} from './components/user/user-change-pwd/user-change-pwd.component';
+import {UserAddComponent} from './components/user/user-add/user-add.component';
+import {AuditLogComponent} from './components/audit-log/audit-log.component';
+import {TopologyComponent} from './components/topology/topology.component';
+import {MonacoEditorModule} from "ngx-monaco-editor-v2";
+import {NgZorroAntdModule} from "./ng-zorro-antd.module";
 
 registerLocaleData(zh);
 
@@ -104,24 +87,7 @@ export const httpInterceptorProviders = [
     HttpClientModule,
     BrowserAnimationsModule,
     IconsProviderModule,
-    NzLayoutModule,
-    NzMenuModule,
-    NzTableModule,
-    NzSelectModule,
-    NzInputModule,
-    NzPopconfirmModule,
-    NzCardModule,
-    NzDividerModule,
-    NzButtonModule,
-    NzNotificationModule,
-    NzMessageModule,
-    NzDrawerModule,
-    NzFormModule,
-    NzInputNumberModule,
-    NzSwitchModule,
-    NzDropDownModule,
-    NzStatisticModule,
-    NzUploadModule,
+    NgZorroAntdModule,
     MonacoEditorModule,
     MonacoEditorModule.forRoot()
   ],

@@ -19,7 +19,7 @@
   </div>
 </div>
 
-<nz-table class="content-body" #basicTable [nzFrontPagination]="false" [nzBordered]="true" [nzData]="users"
+<nz-table class="content-body" #basicTable [nzFrontPagination]="false" [nzData]="users"
           nzShowSizeChanger
           [nzPageSizeOptions]="[10,20,30,50,100]">
   <thead>
@@ -37,7 +37,7 @@
       <nz-button-group>
         <button
           nz-popconfirm
-          [nzPopconfirmTitle]="'Are you sure delete this user?'"
+          nzPopconfirmTitle="'Are you sure delete this user?'"
           nzPopconfirmPlacement="top"
           [disabled]="isSystem(user)"
           nzType="dashed"
