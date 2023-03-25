@@ -31,9 +31,8 @@ enum class Action(val value: String) {
     }
 
     companion object {
-        @JvmStatic
-        fun of(value: String): Action {
-            return when (value) {
+        fun String.asAction(): Action {
+            return when (this) {
                 "r" -> {
                     READ
                 }
@@ -46,22 +45,20 @@ enum class Action(val value: String) {
                     READ_WRITE
                 }
 
-                else -> throw IllegalStateException("Unexpected value: $value")
+                else -> throw IllegalStateException("Unexpected value: $this")
             }
         }
 
-        fun ofHttpMethod(httpMethodStr: String): Action {
-            val httpMethod = requireNotNull(HttpMethod.resolve(httpMethodStr))
-            return ofHttpMethod(httpMethod)
-        }
-
-        @JvmStatic
-        fun ofHttpMethod(httpMethod: HttpMethod): Action {
-            return when (httpMethod) {
+        fun HttpMethod.asAction(): Action {
+            return when (this) {
                 HttpMethod.GET, HttpMethod.OPTIONS, HttpMethod.TRACE, HttpMethod.HEAD -> READ
                 HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE, HttpMethod.PATCH -> WRITE
-                else -> throw IllegalStateException("Unexpected value: $httpMethod")
+                else -> throw IllegalStateException("Unexpected value: $this")
             }
+        }
+
+        fun String.httpMethodAsAction(): Action {
+            return requireNotNull(HttpMethod.resolve(this)).asAction()
         }
     }
 }

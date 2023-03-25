@@ -15,7 +15,7 @@ class UserPasswordAuthentication(
         get() = UserPasswordCredentials::class.java
 
     override fun authenticate(credentials: UserPasswordCredentials): Mono<out CoSecPrincipal> {
-        return userService.auth(username = credentials.username, pwd = credentials.pwd)
+        return userService.login(username = credentials.username, pwd = credentials.pwd)
             .switchIfEmpty {
                 Mono.error { IllegalArgumentException("用户名或密码错误!") }
             }

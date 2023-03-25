@@ -12,7 +12,7 @@
  */
 package me.ahoo.cosky.rest.configuration
 
-import me.ahoo.cosky.rest.security.AuditLogHandlerInterceptor
+import me.ahoo.cosky.rest.security.audit.AuditLogHandlerInterceptor
 import me.ahoo.cosky.rest.security.ConditionalOnSecurityEnabled
 import me.ahoo.cosky.rest.security.SecurityProperties
 import me.ahoo.cosky.rest.security.audit.AuditLogService

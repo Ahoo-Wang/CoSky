@@ -1,4 +1,4 @@
-package me.ahoo.cosky.rest.security.rbac
+package me.ahoo.cosky.rest.security.authorization
 
 import me.ahoo.cosec.api.context.request.Request
 import me.ahoo.cosec.context.request.RequestAttributesAppender

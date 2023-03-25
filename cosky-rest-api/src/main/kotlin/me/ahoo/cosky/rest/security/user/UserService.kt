@@ -33,9 +33,7 @@ import java.util.stream.Collectors
  * @author ahoo wang
  */
 @Service
-class UserService(
-    private val redisTemplate: ReactiveStringRedisTemplate,
-) {
+class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
 
     fun initRoot(enforce: Boolean): Mono<Boolean> {
         return Mono.from(if (enforce) removeUser(CoSecPrincipal.ROOT_ID) else Mono.empty())
@@ -134,7 +132,7 @@ class UserService(
     }
 
     @Throws(SecurityException::class)
-    fun auth(username: String, pwd: String): Mono<out CoSecPrincipal> {
+    fun login(username: String, pwd: String): Mono<out CoSecPrincipal> {
         val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
         return redisTemplate
             .opsForValue()

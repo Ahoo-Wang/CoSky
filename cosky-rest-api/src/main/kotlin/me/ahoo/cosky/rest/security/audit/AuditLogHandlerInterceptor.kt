@@ -10,12 +10,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.rest.security
+package me.ahoo.cosky.rest.security.audit
 
 import me.ahoo.cosec.webflux.ServerWebExchanges.getSecurityContext
-import me.ahoo.cosky.rest.security.audit.AuditLog
-import me.ahoo.cosky.rest.security.audit.AuditLogService
-import me.ahoo.cosky.rest.security.rbac.Action
+import me.ahoo.cosky.rest.security.SecurityProperties
+import me.ahoo.cosky.rest.security.rbac.Action.Companion.asAction
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.WebFilter
@@ -39,7 +38,7 @@ class AuditLogHandlerInterceptor(
 
     private fun writeAuditLog(exchange: ServerWebExchange, throwable: Throwable?) {
         val request = exchange.request
-        val requestAction = Action.ofHttpMethod(requireNotNull(request.method))
+        val requestAction = requireNotNull(request.method).asAction()
         if (!securityProperties.auditLog.action.check(requestAction)) {
             return
         }

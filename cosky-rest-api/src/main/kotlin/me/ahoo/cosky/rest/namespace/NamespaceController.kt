@@ -44,7 +44,7 @@ class NamespaceController(private val namespaceService: NamespaceService, privat
             if (principal.isAdmin) {
                 return@deferContextual namespaceService.namespaces.collectList()
             }
-            rbacService.getCurrentUserNamespace(principal).collectList()
+            rbacService.getRoleNamespaces(principal.roles).collectList()
         }
     }
 

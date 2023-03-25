@@ -14,4 +14,5 @@ coverage:
 ignore:
   - "cosky-test/.*"
   - "examples/.*"
+  - "cosky-rest-api/.*"
   - "cosky-dashboard/.*"

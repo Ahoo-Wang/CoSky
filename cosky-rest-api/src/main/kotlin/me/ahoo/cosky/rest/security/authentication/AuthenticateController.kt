@@ -10,12 +10,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.rest.security
+package me.ahoo.cosky.rest.security.authentication
 
 import me.ahoo.cosec.api.token.CompositeToken
 import me.ahoo.cosec.token.TokenCompositeAuthentication
-import me.ahoo.cosky.rest.security.authentication.DefaultRefreshTokenCredentials
-import me.ahoo.cosky.rest.security.authentication.UserPasswordCredentials
 import me.ahoo.cosky.rest.security.user.LoginRequest
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.CrossOrigin

@@ -10,7 +10,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.rest.configuration
+package me.ahoo.cosky.rest.dashboard
 
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.http.HttpStatus

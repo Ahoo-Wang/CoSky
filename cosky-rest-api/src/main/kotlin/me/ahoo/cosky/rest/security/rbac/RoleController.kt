@@ -34,9 +34,10 @@ import reactor.core.publisher.Mono
 @RestController
 @RequestMapping(RequestPathPrefix.ROLES_PREFIX)
 class RoleController(private val rbacService: RbacService) {
-    @get:GetMapping
-    val allRole: Mono<Set<RoleDto>>
-        get() = rbacService.allRole
+    @GetMapping
+    fun allRole(): Mono<Set<RoleDto>> {
+        return rbacService.allRole
+    }
 
     @GetMapping(ROLES_ROLE_BIND)
     fun getResourceBind(@PathVariable roleName: String): Mono<List<ResourceActionDto>> {
