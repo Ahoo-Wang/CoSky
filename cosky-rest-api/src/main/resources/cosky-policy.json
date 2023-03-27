@@ -70,18 +70,8 @@
       "name": "admin",
       "action": "*",
       "condition": {
-        "bool": {
-          "and": [
-            {
-              "authenticated": {
-              }
-            },
-            {
-              "spel": {
-                "expression": "context.principal.roles.contains('admin')"
-              }
-            }
-          ]
+        "inRole": {
+          "value": "admin"
         }
       }
     }
