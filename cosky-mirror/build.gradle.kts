@@ -14,7 +14,7 @@
 plugins {
     application
     kotlin("jvm") version "1.8.10"
-    kotlin("plugin.spring") version "1.8.10"
+    kotlin("plugin.spring") version "1.8.20"
     kotlin("kapt")
 }
 
