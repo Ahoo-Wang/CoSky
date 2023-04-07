@@ -29,7 +29,6 @@ export class ConfigComponent implements OnInit {
   displayConfigs!: RowExpand<string>[];
   searchVisible = false;
   searchValue = '';
-  exportUrl = '';
 
   constructor(private namespaceContext: NamespaceContext,
               private configClient: ConfigClient,
@@ -39,10 +38,8 @@ export class ConfigComponent implements OnInit {
 
   ngOnInit(): void {
     this.getConfigs();
-    this.getExportUrl();
     this.namespaceContext.subscribeNamespaceChanged('/config', namespace => {
       this.getConfigs();
-      this.getExportUrl();
     });
   }
 
@@ -96,21 +93,8 @@ export class ConfigComponent implements OnInit {
     this.search();
   }
 
-  getExportUrl(): string {
-    this.exportUrl = this.configClient.getExportUrl(this.namespaceContext.ensureCurrentNamespace(), this.securityService.getAccessToken());
-    return this.exportUrl;
-  }
-
   exportConfigs() {
-    this.configClient.exportConfigs(this.namespaceContext.ensureCurrentNamespace()).subscribe(response => {
-      if (response.type === HttpEventType.DownloadProgress) {
-        console.log("download progress");
-      }
-      if (response.type === HttpEventType.Response) {
-        console.log("download completed");
-      }
-    });
+    this.configClient.exportConfigs(this.namespaceContext.ensureCurrentNamespace()).subscribe();
   }
-
 
 }

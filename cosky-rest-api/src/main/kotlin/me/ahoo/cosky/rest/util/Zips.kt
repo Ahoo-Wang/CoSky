@@ -41,16 +41,16 @@ object Zips {
         }
     }
 
-    fun unzip(zipSource: ByteArray?): List<ZipItem> {
+    fun unzip(zipSource: ByteArray): List<ZipItem> {
         return unzip(ByteArrayInputStream(zipSource))
     }
 
     @JvmStatic
-    fun unzip(zipSource: InputStream?): List<ZipItem> {
+    fun unzip(zipSource: InputStream): List<ZipItem> {
         val items: MutableList<ZipItem> = ArrayList()
         ZipInputStream(zipSource).use { zipInputStream ->
-            var entry: ZipEntry
-            while (zipInputStream.nextEntry.also { entry = it } != null) {
+            var entry: ZipEntry? = zipInputStream.nextEntry
+            while (entry != null) {
                 if (entry.isDirectory) {
                     continue
                 }
@@ -60,12 +60,13 @@ object Zips {
                     while (zipInputStream.read(buffer).also { offset = it } != -1) {
                         itemOutputStream.write(buffer, 0, offset)
                     }
-                    val entryName = entry.name
+                    val entryName = entry!!.name
                     items.add(ZipItem.of(entryName, itemOutputStream.toString("UTF-8")))
                 }
+                entry = zipInputStream.nextEntry
             }
-            return items
         }
+        return items
     }
 
     class ZipItem(val name: String, val data: String) {
