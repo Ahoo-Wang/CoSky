@@ -47,7 +47,7 @@ class CoSkyConfigRefresher(
         if (!ready.compareAndSet(false, true)) {
             return
         }
-        configEventListenerContainer.listen(
+        configEventListenerContainer.receive(
             NamespacedConfigId(
                 coSkyProperties.namespace,
                 requireNotNull(configProperties.configId) { "configId must not be null." },

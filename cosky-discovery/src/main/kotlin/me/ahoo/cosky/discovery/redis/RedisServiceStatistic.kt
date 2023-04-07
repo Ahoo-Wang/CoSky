@@ -41,7 +41,7 @@ class RedisServiceStatistic(
     private val listenedNamespaces = ConcurrentHashMap<String, Disposable>()
     private fun startListeningServiceInstancesOfNamespace(namespace: String) {
         listenedNamespaces.computeIfAbsent(namespace) {
-            instanceEventListenerContainer.listen(NamespacedServiceId(namespace, ""))
+            instanceEventListenerContainer.receive(NamespacedServiceId(namespace, ""))
                 .doOnNext {
                     instanceChanged(it)
                 }

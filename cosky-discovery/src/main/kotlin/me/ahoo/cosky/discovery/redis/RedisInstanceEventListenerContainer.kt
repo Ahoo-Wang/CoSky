@@ -20,25 +20,27 @@ class RedisInstanceEventListenerContainer(
 ) :
     InstanceEventListenerContainer, RedisEventListenerContainer<NamespacedServiceId, InstanceChangedEvent>(delegate) {
 
-    override fun receive(topic: NamespacedServiceId): Flux<ReactiveSubscription.Message<String, String>> {
+    override fun receiveEvent(topic: NamespacedServiceId): Flux<InstanceChangedEvent> {
         val instancePattern = if (topic.serviceId.isNotBlank()) {
             DiscoveryKeyGenerator.getInstanceKeyPatternOfService(topic.namespace, topic.serviceId)
         } else {
             DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(topic.namespace)
         }
 
-        @Suppress("UNCHECKED_CAST")
         return delegate
             .receive(PatternTopic.of(instancePattern))
+            .map {
+                asEvent(it)
+            }
             .doOnSubscribe {
                 if (topic.serviceId.isNotBlank()) {
                     @Suppress("CallingSubscribeInNonBlockingScope")
                     serviceTopology.addTopology(topic.namespace, topic.serviceId).subscribe()
                 }
-            } as Flux<ReactiveSubscription.Message<String, String>>
+            }
     }
 
-    override fun asEvent(message: ReactiveSubscription.Message<String, String>): InstanceChangedEvent {
+    private fun asEvent(message: ReactiveSubscription.Message<String, String>): InstanceChangedEvent {
         val namespace = DiscoveryKeyGenerator.getNamespaceOfKey(message.channel)
         val instanceId = DiscoveryKeyGenerator.getInstanceIdOfKey(namespace, message.channel)
         val instance: Instance = instanceId.asInstance()

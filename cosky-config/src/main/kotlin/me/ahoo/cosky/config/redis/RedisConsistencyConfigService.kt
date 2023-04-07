@@ -51,7 +51,7 @@ class RedisConsistencyConfigService(
             namespacedConfigId,
         ) {
             @Suppress("CallingSubscribeInNonBlockingScope")
-            configEventListenerContainer.listen(it)
+            configEventListenerContainer.receive(it)
                 .doOnNext { changedEvent ->
                     onConfigChanged(changedEvent)
                 }.doFinally { signalType ->

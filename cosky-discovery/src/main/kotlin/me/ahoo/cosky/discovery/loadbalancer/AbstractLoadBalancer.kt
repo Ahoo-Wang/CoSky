@@ -35,7 +35,7 @@ abstract class AbstractLoadBalancer<C : LoadBalancer.Chooser>(
             namespacedServiceId,
         ) { key: NamespacedServiceId ->
             @Suppress("CallingSubscribeInNonBlockingScope")
-            instanceEventListenerContainer.listen(key)
+            instanceEventListenerContainer.receive(key)
                 .doOnNext {
                     @Suppress("ReactiveStreamsUnusedPublisher")
                     serviceMapChooser[key] = getCachedInstances(namespacedServiceId)

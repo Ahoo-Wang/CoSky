@@ -15,12 +15,14 @@ class RedisConfigEventListenerContainer(delegate: ReactiveRedisMessageListenerCo
     ConfigEventListenerContainer,
     RedisEventListenerContainer<NamespacedConfigId, ConfigChangedEvent>(delegate) {
 
-    override fun receive(topic: NamespacedConfigId): Flux<ReactiveSubscription.Message<String, String>> {
+    override fun receiveEvent(topic: NamespacedConfigId): Flux<ConfigChangedEvent> {
         val topicStr: String = ConfigKeyGenerator.getConfigKey(topic.namespace, topic.configId)
-        return delegate.receive(ChannelTopic.of(topicStr))
+        return delegate.receive(ChannelTopic.of(topicStr)).map {
+            asEvent(it)
+        }
     }
 
-    override fun asEvent(message: ReactiveSubscription.Message<String, String>): ConfigChangedEvent {
+    private fun asEvent(message: ReactiveSubscription.Message<String, String>): ConfigChangedEvent {
         val namespacedConfigId: NamespacedConfigId = ConfigKeyGenerator.getConfigIdOfKey(message.channel)
         val event = message.message.asConfigChangedEvent()
         return ConfigChangedEvent(namespacedConfigId, event)

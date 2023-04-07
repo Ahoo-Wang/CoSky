@@ -12,12 +12,14 @@
  */
 
 import {Observable} from 'rxjs';
-import {HttpClient, HttpEvent, HttpHeaders} from '@angular/common/http';
+import {HttpClient, HttpEvent, HttpEventType, HttpHeaders} from '@angular/common/http';
 import {Injectable} from '@angular/core';
 import {environment} from '../../../environments/environment';
 import {ConfigHistoryDto} from './ConfigHistoryDto';
 import {ConfigVersionDto} from './ConfigVersionDto';
 import {ConfigDto} from './ConfigDto';
+import {saveAs} from "file-saver";
+import {map} from "rxjs/operators";
 
 export type ImportPolicy = 'skip' | 'overwrite';
 
@@ -40,10 +42,6 @@ export class ConfigClient {
 
   getImportUrl(namespace: string): string {
     return this.getConfigsUrl(namespace);
-  }
-
-  getExportUrl(namespace: string, token: string): string {
-    return `${this.getConfigsUrl(namespace)}/export?token=${token}`;
   }
 
   getConfigApiUrl(namespace: string, configId: string): string {
@@ -80,14 +78,17 @@ export class ConfigClient {
     return this.httpClient.get<ConfigHistoryDto>(apiUrl);
   }
 
-  exportConfigs(namespace: string): Observable<HttpEvent<Blob>> {
+  exportConfigs(namespace: string): Observable<void> {
     const apiUrl = `${this.getConfigsUrl(namespace)}/export`;
 
     return this.httpClient.get(apiUrl, {
-      responseType: "blob", reportProgress: true, observe: "events", headers: new HttpHeaders(
-        {'Content-Type': 'application/json'}
+      responseType: "blob", observe: "response"
+    }).pipe(
+      map((event: HttpEvent<Blob>) => {
+          // @ts-ignore
+          saveAs(event.body, `cosky_${namespace}-config-${new Date().getTime()}.zip`);
+        }
       )
-    });
+    )
   }
-
 }

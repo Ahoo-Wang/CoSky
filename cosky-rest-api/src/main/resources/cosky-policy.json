@@ -9,9 +9,8 @@
     {
       "name": "options",
       "action": {
-        "path": {
-          "method": "OPTIONS",
-          "pattern": "*"
+        "all": {
+          "method": "OPTIONS"
         }
       }
     },
