@@ -60,7 +60,7 @@ class ConsistencyRedisServiceDiscovery(
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         return namespaceMapServices.computeIfAbsent(namespace) {
             @Suppress("CallingSubscribeInNonBlockingScope")
-            serviceEventListenerContainer.listen(namespace)
+            serviceEventListenerContainer.receive(namespace)
                 .doOnNext {
                     onServiceChanged(it)
                 }.doFinally {
@@ -90,7 +90,7 @@ class ConsistencyRedisServiceDiscovery(
             NamespacedServiceId(namespace, serviceId),
         ) { svcId ->
             @Suppress("CallingSubscribeInNonBlockingScope")
-            instanceEventListenerContainer.listen(svcId)
+            instanceEventListenerContainer.receive(svcId)
                 .doOnNext {
                     onInstanceChanged(it)
                 }

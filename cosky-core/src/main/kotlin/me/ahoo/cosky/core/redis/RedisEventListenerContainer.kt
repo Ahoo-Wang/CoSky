@@ -2,7 +2,6 @@ package me.ahoo.cosky.core.redis
 
 import me.ahoo.cosky.core.EventListenerContainer
 import org.slf4j.LoggerFactory
-import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
@@ -16,9 +15,8 @@ abstract class RedisEventListenerContainer<T, E>(
         private val log = LoggerFactory.getLogger(RedisEventListenerContainer::class.java)
     }
 
-    override fun listen(topic: T): Flux<E> {
-        return receive(topic)
-            .map { asEvent(it) }
+    override fun receive(topic: T): Flux<E> {
+        return receiveEvent(topic)
             .onErrorResume(CancellationException::class.java) {
                 if (log.isInfoEnabled) {
                     log.info("OnError {} - topic[{}] is cancelled.", this, topic)
@@ -32,9 +30,7 @@ abstract class RedisEventListenerContainer<T, E>(
             }
     }
 
-    protected abstract fun receive(topic: T): Flux<ReactiveSubscription.Message<String, String>>
-
-    protected abstract fun asEvent(message: ReactiveSubscription.Message<String, String>): E
+    protected abstract fun receiveEvent(topic: T): Flux<E>
 
     override fun close() {
         if (log.isInfoEnabled) {
