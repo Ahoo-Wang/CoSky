@@ -74,6 +74,16 @@
           "value": "admin"
         }
       }
+    },
+    {
+      "name": "root",
+      "action": "*",
+      "condition": {
+        "eq": {
+          "part": "context.principal.id",
+          "value": "cosky"
+        }
+      }
     }
   ]
 }
