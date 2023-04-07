@@ -82,15 +82,11 @@ export class ConfigClient {
     const apiUrl = `${this.getConfigsUrl(namespace)}/export`;
 
     return this.httpClient.get(apiUrl, {
-      responseType: "blob", reportProgress: true, observe: "events", headers: new HttpHeaders(
-        {'Content-Type': 'application/json'}
-      )
+      responseType: "blob", observe: "response"
     }).pipe(
       map((event: HttpEvent<Blob>) => {
-          if (event.type === HttpEventType.Response) {
-            // @ts-ignore
-            saveAs(event.body, `${namespace}-config.zip`);
-          }
+          // @ts-ignore
+          saveAs(event.body, `cosky_${namespace}-config-${new Date().getTime()}.zip`);
         }
       )
     )

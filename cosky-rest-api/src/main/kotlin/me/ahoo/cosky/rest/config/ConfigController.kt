@@ -39,8 +39,8 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.RestController
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.kotlin.core.publisher.toFlux
 import java.util.*
 
 /**
@@ -128,7 +128,7 @@ class ConfigController(private val configService: ConfigService) {
                             }
                     }
 
-                    else -> return@flatMap Flux.error<Boolean>(IllegalStateException("Unexpected policy[skip,overwrite] value: $importPolicy"))
+                    else -> return@flatMap IllegalStateException("Unexpected policy[skip,overwrite] value: $importPolicy").toFlux()
                 }
             }
             .map { result -> if (result) 1 else 0 }
@@ -155,7 +155,7 @@ class ConfigController(private val configService: ConfigService) {
             .collectList()
             .map {
                 val headers = HttpHeaders()
-                val fileName = CoSky.COSKY + "_export_config_" + System.currentTimeMillis() / 1000 + ".zip"
+                val fileName = "${CoSky.COSKY}_${namespace}_config_${System.currentTimeMillis()}.zip"
                 headers.add("Content-Disposition", "attachment;filename=$fileName")
                 headers.contentType = MediaType.APPLICATION_OCTET_STREAM
                 ResponseEntity(zip(it), headers, HttpStatus.OK)
