@@ -25,7 +25,7 @@ abstract class RedisEventListenerContainer<T, E>(
             }
             .doOnSubscribe {
                 if (log.isInfoEnabled) {
-                    log.info("Listen {} - topic[{}].", this, topic)
+                    log.info("Receive {} - topic[{}].", this, topic)
                 }
             }
     }
