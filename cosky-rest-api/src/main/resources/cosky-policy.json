@@ -43,7 +43,10 @@
     },
     {
       "name": "actuatorHealth",
-      "action": "/actuator/health"
+      "action": [
+        "/actuator/health",
+        "/actuator/health/*"
+      ]
     },
     {
       "name": "authenticate",
