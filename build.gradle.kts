@@ -26,10 +26,10 @@ plugins {
     id("me.champeau.jmh")
     jacoco
 }
-
+val dependenciesProject = project(":cosky-dependencies")
 val bomProjects = setOf(
     project(":cosky-bom"),
-    project(":cosky-dependencies"),
+    dependenciesProject,
 )
 val coreProjects = setOf(
     project(":cosky-config"),
@@ -137,9 +137,9 @@ configure(libraryProjects) {
     }
 
     dependencies {
-        api(platform(project(":cosky-dependencies")))
-        detektPlugins(platform(project(":cosky-dependencies")))
-        jmh(platform(project(":cosky-dependencies")))
+        api(platform(dependenciesProject))
+        detektPlugins(platform(dependenciesProject))
+        jmh(platform(dependenciesProject))
         implementation("org.slf4j:slf4j-api")
         testImplementation("ch.qos.logback:logback-classic")
         testImplementation("org.hamcrest:hamcrest")
