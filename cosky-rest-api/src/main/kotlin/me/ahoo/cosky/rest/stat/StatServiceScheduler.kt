@@ -36,7 +36,6 @@ class StatServiceScheduler(
     contendServiceFactory: MutexContendServiceFactory,
 ) : AbstractScheduler(
     STAT_MUTEX,
-    ScheduleConfig.delay(Duration.ofSeconds(1), Duration.ofSeconds(10)),
     contendServiceFactory,
 ),
     SmartLifecycle {
@@ -44,8 +43,11 @@ class StatServiceScheduler(
     companion object {
         private val log = LoggerFactory.getLogger(StatServiceScheduler::class.java)
         const val STAT_MUTEX = "stat"
+        private val scheduleConfig = ScheduleConfig.delay(Duration.ofSeconds(1), Duration.ofSeconds(10))
     }
 
+    override val config: ScheduleConfig
+        get() = scheduleConfig
     override val worker: String
         get() = javaClass.simpleName
 
