@@ -23,7 +23,7 @@ dependencies {
         api("org.springdoc:springdoc-openapi-kotlin:1.7.0")
         api("org.springdoc:springdoc-openapi-webflux-ui:1.7.0")
         api("org.hamcrest:hamcrest:2.2")
-        api("io.mockk:mockk:1.13.4")
+        api("io.mockk:mockk:1.13.5")
         api("org.openjdk.jmh:jmh-core:1.36")
         api("org.openjdk.jmh:jmh-generator-annprocess:1.36")
         api("io.gitlab.arturbosch.detekt:detekt-formatting:1.22.0")
