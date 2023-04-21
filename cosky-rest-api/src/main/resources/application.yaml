@@ -30,13 +30,9 @@ cosid:
     enabled: true
     distributor:
       type: redis
-  snowflake:
+  generator:
     enabled: true
-    share:
-      converter:
-        type: radix
-  segment:
-    enabled: false
+
 simba:
   redis:
     enabled: true
