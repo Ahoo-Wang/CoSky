@@ -24,6 +24,7 @@ cosec:
     token-validity:
       access: 15m
       refresh: 3H
+
 cosid:
   namespace: ${spring.application.name}
   machine:
