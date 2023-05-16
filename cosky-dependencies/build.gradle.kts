@@ -19,7 +19,7 @@ dependencies {
     api(platform("me.ahoo.cosec:cosec-bom:1.16.16"))
     constraints {
         api("com.google.guava:guava:31.1-jre")
-        api("commons-io:commons-io:2.11.0")
+        api("commons-io:commons-io:2.12.0")
         api("org.springdoc:springdoc-openapi-kotlin:1.7.0")
         api("org.springdoc:springdoc-openapi-webflux-ui:1.7.0")
         api("org.hamcrest:hamcrest:2.2")
