@@ -16,9 +16,12 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
+import java.nio.file.Paths
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
+import kotlin.io.path.isHidden
+import kotlin.io.path.name
 
 /**
  * Zip tool.
@@ -45,6 +48,7 @@ object Zips {
         return unzip(ByteArrayInputStream(zipSource))
     }
 
+    @Suppress("LoopWithTooManyJumpStatements")
     @JvmStatic
     fun unzip(zipSource: InputStream): List<ZipItem> {
         val items: MutableList<ZipItem> = ArrayList()
@@ -52,15 +56,22 @@ object Zips {
             var entry: ZipEntry? = zipInputStream.nextEntry
             while (entry != null) {
                 if (entry.isDirectory) {
+                    entry = zipInputStream.nextEntry
                     continue
                 }
+                val path = Paths.get(entry.name)
+                if (path.isHidden()) {
+                    entry = zipInputStream.nextEntry
+                    continue
+                }
+
                 ByteArrayOutputStream().use { itemOutputStream ->
                     val buffer = ByteArray(1024)
                     var offset: Int
                     while (zipInputStream.read(buffer).also { offset = it } != -1) {
                         itemOutputStream.write(buffer, 0, offset)
                     }
-                    val entryName = entry!!.name
+                    val entryName = path.fileName.name
                     items.add(ZipItem.of(entryName, itemOutputStream.toString("UTF-8")))
                 }
                 entry = zipInputStream.nextEntry
@@ -77,5 +88,11 @@ object Zips {
                 return ZipItem(name, data)
             }
         }
+
+        override fun toString(): String {
+            return "ZipItem(name='$name')"
+        }
+
+
     }
 }
