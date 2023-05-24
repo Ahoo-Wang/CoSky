@@ -45,7 +45,6 @@ class CoSkyAuthorization(
                     AuthorizeResult.IMPLICIT_DENY
                 }
         }
-
     }
 
     private fun checkRolePermissions(roleBind: Set<String>, requestAction: ResourceAction): Mono<Boolean> {

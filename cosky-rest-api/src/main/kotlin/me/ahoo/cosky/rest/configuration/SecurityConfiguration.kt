@@ -12,9 +12,9 @@
  */
 package me.ahoo.cosky.rest.configuration
 
-import me.ahoo.cosky.rest.security.audit.AuditLogHandlerInterceptor
 import me.ahoo.cosky.rest.security.ConditionalOnSecurityEnabled
 import me.ahoo.cosky.rest.security.SecurityProperties
+import me.ahoo.cosky.rest.security.audit.AuditLogHandlerInterceptor
 import me.ahoo.cosky.rest.security.audit.AuditLogService
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
@@ -32,7 +32,7 @@ class SecurityConfiguration(private val securityProperties: SecurityProperties) 
     @ConditionalOnSecurityEnabled
     @Bean
     fun auditLogHandlerInterceptor(
-        auditService: AuditLogService,
+        auditService: AuditLogService
     ): AuditLogHandlerInterceptor {
         return AuditLogHandlerInterceptor(auditService, securityProperties)
     }

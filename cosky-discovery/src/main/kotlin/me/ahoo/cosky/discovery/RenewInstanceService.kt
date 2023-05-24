@@ -35,7 +35,7 @@ class RenewInstanceService(
     private val renewProperties: RenewProperties,
     private val serviceRegistry: ServiceRegistry,
     private val scheduler: Scheduler = Schedulers.newSingle("CoSky-Renew", true),
-    private val hookOnRenew: Consumer<ServiceInstance> = NoOpConsumeRenewInstance,
+    private val hookOnRenew: Consumer<ServiceInstance> = NoOpConsumeRenewInstance
 ) {
     companion object {
         private val log = LoggerFactory.getLogger(RenewInstanceService::class.java)

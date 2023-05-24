@@ -39,7 +39,7 @@ class CoskyToNacosMirror(
     private val coskyServiceDiscovery: ConsistencyRedisServiceDiscovery,
     private val instanceEventListenerContainer: InstanceEventListenerContainer,
     private val nacosDiscoveryProperties: NacosDiscoveryProperties,
-    private val nacosServiceManager: NacosServiceManager,
+    private val nacosServiceManager: NacosServiceManager
 ) : Mirror {
     companion object {
         private val log = LoggerFactory.getLogger(CoskyToNacosMirror::class.java)

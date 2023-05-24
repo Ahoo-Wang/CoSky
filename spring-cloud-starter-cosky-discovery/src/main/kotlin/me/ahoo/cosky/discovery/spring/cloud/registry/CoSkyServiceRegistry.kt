@@ -25,7 +25,7 @@ import kotlin.String
 class CoSkyServiceRegistry(
     private val serviceRegistry: ServiceRegistry,
     private val renewInstanceService: RenewInstanceService,
-    private val coSkyRegistryProperties: CoSkyRegistryProperties,
+    private val coSkyRegistryProperties: CoSkyRegistryProperties
 ) : org.springframework.cloud.client.serviceregistry.ServiceRegistry<CoSkyRegistration> {
     override fun register(registration: CoSkyRegistration) {
         val instance = registration.asServiceInstance()

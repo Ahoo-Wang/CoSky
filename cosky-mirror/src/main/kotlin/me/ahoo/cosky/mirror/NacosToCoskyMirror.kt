@@ -39,7 +39,7 @@ import java.util.stream.Collectors
 class NacosToCoskyMirror(
     coskyServiceRegistry: RedisServiceRegistry,
     nacosDiscoveryProperties: NacosDiscoveryProperties,
-    nacosServiceManager: NacosServiceManager,
+    nacosServiceManager: NacosServiceManager
 ) : Mirror {
     private val coskyServiceRegistry: RedisServiceRegistry
     private val nacosDiscoveryProperties: NacosDiscoveryProperties
@@ -152,7 +152,7 @@ class NacosToCoskyMirror(
 
     private inner class NacosServiceChangedListener(
         private val serviceId: String,
-        @field:Volatile private var lastInstances: List<Instance>,
+        @field:Volatile private var lastInstances: List<Instance>
     ) : EventListener {
         /**
          * callback event.

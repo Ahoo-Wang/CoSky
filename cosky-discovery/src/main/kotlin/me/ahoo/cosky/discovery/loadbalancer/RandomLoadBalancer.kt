@@ -25,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom
  */
 class RandomLoadBalancer(
     serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer,
+    instanceEventListenerContainer: InstanceEventListenerContainer
 ) :
     AbstractLoadBalancer<RandomChooser>(serviceDiscovery, instanceEventListenerContainer) {
     override fun createChooser(serviceInstances: List<ServiceInstance>): RandomChooser {

@@ -16,7 +16,7 @@ import reactor.core.publisher.Flux
 
 class RedisInstanceEventListenerContainer(
     delegate: ReactiveRedisMessageListenerContainer,
-    private val serviceTopology: ServiceTopology = ServiceTopology.NO_OP,
+    private val serviceTopology: ServiceTopology = ServiceTopology.NO_OP
 ) :
     InstanceEventListenerContainer, RedisEventListenerContainer<NamespacedServiceId, InstanceChangedEvent>(delegate) {
 

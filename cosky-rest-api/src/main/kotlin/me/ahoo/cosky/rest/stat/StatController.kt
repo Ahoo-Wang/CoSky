@@ -38,7 +38,7 @@ class StatController(
     private val namespaceService: NamespaceService,
     private val configService: ConfigService,
     private val serviceTopology: ServiceTopology,
-    private val serviceStatistic: ServiceStatistic,
+    private val serviceStatistic: ServiceStatistic
 ) {
     @GetMapping
     fun getStat(@PathVariable namespace: String): Mono<GetStatResponse> {

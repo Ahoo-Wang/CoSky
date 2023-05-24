@@ -9,7 +9,7 @@ import reactor.kotlin.core.publisher.switchIfEmpty
 
 @Service
 class UserPasswordAuthentication(
-    private val userService: UserService,
+    private val userService: UserService
 ) : Authentication<UserPasswordCredentials, CoSecPrincipal> {
     override val supportCredentials: Class<UserPasswordCredentials>
         get() = UserPasswordCredentials::class.java

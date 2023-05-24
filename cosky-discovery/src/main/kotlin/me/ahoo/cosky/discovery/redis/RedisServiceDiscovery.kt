@@ -27,12 +27,12 @@ import java.util.*
  * @author ahoo wang
  */
 class RedisServiceDiscovery(
-    private val redisTemplate: ReactiveStringRedisTemplate,
+    private val redisTemplate: ReactiveStringRedisTemplate
 ) : ServiceDiscovery {
 
     override fun getInstances(
         namespace: String,
-        serviceId: String,
+        serviceId: String
     ): Flux<ServiceInstance> {
         require(namespace.isNotBlank()) { "namespace is blank!" }
         require(serviceId.isNotBlank()) { "serviceId is blank!" }

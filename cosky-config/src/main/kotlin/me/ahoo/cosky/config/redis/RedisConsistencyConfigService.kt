@@ -33,7 +33,7 @@ private object NoOpHookOnResetCache : (ConfigChangedEvent) -> Unit {
 class RedisConsistencyConfigService(
     private val delegate: ConfigService,
     private val configEventListenerContainer: ConfigEventListenerContainer,
-    private val hookOnResetCache: (ConfigChangedEvent) -> Unit = NoOpHookOnResetCache,
+    private val hookOnResetCache: (ConfigChangedEvent) -> Unit = NoOpHookOnResetCache
 ) : ConfigService by delegate {
     companion object {
         private val log = LoggerFactory.getLogger(RedisConsistencyConfigService::class.java)

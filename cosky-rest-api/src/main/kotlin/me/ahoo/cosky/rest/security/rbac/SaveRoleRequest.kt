@@ -19,5 +19,5 @@ package me.ahoo.cosky.rest.security.rbac
  */
 data class SaveRoleRequest(
     var desc: String,
-    var resourceActionBind: Set<ResourceActionDto> = emptySet(),
+    var resourceActionBind: Set<ResourceActionDto> = emptySet()
 )

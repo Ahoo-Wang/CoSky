@@ -42,7 +42,7 @@ import org.springframework.data.redis.listener.ReactiveRedisMessageListenerConta
 )
 class CoSkyConfigAutoConfiguration(
     coSkyConfigProperties: CoSkyConfigProperties,
-    environment: Environment,
+    environment: Environment
 ) {
     init {
         var configId = coSkyConfigProperties.configId
@@ -70,7 +70,7 @@ class CoSkyConfigAutoConfiguration(
     @Primary
     fun consistencyRedisConfigService(
         delegate: RedisConfigService,
-        configEventListenerContainer: ConfigEventListenerContainer,
+        configEventListenerContainer: ConfigEventListenerContainer
     ): RedisConsistencyConfigService {
         return RedisConsistencyConfigService(delegate, configEventListenerContainer)
     }
@@ -80,7 +80,7 @@ class CoSkyConfigAutoConfiguration(
     fun coSkyConfigRefresher(
         coSkyProperties: CoSkyProperties,
         configProperties: CoSkyConfigProperties,
-        configEventListenerContainer: ConfigEventListenerContainer,
+        configEventListenerContainer: ConfigEventListenerContainer
     ): CoSkyConfigRefresher {
         return CoSkyConfigRefresher(coSkyProperties, configProperties, configEventListenerContainer)
     }

@@ -45,14 +45,14 @@ class ConsistencyRedisServiceDiscovery(
     private val serviceEventListenerContainer: ServiceEventListenerContainer,
     private val instanceEventListenerContainer: InstanceEventListenerContainer,
     private val hookOnResetInstanceCache: (InstanceChangedEvent) -> Unit = NoOpHookOnResetInstanceCache,
-    private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache,
+    private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache
 ) : ServiceDiscovery {
     companion object {
         private val log = LoggerFactory.getLogger(ConsistencyRedisServiceDiscovery::class.java)
     }
 
-    private val serviceMapInstances: ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>> =
-        ConcurrentHashMap()
+    private val serviceMapInstances =
+        ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>>()
 
     private val namespaceMapServices: ConcurrentHashMap<String, Flux<String>> = ConcurrentHashMap()
 

@@ -26,7 +26,7 @@ data class CoSkyConfigProperties(
     var enabled: Boolean = true,
     var configId: String? = null,
     var fileExtension: String = "yaml",
-    var timeout: Duration = Duration.ofSeconds(2),
+    var timeout: Duration = Duration.ofSeconds(2)
 ) {
     companion object {
         const val PREFIX = CoSkyProperties.PREFIX + ".config"

@@ -27,7 +27,7 @@ import java.util.concurrent.ThreadLocalRandom
  */
 class TreeWeightRandomLoadBalancer(
     serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer,
+    instanceEventListenerContainer: InstanceEventListenerContainer
 ) :
     AbstractLoadBalancer<TreeChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {

@@ -23,7 +23,7 @@ import org.springframework.cloud.client.discovery.DiscoveryClient
  */
 class CoSkyDiscoveryClient(
     private val serviceDiscovery: ServiceDiscovery,
-    private val coSkyDiscoveryProperties: CoSkyDiscoveryProperties,
+    private val coSkyDiscoveryProperties: CoSkyDiscoveryProperties
 ) : DiscoveryClient {
     override fun description(): String {
         return "CoSky Discovery Client"

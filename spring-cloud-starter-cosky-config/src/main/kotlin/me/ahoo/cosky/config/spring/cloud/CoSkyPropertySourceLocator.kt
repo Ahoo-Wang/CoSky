@@ -34,7 +34,7 @@ import java.util.*
  */
 class CoSkyPropertySourceLocator(
     private val configProperties: CoSkyConfigProperties,
-    private val configService: ConfigService,
+    private val configService: ConfigService
 ) : PropertySourceLocator {
 
     companion object {
@@ -89,7 +89,7 @@ class CoSkyPropertySourceLocator(
 
     private fun getCoSkyPropertySourceOfConfig(
         sourceLoader: PropertySourceLoader,
-        config: Config,
+        config: Config
     ): OriginTrackedMapPropertySource {
         val byteArrayResource = ByteArrayResource(config.data.toByteArray())
         val propertySourceList = sourceLoader.load(config.configId, byteArrayResource)

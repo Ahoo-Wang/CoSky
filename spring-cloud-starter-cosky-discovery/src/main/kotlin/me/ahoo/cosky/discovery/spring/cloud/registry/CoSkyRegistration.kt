@@ -30,7 +30,7 @@ data class CoSkyRegistration(
     private var port: Int,
     val weight: Int = 1,
     val isEphemeral: Boolean = true,
-    private val metadata: MutableMap<String, String> = mutableMapOf(),
+    private val metadata: MutableMap<String, String> = mutableMapOf()
 ) : Registration {
 
     fun asServiceInstance(): ServiceInstance {

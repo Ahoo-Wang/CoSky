@@ -35,7 +35,7 @@ class CoSkyConfigBootstrapConfiguration {
     @ConditionalOnMissingBean
     fun coSkyPropertySourceLocator(
         configProperties: CoSkyConfigProperties,
-        configService: ConfigService,
+        configService: ConfigService
     ): CoSkyPropertySourceLocator {
         return CoSkyPropertySourceLocator(configProperties, configService)
     }

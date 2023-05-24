@@ -42,7 +42,7 @@ object TestServiceInstance {
     fun registerRandomInstanceAndTestThenDeregister(
         namespace: String,
         serviceRegistry: ServiceRegistry,
-        doTest: (ServiceInstance) -> Unit,
+        doTest: (ServiceInstance) -> Unit
     ) {
         val randomInstance = randomInstance()
         serviceRegistry.register(namespace, randomInstance).test().expectNext(true).verifyComplete()

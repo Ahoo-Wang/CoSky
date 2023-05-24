@@ -92,7 +92,5 @@ object Zips {
         override fun toString(): String {
             return "ZipItem(name='$name')"
         }
-
-
     }
 }

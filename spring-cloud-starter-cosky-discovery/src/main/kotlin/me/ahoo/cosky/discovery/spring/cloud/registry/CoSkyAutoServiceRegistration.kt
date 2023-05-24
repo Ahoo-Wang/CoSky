@@ -24,7 +24,7 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationP
 class CoSkyAutoServiceRegistration(
     serviceRegistry: CoSkyServiceRegistry,
     private val registration: CoSkyRegistration,
-    private val autoServiceRegistrationProperties: AutoServiceRegistrationProperties,
+    private val autoServiceRegistrationProperties: AutoServiceRegistrationProperties
 ) : AbstractAutoServiceRegistration<CoSkyRegistration>(serviceRegistry, autoServiceRegistrationProperties) {
 
     override fun getConfiguration(): Any {

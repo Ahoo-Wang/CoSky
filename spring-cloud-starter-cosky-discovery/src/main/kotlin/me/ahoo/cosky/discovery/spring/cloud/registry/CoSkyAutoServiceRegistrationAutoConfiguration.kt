@@ -44,7 +44,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun registryProperties(
-        coSkyRegistryProperties: CoSkyRegistryProperties,
+        coSkyRegistryProperties: CoSkyRegistryProperties
     ): RegistryProperties {
         return RegistryProperties(coSkyRegistryProperties.ttl)
     }
@@ -53,7 +53,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     @Primary
     fun redisServiceRegistry(
         registryProperties: RegistryProperties,
-        redisTemplate: ReactiveStringRedisTemplate,
+        redisTemplate: ReactiveStringRedisTemplate
     ): RedisServiceRegistry {
         return RedisServiceRegistry(registryProperties, redisTemplate)
     }
@@ -61,7 +61,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     @Bean
     fun renewInstanceService(
         coSkyRegistryProperties: CoSkyRegistryProperties,
-        redisServiceRegistry: RedisServiceRegistry,
+        redisServiceRegistry: RedisServiceRegistry
     ): RenewInstanceService {
         return RenewInstanceService(coSkyRegistryProperties.renew, redisServiceRegistry)
     }
@@ -72,7 +72,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun coSkyRegistration(
         inetUtils: InetUtils,
         context: ApplicationContext,
-        properties: CoSkyRegistryProperties,
+        properties: CoSkyRegistryProperties
     ): CoSkyRegistration {
         val serviceId = properties.serviceId.ifEmpty {
             AppSupport.getAppName(context.environment)
@@ -97,7 +97,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun coSkyServiceRegistry(
         serviceRegistry: ServiceRegistry,
         renewInstanceService: RenewInstanceService,
-        coSkyRegistryProperties: CoSkyRegistryProperties,
+        coSkyRegistryProperties: CoSkyRegistryProperties
     ): CoSkyServiceRegistry {
         return CoSkyServiceRegistry(serviceRegistry, renewInstanceService, coSkyRegistryProperties)
     }
@@ -107,7 +107,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun coSkyAutoServiceRegistration(
         serviceRegistry: CoSkyServiceRegistry,
         registration: CoSkyRegistration,
-        autoServiceRegistrationProperties: AutoServiceRegistrationProperties,
+        autoServiceRegistrationProperties: AutoServiceRegistrationProperties
     ): CoSkyAutoServiceRegistration {
         return CoSkyAutoServiceRegistration(serviceRegistry, registration, autoServiceRegistrationProperties)
     }
@@ -115,7 +115,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     @Bean
     fun coSkyAutoServiceRegistrationOfNoneWeb(
         serviceRegistry: CoSkyServiceRegistry,
-        registration: CoSkyRegistration,
+        registration: CoSkyRegistration
     ): CoSkyAutoServiceRegistrationOfNoneWeb {
         return CoSkyAutoServiceRegistrationOfNoneWeb(serviceRegistry, registration)
     }

@@ -28,7 +28,7 @@ import reactor.core.publisher.Mono
  */
 class AuditLogHandlerInterceptor(
     private val auditService: AuditLogService,
-    private val securityProperties: SecurityProperties,
+    private val securityProperties: SecurityProperties
 ) : WebFilter {
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
         return chain.filter(exchange)

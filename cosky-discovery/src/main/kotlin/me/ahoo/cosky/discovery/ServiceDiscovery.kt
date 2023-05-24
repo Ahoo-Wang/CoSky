@@ -27,12 +27,12 @@ interface ServiceDiscovery {
     fun getInstance(
         namespace: String = NamespacedContext.namespace,
         serviceId: String,
-        instanceId: String,
+        instanceId: String
     ): Mono<ServiceInstance>
 
     fun getInstanceTtl(
         namespace: String = NamespacedContext.namespace,
         serviceId: String,
-        instanceId: String,
+        instanceId: String
     ): Mono<Long>
 }

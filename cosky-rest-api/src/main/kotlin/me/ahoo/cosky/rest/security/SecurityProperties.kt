@@ -27,11 +27,11 @@ import org.springframework.boot.context.properties.ConstructorBinding
 class SecurityProperties(
     val enabled: Boolean = true,
     val enforceInitSuperUser: Boolean = false,
-    val auditLog: AuditLog = AuditLog(),
+    val auditLog: AuditLog = AuditLog()
 ) {
     @ConstructorBinding
     data class AuditLog(
-        val action: Action = Action.WRITE,
+        val action: Action = Action.WRITE
     )
 
     companion object {

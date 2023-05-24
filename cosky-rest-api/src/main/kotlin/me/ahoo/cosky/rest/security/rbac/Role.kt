@@ -20,7 +20,7 @@ package me.ahoo.cosky.rest.security.rbac
 data class Role(
     var roleName: String,
     var desc: String,
-    var resourceActionBind: Map<String, ResourceAction> = emptyMap(),
+    var resourceActionBind: Map<String, ResourceAction> = emptyMap()
 ) {
     fun check(requestAction: ResourceAction): Boolean {
         val resourceAction = resourceActionBind[requestAction.namespace] ?: return false

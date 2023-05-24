@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 class CoSkyConfigRefresher(
     private val coSkyProperties: CoSkyProperties,
     private val configProperties: CoSkyConfigProperties,
-    private val configEventListenerContainer: ConfigEventListenerContainer,
+    private val configEventListenerContainer: ConfigEventListenerContainer
 ) : ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware {
     private lateinit var applicationContext: ApplicationContext
     private val ready = AtomicBoolean(false)

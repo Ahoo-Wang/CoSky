@@ -12,7 +12,7 @@ import javax.validation.constraints.NotBlank
 
 @Service
 class RefreshTokenAuthentication(
-    private val tokenVerifier: TokenVerifier,
+    private val tokenVerifier: TokenVerifier
 ) :
     AbstractRefreshTokenAuthentication<DefaultRefreshTokenCredentials, CoSecPrincipal>(DefaultRefreshTokenCredentials::class.java) {
     override val supportCredentials: Class<DefaultRefreshTokenCredentials>
@@ -25,6 +25,6 @@ class RefreshTokenAuthentication(
 
 data class DefaultRefreshTokenCredentials(
     @field:NotBlank override val accessToken: String,
-    @field:NotBlank override val refreshToken: String,
+    @field:NotBlank override val refreshToken: String
 ) :
     RefreshTokenCredentials

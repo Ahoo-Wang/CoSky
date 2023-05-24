@@ -33,7 +33,7 @@ import java.time.Duration
 class StatServiceScheduler(
     private val namespaceService: NamespaceService,
     private val serviceStatistic: ServiceStatistic,
-    contendServiceFactory: MutexContendServiceFactory,
+    contendServiceFactory: MutexContendServiceFactory
 ) : AbstractScheduler(
     STAT_MUTEX,
     contendServiceFactory,

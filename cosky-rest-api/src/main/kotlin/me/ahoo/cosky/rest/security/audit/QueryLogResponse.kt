@@ -19,5 +19,5 @@ package me.ahoo.cosky.rest.security.audit
  */
 data class QueryLogResponse(
     val list: List<AuditLog> = emptyList(),
-    val total: Long = 0,
+    val total: Long = 0
 )

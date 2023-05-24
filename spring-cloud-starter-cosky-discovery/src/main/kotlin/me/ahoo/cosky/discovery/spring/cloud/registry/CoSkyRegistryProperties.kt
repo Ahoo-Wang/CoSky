@@ -37,7 +37,7 @@ data class CoSkyRegistryProperties(
     var timeout: Duration = Duration.ofSeconds(2),
     var metadata: MutableMap<String, String> = mutableMapOf(),
     var initialStatus: String = StatusConstants.STATUS_UP,
-    var renew: RenewProperties = RenewProperties(),
+    var renew: RenewProperties = RenewProperties()
 ) {
     companion object {
         const val PREFIX = CoSkyDiscoveryProperties.PREFIX + ".registry"

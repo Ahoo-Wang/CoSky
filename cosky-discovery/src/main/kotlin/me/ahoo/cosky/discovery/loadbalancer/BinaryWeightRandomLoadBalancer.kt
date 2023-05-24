@@ -27,7 +27,7 @@ import java.util.concurrent.ThreadLocalRandom
  */
 class BinaryWeightRandomLoadBalancer(
     serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer,
+    instanceEventListenerContainer: InstanceEventListenerContainer
 ) :
     AbstractLoadBalancer<BinaryChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {

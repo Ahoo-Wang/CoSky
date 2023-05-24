@@ -26,7 +26,7 @@ import java.util.concurrent.ThreadLocalRandom
  */
 class ArrayWeightRandomLoadBalancer(
     serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer,
+    instanceEventListenerContainer: InstanceEventListenerContainer
 ) :
     AbstractLoadBalancer<ArrayChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {

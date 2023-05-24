@@ -19,5 +19,5 @@ package me.ahoo.cosky.rest.config
  */
 data class ImportResponse(
     var total: Int = 0,
-    var succeeded: Int = 0,
+    var succeeded: Int = 0
 )

@@ -140,7 +140,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
 
     private fun <T : Config> getAndDecodeConfig(
         key: String,
-        decode: (Map<String, String>) -> T,
+        decode: (Map<String, String>) -> T
     ): Mono<T> {
         return redisTemplate
             .opsForHash<String, String>()

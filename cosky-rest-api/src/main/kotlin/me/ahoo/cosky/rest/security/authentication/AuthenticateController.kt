@@ -46,7 +46,7 @@ class AuthenticateController(private val tokenCompositeAuthentication: TokenComp
     @PostMapping("/{username}/refresh")
     fun refresh(
         @PathVariable username: String,
-        @RequestBody refreshRequest: DefaultRefreshTokenCredentials,
+        @RequestBody refreshRequest: DefaultRefreshTokenCredentials
     ): Mono<out CompositeToken> {
         return tokenCompositeAuthentication.authenticateAsToken(
             refreshRequest,

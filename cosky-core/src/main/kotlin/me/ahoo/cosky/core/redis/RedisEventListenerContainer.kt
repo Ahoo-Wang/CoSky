@@ -8,7 +8,7 @@ import reactor.core.scheduler.Schedulers
 import java.util.concurrent.CancellationException
 
 abstract class RedisEventListenerContainer<T, E>(
-    val delegate: ReactiveRedisMessageListenerContainer,
+    val delegate: ReactiveRedisMessageListenerContainer
 ) :
     EventListenerContainer<T, E> {
     companion object {

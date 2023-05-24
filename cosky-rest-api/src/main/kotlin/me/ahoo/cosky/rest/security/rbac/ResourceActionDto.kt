@@ -19,5 +19,5 @@ package me.ahoo.cosky.rest.security.rbac
  */
 data class ResourceActionDto(
     var namespace: String,
-    var action: String,
+    var action: String
 )

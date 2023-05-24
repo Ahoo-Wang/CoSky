@@ -32,7 +32,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class RedisServiceStatistic(
     private val redisTemplate: ReactiveStringRedisTemplate,
-    private val instanceEventListenerContainer: InstanceEventListenerContainer,
+    private val instanceEventListenerContainer: InstanceEventListenerContainer
 ) : ServiceStatistic {
     companion object {
         private val log = LoggerFactory.getLogger(RedisServiceStatistic::class.java)

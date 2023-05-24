@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class RedisServiceRegistry(
     private val registryProperties: RegistryProperties,
-    private val redisTemplate: ReactiveStringRedisTemplate,
+    private val redisTemplate: ReactiveStringRedisTemplate
 ) : ServiceRegistry {
     companion object {
         private val log = LoggerFactory.getLogger(RedisServiceRegistry::class.java)
@@ -123,7 +123,7 @@ class RedisServiceRegistry(
         serviceId: String,
         instanceId: String,
         key: String,
-        value: String,
+        value: String
     ): Mono<Boolean> {
         val values = listOf(instanceId, encodeMetadataKey(key), value)
         return setMetadataInternal(namespace, instanceId, values)
@@ -133,7 +133,7 @@ class RedisServiceRegistry(
         namespace: String,
         serviceId: String,
         instanceId: String,
-        metadata: Map<String, String>,
+        metadata: Map<String, String>
     ): Mono<Boolean> {
         val argVCapacity = 1 + metadata.size * 2
         val values = buildList(argVCapacity) {
