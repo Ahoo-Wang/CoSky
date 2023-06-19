@@ -20,7 +20,7 @@ plugins {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(8))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 tasks.jar.configure {
@@ -52,7 +52,7 @@ application {
         "-XX:MaxDirectMemorySize=256M",
         "-Xss1m",
         "-server",
-        "-XX:+UseG1GC",
+        "-XX:+UseZGC",
         "-Xlog:gc*:file=logs/$applicationName-gc.log:time,tags:filecount=10,filesize=32M",
         "-XX:+HeapDumpOnOutOfMemoryError",
         "-XX:HeapDumpPath=data",
@@ -76,8 +76,8 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-kotlin")
     implementation("org.springdoc:springdoc-openapi-webflux-ui")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation(project(":spring-cloud-starter-cosky-config"))
-    implementation(project(":spring-cloud-starter-cosky-discovery"))
+    implementation(project(":cosky-spring-cloud-starter-config"))
+    implementation(project(":cosky-spring-cloud-starter-discovery"))
     implementation("com.google.guava:guava")
     implementation("me.ahoo.cosid:cosid-spring-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")

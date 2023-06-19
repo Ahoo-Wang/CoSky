@@ -8,7 +8,7 @@ import me.ahoo.cosec.token.TokenVerifier
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
-import javax.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotBlank
 
 @Service
 class RefreshTokenAuthentication(

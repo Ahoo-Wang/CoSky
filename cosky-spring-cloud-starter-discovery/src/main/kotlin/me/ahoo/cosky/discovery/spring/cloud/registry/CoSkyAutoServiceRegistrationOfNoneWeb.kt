@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.registry
 
+import jakarta.annotation.PreDestroy
 import me.ahoo.cosky.core.util.ProcessId
 import me.ahoo.cosky.discovery.ServiceInstanceContext
 import org.slf4j.LoggerFactory
@@ -21,7 +22,6 @@ import org.springframework.boot.web.context.WebServerApplicationContext
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
 import org.springframework.context.ApplicationListener
-import javax.annotation.PreDestroy
 
 /**
  * CoSky Auto Service Registration Of None Web.

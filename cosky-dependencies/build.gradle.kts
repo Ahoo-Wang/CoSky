@@ -12,11 +12,11 @@
  */
 
 dependencies {
-    api(platform("org.springframework.boot:spring-boot-dependencies:2.7.12"))
-    api(platform("org.springframework.cloud:spring-cloud-dependencies:2021.0.7"))
-    api(platform("me.ahoo.cosid:cosid-bom:1.19.3"))
-    api(platform("me.ahoo.simba:simba-bom:0.6.6"))
-    api(platform("me.ahoo.cosec:cosec-bom:1.18.2"))
+    api(platform("org.springframework.boot:spring-boot-dependencies:3.1.0"))
+    api(platform("org.springframework.cloud:spring-cloud-dependencies:2022.0.3"))
+    api(platform("me.ahoo.cosid:cosid-bom:2.1.0"))
+    api(platform("me.ahoo.simba:simba-bom:2.0.0"))
+    api(platform("me.ahoo.cosec:cosec-bom:2.0.0-M1"))
     constraints {
         api("com.google.guava:guava:32.0.1-jre")
         api("commons-io:commons-io:2.13.0")

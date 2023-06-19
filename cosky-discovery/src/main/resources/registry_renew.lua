@@ -37,5 +37,5 @@ if shouldPub then
     redis.call("publish", instanceKey, "renew");
 end
 
-return result;
+return 1;
 

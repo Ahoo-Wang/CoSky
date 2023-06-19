@@ -27,9 +27,9 @@ end
 
 local currentVersion = redis.call("hget", configKey, versionField)
 if currentVersion then
-    local result = addHistory(currentVersion, configKey, op);
+    addHistory(currentVersion, configKey, op);
     redis.call("publish", configKey, op);
-    return result;
+    return 1;
 else
     return 0;
 end

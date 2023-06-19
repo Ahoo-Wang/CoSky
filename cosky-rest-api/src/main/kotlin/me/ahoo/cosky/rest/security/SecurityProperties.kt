@@ -15,21 +15,18 @@ package me.ahoo.cosky.rest.security
 import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.rest.security.rbac.Action
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
 
 /**
  * Security Properties.
  *
  * @author ahoo wang
  */
-@ConstructorBinding
 @ConfigurationProperties(SecurityProperties.PREFIX)
 class SecurityProperties(
     val enabled: Boolean = true,
     val enforceInitSuperUser: Boolean = false,
     val auditLog: AuditLog = AuditLog()
 ) {
-    @ConstructorBinding
     data class AuditLog(
         val action: Action = Action.WRITE
     )

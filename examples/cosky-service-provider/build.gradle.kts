@@ -20,7 +20,7 @@ plugins {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(8))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
@@ -30,8 +30,8 @@ dependencies {
     implementation(platform(project(":cosky-dependencies")))
 //    implementation("io.springfox:springfox-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation(project(":spring-cloud-starter-cosky-config"))
-    implementation(project(":spring-cloud-starter-cosky-discovery"))
+    implementation(project(":cosky-spring-cloud-starter-config"))
+    implementation(project(":cosky-spring-cloud-starter-discovery"))
     implementation("com.google.guava:guava")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")

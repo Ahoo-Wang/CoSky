@@ -55,7 +55,7 @@ class AuditLogHandlerInterceptor(
         } else {
             exchange.getSecurityContext()?.principal?.id.orEmpty()
         }
-        val action = request.method!!.name
+        val action = request.method.name()
         val ip = requireNotNull(request.remoteAddress).hostString
         val status = requireNotNull(exchange.response.statusCode).value()
         val msg = if (throwable?.message != null) throwable.message!! else ""

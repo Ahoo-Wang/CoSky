@@ -9,6 +9,7 @@ local affected = redis.call("sadd", serviceIdxKey, serviceId);
 if affected > 0 then
     redis.call("publish", serviceIdxKey, "set");
     redis.call("hset", serviceIdxStatKey, serviceId, 0);
+    return 1;
 end
 
-return affected;
+return 0;

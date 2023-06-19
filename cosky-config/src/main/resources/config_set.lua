@@ -43,6 +43,6 @@ else
 end
 
 local createTime = redis.call('time')[1];
-local result = redis.call("hmset", configKey, "configId", configId, "data", data, hashField, hash, versionField, nextVersion, "createTime", createTime);
+redis.call("hmset", configKey, "configId", configId, "data", data, hashField, hash, versionField, nextVersion, "createTime", createTime);
 redis.call("publish", configKey, op);
-return result;
+return 1;
