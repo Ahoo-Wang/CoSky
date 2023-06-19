@@ -68,6 +68,7 @@ application {
 }
 
 dependencies {
+    api(platform("me.ahoo.cosec:cosec-bom:2.0.0-M1"))
     kapt(platform(project(":cosky-dependencies")))
     implementation(platform(project(":cosky-dependencies")))
     implementation("me.ahoo.cosec:cosec-webflux")
