@@ -14,7 +14,6 @@ package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
 import java.time.Duration
 
 /**
@@ -22,7 +21,6 @@ import java.time.Duration
  *
  * @author ahoo wang
  */
-@ConstructorBinding
 @ConfigurationProperties(CoSkyDiscoveryProperties.PREFIX)
 data class CoSkyDiscoveryProperties(
     val enabled: Boolean = true,

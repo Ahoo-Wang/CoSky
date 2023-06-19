@@ -16,7 +16,6 @@ import me.ahoo.cosky.discovery.RenewProperties
 import me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyDiscoveryProperties
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
 import org.springframework.boot.context.properties.ConfigurationProperties
-import org.springframework.boot.context.properties.ConstructorBinding
 import java.time.Duration
 
 /**
@@ -24,7 +23,6 @@ import java.time.Duration
  *
  * @author ahoo wang
  */
-@ConstructorBinding
 @ConfigurationProperties(CoSkyRegistryProperties.PREFIX)
 data class CoSkyRegistryProperties(
     var serviceId: String = "",

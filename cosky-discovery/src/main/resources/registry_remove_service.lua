@@ -17,4 +17,4 @@ if affected > 0 then
     redis.call("hdel", serviceIdxStatKey, serviceId);
 end
 
-return affected;
+return 1;

@@ -39,7 +39,7 @@ class GlobalRestExceptionHandler {
     }
 
     @ExceptionHandler
-    @ResponseStatus
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleAll(ex: Exception): ErrorResponse {
         if (log.isErrorEnabled) {
             log.error(ex.message, ex)
