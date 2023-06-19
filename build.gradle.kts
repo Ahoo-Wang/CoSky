@@ -36,9 +36,6 @@ val coreProjects = setOf(
     project(":cosky-discovery"),
 )
 val restApiProject = project(":cosky-rest-api")
-// TODO
-// val mirrorProject = project(":cosky-mirror")
-// val serverProjects = setOf(restApiProject, mirrorProject)
 val serverProjects = setOf(restApiProject)
 val exampleProjects = setOf(
     project(":cosky-service-provider"),
