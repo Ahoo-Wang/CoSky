@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cosky
+  labels:
+    app: cosky
+spec:
+  selector:
+    app: cosky
+  ports:
+    - name: rest
+      port: 80
+      protocol: TCP
+      targetPort: 8080

@@ -6,7 +6,6 @@ metadata:
     app: cosky
 spec:
   replicas: 1
-
   selector:
     matchLabels:
       app: cosky
@@ -14,15 +13,25 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
         - env:
+            - name: LANG
+              value: C.utf8
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
-              value: redis-host:6379
-            - name: SPRING_REDIS_CLUSTER_MAX_REDIRECTS
-              value: "3"
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: nodes
             - name: SPRING_DATA_REDIS_PASSWORD
-              value: redis-pwd
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+            - name: SPRING_DATA_REDIS_CLUSTER_MAX_REDIRECTS
+              value: "3"
             - name: TZ
               value: Asia/Shanghai
           image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:4.0.0
@@ -57,20 +66,4 @@ spec:
             path: /etc/localtime
             type: ""
           name: volume-localtime
-
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: cosky
-  labels:
-    app: cosky
-spec:
-  selector:
-    app: cosky
-  ports:
-    - name: rest
-      port: 80
-      protocol: TCP
-      targetPort: 8080
 
