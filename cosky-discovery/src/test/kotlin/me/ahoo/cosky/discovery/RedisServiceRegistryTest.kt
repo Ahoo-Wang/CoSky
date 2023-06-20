@@ -144,7 +144,7 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     @Test
     fun registerRepeatedSync() {
         val testInstance = randomInstance()
-        for (i in 0..19) {
+        repeat(20) {
             serviceRegistry.register(namespace, testInstance)
                 .test()
                 .expectNext(true)

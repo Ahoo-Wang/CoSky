@@ -4,10 +4,7 @@ import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewInstanceService
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
-import org.assertj.core.api.AssertionsForInterfaceTypes.*
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
-import org.junit.jupiter.api.Assertions.*
+import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
 import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration

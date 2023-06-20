@@ -58,7 +58,7 @@ enum class Action(val value: String) {
         }
 
         fun String.httpMethodAsAction(): Action {
-            return requireNotNull(HttpMethod.resolve(this)).asAction()
+            return requireNotNull(HttpMethod.valueOf(this)).asAction()
         }
     }
 }

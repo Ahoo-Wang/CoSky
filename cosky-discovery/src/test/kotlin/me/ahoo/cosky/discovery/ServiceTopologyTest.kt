@@ -45,10 +45,10 @@ class ServiceTopologyTest : AbstractReactiveRedisTest() {
         val serviceSize = 50
         for (i in 0 until serviceSize) {
             ServiceInstanceContext.serviceInstance = TestServiceInstance.createInstance("service-$i")
-            for (j in 0..4) {
+            repeat(5) {
                 val depServiceId = ThreadLocalRandom.current().nextInt(0, serviceSize)
                 if (depServiceId == i) {
-                    continue
+                    return@repeat
                 }
                 val serviceId = "service-$depServiceId"
                 serviceRegistry.setService(namespace, serviceId)
