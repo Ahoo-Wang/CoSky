@@ -1,29 +1,28 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cosky-rest-api
+  name: cosky
   labels:
-    app: cosky-rest-api
+    app: cosky
 spec:
   replicas: 1
-
   selector:
     matchLabels:
-      app: cosky-rest-api
+      app: cosky
   template:
     metadata:
       labels:
-        app: cosky-rest-api
+        app: cosky
     spec:
       containers:
         - env:
-            - name: SPRING_REDIS_HOST
+            - name: SPRING_DATA_REDIS_HOST
               value: redis-uri:6379
-            - name: SPRING_REDIS_PASSWORD
+            - name: SPRING_DATA_REDIS_PASSWORD
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: ahoowang/cosky-rest-api:3.0.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:4.0.0
           livenessProbe:
             httpGet:
               port: 8080
@@ -36,7 +35,7 @@ spec:
             httpGet:
               port: 8080
               path: /actuator/health
-          name: cosky-rest-api
+          name: cosky
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -60,12 +59,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cosky-rest-api
+  name: cosky
   labels:
-    app: cosky-rest-api
+    app: cosky
 spec:
   selector:
-    app: cosky-rest-api
+    app: cosky
   ports:
     - name: rest
       port: 80

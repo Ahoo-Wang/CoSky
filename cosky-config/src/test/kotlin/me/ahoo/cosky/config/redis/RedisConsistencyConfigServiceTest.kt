@@ -178,6 +178,5 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
             .verifyComplete()
     }
 
-    override fun rollback() {
-    }
+    override fun rollback() = Unit
 }

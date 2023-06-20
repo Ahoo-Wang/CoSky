@@ -81,7 +81,7 @@
 ```yaml
 spring:
   application:
-    name: ${service.name:cosky-rest-api}
+    name: ${service.name:cosky}
   redis:
     url: redis://localhost:6379
   cloud:
@@ -103,21 +103,21 @@ logging:
 
 #### 方式一：下载可执行文件
 
-> 下载 [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-rest-api-2.0.0.tar)
+> 下载 [cosky-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-2.0.0.tar)
 
-> 解压 *cosky-rest-api-lastVersion.tar*
+> 解压 *cosky-lastVersion.tar*
 
 ```shell
-cd cosky-rest-api-lastVersion
-# 工作目录: cosky-rest-api
-bin/cosky-rest-api --server.port=8080 --spring.redis.uri=redis://localhost:6379
+cd cosky-lastVersion
+# 工作目录: cosky
+bin/cosky --server.port=8080 --spring.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
-docker pull ahoowang/cosky-rest-api:lastVersion
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379  ahoowang/cosky-rest-api:lastVersion
+docker pull ahoowang/cosky:lastVersion
+docker run --name cosky -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379  ahoowang/cosky:lastVersion
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -126,25 +126,25 @@ docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_UR
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cosky-rest-api
+  name: cosky
   labels:
-    app: cosky-rest-api
+    app: cosky
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cosky-rest-api
+      app: cosky
   template:
     metadata:
       labels:
-        app: cosky-rest-api
+        app: cosky
     spec:
       containers:
         - env:
             - name: SPRING_REDIS_URL
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:lastVersion
-          name: cosky-rest-api
+          image: ahoowang/cosky:lastVersion
+          name: cosky
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -168,12 +168,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cosky-rest-api
+  name: cosky
   labels:
-    app: cosky-rest-api
+    app: cosky
 spec:
   selector:
-    app: cosky-rest-api
+    app: cosky
   ports:
     - name: rest
       port: 80

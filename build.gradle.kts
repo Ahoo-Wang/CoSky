@@ -68,8 +68,7 @@ configure(bomProjects) {
 configure(libraryProjects) {
     apply<DetektPlugin>()
     configure<DetektExtension> {
-        source = files(DEFAULT_SRC_DIR_JAVA, DEFAULT_SRC_DIR_KOTLIN)
-        config = files("${rootProject.rootDir}/config/detekt/detekt.yml")
+        config.setFrom(files("${rootProject.rootDir}/config/detekt/detekt.yml"))
         buildUponDefaultConfig = true
         autoCorrect = true
     }

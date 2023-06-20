@@ -45,7 +45,7 @@ abstract class ChooserSpec {
         var instance3Hits = 0
         StopWatch().apply {
             start()
-            for (i in 0 until totalTimes) {
+            repeat(totalTimes) {
                 when (chooser.choose()) {
                     instance1 -> {
                         instance1Hits++

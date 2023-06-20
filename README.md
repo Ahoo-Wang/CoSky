@@ -82,7 +82,7 @@ between process cache and Redis.
 ```yaml
 spring:
   application:
-    name: ${service.name:cosky-rest-api}
+    name: ${service.name:cosky}
   redis:
     url: redis://localhost:6379
   cloud:
@@ -104,21 +104,21 @@ logging:
 
 #### Option 1：Download the executable file
 
-> Download [cosky-rest-api-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-rest-api-2.0.0.tar)
+> Download [cosky-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-2.0.0.tar)
 
-> tar *cosky-rest-api-lastVersion.tar*
+> tar *cosky-lastVersion.tar*
 
 ```shell
-cd cosky-rest-api-lastVersion
-# Working directory: cosky-rest-api-lastVersion
-bin/cosky-rest-api --server.port=8080 --spring.redis.uri=redis://localhost:6379
+cd cosky-lastVersion
+# Working directory: cosky-lastVersion
+bin/cosky --server.port=8080 --spring.redis.uri=redis://localhost:6379
 ```
 
 #### Option 2：Run On Docker
 
 ```shell
-docker pull ahoowang/cosky-rest-api:lastVersion
-docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379  ahoowang/cosky-rest-api:lastVersion
+docker pull ahoowang/cosky:lastVersion
+docker run --name cosky -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379  ahoowang/cosky:lastVersion
 ```
 
 #### Option 3：Run On Kubernetes
@@ -127,25 +127,25 @@ docker run --name cosky-rest-api -d -p 8080:8080 --link redis -e SPRING_REDIS_UR
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cosky-rest-api
+  name: cosky
   labels:
-    app: cosky-rest-api
+    app: cosky
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cosky-rest-api
+      app: cosky
   template:
     metadata:
       labels:
-        app: cosky-rest-api
+        app: cosky
     spec:
       containers:
         - env:
             - name: SPRING_REDIS_URL
               value: redis://redis-uri:6379
-          image: ahoowang/cosky-rest-api:lastVersion
-          name: cosky-rest-api
+          image: ahoowang/cosky:lastVersion
+          name: cosky
           ports:
             - containerPort: 8080
               protocol: TCP
@@ -169,12 +169,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cosky-rest-api
+  name: cosky
   labels:
-    app: cosky-rest-api
+    app: cosky
 spec:
   selector:
-    app: cosky-rest-api
+    app: cosky
   ports:
     - name: rest
       port: 80
