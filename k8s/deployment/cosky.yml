@@ -25,21 +25,22 @@ spec:
             - name: TZ
               value: Asia/Shanghai
           image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:4.0.0
-          livenessProbe:
-            httpGet:
-              port: 8080
-              path: /actuator/health/liveness
-          readinessProbe:
-            httpGet:
-              port: 8080
-              path: /actuator/health/readiness
           startupProbe:
             httpGet:
-              port: 8080
+              port: http
               path: /actuator/health
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/readiness
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
           name: cosky
           ports:
-            - containerPort: 8080
+            - name: http
+              containerPort: 8080
               protocol: TCP
           resources:
             limits:
