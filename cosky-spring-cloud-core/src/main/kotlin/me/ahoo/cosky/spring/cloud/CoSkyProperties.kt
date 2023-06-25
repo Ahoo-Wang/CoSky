@@ -25,28 +25,28 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyProperties.PREFIX)
-class CoSkyProperties(var enabled: Boolean = true) : Namespaced {
+data class CoSkyProperties(
+    val enabled: Boolean = true,
+    override var namespace: String = Namespaced.DEFAULT
+) : Namespaced {
 
     companion object {
         const val PREFIX = "spring.cloud." + CoSky.COSKY
         private val log = LoggerFactory.getLogger(CoSkyProperties::class.java)
     }
 
-    override var namespace: String = Namespaced.DEFAULT
-        set(value) {
-            field = if (!hasWrap(value)) {
-                val clusterNamespace = ofKey(true, value)
-                if (log.isWarnEnabled) {
-                    log.warn(
-                        "When Redis is in cluster mode, namespace:[{}-->{}] must be wrapped by {}(hashtag).",
-                        value,
-                        clusterNamespace,
-                        "{}",
-                    )
-                }
-                clusterNamespace
-            } else {
-                value
+    init {
+        if (!hasWrap(namespace)) {
+            val clusterNamespace = ofKey(true, namespace)
+            if (log.isWarnEnabled) {
+                log.warn(
+                    "When Redis is in cluster mode, namespace:[{}-->{}] must be wrapped by {}(hashtag).",
+                    namespace,
+                    clusterNamespace,
+                    "{}",
+                )
             }
+            namespace = clusterNamespace
         }
+    }
 }
