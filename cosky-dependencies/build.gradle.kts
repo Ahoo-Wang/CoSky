@@ -14,7 +14,7 @@
 dependencies {
     api(platform("org.springframework.boot:spring-boot-dependencies:3.1.1"))
     api(platform("org.springframework.cloud:spring-cloud-dependencies:2022.0.3"))
-    api(platform("me.ahoo.cosid:cosid-bom:2.1.1"))
+    api(platform("me.ahoo.cosid:cosid-bom:2.1.2"))
     api(platform("me.ahoo.simba:simba-bom:2.0.2"))
     api(platform("me.ahoo.cosec:cosec-bom:2.0.2"))
     constraints {
