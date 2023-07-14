@@ -52,7 +52,7 @@ jobs:
           settings-path: ${{ github.workspace }}
 
       - name: Build Dist
-        run: gradle cosky-rest-api:installDist
+        run: ./gradlew cosky-rest-api:installDist
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2

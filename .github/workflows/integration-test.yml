@@ -40,4 +40,4 @@ jobs:
           settings-path: ${{ github.workspace }}
 
       - name: Integration Test
-        run: gradle clean check
+        run: ./gradlew clean check
