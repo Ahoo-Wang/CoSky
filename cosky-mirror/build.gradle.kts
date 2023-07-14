@@ -13,7 +13,7 @@
 
 plugins {
     application
-    kotlin("jvm") version "1.8.22"
+    kotlin("jvm") version "1.9.0"
     kotlin("plugin.spring") version "1.8.22"
     kotlin("kapt")
 }
