@@ -13,8 +13,8 @@
 
 plugins {
     application
-    kotlin("jvm")
-    kotlin("plugin.spring")
+    alias(libs.plugins.kotlin)
+    alias(libs.plugins.kotlinSpring)
     kotlin("kapt")
 }
 
@@ -73,8 +73,7 @@ dependencies {
     implementation("me.ahoo.cosec:cosec-webflux")
     implementation("me.ahoo.cosec:cosec-spring-boot-starter")
     implementation("io.netty:netty-all")
-    implementation("org.springdoc:springdoc-openapi-kotlin")
-    implementation("org.springdoc:springdoc-openapi-webflux-ui")
+    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":cosky-spring-cloud-starter-config"))
     implementation(project(":cosky-spring-cloud-starter-discovery"))

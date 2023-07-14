@@ -12,20 +12,19 @@
  */
 
 dependencies {
-    api(platform("org.springframework.boot:spring-boot-dependencies:3.1.1"))
-    api(platform("org.springframework.cloud:spring-cloud-dependencies:2022.0.3"))
-    api(platform("me.ahoo.cosid:cosid-bom:2.2.1"))
-    api(platform("me.ahoo.simba:simba-bom:2.0.2"))
-    api(platform("me.ahoo.cosec:cosec-bom:2.1.0"))
+    api(platform(libs.springBootDependencies))
+    api(platform(libs.springCloudDependencies))
+    api(platform(libs.cosidBom))
+    api(platform(libs.simbaBom))
+    api(platform(libs.cosecBom))
     constraints {
-        api("com.google.guava:guava:32.1.1-jre")
-        api("commons-io:commons-io:2.13.0")
-        api("org.springdoc:springdoc-openapi-kotlin:1.7.0")
-        api("org.springdoc:springdoc-openapi-webflux-ui:1.7.0")
-        api("org.hamcrest:hamcrest:2.2")
-        api("io.mockk:mockk:1.13.5")
-        api("org.openjdk.jmh:jmh-core:1.36")
-        api("org.openjdk.jmh:jmh-generator-annprocess:1.36")
-        api("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.0")
+        api(libs.guava)
+        api(libs.commonsIo)
+        api(libs.springDocStarterWebfluxUi)
+        api(libs.hamcrest)
+        api(libs.mockk)
+        api(libs.jmhCore)
+        api(libs.jmhGeneratorAnnprocess)
+        api(libs.detektFormatting)
     }
 }
