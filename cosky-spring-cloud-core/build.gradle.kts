@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 plugins {
-    kotlin("plugin.spring")
+    alias(libs.plugins.kotlinSpring)
     kotlin("kapt")
 }
 dependencies {

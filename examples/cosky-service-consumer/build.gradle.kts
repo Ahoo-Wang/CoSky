@@ -13,8 +13,8 @@
 
 plugins {
     application
-    kotlin("jvm")
-    kotlin("plugin.spring")
+    alias(libs.plugins.kotlin)
+    alias(libs.plugins.kotlinSpring)
     kotlin("kapt")
 }
 
