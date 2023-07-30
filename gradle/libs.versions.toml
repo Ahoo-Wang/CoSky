@@ -10,7 +10,6 @@ commonsIo = "2.13.0"
 springDoc = "2.1.0"
 hamcrest = "2.2"
 mockk = "1.13.5"
-detektFormatting = "1.23.0"
 jmh = "1.36"
 # plugins
 detekt = "1.23.1"
@@ -29,7 +28,7 @@ commonsIo = { module = "commons-io:commons-io", version.ref = "commonsIo" }
 springDocStarterWebfluxUi = { module = "org.springdoc:springdoc-openapi-starter-webflux-ui", version.ref = "springDoc" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
-detektFormatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detektFormatting" }
+detektFormatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 jmhCore = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmhGeneratorAnnprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
 [plugins]
