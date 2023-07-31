@@ -22,10 +22,10 @@ import java.time.Duration
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyDiscoveryProperties.PREFIX)
-data class CoSkyDiscoveryProperties(
-    val enabled: Boolean = true,
-    val order: Int = 0,
-    val timeout: Duration = Duration.ofSeconds(2)
+class CoSkyDiscoveryProperties(
+    var enabled: Boolean = true,
+    var order: Int = 0,
+    var timeout: Duration = Duration.ofSeconds(2)
 ) {
     companion object {
         const val PREFIX = CoSkyProperties.PREFIX + ".discovery"

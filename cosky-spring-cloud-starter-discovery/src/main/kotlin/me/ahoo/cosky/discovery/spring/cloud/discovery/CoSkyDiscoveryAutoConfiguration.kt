@@ -59,7 +59,9 @@ class CoSkyDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun redisServiceEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): ServiceEventListenerContainer {
+    fun redisServiceEventListenerContainer(
+        connectionFactory: ReactiveRedisConnectionFactory
+    ): ServiceEventListenerContainer {
         val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
         return RedisServiceEventListenerContainer(listenerContainer)
     }
