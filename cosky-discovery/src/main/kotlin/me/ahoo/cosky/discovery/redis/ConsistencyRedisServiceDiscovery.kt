@@ -216,7 +216,9 @@ class ConsistencyRedisServiceDiscovery(
                     return@flatMap Mono.empty<Any>()
                 }
 
-                else -> return@flatMap IllegalStateException("Unexpected value: " + instanceChangedEvent.event).toMono<Any>()
+                else -> return@flatMap IllegalStateException(
+                    "Unexpected value: " + instanceChangedEvent.event
+                ).toMono<Any>()
             }
         }.doFinally {
             hookOnResetInstanceCache(instanceChangedEvent)

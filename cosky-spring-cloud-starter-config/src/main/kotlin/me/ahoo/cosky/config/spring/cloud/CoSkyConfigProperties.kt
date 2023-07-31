@@ -22,7 +22,7 @@ import java.time.Duration
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyConfigProperties.PREFIX)
-data class CoSkyConfigProperties(
+class CoSkyConfigProperties(
     var enabled: Boolean = true,
     var configId: String? = null,
     var fileExtension: String = "yaml",

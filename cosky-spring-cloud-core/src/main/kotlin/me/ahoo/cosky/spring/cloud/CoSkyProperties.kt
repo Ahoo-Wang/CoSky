@@ -25,8 +25,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyProperties.PREFIX)
-data class CoSkyProperties(
-    val enabled: Boolean = true,
+class CoSkyProperties(
+    var enabled: Boolean = true,
     override var namespace: String = Namespaced.DEFAULT
 ) : Namespaced {
 

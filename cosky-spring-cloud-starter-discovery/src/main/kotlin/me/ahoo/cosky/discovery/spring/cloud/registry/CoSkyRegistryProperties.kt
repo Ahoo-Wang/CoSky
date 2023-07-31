@@ -23,8 +23,9 @@ import java.time.Duration
  *
  * @author ahoo wang
  */
+@Suppress("LongParameterList")
 @ConfigurationProperties(CoSkyRegistryProperties.PREFIX)
-data class CoSkyRegistryProperties(
+class CoSkyRegistryProperties(
     var serviceId: String = "",
     var schema: String = "http",
     var host: String = "",
