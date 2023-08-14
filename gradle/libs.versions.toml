@@ -9,7 +9,7 @@ guava = "32.1.2-jre"
 commonsIo = "2.13.0"
 springDoc = "2.2.0"
 hamcrest = "2.2"
-mockk = "1.13.5"
+mockk = "1.13.7"
 jmh = "1.37"
 # plugins
 detekt = "1.23.1"
