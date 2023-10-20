@@ -1,6 +1,6 @@
 [versions]
 # libraries
-springBoot = "3.1.4"
+springBoot = "3.1.5"
 springCloud = "2022.0.4"
 cosid = "2.5.3"
 simba = "2.0.8"
