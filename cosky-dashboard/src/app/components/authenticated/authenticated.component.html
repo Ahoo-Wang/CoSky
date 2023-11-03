@@ -83,19 +83,24 @@
               <li nz-menu-item (click)="openChangePwd()">Change Password</li>
               <li nz-menu-divider></li>
               <li nz-menu-item nzDanger (click)="signOut()">
-                <i nz-icon nzType="logout" nzTheme="outline"></i>Sign out</li>
+                <i nz-icon nzType="logout" nzTheme="outline"></i>Sign out
+              </li>
             </ul>
           </nz-dropdown-menu>
         </div>
       </div>
     </nz-header>
     <nz-content>
-      <div class="inner-content">
-        <router-outlet></router-outlet>
-      </div>
+      <nz-water-mark nzContent="{{currentUser.sub}}">
+        <div class="inner-content">
+          <router-outlet></router-outlet>
+        </div>
+      </nz-water-mark>
     </nz-content>
     <nz-footer>
-      <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank" title="High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service.">CoSky</a> © 2021-present
+      <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank"
+         title="High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service.">CoSky</a>
+      © 2021-present
     </nz-footer>
   </nz-layout>
 </nz-layout>

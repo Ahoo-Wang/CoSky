@@ -48,6 +48,7 @@ import {AuditLogComponent} from './components/audit-log/audit-log.component';
 import {TopologyComponent} from './components/topology/topology.component';
 import {MonacoEditorModule} from "ngx-monaco-editor-v2";
 import {NgZorroAntdModule} from "./ng-zorro-antd.module";
+import {NzWaterMarkModule} from "ng-zorro-antd/water-mark";
 
 registerLocaleData(zh);
 
@@ -88,6 +89,7 @@ export const httpInterceptorProviders = [
     BrowserAnimationsModule,
     IconsProviderModule,
     NgZorroAntdModule,
+    NzWaterMarkModule,
     MonacoEditorModule,
     MonacoEditorModule.forRoot()
   ],
