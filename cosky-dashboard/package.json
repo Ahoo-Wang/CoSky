@@ -20,7 +20,7 @@
     "@angular/router": "^15.2.0",
     "echarts": "^5.4.2",
     "file-saver": "^2.0.5",
-    "monaco-editor": "^0.34.1",
+    "monaco-editor": "^0.44.0",
     "ng-zorro-antd": "^15.1.1",
     "ngx-monaco-editor-v2": "^15.0.1",
     "rxjs": "~7.8.0",
