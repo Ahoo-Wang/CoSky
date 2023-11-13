@@ -280,60 +280,7 @@ spec:
 
 ### REST-API
 
-> http://localhost:8080/swagger-ui/index.html#/
-
-##### Namespace
-
-<p align="center">
-     <img src="./docs/rest-api-namespace.png" alt="rest-api-namespace"/>
-</p>
-
-- /v1/namespaces
-  - GET
-- /v1/namespaces/{namespace}
-  - PUT
-  - GET
-- /v1/namespaces/current
-  - GET
-- /v1/namespaces/current/{namespace}
-  - PUT
-
-##### Config
-
-<p align="center">
-     <img src="./docs/rest-api-config.png" alt="rest-api-config"/>
-</p>
-
-- /v1/namespaces/{namespace}/configs
-  - GET
-- /v1/namespaces/{namespace}/configs/{configId}
-  - GET
-  - PUT
-    - DELETE
-- /v1/namespaces/{namespace}/configs/{configId}/versions
-  - GET
-- /v1/namespaces/{namespace}/configs/{configId}/versions/{version}
-  - GET
-- /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}
-  - PUT
-
-#### Service
-
-<p align="center">
-     <img src="./docs/rest-api-service.png" alt="rest-api-service"/>
-</p>
-
-- /v1/namespaces/{namespace}/services/
-  - GET
-- /v1/namespaces/{namespace}/services/{serviceId}/instances
-  - GET
-  - PUT
-- /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}
-  - DELETE
-- /v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata
-  - PUT
-- /v1/namespaces/{namespace}/services/{serviceId}/lb
-  - GET
+> https://ahoo-cosky.apifox.cn/
 
 ## JMH-Benchmark
 
