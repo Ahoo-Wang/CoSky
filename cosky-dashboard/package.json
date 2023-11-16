@@ -22,7 +22,7 @@
     "file-saver": "^2.0.5",
     "monaco-editor": "^0.34.1",
     "ng-zorro-antd": "^15.1.1",
-    "ngx-monaco-editor-v2": "^15.0.1",
+    "ngx-monaco-editor-v2": "^17.0.0",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "zone.js": "~0.12.0"
