@@ -11,18 +11,16 @@
  * limitations under the License.
  */
 
-import {ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot, UrlTree} from "@angular/router";
+import { ActivatedRouteSnapshot, Router, RouterStateSnapshot, UrlTree } from "@angular/router";
 import {Observable} from "rxjs";
 import {LOGIN_PATH, SecurityService} from "./SecurityService";
 import {Injectable} from "@angular/core";
-import {NzMessageService} from "ng-zorro-antd/message";
-import {AuthenticateClient} from "../api/authenticate/AuthenticateClient";
 import {map} from "rxjs/operators";
 
 @Injectable({
   providedIn: 'root',
 })
-export class AuthGuard implements CanActivate {
+export class AuthGuard  {
 
   constructor(private securityService: SecurityService
     , private router: Router) {
