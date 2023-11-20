@@ -24,39 +24,39 @@
       </a>
     </div>
     <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
-      <li nz-menu-item nzMatchRouter>
+      <li nz-menu-item nzMatchRouter routerLink="/home">
         <i nz-icon nzType="dashboard"></i>
-        <span><a routerLink="/home">Dashboard</a></span>
+        <span>Dashboard</span>
       </li>
-      <li nz-menu-item nzMatchRouter>
+      <li nz-menu-item nzMatchRouter routerLink="/topology">
         <i nz-icon nzType="radar-chart"></i>
-        <span><a routerLink="/topology">Topology</a></span>
+        <span>Topology</span>
       </li>
-      <li nz-menu-item nzMatchRouter>
+      <li nz-menu-item nzMatchRouter routerLink="/config">
         <i nz-icon nzType="file"></i>
-        <span><a routerLink="/config">Configuration</a></span>
+        <span>Configuration</span>
       </li>
-      <li nz-menu-item nzMatchRouter>
+      <li nz-menu-item nzMatchRouter routerLink="/service">
         <i nz-icon nzType="cloud-server"></i>
-        <span><a routerLink="/service">Service</a></span>
+        <span>Service</span>
       </li>
-      <li nz-menu-item nzMatchRouter>
+      <li nz-menu-item nzMatchRouter routerLink="/namespace">
         <i nz-icon nzType="partition"></i>
-        <span><a routerLink="/namespace">Namespace</a></span>
+        <span>Namespace</span>
       </li>
       <li nz-submenu nzTitle="Security" nzIcon="security-scan">
         <ul>
-          <li nz-menu-item nzMatchRouter>
+          <li nz-menu-item nzMatchRouter routerLink="/user">
             <i nz-icon nzType="user"></i>
-            <span><a routerLink="/user">User</a></span>
+            <span>User</span>
           </li>
-          <li nz-menu-item nzMatchRouter>
+          <li nz-menu-item nzMatchRouter routerLink="/role">
             <i nz-icon nzType="security-scan"></i>
-            <span><a routerLink="/role">Role</a></span>
+            <span>Role</span>
           </li>
-          <li nz-menu-item nzMatchRouter>
+          <li nz-menu-item nzMatchRouter routerLink="/audit-log">
             <i nz-icon nzType="audit"></i>
-            <span><a routerLink="/audit-log">Audit Log</a></span>
+            <span>Audit Log</span>
           </li>
         </ul>
       </li>
