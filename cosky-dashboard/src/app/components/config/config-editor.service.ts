@@ -78,7 +78,7 @@ export class ConfigEditorService {
 
     const drawerRef = this.drawerService.create<ConfigVersionComponent, { configId: string, version: number }, string>({
       nzTitle: `Config [${configId}] Version [${version}]`,
-      nzWidth: '880px',
+      nzWidth: '960px',
       nzContent: ConfigVersionComponent,
       nzContentParams: {
         configId,

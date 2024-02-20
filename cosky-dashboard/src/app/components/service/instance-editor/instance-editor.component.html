@@ -70,9 +70,9 @@
     </nz-form-control>
   </nz-form-item>
   <nz-divider nzText="Metadata (JSON)"></nz-divider>
-  <ngx-monaco-editor [options]="{theme:'vs-dark',language:'json'}" [(ngModel)]="metadata"
-                     [ngModelOptions]="{standalone: true}"
-  ></ngx-monaco-editor>
+  <nz-code-editor style="min-height: 600px;" [nzEditorOption]="{theme:'vs-dark',language:'json'}" [(ngModel)]="metadata"
+                  [ngModelOptions]="{standalone: true}"
+  ></nz-code-editor>
   <nz-divider></nz-divider>
   <nz-form-item>
     <nz-form-control>

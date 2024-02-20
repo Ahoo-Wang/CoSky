@@ -28,9 +28,10 @@ export class ConfigVersionComponent implements OnInit {
   @Input() version!: number;
   configHistory!: ConfigHistoryDto;
   configCurrent!: ConfigDto;
+  configHistoryCode: string = '';
+  configCurrentCode: string = '';
+  lang!: string;
   @Output() rollbackAfter: EventEmitter<boolean> = new EventEmitter<boolean>();
-  configHistoryCode: any = {code: ''};
-  configCurrentCode: any = {code: ''};
 
   constructor(private namespaceContext: NamespaceContext,
               private configClient: ConfigClient) {
@@ -39,16 +40,16 @@ export class ConfigVersionComponent implements OnInit {
 
   ngOnInit(): void {
     const configName = ConfigName.of(this.configId);
-    const lang = Configs.extAsLang(configName.ext);
+    this.lang = Configs.extAsLang(configName.ext);
     this.configClient.getConfigHistory(this.namespaceContext.ensureCurrentNamespace(), this.configId, this.version)
       .subscribe(configHistory => {
         this.configHistory = configHistory;
-        this.configHistoryCode = Object.assign({}, this.configHistoryCode, {language: lang, code: configHistory.data});
+        this.configHistoryCode = configHistory.data
       });
     this.configClient.getConfig(this.namespaceContext.ensureCurrentNamespace(), this.configId)
       .subscribe(config => {
         this.configCurrent = config;
-        this.configCurrentCode = Object.assign({}, this.configCurrentCode, {language: lang, code: config.data});
+        this.configCurrentCode = config.data;
       });
   }
 
@@ -57,9 +58,5 @@ export class ConfigVersionComponent implements OnInit {
       .subscribe(result => {
         this.rollbackAfter.emit(result);
       });
-  }
-
-  onInitDiffEditor($event: any): void {
-    console.log($event);
   }
 }
