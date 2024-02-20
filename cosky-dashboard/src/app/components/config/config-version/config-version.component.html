@@ -66,11 +66,11 @@
       />
     </nz-form-control>
   </nz-form-item>
-  <nz-divider [nzText]="'Current Data - VS - History Version:'+configHistory.version"></nz-divider>
+  <nz-divider [nzText]="'History('+configHistory.version+') VS - Current'"></nz-divider>
   <nz-code-editor
     style="height: 660px;"
     nzEditorMode="diff"
-    [nzEditorOption]=" {language:lang,theme:'vs-dark',readOnly:true}" [nzOriginalText]="configHistoryCode"
+    [nzEditorOption]=" {language:lang,theme:'vs-dark',readOnly:true}" [nzOriginalText]="configHistory.data"
     [ngModel]="configCurrentCode"
     [ngModelOptions]="{standalone: true}"
   ></nz-code-editor>
