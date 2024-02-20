@@ -29,7 +29,7 @@ export class ConfigVersionComponent implements OnInit {
   configHistory: ConfigHistoryDto = Configs.ofHistory();
   configCurrent!: ConfigDto;
   configCurrentCode: string = '';
-  lang!: string;
+  lang: string = "yaml";
   @Output() rollbackAfter: EventEmitter<boolean> = new EventEmitter<boolean>();
 
   constructor(private namespaceContext: NamespaceContext,
@@ -43,11 +43,11 @@ export class ConfigVersionComponent implements OnInit {
     this.configClient.getConfigHistory(this.namespaceContext.ensureCurrentNamespace(), this.configId, this.version)
       .subscribe(configHistory => {
         this.configHistory = configHistory;
-      });
-    this.configClient.getConfig(this.namespaceContext.ensureCurrentNamespace(), this.configId)
-      .subscribe(config => {
-        this.configCurrent = config;
-        this.configCurrentCode = config.data;
+        this.configClient.getConfig(this.namespaceContext.ensureCurrentNamespace(), this.configId)
+          .subscribe(config => {
+            this.configCurrent = config;
+            this.configCurrentCode = config.data;
+          });
       });
   }
 
