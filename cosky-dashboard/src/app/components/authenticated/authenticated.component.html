@@ -11,19 +11,17 @@
   ~ limitations under the License.
   -->
 
-<nz-layout class="app-layout">
-  <nz-sider class="menu-sidebar"
-            nzCollapsible
-            nzWidth="168px"
+<nz-layout>
+  <nz-sider nzCollapsible
             nzBreakpoint="md"
             [(nzCollapsed)]="isCollapsed"
   >
-    <div class="sidebar-logo">
+    <div class="logo">
       <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank">
-        <h1>{{title}}</h1>
+        <h1>{{ title }}</h1>
       </a>
     </div>
-    <ul nz-menu nzTheme="dark" nzMode="inline" [nzInlineCollapsed]="isCollapsed">
+    <ul nz-menu nzTheme="dark" nzMode="inline">
       <li nz-menu-item nzMatchRouter routerLink="/home">
         <i nz-icon nzType="dashboard"></i>
         <span>Dashboard</span>
@@ -62,10 +60,10 @@
       </li>
     </ul>
   </nz-sider>
-  <nz-layout class="right-layout">
+  <nz-layout class="content">
     <nz-header>
-      <div class="app-header">
-        <span class="header-trigger" (click)="isCollapsed = !isCollapsed">
+      <div>
+        <span class="trigger" (click)="isCollapsed = !isCollapsed">
             <i class="trigger"
                nz-icon
                [nzType]="isCollapsed ? 'menu-unfold' : 'menu-fold'"
@@ -75,7 +73,7 @@
         <div style="float: right;padding-right: 100px">
           <a nz-dropdown [nzDropdownMenu]="signStatusMenu">
             <i nz-icon nzType="user" nzTheme="outline"></i>
-            {{currentUser.sub}}
+            {{ currentUser.sub }}
             <i nz-icon nzType="down"></i>
           </a>
           <nz-dropdown-menu #signStatusMenu="nzDropdownMenu">

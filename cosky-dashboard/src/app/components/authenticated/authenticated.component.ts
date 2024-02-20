@@ -24,7 +24,7 @@ import {NzMessageService} from "ng-zorro-antd/message";
   styleUrls: ['./authenticated.component.scss']
 })
 export class AuthenticatedComponent implements OnInit {
-  title = 'CoSky Dashboard';
+  title = 'CoSky';
   isCollapsed = false;
   currentUser: TokenPayload;
 
