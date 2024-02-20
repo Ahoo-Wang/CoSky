@@ -46,7 +46,7 @@ import {UserChangePwdComponent} from './components/user/user-change-pwd/user-cha
 import {UserAddComponent} from './components/user/user-add/user-add.component';
 import {AuditLogComponent} from './components/audit-log/audit-log.component';
 import {TopologyComponent} from './components/topology/topology.component';
-import {MonacoEditorModule} from "ngx-monaco-editor-v2";
+import {NzCodeEditorModule} from 'ng-zorro-antd/code-editor';
 import {NgZorroAntdModule} from "./ng-zorro-antd.module";
 import {NzWaterMarkModule} from "ng-zorro-antd/water-mark";
 
@@ -90,8 +90,7 @@ export const httpInterceptorProviders = [
     IconsProviderModule,
     NgZorroAntdModule,
     NzWaterMarkModule,
-    MonacoEditorModule,
-    MonacoEditorModule.forRoot()
+    NzCodeEditorModule
   ],
   providers: [{provide: NZ_I18N, useValue: zh_CN}, httpInterceptorProviders],
   bootstrap: [AppComponent]

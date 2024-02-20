@@ -35,13 +35,14 @@
               },
               {
                 "glob": "**/*",
-                "input": "node_modules/monaco-editor",
-                "output": "/assets/monaco/"
+                "input": "./node_modules/monaco-editor/min/vs",
+                "output": "/assets/vs/"
               }
             ],
             "styles": [
               "./node_modules/ng-zorro-antd/ng-zorro-antd.min.css",
-              "src/styles.scss"
+              "src/styles.scss",
+              "node_modules/ng-zorro-antd/code-editor/style/index.min.css"
             ],
             "scripts": [
               "node_modules/echarts/dist/echarts.min.js"

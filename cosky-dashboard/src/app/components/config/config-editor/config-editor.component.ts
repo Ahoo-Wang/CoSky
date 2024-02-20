@@ -19,7 +19,6 @@ import {NzMessageService} from 'ng-zorro-antd/message';
 import {ConfigClient} from '../../../api/config/ConfigClient';
 import {ConfigName, Configs} from '../../../api/config/Configs';
 
-
 @Component({
   selector: 'app-config-editor',
   templateUrl: './config-editor.component.html',

@@ -72,10 +72,10 @@
     </nz-form-control>
   </nz-form-item>
   <nz-divider nzText="Config Data"></nz-divider>
-  <ngx-monaco-editor style="min-height: 600px;"
-                     [options]="editorOptions" [(ngModel)]="config.data"
-                     [ngModelOptions]="{standalone: true}"
-  ></ngx-monaco-editor>
+  <nz-code-editor style="min-height: 600px;"
+                     [nzEditorOption]="editorOptions" [(ngModel)]="config.data"
+                  [ngModelOptions]="{standalone: true}"
+  ></nz-code-editor>
 
   <nz-divider></nz-divider>
   <nz-form-item>

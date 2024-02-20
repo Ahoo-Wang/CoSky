@@ -67,15 +67,17 @@
     </nz-form-control>
   </nz-form-item>
   <nz-divider [nzText]="'Current Data - VS - History Version:'+configHistory.version"></nz-divider>
-  <ngx-monaco-diff-editor
-    style="min-height: 660px;"
-    [options]=" {theme:'vs-dark',readOnly:true}" [originalModel]="configCurrentCode"
-    [modifiedModel]="configHistoryCode"
-    (onInit)="onInitDiffEditor($event)"></ngx-monaco-diff-editor>
+  <nz-code-editor
+    style="height: 660px;"
+    nzEditorMode="diff"
+    [nzEditorOption]=" {language:lang,theme:'vs-dark',readOnly:true}" [nzOriginalText]="configHistoryCode"
+    [ngModel]="configCurrentCode"
+    [ngModelOptions]="{standalone: true}"
+  ></nz-code-editor>
   <nz-divider></nz-divider>
   <nz-form-item>
     <button nz-button nzType="primary" nzSize="large" nzDanger nzBlock (click)="rollback()">Rollback To
-      Version:[{{configHistory.version}}]
+      Version:[{{ configHistory.version }}]
     </button>
   </nz-form-item>
 </form>
