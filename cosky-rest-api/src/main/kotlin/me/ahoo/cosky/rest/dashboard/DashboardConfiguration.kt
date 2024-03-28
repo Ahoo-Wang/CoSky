@@ -13,12 +13,11 @@
 package me.ahoo.cosky.rest.dashboard
 
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.springframework.http.HttpStatus
-import org.springframework.http.server.reactive.ServerHttpResponse
+import org.springframework.boot.autoconfigure.web.WebProperties
+import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
+import org.springframework.util.ResourceUtils
 import org.springframework.web.bind.annotation.GetMapping
-import reactor.core.publisher.Mono
-import java.net.URI
 
 /**
  * for Dashboard-UI.
@@ -26,7 +25,15 @@ import java.net.URI
  * @author ahoo wang
  */
 @Controller
-class DashboardConfiguration {
+class DashboardConfiguration(private val webProperties: WebProperties) {
+    private val homePageContent by lazy {
+        val indexFilePath = webProperties.resources.staticLocations.first() + HOME_FILE
+        val indexFile = ResourceUtils.getFile(indexFilePath)
+        check(indexFile.exists()) { "$HOME_FILE not found in ${indexFile.absolutePath}" }
+        indexFile.readBytes()
+    }
+
+    @Suppress("SpreadOperator")
     @GetMapping(
         *[
             "/",
@@ -42,14 +49,13 @@ class DashboardConfiguration {
             "${RequestPathPrefix.DASHBOARD}login",
         ],
     )
-    fun home(response: ServerHttpResponse): Mono<Void> {
-        response.statusCode = HttpStatus.TEMPORARY_REDIRECT
-        response.headers.location = INDEX_PAGE_URI
-        return response.setComplete()
+    fun home(): ResponseEntity<ByteArray> {
+        return ResponseEntity.ok()
+            .contentType(org.springframework.http.MediaType.TEXT_HTML)
+            .body(homePageContent)
     }
 
     companion object {
-        const val INDEX_PAGE = RequestPathPrefix.DASHBOARD + "index.html"
-        val INDEX_PAGE_URI = URI.create(INDEX_PAGE)
+        const val HOME_FILE = "index.html"
     }
 }
