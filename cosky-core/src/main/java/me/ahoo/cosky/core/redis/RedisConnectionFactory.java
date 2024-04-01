@@ -18,6 +18,8 @@ import io.lettuce.core.ReadFrom;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
 import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.cluster.ClusterClientOptions;
+import io.lettuce.core.cluster.ClusterTopologyRefreshOptions;
 import io.lettuce.core.cluster.RedisClusterClient;
 import io.lettuce.core.cluster.api.StatefulRedisClusterConnection;
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands;
@@ -58,7 +60,19 @@ public class RedisConnectionFactory implements AutoCloseable {
 
     private AbstractRedisClient createClient() {
         if (RedisConfig.RedisMode.CLUSTER.equals(redisConfig.getMode())) {
-            return RedisClusterClient.create(clientResources, redisConfig.getUrl());
+            RedisClusterClient clusterClient = RedisClusterClient.create(clientResources, redisConfig.getUrl());
+            RedisConfig.ClusterConfig clusterConfig = redisConfig.getCluster();
+            if (clusterConfig.getRefreshClusterView().equals(Boolean.TRUE)) {
+                ClusterTopologyRefreshOptions topologyRefreshOptions = ClusterTopologyRefreshOptions.builder()
+                        .enablePeriodicRefresh(clusterConfig.getRefreshPeriod())
+                        .enableAllAdaptiveRefreshTriggers()
+                        .build();
+                ClusterClientOptions clusterClientOptions = ClusterClientOptions.builder()
+                        .topologyRefreshOptions(topologyRefreshOptions)
+                        .build();
+                clusterClient.setOptions(clusterClientOptions);
+            }
+            return clusterClient;
         }
         return RedisClient.create(clientResources, redisConfig.getUrl());
     }

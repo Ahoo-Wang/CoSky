@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.core.redis;
 
+import java.time.Duration;
+
 /**
  * @author ahoo wang
  */
@@ -20,6 +22,7 @@ public class RedisConfig {
     private String url;
     private RedisMode mode;
     private ReadFrom readFrom;
+    private ClusterConfig cluster = new ClusterConfig();
 
     public String getUrl() {
         return url;
@@ -45,6 +48,14 @@ public class RedisConfig {
         this.readFrom = readFrom;
     }
 
+    public ClusterConfig getCluster() {
+        return cluster;
+    }
+
+    public void setCluster(ClusterConfig cluster) {
+        this.cluster = cluster;
+    }
+
     public enum RedisMode {
         STANDALONE,
         CLUSTER
@@ -60,5 +71,26 @@ public class RedisConfig {
         NEAREST,
         ANY,
         ANY_REPLICA
+    }
+
+    public static class ClusterConfig {
+        private Boolean refreshClusterView = true;
+        private Duration refreshPeriod = Duration.ofSeconds(30);
+
+        public Boolean getRefreshClusterView() {
+            return refreshClusterView;
+        }
+
+        public void setRefreshClusterView(Boolean refreshClusterView) {
+            this.refreshClusterView = refreshClusterView;
+        }
+
+        public Duration getRefreshPeriod() {
+            return refreshPeriod;
+        }
+
+        public void setRefreshPeriod(Duration refreshPeriod) {
+            this.refreshPeriod = refreshPeriod;
+        }
     }
 }
