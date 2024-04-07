@@ -82,8 +82,9 @@
 spring:
   application:
     name: ${service.name:cosky}
-  redis:
-    url: redis://localhost:6379
+  data:
+    redis:
+      url: redis://localhost:6379
   cloud:
     cosky:
       namespace: ${cosky.namespace:cosky-{system}}
@@ -110,14 +111,14 @@ logging:
 ```shell
 cd cosky-lastVersion
 # 工作目录: cosky
-bin/cosky --server.port=8080 --spring.redis.uri=redis://localhost:6379
+bin/cosky --server.port=8080 --spring.data.redis.uri=redis://localhost:6379
 ```
 
 #### 方式二：在 Docker 中运行
 
 ```shell
 docker pull ahoowang/cosky:lastVersion
-docker run --name cosky -d -p 8080:8080 --link redis -e SPRING_REDIS_URL=redis://redis:6379  ahoowang/cosky:lastVersion
+docker run --name cosky -d -p 8080:8080 --link redis -e SPRING_DATA_REDIS_URL=redis://redis:6379  ahoowang/cosky:lastVersion
 ```
 
 #### 方式三：在 Kubernetes 中运行
@@ -141,7 +142,7 @@ spec:
     spec:
       containers:
         - env:
-            - name: SPRING_REDIS_URL
+            - name: SPRING_DATA_REDIS_URL
               value: redis://redis-uri:6379
           image: ahoowang/cosky:lastVersion
           name: cosky
