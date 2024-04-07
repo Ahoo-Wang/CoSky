@@ -117,15 +117,13 @@ class ConsistencyRedisServiceDiscovery(
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         val namespacedServiceId = NamespacedServiceId(namespace, serviceId)
         val instancesMono = serviceMapInstances[namespacedServiceId]
-        return if (instancesMono == null) {
-            delegate.getInstance(namespace, serviceId, instanceId)
-        } else {
-            instancesMono
-                .flatMapIterable(Function.identity())
-                .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
-                .filter { it.instanceId == instanceId }
-                .next()
-        }
+            ?: return delegate.getInstance(namespace, serviceId, instanceId)
+
+        return instancesMono
+            .flatMapIterable(Function.identity())
+            .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
+            .filter { it.instanceId == instanceId }
+            .next()
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
