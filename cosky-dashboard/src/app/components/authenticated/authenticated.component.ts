@@ -47,7 +47,7 @@ export class AuthenticatedComponent implements OnInit {
   openChangePwd() {
     const drawerRef = this.drawerService.create<UserChangePwdComponent, {}, string>({
       nzTitle: `Change User:[${this.currentUser.sub}] Password`,
-      nzWidth: '30%',
+      nzWidth: '40vw',
       nzContent: UserChangePwdComponent
     });
     drawerRef.afterOpen.subscribe(() => {

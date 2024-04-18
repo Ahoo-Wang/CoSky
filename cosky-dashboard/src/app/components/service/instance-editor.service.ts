@@ -40,7 +40,7 @@ export class InstanceEditorService {
 
     const drawerRef = this.drawerService.create<InstanceEditorComponent, { instance: ServiceInstanceDto }, string>({
       nzTitle: `Managing service[${serviceId}] instances`,
-      nzWidth: '660px',
+      nzWidth: '60vw',
       nzContent: InstanceEditorComponent,
       nzContentParams: {
         instance: editInstance
