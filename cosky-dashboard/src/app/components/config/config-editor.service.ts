@@ -37,7 +37,7 @@ export class ConfigEditorService {
     }
     const drawerRef = this.drawerService.create<ConfigEditorComponent, { configId?: string }, string>({
       nzTitle: editorTitle,
-      nzWidth: '880px',
+      nzWidth: '80vw',
       nzContent: ConfigEditorComponent,
       nzContentParams: {
         configId
@@ -58,7 +58,7 @@ export class ConfigEditorService {
 
     const drawerRef = this.drawerService.create<ConfigImporterComponent, {}, string>({
       nzTitle: editorTitle,
-      nzWidth: '40%',
+      nzWidth: '60vw',
       nzContent: ConfigImporterComponent,
       nzContentParams: {}
     });
@@ -75,10 +75,9 @@ export class ConfigEditorService {
   }
 
   openConfigVersionView(configId: string, version: number, rollbackAfter: (result: boolean) => void): void {
-
     const drawerRef = this.drawerService.create<ConfigVersionComponent, { configId: string, version: number }, string>({
       nzTitle: `Config [${configId}] Version [${version}]`,
-      nzWidth: '960px',
+      nzWidth: '80vw',
       nzContent: ConfigVersionComponent,
       nzContentParams: {
         configId,

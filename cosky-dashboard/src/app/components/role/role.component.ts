@@ -53,7 +53,7 @@ export class RoleComponent implements OnInit {
     const title = role ? `Edit Role [${role.name}]` : 'Add Role';
     const drawerRef = this.drawerService.create<RoleEditorComponent, {}, string>({
       nzTitle: title,
-      nzWidth: '40%',
+      nzWidth: '60vw',
       nzContent: RoleEditorComponent,
       nzContentParams: {
         role

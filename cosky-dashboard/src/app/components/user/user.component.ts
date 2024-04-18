@@ -61,7 +61,7 @@ export class UserComponent implements OnInit {
 
     const drawerRef = this.drawerService.create<UserAddComponent, {}, string>({
       nzTitle: "Add User",
-      nzWidth: '40%',
+      nzWidth: '60vw',
       nzContent: UserAddComponent
     });
     drawerRef.afterOpen.subscribe(() => {
