@@ -82,7 +82,7 @@ configure(libraryProjects) {
         }
     }
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions {
+        compilerOptions {
             freeCompilerArgs = listOf("-Xjsr305=strict", "-Xjvm-default=all-compatibility")
         }
     }
