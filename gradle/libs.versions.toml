@@ -1,7 +1,7 @@
 [versions]
 # libraries
 springBoot = "3.3.5"
-springCloud = "2023.0.3"
+springCloud = "2023.0.4"
 cosid = "2.9.10"
 simba = "2.5.2"
 cosec = "2.8.2"
