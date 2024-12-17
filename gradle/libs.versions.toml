@@ -13,7 +13,7 @@ mockk = "1.13.13"
 jmh = "1.37"
 # plugins
 detekt = "1.23.7"
-dokka = "1.9.20"
+dokka = "2.0.0"
 kotlin = "2.0.21"
 publishPlugin = "2.0.0"
 jmhPlugin = "0.7.2"
