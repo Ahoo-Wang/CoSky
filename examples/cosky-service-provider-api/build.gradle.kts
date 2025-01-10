@@ -14,7 +14,7 @@
 plugins {
     `java-library`
     alias(libs.plugins.kotlin)
-    alias(libs.plugins.kotlinSpring)
+    alias(libs.plugins.kotlin.spring)
 }
 
 java {
