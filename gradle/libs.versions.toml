@@ -1,13 +1,13 @@
 [versions]
 # libraries
-springBoot = "3.4.1"
-springCloud = "2024.0.0"
+spring-boot = "3.4.1"
+spring-cloud = "2024.0.0"
 cosid = "2.10.2"
 simba = "2.6.2"
 cosec = "2.9.9"
 guava = "33.4.0-jre"
-commonsIo = "2.18.0"
-springDoc = "2.8.1"
+commons-io = "2.18.0"
+springdoc = "2.8.1"
 hamcrest = "3.0"
 mockk = "1.13.14"
 jmh = "1.37"
@@ -15,28 +15,28 @@ jmh = "1.37"
 detekt = "1.23.7"
 dokka = "2.0.0"
 kotlin = "2.0.21"
-publishPlugin = "2.0.0"
-jmhPlugin = "0.7.2"
+publish-Plugin = "2.0.0"
+jmh-plugin = "0.7.2"
 [libraries]
-springBootDependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "springBoot" }
-springCloudDependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "springCloud" }
-cosidBom = { module = "me.ahoo.cosid:cosid-bom", version.ref = "cosid" }
-simbaBom = { module = "me.ahoo.simba:simba-bom", version.ref = "simba" }
-cosecBom = { module = "me.ahoo.cosec:cosec-bom", version.ref = "cosec" }
+spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
+spring-cloud-dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "spring-cloud" }
+cosid-bom = { module = "me.ahoo.cosid:cosid-bom", version.ref = "cosid" }
+simba-bom = { module = "me.ahoo.simba:simba-bom", version.ref = "simba" }
+cosec-bom = { module = "me.ahoo.cosec:cosec-bom", version.ref = "cosec" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
-commonsIo = { module = "commons-io:commons-io", version.ref = "commonsIo" }
-springDocStarterWebfluxUi = { module = "org.springdoc:springdoc-openapi-starter-webflux-ui", version.ref = "springDoc" }
+commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
+springdoc-openapi-starter-webflux-ui = { module = "org.springdoc:springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
-detektFormatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
-jmhCore = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
-jmhGeneratorAnnprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-kotlinSpring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
-kotlinkapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
-publishPlugin = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "publishPlugin" }
-jmhPlugin = { id = "me.champeau.jmh", version.ref = "jmhPlugin" }
+kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
+kotlin-kapt = { id = "org.jetbrains.kotlin.kapt", version.ref = "kotlin" }
+publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "publish-Plugin" }
+jmh = { id = "me.champeau.jmh", version.ref = "jmh-plugin" }
 

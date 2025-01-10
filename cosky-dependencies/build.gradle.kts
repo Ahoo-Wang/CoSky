@@ -12,19 +12,19 @@
  */
 
 dependencies {
-    api(platform(libs.springBootDependencies))
-    api(platform(libs.springCloudDependencies))
-    api(platform(libs.cosidBom))
-    api(platform(libs.simbaBom))
-    api(platform(libs.cosecBom))
+    api(platform(libs.spring.boot.dependencies))
+    api(platform(libs.spring.cloud.dependencies))
+    api(platform(libs.cosid.bom))
+    api(platform(libs.simba.bom))
+    api(platform(libs.cosec.bom))
     constraints {
         api(libs.guava)
-        api(libs.commonsIo)
-        api(libs.springDocStarterWebfluxUi)
+        api(libs.commons.io)
+        api(libs.springdoc.openapi.starter.webflux.ui)
         api(libs.hamcrest)
         api(libs.mockk)
-        api(libs.jmhCore)
-        api(libs.jmhGeneratorAnnprocess)
-        api(libs.detektFormatting)
+        api(libs.jmh.core)
+        api(libs.jmh.generator.annprocess)
+        api(libs.detekt.formatting)
     }
 }
