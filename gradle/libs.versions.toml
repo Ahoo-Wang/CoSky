@@ -2,7 +2,7 @@
 # libraries
 spring-boot = "3.4.2"
 spring-cloud = "2024.0.0"
-cosid = "2.10.2"
+cosid = "2.10.3"
 simba = "2.6.2"
 cosec = "2.9.9"
 guava = "33.4.0-jre"
