@@ -12,7 +12,7 @@ hamcrest = "3.0"
 mockk = "1.13.16"
 jmh = "1.37"
 # plugins
-detekt = "1.23.7"
+detekt = "1.23.8"
 dokka = "2.0.0"
 kotlin = "2.0.21"
 publish-Plugin = "2.0.0"
