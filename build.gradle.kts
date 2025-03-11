@@ -84,7 +84,11 @@ configure(libraryProjects) {
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         compilerOptions {
             freeCompilerArgs = listOf("-Xjsr305=strict", "-Xjvm-default=all-compatibility")
+            javaParameters = true
         }
+    }
+    tasks.withType<JavaCompile> {
+        options.compilerArgs.addAll(listOf("-parameters"))
     }
     apply<me.champeau.jmh.JMHPlugin>()
     configure<me.champeau.jmh.JmhParameters> {
