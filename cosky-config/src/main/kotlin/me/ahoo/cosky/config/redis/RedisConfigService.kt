@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.config.redis
 
-import com.google.common.base.Charsets
 import com.google.common.hash.Hashing
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigCodec.decodeAsConfig
@@ -32,6 +31,7 @@ import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.nio.charset.StandardCharsets
 
 /**
  * Redis Config Service.
@@ -74,7 +74,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
 
     override fun setConfig(namespace: String, configId: String, data: String): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
-        val hash = Hashing.sha256().hashString(data, Charsets.UTF_8).toString()
+        val hash = Hashing.sha256().hashString(data, StandardCharsets.UTF_8).toString()
         if (log.isInfoEnabled) {
             log.info("SetConfig - configId:[{}] - hash:[{}]  @ namespace:[{}].", configId, hash, namespace)
         }
