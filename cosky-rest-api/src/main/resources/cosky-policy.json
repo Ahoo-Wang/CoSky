@@ -22,7 +22,7 @@
           "pattern": [
             "/swagger",
             "/swagger-ui.html",
-            "/webjars/swagger-ui/**",
+            "/swagger-ui/**",
             "/v3/api-docs/**"
           ]
         }
