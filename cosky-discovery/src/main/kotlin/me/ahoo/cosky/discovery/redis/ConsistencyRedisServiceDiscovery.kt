@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.discovery.redis
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
@@ -19,7 +20,6 @@ import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.withTtlAt
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
@@ -48,7 +48,7 @@ class ConsistencyRedisServiceDiscovery(
     private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache
 ) : ServiceDiscovery {
     companion object {
-        private val log = LoggerFactory.getLogger(ConsistencyRedisServiceDiscovery::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     private val serviceMapInstances =
@@ -64,8 +64,8 @@ class ConsistencyRedisServiceDiscovery(
                 .doOnNext {
                     onServiceChanged(it)
                 }.doFinally {
-                    if (log.isInfoEnabled) {
-                        log.info("Listen topic[{}] finally - [{}].", namespace, it)
+                    log.info {
+                        "Listen topic[$namespace] finally - [$it]."
                     }
                     namespaceMapServices.remove(namespace)
                 }
@@ -75,8 +75,8 @@ class ConsistencyRedisServiceDiscovery(
     }
 
     private fun onServiceChanged(namespace: String) {
-        if (log.isDebugEnabled) {
-            log.debug("onServiceChanged:{}", namespace)
+        log.debug {
+            "onServiceChanged:$namespace"
         }
         @Suppress("ReactiveStreamsUnusedPublisher")
         namespaceMapServices[namespace] = delegate.getServices(namespace).cache()
@@ -95,8 +95,8 @@ class ConsistencyRedisServiceDiscovery(
                     onInstanceChanged(it)
                 }
                 .doFinally {
-                    if (log.isInfoEnabled) {
-                        log.info("Listen topic[{}] finally - [{}].", svcId, it)
+                    log.info {
+                        "Listen topic[$svcId] finally - [$it]."
                     }
                     serviceMapInstances.remove(svcId)
                 }.subscribe()
@@ -136,12 +136,8 @@ class ConsistencyRedisServiceDiscovery(
     }
 
     private fun onInstanceChanged(instanceChangedEvent: InstanceChangedEvent) {
-        if (log.isDebugEnabled) {
-            log.debug(
-                "onInstanceChanged - instance:[{}] - message:[{}]",
-                instanceChangedEvent.instance,
-                instanceChangedEvent.event,
-            )
+        log.debug {
+            "onInstanceChanged - instance:[${instanceChangedEvent.instance}] - message:[${instanceChangedEvent.event}]"
         }
         val namespacedServiceId = instanceChangedEvent.namespacedServiceId
         val instance = instanceChangedEvent.instance
@@ -150,12 +146,8 @@ class ConsistencyRedisServiceDiscovery(
         val serviceId = namespacedServiceId.serviceId
         val instancesMono = serviceMapInstances[namespacedServiceId]
         if (instancesMono == null) {
-            if (log.isDebugEnabled) {
-                log.debug(
-                    "onInstanceChanged - instance:[{}] - event:[{}] instancesMono is null.",
-                    instance,
-                    instanceChangedEvent.event,
-                )
+            log.debug {
+                "onInstanceChanged - instance:[$instance] - event:[${instanceChangedEvent.event}] instancesMono is null."
             }
             return
         }
@@ -166,12 +158,8 @@ class ConsistencyRedisServiceDiscovery(
                 if (InstanceChangedEvent.Event.REGISTER != instanceChangedEvent.event &&
                     InstanceChangedEvent.Event.RENEW != instanceChangedEvent.event
                 ) {
-                    if (log.isDebugEnabled) {
-                        log.debug(
-                            "onInstanceChanged - instance:[{}] - event:[{}] not found cached Instance.",
-                            instance,
-                            instanceChangedEvent.event,
-                        )
+                    log.debug {
+                        "onInstanceChanged - instance:[$instance] - event:[${instanceChangedEvent.event}] not found cached Instance."
                     }
                     return@flatMap Mono.empty<Any>()
                 }

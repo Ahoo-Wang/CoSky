@@ -12,13 +12,13 @@
  */
 package me.ahoo.cosky.discovery.redis
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.discovery.NamespacedInstanceId
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadata
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadataKey
 import me.ahoo.cosky.discovery.ServiceRegistry
-import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
@@ -34,7 +34,7 @@ class RedisServiceRegistry(
     private val redisTemplate: ReactiveStringRedisTemplate
 ) : ServiceRegistry {
     companion object {
-        private val log = LoggerFactory.getLogger(RedisServiceRegistry::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     override val registeredEphemeralInstances: ConcurrentHashMap<NamespacedInstanceId, ServiceInstance> =
@@ -66,8 +66,8 @@ class RedisServiceRegistry(
     override fun setService(namespace: String, serviceId: String): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
-        if (log.isInfoEnabled) {
-            log.info("Set Service - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace)
+        log.info {
+            "Set Service - serviceId:[$serviceId]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_SERVICE,
@@ -79,8 +79,8 @@ class RedisServiceRegistry(
     override fun removeService(namespace: String, serviceId: String): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
-        if (log.isWarnEnabled) {
-            log.warn("Remove Service - serviceId:[{}]  @ namespace:[{}].", serviceId, namespace)
+        log.warn {
+            "Remove Service - serviceId:[$serviceId]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REMOVE_SERVICE,
@@ -91,8 +91,8 @@ class RedisServiceRegistry(
 
     override fun register(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
-        if (log.isInfoEnabled) {
-            log.info("Register - instanceId:[{}]  @ namespace:[{}].", serviceInstance.instanceId, namespace)
+        log.info {
+            "Register - instanceId:[${serviceInstance.instanceId}]  @ namespace:[$namespace]."
         }
         return registerInternal(namespace, serviceInstance).doOnSubscribe {
             addEphemeralInstance(namespace, serviceInstance)
@@ -146,8 +146,8 @@ class RedisServiceRegistry(
     private fun setMetadataInternal(namespace: String, instanceId: String, args: List<String>): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
-        if (log.isInfoEnabled) {
-            log.info("Set Metadata - instanceId:[{}] @ namespace:[{}].", instanceId, namespace)
+        log.info {
+            "Set Metadata - instanceId:[$instanceId] @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA,
@@ -159,16 +159,12 @@ class RedisServiceRegistry(
 
     override fun renew(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
-        if (log.isDebugEnabled) {
-            log.debug("Renew - instanceId:[{}] @ namespace:[{}].", serviceInstance.instanceId, namespace)
+        log.debug {
+            "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace]."
         }
         if (!serviceInstance.isEphemeral) {
-            if (log.isWarnEnabled) {
-                log.warn(
-                    "Renew - instanceId:[{}] @ namespace:[{}] is not ephemeral, can not renew.",
-                    serviceInstance.instanceId,
-                    namespace,
-                )
+            log.warn {
+                "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace] is not ephemeral, can not renew."
             }
             return false.toMono()
         }
@@ -179,13 +175,8 @@ class RedisServiceRegistry(
         )
             .flatMap { status ->
                 if (status <= 0) {
-                    if (log.isWarnEnabled) {
-                        log.warn(
-                            "Renew - instanceId:[{}] @ namespace:[{}] status is [{}],register again.",
-                            serviceInstance.instanceId,
-                            namespace,
-                            status,
-                        )
+                    log.warn {
+                        "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace] status is [$status],register again."
                     }
                     return@flatMap register(namespace, serviceInstance)
                 }
@@ -195,10 +186,9 @@ class RedisServiceRegistry(
     }
 
     override fun deregister(namespace: String, serviceId: String, instanceId: String): Mono<Boolean> {
-        if (log.isInfoEnabled) {
-            log.info("Deregister - instanceId:[{}] @ namespace:[{}].", instanceId, namespace)
+        log.info {
+            "Deregister - instanceId:[$instanceId] @ namespace:[$namespace]."
         }
-
         return deregisterInternal(namespace, serviceId, instanceId)
             .doOnSubscribe {
                 removeEphemeralInstance(namespace, instanceId)
@@ -206,8 +196,8 @@ class RedisServiceRegistry(
     }
 
     override fun deregister(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
-        if (log.isInfoEnabled) {
-            log.info("Deregister - instanceId:[{}] @ namespace:[{}].", serviceInstance.instanceId, namespace)
+        log.info {
+            "Deregister - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace]."
         }
         return deregisterInternal(namespace, serviceInstance.serviceId, serviceInstance.instanceId)
             .doOnSubscribe {

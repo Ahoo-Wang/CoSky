@@ -23,13 +23,7 @@ import reactor.core.publisher.Flux
  * @author ahoo wang
  */
 
-class CoSkyReactiveDiscoveryClient(serviceDiscovery: ServiceDiscovery) : ReactiveDiscoveryClient {
-
-    private val serviceDiscovery: ServiceDiscovery
-
-    init {
-        this.serviceDiscovery = serviceDiscovery
-    }
+class CoSkyReactiveDiscoveryClient(private val serviceDiscovery: ServiceDiscovery) : ReactiveDiscoveryClient {
 
     override fun description(): String {
         return "CoSky Reactive Discovery Client"

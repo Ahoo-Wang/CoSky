@@ -12,11 +12,11 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.TreeWeightRandomLoadBalancer.TreeChooser
-import org.slf4j.LoggerFactory
 import java.util.*
 import java.util.concurrent.ThreadLocalRandom
 
@@ -31,7 +31,7 @@ class TreeWeightRandomLoadBalancer(
 ) :
     AbstractLoadBalancer<TreeChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {
-        private val log = LoggerFactory.getLogger(TreeWeightRandomLoadBalancer::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     override fun createChooser(serviceInstances: List<ServiceInstance>): TreeChooser {
@@ -56,13 +56,15 @@ class TreeWeightRandomLoadBalancer(
 
         override fun choose(): ServiceInstance? {
             if (instanceTree.size == LoadBalancer.ZERO) {
-                if (log.isWarnEnabled) {
-                    log.warn("choose - The size of connector instances is [{}]!", instanceTree.size)
+                log.warn {
+                    "choose - The size of connector instances is zero!"
                 }
                 return null
             }
             if (LoadBalancer.ZERO == totalWeight) {
-                log.warn("choose - The size of connector instances is [{}],but total weight is 0!", instanceTree.size)
+                log.warn {
+                    "choose - The size of connector instances is [${instanceTree.size}],but total weight is 0!"
+                }
                 return null
             }
             if (instanceTree.size == LoadBalancer.ONE) {

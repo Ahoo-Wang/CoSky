@@ -12,13 +12,13 @@
  */
 package me.ahoo.cosky.discovery.redis
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
-import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
@@ -35,7 +35,7 @@ class RedisServiceStatistic(
     private val instanceEventListenerContainer: InstanceEventListenerContainer
 ) : ServiceStatistic {
     companion object {
-        private val log = LoggerFactory.getLogger(RedisServiceStatistic::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     private val listenedNamespaces = ConcurrentHashMap<String, Disposable>()
@@ -50,8 +50,8 @@ class RedisServiceStatistic(
     }
 
     private fun instanceChanged(event: InstanceChangedEvent) {
-        if (log.isDebugEnabled) {
-            log.debug("instanceChanged - event:[{}]", event)
+        log.debug {
+            "instanceChanged - event:[$event]"
         }
         if (InstanceChangedEvent.Event.RENEW == event.event) {
             return
@@ -70,8 +70,8 @@ class RedisServiceStatistic(
 
     private fun statServiceInternal(namespace: String, serviceId: String?): Mono<Void> {
         require(namespace.isNotBlank()) { "namespace can not be blank!" }
-        if (log.isDebugEnabled) {
-            log.debug("statService  @ namespace:[{}].", namespace)
+        log.debug {
+            "statService  @ namespace:[$namespace]."
         }
         val values: List<String> = if (!serviceId.isNullOrEmpty()) {
             listOf(serviceId)

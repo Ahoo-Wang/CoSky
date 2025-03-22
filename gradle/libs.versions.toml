@@ -6,6 +6,7 @@ cosid = "2.12.2"
 simba = "2.8.1"
 cosec = "2.12.6"
 guava = "33.4.5-jre"
+kotlin-logging = "7.0.5"
 commons-io = "2.18.0"
 springdoc = "2.8.5"
 hamcrest = "3.0"
@@ -24,6 +25,7 @@ cosid-bom = { module = "me.ahoo.cosid:cosid-bom", version.ref = "cosid" }
 simba-bom = { module = "me.ahoo.simba:simba-bom", version.ref = "simba" }
 cosec-bom = { module = "me.ahoo.cosec:cosec-bom", version.ref = "cosec" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
 springdoc-openapi-starter-webflux-ui = { module = "org.springdoc:springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }

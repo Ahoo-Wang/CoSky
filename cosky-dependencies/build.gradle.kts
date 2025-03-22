@@ -19,6 +19,7 @@ dependencies {
     api(platform(libs.cosec.bom))
     constraints {
         api(libs.guava)
+        api(libs.kotlin.logging)
         api(libs.commons.io)
         api(libs.springdoc.openapi.starter.webflux.ui)
         api(libs.hamcrest)

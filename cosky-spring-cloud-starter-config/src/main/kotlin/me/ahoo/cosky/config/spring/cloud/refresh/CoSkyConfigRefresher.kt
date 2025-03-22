@@ -12,11 +12,11 @@
  */
 package me.ahoo.cosky.config.spring.cloud.refresh
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.ConfigEventListenerContainer
 import me.ahoo.cosky.config.NamespacedConfigId
 import me.ahoo.cosky.config.spring.cloud.CoSkyConfigProperties
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
-import org.slf4j.LoggerFactory
 import org.springframework.beans.BeansException
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.cloud.endpoint.event.RefreshEvent
@@ -53,8 +53,8 @@ class CoSkyConfigRefresher(
                 requireNotNull(configProperties.configId) { "configId must not be null." },
             ),
         ).doOnNext {
-            if (log.isInfoEnabled) {
-                log.info("Refresh - CoSky - configId:[{}] - [{}]", configProperties.configId, it.event)
+            log.info {
+                "Refresh - CoSky - configId:[${configProperties.configId}] - [${it.event}]"
             }
             applicationContext.publishEvent(
                 RefreshEvent(this, it.event, "Refresh CoSky config"),
@@ -63,6 +63,6 @@ class CoSkyConfigRefresher(
     }
 
     companion object {
-        private val log = LoggerFactory.getLogger(CoSkyConfigRefresher::class.java)
+        private val log = KotlinLogging.logger {}
     }
 }

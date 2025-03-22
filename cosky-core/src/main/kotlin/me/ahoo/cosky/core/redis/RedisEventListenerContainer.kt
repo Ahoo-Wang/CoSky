@@ -1,7 +1,7 @@
 package me.ahoo.cosky.core.redis
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.EventListenerContainer
-import org.slf4j.LoggerFactory
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
@@ -12,20 +12,20 @@ abstract class RedisEventListenerContainer<T, E>(
 ) :
     EventListenerContainer<T, E> {
     companion object {
-        private val log = LoggerFactory.getLogger(RedisEventListenerContainer::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     override fun receive(topic: T): Flux<E> {
         return receiveEvent(topic)
             .onErrorResume(CancellationException::class.java) {
-                if (log.isInfoEnabled) {
-                    log.info("OnError {} - topic[{}] is cancelled.", this, topic)
+                log.info {
+                    "OnError $this - topic[$topic] is cancelled."
                 }
                 Flux.empty()
             }
             .doOnSubscribe {
-                if (log.isInfoEnabled) {
-                    log.info("Receive {} - topic[{}].", this, topic)
+                log.info {
+                    "Receive $this - topic[$topic]."
                 }
             }
     }
@@ -33,12 +33,8 @@ abstract class RedisEventListenerContainer<T, E>(
     protected abstract fun receiveEvent(topic: T): Flux<E>
 
     override fun close() {
-        if (log.isInfoEnabled) {
-            log.info(
-                "Closing {} activeSubscriptions:[{}]",
-                this,
-                delegate.activeSubscriptions.size,
-            )
+        log.info {
+            "Closing $this activeSubscriptions:[${delegate.activeSubscriptions.size}]"
         }
         delegate.destroyLater().subscribeOn(Schedulers.boundedElastic()).subscribe()
     }

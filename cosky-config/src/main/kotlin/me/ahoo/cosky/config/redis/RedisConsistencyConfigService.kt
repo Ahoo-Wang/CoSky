@@ -12,12 +12,12 @@
  */
 package me.ahoo.cosky.config.redis
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigChangedEvent
 import me.ahoo.cosky.config.ConfigEventListenerContainer
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.NamespacedConfigId
-import org.slf4j.LoggerFactory
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
@@ -36,7 +36,7 @@ class RedisConsistencyConfigService(
     private val hookOnResetCache: (ConfigChangedEvent) -> Unit = NoOpHookOnResetCache
 ) : ConfigService by delegate {
     companion object {
-        private val log = LoggerFactory.getLogger(RedisConsistencyConfigService::class.java)
+        private val log = KotlinLogging.logger {}
         val CONFIG_CACHE_TTL: Duration = Duration.ofMinutes(1)
     }
 
@@ -55,8 +55,8 @@ class RedisConsistencyConfigService(
                 .doOnNext { changedEvent ->
                     onConfigChanged(changedEvent)
                 }.doFinally { signalType ->
-                    if (log.isInfoEnabled) {
-                        log.info("Listen topic[{}] finally - [{}].", namespacedConfigId, signalType)
+                    log.info {
+                        "Listen topic[$namespacedConfigId] finally - [$signalType]."
                     }
                     configMapCache.remove(namespacedConfigId)
                 }
@@ -66,8 +66,8 @@ class RedisConsistencyConfigService(
     }
 
     private fun onConfigChanged(configChangedEvent: ConfigChangedEvent) {
-        if (log.isInfoEnabled) {
-            log.info("onConfigChanged:{}", configChangedEvent)
+        log.info {
+            "onConfigChanged:$configChangedEvent"
         }
         val namespacedConfigId: NamespacedConfigId = configChangedEvent.namespacedConfigId
         configMapCache[namespacedConfigId] =

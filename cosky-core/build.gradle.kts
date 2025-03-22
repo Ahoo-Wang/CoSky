@@ -12,6 +12,7 @@
  */
 
 dependencies {
+    api("io.github.oshai:kotlin-logging-jvm")
     api("io.projectreactor:reactor-core")
     api("io.projectreactor.kotlin:reactor-kotlin-extensions")
     api("org.springframework.data:spring-data-redis")

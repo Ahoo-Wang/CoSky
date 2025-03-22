@@ -12,7 +12,7 @@
  */
 package me.ahoo.cosky.discovery
 
-import org.slf4j.LoggerFactory
+import io.github.oshai.kotlinlogging.KotlinLogging
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.scheduler.Scheduler
@@ -38,7 +38,7 @@ class RenewInstanceService(
     private val hookOnRenew: Consumer<ServiceInstance> = NoOpConsumeRenewInstance
 ) {
     companion object {
-        private val log = LoggerFactory.getLogger(RenewInstanceService::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     private val running = AtomicBoolean(false)
@@ -49,9 +49,7 @@ class RenewInstanceService(
         if (!running.compareAndSet(false, true)) {
             return
         }
-        if (log.isInfoEnabled) {
-            log.info("Start.")
-        }
+        log.info { "Start." }
         scheduleDisposable = scheduler.schedulePeriodically(
             { renew() },
             renewProperties.initialDelay.seconds,
@@ -64,9 +62,7 @@ class RenewInstanceService(
         if (!running.compareAndSet(true, false)) {
             return
         }
-        if (log.isInfoEnabled) {
-            log.info("Stop.")
-        }
+        log.info { "Stop." }
         scheduleDisposable?.dispose()
         scheduler.dispose()
     }
@@ -74,12 +70,12 @@ class RenewInstanceService(
     private fun renew() {
         val times = renewCounter.incrementAndGet()
         val instances = serviceRegistry.registeredEphemeralInstances
-        if (log.isDebugEnabled) {
-            log.debug("Renew - instances size:{} start - times@[{}] .", instances.size, times)
+        log.debug {
+            "Renew - instances size:${instances.size} start - times@[$times] ."
         }
         if (instances.isEmpty()) {
-            if (log.isDebugEnabled) {
-                log.debug("Renew - instances size:{} end - times@[{}] .", instances.size, times)
+            log.debug {
+                "Renew - instances size:${instances.size} end - times@[$times] ."
             }
             return
         }
@@ -89,16 +85,12 @@ class RenewInstanceService(
                     .doOnSuccess { hookOnRenew.accept(value) }
             }
             .doOnError {
-                if (log.isWarnEnabled) {
-                    log.warn("Renew - failed.", it)
+                log.warn {
+                    "Renew - failed."
                 }
             }.doOnComplete {
-                if (log.isDebugEnabled) {
-                    log.debug(
-                        "Renew - instances size:{} end - times@[{}].",
-                        instances.size,
-                        times,
-                    )
+                log.debug {
+                    "Renew - instances size:${instances.size} end - times@[$times]."
                 }
             }.subscribe()
     }
