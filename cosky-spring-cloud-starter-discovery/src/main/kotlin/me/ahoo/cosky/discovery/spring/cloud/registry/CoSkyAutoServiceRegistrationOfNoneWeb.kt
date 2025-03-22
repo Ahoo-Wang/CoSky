@@ -12,10 +12,10 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.registry
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import me.ahoo.cosky.core.util.ProcessId
 import me.ahoo.cosky.discovery.ServiceInstanceContext
-import org.slf4j.LoggerFactory
 import org.springframework.beans.BeansException
 import org.springframework.boot.context.event.ApplicationStartedEvent
 import org.springframework.boot.web.context.WebServerApplicationContext
@@ -33,14 +33,14 @@ class CoSkyAutoServiceRegistrationOfNoneWeb(
     private val registration: CoSkyRegistration
 ) : ApplicationListener<ApplicationStartedEvent>, ApplicationContextAware {
     companion object {
-        private val log = LoggerFactory.getLogger(CoSkyAutoServiceRegistrationOfNoneWeb::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     private var isWebApp = false
     override fun onApplicationEvent(event: ApplicationStartedEvent) {
         if (isWebApp) {
-            if (log.isDebugEnabled) {
-                log.debug("OnApplicationEvent - Ignoring registration service of WebServerApplicationContext")
+            log.debug {
+                "OnApplicationEvent - Ignoring registration service of WebServerApplicationContext"
             }
             return
         }

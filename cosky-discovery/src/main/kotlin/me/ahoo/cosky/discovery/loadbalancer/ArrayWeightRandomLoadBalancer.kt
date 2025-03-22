@@ -12,11 +12,11 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.ArrayWeightRandomLoadBalancer.ArrayChooser
-import org.slf4j.LoggerFactory
 import java.util.concurrent.ThreadLocalRandom
 
 /**
@@ -30,7 +30,7 @@ class ArrayWeightRandomLoadBalancer(
 ) :
     AbstractLoadBalancer<ArrayChooser>(serviceDiscovery, instanceEventListenerContainer) {
     companion object {
-        private val log = LoggerFactory.getLogger(ArrayWeightRandomLoadBalancer::class.java)
+        private val log = KotlinLogging.logger {}
     }
 
     override fun createChooser(serviceInstances: List<ServiceInstance>): ArrayChooser {
@@ -39,16 +39,15 @@ class ArrayWeightRandomLoadBalancer(
 
     class ArrayChooser(instanceList: List<ServiceInstance>) : LoadBalancer.Chooser {
         private val instanceLine: Array<ServiceInstance>
-        private val totalWeight: Int
+        private val totalWeight: Int = if (instanceList.isEmpty()) {
+            LoadBalancer.ZERO
+        } else {
+            instanceList
+                .map(ServiceInstance::weight)
+                .reduce { a: Int, b: Int -> Integer.sum(a, b) }
+        }
 
         init {
-            totalWeight = if (instanceList.isEmpty()) {
-                LoadBalancer.ZERO
-            } else {
-                instanceList
-                    .map(ServiceInstance::weight)
-                    .reduce { a: Int, b: Int -> Integer.sum(a, b) }
-            }
             instanceLine = toLine(instanceList)
         }
 
@@ -69,16 +68,15 @@ class ArrayWeightRandomLoadBalancer(
 
         override fun choose(): ServiceInstance? {
             if (instanceLine.size == LoadBalancer.ZERO) {
-                if (log.isWarnEnabled) {
-                    log.warn("choose - The size of connector instances is [{}]!", instanceLine.size)
+                log.warn {
+                    "choose - The size of connector instances is zero!"
                 }
                 return null
             }
             if (LoadBalancer.ZERO == totalWeight) {
-                log.warn(
-                    "choose - The size of connector instances is [{}],but total weight is 0!",
-                    instanceLine.size,
-                )
+                log.warn {
+                    "choose - The size of connector instances is [${instanceLine.size}],but total weight is 0!"
+                }
                 return null
             }
             if (instanceLine.size == LoadBalancer.ONE) {

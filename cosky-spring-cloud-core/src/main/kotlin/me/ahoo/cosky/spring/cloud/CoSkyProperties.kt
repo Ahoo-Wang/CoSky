@@ -12,11 +12,11 @@
  */
 package me.ahoo.cosky.spring.cloud
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.core.Namespaced
 import me.ahoo.cosky.core.util.RedisKeys.hasWrap
 import me.ahoo.cosky.core.util.RedisKeys.ofKey
-import org.slf4j.LoggerFactory
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
@@ -31,20 +31,16 @@ class CoSkyProperties(
 ) : Namespaced {
 
     companion object {
+        private val log = KotlinLogging.logger {}
         const val PREFIX = "spring.cloud." + CoSky.COSKY
-        private val log = LoggerFactory.getLogger(CoSkyProperties::class.java)
     }
 
     init {
         if (!hasWrap(namespace)) {
             val clusterNamespace = ofKey(true, namespace)
-            if (log.isWarnEnabled) {
-                log.warn(
-                    "When Redis is in cluster mode, namespace:[{}-->{}] must be wrapped by {}(hashtag).",
-                    namespace,
-                    clusterNamespace,
-                    "{}",
-                )
+            log.warn {
+                "When Redis is in cluster mode, namespace:[$namespace-->$clusterNamespace]" +
+                    " must be wrapped by {}(hashtag)."
             }
             namespace = clusterNamespace
         }

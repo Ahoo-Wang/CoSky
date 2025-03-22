@@ -13,6 +13,7 @@
 package me.ahoo.cosky.config.redis
 
 import com.google.common.hash.Hashing
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigCodec.decodeAsConfig
 import me.ahoo.cosky.config.ConfigCodec.decodeAsHistory
@@ -26,7 +27,6 @@ import me.ahoo.cosky.config.ConfigKeyGenerator.getConfigVersionOfHistoryKey
 import me.ahoo.cosky.config.ConfigRollback
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.ConfigVersion
-import org.slf4j.LoggerFactory
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
@@ -40,14 +40,14 @@ import java.nio.charset.StandardCharsets
  */
 class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate) : ConfigService {
     companion object {
-        private val log = LoggerFactory.getLogger(RedisConfigService::class.java)
+        private val log = KotlinLogging.logger {}
         private const val HISTORY_STOP = (ConfigRollback.HISTORY_SIZE - 1).toLong()
     }
 
     override fun getConfigs(namespace: String): Flux<String> {
         require(namespace.isNotBlank()) { "namespace can not be blank!" }
-        if (log.isDebugEnabled) {
-            log.debug("GetConfigs  @ namespace:[{}].", namespace)
+        log.debug {
+            "GetConfigs  @ namespace:[$namespace]."
         }
         val configIdxKey = getConfigIdxKey(namespace)
         return redisTemplate
@@ -60,8 +60,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
 
     override fun getConfig(namespace: String, configId: String): Mono<Config> {
         ensureNamespacedConfigId(namespace, configId)
-        if (log.isDebugEnabled) {
-            log.debug("GetConfig - configId:[{}]  @ namespace:[{}].", configId, namespace)
+        log.debug {
+            "GetConfig - configId:[$configId]  @ namespace:[$namespace]."
         }
         val configKey = getConfigKey(namespace, configId)
         return getAndDecodeConfig(configKey) { it.decodeAsConfig() }
@@ -75,8 +75,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     override fun setConfig(namespace: String, configId: String, data: String): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
         val hash = Hashing.sha256().hashString(data, StandardCharsets.UTF_8).toString()
-        if (log.isInfoEnabled) {
-            log.info("SetConfig - configId:[{}] - hash:[{}]  @ namespace:[{}].", configId, hash, namespace)
+        log.info {
+            "SetConfig - configId:[$configId] - hash:[$hash]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_SET,
@@ -87,8 +87,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
 
     override fun removeConfig(namespace: String, configId: String): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
-        if (log.isInfoEnabled) {
-            log.info("RemoveConfig - configId:[{}] @ namespace:[{}].", configId, namespace)
+        log.info {
+            "RemoveConfig - configId:[$configId] @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_REMOVE,
@@ -105,13 +105,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
 
     override fun rollback(namespace: String, configId: String, targetVersion: Int): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
-        if (log.isInfoEnabled) {
-            log.info(
-                "Rollback - configId:[{}] - targetVersion:[{}]  @ namespace:[{}].",
-                configId,
-                targetVersion,
-                namespace,
-            )
+        log.info {
+            "Rollback - configId:[$configId] - targetVersion:[$targetVersion]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK,

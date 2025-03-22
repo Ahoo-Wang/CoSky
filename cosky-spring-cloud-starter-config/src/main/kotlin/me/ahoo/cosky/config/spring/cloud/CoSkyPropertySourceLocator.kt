@@ -13,11 +13,11 @@
 package me.ahoo.cosky.config.spring.cloud
 
 import com.google.common.io.Files
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.core.NamespacedContext
-import org.slf4j.LoggerFactory
 import org.springframework.boot.env.OriginTrackedMapPropertySource
 import org.springframework.boot.env.PropertySourceLoader
 import org.springframework.cloud.bootstrap.config.PropertySourceLocator
@@ -38,7 +38,7 @@ class CoSkyPropertySourceLocator(
 ) : PropertySourceLocator {
 
     companion object {
-        private val log = LoggerFactory.getLogger(CoSkyPropertySourceLocator::class.java)
+        private val log = KotlinLogging.logger {}
         fun getNameOfConfigId(configId: String): String {
             return CoSky.COSKY + ":" + configId
         }
@@ -54,16 +54,14 @@ class CoSkyPropertySourceLocator(
             fileExt = configProperties.fileExtension
         }
         val namespace = NamespacedContext.namespace
-        if (log.isInfoEnabled) {
-            log.info("Locate - configId:[{}] @ namespace:[{}]", configId, namespace)
+        log.info {
+            "Locate - configId:[$configId] @ namespace:[$namespace]"
         }
         val config = configService.getConfig(namespace, configId).block(configProperties.timeout)
         if (config == null) {
-            log.warn(
-                "locate - can not find configId:[{}] @ namespace:[{}]",
-                configId,
-                namespace,
-            )
+            log.warn {
+                "locate - can not find configId:[$configId] @ namespace:[$namespace]"
+            }
             return OriginTrackedMapPropertySource(
                 getNameOfConfigId(configId),
                 emptyMap<Any, Any>(),
