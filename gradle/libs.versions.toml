@@ -10,7 +10,7 @@ kotlin-logging = "7.0.7"
 commons-io = "2.19.0"
 springdoc = "2.8.6"
 hamcrest = "3.0"
-mockk = "1.14.0"
+mockk = "1.14.2"
 jmh = "1.37"
 # plugins
 detekt = "1.23.8"
