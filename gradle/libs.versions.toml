@@ -15,7 +15,7 @@ jmh = "1.37"
 # plugins
 detekt = "1.23.8"
 dokka = "2.0.0"
-kotlin = "2.1.20"
+kotlin = "2.1.21"
 publish-Plugin = "2.0.0"
 jmh-plugin = "0.7.3"
 [libraries]
