@@ -58,7 +58,7 @@ dependencies {
     implementation(project(":spring-cloud-starter-cosky-config"))
     implementation(project(":spring-cloud-starter-cosky-discovery"))
     implementation("com.google.guava:guava")
-    implementation("com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:2023.0.1.2")
+    implementation("com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:2023.0.3.3")
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
