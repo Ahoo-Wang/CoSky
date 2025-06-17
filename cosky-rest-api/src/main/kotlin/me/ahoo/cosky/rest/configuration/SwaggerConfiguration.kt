@@ -12,13 +12,10 @@
  */
 package me.ahoo.cosky.rest.configuration
 
-import io.swagger.v3.oas.models.Components
-import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Contact
 import io.swagger.v3.oas.models.info.Info
 import io.swagger.v3.oas.models.info.License
-import io.swagger.v3.oas.models.security.SecurityRequirement
-import io.swagger.v3.oas.models.security.SecurityScheme
+import org.springdoc.core.customizers.OpenApiCustomizer
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -34,21 +31,12 @@ class SwaggerConfiguration {
         .description("High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service.")
         .contact(Contact().name("Ahoo Wang").url("https://github.com/Ahoo-Wang/CoSky"))
         .license(License().url("https://github.com/Ahoo-Wang/CoSky/blob/main/LICENSE").name("Apache 2.0"))
-        .version("3.3.0")
+        .version("4.9.0")
 
     @Bean
-    fun openApi(): OpenAPI = OpenAPI().apply {
-        info(apiInfo)
-        addSecurityItem(SecurityRequirement().addList("api_key"))
-        components(Components())
-        components.addSecuritySchemes(
-            "api_key",
-            SecurityScheme()
-                .type(SecurityScheme.Type.APIKEY)
-                .`in`(SecurityScheme.In.HEADER)
-                .name("Authorization")
-                .description("API Key")
-                .bearerFormat("JWT"),
-        )
+    fun coskyOpenApiCustomizer(): OpenApiCustomizer {
+        return OpenApiCustomizer {
+            it.info(apiInfo)
+        }
     }
 }

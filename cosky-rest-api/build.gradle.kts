@@ -70,6 +70,7 @@ application {
 dependencies {
     kapt(platform(project(":cosky-dependencies")))
     implementation(platform(project(":cosky-dependencies")))
+    implementation("me.ahoo.cosec:cosec-openapi")
     implementation("me.ahoo.cosec:cosec-webflux")
     implementation("me.ahoo.cosec:cosec-spring-boot-starter")
     implementation("io.netty:netty-all")
