@@ -13,7 +13,6 @@ internal class CoSkyAutoConfigurationTest {
     @Test
     fun contextLoads() {
         contextRunner
-//            .withBean(ReactiveStringRedisTemplate::class.java, { mockk() })
             .withPropertyValues("spring.cloud.cosky.namespace=contextLoads")
             .withUserConfiguration(
                 RedisAutoConfiguration::class.java,

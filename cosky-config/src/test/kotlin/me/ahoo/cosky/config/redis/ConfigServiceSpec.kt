@@ -4,8 +4,7 @@ import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.config.ConfigRollback
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
 
@@ -51,9 +50,9 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfig(namespace, testConfigId)
             .test()
             .expectNextMatches {
-                assertThat(testConfigId, equalTo(it.configId))
-                assertThat(getConfigData, equalTo(it.data))
-                assertThat(1, equalTo(it.version))
+                it.configId.assert().isEqualTo(testConfigId)
+                it.data.assert().isEqualTo(getConfigData)
+                it.version.assert().isEqualTo(1)
                 true
             }
             .verifyComplete()
@@ -89,7 +88,7 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfig(namespace, testConfigId)
             .test()
             .expectNextMatches {
-                assertThat(it.data, equalTo(version1Data))
+                it.data.assert().isEqualTo(version1Data)
                 true
             }
             .verifyComplete()
@@ -101,7 +100,7 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfig(namespace, testConfigId)
             .test()
             .expectNextMatches {
-                assertThat(it.data, equalTo(version2Data))
+                it.data.assert().isEqualTo(version2Data)
                 true
             }
             .verifyComplete()
@@ -112,7 +111,7 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfig(namespace, testConfigId)
             .test()
             .expectNextMatches {
-                assertThat(it.data, equalTo(version1Data))
+                it.data.assert().isEqualTo(version1Data)
                 true
             }
             .verifyComplete()
@@ -159,8 +158,8 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfigVersions(namespace, testConfigId)
             .test()
             .expectNextMatches {
-                assertThat(it.configId, equalTo(testConfigId))
-                assertThat(it.version, equalTo(1))
+                it.configId.assert().isEqualTo(testConfigId)
+                it.version.assert().isEqualTo(1)
                 true
             }
             .verifyComplete()
@@ -179,10 +178,10 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfigVersions(namespace, testConfigId).collectList()
             .test()
             .expectNextMatches {
-                assertThat(it.size, equalTo(ConfigRollback.HISTORY_SIZE))
+                it.size.assert().isEqualTo(ConfigRollback.HISTORY_SIZE)
                 val configVersion = it.first()
-                assertThat(configVersion.configId, equalTo(testConfigId))
-                assertThat(configVersion.version, equalTo(ConfigRollback.HISTORY_SIZE * 2))
+                configVersion.configId.assert().isEqualTo(testConfigId)
+                configVersion.version.assert().isEqualTo(ConfigRollback.HISTORY_SIZE * 2)
                 true
             }
             .verifyComplete()
@@ -196,8 +195,8 @@ abstract class ConfigServiceSpec : AbstractReactiveRedisTest() {
         configService.getConfigHistory(namespace, testConfigId, 1)
             .test()
             .expectNextMatches {
-                assertThat(it.configId, equalTo(testConfigId))
-                assertThat(it.version, equalTo(1))
+                it.configId.assert().isEqualTo(testConfigId)
+                it.version.assert().isEqualTo(1)
                 true
             }
             .verifyComplete()

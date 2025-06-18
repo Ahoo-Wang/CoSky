@@ -16,8 +16,7 @@ import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
 /**
@@ -27,18 +26,18 @@ class DiscoveryKeyGeneratorTest {
     @Test
     fun getServiceIdxKey() {
         val key = getServiceIdxKey(CoSky.COSKY)
-        assertThat(key, equalTo("cosky:svc_idx"))
+        key.assert().isEqualTo("cosky:svc_idx")
     }
 
     @Test
     fun serviceInstanceIdxKey() {
         val key = getInstanceIdxKey(CoSky.COSKY, "order_service")
-        assertThat(key, equalTo("cosky:svc_itc_idx:order_service"))
+        key.assert().isEqualTo("cosky:svc_itc_idx:order_service")
     }
 
     @Test
     fun getInstanceKey() {
         val key = getInstanceKey(CoSky.COSKY, "http#127.0.0.1#8080@order_service")
-        assertThat(key, equalTo("cosky:svc_itc:http#127.0.0.1#8080@order_service"))
+        key.assert().isEqualTo("cosky:svc_itc:http#127.0.0.1#8080@order_service")
     }
 }

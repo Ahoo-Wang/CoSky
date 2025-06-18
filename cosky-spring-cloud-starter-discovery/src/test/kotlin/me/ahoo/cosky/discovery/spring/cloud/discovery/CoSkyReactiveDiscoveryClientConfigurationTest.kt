@@ -1,5 +1,6 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
+import me.ahoo.test.asserts.assert
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
@@ -30,7 +31,7 @@ internal class CoSkyReactiveDiscoveryClientConfigurationTest {
                     .extracting {
                         val coSkyReactiveDiscoveryClient =
                             it.discoveryClients.filterIsInstance<CoSkyReactiveDiscoveryClient>().firstOrNull()
-                        assertThat(coSkyReactiveDiscoveryClient).isNotNull
+                        coSkyReactiveDiscoveryClient.assert().isNotNull()
                     }
             }
     }

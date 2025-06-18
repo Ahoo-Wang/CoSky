@@ -4,6 +4,7 @@ import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewInstanceService
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
+import me.ahoo.test.asserts.assert
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
@@ -42,29 +43,29 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                     .hasSingleBean(CoSkyAutoServiceRegistrationOfNoneWeb::class.java)
                     .getBean(CoSkyRegistryProperties::class.java)
                     .extracting {
-                        assertThat(it.serviceId).isEqualTo("")
-                        assertThat(it.schema).isEqualTo("http")
-                        assertThat(it.host).isEqualTo("")
-                        assertThat(it.port).isEqualTo(0)
-                        assertThat(it.weight).isEqualTo(1)
-                        assertThat(it.isEphemeral).isEqualTo(true)
-                        assertThat(it.ttl).isEqualTo(Duration.ofSeconds(60))
-                        assertThat(it.timeout).isEqualTo(Duration.ofSeconds(2))
-                        assertThat(it.metadata).containsKey(StatusConstants.INSTANCE_STATUS_KEY)
-                        assertThat(it.initialStatus).isEqualTo(StatusConstants.STATUS_UP)
-                        assertThat(it.renew).isNotNull()
-                        assertThat(it.renew.initialDelay).isEqualTo(Duration.ofSeconds(1))
-                        assertThat(it.renew.period).isEqualTo(Duration.ofSeconds(10))
+                        it.serviceId.assert().isEqualTo("")
+                        it.schema.assert().isEqualTo("http")
+                        it.host.assert().isEqualTo("")
+                        it.port.assert().isEqualTo(0)
+                        it.weight.assert().isEqualTo(1)
+                        it.isEphemeral.assert().isEqualTo(true)
+                        it.ttl.assert().isEqualTo(Duration.ofSeconds(60))
+                        it.timeout.assert().isEqualTo(Duration.ofSeconds(2))
+                        it.metadata.assert().containsKey(StatusConstants.INSTANCE_STATUS_KEY)
+                        it.initialStatus.assert().isEqualTo(StatusConstants.STATUS_UP)
+                        it.renew.assert().isNotNull()
+                        it.renew.initialDelay.assert().isEqualTo(Duration.ofSeconds(1))
+                        it.renew.period.assert().isEqualTo(Duration.ofSeconds(10))
                     }
                 assertThat(it)
                     .getBean(CoSkyRegistration::class.java)
                     .extracting {
-                        assertThat(it.serviceId).isEqualTo("app")
-                        assertThat(it.scheme).isEqualTo("http")
-                        assertThat(it.host).isNotEmpty()
-                        assertThat(it.port).isEqualTo(0)
-                        assertThat(it.weight).isEqualTo(1)
-                        assertThat(it.isEphemeral).isEqualTo(true)
+                        it.serviceId.assert().isEqualTo("app")
+                        it.scheme.assert().isEqualTo("http")
+                        it.host.assert().isNotEmpty()
+                        it.port.assert().isEqualTo(0)
+                        it.weight.assert().isEqualTo(1)
+                        it.isEphemeral.assert().isTrue()
                     }
             }
     }
@@ -104,29 +105,29 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                     .hasSingleBean(CoSkyAutoServiceRegistrationOfNoneWeb::class.java)
                     .getBean(CoSkyRegistryProperties::class.java)
                     .extracting {
-                        assertThat(it.serviceId).isEqualTo("CustomizeServiceId")
-                        assertThat(it.schema).isEqualTo("https")
-                        assertThat(it.host).isEqualTo("host")
-                        assertThat(it.port).isEqualTo(1024)
-                        assertThat(it.weight).isEqualTo(100)
-                        assertThat(it.isEphemeral).isEqualTo(false)
-                        assertThat(it.ttl).isEqualTo(Duration.ofSeconds(120))
-                        assertThat(it.timeout).isEqualTo(Duration.ofSeconds(2))
-                        assertThat(it.metadata).containsKey("key").containsKey(StatusConstants.INSTANCE_STATUS_KEY)
-                        assertThat(it.initialStatus).isEqualTo("OUT_OF_SERVICE")
-                        assertThat(it.renew).isNotNull()
-                        assertThat(it.renew.initialDelay).isEqualTo(Duration.ofSeconds(2))
-                        assertThat(it.renew.period).isEqualTo(Duration.ofSeconds(10))
+                        it.serviceId.assert().isEqualTo("CustomizeServiceId")
+                        it.schema.assert().isEqualTo("https")
+                        it.host.assert().isEqualTo("host")
+                        it.port.assert().isEqualTo(1024)
+                        it.weight.assert().isEqualTo(100)
+                        it.isEphemeral.assert().isFalse()
+                        it.ttl.assert().isEqualTo(Duration.ofSeconds(120))
+                        it.timeout.assert().isEqualTo(Duration.ofSeconds(2))
+                        it.metadata.assert().containsKey("key").containsKey(StatusConstants.INSTANCE_STATUS_KEY)
+                        it.initialStatus.assert().isEqualTo("OUT_OF_SERVICE")
+                        it.renew.assert().isNotNull()
+                        it.renew.initialDelay.assert().isEqualTo(Duration.ofSeconds(2))
+                        it.renew.period.assert().isEqualTo(Duration.ofSeconds(10))
                     }
                 assertThat(it)
                     .getBean(CoSkyRegistration::class.java)
                     .extracting {
-                        assertThat(it.serviceId).isEqualTo("CustomizeServiceId")
-                        assertThat(it.scheme).isEqualTo("https")
-                        assertThat(it.host).isEqualTo("host")
-                        assertThat(it.port).isEqualTo(1024)
-                        assertThat(it.weight).isEqualTo(100)
-                        assertThat(it.isEphemeral).isEqualTo(false)
+                        it.serviceId.assert().isEqualTo("CustomizeServiceId")
+                        it.scheme.assert().isEqualTo("https")
+                        it.host.assert().isEqualTo("host")
+                        it.port.assert().isEqualTo(1024)
+                        it.weight.assert().isEqualTo(100)
+                        it.isEphemeral.assert().isFalse()
                     }
             }
     }

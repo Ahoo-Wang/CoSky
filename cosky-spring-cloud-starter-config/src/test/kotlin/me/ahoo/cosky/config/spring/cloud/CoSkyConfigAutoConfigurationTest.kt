@@ -5,6 +5,7 @@ import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.config.redis.RedisConsistencyConfigService
 import me.ahoo.cosky.config.spring.cloud.refresh.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
+import me.ahoo.test.asserts.assert
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
@@ -34,9 +35,9 @@ internal class CoSkyConfigAutoConfigurationTest {
                     .hasSingleBean(CoSkyConfigRefresher::class.java)
                     .getBean(CoSkyConfigProperties::class.java)
                     .extracting {
-                        assertThat(it.enabled).isEqualTo(true)
-                        assertThat(it.configId).isEqualTo("app.yaml")
-                        assertThat(it.timeout).isEqualTo(Duration.ofSeconds(2))
+                        it.enabled.assert().isTrue()
+                        it.configId.assert().isEqualTo("app.yaml")
+                        it.timeout.assert().isEqualTo(Duration.ofSeconds(2))
                     }
             }
     }
@@ -65,9 +66,9 @@ internal class CoSkyConfigAutoConfigurationTest {
                     .hasSingleBean(CoSkyConfigRefresher::class.java)
                     .getBean(CoSkyConfigProperties::class.java)
                     .extracting {
-                        assertThat(it.enabled).isEqualTo(true)
-                        assertThat(it.configId).isEqualTo("test.yaml")
-                        assertThat(it.timeout).isEqualTo(Duration.ofSeconds(3))
+                        it.enabled.assert().isTrue()
+                        it.configId.assert().isEqualTo("test.yaml")
+                        it.timeout.assert().isEqualTo(Duration.ofSeconds(3))
                     }
             }
     }

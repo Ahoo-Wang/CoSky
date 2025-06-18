@@ -3,8 +3,7 @@ package me.ahoo.cosky.discovery.loadbalancer
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.withWeight
 import me.ahoo.cosky.discovery.TestServiceInstance
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.util.StopWatch
 import java.util.concurrent.TimeUnit
@@ -38,7 +37,7 @@ abstract class ChooserSpec {
         )
         val chooser = createChooser(instances)
         val instance = chooser.choose()
-        assertThat(instance, notNullValue())
+        instance.assert().isNotNull()
 
         var instance1Hits = 0
         var instance2Hits = 0
@@ -64,9 +63,9 @@ abstract class ChooserSpec {
             val instance1HitRate = instance1Hits * 1.0 / instance1ExpectedHits
             val instance2HitRate = instance2Hits * 1.0 / instance2ExpectedHits
             val instance3HitRate = instance3Hits * 1.0 / instance3ExpectedHits
-            assertThat(instance1HitRate, greaterThan(expected))
-            assertThat(instance2HitRate, greaterThan(expected))
-            assertThat(instance3HitRate, greaterThan(expected))
+            instance1HitRate.assert().isGreaterThan(expected)
+            instance2HitRate.assert().isGreaterThan(expected)
+            instance3HitRate.assert().isGreaterThan(expected)
             log.info(
                 "totalTimes: {},instance1Count: {},instance2Count: {},instance3Count: {},time: {}ms",
                 totalTimes,

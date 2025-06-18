@@ -21,7 +21,7 @@ import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.junit.jupiter.api.Assertions
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.kotlin.test.test
@@ -153,7 +153,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
         serviceDiscovery.getServices(namespace).collectList()
             .test()
             .expectNextMatches { it.contains(serviceId) }
@@ -163,13 +163,13 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
         serviceDiscovery.getServices(namespace).collectList()
             .test()
             .expectNextMatches {
-                Assertions.assertTrue(it.contains(serviceId))
-                Assertions.assertTrue(it.contains(serviceId2))
-                Assertions.assertEquals(2, it.size)
+                it.contains(serviceId).assert().isTrue()
+                it.contains(serviceId2).assert().isTrue()
+                it.size.assert().isEqualTo(2)
                 true
             }
             .verifyComplete()
@@ -199,7 +199,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
         serviceDiscovery.getInstances(namespace, serviceId).collectList()
             .test()
             .expectNextMatches { it.contains(instance) }
@@ -207,7 +207,7 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         StepVerifier.create(serviceRegistry.deregister(namespace, instance))
             .expectNext(true)
             .verifyComplete()
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
         serviceDiscovery.getInstances(namespace, serviceId)
             .test()
             .expectNextCount(0)
@@ -225,27 +225,27 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             .expectNext(true)
             .verifyComplete()
 
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
 
         serviceRegistry.setMetadata(namespace, instance.serviceId, instance.instanceId, mapOf("key" to "value"))
             .test()
             .expectNext(true)
             .verifyComplete()
 
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
 
         serviceRegistry.register(namespace, instance)
             .test()
             .expectNext(true)
             .verifyComplete()
 
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
 
         serviceRegistry.deregister(namespace, instance)
             .test()
             .expectNext(true)
             .verifyComplete()
 
-        Assertions.assertTrue(semaphore.tryAcquire(1, TimeUnit.SECONDS))
+        semaphore.tryAcquire(1, TimeUnit.SECONDS).assert().isTrue()
     }
 }

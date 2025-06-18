@@ -14,8 +14,7 @@ package me.ahoo.cosky.config.redis
 
 import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.config.ConfigService
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
@@ -53,9 +52,9 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
         configService.getConfig(namespace, testConfigId)
             .test()
             .expectNextMatches {
-                assertThat(it.configId, equalTo(testConfigId))
-                assertThat(it.data, equalTo(getConfigData))
-                assertThat(it.version, equalTo(1))
+                it.configId.assert().isEqualTo(testConfigId)
+                it.data.assert().isEqualTo(getConfigData)
+                it.version.assert().isEqualTo(1)
                 true
             }
             .verifyComplete()
