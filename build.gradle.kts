@@ -52,6 +52,13 @@ allprojects {
         mavenLocal()
         mavenCentral()
     }
+    tasks.withType<Jar> {
+        manifest {
+            attributes["Implementation-Title"] = project.name
+            attributes["Implementation-Version"] = project.version
+        }
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
 }
 
 configure(bomProjects) {
