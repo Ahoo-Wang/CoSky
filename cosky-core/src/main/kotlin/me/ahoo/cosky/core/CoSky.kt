@@ -20,4 +20,5 @@ package me.ahoo.cosky.core
 object CoSky {
     const val COSKY = "cosky"
     const val KEY_SEPARATOR = ":"
+    val VERSION: String = CoSky.javaClass.`package`.implementationVersion.orEmpty()
 }
