@@ -6,8 +6,7 @@ import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.boot.origin.OriginTrackedValue
 import reactor.kotlin.test.test
@@ -49,7 +48,7 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
         val properties = CoSkyConfigProperties(configId = "${MockIdGenerator.INSTANCE.generateAsString()}.yaml")
         val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(properties, configService)
         val propertySources = coSkyPropertySourceLocator.locate(mockk())
-        assertThat(propertySources, notNullValue())
+        propertySources.assert().isNotNull()
     }
 
     @Test
@@ -61,11 +60,11 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
         val properties = CoSkyConfigProperties(configId = "service.yaml")
         val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(properties, configService)
         val propertySources = coSkyPropertySourceLocator.locate(mockk())
-        assertThat(propertySources, notNullValue())
-        assertThat(propertySources.source, isA(Map::class.java))
+        propertySources.assert().isNotNull()
+        propertySources.source.assert().isInstanceOf(Map::class.java)
         @Suppress("UNCHECKED_CAST")
         val source = propertySources.source as Map<String, OriginTrackedValue>
-        assertThat(source["spring.cloud.cosky.discovery.registry.weight"]?.value, `is`(8))
-        assertThat(source["cosid.namespace"]?.value, equalTo("service"))
+        source["spring.cloud.cosky.discovery.registry.weight"]?.value.assert().isEqualTo(8)
+        source["cosid.namespace"]?.value.assert().isEqualTo("service")
     }
 }

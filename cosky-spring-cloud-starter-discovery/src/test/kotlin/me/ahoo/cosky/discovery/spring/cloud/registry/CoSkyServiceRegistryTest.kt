@@ -8,8 +8,7 @@ import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
 import java.time.Duration
@@ -64,6 +63,6 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         val expectedStatus = "UP"
         coSkyServiceRegistry.setStatus(registration, expectedStatus)
         val actualStatus = coSkyServiceRegistry.getStatus<String>(registration)
-        assertThat(actualStatus, equalTo(expectedStatus))
+        expectedStatus.assert().isEqualTo(actualStatus)
     }
 }

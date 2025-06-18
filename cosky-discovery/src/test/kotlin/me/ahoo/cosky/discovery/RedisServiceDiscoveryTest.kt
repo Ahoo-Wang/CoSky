@@ -17,8 +17,7 @@ import me.ahoo.cosky.discovery.TestServiceInstance.registerRandomInstanceAndTest
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
 
@@ -94,7 +93,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             redisServiceDiscovery.getInstanceTtl(namespace, it.serviceId, it.instanceId)
                 .test()
                 .expectNextMatches {
-                    assertThat(it, greaterThan(0L))
+                    it.assert().isGreaterThan(0)
                     true
                 }
                 .verifyComplete()
@@ -112,7 +111,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         redisServiceDiscovery.getInstance(namespace, fixedInstance.serviceId, fixedInstance.instanceId)
             .test()
             .expectNextMatches {
-                assertThat(it, equalTo(fixedInstance))
+                it.assert().isEqualTo(fixedInstance)
                 true
             }
             .verifyComplete()
@@ -120,7 +119,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         redisServiceDiscovery.getInstances(namespace, fixedInstance.serviceId)
             .test()
             .expectNextMatches {
-                assertThat(it, equalTo(fixedInstance))
+                it.assert().isEqualTo(fixedInstance)
                 true
             }
             .verifyComplete()
@@ -128,7 +127,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         redisServiceDiscovery.getInstanceTtl(namespace, fixedInstance.serviceId, fixedInstance.instanceId)
             .test()
             .expectNextMatches {
-                assertThat(it, equalTo(-1L))
+                it.assert().isEqualTo(-1L)
                 true
             }
             .verifyComplete()

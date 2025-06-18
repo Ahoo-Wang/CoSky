@@ -18,8 +18,7 @@ import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.kotlin.test.test
@@ -53,9 +52,9 @@ class RedisServiceStatisticTest : AbstractReactiveRedisTest() {
         redisServiceStatistic.getServiceStats(namespace).collectList()
             .test()
             .expectNextMatches {
-                assertThat(it.size, equalTo(1))
+                it.size.assert().isEqualTo(1)
                 val (_, instanceCount) = it[0]
-                assertThat(instanceCount, equalTo(1))
+                instanceCount.assert().isEqualTo(1)
                 true
             }
     }

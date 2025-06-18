@@ -8,8 +8,7 @@ import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
 import java.util.concurrent.ThreadLocalRandom
@@ -27,7 +26,7 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
 
     @Test
     fun description() {
-        assertThat(coSkyDiscoveryClient.description(), `is`("CoSky Discovery Client"))
+        coSkyDiscoveryClient.description().assert().isEqualTo("CoSky Discovery Client")
     }
 
     @Test
@@ -44,17 +43,16 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
             .verifyComplete()
         val instances = coSkyDiscoveryClient.getInstances(instance.serviceId)
             .map { it.instanceId }
-        assertThat(instances, hasItem(instance.instanceId))
+        instances.assert().contains(instance.instanceId)
     }
 
     @Test
     fun getServices() {
-        val services = coSkyDiscoveryClient.services
-        assertThat(services, notNullValue())
+        coSkyDiscoveryClient.services.assert().isNotNull()
     }
 
     @Test
     fun getOrder() {
-        assertThat(coSkyDiscoveryClient.order, `is`(0))
+        coSkyDiscoveryClient.order.assert().isZero()
     }
 }

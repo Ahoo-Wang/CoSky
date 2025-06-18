@@ -21,8 +21,7 @@ import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
@@ -60,7 +59,7 @@ internal class RandomLoadBalancerTest : AbstractReactiveRedisTest() {
             randomLoadBalancer.choose(namespace, it.serviceId)
                 .test()
                 .expectNextMatches { serviceInstance ->
-                    assertThat(serviceInstance, equalTo(it))
+                    serviceInstance.assert().isEqualTo(it)
                     true
                 }
         }
@@ -76,7 +75,7 @@ internal class RandomLoadBalancerTest : AbstractReactiveRedisTest() {
         redisServiceRegistry.register(namespace, instance2).block()
         redisServiceRegistry.register(namespace, instance3).block()
         val expectedInstance = randomLoadBalancer.choose(namespace, serviceId).block()
-        assertThat(expectedInstance, notNullValue())
+        expectedInstance.assert().isNotNull()
         requireNotNull(expectedInstance)
         val succeeded =
             expectedInstance.instanceId == instance1.instanceId || expectedInstance.instanceId == instance2.instanceId || expectedInstance.instanceId == instance3.instanceId

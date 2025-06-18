@@ -13,8 +13,7 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosky.discovery.Instance.Companion.asInstance
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
 /**
@@ -24,18 +23,16 @@ class InstanceIdGeneratorTest {
 
     @Test
     fun asInstanceId() {
-        assertThat(
-            Instance.asInstanceId("order_service", "http", "127.0.0.1", 8080),
-            equalTo("order_service@http#127.0.0.1#8080"),
-        )
+        Instance.asInstanceId("order_service", "http", "127.0.0.1", 8080)
+            .assert().isEqualTo("order_service@http#127.0.0.1#8080")
     }
 
     @Test
     fun asInstance() {
         val actual = "order_service@http#127.0.0.1#8080".asInstance()
-        assertThat(actual.serviceId, equalTo("order_service"))
-        assertThat(actual.schema, equalTo("http"))
-        assertThat(actual.host, equalTo("127.0.0.1"))
-        assertThat(actual.port, equalTo(8080))
+        actual.serviceId.assert().isEqualTo("order_service")
+        actual.schema.assert().isEqualTo("http")
+        actual.host.assert().isEqualTo("127.0.0.1")
+        actual.port.assert().isEqualTo(8080)
     }
 }

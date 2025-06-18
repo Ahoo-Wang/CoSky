@@ -23,7 +23,6 @@ dependencies {
         api(libs.kotlin.logging)
         api(libs.commons.io)
         api(libs.springdoc.openapi.starter.webflux.ui)
-        api(libs.hamcrest)
         api(libs.mockk)
         api(libs.jmh.core)
         api(libs.jmh.generator.annprocess)
