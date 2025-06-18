@@ -16,7 +16,7 @@ import me.ahoo.cosky.core.util.RedisKeys.hasWrap
 import me.ahoo.cosky.core.util.RedisKeys.ofKey
 import me.ahoo.cosky.core.util.RedisKeys.unwrap
 import me.ahoo.cosky.core.util.RedisKeys.wrap
-import org.junit.jupiter.api.Assertions
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
 /**
@@ -27,37 +27,37 @@ class RedisKeysTest {
     @Test
     fun ofKey() {
         var key = ofKey(false, "dev")
-        Assertions.assertEquals("dev", key)
+        key.assert().isEqualTo("dev")
         key = ofKey(false, "{dev}")
-        Assertions.assertEquals("{dev}", key)
+        key.assert().isEqualTo("{dev}")
         var clusterKey = ofKey(true, "dev")
-        Assertions.assertEquals("{dev}", clusterKey)
+        clusterKey.assert().isEqualTo("{dev}")
         clusterKey = ofKey(true, "{dev}")
-        Assertions.assertEquals("{dev}", clusterKey)
+        clusterKey.assert().isEqualTo("{dev}")
     }
 
     @Test
     fun hasWrap() {
-        Assertions.assertFalse(hasWrap("dev"))
-        Assertions.assertFalse(hasWrap("{dev"))
-        Assertions.assertFalse(hasWrap("dev}"))
-        Assertions.assertTrue(hasWrap("{dev}"))
-        Assertions.assertTrue(hasWrap("{{dev}"))
-        Assertions.assertTrue(hasWrap("{dev}}"))
-        Assertions.assertTrue(hasWrap("{{dev}}"))
+        hasWrap("dev").assert().isFalse()
+        hasWrap("{dev").assert().isFalse()
+        hasWrap("dev}").assert().isFalse()
+        hasWrap("{dev}").assert().isTrue()
+        hasWrap("{{dev}").assert().isTrue()
+        hasWrap("{dev}}").assert().isTrue()
+        hasWrap("{{dev}}").assert().isTrue()
     }
 
     @Test
     fun wrap() {
-        Assertions.assertEquals("{dev}", wrap("dev"))
+        wrap("dev").assert().isEqualTo("{dev}")
     }
 
     @Test
     fun unwrap() {
-        Assertions.assertEquals("dev", unwrap("{dev}"))
-        Assertions.assertEquals("dev", unwrap("cosky-{dev}"))
-        Assertions.assertEquals("{dev", unwrap("cosky-{{dev}"))
-        Assertions.assertEquals("{dev", unwrap("cosky-{{dev}}"))
-        Assertions.assertEquals("dev", unwrap("cosky-{dev}-cosky"))
+        unwrap("{dev}").assert().isEqualTo("dev")
+        unwrap("cosky-{dev}").assert().isEqualTo("dev")
+        unwrap("cosky-{{dev}").assert().isEqualTo("{dev")
+        unwrap("cosky-{{dev}}").assert().isEqualTo("{dev")
+        unwrap("cosky-{dev}-cosky").assert().isEqualTo("dev")
     }
 }

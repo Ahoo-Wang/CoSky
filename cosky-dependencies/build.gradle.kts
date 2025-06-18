@@ -17,6 +17,7 @@ dependencies {
     api(platform(libs.cosid.bom))
     api(platform(libs.simba.bom))
     api(platform(libs.cosec.bom))
+    api(platform(libs.fluent.assert.bom))
     constraints {
         api(libs.guava)
         api(libs.kotlin.logging)

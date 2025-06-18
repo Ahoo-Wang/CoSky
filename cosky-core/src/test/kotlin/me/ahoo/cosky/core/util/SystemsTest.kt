@@ -12,9 +12,7 @@
  */
 package me.ahoo.cosky.core.util
 
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.greaterThan
-import org.hamcrest.Matchers.notNullValue
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
 /**
@@ -23,11 +21,11 @@ import org.junit.jupiter.api.Test
 internal class SystemsTest {
     @Test
     fun getCurrentProcessName() {
-        assertThat(ProcessId.currentProcessName, notNullValue())
+        ProcessId.currentProcessName.assert().isNotNull()
     }
 
     @Test
     fun currentProcessId() {
-        assertThat(ProcessId.currentProcessId, greaterThan(0))
+        ProcessId.currentProcessId.assert().isGreaterThan(0)
     }
 }

@@ -10,6 +10,7 @@ kotlin-logging = "7.0.7"
 commons-io = "2.19.0"
 springdoc = "2.8.9"
 junit = "5.13.1"
+fluent-assert = "0.1.2"
 hamcrest = "3.0"
 mockk = "1.14.2"
 jmh = "1.37"
@@ -30,6 +31,7 @@ kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = 
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
 springdoc-openapi-starter-webflux-ui = { module = "org.springdoc:springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+fluent-assert-bom = { module = "me.ahoo.test:fluent-assert-bom", version.ref = "fluent-assert" }
 hamcrest = { module = "org.hamcrest:hamcrest", version.ref = "hamcrest" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }

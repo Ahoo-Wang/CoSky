@@ -149,6 +149,7 @@ configure(libraryProjects) {
         jmh(platform(dependenciesProject))
         implementation("org.slf4j:slf4j-api")
         testImplementation("ch.qos.logback:logback-classic")
+        testImplementation("me.ahoo.test:fluent-assert-core")
         testImplementation("org.hamcrest:hamcrest")
         testImplementation("io.mockk:mockk") {
             exclude(group = "org.slf4j", module = "slf4j-api")

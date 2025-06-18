@@ -1,17 +1,21 @@
 package me.ahoo.cosky.core
 
-import org.hamcrest.MatcherAssert.assertThat
-import org.hamcrest.Matchers.*
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
 internal class CoSkyTest {
     @Test
     fun getKeySeparator() {
-        assertThat(CoSky.KEY_SEPARATOR, equalTo(":"))
+        CoSky.KEY_SEPARATOR.assert().isEqualTo(":")
     }
 
     @Test
     fun getCoSky() {
-        assertThat(CoSky.COSKY, equalTo("cosky"))
+        CoSky.COSKY.assert().isEqualTo("cosky")
+    }
+
+    @Test
+    fun getVersion() {
+        CoSky.VERSION.assert().isEmpty()
     }
 }
