@@ -128,7 +128,9 @@ class ConfigController(private val configService: ConfigService) {
                             }
                     }
 
-                    else -> return@flatMap IllegalStateException("Unexpected policy[skip,overwrite] value: $importPolicy").toFlux()
+                    else -> return@flatMap IllegalStateException(
+                        "Unexpected policy[skip,overwrite] value: $importPolicy"
+                    ).toFlux()
                 }
             }
             .map { result -> if (result) 1 else 0 }
