@@ -43,6 +43,7 @@ class AuthenticateController(private val tokenCompositeAuthentication: TokenComp
         )
     }
 
+    @Suppress("UnusedParameter")
     @PostMapping("/{username}/refresh")
     fun refresh(
         @PathVariable username: String,

@@ -29,7 +29,9 @@ import org.springframework.context.annotation.Configuration
 class SwaggerConfiguration {
     val apiInfo: Info = Info()
         .title("CoSky REST API")
-        .description("High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service.")
+        .description(
+            "High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service."
+        )
         .contact(Contact().name("Ahoo Wang").url("https://github.com/Ahoo-Wang/CoSky"))
         .license(License().url("https://github.com/Ahoo-Wang/CoSky/blob/main/LICENSE").name("Apache 2.0"))
         .version(CoSky.VERSION)
