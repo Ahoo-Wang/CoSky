@@ -35,10 +35,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@master
 
-      - name: Set up NodeJs 16
+      - name: Set up NodeJs 18
         uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 18
 
       - name: Build Dashboard-UI
         working-directory: cosky-dashboard
