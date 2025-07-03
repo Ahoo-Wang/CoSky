@@ -22,7 +22,7 @@
     "echarts": "^5.1.2",
     "monaco-editor": "^0.24.0",
     "ng-zorro-antd": "^11.4.1",
-    "ngx-monaco-editor": "^12.0.0",
+    "ngx-monaco-editor": "^10.0.0",
     "rxjs": "~6.6.0",
     "tslib": "^2.0.0",
     "zone.js": "~0.11.3"
