@@ -22,7 +22,7 @@ class CoSkyAuthorization(
 ) : Authorization {
 
     override fun authorize(request: Request, context: SecurityContext): Mono<AuthorizeResult> {
-        if (context.principal.isRoot()) {
+        if (context.principal.isRoot) {
             return AuthorizeResult.ALLOW.toMono()
         }
         return coSkyPolicy.getPolicy().flatMap { policy ->
