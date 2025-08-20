@@ -23,5 +23,5 @@ import me.ahoo.cosky.rest.security.rbac.Role
  */
 object AdminPrincipal {
     val CoSecPrincipal.isAdmin: Boolean
-        get() = isRoot() || roles.contains(Role.ADMIN_ROLE)
+        get() = isRoot || roles.contains(Role.ADMIN_ROLE)
 }
