@@ -11,7 +11,7 @@ commons-io = "2.20.0"
 springdoc = "2.8.13"
 junit = "5.13.4"
 fluent-assert = "0.2.1"
-mockk = "1.14.5"
+mockk = "1.14.6"
 jmh = "1.37"
 # plugins
 detekt = "1.23.8"
