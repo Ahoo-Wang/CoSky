@@ -10,7 +10,7 @@ kotlin-logging = "7.0.13"
 commons-io = "2.20.0"
 springdoc = "2.8.13"
 junit = "5.14.0"
-fluent-assert = "0.2.1"
+fluent-assert = "0.2.5"
 mockk = "1.14.6"
 jmh = "1.37"
 # plugins
