@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.namespace
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosec.webflux.ReactiveSecurityContexts.getSecurityContext
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.core.NamespacedContext
@@ -36,6 +37,7 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.NAMESPACES_PREFIX)
+@Tag(name = "Namespace")
 class NamespaceController(private val namespaceService: NamespaceService, private val rbacService: RbacService) {
     @GetMapping
     fun getNamespaces(): Mono<List<String>> {
