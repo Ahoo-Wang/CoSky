@@ -9,11 +9,29 @@ importers:
   .:
     dependencies:
       '@ahoo-wang/fetcher':
-        specifier: ^1.1.0
-        version: 1.9.8
+        specifier: ^3.3.5
+        version: 3.3.5
+      '@ahoo-wang/fetcher-cosec':
+        specifier: ^3.3.5
+        version: 3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-storage@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5)))(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-decorator':
+        specifier: ^3.3.5
+        version: 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-eventbus':
+        specifier: ^3.3.5
+        version: 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-react':
+        specifier: ^3.3.5
+        version: 3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-storage@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5)))(@ahoo-wang/fetcher-wow@3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@ahoo-wang/fetcher-storage':
+        specifier: ^3.3.5
+        version: 3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.1.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      '@monaco-editor/react':
+        specifier: 4.7.0
+        version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
       antd:
         specifier: ^6.0.1
         version: 6.0.1(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
@@ -27,6 +45,9 @@ importers:
         specifier: ^7.6.1
         version: 7.10.0(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
     devDependencies:
+      '@ahoo-wang/fetcher-generator':
+        specifier: ^3.3.5
+        version: 3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-openapi@3.3.5)(@ahoo-wang/fetcher-wow@3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)
       '@eslint/js':
         specifier: ^9.15.0
         version: 9.39.1
@@ -38,10 +59,10 @@ importers:
         version: 19.2.3(@types/react@19.2.7)
       '@vitejs/plugin-react':
         specifier: ^4.3.4
-        version: 4.7.0(vite@6.4.1)
+        version: 4.7.0(vite@6.4.1(yaml@2.8.2))
       babel-plugin-react-compiler:
-        specifier: ^19.1.0-rc.3
-        version: 19.1.0-rc.1-rc-af1b7da-20250421
+        specifier: ^1.0.0
+        version: 1.0.0
       eslint:
         specifier: ^9.15.0
         version: 9.39.1
@@ -65,12 +86,70 @@ importers:
         version: 8.48.1(eslint@9.39.1)(typescript@5.6.3)
       vite:
         specifier: ^6.0.1
-        version: 6.4.1
+        version: 6.4.1(yaml@2.8.2)
 
 packages:
 
-  '@ahoo-wang/fetcher@1.9.8':
-    resolution: {integrity: sha512-+T/gXbcRU94+Ju2lvB1VBjdsk3itTSbux03MAGXjwPEbIPPwomeuU2voeNHZE8uLLGGowMqrmpUwYJHyCcYXxA==}
+  '@ahoo-wang/fetcher-cosec@3.3.5':
+    resolution: {integrity: sha512-mS2jSlrmQlE3+HhRbDqqQoU5cGPA5QuybBj8nBPTjNM5PYwSOEntyMh+7FRcjWD9/gnQC3CUVSb6sCVeNzx9HQ==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+      '@ahoo-wang/fetcher-eventbus': ^3.0.0
+      '@ahoo-wang/fetcher-storage': ^3.0.0
+
+  '@ahoo-wang/fetcher-decorator@3.3.5':
+    resolution: {integrity: sha512-4yksWsTrdyh69VJvATCZqYQSNtvWnGJ8BURKcAvOqoxb21TvtCUKZrTqtAh9SahhCkoImyJVcnQJXRmsVbXXhw==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+
+  '@ahoo-wang/fetcher-eventbus@3.3.5':
+    resolution: {integrity: sha512-yyb1wiNNmgu2oX7z4dlKDrCrCDO2le7Ya5VSk8KRptTM5pWDIG65yLPteELqU2CGqgLbL9+OOPoiMEXM62ggnA==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+
+  '@ahoo-wang/fetcher-eventstream@3.3.5':
+    resolution: {integrity: sha512-zgVYBYr57m7UXmy5MBqcvBmA9rUZFI2+G3o7AdMN2/gASuT0obP6TKvD/haL86+WcO3Xjh2CSQ0vwQ3sYIb0zQ==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+
+  '@ahoo-wang/fetcher-generator@3.3.5':
+    resolution: {integrity: sha512-yMO5LghnfOtYNb//igBJNg2g/oT+0Kt6QDJ8P8TalRANvTnKUL5P9Ux2QwPEB4fH0M2sWi0bGnyBpuSFU0zmPg==}
+    hasBin: true
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+      '@ahoo-wang/fetcher-decorator': ^3.0.0
+      '@ahoo-wang/fetcher-eventstream': ^3.0.0
+      '@ahoo-wang/fetcher-openapi': ^3.0.0
+      '@ahoo-wang/fetcher-wow': ^3.0.0
+
+  '@ahoo-wang/fetcher-openapi@3.3.5':
+    resolution: {integrity: sha512-4Iy3psIR5ZHDTotkcyxXzkYOZdwVfyX4gXmbda98+d4MzayEmyJ7+GDN2gADITMeSS5WPv6Sc5b0mOYi+oRa9A==}
+
+  '@ahoo-wang/fetcher-react@3.3.5':
+    resolution: {integrity: sha512-n2vv12N8N0YV8xkvhmQ9pmTIXLQ+yHWbZqeE0qgDtSyD9dcUtiU67pLFhMoqDo659kp8BzbueWIoBZiYXQV6XA==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+      '@ahoo-wang/fetcher-eventbus': ^3.0.0
+      '@ahoo-wang/fetcher-eventstream': ^3.0.0
+      '@ahoo-wang/fetcher-storage': ^3.0.0
+      '@ahoo-wang/fetcher-wow': ^3.0.0
+      react: '>=19.0.0'
+      react-dom: '>=19.0.0'
+
+  '@ahoo-wang/fetcher-storage@3.3.5':
+    resolution: {integrity: sha512-Vk8i9fRbdEURoB4RV9UOkM5vAEy6ebKNDLu3KIyIITqectDi0+gC47+yyrIkQzprxLKzEoNDHbbh2OcggGTmsQ==}
+    peerDependencies:
+      '@ahoo-wang/fetcher-eventbus': ^3.0.0
+
+  '@ahoo-wang/fetcher-wow@3.3.5':
+    resolution: {integrity: sha512-tI1LAn7vs1m9iSiflVIP0FliDO2lF81d9POr+7qZcqBTHlmCeByBbalS+svbkJ9dkpUmIQLfO4L/rQGrO++BkA==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+      '@ahoo-wang/fetcher-decorator': ^3.0.0
+      '@ahoo-wang/fetcher-eventstream': ^3.0.0
+
+  '@ahoo-wang/fetcher@3.3.5':
+    resolution: {integrity: sha512-GbO8xrh4xj6V/nQdcQBtaqnDoK22laEIysk/xcrlUcAhG1NE5NNFKjlX/hi5K5MV1T5WuzEZrZkg39f2ovK2wQ==}
 
   '@ant-design/colors@8.0.0':
     resolution: {integrity: sha512-6YzkKCw30EI/E9kHOIXsQDHmMvTllT8STzjMb4K2qzit33RW2pqCJP0sk+hidBntXxE+Vz4n1+RvCTfBw6OErw==}
@@ -444,6 +523,14 @@ packages:
     resolution: {integrity: sha512-bV0Tgo9K4hfPCek+aMAn81RppFKv2ySDQeMoSZuvTASywNTnVJCArCZE2FWqpvIatKu7VMRLWlR1EazvVhDyhQ==}
     engines: {node: '>=18.18'}
 
+  '@isaacs/balanced-match@4.0.1':
+    resolution: {integrity: sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==}
+    engines: {node: 20 || >=22}
+
+  '@isaacs/brace-expansion@5.0.0':
+    resolution: {integrity: sha512-ZT55BDLV0yv0RBm2czMiZ+SqCGO7AvmOM3G/w2xhVPH+te0aKgFjmBvGlL1dH+ql2tgGO3MVrbb3jCKyvpgnxA==}
+    engines: {node: 20 || >=22}
+
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
 
@@ -459,6 +546,16 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
+
+  '@monaco-editor/loader@1.7.0':
+    resolution: {integrity: sha512-gIwR1HrJrrx+vfyOhYmCZ0/JcWqG5kbfG7+d3f/C1LXk2EvzAbHSg3MQ5lO2sMlo9izoAZ04shohfKLVT6crVA==}
+
+  '@monaco-editor/react@4.7.0':
+    resolution: {integrity: sha512-cyzXQCtO47ydzxpQtCGSQGOC8Gk3ZUeBXFAxD+CWXYFo5OqZyZUonFl0DwUlTyAfRHntBfw2p3w4s9R6oe1eCA==}
+    peerDependencies:
+      monaco-editor: '>= 0.25.0 < 1'
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
 
   '@rc-component/async-validator@5.0.4':
     resolution: {integrity: sha512-qgGdcVIF604M9EqjNF0hbUTz42bz/RDtxWdWuU5EQe3hi7M8ob54B6B35rOsvX5eSvIHIzT9iH1R3n+hk3CGfg==}
@@ -843,6 +940,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@ts-morph/common@0.28.1':
+    resolution: {integrity: sha512-W74iWf7ILp1ZKNYXY5qbddNaml7e9Sedv5lvU1V8lftlitkc9Pq1A+jlH23ltDgWYeZFFEqGCD1Ies9hqu3O+g==}
+
   '@types/babel__core@7.20.5':
     resolution: {integrity: sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA==}
 
@@ -868,6 +968,9 @@ packages:
 
   '@types/react@19.2.7':
     resolution: {integrity: sha512-MWtvHrGZLFttgeEj28VXHxpmwYbor/ATPYbBfSFZEIRK0ecCFLl2Qo55z52Hss+UV9CRN7trSeq1zbgx7YDWWg==}
+
+  '@types/trusted-types@2.0.7':
+    resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
 
   '@typescript-eslint/eslint-plugin@8.48.1':
     resolution: {integrity: sha512-X63hI1bxl5ohelzr0LY5coufyl0LJNthld+abwxpCoo6Gq+hSqhKwci7MUWkXo67mzgUK6YFByhmaHmUcuBJmA==}
@@ -960,9 +1063,8 @@ packages:
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
-  babel-plugin-react-compiler@19.1.0-rc.1-rc-af1b7da-20250421:
-    resolution: {integrity: sha512-E3kaokBhWDLf7ZD8fuYjYn0ZJHYZ+3EHtAWCdX2hl4lpu1z9S/Xr99sxhx2bTCVB41oIesz9FtM8f4INsrZaOw==}
-    deprecated: Wrong version name was published
+  babel-plugin-react-compiler@1.0.0:
+    resolution: {integrity: sha512-Ixm8tFfoKKIPYdCCKYTsqv+Fd4IJ0DQqMyEimo+pxUOMUR9cVPlwTrFt9Avu+3cb6Zp3mAzl+t1MrG2fxxKsxw==}
 
   balanced-match@1.0.2:
     resolution: {integrity: sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw==}
@@ -1000,12 +1102,19 @@ packages:
     resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
     engines: {node: '>=6'}
 
+  code-block-writer@13.0.3:
+    resolution: {integrity: sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg==}
+
   color-convert@2.0.1:
     resolution: {integrity: sha512-RRECPsj7iu/xb5oKYcsFHSppFNnsj/52OVTRKb4zP5onXwVF3zVmmToNcOfGC+CRDpfK/U584fMg38ZHCaElKQ==}
     engines: {node: '>=7.0.0'}
 
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+
+  commander@14.0.2:
+    resolution: {integrity: sha512-TywoWNNRbhoD0BXs1P3ZEScW8W5iKrnbithIl0YH+uCmBd0QpPOA8yc82DS3BIE5Ma6FnBVUsJ7wVUDz4dvOWQ==}
+    engines: {node: '>=20'}
 
   compute-scroll-into-view@3.1.1:
     resolution: {integrity: sha512-VRhuHOLoKYOy4UbilLbUzbYg93XLjv2PncJC50EuTWPA3gaja1UjBsUP/D/9/juV3vQFr6XBEzn9KCAHdUvOHw==}
@@ -1041,6 +1150,9 @@ packages:
 
   deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
+
+  dompurify@3.2.7:
+    resolution: {integrity: sha512-WhL/YuveyGXJaerVlMYGWhvQswa7myDG17P7Vu65EWC05o8vfeNbvNf4d/BOvH99+ZW+LlQsc1GDKMa1vNK6dw==}
 
   electron-to-chromium@1.5.263:
     resolution: {integrity: sha512-DrqJ11Knd+lo+dv+lltvfMDLU27g14LMdH2b0O3Pio4uk0x+z7OR+JrmyacTPN2M8w3BrZ7/RTwG3R9B7irPlg==}
@@ -1192,6 +1304,9 @@ packages:
     resolution: {integrity: sha512-Hs59xBNfUIunMFgWAbGX5cq6893IbWg4KnrjbYwX3tx0ztorVgTDA6B2sxf8ejHJ4wz8BqGUMYlnzNBer5NvGg==}
     engines: {node: '>= 4'}
 
+  immer@11.0.1:
+    resolution: {integrity: sha512-naDCyggtcBWANtIrjQEajhhBEuL9b0Zg4zmlWK2CzS6xCWSE39/vvf4LqnMjUAWHBhot4m9MHCM/Z+mfWhUkiA==}
+
   import-fresh@3.3.1:
     resolution: {integrity: sha512-TR3KfrTZTYLPB6jUjfx6MF9WcWrHL9su5TObK4ZkYgBdWKPOFoSoQIdEuTuR82pmtxH2spWG9h6etwfr1pLBqQ==}
     engines: {node: '>=6'}
@@ -1260,6 +1375,15 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
+  marked@14.0.0:
+    resolution: {integrity: sha512-uIj4+faQ+MgHgwUW1l2PsPglZLOLOT1uErt06dAPtx2kjteLAkbsd/0FiYg/MGS+i7ZKLb7w2WClxHkzOOuryQ==}
+    engines: {node: '>= 18'}
+    hasBin: true
+
+  minimatch@10.1.1:
+    resolution: {integrity: sha512-enIvLvRAFZYXJzkCYG5RKmPfrFArdLv+R+lbQ53BmIMLIry74bjKzX6iHAm8WYamJkhSSEabrWN5D97XnKObjQ==}
+    engines: {node: 20 || >=22}
+
   minimatch@3.1.2:
     resolution: {integrity: sha512-J7p63hRiAjw1NDEww1W7i37+ByIrOWO5XQQAzZ3VOcL0PNybwpfmV/N05zFAzwQ9USyEcX6t3UO+K5aqBQOIHw==}
 
@@ -1267,12 +1391,20 @@ packages:
     resolution: {integrity: sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow==}
     engines: {node: '>=16 || 14 >=14.17'}
 
+  monaco-editor@0.55.1:
+    resolution: {integrity: sha512-jz4x+TJNFHwHtwuV9vA9rMujcZRb0CEilTEwG2rRSpe/A7Jdkuj8xPKttCgOh+v/lkHy7HsZ64oj+q3xoAFl9A==}
+
   ms@2.1.3:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
 
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
+    hasBin: true
+
+  nanoid@5.1.6:
+    resolution: {integrity: sha512-c7+7RQ+dMB5dPwwCp4ee1/iV/q2P6aK1mTZcfr1BTuVlyW9hJYiMPybJCcnBlQtuSmTIWNeazm/zqNoZSSElBg==}
+    engines: {node: ^18 || >=20}
     hasBin: true
 
   natural-compare@1.4.0:
@@ -1296,6 +1428,9 @@ packages:
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
     engines: {node: '>=6'}
+
+  path-browserify@1.0.1:
+    resolution: {integrity: sha512-b7uo2UCUOYZcnF/3ID0lulOJi/bafxa1xPe7ZPsammBSpjSWQkjNxlt635YGS2MiR9GjvuXCtz2emr3jbsz98g==}
 
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
@@ -1375,6 +1510,9 @@ packages:
     resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
     engines: {node: '>=0.10.0'}
 
+  reflect-metadata@0.2.2:
+    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
+
   resize-observer-polyfill@1.5.1:
     resolution: {integrity: sha512-LwZrotdHOo12nQuZlHEmtuXdqGoOD0OhaxopaNFxWzInpEgaLWoVuAMbTzixuosCx2nEG58ngzW3vxdWoxIgdg==}
 
@@ -1417,6 +1555,9 @@ packages:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
     engines: {node: '>=0.10.0'}
 
+  state-local@1.0.7:
+    resolution: {integrity: sha512-HTEHMNieakEnoe33shBYcZ7NX83ACUjCu8c40iOGEZsngj9zRnkqS9j1pqQPXwobB0ZcVTk27REb7COQ0UR59w==}
+
   string-convert@0.2.1:
     resolution: {integrity: sha512-u/1tdPl4yQnPBjnVrmdLo9gtuLvELKsAoRapekWggdiQNvvvum+jYF329d84NAa660KQw7pB2n36KrIKVoXa3A==}
 
@@ -1444,6 +1585,9 @@ packages:
     engines: {node: '>=18.12'}
     peerDependencies:
       typescript: '>=4.8.4'
+
+  ts-morph@27.0.2:
+    resolution: {integrity: sha512-fhUhgeljcrdZ+9DZND1De1029PrE+cMkIP7ooqkLRTrRLTqcki2AstsyJm0vRNbTbVCNJ0idGlbBrfqc7/nA8w==}
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -1522,6 +1666,11 @@ packages:
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
 
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
@@ -1537,7 +1686,61 @@ packages:
 
 snapshots:
 
-  '@ahoo-wang/fetcher@1.9.8': {}
+  '@ahoo-wang/fetcher-cosec@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-storage@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5)))(@ahoo-wang/fetcher@3.3.5)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+      '@ahoo-wang/fetcher-eventbus': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-storage': 3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))
+      nanoid: 5.1.6
+
+  '@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+      reflect-metadata: 0.2.2
+
+  '@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+
+  '@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+
+  '@ahoo-wang/fetcher-generator@3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-openapi@3.3.5)(@ahoo-wang/fetcher-wow@3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+      '@ahoo-wang/fetcher-decorator': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-eventstream': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-openapi': 3.3.5
+      '@ahoo-wang/fetcher-wow': 3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)
+      commander: 14.0.2
+      ts-morph: 27.0.2
+      yaml: 2.8.2
+
+  '@ahoo-wang/fetcher-openapi@3.3.5': {}
+
+  '@ahoo-wang/fetcher-react@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-storage@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5)))(@ahoo-wang/fetcher-wow@3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+      '@ahoo-wang/fetcher-eventbus': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-eventstream': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-storage': 3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))
+      '@ahoo-wang/fetcher-wow': 3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)
+      immer: 11.0.1
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
+
+  '@ahoo-wang/fetcher-storage@3.3.5(@ahoo-wang/fetcher-eventbus@3.3.5(@ahoo-wang/fetcher@3.3.5))':
+    dependencies:
+      '@ahoo-wang/fetcher-eventbus': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+
+  '@ahoo-wang/fetcher-wow@3.3.5(@ahoo-wang/fetcher-decorator@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher-eventstream@3.3.5(@ahoo-wang/fetcher@3.3.5))(@ahoo-wang/fetcher@3.3.5)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.3.5
+      '@ahoo-wang/fetcher-decorator': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+      '@ahoo-wang/fetcher-eventstream': 3.3.5(@ahoo-wang/fetcher@3.3.5)
+
+  '@ahoo-wang/fetcher@3.3.5': {}
 
   '@ant-design/colors@8.0.0':
     dependencies:
@@ -1890,6 +2093,12 @@ snapshots:
 
   '@humanwhocodes/retry@0.4.3': {}
 
+  '@isaacs/balanced-match@4.0.1': {}
+
+  '@isaacs/brace-expansion@5.0.0':
+    dependencies:
+      '@isaacs/balanced-match': 4.0.1
+
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -1908,6 +2117,17 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@monaco-editor/loader@1.7.0':
+    dependencies:
+      state-local: 1.0.7
+
+  '@monaco-editor/react@4.7.0(monaco-editor@0.55.1)(react-dom@19.2.0(react@19.2.0))(react@19.2.0)':
+    dependencies:
+      '@monaco-editor/loader': 1.7.0
+      monaco-editor: 0.55.1
+      react: 19.2.0
+      react-dom: 19.2.0(react@19.2.0)
 
   '@rc-component/async-validator@5.0.4':
     dependencies:
@@ -2305,6 +2525,12 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.53.3':
     optional: true
 
+  '@ts-morph/common@0.28.1':
+    dependencies:
+      minimatch: 10.1.1
+      path-browserify: 1.0.1
+      tinyglobby: 0.2.15
+
   '@types/babel__core@7.20.5':
     dependencies:
       '@babel/parser': 7.28.5
@@ -2337,6 +2563,9 @@ snapshots:
   '@types/react@19.2.7':
     dependencies:
       csstype: 3.2.3
+
+  '@types/trusted-types@2.0.7':
+    optional: true
 
   '@typescript-eslint/eslint-plugin@8.48.1(@typescript-eslint/parser@8.48.1(eslint@9.39.1)(typescript@5.6.3))(eslint@9.39.1)(typescript@5.6.3)':
     dependencies:
@@ -2430,7 +2659,7 @@ snapshots:
       '@typescript-eslint/types': 8.48.1
       eslint-visitor-keys: 4.2.1
 
-  '@vitejs/plugin-react@4.7.0(vite@6.4.1)':
+  '@vitejs/plugin-react@4.7.0(vite@6.4.1(yaml@2.8.2))':
     dependencies:
       '@babel/core': 7.28.5
       '@babel/plugin-transform-react-jsx-self': 7.27.1(@babel/core@7.28.5)
@@ -2438,7 +2667,7 @@ snapshots:
       '@rolldown/pluginutils': 1.0.0-beta.27
       '@types/babel__core': 7.20.5
       react-refresh: 0.17.0
-      vite: 6.4.1
+      vite: 6.4.1(yaml@2.8.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -2518,7 +2747,7 @@ snapshots:
 
   argparse@2.0.1: {}
 
-  babel-plugin-react-compiler@19.1.0-rc.1-rc-af1b7da-20250421:
+  babel-plugin-react-compiler@1.0.0:
     dependencies:
       '@babel/types': 7.28.5
 
@@ -2556,11 +2785,15 @@ snapshots:
 
   clsx@2.1.1: {}
 
+  code-block-writer@13.0.3: {}
+
   color-convert@2.0.1:
     dependencies:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  commander@14.0.2: {}
 
   compute-scroll-into-view@3.1.1: {}
 
@@ -2585,6 +2818,10 @@ snapshots:
       ms: 2.1.3
 
   deep-is@0.1.4: {}
+
+  dompurify@3.2.7:
+    optionalDependencies:
+      '@types/trusted-types': 2.0.7
 
   electron-to-chromium@1.5.263: {}
 
@@ -2760,6 +2997,8 @@ snapshots:
 
   ignore@7.0.5: {}
 
+  immer@11.0.1: {}
+
   import-fresh@3.3.1:
     dependencies:
       parent-module: 1.0.1
@@ -2816,6 +3055,12 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
+  marked@14.0.0: {}
+
+  minimatch@10.1.1:
+    dependencies:
+      '@isaacs/brace-expansion': 5.0.0
+
   minimatch@3.1.2:
     dependencies:
       brace-expansion: 1.1.12
@@ -2824,9 +3069,16 @@ snapshots:
     dependencies:
       brace-expansion: 2.0.2
 
+  monaco-editor@0.55.1:
+    dependencies:
+      dompurify: 3.2.7
+      marked: 14.0.0
+
   ms@2.1.3: {}
 
   nanoid@3.3.11: {}
+
+  nanoid@5.1.6: {}
 
   natural-compare@1.4.0: {}
 
@@ -2852,6 +3104,8 @@ snapshots:
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
+
+  path-browserify@1.0.1: {}
 
   path-exists@4.0.0: {}
 
@@ -2924,6 +3178,8 @@ snapshots:
 
   react@19.2.0: {}
 
+  reflect-metadata@0.2.2: {}
+
   resize-observer-polyfill@1.5.1: {}
 
   resolve-from@4.0.0: {}
@@ -2976,6 +3232,8 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
+  state-local@1.0.7: {}
+
   string-convert@0.2.1: {}
 
   strip-json-comments@3.1.1: {}
@@ -2996,6 +3254,11 @@ snapshots:
   ts-api-utils@2.1.0(typescript@5.6.3):
     dependencies:
       typescript: 5.6.3
+
+  ts-morph@27.0.2:
+    dependencies:
+      '@ts-morph/common': 0.28.1
+      code-block-writer: 13.0.3
 
   type-check@0.4.0:
     dependencies:
@@ -3024,7 +3287,7 @@ snapshots:
     dependencies:
       punycode: 2.3.1
 
-  vite@6.4.1:
+  vite@6.4.1(yaml@2.8.2):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -3034,6 +3297,7 @@ snapshots:
       tinyglobby: 0.2.15
     optionalDependencies:
       fsevents: 2.3.3
+      yaml: 2.8.2
 
   which@2.0.2:
     dependencies:
@@ -3042,6 +3306,8 @@ snapshots:
   word-wrap@1.2.5: {}
 
   yallist@3.1.1: {}
+
+  yaml@2.8.2: {}
 
   yocto-queue@0.1.0: {}
 
