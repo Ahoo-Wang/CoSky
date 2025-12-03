@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.service
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceRegistry
@@ -37,6 +38,7 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.SERVICES_PREFIX)
+@Tag(name = "Service")
 class ServiceController(
     private val serviceRegistry: ServiceRegistry,
     private val discoveryService: ServiceDiscovery,
