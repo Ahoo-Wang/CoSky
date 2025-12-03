@@ -11,50 +11,76 @@
  * limitations under the License.
  */
 
-import { Typography, Table, Button, Space } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
+import { Typography, Table, Button, Space, message, Popconfirm } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { roleApi } from '../api'
+import type { RoleDto } from '../generated'
 
 const { Title } = Typography
 
-interface RoleData {
-  key: string
-  roleName: string
-  permissions: string[]
-  description: string
-}
-
-const columns = [
-  {
-    title: 'Role Name',
-    dataIndex: 'roleName',
-    key: 'roleName',
-  },
-  {
-    title: 'Permissions',
-    dataIndex: 'permissions',
-    key: 'permissions',
-    render: (permissions: string[]) => permissions.join(', '),
-  },
-  {
-    title: 'Description',
-    dataIndex: 'description',
-    key: 'description',
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: () => (
-      <Space size="middle">
-        <Button type="link">Edit</Button>
-        <Button type="link" danger>Delete</Button>
-      </Space>
-    ),
-  },
-]
-
-const data: RoleData[] = []
-
 export default function Role() {
+  const [roles, setRoles] = useState<RoleDto[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchRoles = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await roleApi.allRole()
+      setRoles(response as RoleDto[])
+    } catch (error) {
+      console.error('Failed to fetch roles:', error)
+      message.error('Failed to fetch roles')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchRoles()
+  }, [fetchRoles])
+
+  const handleDelete = async (roleName: string) => {
+    try {
+      await roleApi.removeRole(roleName)
+      message.success('Role deleted successfully')
+      fetchRoles()
+    } catch (error) {
+      console.error('Failed to delete role:', error)
+      message.error('Failed to delete role')
+    }
+  }
+
+  const columns = [
+    {
+      title: 'Role Name',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Description',
+      dataIndex: 'desc',
+      key: 'desc',
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_: unknown, record: RoleDto) => (
+        <Space size="middle">
+          <Button type="link">Edit</Button>
+          <Popconfirm
+            title="Are you sure to delete this role?"
+            onConfirm={() => handleDelete(record.name)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button type="link" danger>Delete</Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
+
   return (
     <div>
       <div className="content-header">
@@ -63,13 +89,18 @@ export default function Role() {
           <Button type="primary" icon={<PlusOutlined />}>
             Add Role
           </Button>
-          <Button icon={<ReloadOutlined />}>
+          <Button icon={<ReloadOutlined />} onClick={fetchRoles} loading={loading}>
             Refresh
           </Button>
         </Space>
       </div>
       <div className="content-body">
-        <Table columns={columns} dataSource={data} />
+        <Table 
+          columns={columns} 
+          dataSource={roles}
+          rowKey="name"
+          loading={loading}
+        />
       </div>
     </div>
   )

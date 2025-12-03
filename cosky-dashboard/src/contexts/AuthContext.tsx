@@ -12,11 +12,13 @@
  */
 
 import { createContext, useContext, useState, ReactNode } from 'react'
+import { tokenStorage } from '../api'
+import type { CompositeToken } from '../generated'
 
 interface AuthContextType {
   isAuthenticated: boolean
   token: string | null
-  login: (token: string) => void
+  login: (tokenResponse: CompositeToken) => void
   logout: () => void
 }
 
@@ -24,18 +26,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem('accessToken')
+    const storedToken = tokenStorage.get()
+    return storedToken?.token.accessToken ?? null
   })
 
   const isAuthenticated = !!token
 
-  const login = (newToken: string) => {
-    localStorage.setItem('accessToken', newToken)
-    setToken(newToken)
+  const login = (tokenResponse: CompositeToken) => {
+    tokenStorage.setCompositeToken(tokenResponse)
+    setToken(tokenResponse.accessToken)
   }
 
   const logout = () => {
-    localStorage.removeItem('accessToken')
+    tokenStorage.remove()
     setToken(null)
   }
 

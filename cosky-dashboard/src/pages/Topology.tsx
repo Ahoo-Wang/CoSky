@@ -11,21 +11,56 @@
  * limitations under the License.
  */
 
-import { Typography, Card } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
+import { Typography, Card, Spin, Button, Space, message } from 'antd'
+import { ReloadOutlined } from '@ant-design/icons'
 import { useNamespace } from '../contexts/NamespaceContext'
+import { statApi } from '../api'
 
 const { Title } = Typography
 
 export default function Topology() {
   const { currentNamespace } = useNamespace()
+  const [topology, setTopology] = useState<unknown>(null)
+  const [loading, setLoading] = useState(false)
+
+  const fetchTopology = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await statApi.getTopology(currentNamespace)
+      setTopology(response)
+    } catch (error) {
+      console.error('Failed to fetch topology:', error)
+      message.error('Failed to fetch topology')
+    } finally {
+      setLoading(false)
+    }
+  }, [currentNamespace])
+
+  useEffect(() => {
+    fetchTopology()
+  }, [fetchTopology])
 
   return (
     <div>
       <Title level={2}>Service Topology</Title>
-      <Card>
-        <p>Service topology visualization for namespace: {currentNamespace}</p>
-        <p>This view will display the relationships between services.</p>
-      </Card>
+      <Space style={{ marginBottom: 16 }}>
+        <Button icon={<ReloadOutlined />} onClick={fetchTopology} loading={loading}>
+          Refresh
+        </Button>
+      </Space>
+      <Spin spinning={loading}>
+        <Card>
+          <p>Service topology visualization for namespace: {currentNamespace}</p>
+          {topology ? (
+            <pre style={{ maxHeight: 400, overflow: 'auto' }}>
+              {JSON.stringify(topology, null, 2)}
+            </pre>
+          ) : (
+            <p>No topology data available.</p>
+          )}
+        </Card>
+      </Spin>
     </div>
   )
 }

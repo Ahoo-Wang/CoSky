@@ -11,50 +11,92 @@
  * limitations under the License.
  */
 
-import { Typography, Table, Button, Space } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
+import { Typography, Table, Button, Space, message, Popconfirm, Tag } from 'antd'
 import { PlusOutlined, ReloadOutlined } from '@ant-design/icons'
+import { userApi } from '../api'
+import type { CoSecPrincipal } from '../generated'
 
 const { Title } = Typography
 
-interface UserData {
-  key: string
-  username: string
-  roles: string[]
-  status: string
-}
-
-const columns = [
-  {
-    title: 'Username',
-    dataIndex: 'username',
-    key: 'username',
-  },
-  {
-    title: 'Roles',
-    dataIndex: 'roles',
-    key: 'roles',
-    render: (roles: string[]) => roles.join(', '),
-  },
-  {
-    title: 'Status',
-    dataIndex: 'status',
-    key: 'status',
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: () => (
-      <Space size="middle">
-        <Button type="link">Edit</Button>
-        <Button type="link" danger>Delete</Button>
-      </Space>
-    ),
-  },
-]
-
-const data: UserData[] = []
-
 export default function User() {
+  const [users, setUsers] = useState<CoSecPrincipal[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await userApi.query()
+      setUsers(response as CoSecPrincipal[])
+    } catch (error) {
+      console.error('Failed to fetch users:', error)
+      message.error('Failed to fetch users')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchUsers()
+  }, [fetchUsers])
+
+  const handleDelete = async (username: string) => {
+    try {
+      await userApi.removeUser(username)
+      message.success('User deleted successfully')
+      fetchUsers()
+    } catch (error) {
+      console.error('Failed to delete user:', error)
+      message.error('Failed to delete user')
+    }
+  }
+
+  const columns = [
+    {
+      title: 'Username',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'Roles',
+      dataIndex: 'roles',
+      key: 'roles',
+      render: (roles: string[]) => (
+        <>
+          {roles?.map(role => (
+            <Tag key={role} color="blue">{role}</Tag>
+          ))}
+        </>
+      ),
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: CoSecPrincipal) => (
+        <Tag color={record.authenticated ? 'green' : 'default'}>
+          {record.authenticated ? 'Active' : 'Inactive'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_: unknown, record: CoSecPrincipal) => (
+        <Space size="middle">
+          <Button type="link">Edit</Button>
+          <Popconfirm
+            title="Are you sure to delete this user?"
+            onConfirm={() => handleDelete(record.name)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button type="link" danger>Delete</Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
+
   return (
     <div>
       <div className="content-header">
@@ -63,13 +105,18 @@ export default function User() {
           <Button type="primary" icon={<PlusOutlined />}>
             Add User
           </Button>
-          <Button icon={<ReloadOutlined />}>
+          <Button icon={<ReloadOutlined />} onClick={fetchUsers} loading={loading}>
             Refresh
           </Button>
         </Space>
       </div>
       <div className="content-body">
-        <Table columns={columns} dataSource={data} />
+        <Table 
+          columns={columns} 
+          dataSource={users}
+          rowKey="id"
+          loading={loading}
+        />
       </div>
     </div>
   )

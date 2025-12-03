@@ -11,50 +11,67 @@
  * limitations under the License.
  */
 
-import { Typography, Table, Button, Space } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
+import { Typography, Table, Button, Space, message, Tag } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import { useNamespace } from '../contexts/NamespaceContext'
+import { serviceApi } from '../api'
+import type { ServiceStat } from '../generated'
 
 const { Title } = Typography
 
-interface ServiceData {
-  key: string
-  serviceName: string
-  instanceCount: number
-  status: string
-}
-
-const columns = [
-  {
-    title: 'Service Name',
-    dataIndex: 'serviceName',
-    key: 'serviceName',
-  },
-  {
-    title: 'Instance Count',
-    dataIndex: 'instanceCount',
-    key: 'instanceCount',
-  },
-  {
-    title: 'Status',
-    dataIndex: 'status',
-    key: 'status',
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: () => (
-      <Space size="middle">
-        <Button type="link">View Instances</Button>
-      </Space>
-    ),
-  },
-]
-
-const data: ServiceData[] = []
-
 export default function Service() {
   const { currentNamespace } = useNamespace()
+  const [services, setServices] = useState<ServiceStat[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchServices = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await serviceApi.getServiceStats(currentNamespace)
+      setServices(response as ServiceStat[])
+    } catch (error) {
+      console.error('Failed to fetch services:', error)
+      message.error('Failed to fetch services')
+    } finally {
+      setLoading(false)
+    }
+  }, [currentNamespace])
+
+  useEffect(() => {
+    fetchServices()
+  }, [fetchServices])
+
+  const columns = [
+    {
+      title: 'Service Name',
+      dataIndex: 'serviceId',
+      key: 'serviceId',
+    },
+    {
+      title: 'Instance Count',
+      dataIndex: 'instanceCount',
+      key: 'instanceCount',
+    },
+    {
+      title: 'Status',
+      key: 'status',
+      render: (_: unknown, record: ServiceStat) => (
+        <Tag color={record.instanceCount > 0 ? 'green' : 'red'}>
+          {record.instanceCount > 0 ? 'Healthy' : 'No Instances'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: () => (
+        <Space size="middle">
+          <Button type="link">View Instances</Button>
+        </Space>
+      ),
+    },
+  ]
 
   return (
     <div>
@@ -62,13 +79,18 @@ export default function Service() {
         <Title level={2}>Service Discovery</Title>
         <p>Namespace: {currentNamespace}</p>
         <Space>
-          <Button icon={<ReloadOutlined />}>
+          <Button icon={<ReloadOutlined />} onClick={fetchServices} loading={loading}>
             Refresh
           </Button>
         </Space>
       </div>
       <div className="content-body">
-        <Table columns={columns} dataSource={data} />
+        <Table 
+          columns={columns} 
+          dataSource={services} 
+          rowKey="serviceId"
+          loading={loading}
+        />
       </div>
     </div>
   )

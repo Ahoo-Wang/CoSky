@@ -11,65 +11,98 @@
  * limitations under the License.
  */
 
-import { Typography, Table, Button, Space, DatePicker } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
+import { Typography, Table, Button, Space, DatePicker, message, Tag } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
+import { auditLogApi } from '../api'
+import type { AuditLog as AuditLogType } from '../generated'
 
 const { Title } = Typography
 const { RangePicker } = DatePicker
 
-interface AuditLogData {
-  key: string
-  timestamp: string
-  action: string
-  operator: string
-  resource: string
-  details: string
-}
-
-const columns = [
-  {
-    title: 'Timestamp',
-    dataIndex: 'timestamp',
-    key: 'timestamp',
-  },
-  {
-    title: 'Action',
-    dataIndex: 'action',
-    key: 'action',
-  },
-  {
-    title: 'Operator',
-    dataIndex: 'operator',
-    key: 'operator',
-  },
-  {
-    title: 'Resource',
-    dataIndex: 'resource',
-    key: 'resource',
-  },
-  {
-    title: 'Details',
-    dataIndex: 'details',
-    key: 'details',
-  },
-]
-
-const data: AuditLogData[] = []
-
 export default function AuditLog() {
+  const [logs, setLogs] = useState<AuditLogType[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchLogs = useCallback(async () => {
+    try {
+      setLoading(true)
+      const response = await auditLogApi.queryLog()
+      setLogs(response.list)
+    } catch (error) {
+      console.error('Failed to fetch audit logs:', error)
+      message.error('Failed to fetch audit logs')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
+
+  const columns = [
+    {
+      title: 'Timestamp',
+      dataIndex: 'opTime',
+      key: 'opTime',
+      render: (opTime: number) => new Date(opTime).toLocaleString(),
+    },
+    {
+      title: 'Action',
+      dataIndex: 'action',
+      key: 'action',
+    },
+    {
+      title: 'Operator',
+      dataIndex: 'operator',
+      key: 'operator',
+    },
+    {
+      title: 'Resource',
+      dataIndex: 'resource',
+      key: 'resource',
+    },
+    {
+      title: 'IP',
+      dataIndex: 'ip',
+      key: 'ip',
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: number) => (
+        <Tag color={status === 200 ? 'green' : 'red'}>
+          {status}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Message',
+      dataIndex: 'msg',
+      key: 'msg',
+    },
+  ]
+
   return (
     <div>
       <div className="content-header">
         <Title level={2}>Audit Log</Title>
         <Space>
           <RangePicker />
-          <Button icon={<ReloadOutlined />}>
+          <Button icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading}>
             Refresh
           </Button>
         </Space>
       </div>
       <div className="content-body">
-        <Table columns={columns} dataSource={data} />
+        <Table 
+          columns={columns} 
+          dataSource={logs}
+          rowKey={(record) => `${record.opTime}-${record.operator}-${record.action}`}
+          loading={loading}
+        />
       </div>
     </div>
   )

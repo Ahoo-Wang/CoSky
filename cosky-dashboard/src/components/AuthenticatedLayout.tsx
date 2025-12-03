@@ -46,7 +46,7 @@ export default function AuthenticatedLayout() {
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated, logout } = useAuth()
-  const { currentNamespace, setCurrentNamespace } = useNamespace()
+  const { currentNamespace, namespaces, setCurrentNamespace } = useNamespace()
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -82,7 +82,7 @@ export default function AuthenticatedLayout() {
             value={currentNamespace}
             onChange={setCurrentNamespace}
             style={{ width: 150 }}
-            options={[{ value: 'default', label: 'default' }]}
+            options={namespaces.map(ns => ({ value: ns, label: ns }))}
           />
           <Button icon={<LogoutOutlined />} onClick={handleLogout}>
             Logout

@@ -11,53 +11,75 @@
  * limitations under the License.
  */
 
-import { Card, Row, Col, Statistic, Typography } from 'antd'
+import { useEffect, useState } from 'react'
+import { Card, Row, Col, Statistic, Typography, Spin } from 'antd'
 import {
   CloudServerOutlined,
   SettingOutlined,
   AppstoreOutlined,
 } from '@ant-design/icons'
 import { useNamespace } from '../contexts/NamespaceContext'
+import { statApi } from '../api'
+import type { GetStatResponse } from '../generated'
 
 const { Title } = Typography
 
 export default function Home() {
   const { currentNamespace } = useNamespace()
+  const [stat, setStat] = useState<GetStatResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStat = async () => {
+      try {
+        setLoading(true)
+        const response = await statApi.getStat(currentNamespace)
+        setStat(response)
+      } catch (error) {
+        console.error('Failed to fetch stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchStat()
+  }, [currentNamespace])
 
   return (
     <div>
       <Title level={2}>Dashboard</Title>
       <p>Current namespace: {currentNamespace}</p>
 
-      <Row gutter={16} style={{ marginTop: 24 }}>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Services"
-              value={0}
-              prefix={<CloudServerOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Configs"
-              value={0}
-              prefix={<SettingOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card>
-            <Statistic
-              title="Namespaces"
-              value={0}
-              prefix={<AppstoreOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Spin spinning={loading}>
+        <Row gutter={16} style={{ marginTop: 24 }}>
+          <Col span={8}>
+            <Card>
+              <Statistic
+                title="Services"
+                value={stat?.services.total ?? 0}
+                prefix={<CloudServerOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card>
+              <Statistic
+                title="Configs"
+                value={stat?.configs ?? 0}
+                prefix={<SettingOutlined />}
+              />
+            </Card>
+          </Col>
+          <Col span={8}>
+            <Card>
+              <Statistic
+                title="Namespaces"
+                value={stat?.namespaces ?? 0}
+                prefix={<AppstoreOutlined />}
+              />
+            </Card>
+          </Col>
+        </Row>
+      </Spin>
     </div>
   )
 }

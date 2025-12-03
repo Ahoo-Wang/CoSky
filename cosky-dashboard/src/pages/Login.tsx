@@ -15,6 +15,7 @@ import { Form, Input, Button, Card, message } from 'antd'
 import { UserOutlined, LockOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
+import { authenticateApi } from '../api'
 
 interface LoginFormValues {
   username: string
@@ -27,13 +28,14 @@ export default function Login() {
 
   const onFinish = async (values: LoginFormValues) => {
     try {
-      // TODO: Implement actual login API call with @ahoo-wang/fetcher
-      console.log('Login attempt:', values)
-      // For now, simulate a successful login
-      login('mock-token')
+      const tokenResponse = await authenticateApi.login(values.username, {
+        body: { password: values.password }
+      })
+      login(tokenResponse)
       message.success('Login successful')
       navigate('/home')
-    } catch {
+    } catch (error) {
+      console.error('Login failed:', error)
       message.error('Login failed')
     }
   }

@@ -11,27 +11,54 @@
  * limitations under the License.
  */
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { namespaceApi } from '../api'
 
 interface NamespaceContextType {
   currentNamespace: string
+  namespaces: string[]
   setCurrentNamespace: (namespace: string) => void
+  refreshNamespaces: () => Promise<void>
 }
 
 const NamespaceContext = createContext<NamespaceContextType | undefined>(undefined)
 
 export function NamespaceProvider({ children }: { children: ReactNode }) {
-  const [currentNamespace, setCurrentNamespace] = useState<string>(() => {
+  const [currentNamespace, setCurrentNamespaceState] = useState<string>(() => {
     return localStorage.getItem('currentNamespace') || 'default'
   })
+  const [namespaces, setNamespaces] = useState<string[]>(['default'])
 
-  const handleSetNamespace = (namespace: string) => {
-    localStorage.setItem('currentNamespace', namespace)
-    setCurrentNamespace(namespace)
+  const refreshNamespaces = async () => {
+    try {
+      const response = await namespaceApi.getNamespaces()
+      setNamespaces(response as string[])
+    } catch (error) {
+      console.error('Failed to fetch namespaces:', error)
+    }
   }
 
+  const handleSetNamespace = async (namespace: string) => {
+    try {
+      await namespaceApi.setCurrentContextNamespace(namespace)
+      localStorage.setItem('currentNamespace', namespace)
+      setCurrentNamespaceState(namespace)
+    } catch (error) {
+      console.error('Failed to set namespace:', error)
+    }
+  }
+
+  useEffect(() => {
+    refreshNamespaces()
+  }, [])
+
   return (
-    <NamespaceContext.Provider value={{ currentNamespace, setCurrentNamespace: handleSetNamespace }}>
+    <NamespaceContext.Provider value={{ 
+      currentNamespace, 
+      namespaces,
+      setCurrentNamespace: handleSetNamespace,
+      refreshNamespaces
+    }}>
       {children}
     </NamespaceContext.Provider>
   )
