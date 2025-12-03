@@ -14,9 +14,10 @@ package me.ahoo.cosky.rest.dashboard
 
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.boot.autoconfigure.web.WebProperties
+import org.springframework.core.io.Resource
+import org.springframework.core.io.ResourceLoader
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
-import org.springframework.util.ResourceUtils
 import org.springframework.web.bind.annotation.GetMapping
 
 /**
@@ -25,12 +26,13 @@ import org.springframework.web.bind.annotation.GetMapping
  * @author ahoo wang
  */
 @Controller
-class DashboardConfiguration(private val webProperties: WebProperties) {
-    private val homePageContent by lazy {
-        val indexFilePath = webProperties.resources.staticLocations.first() + HOME_FILE
-        val indexFile = ResourceUtils.getFile(indexFilePath)
-        check(indexFile.exists()) { "$HOME_FILE not found in ${indexFile.absolutePath}" }
-        indexFile.readBytes()
+class DashboardConfiguration(private val webProperties: WebProperties, private val resourceLoader: ResourceLoader) {
+    private val indexResource by lazy {
+        val location = webProperties.resources.staticLocations.first()
+        val resourcePath = "${location.removeSuffix("/")}/$HOME_FILE"
+        val resource = resourceLoader.getResource(resourcePath)
+        check(resource.exists()) { "$HOME_FILE not found in $resourcePath" }
+        resource
     }
 
     @Suppress("SpreadOperator")
@@ -49,10 +51,10 @@ class DashboardConfiguration(private val webProperties: WebProperties) {
             "${RequestPathPrefix.DASHBOARD}login",
         ],
     )
-    fun home(): ResponseEntity<ByteArray> {
+    fun home(): ResponseEntity<Resource> {
         return ResponseEntity.ok()
             .contentType(org.springframework.http.MediaType.TEXT_HTML)
-            .body(homePageContent)
+            .body(indexResource)
     }
 
     companion object {
