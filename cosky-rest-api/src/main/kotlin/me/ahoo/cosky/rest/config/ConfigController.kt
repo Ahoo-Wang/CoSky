@@ -13,6 +13,7 @@
 package me.ahoo.cosky.rest.config
 
 import com.google.common.io.Files
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigHistory
 import me.ahoo.cosky.config.ConfigService
@@ -51,6 +52,7 @@ import java.util.*
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.CONFIGS_PREFIX)
+@Tag(name = "Config")
 class ConfigController(private val configService: ConfigService) {
 
     companion object {

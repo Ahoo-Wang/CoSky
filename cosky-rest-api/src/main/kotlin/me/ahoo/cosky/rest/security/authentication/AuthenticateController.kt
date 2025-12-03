@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.authentication
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosec.api.token.CompositeToken
 import me.ahoo.cosec.token.TokenCompositeAuthentication
 import me.ahoo.cosky.rest.security.user.LoginRequest
@@ -32,6 +33,7 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUTHENTICATE_PREFIX)
+@Tag(name = "Authenticate")
 class AuthenticateController(private val tokenCompositeAuthentication: TokenCompositeAuthentication) {
     @PostMapping("/{username}/login")
     fun login(@PathVariable username: String, @RequestBody loginRequest: LoginRequest): Mono<out CompositeToken> {

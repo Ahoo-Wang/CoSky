@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.audit
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
@@ -27,6 +28,7 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUDIT_LOG_PREFIX)
+@Tag(name = "AuditLog")
 class AuditLogController(private val auditService: AuditLogService) {
     @GetMapping
     fun queryLog(offset: Long, limit: Long): Mono<QueryLogResponse> {

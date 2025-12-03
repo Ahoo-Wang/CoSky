@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.user
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosec.api.principal.CoSecPrincipal
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER
@@ -37,6 +38,7 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.USERS_PREFIX)
+@Tag(name = "User")
 class UserController(private val userService: UserService) {
     @GetMapping
     fun query(): Mono<out List<CoSecPrincipal>> {

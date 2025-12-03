@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.stat
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.discovery.ServiceStat
@@ -34,6 +35,7 @@ import java.util.stream.Collectors
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.STAT_PREFIX)
+@Tag(name = "Stat")
 class StatController(
     private val namespaceService: NamespaceService,
     private val configService: ConfigService,

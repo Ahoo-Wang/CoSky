@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.rbac
 
+import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.support.RequestPathPrefix.ROLES_ROLE
 import me.ahoo.cosky.rest.support.RequestPathPrefix.ROLES_ROLE_BIND
@@ -33,6 +34,7 @@ import reactor.core.publisher.Mono
 @CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.ROLES_PREFIX)
+@Tag(name = "Role")
 class RoleController(private val rbacService: RbacService) {
     @GetMapping
     fun allRole(): Mono<Set<RoleDto>> {
