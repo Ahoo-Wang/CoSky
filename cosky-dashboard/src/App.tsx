@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router'
 import { ConfigProvider } from 'antd'
 import AuthenticatedLayout from './components/AuthenticatedLayout'
 import Login from './pages/Login'

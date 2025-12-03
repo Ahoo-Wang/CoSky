@@ -12,7 +12,7 @@
  */
 
 import { useEffect } from 'react'
-import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Outlet, useNavigate, useLocation } from 'react-router'
 import { Layout, Menu, Select, Typography, Button } from 'antd'
 import {
   HomeOutlined,
