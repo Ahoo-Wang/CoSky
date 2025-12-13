@@ -7,8 +7,8 @@ import me.ahoo.cosky.config.spring.cloud.refresh.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import org.assertj.core.api.AssertionsForInterfaceTypes
 import org.junit.jupiter.api.Test
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 
 internal class CoSkyConfigBootstrapConfigurationTest {
@@ -19,8 +19,8 @@ internal class CoSkyConfigBootstrapConfigurationTest {
         contextRunner
             .withPropertyValues("spring.cloud.cosky.namespace=contextLoads", "spring.application.name=app")
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
                 CoSkyConfigBootstrapConfiguration::class.java,
             )

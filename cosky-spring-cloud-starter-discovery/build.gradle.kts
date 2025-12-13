@@ -18,6 +18,7 @@ dependencies {
     kapt(platform(project(":cosky-dependencies")))
     api(project(":cosky-discovery"))
     api(project(":cosky-spring-cloud-core"))
+    implementation("org.springframework.boot:spring-boot-web-server")
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework:spring-webflux")

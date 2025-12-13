@@ -15,6 +15,7 @@ package me.ahoo.cosky.discovery.spring.cloud.registry
 import me.ahoo.cosky.discovery.ServiceInstanceContext
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
+import org.springframework.context.ApplicationContext
 
 /**
  * CoSky Auto Service Registration.
@@ -22,10 +23,11 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationP
  * @author ahoo wang
  */
 class CoSkyAutoServiceRegistration(
+    context: ApplicationContext,
     serviceRegistry: CoSkyServiceRegistry,
     private val registration: CoSkyRegistration,
     private val autoServiceRegistrationProperties: AutoServiceRegistrationProperties
-) : AbstractAutoServiceRegistration<CoSkyRegistration>(serviceRegistry, autoServiceRegistrationProperties) {
+) : AbstractAutoServiceRegistration<CoSkyRegistration>(context, serviceRegistry, autoServiceRegistrationProperties) {
 
     override fun getConfiguration(): Any {
         return autoServiceRegistrationProperties
@@ -39,8 +41,8 @@ class CoSkyAutoServiceRegistration(
         return registration
     }
 
-    override fun getManagementRegistration(): CoSkyRegistration? {
-        return null
+    override fun getManagementRegistration(): CoSkyRegistration {
+        return registration
     }
 
     override fun register() {

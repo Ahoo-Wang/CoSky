@@ -105,11 +105,12 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     @Bean
     @Primary
     fun coSkyAutoServiceRegistration(
+        context: ApplicationContext,
         serviceRegistry: CoSkyServiceRegistry,
         registration: CoSkyRegistration,
         autoServiceRegistrationProperties: AutoServiceRegistrationProperties
     ): CoSkyAutoServiceRegistration {
-        return CoSkyAutoServiceRegistration(serviceRegistry, registration, autoServiceRegistrationProperties)
+        return CoSkyAutoServiceRegistration(context, serviceRegistry, registration, autoServiceRegistrationProperties)
     }
 
     @Bean

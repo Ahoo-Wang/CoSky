@@ -7,7 +7,7 @@ import reactor.core.publisher.Flux
 import reactor.core.scheduler.Schedulers
 import java.util.concurrent.CancellationException
 
-abstract class RedisEventListenerContainer<T, E>(
+abstract class RedisEventListenerContainer<T, E : Any>(
     val delegate: ReactiveRedisMessageListenerContainer
 ) :
     EventListenerContainer<T, E> {
