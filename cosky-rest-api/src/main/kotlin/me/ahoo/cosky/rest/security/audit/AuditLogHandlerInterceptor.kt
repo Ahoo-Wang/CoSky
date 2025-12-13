@@ -32,8 +32,11 @@ class AuditLogHandlerInterceptor(
 ) : WebFilter {
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
         return chain.filter(exchange)
-            .doOnSuccess { writeAuditLog(exchange, null) }
-            .doOnError { throwable -> writeAuditLog(exchange, throwable) }
+            .materialize()
+            .doOnNext {
+                writeAuditLog(exchange, it.throwable)
+            }
+            .dematerialize()
     }
 
     private fun writeAuditLog(exchange: ServerWebExchange, throwable: Throwable?) {
