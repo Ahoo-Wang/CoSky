@@ -16,6 +16,8 @@
     "@ahoo-wang/fetcher-decorator": "^3.5.0",
     "@ahoo-wang/fetcher-react": "^3.5.0",
     "@ahoo-wang/fetcher-storage": "^3.5.0",
+    "@ant-design/icons": "^6.1.0",
+    "antd": "^6.1.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
