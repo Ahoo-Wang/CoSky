@@ -1,3 +1,6 @@
+server:
+  compression:
+    enabled: true
 spring:
   cloud:
     cosky:
