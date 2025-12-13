@@ -56,29 +56,45 @@ export const ConfigPage: React.FC = () => {
         const config = await configApiClient.getConfig(currentNamespace, configId);
         setCurrentConfig(config);
         setConfigData(config.data || '');
+        setEditVisible(true);
       } catch (error) {
         console.error('Failed to load config:', error);
       }
     } else {
-      setCurrentConfig(null);
-      setConfigData('');
+      // For new config, show a modal to get the config ID first
+      Modal.confirm({
+        title: 'Enter Config ID',
+        content: (
+          <Input
+            placeholder="Config ID"
+            id="newConfigId"
+            autoFocus
+          />
+        ),
+        onOk: async () => {
+          const input = document.getElementById('newConfigId') as HTMLInputElement;
+          const configId = input?.value;
+          if (configId) {
+            setCurrentConfig({ configId, data: '' });
+            setConfigData('');
+            setEditVisible(true);
+          }
+        },
+      });
     }
-    setEditVisible(true);
   };
 
   const handleSave = async () => {
     try {
       if (currentConfig) {
         await configApiClient.setConfig(currentNamespace, currentConfig.configId, { body: configData });
+        message.success('Config saved successfully');
+        setEditVisible(false);
+        loadConfigs();
       } else {
-        const configId = prompt('Enter config ID:');
-        if (configId) {
-          await configApiClient.setConfig(currentNamespace, configId, { body: configData });
-        }
+        // For new config, require configId to be set before opening editor
+        message.error('Config ID is required');
       }
-      message.success('Config saved successfully');
-      setEditVisible(false);
-      loadConfigs();
     } catch (error) {
       console.error('Failed to save config:', error);
       message.error('Failed to save config');

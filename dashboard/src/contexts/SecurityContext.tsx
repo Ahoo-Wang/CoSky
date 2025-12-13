@@ -15,6 +15,10 @@ import React, { createContext, useContext, useCallback } from 'react';
 import { tokenStorage } from '../client/tokenStorage';
 import { authenticateApiClient } from '../client/clients';
 
+interface TokenSubject {
+  next: (value: any) => void;
+}
+
 export interface TokenPayload {
   jti: string;
   sub: string;
@@ -88,12 +92,18 @@ export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         payload: parseToken(response.refreshToken),
       },
     };
-    (tokenStorage as any).tokenSubject.next(jwtToken);
+    // Access the internal tokenSubject to set the token
+    const storage = tokenStorage as unknown as { tokenSubject: TokenSubject };
+    storage.tokenSubject.next(jwtToken);
+    // Use window.location for navigation to ensure proper authentication state reset
     window.location.href = '/home';
   }, [parseToken]);
 
   const signOut = useCallback(() => {
-    (tokenStorage as any).tokenSubject.next(null);
+    // Access the internal tokenSubject to clear the token
+    const storage = tokenStorage as unknown as { tokenSubject: TokenSubject };
+    storage.tokenSubject.next(null);
+    // Use window.location for navigation to ensure proper authentication state reset
     window.location.href = '/login';
   }, []);
 

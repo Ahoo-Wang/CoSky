@@ -55,9 +55,8 @@ export const ServicePage: React.FC = () => {
     }
   };
 
-  const handleAddService = async () => {
-    const serviceId = prompt('Enter service ID:');
-    if (serviceId) {
+  const handleAddService = async (serviceId: string) => {
+    if (serviceId && serviceId.trim()) {
       try {
         await serviceApiClient.setService(currentNamespace, serviceId);
         message.success('Service added successfully');
