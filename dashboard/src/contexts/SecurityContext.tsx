@@ -11,116 +11,68 @@
  * limitations under the License.
  */
 
-import React, { createContext, useContext, useCallback } from 'react';
-import { tokenStorage } from '../client/tokenStorage';
-import { authenticateApiClient } from '../client/clients';
+import React, {createContext, useContext, useCallback} from 'react';
+import {tokenStorage} from '../client/tokenStorage';
+import {authenticateApiClient} from '../client/clients';
+import {JwtPayload} from "@ahoo-wang/fetcher-cosec";
 
-interface TokenSubject {
-  next: (value: any) => void;
-}
-
-export interface TokenPayload {
-  jti: string;
-  sub: string;
-  roles: string[];
-  iat: number;
-  exp: number;
-}
-
-const USER_UNAUTHORIZED: TokenPayload = {
-  jti: "",
-  sub: "UNAUTHORIZED",
-  roles: [],
-  iat: 0,
-  exp: 0
+const USER_UNAUTHORIZED: JwtPayload = {
+    jti: "",
+    sub: "UNAUTHORIZED",
+    roles: [],
+    iat: 0,
+    exp: 0
 };
 
 interface SecurityContextType {
-  authenticated: () => boolean;
-  getCurrentUser: () => TokenPayload;
-  signIn: (username: string, password: string) => Promise<void>;
-  signOut: () => void;
+    authenticated: () => boolean;
+    getCurrentUser: () => JwtPayload;
+    signIn: (username: string, password: string) => Promise<void>;
+    signOut: () => void;
 }
 
 const SecurityContext = createContext<SecurityContextType | undefined>(undefined);
 
-export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const parseToken = useCallback((token: string): TokenPayload => {
-    const tokenSplit = token.split(".");
-    if (tokenSplit.length !== 3) {
-      throw Error(`token format error:[${token}]`);
-    }
-    const payloadStr = atob(tokenSplit[1]);
-    return JSON.parse(payloadStr);
-  }, []);
+export const SecurityProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    const signIn = useCallback(async (username: string, password: string) => {
+        const responseToken = await authenticateApiClient.login(username, {body: {password}});
+        tokenStorage.setCompositeToken(responseToken)
+        // Use window.location for navigation to ensure proper authentication state reset
+        window.location.href = '/home';
+    }, []);
 
-  const getCurrentTimeOfSecond = useCallback(() => {
-    return Date.now() / 1000;
-  }, []);
-
-  const isValidity = useCallback((token: string) => {
-    const tokenExp = parseToken(token).exp;
-    return tokenExp > getCurrentTimeOfSecond();
-  }, [parseToken, getCurrentTimeOfSecond]);
-
-  const authenticated = useCallback(() => {
-    const token = tokenStorage.get();
-    if (!token || !token.access) {
-      return false;
-    }
-    return isValidity(token.access.token);
-  }, [isValidity]);
-
-  const getCurrentUser = useCallback((): TokenPayload => {
-    const token = tokenStorage.get();
-    if (token && token.access) {
-      return parseToken(token.access.token);
-    }
-    return USER_UNAUTHORIZED;
-  }, [parseToken]);
-
-  const signIn = useCallback(async (username: string, password: string) => {
-    const response = await authenticateApiClient.login(username, { body: { password } });
-    // Convert CompositeToken to JwtCompositeToken format expected by tokenStorage
-    const jwtToken = {
-      access: {
-        token: response.accessToken,
-        payload: parseToken(response.accessToken),
-      },
-      refresh: {
-        token: response.refreshToken,
-        payload: parseToken(response.refreshToken),
-      },
+    const signOut = useCallback(() => {
+        tokenStorage.remove()
+        window.location.href = '/login';
+    }, []);
+    const authenticated = useCallback(() => {
+        const token = tokenStorage.get();
+        if (!token || !token.access) {
+            return false;
+        }
+        return !token.access.isExpired
+    }, []);
+    const getCurrentUser = useCallback((): JwtPayload => {
+        const token = tokenStorage.get();
+        if (token && token.access) {
+            return token.access.payload!!
+        }
+        return USER_UNAUTHORIZED;
+    }, []);
+    const value: SecurityContextType = {
+        authenticated,
+        getCurrentUser,
+        signIn,
+        signOut,
     };
-    // Access the internal tokenSubject to set the token
-    const storage = tokenStorage as unknown as { tokenSubject: TokenSubject };
-    storage.tokenSubject.next(jwtToken);
-    // Use window.location for navigation to ensure proper authentication state reset
-    window.location.href = '/home';
-  }, [parseToken]);
 
-  const signOut = useCallback(() => {
-    // Access the internal tokenSubject to clear the token
-    const storage = tokenStorage as unknown as { tokenSubject: TokenSubject };
-    storage.tokenSubject.next(null);
-    // Use window.location for navigation to ensure proper authentication state reset
-    window.location.href = '/login';
-  }, []);
-
-  const value: SecurityContextType = {
-    authenticated,
-    getCurrentUser,
-    signIn,
-    signOut,
-  };
-
-  return <SecurityContext.Provider value={value}>{children}</SecurityContext.Provider>;
+    return <SecurityContext.Provider value={value}>{children}</SecurityContext.Provider>;
 };
 
 export const useSecurity = (): SecurityContextType => {
-  const context = useContext(SecurityContext);
-  if (!context) {
-    throw new Error('useSecurity must be used within a SecurityProvider');
-  }
-  return context;
+    const context = useContext(SecurityContext);
+    if (!context) {
+        throw new Error('useSecurity must be used within a SecurityProvider');
+    }
+    return context;
 };
