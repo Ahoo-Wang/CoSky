@@ -18,6 +18,7 @@ import me.ahoo.cosky.core.redis.RedisNamespaceService
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
 import org.springframework.context.annotation.Bean
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 
@@ -26,7 +27,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
  *
  * @author ahoo wang
  */
-@AutoConfiguration
+@AutoConfiguration(after = [DataRedisAutoConfiguration::class])
 @ConditionalOnCoSkyEnabled
 @EnableConfigurationProperties(CoSkyProperties::class)
 class CoSkyAutoConfiguration(coSkyProperties: CoSkyProperties) {

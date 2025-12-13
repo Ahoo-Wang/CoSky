@@ -27,14 +27,16 @@ class CoSkyServiceRegistry(
     private val renewInstanceService: RenewInstanceService,
     private val coSkyRegistryProperties: CoSkyRegistryProperties
 ) : org.springframework.cloud.client.serviceregistry.ServiceRegistry<CoSkyRegistration> {
-    override fun register(registration: CoSkyRegistration) {
+    override fun register(registration: CoSkyRegistration?) {
+        requireNotNull(registration) { "registration can not be null!" }
         val instance = registration.asServiceInstance()
         val succeeded = serviceRegistry.register(serviceInstance = instance).block(coSkyRegistryProperties.timeout)
         check(succeeded == true) { "register instance failed! $instance" }
         renewInstanceService.start()
     }
 
-    override fun deregister(registration: CoSkyRegistration) {
+    override fun deregister(registration: CoSkyRegistration?) {
+        requireNotNull(registration) { "registration can not be null!" }
         val instance = registration.asServiceInstance()
         val succeeded = serviceRegistry.deregister(serviceInstance = instance).block(coSkyRegistryProperties.timeout)
         check(succeeded == true) { "deregister instance failed! $instance" }
@@ -56,7 +58,7 @@ class CoSkyServiceRegistry(
             .block(coSkyRegistryProperties.timeout)
     }
 
-    override fun <T> getStatus(registration: CoSkyRegistration): T {
+    override fun <T : Any> getStatus(registration: CoSkyRegistration): T {
         @Suppress("UNCHECKED_CAST")
         return registration.metadata[StatusConstants.INSTANCE_STATUS_KEY] as T
     }

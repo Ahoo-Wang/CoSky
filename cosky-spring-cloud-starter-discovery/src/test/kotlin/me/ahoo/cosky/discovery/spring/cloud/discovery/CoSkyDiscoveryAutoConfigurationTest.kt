@@ -9,8 +9,8 @@ import me.ahoo.cosky.discovery.redis.RedisServiceStatistic
 import me.ahoo.cosky.discovery.redis.RedisServiceTopology
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 
 internal class CoSkyDiscoveryAutoConfigurationTest {
@@ -21,8 +21,8 @@ internal class CoSkyDiscoveryAutoConfigurationTest {
         contextRunner
             .withPropertyValues("spring.cloud.cosky.namespace=contextLoads", "spring.application.name=app")
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 CoSkyDiscoveryAutoConfiguration::class.java,
             )
             .run {

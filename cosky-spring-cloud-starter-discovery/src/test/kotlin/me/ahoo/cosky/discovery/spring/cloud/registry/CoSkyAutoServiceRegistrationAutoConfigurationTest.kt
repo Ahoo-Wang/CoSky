@@ -7,8 +7,8 @@ import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
 import me.ahoo.test.asserts.assert
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationConfiguration
 import org.springframework.cloud.commons.util.UtilAutoConfiguration
@@ -25,8 +25,8 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 "spring.application.name=app",
             )
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
                 CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
@@ -87,8 +87,8 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 "${CoSkyRegistryProperties.PREFIX}.renew.initialDelay=2s",
             )
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
                 CoSkyAutoServiceRegistrationAutoConfiguration::class.java,

@@ -18,7 +18,7 @@ import me.ahoo.cosky.core.util.ProcessId
 import me.ahoo.cosky.discovery.ServiceInstanceContext
 import org.springframework.beans.BeansException
 import org.springframework.boot.context.event.ApplicationStartedEvent
-import org.springframework.boot.web.context.WebServerApplicationContext
+import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
 import org.springframework.context.ApplicationListener

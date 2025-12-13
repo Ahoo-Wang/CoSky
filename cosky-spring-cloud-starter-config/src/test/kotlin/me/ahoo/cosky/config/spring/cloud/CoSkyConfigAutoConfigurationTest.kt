@@ -8,10 +8,11 @@ import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import me.ahoo.test.asserts.assert
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import java.time.Duration
+import kotlin.jvm.java
 
 internal class CoSkyConfigAutoConfigurationTest {
     private val contextRunner = ApplicationContextRunner()
@@ -21,8 +22,8 @@ internal class CoSkyConfigAutoConfigurationTest {
         contextRunner
             .withPropertyValues("spring.cloud.cosky.namespace=contextLoads", "spring.application.name=app")
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
                 CoSkyConfigAutoConfiguration::class.java,
             )
@@ -52,8 +53,8 @@ internal class CoSkyConfigAutoConfigurationTest {
                 "spring.cloud.cosky.config.timeout=3s",
             )
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
                 CoSkyConfigAutoConfiguration::class.java,
             )

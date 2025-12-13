@@ -3,8 +3,8 @@ package me.ahoo.cosky.spring.cloud
 import me.ahoo.cosky.core.NamespaceService
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
-import org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
+import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 
 internal class CoSkyAutoConfigurationTest {
@@ -15,8 +15,8 @@ internal class CoSkyAutoConfigurationTest {
         contextRunner
             .withPropertyValues("spring.cloud.cosky.namespace=contextLoads")
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
             )
             .run {
@@ -39,8 +39,8 @@ internal class CoSkyAutoConfigurationTest {
                 "spring.cloud.cosky.namespace=contextLoads",
             )
             .withUserConfiguration(
-                RedisAutoConfiguration::class.java,
-                RedisReactiveAutoConfiguration::class.java,
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
                 CoSkyAutoConfiguration::class.java,
             )
             .run {

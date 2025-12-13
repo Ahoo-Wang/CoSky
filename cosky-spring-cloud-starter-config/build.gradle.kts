@@ -21,7 +21,6 @@ dependencies {
     implementation("com.google.guava:guava")
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
-
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation(project(":cosky-test"))
 }

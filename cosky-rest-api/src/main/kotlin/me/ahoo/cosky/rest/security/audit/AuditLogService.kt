@@ -12,11 +12,11 @@
  */
 package me.ahoo.cosky.rest.security.audit
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import me.ahoo.cosky.core.Namespaced
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Mono
+import tools.jackson.databind.ObjectMapper
 
 /**
  * Audit Log Service.
