@@ -11,7 +11,20 @@
  * limitations under the License.
  */
 
-.app {
-  width: 100%;
-  height: 100%;
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useSecurity } from '../../contexts/SecurityContext';
+
+interface ProtectedRouteProps {
+  children: React.ReactNode;
 }
+
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
+  const { authenticated } = useSecurity();
+
+  if (!authenticated()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};

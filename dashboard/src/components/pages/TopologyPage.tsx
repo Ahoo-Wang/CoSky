@@ -1,0 +1,100 @@
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { Spin } from 'antd';
+import * as echarts from 'echarts';
+import { useNamespace } from '../../contexts/NamespaceContext';
+import { ServiceApiClient } from '../../generated';
+
+const serviceApiClient = new ServiceApiClient();
+
+export const TopologyPage: React.FC = () => {
+  const { currentNamespace } = useNamespace();
+  const [loading, setLoading] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  useEffect(() => {
+    if (chartRef.current) {
+      chartInstance.current = echarts.init(chartRef.current);
+    }
+    return () => {
+      chartInstance.current?.dispose();
+    };
+  }, []);
+
+  useEffect(() => {
+    loadTopology();
+  }, [currentNamespace]);
+
+  const loadTopology = async () => {
+    setLoading(true);
+    try {
+      // Get all services and their instances to build topology
+      const services = await serviceApiClient.getServices(currentNamespace);
+      const topology = { nodes: services.map((s: string) => ({ serviceId: s })), edges: [] };
+      renderChart(topology);
+    } catch (error) {
+      console.error('Failed to load topology:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderChart = (topology: any) => {
+    if (!chartInstance.current || !topology) return;
+
+    const nodes = topology.nodes || [];
+    const links = topology.edges || [];
+
+    const option = {
+      title: {
+        text: 'Service Topology',
+      },
+      tooltip: {},
+      series: [
+        {
+          type: 'graph',
+          layout: 'force',
+          data: nodes.map((node: any) => ({
+            name: node.serviceId,
+            symbolSize: 50,
+          })),
+          links: links.map((link: any) => ({
+            source: link.source,
+            target: link.target,
+          })),
+          roam: true,
+          label: {
+            show: true,
+          },
+          force: {
+            repulsion: 100,
+          },
+        },
+      ],
+    };
+
+    chartInstance.current.setOption(option);
+  };
+
+  return (
+    <Spin spinning={loading}>
+      <div>
+        <h2 style={{ marginBottom: 24 }}>Topology</h2>
+        <div ref={chartRef} style={{ width: '100%', height: 600 }} />
+      </div>
+    </Spin>
+  );
+};
