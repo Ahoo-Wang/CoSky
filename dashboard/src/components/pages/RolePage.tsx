@@ -49,12 +49,12 @@ export const RolePage: React.FC = () => {
     setModalVisible(true);
   };
 
-  const handleEdit = async (roleId: string) => {
+  const handleEdit = async (roleName: string) => {
     try {
-      const bind = await roleApiClient.getResourceBind(roleId);
+      const bind = await roleApiClient.getResourceBind(roleName);
       setIsEdit(true);
-      setCurrentRole({ roleId, resourceActionBind: bind });
-      form.setFieldsValue({ roleId, desc: '', resourceActionBind: bind });
+      setCurrentRole({ roleId: roleName, resourceActionBind: bind });
+      form.setFieldsValue({ roleId: roleName, desc: '', resourceActionBind: bind });
       setModalVisible(true);
     } catch (error) {
       console.error('Failed to load role:', error);
@@ -88,9 +88,9 @@ export const RolePage: React.FC = () => {
 
   const columns = [
     {
-      title: 'Role ID',
-      dataIndex: 'roleId',
-      key: 'roleId',
+      title: 'Role Name',
+      dataIndex: 'roleName',
+      key: 'roleName',
     },
     {
       title: 'Description',
@@ -102,12 +102,12 @@ export const RolePage: React.FC = () => {
       key: 'action',
       render: (_: any, record: any) => (
         <Space>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record.roleId)}>
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record.name)}>
             Edit
           </Button>
           <Popconfirm
             title="Are you sure to delete this role?"
-            onConfirm={() => handleDelete(record.roleId)}
+            onConfirm={() => handleDelete(record.name)}
             okText="Yes"
             cancelText="No"
           >
@@ -130,7 +130,7 @@ export const RolePage: React.FC = () => {
       </div>
       <Table
         columns={columns}
-        dataSource={roles.map((r: any) => ({ ...r, key: r.roleId }))}
+        dataSource={roles.map((r: any) => ({ ...r, key: r.name }))}
         loading={loading}
       />
 

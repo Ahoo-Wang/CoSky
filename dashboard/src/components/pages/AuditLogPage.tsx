@@ -40,26 +40,32 @@ export const AuditLogPage: React.FC = () => {
         {
             title: 'Operator',
             dataIndex: 'operator',
+            key: 'operator',
         },
         {
             title: 'ClientIP',
             dataIndex: 'ip',
+            key: 'ip',
         },
         {
             title: 'Resource',
             dataIndex: 'resource',
+            key: 'resource',
         },
         {
             title: 'Action',
             dataIndex: 'action',
+            key: 'action',
         },
         {
             title: 'Status',
             dataIndex: 'status',
+            key: 'status',
         },
         {
             title: 'Msg',
             dataIndex: 'msg',
+            key: 'msg',
         },
     ];
 
@@ -71,7 +77,6 @@ export const AuditLogPage: React.FC = () => {
                 pagination={{
                     total: result?.total,
                     showTotal: (total) => `Total ${total} items`,
-                    pageSize: 10,
                     onChange: load
                 }}
                 loading={loading}
