@@ -11,19 +11,20 @@
  * limitations under the License.
  */
 
-import React, {useEffect} from 'react';
-import {Form, Input, Button, Card, Typography} from 'antd';
-import {UserOutlined, LockOutlined} from '@ant-design/icons';
+import React, {useEffect, useState} from 'react';
+import {Form, Input, Button, Card, Typography, Checkbox, message} from 'antd';
+import {UserOutlined, LockOutlined, CloudOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiClient} from "../../client/clients.ts";
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 
-const {Title} = Typography;
+const {Title, Text} = Typography;
 
 export const LoginPage: React.FC = () => {
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (authenticated) {
@@ -31,7 +32,8 @@ export const LoginPage: React.FC = () => {
         }
     }, [authenticated, navigate]);
 
-    const handleSubmit = async (values: { username: string; password: string }) => {
+    const handleSubmit = async (values: { username: string; password: string; remember?: boolean }) => {
+        setLoading(true);
         try {
             await signIn(() => {
                 return authenticateApiClient.login(values.username, {
@@ -40,8 +42,12 @@ export const LoginPage: React.FC = () => {
                     }
                 })
             });
+            message.success('Login successful!');
         } catch (error) {
             console.error('Login failed:', error);
+            message.error('Login failed. Please check your credentials and try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -51,27 +57,62 @@ export const LoginPage: React.FC = () => {
             justifyContent: 'center',
             alignItems: 'center',
             minHeight: '100vh',
-            background: '#f0f2f5'
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            padding: '20px',
         }}>
-            <Card style={{width: 400, boxShadow: '0 4px 8px rgba(0,0,0,0.1)'}}>
-                <div style={{textAlign: 'center', marginBottom: 24}}>
-                    <Title level={2}>CoSky</Title>
-                    <p style={{color: '#666'}}>Sign in to your account</p>
+            <Card 
+                style={{
+                    width: '100%',
+                    maxWidth: 420,
+                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
+                    borderRadius: 16,
+                    border: 'none',
+                    overflow: 'hidden',
+                    animation: 'fadeInUp 0.6s ease-out',
+                }}
+                bodyStyle={{
+                    padding: '48px 40px',
+                }}
+            >
+                <div style={{textAlign: 'center', marginBottom: 40}}>
+                    <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 80,
+                        height: 80,
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        marginBottom: 24,
+                        boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
+                    }}>
+                        <CloudOutlined style={{fontSize: 40, color: '#fff'}} />
+                    </div>
+                    <Title level={2} style={{marginBottom: 8, fontWeight: 600}}>
+                        Welcome to CoSky
+                    </Title>
+                    <Text type="secondary" style={{fontSize: 14}}>
+                        Sign in to manage your services
+                    </Text>
                 </div>
                 <Form
                     form={form}
                     name="login"
                     onFinish={handleSubmit}
                     autoComplete="off"
+                    size="large"
                 >
                     <Form.Item
                         name="username"
                         rules={[{required: true, message: 'Please input your username!'}]}
                     >
                         <Input
-                            prefix={<UserOutlined/>}
+                            prefix={<UserOutlined style={{color: '#999'}} />}
                             placeholder="Username"
-                            size="large"
+                            style={{
+                                borderRadius: 8,
+                                padding: '12px 16px',
+                            }}
                         />
                     </Form.Item>
 
@@ -80,19 +121,63 @@ export const LoginPage: React.FC = () => {
                         rules={[{required: true, message: 'Please input your password!'}]}
                     >
                         <Input.Password
-                            prefix={<LockOutlined/>}
+                            prefix={<LockOutlined style={{color: '#999'}} />}
                             placeholder="Password"
-                            size="large"
+                            style={{
+                                borderRadius: 8,
+                                padding: '12px 16px',
+                            }}
                         />
                     </Form.Item>
 
                     <Form.Item>
-                        <Button type="primary" htmlType="submit" size="large" block>
+                        <Form.Item name="remember" valuePropName="checked" noStyle>
+                            <Checkbox>Remember me</Checkbox>
+                        </Form.Item>
+                    </Form.Item>
+
+                    <Form.Item style={{marginBottom: 0}}>
+                        <Button 
+                            type="primary" 
+                            htmlType="submit" 
+                            block
+                            loading={loading}
+                            style={{
+                                height: 48,
+                                borderRadius: 8,
+                                fontSize: 16,
+                                fontWeight: 500,
+                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                border: 'none',
+                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                                transition: 'all 0.3s ease',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
+                            }}
+                        >
                             Sign In
                         </Button>
                     </Form.Item>
                 </Form>
             </Card>
+            <style>{`
+                @keyframes fadeInUp {
+                    from {
+                        opacity: 0;
+                        transform: translateY(30px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+            `}</style>
         </div>
     );
 };
