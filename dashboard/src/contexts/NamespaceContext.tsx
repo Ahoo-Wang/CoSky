@@ -26,7 +26,7 @@ interface NamespaceContextType {
     reset: () => void;
 }
 
-export const namespaceStorage = new KeyStorage<string>({
+export const currentNamespaceStorage = new KeyStorage<string>({
     key: NAMESPACE_KEY,
     serializer: typedIdentitySerializer()
 })
@@ -34,7 +34,7 @@ export const namespaceStorage = new KeyStorage<string>({
 const NamespaceContext = createContext<NamespaceContextType | undefined>(undefined);
 
 export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
-    const [namespace, setNamespace] = useKeyStorage(namespaceStorage, SYSTEM_NAMESPACE)
+    const [namespace, setNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
 
     const reset = useCallback(() => {
         setNamespace(SYSTEM_NAMESPACE);
