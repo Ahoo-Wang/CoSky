@@ -11,39 +11,33 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Input, Space, Modal, Form, message, Popconfirm, InputNumber } from 'antd';
 import { DeleteOutlined, AppstoreAddOutlined } from '@ant-design/icons';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { ServiceApiClient } from '../../generated';
+import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const serviceApiClient = new ServiceApiClient();
 
 export const ServicePage: React.FC = () => {
   const { currentNamespace } = useNamespace();
-  const [services, setServices] = useState<any[]>([]);
+  const { result: services = [], loading, setQuery } = useQuery<string, any[]>({
+    initialQuery: currentNamespace,
+    autoExecute: true,
+    execute: (namespace, _, abortController) => {
+      return serviceApiClient.getServices(namespace, { abortController });
+    },
+  });
   const [instances, setInstances] = useState<Record<string, any[]>>({});
-  const [loading, setLoading] = useState(false);
   const [instanceModalVisible, setInstanceModalVisible] = useState(false);
   const [currentServiceId, setCurrentServiceId] = useState<string>('');
   const [form] = Form.useForm();
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
   const [searchValue, setSearchValue] = useState('');
 
-  useEffect(() => {
-    loadServices();
-  }, [currentNamespace]);
-
-  const loadServices = async () => {
-    setLoading(true);
-    try {
-      const result = await serviceApiClient.getServices(currentNamespace);
-      setServices(result || []);
-    } catch (error) {
-      console.error('Failed to load services:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadServices = () => {
+    setQuery(currentNamespace);
   };
 
   const loadInstances = async (serviceId: string) => {

@@ -11,20 +11,26 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Input, Space, Modal, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, ExportOutlined, ImportOutlined, HistoryOutlined } from '@ant-design/icons';
 import Editor from '@monaco-editor/react';
 import { saveAs } from 'file-saver';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { ConfigApiClient } from '../../generated';
+import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const configApiClient = new ConfigApiClient();
 
 export const ConfigPage: React.FC = () => {
   const { currentNamespace } = useNamespace();
-  const [configs, setConfigs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { result: configs = [], loading, setQuery } = useQuery<string, any[]>({
+    initialQuery: currentNamespace,
+    autoExecute: true,
+    execute: (namespace, _, abortController) => {
+      return configApiClient.getConfigs(namespace, { abortController });
+    },
+  });
   const [editVisible, setEditVisible] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
   const [versionVisible, setVersionVisible] = useState(false);
@@ -34,20 +40,8 @@ export const ConfigPage: React.FC = () => {
   const [versions, setVersions] = useState<any[]>([]);
   const [searchValue, setSearchValue] = useState('');
 
-  useEffect(() => {
-    loadConfigs();
-  }, [currentNamespace]);
-
-  const loadConfigs = async () => {
-    setLoading(true);
-    try {
-      const result = await configApiClient.getConfigs(currentNamespace);
-      setConfigs(result || []);
-    } catch (error) {
-      console.error('Failed to load configs:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadConfigs = () => {
+    setQuery(currentNamespace);
   };
 
   const handleEdit = async (configId?: string) => {

@@ -11,47 +11,41 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, Select, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { UserApiClient, RoleApiClient } from '../../generated';
+import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const userApiClient = new UserApiClient();
 const roleApiClient = new RoleApiClient();
 
+type QueryData = { refresh: number };
+
 export const UserPage: React.FC = () => {
-  const [users, setUsers] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { result: users = [], loading, setQuery: refreshUsers } = useQuery<QueryData, any[]>({
+    initialQuery: { refresh: 0 },
+    autoExecute: true,
+    execute: (_, __, abortController) => {
+      return userApiClient.query({ abortController });
+    },
+  });
+
+  const { result: roles = [] } = useQuery<QueryData, any[]>({
+    initialQuery: { refresh: 0 },
+    autoExecute: true,
+    execute: (_, __, abortController) => {
+      return roleApiClient.allRole({ abortController });
+    },
+  });
+
   const [modalVisible, setModalVisible] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    loadUsers();
-    loadRoles();
-  }, []);
-
-  const loadUsers = async () => {
-    setLoading(true);
-    try {
-      const result = await userApiClient.query();
-      setUsers(result || []);
-    } catch (error) {
-      console.error('Failed to load users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadRoles = async () => {
-    try {
-      const result = await roleApiClient.allRole();
-      setRoles(result || []);
-    } catch (error) {
-      console.error('Failed to load roles:', error);
-    }
+  const loadUsers = () => {
+    refreshUsers({ refresh: Date.now() });
   };
 
   const handleAdd = () => {

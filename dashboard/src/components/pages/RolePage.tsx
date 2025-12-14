@@ -11,35 +11,32 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { RoleApiClient } from '../../generated';
+import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const roleApiClient = new RoleApiClient();
 
+type QueryData = { refresh: number };
+
 export const RolePage: React.FC = () => {
-  const [roles, setRoles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { result: roles = [], loading, setQuery: refreshRoles } = useQuery<QueryData, any[]>({
+    initialQuery: { refresh: 0 },
+    autoExecute: true,
+    execute: (_, __, abortController) => {
+      return roleApiClient.allRole({ abortController });
+    },
+  });
+
   const [modalVisible, setModalVisible] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentRole, setCurrentRole] = useState<any>(null);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    loadRoles();
-  }, []);
-
-  const loadRoles = async () => {
-    setLoading(true);
-    try {
-      const result = await roleApiClient.allRole();
-      setRoles(result || []);
-    } catch (error) {
-      console.error('Failed to load roles:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadRoles = () => {
+    refreshRoles({ refresh: Date.now() });
   };
 
   const handleAdd = () => {

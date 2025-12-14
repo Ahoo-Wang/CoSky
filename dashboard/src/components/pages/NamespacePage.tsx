@@ -20,7 +20,7 @@ import {useNamespaces} from "../../hooks/useNamespaces.ts";
 const namespaceApiClient = new NamespaceApiClient();
 
 export const NamespacePage: React.FC = () => {
-    const {namespaces, loading, load} = useNamespaces();
+    const {namespaces, loading, reload} = useNamespaces();
     const [modalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
 
@@ -30,7 +30,7 @@ export const NamespacePage: React.FC = () => {
             message.success('Namespace added successfully');
             setModalVisible(false);
             form.resetFields();
-            load();
+            reload();
         } catch (error) {
             console.error('Failed to add namespace:', error);
             message.error('Failed to add namespace');
@@ -41,7 +41,7 @@ export const NamespacePage: React.FC = () => {
         try {
             await namespaceApiClient.removeNamespace(namespace);
             message.success('Namespace deleted successfully');
-            load();
+            reload();
         } catch (error) {
             console.error('Failed to delete namespace:', error);
             message.error('Failed to delete namespace');
