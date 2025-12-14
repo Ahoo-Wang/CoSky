@@ -42,11 +42,6 @@ export const TopologyPage: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const topology = { nodes: services.map((s: string) => ({ serviceId: s })), edges: [] };
-    renderChart(topology);
-  }, [services]);
-
   const renderChart = (topology: any) => {
     if (!chartInstance.current || !topology) return;
 
@@ -83,6 +78,11 @@ export const TopologyPage: React.FC = () => {
 
     chartInstance.current.setOption(option);
   };
+
+  useEffect(() => {
+    const topology = { nodes: services.map((s: string) => ({ serviceId: s })), edges: [] };
+    renderChart(topology);
+  }, [services]);
 
   return (
     <Spin spinning={loading}>
