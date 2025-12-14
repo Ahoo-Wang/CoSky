@@ -34,11 +34,15 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({ children }) 
 
   const closeDrawer = () => {
     setOpen(false);
+    // Clear content and props after closing animation
+    setTimeout(() => {
+      setContent(null);
+      setDrawerProps({});
+    }, 300);
   };
 
   const handleClose = () => {
     closeDrawer();
-    drawerProps.onClose?.({} as any);
   };
 
   return (
