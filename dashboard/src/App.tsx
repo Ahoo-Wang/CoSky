@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {BrowserRouter, Routes, Route, Navigate, useNavigate} from 'react-router-dom';
+import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {ConfigProvider} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
 import {NamespaceProvider} from './contexts/NamespaceContext';
@@ -30,7 +30,6 @@ import './client/fetcher'
 import {tokenStorage} from "./client/tokenStorage.ts";
 
 function App() {
-    // const navigate = useNavigate();
     return (
         <ConfigProvider>
             <SecurityProvider tokenStorage={tokenStorage}

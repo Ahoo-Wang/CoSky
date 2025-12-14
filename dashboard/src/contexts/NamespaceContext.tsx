@@ -55,7 +55,7 @@ export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       return current;
     }
     notification.error({
-      message: 'Namespace Context ERROR',
+      title: 'Namespace Context ERROR',
       description: 'Please Select a namespace.',
     });
     throw new Error('Please Select a namespace.');
