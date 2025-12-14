@@ -17,6 +17,7 @@ import {UserOutlined, LockOutlined, CloudOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiClient} from "../../client/clients.ts";
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
+import './LoginPage.css';
 
 const {Title, Text} = Typography;
 
@@ -142,6 +143,7 @@ export const LoginPage: React.FC = () => {
                             htmlType="submit" 
                             block
                             loading={loading}
+                            className="login-submit-button"
                             style={{
                                 height: 48,
                                 borderRadius: 8,
@@ -149,16 +151,6 @@ export const LoginPage: React.FC = () => {
                                 fontWeight: 500,
                                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                                 border: 'none',
-                                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                                transition: 'all 0.3s ease',
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
                             }}
                         >
                             Sign In
@@ -166,18 +158,6 @@ export const LoginPage: React.FC = () => {
                     </Form.Item>
                 </Form>
             </Card>
-            <style>{`
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(30px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-            `}</style>
         </div>
     );
 };
