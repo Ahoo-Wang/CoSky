@@ -2,7 +2,7 @@ import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {useEffect} from "react";
 import {namespaceApiClient} from "../client/clients.ts";
 
-export function useLoadNamespaces() {
+export function useNamespaces() {
     const {result: namespaces = [], loading, error, execute} = useExecutePromise<string[]>()
     const load = () => execute(
         () => namespaceApiClient.getNamespaces()

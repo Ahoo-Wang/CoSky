@@ -15,12 +15,12 @@ import React, {useState} from 'react';
 import {Table, Button, Input, Modal, Form, message, Popconfirm} from 'antd';
 import {PlusOutlined, DeleteOutlined} from '@ant-design/icons';
 import {NamespaceApiClient} from '../../generated';
-import {useLoadNamespaces} from "../../hooks/useLoadNamespaces.ts";
+import {useNamespaces} from "../../hooks/useNamespaces.ts";
 
 const namespaceApiClient = new NamespaceApiClient();
 
 export const NamespacePage: React.FC = () => {
-    const {namespaces, loading, load} = useLoadNamespaces();
+    const {namespaces, loading, load} = useNamespaces();
     const [modalVisible, setModalVisible] = useState(false);
     const [form] = Form.useForm();
 
