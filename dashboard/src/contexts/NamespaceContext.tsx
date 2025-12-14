@@ -11,75 +11,53 @@
  * limitations under the License.
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { notification } from 'antd';
+import React, {createContext, useContext, useCallback} from 'react';
+import {KeyStorage, typedIdentitySerializer} from "@ahoo-wang/fetcher-storage";
+import {useKeyStorage} from "@ahoo-wang/fetcher-react";
 
 const NAMESPACE_KEY = 'cosky:ns:current';
 const SYSTEM_NAMESPACE = 'cosky-{system}';
 const SYSTEM_NAMESPACES = new Set(['cosky-{default}', SYSTEM_NAMESPACE]);
 
 interface NamespaceContextType {
-  currentNamespace: string;
-  setCurrent: (namespace: string) => void;
-  ensureCurrentNamespace: () => string;
-  isSystem: (namespace: string) => boolean;
-  reset: () => void;
+    currentNamespace: string;
+    setCurrent: (namespace: string) => void;
+    isSystem: (namespace: string) => boolean;
+    reset: () => void;
 }
+
+export const namespaceStorage = new KeyStorage<string>({
+    key: NAMESPACE_KEY,
+    serializer: typedIdentitySerializer()
+})
 
 const NamespaceContext = createContext<NamespaceContextType | undefined>(undefined);
 
-export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentNamespace, setCurrentNamespace] = useState<string>(() => {
-    const stored = localStorage.getItem(NAMESPACE_KEY);
-    return stored || SYSTEM_NAMESPACE;
-  });
+export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+    const [namespace, setNamespace] = useKeyStorage(namespaceStorage, SYSTEM_NAMESPACE)
 
-  useEffect(() => {
-    if (!localStorage.getItem(NAMESPACE_KEY)) {
-      localStorage.setItem(NAMESPACE_KEY, SYSTEM_NAMESPACE);
-    }
-  }, []);
+    const reset = useCallback(() => {
+        setNamespace(SYSTEM_NAMESPACE);
+    }, [setNamespace]);
 
-  const setCurrent = useCallback((namespace: string) => {
-    localStorage.setItem(NAMESPACE_KEY, namespace);
-    setCurrentNamespace(namespace);
-  }, []);
+    const isSystem = useCallback((namespace: string): boolean => {
+        return SYSTEM_NAMESPACES.has(namespace);
+    }, []);
 
-  const reset = useCallback(() => {
-    setCurrent(SYSTEM_NAMESPACE);
-  }, [setCurrent]);
+    const value: NamespaceContextType = {
+        currentNamespace: namespace,
+        setCurrent: setNamespace,
+        isSystem,
+        reset,
+    };
 
-  const ensureCurrentNamespace = useCallback((): string => {
-    const current = localStorage.getItem(NAMESPACE_KEY);
-    if (current) {
-      return current;
-    }
-    notification.error({
-      title: 'Namespace Context ERROR',
-      description: 'Please Select a namespace.',
-    });
-    throw new Error('Please Select a namespace.');
-  }, []);
-
-  const isSystem = useCallback((namespace: string): boolean => {
-    return SYSTEM_NAMESPACES.has(namespace);
-  }, []);
-
-  const value: NamespaceContextType = {
-    currentNamespace,
-    setCurrent,
-    ensureCurrentNamespace,
-    isSystem,
-    reset,
-  };
-
-  return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;
+    return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;
 };
 
 export const useNamespace = (): NamespaceContextType => {
-  const context = useContext(NamespaceContext);
-  if (!context) {
-    throw new Error('useNamespace must be used within a NamespaceProvider');
-  }
-  return context;
+    const context = useContext(NamespaceContext);
+    if (!context) {
+        throw new Error('useNamespace must be used within a NamespaceProvider');
+    }
+    return context;
 };
