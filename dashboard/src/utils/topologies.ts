@@ -1,3 +1,5 @@
+import { Node, Edge } from '@xyflow/react';
+
 export interface TopologyNode {
     name: string,
     symbolSize: number
@@ -13,6 +15,11 @@ export interface Topology {
     links: TopologyLink[]
 }
 
+export interface ReactFlowTopology {
+    nodes: Node[];
+    edges: Edge[];
+}
+
 export function toTopology(topology: Record<string, string[]>): Topology {
     const nodes: TopologyNode[] = [];
     const links: TopologyLink[] = [];
@@ -22,7 +29,7 @@ export function toTopology(topology: Record<string, string[]>): Topology {
         topology[nodeName].forEach(targetName => {
             putIfAbsent(nodes, targetName);
             links.push({source: nodeName, target: targetName});
-            let targetNode = getNodeName(nodes, targetName);
+            const targetNode = getNodeName(nodes, targetName);
             if (targetNode) {
                 targetNode.symbolSize = targetNode.symbolSize + 2;
             }
@@ -36,6 +43,54 @@ export function toTopology(topology: Record<string, string[]>): Topology {
 
 }
 
+export function toReactFlowTopology(topology: Record<string, string[]>): ReactFlowTopology {
+    const nodeMap = new Map<string, number>();
+    const nodes: Node[] = [];
+    const edges: Edge[] = [];
+    
+    // First pass: collect all unique nodes and count incoming connections
+    Object.keys(topology).forEach(nodeName => {
+        if (!nodeMap.has(nodeName)) {
+            nodeMap.set(nodeName, 0);
+        }
+        topology[nodeName].forEach(targetName => {
+            nodeMap.set(targetName, (nodeMap.get(targetName) || 0) + 1);
+        });
+    });
+    
+    // Second pass: create ReactFlow nodes with positions
+    let index = 0;
+    nodeMap.forEach((_, nodeName) => {
+        const angle = (index / nodeMap.size) * 2 * Math.PI;
+        const radius = 200;
+        nodes.push({
+            id: nodeName,
+            type: 'default',
+            data: { 
+                label: nodeName,
+            },
+            position: {
+                x: 400 + radius * Math.cos(angle),
+                y: 300 + radius * Math.sin(angle),
+            },
+        });
+        index++;
+    });
+    
+    // Third pass: create edges
+    Object.keys(topology).forEach(nodeName => {
+        topology[nodeName].forEach(targetName => {
+            edges.push({
+                id: `${nodeName}-${targetName}`,
+                source: nodeName,
+                target: targetName,
+                animated: true,
+            });
+        });
+    });
+    
+    return { nodes, edges };
+}
 
 function putIfAbsent(nodes: TopologyNode[], nodeName: string) {
     if (nodes.filter(_nodeName => {

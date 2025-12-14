@@ -11,18 +11,17 @@
  * limitations under the License.
  */
 
-import React, {useEffect, useRef} from 'react';
+import React, {useMemo} from 'react';
 import {Spin} from 'antd';
-import * as echarts from 'echarts';
+import {ReactFlow, Background, Controls, MiniMap} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import {useNamespaceContext} from '../../contexts/NamespaceContext';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {stateApiClient} from "../../client/clients.ts";
-import {toTopology} from "../../utils/topologies.ts";
+import {toReactFlowTopology} from "../../utils/topologies.ts";
 
 export const TopologyPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
-    const chartRef = useRef<HTMLDivElement>(null);
-    const chartInstance = useRef<echarts.ECharts | null>(null);
 
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         initialQuery: currentNamespace,
@@ -31,52 +30,26 @@ export const TopologyPage: React.FC = () => {
         },
     });
 
-    useEffect(() => {
-        if (chartRef.current) {
-            chartInstance.current = echarts.init(chartRef.current);
-        }
-        return () => {
-            chartInstance.current?.dispose();
-        };
-    }, []);
-
-    const renderChart = (topology: Record<string, string[]>) => {
-        if (!chartInstance.current || !topology) return;
-        const topologyGraph = toTopology(topology)
-
-        const option = {
-            title: {
-                text: 'Service Topology',
-            },
-            tooltip: {},
-            series: [
-                {
-                    type: 'graph',
-                    layout: 'force',
-                    data: topologyGraph.nodes,
-                    links: topologyGraph.links,
-                    roam: true,
-                    label: {
-                        show: true,
-                    },
-                    force: {
-                        repulsion: 100,
-                    },
-                },
-            ],
-        };
-        chartInstance.current.setOption(option);
-    };
-
-    useEffect(() => {
-        renderChart(result);
+    const {nodes, edges} = useMemo(() => {
+        return toReactFlowTopology(result);
     }, [result]);
 
     return (
         <Spin spinning={loading}>
             <div>
                 <h2 style={{marginBottom: 24}}>Topology</h2>
-                <div ref={chartRef} style={{width: '100%', height: 600}}/>
+                <div style={{width: '100%', height: 600}}>
+                    <ReactFlow
+                        nodes={nodes}
+                        edges={edges}
+                        fitView
+                        attributionPosition="bottom-left"
+                    >
+                        <Background />
+                        <Controls />
+                        <MiniMap />
+                    </ReactFlow>
+                </div>
             </div>
         </Spin>
     );
