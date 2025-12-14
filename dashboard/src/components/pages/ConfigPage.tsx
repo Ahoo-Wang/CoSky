@@ -26,7 +26,6 @@ export const ConfigPage: React.FC = () => {
   const { currentNamespace } = useNamespace();
   const { result: configs = [], loading, setQuery } = useQuery<string, any[]>({
     initialQuery: currentNamespace,
-    autoExecute: true,
     execute: (namespace, _, abortController) => {
       return configApiClient.getConfigs(namespace, { abortController });
     },

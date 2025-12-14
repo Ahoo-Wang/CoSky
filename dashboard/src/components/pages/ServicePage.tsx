@@ -24,7 +24,6 @@ export const ServicePage: React.FC = () => {
   const { currentNamespace } = useNamespace();
   const { result: services = [], loading, setQuery } = useQuery<string, any[]>({
     initialQuery: currentNamespace,
-    autoExecute: true,
     execute: (namespace, _, abortController) => {
       return serviceApiClient.getServices(namespace, { abortController });
     },

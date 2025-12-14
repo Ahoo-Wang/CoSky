@@ -24,7 +24,6 @@ type QueryData = { refresh: number };
 export const RolePage: React.FC = () => {
   const { result: roles = [], loading, setQuery: refreshRoles } = useQuery<QueryData, any[]>({
     initialQuery: { refresh: 0 },
-    autoExecute: true,
     execute: (_, __, abortController) => {
       return roleApiClient.allRole({ abortController });
     },
