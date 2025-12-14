@@ -12,19 +12,13 @@
  */
 
 import React from 'react';
-import { Navigate } from 'react-router-dom';
-import { useSecurity } from '../../contexts/SecurityContext';
+import {Navigate} from 'react-router-dom';
+import {RouteGuard} from "@ahoo-wang/fetcher-react";
 
 interface ProtectedRouteProps {
-  children: React.ReactNode;
+    children: React.ReactNode;
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
-  const { authenticated } = useSecurity();
-
-  if (!authenticated()) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({children}) => {
+    return <RouteGuard fallback={<Navigate to="/login" replace/>}>{children}</RouteGuard>
 };
