@@ -11,9 +11,9 @@
  * limitations under the License.
  */
 
-import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
+import {BrowserRouter, Routes, Route, Navigate, useNavigate} from 'react-router-dom';
 import {ConfigProvider} from 'antd';
-import {SecurityProvider} from './contexts/SecurityContext';
+import {SecurityProvider} from '@ahoo-wang/fetcher-react'
 import {NamespaceProvider} from './contexts/NamespaceContext';
 import {ProtectedRoute} from './components/common/ProtectedRoute';
 import {LoginPage} from './components/pages/LoginPage';
@@ -27,11 +27,20 @@ import {UserPage} from './components/pages/UserPage';
 import {RolePage} from './components/pages/RolePage';
 import {AuditLogPage} from './components/pages/AuditLogPage';
 import './client/fetcher'
+import {tokenStorage} from "./client/tokenStorage.ts";
 
 function App() {
+    // const navigate = useNavigate();
     return (
         <ConfigProvider>
-            <SecurityProvider>
+            <SecurityProvider tokenStorage={tokenStorage}
+                              onSignIn={() => {
+                                  window.location.href = '/home';
+                              }}
+                              onSignOut={() => {
+                                  window.location.href = '/login';
+                              }}
+            >
                 <NamespaceProvider>
                     <BrowserRouter>
                         <Routes>

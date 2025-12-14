@@ -28,20 +28,19 @@ import {
   DownOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useSecurity } from '../../contexts/SecurityContext';
 import { NamespaceSelector } from '../common/NamespaceSelector';
 import { userApiClient } from '../../client/clients';
+import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 
 const { Header, Sider, Content, Footer } = Layout;
 
 export const AuthenticatedLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [changePwdVisible, setChangePwdVisible] = useState(false);
-  const { getCurrentUser, signOut } = useSecurity();
+  const { currentUser, signOut } = useSecurityContext();
   const navigate = useNavigate();
   const location = useLocation();
   const [form] = Form.useForm();
-  const currentUser = getCurrentUser();
 
   const menuItems = [
     {
