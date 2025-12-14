@@ -23,8 +23,8 @@ export const AuditLogPage: React.FC = () => {
     const {result, loading, execute} = useExecutePromise<QueryLogResponse>()
     const load = (pageIndex: number = 1, pageSize: number = 10) => {
         const offset = (pageIndex - 1) * pageSize;
-        execute(() => {
-            return auditLogApiClient.queryLog(offset, pageSize);
+        execute((abortController) => {
+            return auditLogApiClient.queryLog(offset, pageSize, {abortController});
         })
     }
     useEffect(() => {
