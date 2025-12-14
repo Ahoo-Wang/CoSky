@@ -21,6 +21,14 @@ import './LoginPage.css';
 
 const {Title, Text} = Typography;
 
+interface LoginFormValues {
+    username: string;
+    password: string;
+    remember?: boolean;
+}
+
+const ICON_COLOR = '#999';
+
 export const LoginPage: React.FC = () => {
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
@@ -33,7 +41,7 @@ export const LoginPage: React.FC = () => {
         }
     }, [authenticated, navigate]);
 
-    const handleSubmit = async (values: { username: string; password: string; remember?: boolean }) => {
+    const handleSubmit = async (values: LoginFormValues) => {
         setLoading(true);
         try {
             await signIn(() => {
@@ -108,7 +116,7 @@ export const LoginPage: React.FC = () => {
                         rules={[{required: true, message: 'Please input your username!'}]}
                     >
                         <Input
-                            prefix={<UserOutlined style={{color: '#999'}} />}
+                            prefix={<UserOutlined style={{color: ICON_COLOR}} />}
                             placeholder="Username"
                             style={{
                                 borderRadius: 8,
@@ -122,7 +130,7 @@ export const LoginPage: React.FC = () => {
                         rules={[{required: true, message: 'Please input your password!'}]}
                     >
                         <Input.Password
-                            prefix={<LockOutlined style={{color: '#999'}} />}
+                            prefix={<LockOutlined style={{color: ICON_COLOR}} />}
                             placeholder="Password"
                             style={{
                                 borderRadius: 8,
