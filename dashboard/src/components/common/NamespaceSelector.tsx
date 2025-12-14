@@ -13,11 +13,11 @@
 
 import React from 'react';
 import {Select} from 'antd';
-import {useNamespace} from '../../contexts/NamespaceContext';
+import {useNamespaceContext} from '../../contexts/NamespaceContext';
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
 
 export const NamespaceSelector: React.FC = () => {
-    const {currentNamespace, setCurrent} = useNamespace();
+    const {currentNamespace, setCurrent} = useNamespaceContext();
     const {namespaces, loading} = useNamespaces();
     return (
         <Select

@@ -14,13 +14,13 @@
 import React, {useEffect, useRef} from 'react';
 import {Spin} from 'antd';
 import * as echarts from 'echarts';
-import {useNamespace} from '../../contexts/NamespaceContext';
+import {useNamespaceContext} from '../../contexts/NamespaceContext';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {stateApiClient} from "../../client/clients.ts";
 import {toTopology} from "../../utils/topologies.ts";
 
 export const TopologyPage: React.FC = () => {
-    const {currentNamespace} = useNamespace();
+    const {currentNamespace} = useNamespaceContext();
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstance = useRef<echarts.ECharts | null>(null);
 

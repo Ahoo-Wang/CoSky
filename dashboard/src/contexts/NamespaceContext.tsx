@@ -54,7 +54,7 @@ export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({chil
     return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;
 };
 
-export const useNamespace = (): NamespaceContextType => {
+export const useNamespaceContext = (): NamespaceContextType => {
     const context = useContext(NamespaceContext);
     if (!context) {
         throw new Error('useNamespace must be used within a NamespaceProvider');

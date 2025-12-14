@@ -15,7 +15,7 @@ import React, { useState } from 'react';
 import { Table, Button, Input, Space, Modal, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, ExportOutlined, ImportOutlined, HistoryOutlined } from '@ant-design/icons';
 import { saveAs } from 'file-saver';
-import { useNamespace } from '../../contexts/NamespaceContext';
+import { useNamespaceContext } from '../../contexts/NamespaceContext';
 import { ConfigApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
 import { useDrawer } from '../../contexts/DrawerContext';
@@ -26,7 +26,7 @@ import { ConfigVersionsView } from '../forms/ConfigVersionsView';
 const configApiClient = new ConfigApiClient();
 
 export const ConfigPage: React.FC = () => {
-  const { currentNamespace } = useNamespace();
+  const { currentNamespace } = useNamespaceContext();
   const { result: configs = [], loading, setQuery } = useQuery<string, any[]>({
     initialQuery: currentNamespace,
     execute: (namespace, _, abortController) => {

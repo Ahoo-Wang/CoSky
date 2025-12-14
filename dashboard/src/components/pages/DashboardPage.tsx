@@ -19,14 +19,14 @@ import {
   CloudServerOutlined, 
   ClusterOutlined 
 } from '@ant-design/icons';
-import { useNamespace } from '../../contexts/NamespaceContext';
+import { useNamespaceContext } from '../../contexts/NamespaceContext';
 import { StatApiClient, GetStatResponse } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const statApiClient = new StatApiClient();
 
 export const DashboardPage: React.FC = () => {
-  const { currentNamespace } = useNamespace();
+  const { currentNamespace } = useNamespaceContext();
   const { result: stat = {
     namespaces: 0,
     configs: 0,

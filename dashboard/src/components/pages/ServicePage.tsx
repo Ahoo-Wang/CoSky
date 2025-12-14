@@ -14,7 +14,7 @@
 import React, { useState } from 'react';
 import { Table, Button, Input, Space, message, Popconfirm } from 'antd';
 import { DeleteOutlined, AppstoreAddOutlined } from '@ant-design/icons';
-import { useNamespace } from '../../contexts/NamespaceContext';
+import { useNamespaceContext } from '../../contexts/NamespaceContext';
 import { ServiceApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
 import { useDrawer } from '../../contexts/DrawerContext';
@@ -23,7 +23,7 @@ import { ServiceInstanceForm } from '../forms/ServiceInstanceForm';
 const serviceApiClient = new ServiceApiClient();
 
 export const ServicePage: React.FC = () => {
-  const { currentNamespace } = useNamespace();
+  const { currentNamespace } = useNamespaceContext();
   const { result: services = [], loading, setQuery } = useQuery<string, any[]>({
     initialQuery: currentNamespace,
     execute: (namespace, _, abortController) => {
