@@ -17,13 +17,14 @@ import * as echarts from 'echarts';
 import {useNamespace} from '../../contexts/NamespaceContext';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {stateApiClient} from "../../client/clients.ts";
+import {toTopology} from "../../utils/topologies.ts";
 
 export const TopologyPage: React.FC = () => {
     const {currentNamespace} = useNamespace();
     const chartRef = useRef<HTMLDivElement>(null);
     const chartInstance = useRef<echarts.ECharts | null>(null);
 
-    const {result: services, loading} = useQuery<string, Record<string, string[]>>({
+    const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         initialQuery: currentNamespace,
         execute: (namespace, _, abortController) => {
             return stateApiClient.getTopology(namespace, {abortController});
@@ -41,9 +42,7 @@ export const TopologyPage: React.FC = () => {
 
     const renderChart = (topology: Record<string, string[]>) => {
         if (!chartInstance.current || !topology) return;
-
-        const nodes = topology.nodes || [];
-        const links = topology.edges || [];
+        const topologyGraph = toTopology(topology)
 
         const option = {
             title: {
@@ -54,14 +53,8 @@ export const TopologyPage: React.FC = () => {
                 {
                     type: 'graph',
                     layout: 'force',
-                    data: nodes.map((node: any) => ({
-                        name: node.serviceId,
-                        symbolSize: 50,
-                    })),
-                    links: links.map((link: any) => ({
-                        source: link.source,
-                        target: link.target,
-                    })),
+                    data: topologyGraph.nodes,
+                    links: topologyGraph.links,
                     roam: true,
                     label: {
                         show: true,
@@ -72,14 +65,12 @@ export const TopologyPage: React.FC = () => {
                 },
             ],
         };
-
         chartInstance.current.setOption(option);
     };
 
     useEffect(() => {
-        const topology = {nodes: services.map((s: string) => ({serviceId: s})), edges: []};
-        renderChart(topology);
-    }, [services]);
+        renderChart(result);
+    }, [result]);
 
     return (
         <Spin spinning={loading}>
