@@ -29,7 +29,6 @@ export const AuditLogPage: React.FC = () => {
             pageIndex: 1,
             pageSize: 10,
         },
-        autoExecute: true,
         execute: (query, _, abortController) => {
             return auditLogApiClient.queryLog(query.pageIndex, query.pageSize, {abortController});
         },

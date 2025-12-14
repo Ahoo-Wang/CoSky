@@ -4,7 +4,6 @@ import {namespaceApiClient} from "../client/clients.ts";
 export function useNamespaces() {
     const {result: namespaces = [], loading, error, execute} = useQuery<number, string[]>({
         initialQuery: 0,
-        autoExecute: true,
         execute: () => {
             return namespaceApiClient.getNamespaces()
         }
