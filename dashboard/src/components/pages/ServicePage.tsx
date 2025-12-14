@@ -27,7 +27,7 @@ export const ServicePage: React.FC = () => {
   const { result: services = [], loading, setQuery } = useQuery<string, any[]>({
     initialQuery: currentNamespace,
     execute: (namespace, _, abortController) => {
-      return serviceApiClient.getServices(namespace, { abortController });
+      return serviceApiClient.getServiceStats(namespace, { abortController });
     },
   });
   const [instances, setInstances] = useState<Record<string, any[]>>({});
