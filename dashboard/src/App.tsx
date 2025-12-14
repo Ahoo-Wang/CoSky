@@ -15,6 +15,7 @@ import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {ConfigProvider} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
 import {NamespaceProvider} from './contexts/NamespaceContext';
+import {DrawerProvider} from './contexts/DrawerContext';
 import {ProtectedRoute} from './components/common/ProtectedRoute';
 import {LoginPage} from './components/pages/LoginPage';
 import {AuthenticatedLayout} from './components/layout/AuthenticatedLayout';
@@ -41,29 +42,31 @@ function App() {
                               }}
             >
                 <NamespaceProvider>
-                    <BrowserRouter>
-                        <Routes>
-                            <Route path="/login" element={<LoginPage/>}/>
-                            <Route
-                                path="/"
-                                element={
-                                    <ProtectedRoute>
-                                        <AuthenticatedLayout/>
-                                    </ProtectedRoute>
-                                }
-                            >
-                                <Route index element={<Navigate to="/home" replace/>}/>
-                                <Route path="home" element={<DashboardPage/>}/>
-                                <Route path="topology" element={<TopologyPage/>}/>
-                                <Route path="config" element={<ConfigPage/>}/>
-                                <Route path="service" element={<ServicePage/>}/>
-                                <Route path="namespace" element={<NamespacePage/>}/>
-                                <Route path="user" element={<UserPage/>}/>
-                                <Route path="role" element={<RolePage/>}/>
-                                <Route path="audit-log" element={<AuditLogPage/>}/>
-                            </Route>
-                        </Routes>
-                    </BrowserRouter>
+                    <DrawerProvider>
+                        <BrowserRouter>
+                            <Routes>
+                                <Route path="/login" element={<LoginPage/>}/>
+                                <Route
+                                    path="/"
+                                    element={
+                                        <ProtectedRoute>
+                                            <AuthenticatedLayout/>
+                                        </ProtectedRoute>
+                                    }
+                                >
+                                    <Route index element={<Navigate to="/home" replace/>}/>
+                                    <Route path="home" element={<DashboardPage/>}/>
+                                    <Route path="topology" element={<TopologyPage/>}/>
+                                    <Route path="config" element={<ConfigPage/>}/>
+                                    <Route path="service" element={<ServicePage/>}/>
+                                    <Route path="namespace" element={<NamespacePage/>}/>
+                                    <Route path="user" element={<UserPage/>}/>
+                                    <Route path="role" element={<RolePage/>}/>
+                                    <Route path="audit-log" element={<AuditLogPage/>}/>
+                                </Route>
+                            </Routes>
+                        </BrowserRouter>
+                    </DrawerProvider>
                 </NamespaceProvider>
             </SecurityProvider>
         </ConfigProvider>

@@ -11,25 +11,38 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
-import {Table, Button, Input, Modal, Form, message, Popconfirm} from 'antd';
+import React from 'react';
+import {Table, Button, message, Popconfirm} from 'antd';
 import {PlusOutlined, DeleteOutlined} from '@ant-design/icons';
 import {NamespaceApiClient} from '../../generated';
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
+import {useDrawer} from '../../contexts/DrawerContext';
+import {NamespaceForm} from '../forms/NamespaceForm';
 
 const namespaceApiClient = new NamespaceApiClient();
 
 export const NamespacePage: React.FC = () => {
     const {namespaces, loading, reload} = useNamespaces();
-    const [modalVisible, setModalVisible] = useState(false);
-    const [form] = Form.useForm();
+    const {openDrawer, closeDrawer} = useDrawer();
 
-    const handleAdd = async (values: { namespace: string }) => {
+    const handleAdd = () => {
+        openDrawer(
+            <NamespaceForm
+                onSubmit={handleSubmit}
+                onCancel={closeDrawer}
+            />,
+            {
+                title: 'Add Namespace',
+                width: 500,
+            }
+        );
+    };
+
+    const handleSubmit = async (values: { namespace: string }) => {
         try {
             await namespaceApiClient.setNamespace(values.namespace);
             message.success('Namespace added successfully');
-            setModalVisible(false);
-            form.resetFields();
+            closeDrawer();
             reload();
         } catch (error) {
             console.error('Failed to add namespace:', error);
@@ -78,31 +91,11 @@ export const NamespacePage: React.FC = () => {
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Namespace</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={() => setModalVisible(true)}>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
                     Add Namespace
                 </Button>
             </div>
             <Table columns={columns} dataSource={dataSource} loading={loading}/>
-
-            <Modal
-                title="Add Namespace"
-                open={modalVisible}
-                onCancel={() => {
-                    setModalVisible(false);
-                    form.resetFields();
-                }}
-                onOk={() => form.submit()}
-            >
-                <Form form={form} layout="vertical" onFinish={handleAdd}>
-                    <Form.Item
-                        name="namespace"
-                        label="Namespace"
-                        rules={[{required: true, message: 'Please input namespace!'}]}
-                    >
-                        <Input placeholder="Enter namespace"/>
-                    </Form.Item>
-                </Form>
-            </Modal>
         </div>
     );
 };

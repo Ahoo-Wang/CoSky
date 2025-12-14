@@ -12,10 +12,12 @@
  */
 
 import React, { useState } from 'react';
-import { Table, Button, Space, Modal, Form, Input, message, Popconfirm } from 'antd';
+import { Table, Button, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { RoleApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
+import { useDrawer } from '../../contexts/DrawerContext';
+import { RoleForm } from '../forms/RoleForm';
 
 const roleApiClient = new RoleApiClient();
 
@@ -29,10 +31,9 @@ export const RolePage: React.FC = () => {
     },
   });
 
-  const [modalVisible, setModalVisible] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentRole, setCurrentRole] = useState<any>(null);
-  const [form] = Form.useForm();
+  const { openDrawer, closeDrawer } = useDrawer();
 
   const loadRoles = () => {
     refreshRoles({ refresh: Date.now() });
@@ -41,29 +42,49 @@ export const RolePage: React.FC = () => {
   const handleAdd = () => {
     setIsEdit(false);
     setCurrentRole(null);
-    form.resetFields();
-    setModalVisible(true);
+    openDrawer(
+      <RoleForm
+        isEdit={false}
+        initialValues={null}
+        onSubmit={handleSubmit}
+        onCancel={closeDrawer}
+      />,
+      {
+        title: 'Add Role',
+        width: 500,
+      }
+    );
   };
 
   const handleEdit = async (roleName: string) => {
     try {
       const bind = await roleApiClient.getResourceBind(roleName);
       setIsEdit(true);
+      const roleData = { roleId: roleName, desc: '', resourceActionBind: bind };
       setCurrentRole({ roleId: roleName, resourceActionBind: bind });
-      form.setFieldsValue({ roleId: roleName, desc: '', resourceActionBind: bind });
-      setModalVisible(true);
+      openDrawer(
+        <RoleForm
+          isEdit={true}
+          initialValues={roleData}
+          onSubmit={handleSubmit}
+          onCancel={closeDrawer}
+        />,
+        {
+          title: 'Edit Role',
+          width: 500,
+        }
+      );
     } catch (error) {
       console.error('Failed to load role:', error);
     }
   };
 
-  const handleSave = async (values: any) => {
+  const handleSubmit = async (values: any) => {
     try {
       const roleId = isEdit ? currentRole.roleId : values.roleId;
       await roleApiClient.saveRole(roleId, { body: values });
       message.success('Role saved successfully');
-      setModalVisible(false);
-      form.resetFields();
+      closeDrawer();
       loadRoles();
     } catch (error) {
       console.error('Failed to save role:', error);
@@ -129,31 +150,6 @@ export const RolePage: React.FC = () => {
         dataSource={roles.map((r: any) => ({ ...r, key: r.name }))}
         loading={loading}
       />
-
-      <Modal
-        title={isEdit ? 'Edit Role' : 'Add Role'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          form.resetFields();
-        }}
-        onOk={() => form.submit()}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSave}>
-          {!isEdit && (
-            <Form.Item
-              name="roleId"
-              label="Role ID"
-              rules={[{ required: true, message: 'Please input role ID!' }]}
-            >
-              <Input />
-            </Form.Item>
-          )}
-          <Form.Item name="desc" label="Description">
-            <Input.TextArea rows={4} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

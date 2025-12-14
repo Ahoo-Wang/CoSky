@@ -12,11 +12,13 @@
  */
 
 import React, { useState } from 'react';
-import { Table, Button, Input, Space, Modal, Form, message, Popconfirm, InputNumber } from 'antd';
+import { Table, Button, Input, Space, message, Popconfirm } from 'antd';
 import { DeleteOutlined, AppstoreAddOutlined } from '@ant-design/icons';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { ServiceApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
+import { useDrawer } from '../../contexts/DrawerContext';
+import { ServiceInstanceForm } from '../forms/ServiceInstanceForm';
 
 const serviceApiClient = new ServiceApiClient();
 
@@ -29,11 +31,10 @@ export const ServicePage: React.FC = () => {
     },
   });
   const [instances, setInstances] = useState<Record<string, any[]>>({});
-  const [instanceModalVisible, setInstanceModalVisible] = useState(false);
   const [currentServiceId, setCurrentServiceId] = useState<string>('');
-  const [form] = Form.useForm();
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
   const [searchValue, setSearchValue] = useState('');
+  const { openDrawer, closeDrawer } = useDrawer();
 
   const loadServices = () => {
     setQuery(currentNamespace);
@@ -74,15 +75,24 @@ export const ServicePage: React.FC = () => {
 
   const handleAddInstance = (serviceId: string) => {
     setCurrentServiceId(serviceId);
-    setInstanceModalVisible(true);
+    openDrawer(
+      <ServiceInstanceForm
+        serviceId={serviceId}
+        onSubmit={handleSubmitInstance}
+        onCancel={closeDrawer}
+      />,
+      {
+        title: 'Add Instance',
+        width: 500,
+      }
+    );
   };
 
-  const handleSaveInstance = async (values: any) => {
+  const handleSubmitInstance = async (values: any) => {
     try {
       await serviceApiClient.register(currentNamespace, currentServiceId, { body: values });
       message.success('Instance added successfully');
-      setInstanceModalVisible(false);
-      form.resetFields();
+      closeDrawer();
       loadInstances(currentServiceId);
     } catch (error) {
       console.error('Failed to add instance:', error);
@@ -221,39 +231,6 @@ export const ServicePage: React.FC = () => {
           expandedRowKeys,
         }}
       />
-
-      <Modal
-        title={`Add Instance to ${currentServiceId}`}
-        open={instanceModalVisible}
-        onCancel={() => {
-          setInstanceModalVisible(false);
-          form.resetFields();
-        }}
-        onOk={() => form.submit()}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSaveInstance}>
-          <Form.Item name="schema" label="Schema" initialValue="http">
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="host"
-            label="Host"
-            rules={[{ required: true, message: 'Please input host!' }]}
-          >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="port"
-            label="Port"
-            rules={[{ required: true, message: 'Please input port!' }]}
-          >
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item name="weight" label="Weight" initialValue={1}>
-            <InputNumber style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };
