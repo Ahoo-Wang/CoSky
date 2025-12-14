@@ -12,31 +12,26 @@
  */
 
 import React from 'react';
-import { Select } from 'antd';
-import { useNamespace } from '../../contexts/NamespaceContext';
+import {Select} from 'antd';
+import {useNamespace} from '../../contexts/NamespaceContext';
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
 
 export const NamespaceSelector: React.FC = () => {
-  const { currentNamespace, setCurrent } = useNamespace();
-  const { namespaces,loading } = useNamespaces();
-
-  const handleChange = (value: string) => {
-    setCurrent(value);
-  };
-
-  return (
-    <Select
-      style={{ width: 200, marginLeft: 16 }}
-      value={currentNamespace}
-      onChange={handleChange}
-      loading={loading}
-      placeholder="Select Namespace"
-    >
-      {namespaces.map((ns) => (
-        <Select.Option key={ns} value={ns}>
-          {ns}
-        </Select.Option>
-      ))}
-    </Select>
-  );
+    const {currentNamespace, setCurrent} = useNamespace();
+    const {namespaces, loading} = useNamespaces();
+    return (
+        <Select
+            style={{width: 200, marginLeft: 16}}
+            value={currentNamespace}
+            onChange={setCurrent}
+            loading={loading}
+            placeholder="Select Namespace"
+        >
+            {namespaces.map((ns) => (
+                <Select.Option key={ns} value={ns}>
+                    {ns}
+                </Select.Option>
+            ))}
+        </Select>
+    );
 };
