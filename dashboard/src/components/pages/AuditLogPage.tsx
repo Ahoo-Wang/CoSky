@@ -11,82 +11,71 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
-import { Table, DatePicker } from 'antd';
-import { AuditLogApiClient } from '../../generated';
+import React, {useEffect} from 'react';
+import {Table} from 'antd';
+import {QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
+import {useExecutePromise} from "@ahoo-wang/fetcher-react";
+import {auditLogApiClient} from "../../client/clients.ts";
 
-const auditLogApiClient = new AuditLogApiClient();
-
-const { RangePicker } = DatePicker;
 
 export const AuditLogPage: React.FC = () => {
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
-    dayjs().subtract(7, 'days'),
-    dayjs(),
-  ]);
-
-  useEffect(() => {
-    loadLogs();
-  }, [dateRange]);
-
-  const loadLogs = async () => {
-    setLoading(true);
-    try {
-      const result = await auditLogApiClient.queryLog();
-      setLogs(result?.list || []);
-    } catch (error) {
-      console.error('Failed to load audit logs:', error);
-    } finally {
-      setLoading(false);
+    const {result, loading, execute} = useExecutePromise<QueryLogResponse>()
+    const load = (pageIndex: number = 1, pageSize: number = 10) => {
+        const offset = (pageIndex - 1) * pageSize;
+        execute(() => {
+            return auditLogApiClient.queryLog(offset, pageSize);
+        })
     }
-  };
+    useEffect(() => {
+        load();
+    }, []);
+    const columns = [
+        {
+            title: 'Timestamp',
+            dataIndex: 'timestamp',
+            key: 'timestamp',
+            render: (timestamp: number) => dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss'),
+        },
+        {
+            title: 'Operator',
+            dataIndex: 'operator',
+        },
+        {
+            title: 'ClientIP',
+            dataIndex: 'ip',
+        },
+        {
+            title: 'Resource',
+            dataIndex: 'resource',
+        },
+        {
+            title: 'Action',
+            dataIndex: 'action',
+        },
+        {
+            title: 'Status',
+            dataIndex: 'status',
+        },
+        {
+            title: 'Msg',
+            dataIndex: 'msg',
+        },
+    ];
 
-  const columns = [
-    {
-      title: 'Timestamp',
-      dataIndex: 'timestamp',
-      key: 'timestamp',
-      render: (timestamp: number) => dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss'),
-    },
-    {
-      title: 'Username',
-      dataIndex: 'username',
-      key: 'username',
-    },
-    {
-      title: 'Action',
-      dataIndex: 'action',
-      key: 'action',
-    },
-    {
-      title: 'Resource',
-      dataIndex: 'resource',
-      key: 'resource',
-    },
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-    },
-  ];
-
-  return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2>Audit Log</h2>
-        <RangePicker
-          value={dateRange}
-          onChange={(dates) => dates && setDateRange(dates as [dayjs.Dayjs, dayjs.Dayjs])}
-        />
-      </div>
-      <Table
-        columns={columns}
-        dataSource={logs.map((log: any, index: number) => ({ ...log, key: index }))}
-        loading={loading}
-      />
-    </div>
-  );
+    return (
+        <div>
+            <Table
+                columns={columns}
+                dataSource={result?.list}
+                pagination={{
+                    total: result?.total,
+                    showTotal: (total) => `Total ${total} items`,
+                    pageSize: 10,
+                    onChange: load
+                }}
+                loading={loading}
+            />
+        </div>
+    );
 };
