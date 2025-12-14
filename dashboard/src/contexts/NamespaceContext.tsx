@@ -34,19 +34,19 @@ export const currentNamespaceStorage = new KeyStorage<string>({
 const NamespaceContext = createContext<NamespaceContextType | undefined>(undefined);
 
 export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
-    const [namespace, setNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
+    const [currentNamespace, setCurrentNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
 
     const reset = useCallback(() => {
-        setNamespace(SYSTEM_NAMESPACE);
-    }, [setNamespace]);
+        setCurrentNamespace(SYSTEM_NAMESPACE);
+    }, [setCurrentNamespace]);
 
     const isSystem = useCallback((namespace: string): boolean => {
         return SYSTEM_NAMESPACES.has(namespace);
     }, []);
 
     const value: NamespaceContextType = {
-        currentNamespace: namespace,
-        setCurrent: setNamespace,
+        currentNamespace: currentNamespace,
+        setCurrent: setCurrentNamespace,
         isSystem,
         reset,
     };
