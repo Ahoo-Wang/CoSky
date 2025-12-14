@@ -43,6 +43,10 @@ export function toTopology(topology: Record<string, string[]>): Topology {
 
 }
 
+const LAYOUT_CENTER_X = 400;
+const LAYOUT_CENTER_Y = 300;
+const LAYOUT_RADIUS = 200;
+
 export function toReactFlowTopology(topology: Record<string, string[]>): ReactFlowTopology {
     const nodeMap = new Map<string, number>();
     const nodes: Node[] = [];
@@ -62,7 +66,6 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
     let index = 0;
     nodeMap.forEach((_, nodeName) => {
         const angle = (index / nodeMap.size) * 2 * Math.PI;
-        const radius = 200;
         nodes.push({
             id: nodeName,
             type: 'default',
@@ -70,8 +73,8 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
                 label: nodeName,
             },
             position: {
-                x: 400 + radius * Math.cos(angle),
-                y: 300 + radius * Math.sin(angle),
+                x: LAYOUT_CENTER_X + LAYOUT_RADIUS * Math.cos(angle),
+                y: LAYOUT_CENTER_Y + LAYOUT_RADIUS * Math.sin(angle),
             },
         });
         index++;
