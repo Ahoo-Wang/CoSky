@@ -1,7 +1,9 @@
-import {AuthenticateApiClient, NamespaceApiClient, UserApiClient} from "../generated";
+import {AuditLogApiClient, AuthenticateApiClient, NamespaceApiClient, UserApiClient} from "../generated";
 
 export const authenticateApiClient = new AuthenticateApiClient();
 
 export const userApiClient = new UserApiClient();
 
 export const namespaceApiClient = new NamespaceApiClient();
+
+export const auditLogApiClient = new AuditLogApiClient();
