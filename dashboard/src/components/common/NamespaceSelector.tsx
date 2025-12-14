@@ -11,33 +11,14 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Select } from 'antd';
 import { useNamespace } from '../../contexts/NamespaceContext';
-import { NamespaceApiClient } from '../../generated';
-
-const namespaceApiClient = new NamespaceApiClient();
+import {useLoadNamespaces} from "../../hooks/useLoadNamespaces.ts";
 
 export const NamespaceSelector: React.FC = () => {
   const { currentNamespace, setCurrent } = useNamespace();
-  const [namespaces, setNamespaces] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    loadNamespaces();
-  }, []);
-
-  const loadNamespaces = async () => {
-    setLoading(true);
-    try {
-      const result = await namespaceApiClient.getNamespaces();
-      setNamespaces(result || []);
-    } catch (error) {
-      console.error('Failed to load namespaces:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { namespaces,loading } = useLoadNamespaces();
 
   const handleChange = (value: string) => {
     setCurrent(value);
