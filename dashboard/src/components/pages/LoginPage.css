@@ -27,11 +27,11 @@
     transition: all 0.3s ease;
 }
 
-.login-submit-button:hover:not(:disabled) {
+.login-submit-button.ant-btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
-.login-submit-button:active:not(:disabled) {
+.login-submit-button.ant-btn:active:not(:disabled) {
     transform: translateY(0);
 }
