@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, Row, Col, Statistic } from 'antd';
 import { 
   PartitionOutlined, 
@@ -20,31 +20,25 @@ import {
   ClusterOutlined 
 } from '@ant-design/icons';
 import { useNamespace } from '../../contexts/NamespaceContext';
-import { StatApiClient } from '../../generated';
+import { StatApiClient, GetStatResponse } from '../../generated';
+import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const statApiClient = new StatApiClient();
 
 export const DashboardPage: React.FC = () => {
   const { currentNamespace } = useNamespace();
-  const [stat, setStat] = useState({
+  const { result: stat = {
     namespaces: 0,
     configs: 0,
     services: { total: 0, health: 0 },
     instances: 0,
+  } } = useQuery<string, GetStatResponse>({
+    initialQuery: currentNamespace,
+    autoExecute: true,
+    execute: (namespace, _, abortController) => {
+      return statApiClient.getStat(namespace, { abortController });
+    },
   });
-
-  useEffect(() => {
-    loadStat();
-  }, [currentNamespace]);
-
-  const loadStat = async () => {
-    try {
-      const result = await statApiClient.getStat(currentNamespace);
-      setStat(result);
-    } catch (error) {
-      console.error('Failed to load statistics:', error);
-    }
-  };
 
   return (
     <div>

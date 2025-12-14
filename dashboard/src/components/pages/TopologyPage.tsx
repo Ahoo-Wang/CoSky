@@ -11,19 +11,27 @@
  * limitations under the License.
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Spin } from 'antd';
 import * as echarts from 'echarts';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { ServiceApiClient } from '../../generated';
+import { useQuery } from '@ahoo-wang/fetcher-react';
 
 const serviceApiClient = new ServiceApiClient();
 
 export const TopologyPage: React.FC = () => {
   const { currentNamespace } = useNamespace();
-  const [loading, setLoading] = useState(false);
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstance = useRef<echarts.ECharts | null>(null);
+
+  const { result: services = [], loading } = useQuery<string, string[]>({
+    initialQuery: currentNamespace,
+    autoExecute: true,
+    execute: (namespace, _, abortController) => {
+      return serviceApiClient.getServices(namespace, { abortController });
+    },
+  });
 
   useEffect(() => {
     if (chartRef.current) {
@@ -35,22 +43,9 @@ export const TopologyPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    loadTopology();
-  }, [currentNamespace]);
-
-  const loadTopology = async () => {
-    setLoading(true);
-    try {
-      // Get all services and their instances to build topology
-      const services = await serviceApiClient.getServices(currentNamespace);
-      const topology = { nodes: services.map((s: string) => ({ serviceId: s })), edges: [] };
-      renderChart(topology);
-    } catch (error) {
-      console.error('Failed to load topology:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const topology = { nodes: services.map((s: string) => ({ serviceId: s })), edges: [] };
+    renderChart(topology);
+  }, [services]);
 
   const renderChart = (topology: any) => {
     if (!chartInstance.current || !topology) return;
