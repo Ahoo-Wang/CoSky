@@ -11,25 +11,30 @@
  * limitations under the License.
  */
 
-import React, {useEffect} from 'react';
+import React from 'react';
 import {Table} from 'antd';
 import {QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
+import {useQuery} from "@ahoo-wang/fetcher-react";
 import {auditLogApiClient} from "../../client/clients.ts";
 
+type Paging = {
+    pageIndex: number;
+    pageSize: number;
+};
 
 export const AuditLogPage: React.FC = () => {
-    const {result, loading, execute} = useExecutePromise<QueryLogResponse>()
-    const load = (pageIndex: number = 1, pageSize: number = 10) => {
-        const offset = (pageIndex - 1) * pageSize;
-        execute((abortController) => {
-            return auditLogApiClient.queryLog(offset, pageSize, {abortController});
-        })
-    }
-    useEffect(() => {
-        load();
-    }, []);
+    const {result, loading, setQuery} = useQuery<Paging, QueryLogResponse>({
+        initialQuery: {
+            pageIndex: 1,
+            pageSize: 10,
+        },
+        autoExecute: true,
+        execute: (query, _, abortController) => {
+            return auditLogApiClient.queryLog(query.pageIndex, query.pageSize, {abortController});
+        },
+    })
+
     const columns = [
         {
             title: 'Timestamp',
@@ -77,7 +82,9 @@ export const AuditLogPage: React.FC = () => {
                 pagination={{
                     total: result?.total,
                     showTotal: (total) => `Total ${total} items`,
-                    onChange: load
+                    onChange: (pageIndex, pageSize) => {
+                        setQuery({pageIndex, pageSize});
+                    }
                 }}
                 loading={loading}
             />
