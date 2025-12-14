@@ -22,8 +22,6 @@
     "@xyflow/react": "^12.10.0",
     "antd": "^6.1.0",
     "dayjs": "^1.11.19",
-    "echarts": "^6.0.0",
-    "echarts-for-react": "^3.0.5",
     "file-saver": "^2.0.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
