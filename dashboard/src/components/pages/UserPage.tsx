@@ -12,10 +12,12 @@
  */
 
 import React, { useState } from 'react';
-import { Table, Button, Space, Modal, Form, Input, Select, message, Popconfirm } from 'antd';
+import { Table, Button, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { UserApiClient, RoleApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
+import { useDrawer } from '../../contexts/DrawerContext';
+import { UserForm } from '../forms/UserForm';
 
 const userApiClient = new UserApiClient();
 const roleApiClient = new RoleApiClient();
@@ -38,10 +40,9 @@ export const UserPage: React.FC = () => {
     },
   });
 
-  const [modalVisible, setModalVisible] = useState(false);
   const [isEdit, setIsEdit] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [form] = Form.useForm();
+  const { openDrawer, closeDrawer } = useDrawer();
 
   const loadUsers = () => {
     refreshUsers({ refresh: Date.now() });
@@ -50,18 +51,40 @@ export const UserPage: React.FC = () => {
   const handleAdd = () => {
     setIsEdit(false);
     setCurrentUser(null);
-    form.resetFields();
-    setModalVisible(true);
+    openDrawer(
+      <UserForm
+        isEdit={false}
+        initialValues={null}
+        roles={roles}
+        onSubmit={handleSubmit}
+        onCancel={closeDrawer}
+      />,
+      {
+        title: 'Add User',
+        width: 500,
+      }
+    );
   };
 
   const handleEdit = (user: any) => {
     setIsEdit(true);
     setCurrentUser(user);
-    form.setFieldsValue(user);
-    setModalVisible(true);
+    openDrawer(
+      <UserForm
+        isEdit={true}
+        initialValues={user}
+        roles={roles}
+        onSubmit={handleSubmit}
+        onCancel={closeDrawer}
+      />,
+      {
+        title: 'Edit User',
+        width: 500,
+      }
+    );
   };
 
-  const handleSave = async (values: any) => {
+  const handleSubmit = async (values: any) => {
     try {
       if (isEdit) {
         await userApiClient.bindRole(currentUser.username, { body: values });
@@ -70,8 +93,7 @@ export const UserPage: React.FC = () => {
         await userApiClient.addUser(values.username, { body: values });
         message.success('User created successfully');
       }
-      setModalVisible(false);
-      form.resetFields();
+      closeDrawer();
       loadUsers();
     } catch (error) {
       console.error('Failed to save user:', error);
@@ -138,44 +160,6 @@ export const UserPage: React.FC = () => {
         dataSource={users.map((u: any) => ({ ...u, key: u.username }))}
         loading={loading}
       />
-
-      <Modal
-        title={isEdit ? 'Edit User' : 'Add User'}
-        open={modalVisible}
-        onCancel={() => {
-          setModalVisible(false);
-          form.resetFields();
-        }}
-        onOk={() => form.submit()}
-      >
-        <Form form={form} layout="vertical" onFinish={handleSave}>
-          <Form.Item
-            name="username"
-            label="Username"
-            rules={[{ required: true, message: 'Please input username!' }]}
-          >
-            <Input disabled={isEdit} />
-          </Form.Item>
-          {!isEdit && (
-            <Form.Item
-              name="password"
-              label="Password"
-              rules={[{ required: true, message: 'Please input password!' }]}
-            >
-              <Input.Password />
-            </Form.Item>
-          )}
-          <Form.Item name="roles" label="Roles">
-            <Select mode="multiple" placeholder="Select roles">
-              {roles.map((role: any) => (
-                <Select.Option key={role.roleId} value={role.roleId}>
-                  {role.roleId}
-                </Select.Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

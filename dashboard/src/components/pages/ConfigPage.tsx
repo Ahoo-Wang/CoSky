@@ -14,11 +14,14 @@
 import React, { useState } from 'react';
 import { Table, Button, Input, Space, Modal, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, ExportOutlined, ImportOutlined, HistoryOutlined } from '@ant-design/icons';
-import Editor from '@monaco-editor/react';
 import { saveAs } from 'file-saver';
 import { useNamespace } from '../../contexts/NamespaceContext';
 import { ConfigApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
+import { useDrawer } from '../../contexts/DrawerContext';
+import { ConfigEditForm } from '../forms/ConfigEditForm';
+import { ConfigImportForm } from '../forms/ConfigImportForm';
+import { ConfigVersionsView } from '../forms/ConfigVersionsView';
 
 const configApiClient = new ConfigApiClient();
 
@@ -30,14 +33,9 @@ export const ConfigPage: React.FC = () => {
       return configApiClient.getConfigs(namespace, { abortController });
     },
   });
-  const [editVisible, setEditVisible] = useState(false);
-  const [importVisible, setImportVisible] = useState(false);
-  const [versionVisible, setVersionVisible] = useState(false);
   const [currentConfig, setCurrentConfig] = useState<any>(null);
-  const [configData, setConfigData] = useState('');
-  const [importData, setImportData] = useState('');
-  const [versions, setVersions] = useState<any[]>([]);
   const [searchValue, setSearchValue] = useState('');
+  const { openDrawer, closeDrawer } = useDrawer();
 
   const loadConfigs = () => {
     setQuery(currentNamespace);
@@ -48,8 +46,17 @@ export const ConfigPage: React.FC = () => {
       try {
         const config = await configApiClient.getConfig(currentNamespace, configId);
         setCurrentConfig(config);
-        setConfigData(config.data || '');
-        setEditVisible(true);
+        openDrawer(
+          <ConfigEditForm
+            config={config}
+            onSave={handleSaveConfig}
+            onCancel={closeDrawer}
+          />,
+          {
+            title: 'Edit Config',
+            width: 800,
+          }
+        );
       } catch (error) {
         console.error('Failed to load config:', error);
       }
@@ -68,24 +75,33 @@ export const ConfigPage: React.FC = () => {
           const input = document.getElementById('newConfigId') as HTMLInputElement;
           const configId = input?.value;
           if (configId) {
-            setCurrentConfig({ configId, data: '' });
-            setConfigData('');
-            setEditVisible(true);
+            const newConfig = { configId, data: '' };
+            setCurrentConfig(newConfig);
+            openDrawer(
+              <ConfigEditForm
+                config={newConfig}
+                onSave={handleSaveConfig}
+                onCancel={closeDrawer}
+              />,
+              {
+                title: 'Add Config',
+                width: 800,
+              }
+            );
           }
         },
       });
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveConfig = async (configData: string) => {
     try {
       if (currentConfig) {
         await configApiClient.setConfig(currentNamespace, currentConfig.configId, { body: configData });
         message.success('Config saved successfully');
-        setEditVisible(false);
+        closeDrawer();
         loadConfigs();
       } else {
-        // For new config, require configId to be set before opening editor
         message.error('Config ID is required');
       }
     } catch (error) {
@@ -117,15 +133,27 @@ export const ConfigPage: React.FC = () => {
     }
   };
 
-  const handleImport = async () => {
+  const handleImportClick = () => {
+    openDrawer(
+      <ConfigImportForm
+        onImport={handleImportConfigs}
+        onCancel={closeDrawer}
+      />,
+      {
+        title: 'Import Configs',
+        width: 800,
+      }
+    );
+  };
+
+  const handleImportConfigs = async (importData: string) => {
     try {
       const formData = new FormData();
       const blob = new Blob([importData], { type: 'application/zip' });
       formData.append('file', blob);
       await configApiClient.importZip(currentNamespace, { body: formData });
       message.success('Configs imported successfully');
-      setImportVisible(false);
-      setImportData('');
+      closeDrawer();
       loadConfigs();
     } catch (error) {
       console.error('Failed to import configs:', error);
@@ -136,9 +164,17 @@ export const ConfigPage: React.FC = () => {
   const handleViewVersions = async (configId: string) => {
     try {
       const result = await configApiClient.getConfigVersions(currentNamespace, configId);
-      setVersions(result || []);
-      setCurrentConfig({ configId });
-      setVersionVisible(true);
+      openDrawer(
+        <ConfigVersionsView
+          configId={configId}
+          versions={result || []}
+          onClose={closeDrawer}
+        />,
+        {
+          title: 'Config Versions',
+          width: 800,
+        }
+      );
     } catch (error) {
       console.error('Failed to load versions:', error);
       message.error('Failed to load versions');
@@ -196,7 +232,7 @@ export const ConfigPage: React.FC = () => {
           <Button type="primary" icon={<PlusOutlined />} onClick={() => handleEdit()}>
             Add
           </Button>
-          <Button danger icon={<ImportOutlined />} onClick={() => setImportVisible(true)}>
+          <Button danger icon={<ImportOutlined />} onClick={handleImportClick}>
             Import
           </Button>
           <Button danger icon={<ExportOutlined />} onClick={handleExport}>
@@ -205,58 +241,6 @@ export const ConfigPage: React.FC = () => {
         </Space>
       </div>
       <Table columns={columns} dataSource={filteredConfigs} loading={loading} />
-
-      <Modal
-        title={currentConfig ? `Edit Config: ${currentConfig.configId}` : 'Add Config'}
-        open={editVisible}
-        onCancel={() => setEditVisible(false)}
-        onOk={handleSave}
-        width={800}
-      >
-        <Editor
-          height="400px"
-          defaultLanguage="yaml"
-          value={configData}
-          onChange={(value) => setConfigData(value || '')}
-          options={{
-            minimap: { enabled: false },
-          }}
-        />
-      </Modal>
-
-      <Modal
-        title="Import Configs"
-        open={importVisible}
-        onCancel={() => setImportVisible(false)}
-        onOk={handleImport}
-        width={800}
-      >
-        <Editor
-          height="400px"
-          defaultLanguage="json"
-          value={importData}
-          onChange={(value) => setImportData(value || '')}
-          options={{
-            minimap: { enabled: false },
-          }}
-        />
-      </Modal>
-
-      <Modal
-        title={`Config Versions: ${currentConfig?.configId}`}
-        open={versionVisible}
-        onCancel={() => setVersionVisible(false)}
-        footer={null}
-        width={800}
-      >
-        <Table
-          dataSource={versions.map((v: any, i: number) => ({ ...v, key: i }))}
-          columns={[
-            { title: 'Version', dataIndex: 'version', key: 'version' },
-            { title: 'Create Time', dataIndex: 'createTime', key: 'createTime' },
-          ]}
-        />
-      </Modal>
     </div>
   );
 };
