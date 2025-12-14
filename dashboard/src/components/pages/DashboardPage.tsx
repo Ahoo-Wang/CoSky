@@ -34,7 +34,6 @@ export const DashboardPage: React.FC = () => {
     instances: 0,
   } } = useQuery<string, GetStatResponse>({
     initialQuery: currentNamespace,
-    autoExecute: true,
     execute: (namespace, _, abortController) => {
       return statApiClient.getStat(namespace, { abortController });
     },

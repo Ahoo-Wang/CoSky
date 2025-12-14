@@ -25,7 +25,6 @@ type QueryData = { refresh: number };
 export const UserPage: React.FC = () => {
   const { result: users = [], loading, setQuery: refreshUsers } = useQuery<QueryData, any[]>({
     initialQuery: { refresh: 0 },
-    autoExecute: true,
     execute: (_, __, abortController) => {
       return userApiClient.query({ abortController });
     },

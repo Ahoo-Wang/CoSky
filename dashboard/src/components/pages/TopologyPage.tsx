@@ -27,7 +27,6 @@ export const TopologyPage: React.FC = () => {
 
   const { result: services = [], loading } = useQuery<string, string[]>({
     initialQuery: currentNamespace,
-    autoExecute: true,
     execute: (namespace, _, abortController) => {
       return serviceApiClient.getServices(namespace, { abortController });
     },
