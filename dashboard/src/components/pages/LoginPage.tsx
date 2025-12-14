@@ -11,20 +11,21 @@
  * limitations under the License.
  */
 
-import React, {useEffect, useState} from 'react';
-import {Form, Input, Button, Card, Typography, Checkbox, message} from 'antd';
+import React, {useEffect} from 'react';
+import {Form, Input, Button, Card, Typography, message} from 'antd';
 import {UserOutlined, LockOutlined, CloudOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiClient} from "../../client/clients.ts";
-import {useSecurityContext} from "@ahoo-wang/fetcher-react";
+import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
 import './LoginPage.css';
+import {CompositeToken, ErrorResponse} from "../../generated";
+import {ExchangeError} from "@ahoo-wang/fetcher";
 
 const {Title, Text} = Typography;
 
 interface LoginFormValues {
     username: string;
     password: string;
-    remember?: boolean;
 }
 
 const ICON_COLOR = '#999';
@@ -33,8 +34,15 @@ export const LoginPage: React.FC = () => {
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const [form] = Form.useForm();
-    const [loading, setLoading] = useState(false);
-
+    const {loading, execute} = useExecutePromise<CompositeToken, ExchangeError>({
+        onSuccess: (result) => {
+            signIn(result)
+        }, onError: async (error: ExchangeError) => {
+            const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
+            message.error(`Login failed. ${errorResponse.msg}
+            `);
+        }
+    })
     useEffect(() => {
         if (authenticated) {
             navigate('/home');
@@ -42,22 +50,14 @@ export const LoginPage: React.FC = () => {
     }, [authenticated, navigate]);
 
     const handleSubmit = async (values: LoginFormValues) => {
-        setLoading(true);
-        try {
-            await signIn(() => {
-                return authenticateApiClient.login(values.username, {
-                    body: {
-                        password: values.password
-                    }
-                })
-            });
-            message.success('Login successful!');
-        } catch (error) {
-            console.error('Login failed:', error);
-            message.error('Login failed. Please check your credentials and try again.');
-        } finally {
-            setLoading(false);
-        }
+        execute((abortController) => {
+            return authenticateApiClient.login(values.username, {
+                abortController,
+                body: {
+                    password: values.password
+                }
+            })
+        })
     };
 
     return (
@@ -69,7 +69,7 @@ export const LoginPage: React.FC = () => {
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             padding: '20px',
         }}>
-            <Card 
+            <Card
                 style={{
                     width: '100%',
                     maxWidth: 420,
@@ -79,8 +79,10 @@ export const LoginPage: React.FC = () => {
                     overflow: 'hidden',
                     animation: 'fadeInUp 0.6s ease-out',
                 }}
-                bodyStyle={{
-                    padding: '48px 40px',
+                styles={{
+                    body: {
+                        padding: '48px 40px',
+                    }
                 }}
             >
                 <div style={{textAlign: 'center', marginBottom: 40}}>
@@ -95,7 +97,7 @@ export const LoginPage: React.FC = () => {
                         marginBottom: 24,
                         boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
                     }}>
-                        <CloudOutlined style={{fontSize: 40, color: '#fff'}} />
+                        <CloudOutlined style={{fontSize: 40, color: '#fff'}}/>
                     </div>
                     <Title level={2} style={{marginBottom: 8, fontWeight: 600}}>
                         Welcome to CoSky
@@ -116,7 +118,7 @@ export const LoginPage: React.FC = () => {
                         rules={[{required: true, message: 'Please input your username!'}]}
                     >
                         <Input
-                            prefix={<UserOutlined style={{color: ICON_COLOR}} />}
+                            prefix={<UserOutlined style={{color: ICON_COLOR}}/>}
                             placeholder="Username"
                             style={{
                                 borderRadius: 8,
@@ -130,7 +132,7 @@ export const LoginPage: React.FC = () => {
                         rules={[{required: true, message: 'Please input your password!'}]}
                     >
                         <Input.Password
-                            prefix={<LockOutlined style={{color: ICON_COLOR}} />}
+                            prefix={<LockOutlined style={{color: ICON_COLOR}}/>}
                             placeholder="Password"
                             style={{
                                 borderRadius: 8,
@@ -139,16 +141,10 @@ export const LoginPage: React.FC = () => {
                         />
                     </Form.Item>
 
-                    <Form.Item>
-                        <Form.Item name="remember" valuePropName="checked" noStyle>
-                            <Checkbox>Remember me</Checkbox>
-                        </Form.Item>
-                    </Form.Item>
-
                     <Form.Item style={{marginBottom: 0}}>
-                        <Button 
-                            type="primary" 
-                            htmlType="submit" 
+                        <Button
+                            type="primary"
+                            htmlType="submit"
                             block
                             loading={loading}
                             className="login-submit-button"
