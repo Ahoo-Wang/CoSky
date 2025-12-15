@@ -11,19 +11,18 @@
  * limitations under the License.
  */
 
-import React from 'react';
 import {Table} from 'antd';
 import {QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
 import {useQuery} from "@ahoo-wang/fetcher-react";
-import {auditLogApiClient} from "../../client/clients.ts";
+import {auditLogApiClient} from "../../services/clients.ts";
 
 type Paging = {
     pageIndex: number;
     pageSize: number;
 };
 
-export const AuditLogPage: React.FC = () => {
+export function AuditLogPage() {
     const {result, loading, setQuery} = useQuery<Paging, QueryLogResponse>({
         initialQuery: {
             pageIndex: 1,
@@ -89,4 +88,4 @@ export const AuditLogPage: React.FC = () => {
             />
         </div>
     );
-};
+}

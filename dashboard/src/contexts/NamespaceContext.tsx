@@ -14,7 +14,7 @@
 import React, {createContext, useContext, useCallback} from 'react';
 import {KeyStorage, typedIdentitySerializer} from "@ahoo-wang/fetcher-storage";
 import {useKeyStorage} from "@ahoo-wang/fetcher-react";
-import {SYSTEM_NAMESPACE} from "./namespaces.ts";
+import {SYSTEM_NAMESPACE} from "../pages/namespace/namespaces.ts";
 
 const NAMESPACE_KEY = 'cosky:ns:current';
 

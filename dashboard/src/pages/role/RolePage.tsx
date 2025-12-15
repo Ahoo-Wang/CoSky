@@ -14,127 +14,117 @@
 import React, { useState } from 'react';
 import { Table, Button, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { UserApiClient, RoleApiClient } from '../../generated';
+import { RoleApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
-import { useDrawer } from '../../contexts/DrawerContext';
-import { UserForm } from '../forms/UserForm';
+import { useDrawer } from '../../contexts/DrawerContext.tsx';
+import { RoleForm } from './RoleForm.tsx';
 
-const userApiClient = new UserApiClient();
 const roleApiClient = new RoleApiClient();
 
 type QueryData = { refresh: number };
 
-export const UserPage: React.FC = () => {
-  const { result: users = [], loading, setQuery: refreshUsers } = useQuery<QueryData, any[]>({
+export const RolePage: React.FC = () => {
+  const { result: roles = [], loading, setQuery: refreshRoles } = useQuery<QueryData, any[]>({
     initialQuery: { refresh: 0 },
-    execute: (_, __, abortController) => {
-      return userApiClient.query({ abortController });
-    },
-  });
-
-  const { result: roles = [] } = useQuery<QueryData, any[]>({
-    initialQuery: { refresh: 0 },
-    autoExecute: true,
     execute: (_, __, abortController) => {
       return roleApiClient.allRole({ abortController });
     },
   });
 
   const [isEdit, setIsEdit] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentRole, setCurrentRole] = useState<any>(null);
   const { openDrawer, closeDrawer } = useDrawer();
 
-  const loadUsers = () => {
-    refreshUsers({ refresh: Date.now() });
+  const loadRoles = () => {
+    refreshRoles({ refresh: Date.now() });
   };
 
   const handleAdd = () => {
     setIsEdit(false);
-    setCurrentUser(null);
+    setCurrentRole(null);
     openDrawer(
-      <UserForm
+      <RoleForm
         isEdit={false}
         initialValues={null}
-        roles={roles}
         onSubmit={handleSubmit}
         onCancel={closeDrawer}
       />,
       {
-        title: 'Add User',
+        title: 'Add Role',
         width: 500,
       }
     );
   };
 
-  const handleEdit = (user: any) => {
-    setIsEdit(true);
-    setCurrentUser(user);
-    openDrawer(
-      <UserForm
-        isEdit={true}
-        initialValues={user}
-        roles={roles}
-        onSubmit={handleSubmit}
-        onCancel={closeDrawer}
-      />,
-      {
-        title: 'Edit User',
-        width: 500,
-      }
-    );
+  const handleEdit = async (roleName: string) => {
+    try {
+      const bind = await roleApiClient.getResourceBind(roleName);
+      setIsEdit(true);
+      const roleData = { roleId: roleName, desc: '', resourceActionBind: bind };
+      setCurrentRole({ roleId: roleName, resourceActionBind: bind });
+      openDrawer(
+        <RoleForm
+          isEdit={true}
+          initialValues={roleData}
+          onSubmit={handleSubmit}
+          onCancel={closeDrawer}
+        />,
+        {
+          title: 'Edit Role',
+          width: 500,
+        }
+      );
+    } catch (error) {
+      console.error('Failed to load role:', error);
+    }
   };
 
   const handleSubmit = async (values: any) => {
     try {
-      if (isEdit) {
-        await userApiClient.bindRole(currentUser.username, { body: values });
-        message.success('User updated successfully');
-      } else {
-        await userApiClient.addUser(values.username, { body: values });
-        message.success('User created successfully');
-      }
+      const roleId = isEdit ? currentRole.roleId : values.roleId;
+      await roleApiClient.saveRole(roleId, { body: values });
+      message.success('Role saved successfully');
       closeDrawer();
-      loadUsers();
+      loadRoles();
     } catch (error) {
-      console.error('Failed to save user:', error);
-      message.error('Failed to save user');
+      console.error('Failed to save role:', error);
+      message.error('Failed to save role');
     }
   };
 
-  const handleDelete = async (username: string) => {
+  const handleDelete = async (roleId: string) => {
     try {
-      await userApiClient.removeUser(username);
-      message.success('User deleted successfully');
-      loadUsers();
+      await roleApiClient.removeRole(roleId);
+      message.success('Role deleted successfully');
+      loadRoles();
     } catch (error) {
-      console.error('Failed to delete user:', error);
-      message.error('Failed to delete user');
+      console.error('Failed to delete role:', error);
+      message.error('Failed to delete role');
     }
   };
 
   const columns = [
     {
-      title: 'Username',
-      dataIndex: 'username',
-      key: 'username',
+      title: 'Role Name',
+      dataIndex: 'name',
+      key: 'name',
     },
     {
-      title: 'Roles',
-      dataIndex: 'roles',
-      key: 'roles',
-      render: (roles: string[]) => roles?.join(', ') || '-',
+      title: 'Description',
+      dataIndex: 'desc',
+      key: 'desc',
     },
     {
       title: 'Action',
       key: 'action',
       render: (_: any, record: any) => (
         <Space>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record.name)}>
             Edit
           </Button>
           <Popconfirm
-            title="Are you sure to delete this user?"
-            onConfirm={() => handleDelete(record.username)}
+            title="Are you sure to delete this role?"
+            onConfirm={() => handleDelete(record.name)}
             okText="Yes"
             cancelText="No"
           >
@@ -150,14 +140,14 @@ export const UserPage: React.FC = () => {
   return (
     <div>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2>User</h2>
+        <h2>Role</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Add User
+          Add Role
         </Button>
       </div>
       <Table
         columns={columns}
-        dataSource={users.map((u: any) => ({ ...u, key: u.username }))}
+        dataSource={roles.map((r: any) => ({ ...r, key: r.name }))}
         loading={loading}
       />
     </div>
