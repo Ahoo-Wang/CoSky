@@ -22,6 +22,7 @@ import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {statApiClient} from "../../services/clients.ts";
+import {Topology} from "../../components/topology/Topology.tsx";
 
 export function DashboardPage() {
     const {currentNamespace} = useNamespaceContext();
@@ -98,6 +99,16 @@ export function DashboardPage() {
                                 }
                             }}
                         />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={24} lg={24}>
+                    <Card title={'Service Topology'} styles={{
+                        body:{
+                            width: '100%',
+                            height: '70vh',
+                        }
+                    }}>
+                        <Topology/>
                     </Card>
                 </Col>
             </Row>

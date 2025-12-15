@@ -11,45 +11,16 @@
  * limitations under the License.
  */
 
-import {useMemo} from 'react';
-import {Spin} from 'antd';
-import {ReactFlow, Background, Controls, MiniMap} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
-import {useQuery} from '@ahoo-wang/fetcher-react';
-import {statApiClient} from "../../services/clients.ts";
-import {toReactFlowTopology} from "./topologies.ts";
+
+import {Topology} from "../../components/topology/Topology.tsx";
 
 export function TopologyPage() {
-    const {currentNamespace} = useNamespaceContext();
-    const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
-        query: currentNamespace,
-        execute: (namespace, _, abortController) => {
-            return statApiClient.getTopology(namespace, {abortController});
-        },
-    });
-
-    const {nodes, edges} = useMemo(() => {
-        return toReactFlowTopology(result);
-    }, [result]);
-
     return (
-        <Spin spinning={loading}>
-            <div>
-                <h2 style={{marginBottom: 24}}>Topology</h2>
-                <div style={{width: '100%', height: '80vh', flex: 1}}>
-                    <ReactFlow
-                        nodes={nodes}
-                        edges={edges}
-                        fitView
-                        attributionPosition="bottom-left"
-                    >
-                        <Background/>
-                        <Controls/>
-                        <MiniMap/>
-                    </ReactFlow>
-                </div>
+        <div>
+            <h2 style={{marginBottom: 24}}>Topology</h2>
+            <div style={{width: '100%', height: '80vh'}}>
+                <Topology/>
             </div>
-        </Spin>
+        </div>
     );
-};
+}
