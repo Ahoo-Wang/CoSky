@@ -36,9 +36,9 @@ export const TopologyPage: React.FC = () => {
 
     return (
         <Spin spinning={loading}>
-            <div>
+            <div style={{display: 'flex', flexDirection: 'column', height: '100%'}}>
                 <h2 style={{marginBottom: 24}}>Topology</h2>
-                <div style={{width: '100%', height: 600}}>
+                <div style={{width: '100%', height: '100%', flex: 1}}>
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
