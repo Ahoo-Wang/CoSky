@@ -23,7 +23,7 @@ import {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {statApiClient} from "../../services/clients.ts";
 
-export function DashboardPage()  {
+export function DashboardPage() {
     const {currentNamespace} = useNamespaceContext();
     const {
         result: stat = {
@@ -60,6 +60,20 @@ export function DashboardPage()  {
                 <Col xs={24} sm={12} lg={6}>
                     <Card>
                         <Statistic
+                            title="Instance Count"
+                            value={stat.instances}
+                            prefix={<ClusterOutlined/>}
+                            styles={{
+                                content: {
+                                    color: '#722ed1'
+                                }
+                            }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
                             title="Config Count"
                             value={stat.configs}
                             prefix={<FileOutlined/>}
@@ -75,7 +89,8 @@ export function DashboardPage()  {
                     <Card>
                         <Statistic
                             title="Service Count"
-                            value={stat.services.total}
+                            value={stat.services.health}
+                            suffix={`/ ${stat.services.total}`}
                             prefix={<CloudServerOutlined/>}
                             styles={{
                                 content: {
@@ -85,21 +100,7 @@ export function DashboardPage()  {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
-                    <Card>
-                        <Statistic
-                            title="Instance Count"
-                            value={stat.instances}
-                            prefix={<ClusterOutlined/>}
-                            styles={{
-                                content: {
-                                    color: '#722ed1'
-                                }
-                            }}
-                        />
-                    </Card>
-                </Col>
             </Row>
         </div>
     );
-};
+}
