@@ -66,15 +66,15 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
         });
     });
     
-    // Create edges
+    // Create edges with visual configuration for hierarchical layout
     Object.keys(topology).forEach(nodeName => {
         topology[nodeName].forEach(targetName => {
             edges.push({
                 id: `${nodeName}-${targetName}`,
                 source: nodeName,
                 target: targetName,
-                animated: true,
-                type: 'smoothstep',
+                animated: true,    // Animated edges show data flow direction
+                type: 'smoothstep', // Smoothstep edges create clean 90-degree turns suitable for hierarchical layouts
             });
         });
     });
