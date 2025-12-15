@@ -11,7 +11,6 @@
  * limitations under the License.
  */
 
-import React from 'react';
 import {Table, Button, Space, message, Popconfirm, Select} from 'antd';
 import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
 import {useQuery} from '@ahoo-wang/fetcher-react';
@@ -20,8 +19,7 @@ import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
 import {userApiClient} from "../../services/clients.ts";
 import {CoSecPrincipal} from "../../generated";
-
-export const UserPage: React.FC = () => {
+export function UserPage() {
     const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => {

@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {useEffect} from 'react';
+import {useEffect} from 'react';
 import {Form, Input, Button, Space, Divider, message} from 'antd';
 import {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
@@ -31,7 +31,8 @@ export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
 }
 
 export const EMPTY_ARRAY = []
-export const RoleEditor: React.FC<RoleEditorProps> = ({initialValues, onSubmit, onCancel}) => {
+
+export function RoleEditor({initialValues, onSubmit, onCancel}: RoleEditorProps) {
     const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
         execute: (query, attributes, abortController) => {

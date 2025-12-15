@@ -11,18 +11,16 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {Table, Button, Input, Space, message, Popconfirm} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined} from '@ant-design/icons';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
-import {ServiceApiClient} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
-import {ServiceInstanceForm} from './ServiceInstanceForm.tsx';
+import {ServiceInstanceEditor} from './ServiceInstanceEditor.tsx';
+import {serviceApiClient} from "../../services/clients.ts";
 
-const serviceApiClient = new ServiceApiClient();
-
-export const ServicePage: React.FC = () => {
+export function ServicePage() {
     const {currentNamespace} = useNamespaceContext();
     const {result: services = [], loading, setQuery} = useQuery<string, any[]>({
         query: currentNamespace,
@@ -76,7 +74,7 @@ export const ServicePage: React.FC = () => {
     const handleAddInstance = (serviceId: string) => {
         setCurrentServiceId(serviceId);
         openDrawer(
-            <ServiceInstanceForm
+            <ServiceInstanceEditor
                 serviceId={serviceId}
                 onSubmit={handleSubmitInstance}
                 onCancel={closeDrawer}

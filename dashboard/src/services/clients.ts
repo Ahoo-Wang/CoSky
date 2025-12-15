@@ -3,6 +3,7 @@ import {
     AuthenticateApiClient,
     NamespaceApiClient,
     RoleApiClient,
+    ServiceApiClient,
     StatApiClient,
     UserApiClient
 } from "../generated";
@@ -15,6 +16,8 @@ export const namespaceApiClient = new NamespaceApiClient();
 
 export const auditLogApiClient = new AuditLogApiClient();
 
-export const stateApiClient = new StatApiClient();
+export const statApiClient = new StatApiClient();
 
 export const roleApiClient = new RoleApiClient();
+
+export const serviceApiClient = new ServiceApiClient();

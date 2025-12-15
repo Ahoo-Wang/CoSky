@@ -11,7 +11,6 @@
  * limitations under the License.
  */
 
-import React from 'react';
 import {Card, Row, Col, Statistic} from 'antd';
 import {
     PartitionOutlined,
@@ -20,12 +19,11 @@ import {
     ClusterOutlined
 } from '@ant-design/icons';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
-import {StatApiClient, GetStatResponse} from '../../generated';
+import {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
+import {statApiClient} from "../../services/clients.ts";
 
-const statApiClient = new StatApiClient();
-
-export const DashboardPage: React.FC = () => {
+export function DashboardPage()  {
     const {currentNamespace} = useNamespaceContext();
     const {
         result: stat = {

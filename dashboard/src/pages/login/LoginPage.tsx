@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {useEffect} from 'react';
+import {useEffect} from 'react';
 import {Form, Input, Button, Card, Typography, message} from 'antd';
 import {UserOutlined, LockOutlined, CloudOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
@@ -30,7 +30,7 @@ interface LoginFormValues {
 
 const ICON_COLOR = '#999';
 
-export const LoginPage: React.FC = () => {
+export function LoginPage() {
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const [form] = Form.useForm();

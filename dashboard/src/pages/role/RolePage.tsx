@@ -11,7 +11,6 @@
  * limitations under the License.
  */
 
-import React from 'react';
 import {Table, Button, Space, message, Popconfirm} from 'antd';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
 import {RoleDto} from '../../generated';
@@ -20,8 +19,7 @@ import {RoleEditor} from './RoleEditor.tsx';
 import {roleApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
 
-
-export const RolePage: React.FC = () => {
+export function RolePage() {
     const {roles = [], loading, load} = useRoles()
     const {openDrawer, closeDrawer} = useDrawer();
 

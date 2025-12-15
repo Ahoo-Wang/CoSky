@@ -11,18 +11,15 @@
  * limitations under the License.
  */
 
-import React from 'react';
 import {Table, Button, message, Popconfirm} from 'antd';
 import {PlusOutlined, DeleteOutlined} from '@ant-design/icons';
-import {NamespaceApiClient} from '../../generated';
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
 import {NamespaceForm} from './NamespaceForm.tsx';
 import {isSystemNamespace} from "./namespaces.ts";
+import {namespaceApiClient} from "../../services/clients.ts";
 
-const namespaceApiClient = new NamespaceApiClient();
-
-export const NamespacePage: React.FC = () => {
+export function NamespacePage() {
     const {namespaces, loading, reload} = useNamespaces();
     const {openDrawer, closeDrawer} = useDrawer();
 
@@ -46,7 +43,6 @@ export const NamespacePage: React.FC = () => {
             closeDrawer();
             reload();
         } catch (error) {
-            console.error('Failed to add namespace:', error);
             message.error('Failed to add namespace');
         }
     };
@@ -57,7 +53,6 @@ export const NamespacePage: React.FC = () => {
             message.success('Namespace deleted successfully');
             reload();
         } catch (error) {
-            console.error('Failed to delete namespace:', error);
             message.error('Failed to delete namespace');
         }
     };
