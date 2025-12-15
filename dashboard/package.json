@@ -18,7 +18,6 @@
     "@ahoo-wang/fetcher-storage": "^3.6.2",
     "@ant-design/icons": "^6.1.0",
     "@monaco-editor/react": "^4.7.0",
-    "@types/dagre": "^0.7.53",
     "@types/file-saver": "^2.0.7",
     "@xyflow/react": "^12.10.0",
     "antd": "^6.1.0",
@@ -32,6 +31,7 @@
   "devDependencies": {
     "@ahoo-wang/fetcher-generator": "^3.6.2",
     "@eslint/js": "^9.39.2",
+    "@types/dagre": "^0.7.53",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
