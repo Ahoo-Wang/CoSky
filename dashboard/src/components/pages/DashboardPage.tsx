@@ -12,78 +12,80 @@
  */
 
 import React from 'react';
-import { Card, Row, Col, Statistic } from 'antd';
-import { 
-  PartitionOutlined, 
-  FileOutlined, 
-  CloudServerOutlined, 
-  ClusterOutlined 
+import {Card, Row, Col, Statistic} from 'antd';
+import {
+    PartitionOutlined,
+    FileOutlined,
+    CloudServerOutlined,
+    ClusterOutlined
 } from '@ant-design/icons';
-import { useNamespaceContext } from '../../contexts/NamespaceContext';
-import { StatApiClient, GetStatResponse } from '../../generated';
-import { useQuery } from '@ahoo-wang/fetcher-react';
+import {useNamespaceContext} from '../../contexts/NamespaceContext';
+import {StatApiClient, GetStatResponse} from '../../generated';
+import {useQuery} from '@ahoo-wang/fetcher-react';
 
 const statApiClient = new StatApiClient();
 
 export const DashboardPage: React.FC = () => {
-  const { currentNamespace } = useNamespaceContext();
-  const { result: stat = {
-    namespaces: 0,
-    configs: 0,
-    services: { total: 0, health: 0 },
-    instances: 0,
-  } } = useQuery<string, GetStatResponse>({
-    initialQuery: currentNamespace,
-    execute: (namespace, _, abortController) => {
-      return statApiClient.getStat(namespace, { abortController });
-    },
-  });
+    const {currentNamespace} = useNamespaceContext();
+    const {
+        result: stat = {
+            namespaces: 0,
+            configs: 0,
+            services: {total: 0, health: 0},
+            instances: 0,
+        }
+    } = useQuery<string, GetStatResponse>({
+        query: currentNamespace,
+        execute: (namespace, _, abortController) => {
+            return statApiClient.getStat(namespace, {abortController});
+        },
+    });
 
-  return (
-    <div>
-      <h2 style={{ marginBottom: 24 }}>Dashboard</h2>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Namespace Count"
-              value={stat.namespaces}
-              prefix={<PartitionOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Config Count"
-              value={stat.configs}
-              prefix={<FileOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Service Count"
-              value={stat.services.total}
-              prefix={<CloudServerOutlined />}
-              valueStyle={{ color: '#cf1322' }}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Instance Count"
-              value={stat.instances}
-              prefix={<ClusterOutlined />}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-      </Row>
-    </div>
-  );
+    return (
+        <div>
+            <h2 style={{marginBottom: 24}}>Dashboard</h2>
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="Namespace Count"
+                            value={stat.namespaces}
+                            prefix={<PartitionOutlined/>}
+                            valueStyle={{color: '#3f8600'}}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="Config Count"
+                            value={stat.configs}
+                            prefix={<FileOutlined/>}
+                            valueStyle={{color: '#1890ff'}}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="Service Count"
+                            value={stat.services.total}
+                            prefix={<CloudServerOutlined/>}
+                            valueStyle={{color: '#cf1322'}}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card>
+                        <Statistic
+                            title="Instance Count"
+                            value={stat.instances}
+                            prefix={<ClusterOutlined/>}
+                            valueStyle={{color: '#722ed1'}}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+        </div>
+    );
 };

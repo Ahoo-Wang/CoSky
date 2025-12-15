@@ -24,7 +24,7 @@ export const TopologyPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
 
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
-        initialQuery: currentNamespace,
+        query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return stateApiClient.getTopology(namespace, {abortController});
         },
@@ -45,9 +45,9 @@ export const TopologyPage: React.FC = () => {
                         fitView
                         attributionPosition="bottom-left"
                     >
-                        <Background />
-                        <Controls />
-                        <MiniMap />
+                        <Background/>
+                        <Controls/>
+                        <MiniMap/>
                     </ReactFlow>
                 </div>
             </div>
