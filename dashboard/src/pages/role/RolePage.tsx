@@ -15,25 +15,15 @@ import React from 'react';
 import {Table, Button, Space, message, Popconfirm} from 'antd';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
 import {RoleDto} from '../../generated';
-import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
 import {RoleEditor} from './RoleEditor.tsx';
 import {roleApiClient} from "../../services/clients.ts";
+import {useRoles} from "../../hooks/useRoles.ts";
 
 
 export const RolePage: React.FC = () => {
-    const {result: roles = [], loading, setQuery: refreshRoles} = useQuery<null, RoleDto[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => {
-            return roleApiClient.allRole({abortController});
-        },
-    });
-
+    const {roles = [], loading, load} = useRoles()
     const {openDrawer, closeDrawer} = useDrawer();
-
-    const loadRoles = () => {
-        refreshRoles(null);
-    };
 
     const handleAdd = () => {
         openDrawer(
@@ -68,14 +58,14 @@ export const RolePage: React.FC = () => {
 
     const handleSubmit = () => {
         closeDrawer();
-        loadRoles();
+        load();
     };
 
     const handleDelete = async (roleName: string) => {
         try {
             await roleApiClient.removeRole(roleName);
             message.success('Role deleted successfully');
-            loadRoles();
+            load();
         } catch (error) {
             console.error('Failed to delete role:', error);
             message.error('Failed to delete role');

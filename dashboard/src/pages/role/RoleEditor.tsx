@@ -26,7 +26,7 @@ interface RoleEditorProps {
     onCancel: () => void;
 }
 
-export interface RoleEditorFormType extends RoleDto, SaveRoleRequest {
+export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
 
 }
 
@@ -46,7 +46,7 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({initialValues, onSubmit, 
             message.error('Failed to save role');
         }
     })
-    const handleFinish = async (values: RoleEditorFormType) => {
+    const handleFinish = async (values: RoleEditorFormValues) => {
         await save(() => {
             return roleApiClient.saveRole(values.name, {
                 body: values
@@ -55,7 +55,7 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({initialValues, onSubmit, 
         onSubmit(values);
         form.resetFields();
     };
-    const [form] = Form.useForm<RoleEditorFormType>();
+    const [form] = Form.useForm<RoleEditorFormValues>();
 
     useEffect(() => {
         if (initialValues) {
