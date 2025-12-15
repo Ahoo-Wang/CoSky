@@ -11,7 +11,6 @@
  * limitations under the License.
  */
 
-import React from 'react';
 import {Table} from 'antd';
 import {QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
@@ -23,7 +22,7 @@ type Paging = {
     pageSize: number;
 };
 
-export const AuditLogPage: React.FC = () => {
+export function AuditLogPage() {
     const {result, loading, setQuery} = useQuery<Paging, QueryLogResponse>({
         initialQuery: {
             pageIndex: 1,
@@ -89,4 +88,4 @@ export const AuditLogPage: React.FC = () => {
             />
         </div>
     );
-};
+}
