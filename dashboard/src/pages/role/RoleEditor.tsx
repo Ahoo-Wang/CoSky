@@ -12,8 +12,13 @@
  */
 
 import React, {useEffect} from 'react';
-import {Form, Input, Button, Space} from 'antd';
-import {RoleDto} from "../../generated";
+import {Form, Input, Button, Space, Divider, message} from 'antd';
+import {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
+import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
+import {roleApiClient} from "../../services/clients.ts";
+import {MinusCircleOutlined, PlusOutlined} from "@ant-design/icons";
+import {NamespaceSelector} from "../../components/namespace/NamespaceSelector.tsx";
+import {ResourceActionSelector} from "./ResourceActionSelector.tsx";
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
@@ -21,21 +26,50 @@ interface RoleEditorProps {
     onCancel: () => void;
 }
 
+export interface RoleEditorFormType extends RoleDto, SaveRoleRequest {
+
+}
+
+export const EMPTY_ARRAY = []
 export const RoleEditor: React.FC<RoleEditorProps> = ({initialValues, onSubmit, onCancel}) => {
-    const [form] = Form.useForm<RoleDto>();
-
-    useEffect(() => {
-        if (initialValues) {
-            form.setFieldsValue(initialValues);
-        } else {
-            form.resetFields();
+    const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
+        initialQuery: initialValues?.name,
+        execute: (query, attributes, abortController) => {
+            return roleApiClient.getResourceBind(query, attributes, abortController);
         }
-    }, [initialValues, form]);
-
-    const handleFinish = async (values: RoleDto) => {
+    })
+    const {loading: saveLoading, execute: save} = useExecutePromise({
+        onSuccess: () => {
+            message.success('Save role success!');
+        },
+        onError: () => {
+            message.error('Failed to save role');
+        }
+    })
+    const handleFinish = async (values: RoleEditorFormType) => {
+        await save(() => {
+            return roleApiClient.saveRole(values.name, {
+                body: values
+            })
+        })
         onSubmit(values);
         form.resetFields();
     };
+    const [form] = Form.useForm<RoleEditorFormType>();
+
+    useEffect(() => {
+        if (initialValues) {
+            const formValues = {
+                name: initialValues.name,
+                desc: initialValues.desc ?? "",
+                resourceActionBind: result
+            }
+            form.setFieldsValue(formValues);
+        } else {
+            form.resetFields();
+        }
+    }, [initialValues, form, result]);
+
 
     return (
         <Form form={form} layout="vertical" onFinish={handleFinish}>
@@ -46,12 +80,44 @@ export const RoleEditor: React.FC<RoleEditorProps> = ({initialValues, onSubmit, 
             >
                 <Input disabled={initialValues !== undefined}/>
             </Form.Item>
-            <Form.Item name="desc" label="Description">
+            <Form.Item name="desc" label="Description"
+                       rules={[{required: true, message: 'Please input role description!'}]}>
                 <Input.TextArea rows={4}/>
             </Form.Item>
+            <Divider>Resource Bind</Divider>
+            <Form.List name="resourceActionBind">
+                {(fields, {add, remove}) => (
+                    <>
+                        {fields.map(({key, name, ...restField}) => (
+                            <Space key={key} style={{display: 'flex', marginBottom: 8}} align="baseline">
+                                <Form.Item
+                                    {...restField}
+                                    name={[name, 'namespace']}
+                                    rules={[{required: true, message: 'Missing namespace'}]}
+                                >
+                                    <NamespaceSelector style={{minWidth: '200px'}}></NamespaceSelector>
+                                </Form.Item>
+                                <Form.Item
+                                    {...restField}
+                                    name={[name, 'action']}
+                                    rules={[{required: true, message: 'Missing action'}]}
+                                >
+                                    <ResourceActionSelector style={{minWidth: '200px'}}/>
+                                </Form.Item>
+                                <MinusCircleOutlined onClick={() => remove(name)}/>
+                            </Space>
+                        ))}
+                        <Form.Item>
+                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined/>}>
+                                Add permissions
+                            </Button>
+                        </Form.Item>
+                    </>
+                )}
+            </Form.List>
             <Form.Item>
                 <Space>
-                    <Button type="primary" htmlType="submit">
+                    <Button type="primary" htmlType="submit" loading={saveLoading}>
                         Submit
                     </Button>
                     <Button onClick={onCancel}>
