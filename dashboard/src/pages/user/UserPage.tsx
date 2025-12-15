@@ -64,7 +64,6 @@ export const UserPage: React.FC = () => {
             message.success('Role bind successfully');
             loadUsers();
         } catch (error) {
-            console.error('Failed to bind role:', error);
             message.error('Failed to bind role');
         }
     };
@@ -75,7 +74,6 @@ export const UserPage: React.FC = () => {
             message.success('User deleted successfully');
             loadUsers();
         } catch (error) {
-            console.error('Failed to delete user:', error);
             message.error('Failed to delete user');
         }
     };
@@ -86,7 +84,6 @@ export const UserPage: React.FC = () => {
             message.success('User unlocked successfully');
             loadUsers();
         } catch (error) {
-            console.error('Failed to unlock user:', error);
             message.error('Failed to unlock user');
         }
     };

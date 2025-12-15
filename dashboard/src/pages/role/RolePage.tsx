@@ -39,21 +39,17 @@ export const RolePage: React.FC = () => {
     };
 
     const handleEdit = (role: RoleDto) => {
-        try {
-            openDrawer(
-                <RoleEditor
-                    initialValues={role}
-                    onSubmit={handleSubmit}
-                    onCancel={closeDrawer}
-                />,
-                {
-                    title: 'Edit Role',
-                    width: 500,
-                }
-            );
-        } catch (error) {
-            console.error('Failed to load role:', error);
-        }
+        openDrawer(
+            <RoleEditor
+                initialValues={role}
+                onSubmit={handleSubmit}
+                onCancel={closeDrawer}
+            />,
+            {
+                title: 'Edit Role',
+                width: 500,
+            }
+        );
     };
 
     const handleSubmit = () => {
@@ -67,7 +63,6 @@ export const RolePage: React.FC = () => {
             message.success('Role deleted successfully');
             load();
         } catch (error) {
-            console.error('Failed to delete role:', error);
             message.error('Failed to delete role');
         }
     };
