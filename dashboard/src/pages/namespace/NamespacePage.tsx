@@ -12,40 +12,14 @@
  */
 
 import {Table, Button, message, Popconfirm} from 'antd';
-import {PlusOutlined, DeleteOutlined} from '@ant-design/icons';
+import {DeleteOutlined} from '@ant-design/icons';
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
-import {useDrawer} from '../../contexts/DrawerContext.tsx';
-import {NamespaceForm} from './NamespaceForm.tsx';
 import {isSystemNamespace} from "./namespaces.ts";
 import {namespaceApiClient} from "../../services/clients.ts";
+import {AddNamespaceForm} from "./AddNamespaceForm.tsx";
 
 export function NamespacePage() {
     const {namespaces, loading, reload} = useNamespaces();
-    const {openDrawer, closeDrawer} = useDrawer();
-
-    const handleAdd = () => {
-        openDrawer(
-            <NamespaceForm
-                onSubmit={handleSubmit}
-                onCancel={closeDrawer}
-            />,
-            {
-                title: 'Add Namespace',
-                width: 500,
-            }
-        );
-    };
-
-    const handleSubmit = async (values: { namespace: string }) => {
-        try {
-            await namespaceApiClient.setNamespace(values.namespace);
-            message.success('Namespace added successfully');
-            closeDrawer();
-            reload();
-        } catch (error) {
-            message.error('Failed to add namespace');
-        }
-    };
 
     const handleDelete = async (namespace: string) => {
         try {
@@ -87,9 +61,7 @@ export function NamespacePage() {
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Namespace</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
-                    Add Namespace
-                </Button>
+                <AddNamespaceForm onSubmit={reload}/>
             </div>
             <Table columns={columns} dataSource={dataSource} loading={loading}/>
         </div>
