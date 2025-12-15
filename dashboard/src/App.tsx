@@ -23,7 +23,7 @@ import {DashboardPage} from './pages/DashboardPage';
 import {TopologyPage} from './pages/TopologyPage';
 import {ConfigPage} from './pages/ConfigPage';
 import {ServicePage} from './pages/ServicePage';
-import {NamespacePage} from './pages/namspace/NamespacePage.tsx';
+import {NamespacePage} from './pages/Namespace/NamespacePage.tsx';
 import {UserPage} from './pages/UserPage';
 import {RolePage} from './pages/RolePage';
 import {AuditLogPage} from './pages/AuditLogPage';
