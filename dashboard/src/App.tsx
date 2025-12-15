@@ -16,19 +16,19 @@ import {ConfigProvider} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
 import {NamespaceProvider} from './contexts/NamespaceContext.tsx';
 import {DrawerProvider} from './contexts/DrawerContext';
-import {ProtectedRoute} from './components/common/ProtectedRoute';
-import {LoginPage} from './pages/LoginPage';
+import {ProtectedRoute} from './security/ProtectedRoute.tsx';
+import {LoginPage} from './pages/login/LoginPage.tsx';
 import {AuthenticatedLayout} from './components/layout/AuthenticatedLayout';
-import {DashboardPage} from './pages/DashboardPage';
-import {TopologyPage} from './pages/TopologyPage';
-import {ConfigPage} from './pages/ConfigPage';
-import {ServicePage} from './pages/ServicePage';
-import {NamespacePage} from './pages/Namespace/NamespacePage.tsx';
-import {UserPage} from './pages/UserPage';
-import {RolePage} from './pages/RolePage';
-import {AuditLogPage} from './pages/AuditLogPage';
-import './client/fetcher'
-import {tokenStorage} from "./client/tokenStorage.ts";
+import {DashboardPage} from './pages/dashboard/DashboardPage.tsx';
+import {TopologyPage} from './pages/topology/TopologyPage.tsx';
+import {ConfigPage} from './pages/config/ConfigPage.tsx';
+import {ServicePage} from './pages/service/ServicePage.tsx';
+import {NamespacePage} from './pages/namespace/NamespacePage.tsx';
+import {UserPage} from './pages/user/UserPage.tsx';
+import {RolePage} from './pages/role/RolePage.tsx';
+import {AuditLogPage} from './pages/audit/AuditLogPage.tsx';
+import './services/fetcher'
+import {tokenStorage} from "./security/tokenStorage.ts";
 
 function App() {
     return (

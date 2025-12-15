@@ -19,8 +19,8 @@ import {
     CloudServerOutlined,
     ClusterOutlined
 } from '@ant-design/icons';
-import {useNamespaceContext} from '../contexts/NamespaceContext.tsx';
-import {StatApiClient, GetStatResponse} from '../generated';
+import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
+import {StatApiClient, GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 
 const statApiClient = new StatApiClient();

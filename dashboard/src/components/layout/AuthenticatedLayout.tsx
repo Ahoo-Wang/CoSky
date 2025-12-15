@@ -29,7 +29,7 @@ import {
 } from '@ant-design/icons';
 import {Outlet, useNavigate, useLocation} from 'react-router-dom';
 import {NamespaceSelector} from './NamespaceSelector.tsx';
-import {userApiClient} from '../../client/clients';
+import {userApiClient} from '../../services/clients';
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 
 const {Header, Sider, Content, Footer} = Layout;

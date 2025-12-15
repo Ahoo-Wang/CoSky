@@ -15,10 +15,10 @@ import React, {useEffect} from 'react';
 import {Form, Input, Button, Card, Typography, message} from 'antd';
 import {UserOutlined, LockOutlined, CloudOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
-import {authenticateApiClient} from "../client/clients.ts";
+import {authenticateApiClient} from "../../services/clients.ts";
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
 import './LoginPage.css';
-import {CompositeToken, ErrorResponse} from "../generated";
+import {CompositeToken, ErrorResponse} from "../../generated";
 import {ExchangeError} from "@ahoo-wang/fetcher";
 
 const {Title, Text} = Typography;

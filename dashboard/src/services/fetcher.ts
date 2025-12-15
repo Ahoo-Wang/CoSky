@@ -1,5 +1,5 @@
 import {fetcher, UrlBuilder} from "@ahoo-wang/fetcher";
-import {tokenRefresher, tokenStorage} from "./tokenStorage.ts";
+import {tokenRefresher, tokenStorage} from "../security/tokenStorage.ts";
 import {CoSecConfigurer} from "@ahoo-wang/fetcher-cosec";
 
 fetcher.urlBuilder = new UrlBuilder(import.meta.env.VITE_API_BASE_URL);

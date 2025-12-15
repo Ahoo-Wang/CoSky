@@ -15,10 +15,10 @@ import React, {useMemo} from 'react';
 import {Spin} from 'antd';
 import {ReactFlow, Background, Controls, MiniMap} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import {useNamespaceContext} from '../contexts/NamespaceContext.tsx';
+import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {stateApiClient} from "../client/clients.ts";
-import {toReactFlowTopology} from "../utils/topologies.ts";
+import {stateApiClient} from "../../services/clients.ts";
+import {toReactFlowTopology} from "./topologies.ts";
 
 export const TopologyPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();

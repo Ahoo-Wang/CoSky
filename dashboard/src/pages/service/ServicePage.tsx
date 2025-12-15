@@ -14,11 +14,11 @@
 import React, {useState} from 'react';
 import {Table, Button, Input, Space, message, Popconfirm} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined} from '@ant-design/icons';
-import {useNamespaceContext} from '../contexts/NamespaceContext.tsx';
-import {ServiceApiClient} from '../generated';
+import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
+import {ServiceApiClient} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useDrawer} from '../contexts/DrawerContext.tsx';
-import {ServiceInstanceForm} from '../components/forms/ServiceInstanceForm.tsx';
+import {useDrawer} from '../../contexts/DrawerContext.tsx';
+import {ServiceInstanceForm} from './ServiceInstanceForm.tsx';
 
 const serviceApiClient = new ServiceApiClient();
 
