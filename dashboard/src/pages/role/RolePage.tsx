@@ -11,145 +11,124 @@
  * limitations under the License.
  */
 
-import React, { useState } from 'react';
-import { Table, Button, Space, message, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { RoleApiClient } from '../../generated';
-import { useQuery } from '@ahoo-wang/fetcher-react';
-import { useDrawer } from '../../contexts/DrawerContext.tsx';
-import { RoleForm } from './RoleForm.tsx';
+import React from 'react';
+import {Table, Button, Space, message, Popconfirm} from 'antd';
+import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
+import {RoleDto} from '../../generated';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {useDrawer} from '../../contexts/DrawerContext.tsx';
+import {RoleEditor} from './RoleEditor.tsx';
+import {roleApiClient} from "../../services/clients.ts";
 
-const roleApiClient = new RoleApiClient();
-
-type QueryData = { refresh: number };
 
 export const RolePage: React.FC = () => {
-  const { result: roles = [], loading, setQuery: refreshRoles } = useQuery<QueryData, any[]>({
-    initialQuery: { refresh: 0 },
-    execute: (_, __, abortController) => {
-      return roleApiClient.allRole({ abortController });
-    },
-  });
+    const {result: roles = [], loading, setQuery: refreshRoles} = useQuery<null, RoleDto[]>({
+        initialQuery: null,
+        execute: (_, __, abortController) => {
+            return roleApiClient.allRole({abortController});
+        },
+    });
 
-  const [isEdit, setIsEdit] = useState(false);
-  const [currentRole, setCurrentRole] = useState<any>(null);
-  const { openDrawer, closeDrawer } = useDrawer();
+    const {openDrawer, closeDrawer} = useDrawer();
 
-  const loadRoles = () => {
-    refreshRoles({ refresh: Date.now() });
-  };
+    const loadRoles = () => {
+        refreshRoles(null);
+    };
 
-  const handleAdd = () => {
-    setIsEdit(false);
-    setCurrentRole(null);
-    openDrawer(
-      <RoleForm
-        isEdit={false}
-        initialValues={null}
-        onSubmit={handleSubmit}
-        onCancel={closeDrawer}
-      />,
-      {
-        title: 'Add Role',
-        width: 500,
-      }
-    );
-  };
+    const handleAdd = () => {
+        openDrawer(
+            <RoleEditor
+                onSubmit={handleSubmit}
+                onCancel={closeDrawer}
+            />,
+            {
+                title: 'Add Role',
+                width: 500,
+            }
+        );
+    };
 
-  const handleEdit = async (roleName: string) => {
-    try {
-      const bind = await roleApiClient.getResourceBind(roleName);
-      setIsEdit(true);
-      const roleData = { roleId: roleName, desc: '', resourceActionBind: bind };
-      setCurrentRole({ roleId: roleName, resourceActionBind: bind });
-      openDrawer(
-        <RoleForm
-          isEdit={true}
-          initialValues={roleData}
-          onSubmit={handleSubmit}
-          onCancel={closeDrawer}
-        />,
-        {
-          title: 'Edit Role',
-          width: 500,
+    const handleEdit = (role: RoleDto) => {
+        try {
+            openDrawer(
+                <RoleEditor
+                    initialValues={role}
+                    onSubmit={handleSubmit}
+                    onCancel={closeDrawer}
+                />,
+                {
+                    title: 'Edit Role',
+                    width: 500,
+                }
+            );
+        } catch (error) {
+            console.error('Failed to load role:', error);
         }
-      );
-    } catch (error) {
-      console.error('Failed to load role:', error);
-    }
-  };
+    };
 
-  const handleSubmit = async (values: any) => {
-    try {
-      const roleId = isEdit ? currentRole.roleId : values.roleId;
-      await roleApiClient.saveRole(roleId, { body: values });
-      message.success('Role saved successfully');
-      closeDrawer();
-      loadRoles();
-    } catch (error) {
-      console.error('Failed to save role:', error);
-      message.error('Failed to save role');
-    }
-  };
+    const handleSubmit = () => {
+        closeDrawer();
+        loadRoles();
+    };
 
-  const handleDelete = async (roleId: string) => {
-    try {
-      await roleApiClient.removeRole(roleId);
-      message.success('Role deleted successfully');
-      loadRoles();
-    } catch (error) {
-      console.error('Failed to delete role:', error);
-      message.error('Failed to delete role');
-    }
-  };
+    const handleDelete = async (roleName: string) => {
+        try {
+            await roleApiClient.removeRole(roleName);
+            message.success('Role deleted successfully');
+            loadRoles();
+        } catch (error) {
+            console.error('Failed to delete role:', error);
+            message.error('Failed to delete role');
+        }
+    };
 
-  const columns = [
-    {
-      title: 'Role Name',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Description',
-      dataIndex: 'desc',
-      key: 'desc',
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      render: (_: any, record: any) => (
-        <Space>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record.name)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Are you sure to delete this role?"
-            onConfirm={() => handleDelete(record.name)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
+    const columns = [
+        {
+            title: 'Role Name',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: 'Description',
+            dataIndex: 'desc',
+            key: 'desc',
+        },
+        {
+            title: 'Action',
+            key: 'action',
+            render: (_: string, record: RoleDto) => (
+                <Space>
+                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
+                        Edit
+                    </Button>
+                    <Popconfirm
+                        title="Are you sure to delete this role?"
+                        onConfirm={() => handleDelete(record.name)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button type="link" danger icon={<DeleteOutlined/>}>
+                            Delete
+                        </Button>
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
 
-  return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2>Role</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Add Role
-        </Button>
-      </div>
-      <Table
-        columns={columns}
-        dataSource={roles.map((r: any) => ({ ...r, key: r.name }))}
-        loading={loading}
-      />
-    </div>
-  );
+    return (
+        <div>
+            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
+                <h2>Role</h2>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
+                    Add Role
+                </Button>
+            </div>
+            <Table
+                columns={columns}
+                dataSource={roles}
+                loading={loading}
+            />
+        </div>
+    );
 };

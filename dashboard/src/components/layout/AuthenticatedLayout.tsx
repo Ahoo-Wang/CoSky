@@ -28,7 +28,7 @@ import {
     DownOutlined,
 } from '@ant-design/icons';
 import {Outlet, useNavigate, useLocation} from 'react-router-dom';
-import {NamespaceSelector} from './NamespaceSelector.tsx';
+import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
 import {userApiClient} from '../../services/clients';
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 
@@ -178,7 +178,7 @@ export const AuthenticatedLayout: React.FC = () => {
                             style: {fontSize: 18, cursor: 'pointer'},
                             onClick: () => setCollapsed(!collapsed),
                         })}
-                        <NamespaceSelector/>
+                        <CurrentNamespaceSelector/>
                     </div>
                     <Dropdown menu={{items: userMenuItems}}>
                         <a onClick={(e) => e.preventDefault()} style={{color: 'inherit'}}>
