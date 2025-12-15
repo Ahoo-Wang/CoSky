@@ -106,8 +106,8 @@ export const RolePage: React.FC = () => {
   const columns = [
     {
       title: 'Role Name',
-      dataIndex: 'roleName',
-      key: 'roleName',
+      dataIndex: 'name',
+      key: 'name',
     },
     {
       title: 'Description',

@@ -115,8 +115,8 @@ export const UserPage: React.FC = () => {
   const columns = [
     {
       title: 'Username',
-      dataIndex: 'username',
-      key: 'username',
+      dataIndex: 'name',
+      key: 'name',
     },
     {
       title: 'Roles',
