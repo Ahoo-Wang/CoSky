@@ -41,55 +41,53 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
         });
     });
     
-    // Calculate node levels using BFS
+    // Calculate node levels using topological sort approach
     const nodeLevels = new Map<string, number>();
-    const visited = new Set<string>();
+    const inDegree = new Map<string, number>();
+    
+    // Initialize in-degree for all nodes
+    allNodes.forEach(nodeName => {
+        inDegree.set(nodeName, incomingEdges.get(nodeName)?.size || 0);
+        nodeLevels.set(nodeName, 0);
+    });
     
     // Find root nodes (nodes with no incoming edges)
-    const rootNodes: string[] = [];
+    const queue: string[] = [];
     allNodes.forEach(nodeName => {
-        if (!incomingEdges.has(nodeName) || incomingEdges.get(nodeName)!.size === 0) {
-            rootNodes.push(nodeName);
+        if (inDegree.get(nodeName) === 0) {
+            queue.push(nodeName);
         }
     });
     
-    // BFS to assign levels
-    const queue: Array<{ node: string; level: number }> = [];
-    rootNodes.forEach(node => {
-        queue.push({ node, level: 0 });
-        nodeLevels.set(node, 0);
-    });
-    
+    // Process nodes level by level
     while (queue.length > 0) {
-        const { node, level } = queue.shift()!;
-        
-        if (visited.has(node)) {
-            continue;
-        }
-        visited.add(node);
+        const node = queue.shift()!;
+        const currentLevel = nodeLevels.get(node)!;
         
         const targets = outgoingEdges.get(node);
         if (targets) {
             targets.forEach(target => {
-                const currentLevel = nodeLevels.get(target);
-                const newLevel = level + 1;
+                // Update target level to be at least one level below current node
+                const targetLevel = nodeLevels.get(target)!;
+                nodeLevels.set(target, Math.max(targetLevel, currentLevel + 1));
                 
-                // Assign the maximum level to handle multiple paths
-                if (currentLevel === undefined || newLevel > currentLevel) {
-                    nodeLevels.set(target, newLevel);
-                }
+                // Decrease in-degree and add to queue if all dependencies processed
+                const newInDegree = inDegree.get(target)! - 1;
+                inDegree.set(target, newInDegree);
                 
-                if (!visited.has(target)) {
-                    queue.push({ node: target, level: newLevel });
+                if (newInDegree === 0) {
+                    queue.push(target);
                 }
             });
         }
     }
     
-    // Handle nodes that are not reachable from root nodes (circular dependencies)
+    // Handle nodes in circular dependencies by placing them at the next available level
+    const maxLevel = Math.max(...Array.from(nodeLevels.values()));
     allNodes.forEach(nodeName => {
-        if (!nodeLevels.has(nodeName)) {
-            nodeLevels.set(nodeName, 0);
+        if (inDegree.get(nodeName)! > 0) {
+            // Node is part of a cycle, place it at a level after the max
+            nodeLevels.set(nodeName, maxLevel + 1);
         }
     });
     
