@@ -11,155 +11,144 @@
  * limitations under the License.
  */
 
-import React, { useState } from 'react';
-import { Table, Button, Space, message, Popconfirm } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { UserApiClient, RoleApiClient } from '../../generated';
-import { useQuery } from '@ahoo-wang/fetcher-react';
-import { useDrawer } from '../../contexts/DrawerContext.tsx';
-import { UserForm } from './UserForm.tsx';
-
-const userApiClient = new UserApiClient();
-const roleApiClient = new RoleApiClient();
-
-type QueryData = { refresh: number };
+import React from 'react';
+import {Table, Button, Space, message, Popconfirm, Select} from 'antd';
+import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {useDrawer} from '../../contexts/DrawerContext.tsx';
+import {AddUserEditor} from './AddUserEditor.tsx';
+import {useRoles} from "../../hooks/useRoles.ts";
+import {userApiClient} from "../../services/clients.ts";
+import {CoSecPrincipal} from "../../generated";
 
 export const UserPage: React.FC = () => {
-  const { result: users = [], loading, setQuery: refreshUsers } = useQuery<QueryData, any[]>({
-    initialQuery: { refresh: 0 },
-    execute: (_, __, abortController) => {
-      return userApiClient.query({ abortController });
-    },
-  });
+    const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
+        initialQuery: null,
+        execute: (_, __, abortController) => {
+            return userApiClient.query({abortController});
+        },
+    });
+    const {roles} = useRoles()
+    const roleSelectorOptions = roles.map(role => ({
+        label: role.name,
+        value: role.desc,
+    }))
+    const {openDrawer, closeDrawer} = useDrawer();
+    const loadUsers = () => {
+        load();
+    };
 
-  const { result: roles = [] } = useQuery<QueryData, any[]>({
-    initialQuery: { refresh: 0 },
-    autoExecute: true,
-    execute: (_, __, abortController) => {
-      return roleApiClient.allRole({ abortController });
-    },
-  });
+    const handleAdd = () => {
+        openDrawer(
+            <AddUserEditor
+                roleSelectorOptions={roleSelectorOptions}
+                onSubmit={handleSubmit}
+                onCancel={closeDrawer}
+            />,
+            {
+                title: 'Add User',
+                width: 500,
+            }
+        );
+    };
 
-  const [isEdit, setIsEdit] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const { openDrawer, closeDrawer } = useDrawer();
 
-  const loadUsers = () => {
-    refreshUsers({ refresh: Date.now() });
-  };
+    const handleSubmit = () => {
+        closeDrawer();
+        loadUsers();
+    };
 
-  const handleAdd = () => {
-    setIsEdit(false);
-    setCurrentUser(null);
-    openDrawer(
-      <UserForm
-        isEdit={false}
-        initialValues={null}
-        roles={roles}
-        onSubmit={handleSubmit}
-        onCancel={closeDrawer}
-      />,
-      {
-        title: 'Add User',
-        width: 500,
-      }
+    const handleChangeRole = async (username: string, roles: string[]) => {
+        try {
+            await userApiClient.bindRole(username, {body: roles});
+            message.success('Role bind successfully');
+            loadUsers();
+        } catch (error) {
+            console.error('Failed to bind role:', error);
+            message.error('Failed to bind role');
+        }
+    };
+
+    const handleDelete = async (username: string) => {
+        try {
+            await userApiClient.removeUser(username);
+            message.success('User deleted successfully');
+            loadUsers();
+        } catch (error) {
+            console.error('Failed to delete user:', error);
+            message.error('Failed to delete user');
+        }
+    };
+
+    const handleUnlock = async (username: string) => {
+        try {
+            await userApiClient.unlock(username);
+            message.success('User unlocked successfully');
+            loadUsers();
+        } catch (error) {
+            console.error('Failed to unlock user:', error);
+            message.error('Failed to unlock user');
+        }
+    };
+
+    const columns = [
+        {
+            title: 'Username',
+            dataIndex: 'name',
+            key: 'name',
+        },
+        {
+            title: 'Roles',
+            dataIndex: 'roles',
+            key: 'roles',
+            render: (roles: string[], record: CoSecPrincipal) => {
+                return <Select mode="multiple"
+                               placeholder="Select Roles"
+                               options={roleSelectorOptions} value={roles}
+                               onChange={(value) => handleChangeRole(record.name, value)}
+                />
+            },
+        },
+        {
+            title: 'Action',
+            key: 'action',
+            render: (_: any, record: CoSecPrincipal) => (
+                <Space>
+                    <Popconfirm title="Ary you sure to unlock this user?"
+                                onConfirm={() => handleUnlock(record.name)}
+                    >
+                        <Button type="link" icon={<UnlockOutlined/>}>
+                            UnLock
+                        </Button>
+                    </Popconfirm>
+                    <Popconfirm
+                        title="Are you sure to delete this user?"
+                        onConfirm={() => handleDelete(record.name)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button type="link" danger icon={<DeleteOutlined/>}>
+                            Delete
+                        </Button>
+                    </Popconfirm>
+                </Space>
+            ),
+        },
+    ];
+
+    return (
+        <div>
+            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
+                <h2>User</h2>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
+                    Add User
+                </Button>
+            </div>
+            <Table
+                columns={columns}
+                dataSource={users}
+                loading={loading}
+            />
+        </div>
     );
-  };
-
-  const handleEdit = (user: any) => {
-    setIsEdit(true);
-    setCurrentUser(user);
-    openDrawer(
-      <UserForm
-        isEdit={true}
-        initialValues={user}
-        roles={roles}
-        onSubmit={handleSubmit}
-        onCancel={closeDrawer}
-      />,
-      {
-        title: 'Edit User',
-        width: 500,
-      }
-    );
-  };
-
-  const handleSubmit = async (values: any) => {
-    try {
-      if (isEdit) {
-        await userApiClient.bindRole(currentUser.username, { body: values });
-        message.success('User updated successfully');
-      } else {
-        await userApiClient.addUser(values.username, { body: values });
-        message.success('User created successfully');
-      }
-      closeDrawer();
-      loadUsers();
-    } catch (error) {
-      console.error('Failed to save user:', error);
-      message.error('Failed to save user');
-    }
-  };
-
-  const handleDelete = async (username: string) => {
-    try {
-      await userApiClient.removeUser(username);
-      message.success('User deleted successfully');
-      loadUsers();
-    } catch (error) {
-      console.error('Failed to delete user:', error);
-      message.error('Failed to delete user');
-    }
-  };
-
-  const columns = [
-    {
-      title: 'Username',
-      dataIndex: 'name',
-      key: 'name',
-    },
-    {
-      title: 'Roles',
-      dataIndex: 'roles',
-      key: 'roles',
-      render: (roles: string[]) => roles?.join(', ') || '-',
-    },
-    {
-      title: 'Action',
-      key: 'action',
-      render: (_: any, record: any) => (
-        <Space>
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
-            Edit
-          </Button>
-          <Popconfirm
-            title="Are you sure to delete this user?"
-            onConfirm={() => handleDelete(record.username)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
-        </Space>
-      ),
-    },
-  ];
-
-  return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-        <h2>User</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Add User
-        </Button>
-      </div>
-      <Table
-        columns={columns}
-        dataSource={users.map((u: any) => ({ ...u, key: u.username }))}
-        loading={loading}
-      />
-    </div>
-  );
 };
