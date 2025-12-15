@@ -12,10 +12,11 @@
  */
 
 import {Form, Input, InputNumber, Button, Space} from 'antd';
+import {ServiceInstance} from "../../generated";
 
 interface ServiceInstanceFormProps {
     serviceId: string;
-    onSubmit: (values: any) => Promise<void>;
+    onSubmit: (values: ServiceInstance) => Promise<void>;
     onCancel: () => void;
 }
 

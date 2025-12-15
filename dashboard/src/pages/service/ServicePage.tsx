@@ -19,24 +19,20 @@ import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
 import {ServiceInstanceEditor} from './ServiceInstanceEditor.tsx';
 import {serviceApiClient} from "../../services/clients.ts";
+import {ServiceInstance, ServiceStat} from "../../generated";
 
 export function ServicePage() {
     const {currentNamespace} = useNamespaceContext();
-    const {result: services = [], loading, setQuery} = useQuery<string, any[]>({
+    const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return serviceApiClient.getServiceStats(namespace, {abortController});
         },
     });
-    const [instances, setInstances] = useState<Record<string, any[]>>({});
+    const [instances, setInstances] = useState<Record<string, ServiceInstance[]>>({});
     const [currentServiceId, setCurrentServiceId] = useState<string>('');
     const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
-    const [searchValue, setSearchValue] = useState('');
     const {openDrawer, closeDrawer} = useDrawer();
-
-    const loadServices = () => {
-        setQuery(currentNamespace);
-    };
 
     const loadInstances = async (serviceId: string) => {
         try {
@@ -54,7 +50,6 @@ export function ServicePage() {
                 message.success('Service added successfully');
                 loadServices();
             } catch (error) {
-                console.error('Failed to add service:', error);
                 message.error('Failed to add service');
             }
         }
@@ -66,7 +61,6 @@ export function ServicePage() {
             message.success('Service deleted successfully');
             loadServices();
         } catch (error) {
-            console.error('Failed to delete service:', error);
             message.error('Failed to delete service');
         }
     };
@@ -86,14 +80,13 @@ export function ServicePage() {
         );
     };
 
-    const handleSubmitInstance = async (values: any) => {
+    const handleSubmitInstance = async (values: ServiceInstance) => {
         try {
             await serviceApiClient.register(currentNamespace, currentServiceId, {body: values});
             message.success('Instance added successfully');
             closeDrawer();
             loadInstances(currentServiceId);
         } catch (error) {
-            console.error('Failed to add instance:', error);
             message.error('Failed to add instance');
         }
     };
@@ -104,7 +97,6 @@ export function ServicePage() {
             message.success('Instance deleted successfully');
             loadInstances(serviceId);
         } catch (error) {
-            console.error('Failed to delete instance:', error);
             message.error('Failed to delete instance');
         }
     };
@@ -126,7 +118,7 @@ export function ServicePage() {
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: any) => (
+            render: (_: any, record: ServiceInstance) => (
                 <Popconfirm
                     title="Are you sure to delete this instance?"
                     onConfirm={() => handleDeleteInstance(currentServiceId, record.instanceId)}
@@ -141,12 +133,12 @@ export function ServicePage() {
         },
     ];
 
-    const expandedRowRender = (record: any) => {
+    const expandedRowRender = (record: ServiceStat) => {
         const serviceInstances = instances[record.serviceId] || [];
         return (
             <Table
                 columns={instanceColumns}
-                dataSource={serviceInstances.map((inst: any) => ({...inst, key: inst.instanceId}))}
+                dataSource={serviceInstances.map((inst: ServiceInstance) => ({...inst, key: inst.instanceId}))}
                 pagination={false}
             />
         );
@@ -156,21 +148,18 @@ export function ServicePage() {
         {
             title: 'Service ID',
             dataIndex: 'serviceId',
-            key: 'serviceId',
-            filteredValue: searchValue ? [searchValue] : null,
-            onFilter: (value: any, record: any) =>
-                record.serviceId?.toLowerCase().includes(value.toLowerCase()),
+            key: 'serviceId'
         },
         {
             title: 'Instance Count',
             dataIndex: 'instanceCount',
             key: 'instanceCount',
-            sorter: (a: any, b: any) => (a.instanceCount || 0) - (b.instanceCount || 0),
+            sorter: (a: ServiceStat, b: ServiceStat) => (a.instanceCount || 0) - (b.instanceCount || 0),
         },
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: any) => (
+            render: (_: any, record: ServiceStat) => (
                 <Space>
                     <Button
                         type="primary"
@@ -194,23 +183,11 @@ export function ServicePage() {
         },
     ];
 
-    const dataSource = services.map((service: any) => ({
-        ...service,
-        key: service.serviceId || service,
-        serviceId: service.serviceId || service,
-    }));
-
     return (
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Service</h2>
                 <Space>
-                    <Input.Search
-                        placeholder="Search Service ID"
-                        allowClear
-                        onSearch={setSearchValue}
-                        style={{width: 200}}
-                    />
                     <Input.Search
                         placeholder="Service ID"
                         enterButton="Add service"
@@ -221,7 +198,7 @@ export function ServicePage() {
             </div>
             <Table
                 columns={columns}
-                dataSource={dataSource}
+                dataSource={services}
                 loading={loading}
                 expandable={{
                     expandedRowRender,

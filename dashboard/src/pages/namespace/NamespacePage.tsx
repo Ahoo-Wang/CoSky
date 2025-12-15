@@ -34,20 +34,19 @@ export function NamespacePage() {
     const columns = [
         {
             title: 'Namespace',
-            dataIndex: 'namespace',
             key: 'namespace',
         },
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: { namespace: string }) => (
+            render: (_: string, record: string) => (
                 <Popconfirm
                     title="Are you sure to delete this namespace?"
-                    onConfirm={() => handleDelete(record.namespace)}
+                    onConfirm={() => handleDelete(record)}
                     okText="Yes"
                     cancelText="No"
                 >
-                    <Button type="link" danger icon={<DeleteOutlined/>} disabled={isSystemNamespace(record.namespace)}>
+                    <Button type="link" danger icon={<DeleteOutlined/>} disabled={isSystemNamespace(record)}>
                         Delete
                     </Button>
                 </Popconfirm>
@@ -55,7 +54,6 @@ export function NamespacePage() {
         },
     ];
 
-    const dataSource = namespaces.map((ns) => ({namespace: ns, key: ns}));
 
     return (
         <div>
@@ -63,7 +61,7 @@ export function NamespacePage() {
                 <h2>Namespace</h2>
                 <AddNamespaceForm onSubmit={reload}/>
             </div>
-            <Table columns={columns} dataSource={dataSource} loading={loading}/>
+            <Table columns={columns} dataSource={namespaces} loading={loading}/>
         </div>
     );
 };

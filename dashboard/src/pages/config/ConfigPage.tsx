@@ -34,19 +34,14 @@ const configApiClient = new ConfigApiClient();
 
 export const ConfigPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
-    const {result: configs = [], loading, setQuery} = useQuery<string, any[]>({
+    const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, any[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return configApiClient.getConfigs(namespace, {abortController});
         },
     });
     const [currentConfig, setCurrentConfig] = useState<any>(null);
-    const [searchValue, setSearchValue] = useState('');
     const {openDrawer, closeDrawer} = useDrawer();
-
-    const loadConfigs = () => {
-        setQuery(currentNamespace);
-    };
 
     const handleEdit = async (configId?: string) => {
         if (configId) {
@@ -191,26 +186,22 @@ export const ConfigPage: React.FC = () => {
     const columns = [
         {
             title: 'Config ID',
-            dataIndex: 'configId',
-            key: 'configId',
-            filteredValue: searchValue ? [searchValue] : null,
-            onFilter: (value: any, record: any) =>
-                record.configId.toLowerCase().includes(value.toLowerCase()),
+            key: 'configId'
         },
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: any) => (
+            render: (_: any, record: string) => (
                 <Space>
-                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record.configId)}>
+                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
                         Edit
                     </Button>
-                    <Button type="link" icon={<HistoryOutlined/>} onClick={() => handleViewVersions(record.configId)}>
+                    <Button type="link" icon={<HistoryOutlined/>} onClick={() => handleViewVersions(record)}>
                         Versions
                     </Button>
                     <Popconfirm
                         title="Are you sure to delete this config?"
-                        onConfirm={() => handleDelete(record.configId)}
+                        onConfirm={() => handleDelete(record)}
                         okText="Yes"
                         cancelText="No"
                     >
@@ -223,19 +214,11 @@ export const ConfigPage: React.FC = () => {
         },
     ];
 
-    const filteredConfigs = configs.map((config: any) => ({...config, key: config.configId || config}));
-
     return (
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Configuration</h2>
                 <Space>
-                    <Input.Search
-                        placeholder="Search Config ID"
-                        allowClear
-                        onSearch={setSearchValue}
-                        style={{width: 200}}
-                    />
                     <Button type="primary" icon={<PlusOutlined/>} onClick={() => handleEdit()}>
                         Add
                     </Button>
@@ -247,7 +230,7 @@ export const ConfigPage: React.FC = () => {
                     </Button>
                 </Space>
             </div>
-            <Table columns={columns} dataSource={filteredConfigs} loading={loading}/>
+            <Table columns={columns} dataSource={configs} loading={loading}/>
         </div>
     );
 };
