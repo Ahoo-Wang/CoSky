@@ -186,13 +186,16 @@ export const AuthenticatedLayout: React.FC = () => {
             </a>
           </Dropdown>
         </Header>
-        <Content style={{ margin: '16px' }}>
+        <Content style={{ margin: '16px', display: 'flex', flexDirection: 'column' }}>
           <Watermark content={currentUser.sub}>
             <div style={{ 
               padding: 24, 
               minHeight: 360, 
               background: '#fff',
-              borderRadius: 8 
+              borderRadius: 8,
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column'
             }}>
               <Outlet />
             </div>
