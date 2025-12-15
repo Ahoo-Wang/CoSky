@@ -15,7 +15,7 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
 
     // Create a new directed graph
     const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-    dagreGraph.setGraph({rankdir: 'TB',ranker:'tight-tree'});
+    dagreGraph.setGraph({rankdir: 'TB', ranker: 'tight-tree'});
 
     // Collect all unique nodes
     const allNodes = new Set<string>();
