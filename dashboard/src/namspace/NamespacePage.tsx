@@ -14,10 +14,11 @@
 import React from 'react';
 import {Table, Button, message, Popconfirm} from 'antd';
 import {PlusOutlined, DeleteOutlined} from '@ant-design/icons';
-import {NamespaceApiClient} from '../../generated';
-import {useNamespaces} from "../../hooks/useNamespaces.ts";
-import {useDrawer} from '../../contexts/DrawerContext';
-import {NamespaceForm} from '../forms/NamespaceForm';
+import {NamespaceApiClient} from '../generated';
+import {useNamespaces} from "../hooks/useNamespaces.ts";
+import {useDrawer} from '../contexts/DrawerContext.tsx';
+import {NamespaceForm} from '../components/forms/NamespaceForm.tsx';
+import {isSystemNamespace} from "./namespaces.ts";
 
 const namespaceApiClient = new NamespaceApiClient();
 
@@ -77,7 +78,7 @@ export const NamespacePage: React.FC = () => {
                     okText="Yes"
                     cancelText="No"
                 >
-                    <Button type="link" danger icon={<DeleteOutlined/>}>
+                    <Button type="link" danger icon={<DeleteOutlined/>} disabled={isSystemNamespace(record.namespace)}>
                         Delete
                     </Button>
                 </Popconfirm>

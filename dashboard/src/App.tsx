@@ -14,7 +14,7 @@
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {ConfigProvider} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
-import {NamespaceProvider} from './contexts/NamespaceContext';
+import {NamespaceProvider} from './namspace/NamespaceContext.tsx';
 import {DrawerProvider} from './contexts/DrawerContext';
 import {ProtectedRoute} from './components/common/ProtectedRoute';
 import {LoginPage} from './components/pages/LoginPage';
@@ -23,7 +23,7 @@ import {DashboardPage} from './components/pages/DashboardPage';
 import {TopologyPage} from './components/pages/TopologyPage';
 import {ConfigPage} from './components/pages/ConfigPage';
 import {ServicePage} from './components/pages/ServicePage';
-import {NamespacePage} from './components/pages/NamespacePage';
+import {NamespacePage} from './namspace/NamespacePage.tsx';
 import {UserPage} from './components/pages/UserPage';
 import {RolePage} from './components/pages/RolePage';
 import {AuditLogPage} from './components/pages/AuditLogPage';

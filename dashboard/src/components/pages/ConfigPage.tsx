@@ -22,7 +22,7 @@ import {
     HistoryOutlined
 } from '@ant-design/icons';
 import {saveAs} from 'file-saver';
-import {useNamespaceContext} from '../../contexts/NamespaceContext';
+import {useNamespaceContext} from '../../namspace/NamespaceContext.tsx';
 import {ConfigApiClient} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useDrawer} from '../../contexts/DrawerContext';

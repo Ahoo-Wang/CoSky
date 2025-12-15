@@ -14,15 +14,13 @@
 import React, {createContext, useContext, useCallback} from 'react';
 import {KeyStorage, typedIdentitySerializer} from "@ahoo-wang/fetcher-storage";
 import {useKeyStorage} from "@ahoo-wang/fetcher-react";
+import {SYSTEM_NAMESPACE} from "./namespaces.ts";
 
 const NAMESPACE_KEY = 'cosky:ns:current';
-const SYSTEM_NAMESPACE = 'cosky-{system}';
-const SYSTEM_NAMESPACES = new Set(['cosky-{default}', SYSTEM_NAMESPACE]);
 
 interface NamespaceContextType {
     currentNamespace: string;
     setCurrent: (namespace: string) => void;
-    isSystem: (namespace: string) => boolean;
     reset: () => void;
 }
 
@@ -40,14 +38,10 @@ export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({chil
         setCurrentNamespace(SYSTEM_NAMESPACE);
     }, [setCurrentNamespace]);
 
-    const isSystem = useCallback((namespace: string): boolean => {
-        return SYSTEM_NAMESPACES.has(namespace);
-    }, []);
 
     const value: NamespaceContextType = {
         currentNamespace: currentNamespace,
         setCurrent: setCurrentNamespace,
-        isSystem,
         reset,
     };
 

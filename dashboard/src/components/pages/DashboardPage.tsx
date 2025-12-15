@@ -19,7 +19,7 @@ import {
     CloudServerOutlined,
     ClusterOutlined
 } from '@ant-design/icons';
-import {useNamespaceContext} from '../../contexts/NamespaceContext';
+import {useNamespaceContext} from '../../namspace/NamespaceContext.tsx';
 import {StatApiClient, GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 
