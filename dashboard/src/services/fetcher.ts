@@ -6,7 +6,7 @@ fetcher.urlBuilder = new UrlBuilder(import.meta.env.VITE_API_BASE_URL);
 fetcher.timeout = 1000 * 60 * 2;
 
 export const coSecConfigurer = new CoSecConfigurer({
-    appId: import.meta.env.MYDAO_APP_ID,
+    appId: 'cosky',
     tokenRefresher: tokenRefresher,
     tokenStorage: tokenStorage,
     onUnauthorized: () => {
