@@ -21,7 +21,7 @@
     "@types/file-saver": "^2.0.7",
     "@xyflow/react": "^12.10.0",
     "antd": "^6.1.0",
-    "dagre": "^0.8.5",
+    "@dagrejs/dagre": "^1.1.8",
     "dayjs": "^1.11.19",
     "file-saver": "^2.0.5",
     "react": "^19.2.3",
