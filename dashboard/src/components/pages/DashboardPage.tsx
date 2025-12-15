@@ -51,7 +51,11 @@ export const DashboardPage: React.FC = () => {
                             title="Namespace Count"
                             value={stat.namespaces}
                             prefix={<PartitionOutlined/>}
-                            valueStyle={{color: '#3f8600'}}
+                            styles={{
+                                content: {
+                                    color: '#3f8600'
+                                }
+                            }}
                         />
                     </Card>
                 </Col>
@@ -61,7 +65,11 @@ export const DashboardPage: React.FC = () => {
                             title="Config Count"
                             value={stat.configs}
                             prefix={<FileOutlined/>}
-                            valueStyle={{color: '#1890ff'}}
+                            styles={{
+                                content: {
+                                    color: '#1890ff'
+                                }
+                            }}
                         />
                     </Card>
                 </Col>
@@ -71,7 +79,11 @@ export const DashboardPage: React.FC = () => {
                             title="Service Count"
                             value={stat.services.total}
                             prefix={<CloudServerOutlined/>}
-                            valueStyle={{color: '#cf1322'}}
+                            styles={{
+                                content: {
+                                    color: '#cf1322'
+                                }
+                            }}
                         />
                     </Card>
                 </Col>
@@ -81,7 +93,11 @@ export const DashboardPage: React.FC = () => {
                             title="Instance Count"
                             value={stat.instances}
                             prefix={<ClusterOutlined/>}
-                            valueStyle={{color: '#722ed1'}}
+                            styles={{
+                                content: {
+                                    color: '#722ed1'
+                                }
+                            }}
                         />
                     </Card>
                 </Col>
