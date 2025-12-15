@@ -23,6 +23,9 @@ importers:
       '@ahoo-wang/fetcher-storage':
         specifier: ^3.6.5
         version: 3.6.5(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5))
+      '@ahoo-wang/fetcher-viewer':
+        specifier: ^3.6.5
+        version: 3.6.6(ab3f6e10cc3ba62983fae10bee4d542b)
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -156,6 +159,20 @@ packages:
     resolution: {integrity: sha512-Oa4i+UqeuoaS/ppUA/No9BPMLMDnZWgb5yqJVmJIPxt6z1P2GUvZxy7ggiv9syHa7B5Rr825FUxLq17e5AzwYg==}
     peerDependencies:
       '@ahoo-wang/fetcher-eventbus': ^3.0.0
+
+  '@ahoo-wang/fetcher-viewer@3.6.6':
+    resolution: {integrity: sha512-PYwRCdqYikwOE93byx7FjpDNxqT+6PE1HSUgtr80ym2USSf0Vz/QsVWAUZJCJQ9DSbXtWv54/z0valMeccbYIw==}
+    peerDependencies:
+      '@ahoo-wang/fetcher': ^3.0.0
+      '@ahoo-wang/fetcher-openapi': ^3.0.0
+      '@ahoo-wang/fetcher-react': ^3.0.0
+      '@ahoo-wang/fetcher-storage': ^3.0.0
+      '@ahoo-wang/fetcher-wow': ^3.0.0
+      '@ant-design/icons': ^6.0.0
+      antd: ^6.1.0
+      dayjs: ^1.11.19
+      react: ^19.2.3
+      react-dom: ^19.2.3
 
   '@ahoo-wang/fetcher-wow@3.4.6':
     resolution: {integrity: sha512-xmVl6Rb2SS8WIiYYmkChZo3diXl/E+1fViVi3Uzy5Hfvi0nIWKntMj+SFgY/bDja0Mqgj+wIOIGCjrFo338PRw==}
@@ -1806,6 +1823,19 @@ snapshots:
   '@ahoo-wang/fetcher-storage@3.6.5(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5))':
     dependencies:
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.6.5)
+
+  '@ahoo-wang/fetcher-viewer@3.6.6(ab3f6e10cc3ba62983fae10bee4d542b)':
+    dependencies:
+      '@ahoo-wang/fetcher': 3.6.5
+      '@ahoo-wang/fetcher-openapi': 3.4.6
+      '@ahoo-wang/fetcher-react': 3.6.5(@ahoo-wang/fetcher-cosec@3.6.5(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-storage@3.6.5(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5)))(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-storage@3.6.5(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.6.5(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher@3.6.5)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@ahoo-wang/fetcher-storage': 3.6.5(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.6.5))
+      '@ahoo-wang/fetcher-wow': 3.4.6(@ahoo-wang/fetcher-decorator@3.6.5(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher@3.6.5)
+      '@ant-design/icons': 6.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      antd: 6.1.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      dayjs: 1.11.19
+      react: 19.2.3
+      react-dom: 19.2.3(react@19.2.3)
 
   '@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.6.5(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.6.5))(@ahoo-wang/fetcher@3.6.5)':
     dependencies:

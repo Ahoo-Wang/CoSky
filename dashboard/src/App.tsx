@@ -20,7 +20,6 @@ import {ProtectedRoute} from './security/ProtectedRoute.tsx';
 import {LoginPage} from './pages/login/LoginPage.tsx';
 import {AuthenticatedLayout} from './components/layout/AuthenticatedLayout';
 import {DashboardPage} from './pages/dashboard/DashboardPage.tsx';
-import {TopologyPage} from './pages/topology/TopologyPage.tsx';
 import {ConfigPage} from './pages/config/ConfigPage.tsx';
 import {ServicePage} from './pages/service/ServicePage.tsx';
 import {NamespacePage} from './pages/namespace/NamespacePage.tsx';
@@ -56,7 +55,6 @@ function App() {
                                 >
                                     <Route index element={<Navigate to="/home" replace/>}/>
                                     <Route path="home" element={<DashboardPage/>}/>
-                                    <Route path="topology" element={<TopologyPage/>}/>
                                     <Route path="config" element={<ConfigPage/>}/>
                                     <Route path="service" element={<ServicePage/>}/>
                                     <Route path="namespace" element={<NamespacePage/>}/>

@@ -23,6 +23,8 @@ import {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {statApiClient} from "../../services/clients.ts";
 import {Topology} from "../../components/topology/Topology.tsx";
+import {useRef} from "react";
+import {Fullscreen} from "@ahoo-wang/fetcher-viewer";
 
 export function DashboardPage() {
     const {currentNamespace} = useNamespaceContext();
@@ -39,7 +41,7 @@ export function DashboardPage() {
             return statApiClient.getStat(namespace, {abortController});
         },
     });
-
+    const topologyRef = useRef<HTMLDivElement>(null);
     return (
         <div>
             <h2 style={{marginBottom: 24}}>Dashboard</h2>
@@ -102,12 +104,20 @@ export function DashboardPage() {
                     </Card>
                 </Col>
                 <Col xs={24} sm={24} lg={24}>
-                    <Card title={'Service Topology'} styles={{
-                        body:{
-                            width: '100%',
-                            height: '70vh',
-                        }
-                    }}>
+                    <Card ref={topologyRef} title={'Service Topology'}
+                          style={{
+                              height: "100%",
+                              display: "flex",
+                              flexDirection: "column",
+                          }}
+                          styles={{
+                              body: {
+                                  flex: "auto",
+                                  minHeight: "65vh",
+                              }
+                          }}
+                          extra={<Fullscreen target={topologyRef} size={"small"} type={"dashed"}/>}
+                    >
                         <Topology/>
                     </Card>
                 </Col>

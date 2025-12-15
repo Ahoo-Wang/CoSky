@@ -15,7 +15,6 @@ import React, {useState} from 'react';
 import {Layout, Menu, Dropdown, Watermark, Modal, Form, Input, message} from 'antd';
 import {
     DashboardOutlined,
-    RadarChartOutlined,
     FileOutlined,
     CloudServerOutlined,
     PartitionOutlined,
@@ -47,11 +46,6 @@ export const AuthenticatedLayout: React.FC = () => {
             key: '/home',
             icon: <DashboardOutlined/>,
             label: 'Dashboard',
-        },
-        {
-            key: '/topology',
-            icon: <RadarChartOutlined/>,
-            label: 'Topology',
         },
         {
             key: '/config',
