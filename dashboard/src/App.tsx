@@ -14,19 +14,19 @@
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
 import {ConfigProvider} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
-import {NamespaceProvider} from './namspace/NamespaceContext.tsx';
+import {NamespaceProvider} from './contexts/NamespaceContext.tsx';
 import {DrawerProvider} from './contexts/DrawerContext';
 import {ProtectedRoute} from './components/common/ProtectedRoute';
-import {LoginPage} from './components/pages/LoginPage';
+import {LoginPage} from './pages/LoginPage';
 import {AuthenticatedLayout} from './components/layout/AuthenticatedLayout';
-import {DashboardPage} from './components/pages/DashboardPage';
-import {TopologyPage} from './components/pages/TopologyPage';
-import {ConfigPage} from './components/pages/ConfigPage';
-import {ServicePage} from './components/pages/ServicePage';
-import {NamespacePage} from './namspace/NamespacePage.tsx';
-import {UserPage} from './components/pages/UserPage';
-import {RolePage} from './components/pages/RolePage';
-import {AuditLogPage} from './components/pages/AuditLogPage';
+import {DashboardPage} from './pages/DashboardPage';
+import {TopologyPage} from './pages/TopologyPage';
+import {ConfigPage} from './pages/ConfigPage';
+import {ServicePage} from './pages/ServicePage';
+import {NamespacePage} from './pages/namspace/NamespacePage.tsx';
+import {UserPage} from './pages/UserPage';
+import {RolePage} from './pages/RolePage';
+import {AuditLogPage} from './pages/AuditLogPage';
 import './client/fetcher'
 import {tokenStorage} from "./client/tokenStorage.ts";
 

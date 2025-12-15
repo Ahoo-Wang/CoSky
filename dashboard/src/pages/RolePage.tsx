@@ -14,10 +14,10 @@
 import React, { useState } from 'react';
 import { Table, Button, Space, message, Popconfirm } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { RoleApiClient } from '../../generated';
+import { RoleApiClient } from '../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
-import { useDrawer } from '../../contexts/DrawerContext';
-import { RoleForm } from '../forms/RoleForm';
+import { useDrawer } from '../contexts/DrawerContext.tsx';
+import { RoleForm } from '../components/forms/RoleForm.tsx';
 
 const roleApiClient = new RoleApiClient();
 

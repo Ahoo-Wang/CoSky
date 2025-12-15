@@ -12,10 +12,10 @@
  */
 
 import {Table} from 'antd';
-import {QueryLogResponse} from '../../generated';
+import {QueryLogResponse} from '../generated';
 import dayjs from 'dayjs';
 import {useQuery} from "@ahoo-wang/fetcher-react";
-import {auditLogApiClient} from "../../client/clients.ts";
+import {auditLogApiClient} from "../client/clients.ts";
 
 type Paging = {
     pageIndex: number;

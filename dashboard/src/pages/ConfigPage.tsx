@@ -22,13 +22,13 @@ import {
     HistoryOutlined
 } from '@ant-design/icons';
 import {saveAs} from 'file-saver';
-import {useNamespaceContext} from '../../namspace/NamespaceContext.tsx';
-import {ConfigApiClient} from '../../generated';
+import {useNamespaceContext} from '../contexts/NamespaceContext.tsx';
+import {ConfigApiClient} from '../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useDrawer} from '../../contexts/DrawerContext';
-import {ConfigEditForm} from '../forms/ConfigEditForm';
-import {ConfigImportForm} from '../forms/ConfigImportForm';
-import {ConfigVersionsView} from '../forms/ConfigVersionsView';
+import {useDrawer} from '../contexts/DrawerContext.tsx';
+import {ConfigEditForm} from '../components/forms/ConfigEditForm.tsx';
+import {ConfigImportForm} from '../components/forms/ConfigImportForm.tsx';
+import {ConfigVersionsView} from '../components/forms/ConfigVersionsView.tsx';
 
 const configApiClient = new ConfigApiClient();
 
