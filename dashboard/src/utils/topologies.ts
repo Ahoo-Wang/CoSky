@@ -1,5 +1,5 @@
 import { Node, Edge } from '@xyflow/react';
-import dagre from 'dagre';
+import dagre from '@dagrejs/dagre';
 
 export interface ReactFlowTopology {
     nodes: Node[];
@@ -14,17 +14,8 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
     const edges: Edge[] = [];
     
     // Create a new directed graph
-    const dagreGraph = new dagre.graphlib.Graph();
-    dagreGraph.setDefaultEdgeLabel(() => ({}));
-    
-    // Configure the graph layout
-    dagreGraph.setGraph({
-        rankdir: 'TB', // Top to Bottom direction
-        nodesep: 50,   // Horizontal spacing between nodes
-        ranksep: 80,   // Vertical spacing between ranks/levels
-        marginx: 50,   // Margin around the graph
-        marginy: 50,
-    });
+    const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+    dagreGraph.setGraph({});
     
     // Collect all unique nodes
     const allNodes = new Set<string>();
