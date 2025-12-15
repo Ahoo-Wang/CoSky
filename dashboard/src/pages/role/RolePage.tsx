@@ -17,7 +17,7 @@ import { PlusOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
 import { RoleApiClient } from '../../generated';
 import { useQuery } from '@ahoo-wang/fetcher-react';
 import { useDrawer } from '../../contexts/DrawerContext.tsx';
-import { RoleForm } from './RoleForm.tsx';
+import { RoleEditor } from './RoleEditor.tsx';
 
 const roleApiClient = new RoleApiClient();
 
@@ -43,9 +43,7 @@ export const RolePage: React.FC = () => {
     setIsEdit(false);
     setCurrentRole(null);
     openDrawer(
-      <RoleForm
-        isEdit={false}
-        initialValues={null}
+      <RoleEditor
         onSubmit={handleSubmit}
         onCancel={closeDrawer}
       />,
@@ -60,11 +58,10 @@ export const RolePage: React.FC = () => {
     try {
       const bind = await roleApiClient.getResourceBind(roleName);
       setIsEdit(true);
-      const roleData = { roleId: roleName, desc: '', resourceActionBind: bind };
-      setCurrentRole({ roleId: roleName, resourceActionBind: bind });
+      const roleData = { name: roleName, desc: '', resourceActionBind: bind };
+      setCurrentRole({ name: roleName, resourceActionBind: bind });
       openDrawer(
-        <RoleForm
-          isEdit={true}
+        <RoleEditor
           initialValues={roleData}
           onSubmit={handleSubmit}
           onCancel={closeDrawer}

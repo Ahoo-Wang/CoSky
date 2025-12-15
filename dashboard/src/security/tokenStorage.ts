@@ -8,12 +8,12 @@ const tokenStorage = new TokenStorage({
 });
 
 const tokenRefresher: TokenRefresher = {
-    refresh(token: CompositeToken): Promise<CompositeToken> {
+    async refresh(token: CompositeToken): Promise<CompositeToken> {
         const username = tokenStorage.get()?.access?.payload?.sub
         if (!username) {
-            return Promise.reject(new Error('No username'));
+            throw new Error('No username')
         }
-        return authenticateApiClient.refresh(username, {
+        return await authenticateApiClient.refresh(username, {
             body: token
         }, {
             [IGNORE_REFRESH_TOKEN_ATTRIBUTE_KEY]: true
