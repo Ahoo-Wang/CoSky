@@ -83,7 +83,8 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
     }
     
     // Handle nodes in circular dependencies by placing them at the next available level
-    const maxLevel = Math.max(...Array.from(nodeLevels.values()));
+    const levelValues = Array.from(nodeLevels.values());
+    const maxLevel = levelValues.length > 0 ? Math.max(...levelValues) : 0;
     allNodes.forEach(nodeName => {
         if (inDegree.get(nodeName)! > 0) {
             // Node is part of a cycle, place it at a level after the max
@@ -105,7 +106,6 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
     
     sortedLevels.forEach(level => {
         const nodesInLevel = levelGroups.get(level)!;
-        const startX = START_X;
         
         nodesInLevel.forEach((nodeName, index) => {
             nodes.push({
@@ -115,7 +115,7 @@ export function toReactFlowTopology(topology: Record<string, string[]>): ReactFl
                     label: nodeName,
                 },
                 position: {
-                    x: startX + index * HORIZONTAL_SPACING,
+                    x: START_X + index * HORIZONTAL_SPACING,
                     y: START_Y + level * VERTICAL_SPACING,
                 },
             });
