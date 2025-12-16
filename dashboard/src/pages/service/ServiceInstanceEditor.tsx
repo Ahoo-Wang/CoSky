@@ -74,57 +74,55 @@ export function ServiceInstanceEditor({
         })
     };
     return (
-        <div>
-            <Form {...formItemLayout} form={form} onFinish={handleFinish}>
-                <Form.Item name="schema" label="Schema"
-                           rules={[{required: true, message: 'Please input schema!'}]}
-                >
-                    <SchemaSelector disabled={!!initialValues}/>
-                </Form.Item>
-                <Form.Item
-                    name="host"
-                    label="Host"
-                    rules={[{required: true, message: 'Please input host!'}]}
-                >
-                    <Input disabled={!!initialValues}/>
-                </Form.Item>
-                <Form.Item
-                    name="port"
-                    label="Port"
-                    rules={[{required: true, message: 'Please input port!'}]}
-                >
-                    <InputNumber disabled={!!initialValues}/>
-                </Form.Item>
+        <Form {...formItemLayout} form={form} onFinish={handleFinish}>
+            <Form.Item name="schema" label="Schema"
+                       rules={[{required: true, message: 'Please input schema!'}]}
+            >
+                <SchemaSelector disabled={!!initialValues}/>
+            </Form.Item>
+            <Form.Item
+                name="host"
+                label="Host"
+                rules={[{required: true, message: 'Please input host!'}]}
+            >
+                <Input disabled={!!initialValues}/>
+            </Form.Item>
+            <Form.Item
+                name="port"
+                label="Port"
+                rules={[{required: true, message: 'Please input port!'}]}
+            >
+                <InputNumber disabled={!!initialValues}/>
+            </Form.Item>
 
-                <Form.Item name="weight" label="Weight">
-                    <InputNumber disabled={!!initialValues}/>
-                </Form.Item>
-                <Form.Item name="isEphemeral" label="Is Ephemeral?">
-                    <Switch/>
-                </Form.Item>
-                <Divider>Metadata</Divider>
-                <Editor
-                    height="500px"
-                    theme="vs-dark"
-                    defaultLanguage="json"
-                    defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
-                    onChange={(value) => setMetadata(value || '{}')}
-                    options={{
-                        minimap: {enabled: false},
-                    }}
-                />
-                <Divider></Divider>
-                <Form.Item>
-                    <Space>
-                        <Button type="primary" htmlType="submit" loading={loading}>
-                            Submit
-                        </Button>
-                        <Button onClick={onCancel}>
-                            Cancel
-                        </Button>
-                    </Space>
-                </Form.Item>
-            </Form>
-        </div>
+            <Form.Item name="weight" label="Weight">
+                <InputNumber disabled={!!initialValues}/>
+            </Form.Item>
+            <Form.Item name="isEphemeral" label="Is Ephemeral?">
+                <Switch/>
+            </Form.Item>
+            <Divider>Metadata</Divider>
+            <Editor
+                height="500px"
+                theme="vs-dark"
+                defaultLanguage="json"
+                defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
+                onChange={(value) => setMetadata(value || '{}')}
+                options={{
+                    minimap: {enabled: false},
+                }}
+            />
+            <Divider></Divider>
+            <Form.Item>
+                <Space>
+                    <Button type="primary" htmlType="submit" loading={loading}>
+                        Submit
+                    </Button>
+                    <Button onClick={onCancel}>
+                        Cancel
+                    </Button>
+                </Space>
+            </Form.Item>
+        </Form>
     );
 }

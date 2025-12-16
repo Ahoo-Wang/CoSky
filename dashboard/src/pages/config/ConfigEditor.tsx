@@ -11,50 +11,98 @@
  * limitations under the License.
  */
 
-import React, {useState, useEffect} from 'react';
-import {Button, Space} from 'antd';
+import React, {useEffect, useState} from 'react';
+import {Button, Divider, Input, message, Space} from 'antd';
 import Editor from '@monaco-editor/react';
+import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
+import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
+import {configApiClient} from "../../services/clients.ts";
+import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
 
 interface ConfigEditFormProps {
-    configId: string;
-    isAdd: boolean;
+    namespace: string;
+    configId?: string;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-export const ConfigEditor: React.FC<ConfigEditFormProps> = ({configId, isAdd, onSuccess, onCancel}) => {
+export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
+    const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
+    const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
+    const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
+    const [configData, setConfigData] = useState<string>();
+    const {result: config} = useQuery({
+        query: configId,
+        execute: (query, attributes, abortController) => {
+            return configApiClient.getConfig(namespace, query, attributes, abortController);
+        }
+    })
+    const {loading: loadingSave, execute: saveConfig} = useExecutePromise({
+        propagateError: true,
+        onSuccess: () => {
+            message.success('Config saved successfully');
+            onSuccess();
+        },
+        onError: () => {
+            message.error('Config save failed');
+        }
+    })
+
     useEffect(() => {
-        setConfigData(config?.data || '');
-    }, [config]);
-
-    const handleSave = async () => {
-        await onSave(configData);
-    };
-
+        if (config) {
+            setConfigData(config.data)
+        }
+    }, [config, setConfigData]);
+    const handleSubmit = () => {
+        if (!fileName) {
+            message.error('Please enter file name!')
+            return;
+        }
+        const fullFileName = getFullFileName(fileName, fileExt)
+        saveConfig(() => {
+            return configApiClient.setConfig(namespace, fullFileName, {
+                body: configData
+            })
+        })
+    }
     return (
-        <div>
-            <h3 style={{marginBottom: 16}}>
-                {config ? `Edit Config: ${config.configId}` : 'Add Config'}
-            </h3>
+        <>
+            <Space.Compact block>
+                <Input disabled={!!configId} placeholder="Enter file name!" value={fileName} onChange={(e) => {
+                    setFileName(e.target.value);
+                }}/>
+                <ConfigFormatSelector disabled={!!configId}
+                                      value={fileExt}
+                                      onChange={(value) => {
+                                          setFileExt(value)
+                                      }}
+                                      defaultValue={'yaml'}
+                                      style={{width: 150}}/>
+            </Space.Compact>
+            <Divider>Config Data</Divider>
             <Editor
                 height="500px"
-                defaultLanguage="yaml"
+                theme="vs-dark"
+                language={fileExt}
                 value={configData}
-                onChange={(value) => setConfigData(value || '')}
+                onChange={setConfigData}
                 options={{
                     minimap: {enabled: false},
                 }}
             />
-            <div style={{marginTop: 16}}>
-                <Space>
-                    <Button type="primary" onClick={handleSave}>
-                        Save
-                    </Button>
-                    <Button onClick={onCancel}>
-                        Cancel
-                    </Button>
-                </Space>
-            </div>
-        </div>
+            <Divider></Divider>
+            <Space>
+                <Button type="primary"
+                        onClick={handleSubmit}
+                        loading={loadingSave}
+                >
+                    Submit
+                </Button>
+                <Button onClick={onCancel}>
+                    Cancel
+                </Button>
+            </Space>
+        </>
+
     );
 };

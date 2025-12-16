@@ -24,9 +24,12 @@ import {
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
 import {configApiClient} from "../../services/clients.ts";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ConfigEditor} from "./ConfigEditor.tsx";
 
 export const ConfigPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
+    const {openDrawer, closeDrawer} = useDrawer();
     const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, string[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
@@ -34,6 +37,15 @@ export const ConfigPage: React.FC = () => {
         },
     });
 
+    const handleEditConfig = (configId?: string) => {
+        openDrawer(<ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
+            closeDrawer();
+            loadConfigs();
+        }} onCancel={closeDrawer}/>, {
+            title: 'Add Config',
+            width: '65vh',
+        });
+    };
     const {execute: deleteConfig} = useExecutePromise({
         onSuccess: () => {
             message.success('Delete config success');
@@ -60,7 +72,7 @@ export const ConfigPage: React.FC = () => {
             render: (_: any, record: string) => (
                 <Space>
                     <Button type="link" icon={<EditOutlined/>}
-                        // onClick={() => handleEdit(record)}
+                        onClick={() => handleEditConfig(record)}
                     >
                         Edit
                     </Button>
@@ -90,7 +102,7 @@ export const ConfigPage: React.FC = () => {
                 <h2>Configuration</h2>
                 <Space>
                     <Button type="primary" icon={<PlusOutlined/>}
-                        // onClick={() => handleEdit()}
+                            onClick={() => handleEditConfig()}
                     >
                         Add
                     </Button>
