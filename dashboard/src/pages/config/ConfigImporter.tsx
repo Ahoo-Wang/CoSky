@@ -29,7 +29,7 @@ interface ConfigImporterProps {
 
 export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
     const [form] = Form.useForm();
-    const {execute} = useExecutePromise<ImportResponse>({
+    const {loading, execute} = useExecutePromise<ImportResponse>({
         onSuccess: (result) => {
             message.success(`ToTal : ${result.total} , Succeeded : ${result.succeeded} . `)
             onSuccess();
@@ -47,7 +47,6 @@ export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSucc
                 body: formData
             })
         })
-
     };
     useEffect(() => {
         form.setFieldValue('policy', 'skip')
@@ -73,7 +72,7 @@ export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSucc
             </Form.Item>
             <Form.Item>
                 <Space>
-                    <Button type="primary" htmlType="submit">
+                    <Button type="primary" htmlType="submit" loading={loading}>
                         Submit
                     </Button>
                     <Button onClick={onCancel}>
