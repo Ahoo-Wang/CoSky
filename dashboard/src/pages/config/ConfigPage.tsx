@@ -27,6 +27,8 @@ import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ConfigEditor} from "./ConfigEditor.tsx";
 import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
 import {ConfigImporter} from "./ConfigImporter.tsx";
+import {saveAs} from 'file-saver';
+import dayjs from "dayjs";
 
 export const ConfigPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
@@ -37,6 +39,23 @@ export const ConfigPage: React.FC = () => {
             return configApiClient.getConfigs(namespace, {abortController});
         },
     });
+    const {loading: exportLoading, execute: executeExport} = useExecutePromise({
+        propagateError: true,
+        onSuccess: () => {
+            message.success('Export config success');
+        },
+        onError: () => {
+            message.error('Export config failed')
+        }
+    })
+
+    const handleExport = async () => {
+        await executeExport(async () => {
+            const blob = await configApiClient.exportZip(currentNamespace);
+            const fileTime = dayjs().format('YYYY-MM-DD-HH-mm-ss');
+            saveAs(blob, `cosky_${currentNamespace}-${fileTime}.zip`);
+        })
+    }
 
     const handleEditConfig = (configId?: string) => {
         openDrawer(<ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
@@ -119,12 +138,12 @@ export const ConfigPage: React.FC = () => {
                         Add
                     </Button>
                     <Button danger icon={<ImportOutlined/>}
-                        onClick={handleImportConfig}
+                            onClick={handleImportConfig}
                     >
                         Import
                     </Button>
-                    <Button danger icon={<ExportOutlined/>}
-                        // onClick={handleExport}
+                    <Button danger icon={<ExportOutlined/>} loading={exportLoading}
+                            onClick={handleExport}
                     >
                         Export
                     </Button>
