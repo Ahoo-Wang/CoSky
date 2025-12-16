@@ -26,6 +26,7 @@ import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
 import {configApiClient} from "../../services/clients.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ConfigEditor} from "./ConfigEditor.tsx";
+import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
 
 export const ConfigPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
@@ -61,6 +62,12 @@ export const ConfigPage: React.FC = () => {
         })
     };
 
+
+    const expandedRowRender = (record: string) => {
+        return (
+            <ConfigVersionTable namespace={currentNamespace} configId={record}/>
+        )
+    }
     const columns = [
         {
             title: 'Config ID',
@@ -72,7 +79,7 @@ export const ConfigPage: React.FC = () => {
             render: (_: any, record: string) => (
                 <Space>
                     <Button type="link" icon={<EditOutlined/>}
-                        onClick={() => handleEditConfig(record)}
+                            onClick={() => handleEditConfig(record)}
                     >
                         Edit
                     </Button>
@@ -119,7 +126,13 @@ export const ConfigPage: React.FC = () => {
                     </Button>
                 </Space>
             </div>
-            <Table columns={columns} dataSource={configs} loading={loading}/>
+            <Table columns={columns} dataSource={configs}
+                   rowKey={(record) => record}
+                   loading={loading}
+                   expandable={{
+                       expandedRowRender
+                   }}
+            />
         </div>
     );
 };
