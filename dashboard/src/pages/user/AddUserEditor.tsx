@@ -86,4 +86,4 @@ export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFo
             </Form.Item>
         </Form>
     );
-};
+}

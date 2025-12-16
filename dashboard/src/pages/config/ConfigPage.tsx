@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
-import {Table, Button, Input, Space, Modal, message, Popconfirm} from 'antd';
+import React from 'react';
+import {Table, Button, Space, message, Popconfirm} from 'antd';
 import {
     PlusOutlined,
     DeleteOutlined,
@@ -21,166 +21,44 @@ import {
     ImportOutlined,
     HistoryOutlined
 } from '@ant-design/icons';
-import {saveAs} from 'file-saver';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
-import {ConfigApiClient} from '../../generated';
-import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useDrawer} from '../../contexts/DrawerContext.tsx';
-import {ConfigEditForm} from './ConfigEditForm.tsx';
-import {ConfigImportForm} from './ConfigImportForm.tsx';
-import {ConfigVersionsView} from './ConfigVersionsView.tsx';
-
-const configApiClient = new ConfigApiClient();
+import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
+import {configApiClient} from "../../services/clients.ts";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ConfigEditor} from "./ConfigEditor.tsx";
 
 export const ConfigPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
-    const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, any[]>({
+    const {openDrawer, closeDrawer} = useDrawer();
+    const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, string[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return configApiClient.getConfigs(namespace, {abortController});
         },
     });
-    const [currentConfig, setCurrentConfig] = useState<any>(null);
-    const {openDrawer, closeDrawer} = useDrawer();
 
-    const handleEdit = async (configId?: string) => {
-        if (configId) {
-            try {
-                const config = await configApiClient.getConfig(currentNamespace, configId);
-                setCurrentConfig(config);
-                openDrawer(
-                    <ConfigEditForm
-                        config={config}
-                        onSave={handleSaveConfig}
-                        onCancel={closeDrawer}
-                    />,
-                    {
-                        title: 'Edit Config',
-                        width: 800,
-                    }
-                );
-            } catch (error) {
-                console.error('Failed to load config:', error);
-            }
-        } else {
-            // For new config, show a modal to get the config ID first
-            Modal.confirm({
-                title: 'Enter Config ID',
-                content: (
-                    <Input
-                        placeholder="Config ID"
-                        id="newConfigId"
-                        autoFocus
-                    />
-                ),
-                onOk: async () => {
-                    const input = document.getElementById('newConfigId') as HTMLInputElement;
-                    const configId = input?.value;
-                    if (configId) {
-                        const newConfig = {configId, data: ''};
-                        setCurrentConfig(newConfig);
-                        openDrawer(
-                            <ConfigEditForm
-                                config={newConfig}
-                                onSave={handleSaveConfig}
-                                onCancel={closeDrawer}
-                            />,
-                            {
-                                title: 'Add Config',
-                                width: 800,
-                            }
-                        );
-                    }
-                },
-            });
-        }
-    };
-
-    const handleSaveConfig = async (configData: string) => {
-        try {
-            if (currentConfig) {
-                await configApiClient.setConfig(currentNamespace, currentConfig.configId, {body: configData});
-                message.success('Config saved successfully');
-                closeDrawer();
-                loadConfigs();
-            } else {
-                message.error('Config ID is required');
-            }
-        } catch (error) {
-            console.error('Failed to save config:', error);
-            message.error('Failed to save config');
-        }
-    };
-
-    const handleDelete = async (configId: string) => {
-        try {
-            await configApiClient.removeConfig(currentNamespace, configId);
-            message.success('Config deleted successfully');
-            loadConfigs();
-        } catch (error) {
-            console.error('Failed to delete config:', error);
-            message.error('Failed to delete config');
-        }
-    };
-
-    const handleExport = async () => {
-        try {
-            const data = await configApiClient.exportZip(currentNamespace);
-            const blob = new Blob([data], {type: 'application/zip'});
-            saveAs(blob, `configs-${currentNamespace}.zip`);
-            message.success('Configs exported successfully');
-        } catch (error) {
-            console.error('Failed to export configs:', error);
-            message.error('Failed to export configs');
-        }
-    };
-
-    const handleImportClick = () => {
-        openDrawer(
-            <ConfigImportForm
-                onImport={handleImportConfigs}
-                onCancel={closeDrawer}
-            />,
-            {
-                title: 'Import Configs',
-                width: 800,
-            }
-        );
-    };
-
-    const handleImportConfigs = async (importData: string) => {
-        try {
-            const formData = new FormData();
-            const blob = new Blob([importData], {type: 'application/zip'});
-            formData.append('file', blob);
-            await configApiClient.importZip(currentNamespace, {body: formData});
-            message.success('Configs imported successfully');
+    const handleEditConfig = (configId?: string) => {
+        openDrawer(<ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
             closeDrawer();
             loadConfigs();
-        } catch (error) {
-            console.error('Failed to import configs:', error);
-            message.error('Failed to import configs');
-        }
+        }} onCancel={closeDrawer}/>, {
+            title: 'Add Config',
+            width: '80vh',
+        });
     };
-
-    const handleViewVersions = async (configId: string) => {
-        try {
-            const result = await configApiClient.getConfigVersions(currentNamespace, configId);
-            openDrawer(
-                <ConfigVersionsView
-                    configId={configId}
-                    versions={result || []}
-                    onClose={closeDrawer}
-                />,
-                {
-                    title: 'Config Versions',
-                    width: 800,
-                }
-            );
-        } catch (error) {
-            console.error('Failed to load versions:', error);
-            message.error('Failed to load versions');
+    const {execute: deleteConfig} = useExecutePromise({
+        onSuccess: () => {
+            message.success('Delete config success');
+            loadConfigs();
+        },
+        onError: () => {
+            message.error('Delete config failed')
         }
+    })
+    const handleDelete = async (configId: string) => {
+        await deleteConfig(() => {
+            return configApiClient.removeConfig(currentNamespace, configId);
+        })
     };
 
     const columns = [
@@ -193,10 +71,14 @@ export const ConfigPage: React.FC = () => {
             key: 'action',
             render: (_: any, record: string) => (
                 <Space>
-                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
+                    <Button type="link" icon={<EditOutlined/>}
+                        onClick={() => handleEditConfig(record)}
+                    >
                         Edit
                     </Button>
-                    <Button type="link" icon={<HistoryOutlined/>} onClick={() => handleViewVersions(record)}>
+                    <Button type="link" icon={<HistoryOutlined/>}
+                        // onClick={() => handleViewVersions(record)}
+                    >
                         Versions
                     </Button>
                     <Popconfirm
@@ -219,13 +101,20 @@ export const ConfigPage: React.FC = () => {
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Configuration</h2>
                 <Space>
-                    <Button type="primary" icon={<PlusOutlined/>} onClick={() => handleEdit()}>
+                    <Button type="primary" icon={<PlusOutlined/>}
+                            onClick={() => handleEditConfig()}
+                    >
                         Add
                     </Button>
-                    <Button danger icon={<ImportOutlined/>} onClick={handleImportClick}>
+                    <Button danger icon={<ImportOutlined/>}
+                        // onClick={handleImportClick}
+
+                    >
                         Import
                     </Button>
-                    <Button danger icon={<ExportOutlined/>} onClick={handleExport}>
+                    <Button danger icon={<ExportOutlined/>}
+                        // onClick={handleExport}
+                    >
                         Export
                     </Button>
                 </Space>
