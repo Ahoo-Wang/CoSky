@@ -28,46 +28,48 @@ import {RolePage} from './pages/role/RolePage.tsx';
 import {AuditLogPage} from './pages/audit/AuditLogPage.tsx';
 import './services/fetcher'
 import {tokenStorage} from "./security/tokenStorage.ts";
-import {coSecConfigurer} from "./services/fetcher.ts";
+import ErrorBoundary from "antd/es/alert/ErrorBoundary";
 
 function App() {
     return (
         <ConfigProvider>
-            <SecurityProvider tokenStorage={tokenStorage}
-                              onSignIn={() => {
-                                  window.location.href = '/home';
-                              }}
-                              onSignOut={() => {
-                                  window.location.href = '/login';
-                              }}
-            >
-                <NamespaceProvider>
-                    <DrawerProvider>
-                        <BrowserRouter>
-                            <Routes>
-                                <Route path="/login" element={<LoginPage/>}/>
-                                <Route
-                                    path="/"
-                                    element={
-                                        <ProtectedRoute tokenManager={coSecConfigurer.tokenManager!}>
-                                            <AuthenticatedLayout/>
-                                        </ProtectedRoute>
-                                    }
-                                >
-                                    <Route index element={<Navigate to="/home" replace/>}/>
-                                    <Route path="home" element={<DashboardPage/>}/>
-                                    <Route path="config" element={<ConfigPage/>}/>
-                                    <Route path="service" element={<ServicePage/>}/>
-                                    <Route path="namespace" element={<NamespacePage/>}/>
-                                    <Route path="user" element={<UserPage/>}/>
-                                    <Route path="role" element={<RolePage/>}/>
-                                    <Route path="audit-log" element={<AuditLogPage/>}/>
-                                </Route>
-                            </Routes>
-                        </BrowserRouter>
-                    </DrawerProvider>
-                </NamespaceProvider>
-            </SecurityProvider>
+            <ErrorBoundary>
+                <SecurityProvider tokenStorage={tokenStorage}
+                                  onSignIn={() => {
+                                      window.location.href = '/home';
+                                  }}
+                                  onSignOut={() => {
+                                      window.location.href = '/login';
+                                  }}
+                >
+                    <NamespaceProvider>
+                        <DrawerProvider>
+                            <BrowserRouter>
+                                <Routes>
+                                    <Route path="/login" element={<LoginPage/>}/>
+                                    <Route
+                                        path="/"
+                                        element={
+                                            <ProtectedRoute>
+                                                <AuthenticatedLayout/>
+                                            </ProtectedRoute>
+                                        }
+                                    >
+                                        <Route index element={<Navigate to="/home" replace/>}/>
+                                        <Route path="home" element={<DashboardPage/>}/>
+                                        <Route path="config" element={<ConfigPage/>}/>
+                                        <Route path="service" element={<ServicePage/>}/>
+                                        <Route path="namespace" element={<NamespacePage/>}/>
+                                        <Route path="user" element={<UserPage/>}/>
+                                        <Route path="role" element={<RolePage/>}/>
+                                        <Route path="audit-log" element={<AuditLogPage/>}/>
+                                    </Route>
+                                </Routes>
+                            </BrowserRouter>
+                        </DrawerProvider>
+                    </NamespaceProvider>
+                </SecurityProvider>
+            </ErrorBoundary>
         </ConfigProvider>
     );
 }

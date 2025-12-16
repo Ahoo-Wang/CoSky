@@ -2,8 +2,10 @@ import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
 import {Button, message, Popconfirm, Table} from "antd";
 import {ServiceInstance} from "../../generated";
-import {DeleteOutlined} from "@ant-design/icons";
+import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
 import dayjs from "dayjs";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 
 export interface ServiceInstanceTableProps {
     namespace: string
@@ -26,6 +28,22 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
             message.error('Delete instance failed!');
         }
     })
+    const {openDrawer, closeDrawer} = useDrawer();
+    const handleEditInstance = (serviceInstance: ServiceInstance) => {
+        openDrawer(
+            <ServiceInstanceEditor
+                namespace={props.namespace}
+                serviceId={props.serviceId}
+                initialValues={serviceInstance}
+                onSubmit={closeDrawer}
+                onCancel={closeDrawer}
+            />,
+            {
+                title: 'Edit Instance',
+                width: 500,
+            }
+        );
+    }
     const handleDeleteInstance = async (serviceId: string, instanceId: string) => {
         await execute(() => {
             return serviceApiClient.deregister(props.namespace, serviceId, instanceId)
@@ -58,16 +76,25 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
             title: 'Action',
             key: 'action',
             render: (_: any, record: ServiceInstance) => (
-                <Popconfirm
-                    title="Are you sure to delete this instance?"
-                    onConfirm={() => handleDeleteInstance(record.serviceId, record.instanceId)}
-                    okText="Yes"
-                    cancelText="No"
-                >
-                    <Button type="link" danger icon={<DeleteOutlined/>} loading={loadingExecutePromise}>
-                        Delete
+                <>
+                    <Button
+                        type="link"
+                        icon={<EditOutlined/>}
+                        onClick={() => handleEditInstance(record)}
+                    >
+                        Edit
                     </Button>
-                </Popconfirm>
+                    <Popconfirm
+                        title="Are you sure to delete this instance?"
+                        onConfirm={() => handleDeleteInstance(record.serviceId, record.instanceId)}
+                        okText="Yes"
+                        cancelText="No"
+                    >
+                        <Button type="link" danger icon={<DeleteOutlined/>} loading={loadingExecutePromise}>
+                            Delete
+                        </Button>
+                    </Popconfirm>
+                </>
             ),
         },
     ];

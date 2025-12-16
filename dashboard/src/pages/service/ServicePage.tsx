@@ -19,6 +19,8 @@ import {serviceApiClient} from "../../services/clients.ts";
 import {ServiceStat} from "../../generated";
 import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
+import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function ServicePage() {
     const {currentNamespace} = useNamespaceContext();
@@ -29,7 +31,7 @@ export function ServicePage() {
         },
     });
 
-    // const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer, closeDrawer} = useDrawer();
 
     const handleDeleteService = async (serviceId: string) => {
         try {
@@ -41,19 +43,20 @@ export function ServicePage() {
         }
     };
 
-    // const handleAddInstance = (serviceId: string) => {
-    //     openDrawer(
-    //         <ServiceInstanceEditor
-    //             serviceId={serviceId}
-    //             onSubmit={handleSubmitInstance}
-    //             onCancel={closeDrawer}
-    //         />,
-    //         {
-    //             title: 'Add Instance',
-    //             width: 500,
-    //         }
-    //     );
-    // };
+    const handleAddInstance = (serviceId: string) => {
+        openDrawer(
+            <ServiceInstanceEditor
+                namespace={currentNamespace}
+                serviceId={serviceId}
+                onSubmit={closeDrawer}
+                onCancel={closeDrawer}
+            />,
+            {
+                title: 'Add Instance',
+                width: 500,
+            }
+        );
+    };
 
 
     const expandedRowRender = (record: ServiceStat) => {
@@ -82,7 +85,7 @@ export function ServicePage() {
                     <Button
                         type="primary"
                         icon={<AppstoreAddOutlined/>}
-                        // onClick={() => handleAddInstance(record.serviceId)}
+                        onClick={() => handleAddInstance(record.serviceId)}
                     >
                         Add instance
                     </Button>

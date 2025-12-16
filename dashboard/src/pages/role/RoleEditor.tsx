@@ -79,7 +79,7 @@ export function RoleEditor({initialValues, onSubmit, onCancel}: RoleEditorProps)
                 label="Role Name"
                 rules={[{required: true, message: 'Please input role name!'}]}
             >
-                <Input disabled={initialValues !== undefined}/>
+                <Input disabled={!!initialValues}/>
             </Form.Item>
             <Form.Item name="desc" label="Description"
                        rules={[{required: true, message: 'Please input role description!'}]}>

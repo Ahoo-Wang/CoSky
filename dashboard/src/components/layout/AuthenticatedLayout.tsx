@@ -31,6 +31,7 @@ import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ChangePwd} from "../security/ChangePwd.tsx";
+import {ErrorBoundary} from "../error/ErrorBoundary.tsx";
 
 const {Header, Sider, Content, Footer} = Layout;
 
@@ -182,7 +183,9 @@ export const AuthenticatedLayout: React.FC = () => {
                             display: 'flex',
                             flexDirection: 'column'
                         }}>
-                            <Outlet/>
+                            <ErrorBoundary>
+                                <Outlet/>
+                            </ErrorBoundary>
                         </div>
                     </Watermark>
                 </Content>

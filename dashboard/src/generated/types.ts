@@ -109,6 +109,7 @@ export interface SaveRoleRequest {
  *   }
  * }
  * ```
+ *
  */
 export interface InstanceDto {
     schema: string;
@@ -120,7 +121,7 @@ export interface InstanceDto {
     /** - format: int64 */
     ttlAt: number;
     metadata: Record<string, string>;
-    ephemeral: boolean;
+    isEphemeral: boolean;
 }
 
 /**
@@ -463,13 +464,13 @@ export interface Services {
  * ```
  */
 export interface ServiceInstance {
-    ephemeral: boolean;
+    isEphemeral: boolean;
     metadata: Record<string, string>;
     /** - format: int32 */
     weight: number;
     /** - format: int64 */
     ttlAt: number;
-    expired: boolean;
+    isExpired: boolean;
     host: string;
     /** - format: int32 */
     port: number;
