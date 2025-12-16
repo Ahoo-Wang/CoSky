@@ -16,7 +16,7 @@ import {ConfigProvider} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
 import {NamespaceProvider} from './contexts/NamespaceContext.tsx';
 import {DrawerProvider} from './contexts/DrawerContext';
-import {ProtectedRoute} from './security/ProtectedRoute.tsx';
+import {ProtectedRoute} from './components/security/ProtectedRoute.tsx';
 import {LoginPage} from './pages/login/LoginPage.tsx';
 import {AuthenticatedLayout} from './components/layout/AuthenticatedLayout';
 import {DashboardPage} from './pages/dashboard/DashboardPage.tsx';

@@ -12,7 +12,7 @@
  */
 
 import React, {useState} from 'react';
-import {Layout, Menu, Dropdown, Watermark, Modal, Form, Input, message} from 'antd';
+import {Layout, Menu, Dropdown, Watermark} from 'antd';
 import {
     DashboardOutlined,
     FileOutlined,
@@ -28,19 +28,27 @@ import {
 } from '@ant-design/icons';
 import {Outlet, useNavigate, useLocation} from 'react-router-dom';
 import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
-import {userApiClient} from '../../services/clients';
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ChangePwd} from "../security/ChangePwd.tsx";
 
 const {Header, Sider, Content, Footer} = Layout;
 
 export const AuthenticatedLayout: React.FC = () => {
     const [collapsed, setCollapsed] = useState(false);
-    const [changePwdVisible, setChangePwdVisible] = useState(false);
     const {currentUser, signOut} = useSecurityContext();
     const navigate = useNavigate();
     const location = useLocation();
-    const [form] = Form.useForm();
-
+    const {openDrawer, closeDrawer} = useDrawer()
+    const handleChangePwd = () => {
+        openDrawer(
+            <ChangePwd onSubmit={closeDrawer} onCancel={closeDrawer}/>,
+            {
+                title: 'Change Password',
+                width: 500,
+            }
+        );
+    }
     const menuItems = [
         {
             key: '/home',
@@ -92,28 +100,11 @@ export const AuthenticatedLayout: React.FC = () => {
         }
     };
 
-    const handleChangePwd = async (values: { oldPassword: string; newPassword: string }) => {
-        try {
-            await userApiClient.changePwd(currentUser.sub, {
-                body: {
-                    oldPassword: values.oldPassword,
-                    newPassword: values.newPassword,
-                },
-            });
-            message.success('Password reset complete!');
-            setChangePwdVisible(false);
-            form.resetFields();
-        } catch (error) {
-            console.error('Failed to change password:', error);
-            message.error('Failed to change password');
-        }
-    };
-
     const userMenuItems = [
         {
             key: 'changePwd',
             label: 'Change Password',
-            onClick: () => setChangePwdVisible(true),
+            onClick: () => handleChangePwd(),
         },
         {
             type: 'divider' as const,
@@ -207,34 +198,6 @@ export const AuthenticatedLayout: React.FC = () => {
                     {' © 2021-present'}
                 </Footer>
             </Layout>
-
-            <Modal
-                title={`Change User:[${currentUser.sub}] Password`}
-                open={changePwdVisible}
-                onCancel={() => {
-                    setChangePwdVisible(false);
-                    form.resetFields();
-                }}
-                onOk={() => form.submit()}
-                width={600}
-            >
-                <Form form={form} layout="vertical" onFinish={handleChangePwd}>
-                    <Form.Item
-                        name="oldPassword"
-                        label="Old Password"
-                        rules={[{required: true, message: 'Please input old password!'}]}
-                    >
-                        <Input.Password/>
-                    </Form.Item>
-                    <Form.Item
-                        name="newPassword"
-                        label="New Password"
-                        rules={[{required: true, message: 'Please input new password!'}]}
-                    >
-                        <Input.Password/>
-                    </Form.Item>
-                </Form>
-            </Modal>
         </Layout>
     );
 };
