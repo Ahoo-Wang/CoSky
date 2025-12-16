@@ -40,7 +40,7 @@ export function UserPage() {
         openDrawer(
             <AddUserEditor
                 roleSelectorOptions={roleSelectorOptions}
-                onSubmit={handleSubmit}
+                onSuccess={handleSubmit}
                 onCancel={closeDrawer}
             />,
             {

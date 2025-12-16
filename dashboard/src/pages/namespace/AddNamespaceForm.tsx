@@ -17,15 +17,15 @@ import {namespaceApiClient} from "../../services/clients.ts";
 import {PlusOutlined} from "@ant-design/icons";
 
 interface NamespaceFormProps {
-    onSubmit: (namespace: string) => void;
+    onSuccess: () => void;
 }
 
-export function AddNamespaceForm({onSubmit}: NamespaceFormProps) {
+export function AddNamespaceForm({onSuccess}: NamespaceFormProps) {
     const [form] = Form.useForm();
-    const {loading, execute: addNamespace} = useExecutePromise<string>({
-        onSuccess: (namespace) => {
+    const {loading, execute: addNamespace} = useExecutePromise({
+        onSuccess: () => {
             message.success('Add namespace success!');
-            onSubmit(namespace);
+            onSuccess();
             form.resetFields();
         },
         onError: () => {
@@ -33,9 +33,8 @@ export function AddNamespaceForm({onSubmit}: NamespaceFormProps) {
         }
     })
     const handleFinish = async (values: { namespace: string }) => {
-        await addNamespace(async () => {
-            await namespaceApiClient.setNamespace(values.namespace)
-            return values.namespace;
+        await addNamespace(() => {
+            return namespaceApiClient.setNamespace(values.namespace)
         })
     };
 

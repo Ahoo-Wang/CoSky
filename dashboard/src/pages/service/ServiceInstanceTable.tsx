@@ -35,7 +35,7 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
                 namespace={props.namespace}
                 serviceId={props.serviceId}
                 initialValues={serviceInstance}
-                onSubmit={closeDrawer}
+                onSuccess={closeDrawer}
                 onCancel={closeDrawer}
             />,
             {

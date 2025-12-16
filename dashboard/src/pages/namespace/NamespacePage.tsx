@@ -59,7 +59,7 @@ export function NamespacePage() {
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Namespace</h2>
-                <AddNamespaceForm onSubmit={reload}/>
+                <AddNamespaceForm onSuccess={reload}/>
             </div>
             <Table columns={columns} dataSource={namespaces} loading={loading}/>
         </div>

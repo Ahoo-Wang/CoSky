@@ -49,7 +49,7 @@ export function ServicePage() {
             <ServiceInstanceEditor
                 namespace={currentNamespace}
                 serviceId={serviceId}
-                onSubmit={closeDrawer}
+                onSuccess={closeDrawer}
                 onCancel={closeDrawer}
             />,
             {
@@ -109,7 +109,7 @@ export function ServicePage() {
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Service</h2>
-                <AddServiceForm namespace={currentNamespace} onSubmit={loadServices}/>
+                <AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>
             </div>
             <Table
                 columns={columns}

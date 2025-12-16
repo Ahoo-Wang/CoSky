@@ -22,7 +22,7 @@ import {ResourceActionSelector} from "./ResourceActionSelector.tsx";
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
-    onSubmit: (values: RoleDto) => void;
+    onSuccess: () => void;
     onCancel: () => void;
 }
 
@@ -32,7 +32,7 @@ export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
 
 export const EMPTY_ARRAY = []
 
-export function RoleEditor({initialValues, onSubmit, onCancel}: RoleEditorProps) {
+export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
     const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
         execute: (query, attributes, abortController) => {
@@ -42,6 +42,8 @@ export function RoleEditor({initialValues, onSubmit, onCancel}: RoleEditorProps)
     const {loading: saveLoading, execute: save} = useExecutePromise({
         onSuccess: () => {
             message.success('Save role success!');
+            onSuccess();
+            form.resetFields();
         },
         onError: () => {
             message.error('Failed to save role');
@@ -53,8 +55,6 @@ export function RoleEditor({initialValues, onSubmit, onCancel}: RoleEditorProps)
                 body: values
             })
         })
-        onSubmit(values);
-        form.resetFields();
     };
     const [form] = Form.useForm<RoleEditorFormValues>();
 

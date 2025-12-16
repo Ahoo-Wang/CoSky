@@ -23,7 +23,7 @@ interface ServiceInstanceFormProps {
     namespace: string;
     serviceId: string;
     initialValues?: ServiceInstance;
-    onSubmit: () => void;
+    onSuccess: () => void;
     onCancel: () => void;
 }
 
@@ -38,7 +38,7 @@ export function ServiceInstanceEditor({
                                           namespace,
                                           serviceId,
                                           initialValues,
-                                          onSubmit,
+                                          onSuccess,
                                           onCancel
                                       }: ServiceInstanceFormProps) {
 
@@ -48,7 +48,7 @@ export function ServiceInstanceEditor({
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {
             message.success('Save instance success!');
-            onSubmit();
+            onSuccess();
             form.resetFields();
         },
         onError: () => {
