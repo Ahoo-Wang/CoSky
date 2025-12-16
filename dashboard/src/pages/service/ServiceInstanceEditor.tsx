@@ -13,16 +13,18 @@
 
 import {Form, Input, InputNumber, Button, Space} from 'antd';
 import {ServiceInstance} from "../../generated";
+import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 
 interface ServiceInstanceFormProps {
     serviceId: string;
-    onSubmit: (values: ServiceInstance) => Promise<void>;
+    initialValues?: ServiceInstance;
+    onSubmit: (values: ServiceInstance) => void;
     onCancel: () => void;
 }
 
 export function ServiceInstanceEditor({serviceId, onSubmit, onCancel}: ServiceInstanceFormProps) {
     const [form] = Form.useForm();
-
+    const {execute} = useExecutePromise()
     const handleFinish = async (values: any) => {
         await onSubmit(values);
         form.resetFields();

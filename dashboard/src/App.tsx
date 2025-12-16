@@ -28,6 +28,7 @@ import {RolePage} from './pages/role/RolePage.tsx';
 import {AuditLogPage} from './pages/audit/AuditLogPage.tsx';
 import './services/fetcher'
 import {tokenStorage} from "./security/tokenStorage.ts";
+import {coSecConfigurer} from "./services/fetcher.ts";
 
 function App() {
     return (
@@ -48,7 +49,7 @@ function App() {
                                 <Route
                                     path="/"
                                     element={
-                                        <ProtectedRoute>
+                                        <ProtectedRoute tokenManager={coSecConfigurer.tokenManager!}>
                                             <AuthenticatedLayout/>
                                         </ProtectedRoute>
                                     }
