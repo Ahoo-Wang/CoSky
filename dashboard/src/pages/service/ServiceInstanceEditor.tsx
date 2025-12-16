@@ -103,7 +103,7 @@ export function ServiceInstanceEditor({
             </Form.Item>
             <Divider>Metadata</Divider>
             <Editor
-                height="500px"
+                height="50vh"
                 theme="vs-dark"
                 defaultLanguage="json"
                 defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}

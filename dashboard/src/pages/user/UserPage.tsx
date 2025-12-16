@@ -19,6 +19,7 @@ import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
 import {userApiClient} from "../../services/clients.ts";
 import {CoSecPrincipal} from "../../generated";
+
 export function UserPage() {
     const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
@@ -45,7 +46,6 @@ export function UserPage() {
             />,
             {
                 title: 'Add User',
-                width: 500,
             }
         );
     };
@@ -99,6 +99,7 @@ export function UserPage() {
             render: (roles: string[], record: CoSecPrincipal) => {
                 return <Select mode="multiple"
                                placeholder="Select Roles"
+                               style={{minWidth: 200}}
                                options={roleSelectorOptions} value={roles}
                                onChange={(value) => handleChangeRole(record.name, value)}
                 />

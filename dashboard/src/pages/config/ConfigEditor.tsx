@@ -98,7 +98,7 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             )}
             <Divider>Config Data</Divider>
             <Editor
-                height="500px"
+                height="60vh"
                 theme="vs-dark"
                 language={fileExt}
                 value={configData}

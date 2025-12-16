@@ -31,7 +31,6 @@ export function RolePage() {
             />,
             {
                 title: 'Add Role',
-                width: 500,
             }
         );
     };

@@ -43,7 +43,6 @@ export const ConfigPage: React.FC = () => {
             loadConfigs();
         }} onCancel={closeDrawer}/>, {
             title: 'Add Config',
-            width: '80vh',
         });
     };
     const {execute: deleteConfig} = useExecutePromise({

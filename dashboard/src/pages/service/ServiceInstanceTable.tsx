@@ -40,7 +40,6 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
             />,
             {
                 title: 'Edit Instance',
-                width: 500,
             }
         );
     }

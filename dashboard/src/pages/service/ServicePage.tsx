@@ -54,7 +54,6 @@ export function ServicePage() {
             />,
             {
                 title: `Add [${serviceId}] Instance`,
-                width: 500,
             }
         );
     };
