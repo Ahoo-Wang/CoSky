@@ -52,7 +52,7 @@ export function ServicePage() {
                 onCancel={closeDrawer}
             />,
             {
-                title: 'Add Instance',
+                title: `Add [${serviceId}] Instance`,
                 width: 500,
             }
         );

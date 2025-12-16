@@ -11,10 +11,10 @@
  * limitations under the License.
  */
 
-import {Form, Input, InputNumber, Button, Space, message, Switch, Select} from 'antd';
+import {Form, Input, InputNumber, Button, Space, message, Switch, Divider} from 'antd';
 import {ServiceInstance} from "../../generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {useEffect} from "react";
+import {useEffect, useState} from "react";
 import {serviceApiClient} from "../../services/clients.ts";
 import Editor from "@monaco-editor/react";
 import {SchemaSelector} from "./SchemaSelector.tsx";
@@ -27,6 +27,13 @@ interface ServiceInstanceFormProps {
     onCancel: () => void;
 }
 
+const formItemLayout = {
+    labelCol: {
+        xs: {span: 12},
+        sm: {span: 6},
+    },
+};
+
 export function ServiceInstanceEditor({
                                           namespace,
                                           serviceId,
@@ -34,6 +41,9 @@ export function ServiceInstanceEditor({
                                           onSubmit,
                                           onCancel
                                       }: ServiceInstanceFormProps) {
+
+    const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
+
     const [form] = Form.useForm();
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {
@@ -56,13 +66,16 @@ export function ServiceInstanceEditor({
     const handleFinish = async (values: any) => {
         return await execute(() => {
             return serviceApiClient.register(namespace, serviceId, {
-                body: values
+                body: {
+                    ...values,
+                    metadata: JSON.parse(metadata)
+                }
             })
         })
     };
     return (
         <div>
-            <Form form={form} layout="vertical" onFinish={handleFinish}>
+            <Form {...formItemLayout} form={form} onFinish={handleFinish}>
                 <Form.Item name="schema" label="Schema"
                            rules={[{required: true, message: 'Please input schema!'}]}
                 >
@@ -89,16 +102,18 @@ export function ServiceInstanceEditor({
                 <Form.Item name="isEphemeral" label="Is Ephemeral?">
                     <Switch/>
                 </Form.Item>
+                <Divider>Metadata</Divider>
                 <Editor
                     height="500px"
                     theme="vs-dark"
                     defaultLanguage="json"
                     defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
-                    // onChange={(value) => setConfigData(value || '')}
+                    onChange={(value) => setMetadata(value || '{}')}
                     options={{
                         minimap: {enabled: false},
                     }}
                 />
+                <Divider></Divider>
                 <Form.Item>
                     <Space>
                         <Button type="primary" htmlType="submit" loading={loading}>
