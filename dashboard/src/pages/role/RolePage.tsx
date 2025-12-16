@@ -26,7 +26,7 @@ export function RolePage() {
     const handleAdd = () => {
         openDrawer(
             <RoleEditor
-                onSubmit={handleSubmit}
+                onSuccess={handleSubmit}
                 onCancel={closeDrawer}
             />,
             {
@@ -40,7 +40,7 @@ export function RolePage() {
         openDrawer(
             <RoleEditor
                 initialValues={role}
-                onSubmit={handleSubmit}
+                onSuccess={handleSubmit}
                 onCancel={closeDrawer}
             />,
             {

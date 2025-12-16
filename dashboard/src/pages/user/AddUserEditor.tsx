@@ -23,11 +23,11 @@ export interface UserFormValues {
 
 interface UserFormProps {
     roleSelectorOptions: { label: string, value: string }[];
-    onSubmit: (values: UserFormValues) => void;
+    onSuccess: () => void;
     onCancel: () => void;
 }
 
-export function AddUserEditor({roleSelectorOptions, onSubmit, onCancel}: UserFormProps) {
+export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFormProps) {
     const [form] = Form.useForm();
     const {loading: addUserLoading, execute: addUser} = useExecutePromise({
         onSuccess: () => {
@@ -52,7 +52,7 @@ export function AddUserEditor({roleSelectorOptions, onSubmit, onCancel}: UserFor
         await bindRole(() => {
             return userApiClient.bindRole(values.username, {body: values.roles})
         })
-        onSubmit(values);
+        onSuccess();
         form.resetFields();
     };
     return (

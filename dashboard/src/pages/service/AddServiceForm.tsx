@@ -5,15 +5,15 @@ import {serviceApiClient} from "../../services/clients.ts";
 
 export interface AddServiceFormProps {
     namespace: string;
-    onSubmit: (serviceId: string) => void;
+    onSuccess: () => void;
 }
 
-export function AddServiceForm({namespace, onSubmit}: AddServiceFormProps) {
+export function AddServiceForm({namespace, onSuccess}: AddServiceFormProps) {
     const [form] = Form.useForm();
-    const {loading, execute} = useExecutePromise<string>({
-        onSuccess: (serviceId) => {
-            message.success(`Add service [${serviceId}] success!`);
-            onSubmit(serviceId);
+    const {loading, execute} = useExecutePromise({
+        onSuccess: () => {
+            message.success(`Add service success!`);
+            onSuccess();
             form.resetFields();
         },
         onError: () => {
@@ -21,9 +21,8 @@ export function AddServiceForm({namespace, onSubmit}: AddServiceFormProps) {
         }
     });
     const handleFinish = async (values: { serviceId: string }) => {
-        await execute(async () => {
-            await serviceApiClient.setService(namespace, values.serviceId);
-            return values.serviceId;
+        await execute(() => {
+            return serviceApiClient.setService(namespace, values.serviceId);
         })
     };
 
