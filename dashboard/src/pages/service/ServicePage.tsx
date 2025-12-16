@@ -21,6 +21,7 @@ import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ColumnsType} from "antd/es/table/interface";
 
 export function ServicePage() {
     const {currentNamespace} = useNamespaceContext();
@@ -65,7 +66,7 @@ export function ServicePage() {
         );
     };
 
-    const columns = [
+    const columns: ColumnsType<ServiceStat> = [
         {
             title: 'Service ID',
             dataIndex: 'serviceId',
