@@ -1,8 +1,7 @@
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
 import {Select, SelectProps} from "antd";
 
-export interface NamespaceSelectorProps extends Omit<SelectProps<string>, 'loading' | 'options'> {
-}
+export type NamespaceSelectorProps = Omit<SelectProps<string>, 'loading' | 'options'>
 
 export function NamespaceSelector(props: NamespaceSelectorProps) {
     const {namespaces, loading} = useNamespaces();

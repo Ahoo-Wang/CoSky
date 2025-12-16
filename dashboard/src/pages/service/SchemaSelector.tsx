@@ -1,8 +1,6 @@
 import {Select, SelectProps} from "antd";
 
-export interface SchemaSelectorProps extends Omit<SelectProps, 'options'> {
-
-}
+export type SchemaSelectorProps = Omit<SelectProps, 'options'>
 
 export const SCHEMA_SELECTOR_OPTIONS = [
     {
