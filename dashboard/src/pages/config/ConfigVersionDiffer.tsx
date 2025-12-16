@@ -4,6 +4,7 @@ import {Config, ConfigHistory} from "../../generated";
 import {Button, Descriptions, Divider, message, Popconfirm, Skeleton} from "antd";
 import {DiffEditor} from "@monaco-editor/react";
 import {getFileNameWithExt} from "./fileNames.ts";
+import dayjs from "dayjs";
 
 export interface ConfigVersionDifferProps {
     namespace: string;
@@ -48,17 +49,27 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
     }
     return (
         <>
-            <Descriptions>
-
+            <Descriptions bordered>
+                <Descriptions.Item label={"File Name"} span={24}>{configId}</Descriptions.Item>
+                <Descriptions.Item label={"Hash"} span={24}>{versionConfig?.hash}</Descriptions.Item>
+                <Descriptions.Item
+                    label={"History Version"}>{versionConfig?.version}</Descriptions.Item>
+                <Descriptions.Item
+                    label={"Create Time"}>{dayjs((versionConfig?.createTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
+                <Descriptions.Item
+                    label={"Operation"}>{versionConfig?.op}</Descriptions.Item>
+                <Descriptions.Item
+                    label={"Operation Time"}>{dayjs((versionConfig?.opTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
             </Descriptions>
-            <Divider>History({version}) VS Current</Divider>
+            <Divider>History({version}) VS Current({currentConfig?.version})</Divider>
             <DiffEditor
-                height="500px"
+                height="60vh"
                 theme="vs-dark"
                 language={fileNameWithExt.ext}
                 original={versionConfig?.data}
                 modified={currentConfig?.data}
                 options={{
+                    readOnly: true,
                     minimap: {enabled: false},
                 }}
             />

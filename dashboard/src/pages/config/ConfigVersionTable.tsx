@@ -18,6 +18,7 @@ import {ConfigVersion} from "../../generated";
 import {ColumnsType} from "antd/es/table/interface";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
+import {HistoryOutlined} from "@ant-design/icons";
 
 interface ConfigVersionTableProps {
     namespace: string;
@@ -48,7 +49,7 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
         {title: 'Version', dataIndex: 'version', key: 'version'},
         {
             title: 'Action', key: 'action', render: (_, record) => (
-                <Button type={'link'} onClick={() => {
+                <Button type={'link'} icon={<HistoryOutlined/>} onClick={() => {
                     handleDiffVersion(record)
                 }}>Diff</Button>
             )

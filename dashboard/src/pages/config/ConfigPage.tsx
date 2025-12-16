@@ -19,7 +19,6 @@ import {
     EditOutlined,
     ExportOutlined,
     ImportOutlined,
-    HistoryOutlined
 } from '@ant-design/icons';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
@@ -82,11 +81,6 @@ export const ConfigPage: React.FC = () => {
                             onClick={() => handleEditConfig(record)}
                     >
                         Edit
-                    </Button>
-                    <Button type="link" icon={<HistoryOutlined/>}
-                        // onClick={() => handleViewVersions(record)}
-                    >
-                        Versions
                     </Button>
                     <Popconfirm
                         title="Are you sure to delete this config?"
