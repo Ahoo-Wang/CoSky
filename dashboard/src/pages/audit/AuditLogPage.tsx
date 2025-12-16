@@ -74,6 +74,13 @@ export function AuditLogPage() {
 
     return (
         <div>
+            <h2 style={{
+                marginBottom: 24,
+                fontSize: '28px',
+                fontWeight: 600,
+                color: '#262626',
+                letterSpacing: '-0.5px',
+            }}>Audit Log</h2>
             <Table
                 columns={columns}
                 dataSource={result?.list}
@@ -85,6 +92,12 @@ export function AuditLogPage() {
                     }
                 }}
                 loading={loading}
+                style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                }}
             />
         </div>
     );

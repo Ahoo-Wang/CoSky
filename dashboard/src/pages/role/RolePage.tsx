@@ -100,9 +100,20 @@ export function RolePage() {
 
     return (
         <div>
-            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
-                <h2>Role</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd}>
+            <div style={{
+                marginBottom: 24, 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+            }}>
+                <h2 style={{
+                    margin: 0,
+                    fontSize: '28px',
+                    fontWeight: 600,
+                    color: '#262626',
+                    letterSpacing: '-0.5px',
+                }}>Role</h2>
+                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd} size="large">
                     Add Role
                 </Button>
             </div>
@@ -110,6 +121,12 @@ export function RolePage() {
                 columns={columns}
                 dataSource={roles}
                 loading={loading}
+                style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                }}
             />
         </div>
     );

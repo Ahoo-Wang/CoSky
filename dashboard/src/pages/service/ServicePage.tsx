@@ -106,8 +106,19 @@ export function ServicePage() {
 
     return (
         <div>
-            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
-                <h2>Service</h2>
+            <div style={{
+                marginBottom: 24, 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+            }}>
+                <h2 style={{
+                    margin: 0,
+                    fontSize: '28px',
+                    fontWeight: 600,
+                    color: '#262626',
+                    letterSpacing: '-0.5px',
+                }}>Service</h2>
                 <AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>
             </div>
             <Table
@@ -121,6 +132,12 @@ export function ServicePage() {
                 expandable={{
                     expandedRowRender,
                     rowExpandable: (record) => record.instanceCount > 0,
+                }}
+                style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
                 }}
             />
         </div>
