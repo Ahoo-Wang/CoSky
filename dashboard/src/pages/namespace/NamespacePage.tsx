@@ -57,11 +57,32 @@ export function NamespacePage() {
 
     return (
         <div>
-            <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
-                <h2>Namespace</h2>
+            <div style={{
+                marginBottom: 24, 
+                display: 'flex', 
+                justifyContent: 'space-between',
+                alignItems: 'center',
+            }}>
+                <h2 style={{
+                    margin: 0,
+                    fontSize: '28px',
+                    fontWeight: 600,
+                    color: '#262626',
+                    letterSpacing: '-0.5px',
+                }}>Namespace</h2>
                 <AddNamespaceForm onSuccess={reload}/>
             </div>
-            <Table columns={columns} dataSource={namespaces} loading={loading}/>
+            <Table 
+                columns={columns} 
+                dataSource={namespaces} 
+                loading={loading}
+                style={{
+                    background: '#fff',
+                    borderRadius: 12,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                }}
+            />
         </div>
     );
 };
