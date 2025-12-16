@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {Button, Descriptions, Divider, Input, message, Skeleton, Space} from 'antd';
 import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
@@ -19,6 +19,7 @@ import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
 import dayjs from "dayjs";
+import {Config} from "../../generated";
 
 interface ConfigEditFormProps {
     namespace: string;
@@ -32,10 +33,13 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
     const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
     const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
     const [configData, setConfigData] = useState<string>();
-    const {loading, result: config} = useQuery({
+    const {loading, result: config} = useQuery<string, Config>({
         query: configId,
         execute: (query, attributes, abortController) => {
             return configApiClient.getConfig(namespace, query, attributes, abortController);
+        },
+        onSuccess: (config) => {
+            setConfigData(config.data)
         }
     })
     const {loading: loadingSave, execute: saveConfig} = useExecutePromise({
@@ -49,11 +53,6 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
         }
     })
 
-    useEffect(() => {
-        if (config) {
-            setConfigData(config.data)
-        }
-    }, [config, setConfigData]);
     const handleSubmit = () => {
         if (!fileName) {
             message.error('Please enter file name!')
