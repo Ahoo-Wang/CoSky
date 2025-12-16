@@ -11,10 +11,14 @@
  * limitations under the License.
  */
 
-import {Table} from 'antd';
+import {Button, Table} from 'antd';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import {ConfigVersion} from "../../generated";
+import {ColumnsType} from "antd/es/table/interface";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
+import {HistoryOutlined} from "@ant-design/icons";
 
 interface ConfigVersionTableProps {
     namespace: string;
@@ -22,15 +26,34 @@ interface ConfigVersionTableProps {
 }
 
 export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProps) {
-    const {loading, result: versions} = useQuery<string, ConfigVersion[]>({
+    const {loading, result: versions, execute: loadVersions} = useQuery<string, ConfigVersion[]>({
         query: configId,
         execute: (query, attributes, abortController) => {
             return configApiClient.getConfigVersions(namespace, query, attributes, abortController);
         }
     })
-    const columns = [
-        {title: 'Config Id', dataIndex: 'configId', key: 'configId'},
+    const {openDrawer, closeDrawer} = useDrawer();
+    const handleDiffVersion = (record: ConfigVersion) => {
+        openDrawer(<ConfigVersionDiffer namespace={namespace} configId={configId} version={record.version}
+                                        onSuccess={() => {
+                                            closeDrawer();
+                                            loadVersions()
+                                        }}/>,
+            {
+                title: 'Config Version Differ',
+                width: '80vw',
+            }
+        )
+    }
+    const columns: ColumnsType<ConfigVersion> = [
         {title: 'Version', dataIndex: 'version', key: 'version'},
+        {
+            title: 'Action', key: 'action', render: (_, record) => (
+                <Button type={'link'} icon={<HistoryOutlined/>} onClick={() => {
+                    handleDiffVersion(record)
+                }}>Diff</Button>
+            )
+        }
     ];
 
     return (
