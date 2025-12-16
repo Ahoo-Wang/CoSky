@@ -112,6 +112,9 @@ export function ServicePage() {
             </div>
             <Table
                 columns={columns}
+                pagination={{
+                    showSizeChanger: true
+                }}
                 dataSource={services}
                 loading={loading}
                 rowKey='serviceId'
