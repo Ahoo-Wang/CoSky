@@ -50,8 +50,7 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             <Drawer
                 open={open}
                 onClose={handleClose}
-                // size={'large'}
-                defaultSize={'large'}
+                defaultSize={'60vw'}
                 resizable
                 placement="right"
                 {...drawerProps}
