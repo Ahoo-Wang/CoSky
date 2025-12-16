@@ -11,15 +11,16 @@
  * limitations under the License.
  */
 
-import {useState} from 'react';
-import {Table, Button, Input, Space, message, Popconfirm} from 'antd';
+import {Table, Button, Space, message, Popconfirm} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined} from '@ant-design/icons';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useDrawer} from '../../contexts/DrawerContext.tsx';
-import {ServiceInstanceEditor} from './ServiceInstanceEditor.tsx';
 import {serviceApiClient} from "../../services/clients.ts";
-import {ServiceInstance, ServiceStat} from "../../generated";
+import {ServiceStat} from "../../generated";
+import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
+import {AddServiceForm} from "./AddServiceForm.tsx";
+import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function ServicePage() {
     const {currentNamespace} = useNamespaceContext();
@@ -29,31 +30,8 @@ export function ServicePage() {
             return serviceApiClient.getServiceStats(namespace, {abortController});
         },
     });
-    const [instances, setInstances] = useState<Record<string, ServiceInstance[]>>({});
-    const [currentServiceId, setCurrentServiceId] = useState<string>('');
-    const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
+
     const {openDrawer, closeDrawer} = useDrawer();
-
-    const loadInstances = async (serviceId: string) => {
-        try {
-            const result = await serviceApiClient.getInstances(currentNamespace, serviceId);
-            setInstances((prev) => ({...prev, [serviceId]: result || []}));
-        } catch (error) {
-            console.error('Failed to load instances:', error);
-        }
-    };
-
-    const handleAddService = async (serviceId: string) => {
-        if (serviceId && serviceId.trim()) {
-            try {
-                await serviceApiClient.setService(currentNamespace, serviceId);
-                message.success('Service added successfully');
-                loadServices();
-            } catch (error) {
-                message.error('Failed to add service');
-            }
-        }
-    };
 
     const handleDeleteService = async (serviceId: string) => {
         try {
@@ -66,81 +44,24 @@ export function ServicePage() {
     };
 
     const handleAddInstance = (serviceId: string) => {
-        setCurrentServiceId(serviceId);
         openDrawer(
             <ServiceInstanceEditor
+                namespace={currentNamespace}
                 serviceId={serviceId}
-                onSubmit={handleSubmitInstance}
+                onSubmit={closeDrawer}
                 onCancel={closeDrawer}
             />,
             {
-                title: 'Add Instance',
+                title: `Add [${serviceId}] Instance`,
                 width: 500,
             }
         );
     };
 
-    const handleSubmitInstance = async (values: ServiceInstance) => {
-        try {
-            await serviceApiClient.register(currentNamespace, currentServiceId, {body: values});
-            message.success('Instance added successfully');
-            closeDrawer();
-            loadInstances(currentServiceId);
-        } catch (error) {
-            message.error('Failed to add instance');
-        }
-    };
-
-    const handleDeleteInstance = async (serviceId: string, instanceId: string) => {
-        try {
-            await serviceApiClient.deregister(currentNamespace, serviceId, instanceId);
-            message.success('Instance deleted successfully');
-            loadInstances(serviceId);
-        } catch (error) {
-            message.error('Failed to delete instance');
-        }
-    };
-
-    const handleExpand = (expanded: boolean, record: any) => {
-        if (expanded) {
-            loadInstances(record.serviceId);
-            setExpandedRowKeys([...expandedRowKeys, record.serviceId]);
-        } else {
-            setExpandedRowKeys(expandedRowKeys.filter((key) => key !== record.serviceId));
-        }
-    };
-
-    const instanceColumns = [
-        {title: 'Instance ID', dataIndex: 'instanceId', key: 'instanceId'},
-        {title: 'Host', dataIndex: 'host', key: 'host'},
-        {title: 'Port', dataIndex: 'port', key: 'port'},
-        {title: 'Weight', dataIndex: 'weight', key: 'weight'},
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: any, record: ServiceInstance) => (
-                <Popconfirm
-                    title="Are you sure to delete this instance?"
-                    onConfirm={() => handleDeleteInstance(currentServiceId, record.instanceId)}
-                    okText="Yes"
-                    cancelText="No"
-                >
-                    <Button type="link" danger icon={<DeleteOutlined/>}>
-                        Delete
-                    </Button>
-                </Popconfirm>
-            ),
-        },
-    ];
 
     const expandedRowRender = (record: ServiceStat) => {
-        const serviceInstances = instances[record.serviceId] || [];
         return (
-            <Table
-                columns={instanceColumns}
-                dataSource={serviceInstances.map((inst: ServiceInstance) => ({...inst, key: inst.instanceId}))}
-                pagination={false}
-            />
+            <ServiceInstanceTable namespace={currentNamespace} serviceId={record.serviceId}/>
         );
     };
 
@@ -154,7 +75,7 @@ export function ServicePage() {
             title: 'Instance Count',
             dataIndex: 'instanceCount',
             key: 'instanceCount',
-            sorter: (a: ServiceStat, b: ServiceStat) => (a.instanceCount || 0) - (b.instanceCount || 0),
+            sorter: (a: ServiceStat, b: ServiceStat) => a.instanceCount - b.instanceCount,
         },
         {
             title: 'Action',
@@ -187,25 +108,18 @@ export function ServicePage() {
         <div>
             <div style={{marginBottom: 16, display: 'flex', justifyContent: 'space-between'}}>
                 <h2>Service</h2>
-                <Space>
-                    <Input.Search
-                        placeholder="Service ID"
-                        enterButton="Add service"
-                        onSearch={handleAddService}
-                        style={{width: 300}}
-                    />
-                </Space>
+                <AddServiceForm namespace={currentNamespace} onSubmit={loadServices}/>
             </div>
             <Table
                 columns={columns}
                 dataSource={services}
                 loading={loading}
+                rowKey='serviceId'
                 expandable={{
                     expandedRowRender,
-                    onExpand: handleExpand,
-                    expandedRowKeys,
+                    rowExpandable: (record) => record.instanceCount > 0,
                 }}
             />
         </div>
     );
-};
+}

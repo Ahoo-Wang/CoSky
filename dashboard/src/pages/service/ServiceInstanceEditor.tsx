@@ -11,50 +11,112 @@
  * limitations under the License.
  */
 
-import {Form, Input, InputNumber, Button, Space} from 'antd';
+import {Form, Input, InputNumber, Button, Space, message, Switch, Divider} from 'antd';
 import {ServiceInstance} from "../../generated";
+import {useExecutePromise} from "@ahoo-wang/fetcher-react";
+import {useEffect, useState} from "react";
+import {serviceApiClient} from "../../services/clients.ts";
+import Editor from "@monaco-editor/react";
+import {SchemaSelector} from "./SchemaSelector.tsx";
 
 interface ServiceInstanceFormProps {
+    namespace: string;
     serviceId: string;
-    onSubmit: (values: ServiceInstance) => Promise<void>;
+    initialValues?: ServiceInstance;
+    onSubmit: () => void;
     onCancel: () => void;
 }
 
-export function ServiceInstanceEditor({serviceId, onSubmit, onCancel}: ServiceInstanceFormProps) {
+const formItemLayout = {
+    labelCol: {
+        xs: {span: 12},
+        sm: {span: 6},
+    },
+};
+
+export function ServiceInstanceEditor({
+                                          namespace,
+                                          serviceId,
+                                          initialValues,
+                                          onSubmit,
+                                          onCancel
+                                      }: ServiceInstanceFormProps) {
+
+    const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
+
     const [form] = Form.useForm();
+    const {loading, execute} = useExecutePromise({
+        onSuccess: () => {
+            message.success('Save instance success!');
+            onSubmit();
+            form.resetFields();
+        },
+        onError: () => {
+            message.error('Failed to save instance');
+        }
+    })
 
+    useEffect(() => {
+        if (initialValues) {
+            form.setFieldsValue(initialValues);
+        } else {
+            form.resetFields();
+        }
+    }, [initialValues, form]);
     const handleFinish = async (values: any) => {
-        await onSubmit(values);
-        form.resetFields();
+        return await execute(() => {
+            return serviceApiClient.register(namespace, serviceId, {
+                body: {
+                    ...values,
+                    metadata: JSON.parse(metadata)
+                }
+            })
+        })
     };
-
     return (
         <div>
-            <h3 style={{marginBottom: 16}}>Add Instance to {serviceId}</h3>
-            <Form form={form} layout="vertical" onFinish={handleFinish}>
-                <Form.Item name="schema" label="Schema" initialValue="http">
-                    <Input/>
+            <Form {...formItemLayout} form={form} onFinish={handleFinish}>
+                <Form.Item name="schema" label="Schema"
+                           rules={[{required: true, message: 'Please input schema!'}]}
+                >
+                    <SchemaSelector disabled={!!initialValues}/>
                 </Form.Item>
                 <Form.Item
                     name="host"
                     label="Host"
                     rules={[{required: true, message: 'Please input host!'}]}
                 >
-                    <Input/>
+                    <Input disabled={!!initialValues}/>
                 </Form.Item>
                 <Form.Item
                     name="port"
                     label="Port"
                     rules={[{required: true, message: 'Please input port!'}]}
                 >
-                    <InputNumber style={{width: '100%'}}/>
+                    <InputNumber disabled={!!initialValues}/>
                 </Form.Item>
-                <Form.Item name="weight" label="Weight" initialValue={1}>
-                    <InputNumber style={{width: '100%'}}/>
+
+                <Form.Item name="weight" label="Weight">
+                    <InputNumber disabled={!!initialValues}/>
                 </Form.Item>
+                <Form.Item name="isEphemeral" label="Is Ephemeral?">
+                    <Switch/>
+                </Form.Item>
+                <Divider>Metadata</Divider>
+                <Editor
+                    height="500px"
+                    theme="vs-dark"
+                    defaultLanguage="json"
+                    defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
+                    onChange={(value) => setMetadata(value || '{}')}
+                    options={{
+                        minimap: {enabled: false},
+                    }}
+                />
+                <Divider></Divider>
                 <Form.Item>
                     <Space>
-                        <Button type="primary" htmlType="submit">
+                        <Button type="primary" htmlType="submit" loading={loading}>
                             Submit
                         </Button>
                         <Button onClick={onCancel}>
@@ -65,4 +127,4 @@ export function ServiceInstanceEditor({serviceId, onSubmit, onCancel}: ServiceIn
             </Form>
         </div>
     );
-};
+}
