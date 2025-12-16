@@ -12,12 +12,13 @@
  */
 
 import React, {useEffect, useState} from 'react';
-import {Button, Divider, Input, message, Space} from 'antd';
+import {Button, Descriptions, Divider, Input, message, Skeleton, Space} from 'antd';
 import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
+import dayjs from "dayjs";
 
 interface ConfigEditFormProps {
     namespace: string;
@@ -31,7 +32,7 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
     const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
     const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
     const [configData, setConfigData] = useState<string>();
-    const {result: config} = useQuery({
+    const {loading, result: config} = useQuery({
         query: configId,
         execute: (query, attributes, abortController) => {
             return configApiClient.getConfig(namespace, query, attributes, abortController);
@@ -65,20 +66,36 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             })
         })
     }
+    if (configId && loading) {
+        return (
+            <Skeleton/>
+        )
+    }
     return (
         <>
-            <Space.Compact block>
-                <Input disabled={!!configId} placeholder="Enter file name!" value={fileName} onChange={(e) => {
-                    setFileName(e.target.value);
-                }}/>
-                <ConfigFormatSelector disabled={!!configId}
-                                      value={fileExt}
-                                      onChange={(value) => {
-                                          setFileExt(value)
-                                      }}
-                                      defaultValue={'yaml'}
-                                      style={{width: 150}}/>
-            </Space.Compact>
+            {!configId && (
+                <Space.Compact block>
+                    <Input disabled={!!configId} placeholder="Enter file name!" value={fileName} onChange={(e) => {
+                        setFileName(e.target.value);
+                    }}/>
+                    <ConfigFormatSelector disabled={!!configId}
+                                          value={fileExt}
+                                          onChange={(value) => {
+                                              setFileExt(value)
+                                          }}
+                                          defaultValue={'yaml'}
+                                          style={{width: 150}}/>
+                </Space.Compact>
+            )}
+            {config && (
+                <Descriptions bordered>
+                    <Descriptions.Item label="File Name" span={24}>{config.configId}</Descriptions.Item>
+                    <Descriptions.Item label="Hash" span={24}>{config.hash}</Descriptions.Item>
+                    <Descriptions.Item
+                        label="Last Update Time">{dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
+                    <Descriptions.Item label="Version">{config.version}</Descriptions.Item>
+                </Descriptions>
+            )}
             <Divider>Config Data</Divider>
             <Editor
                 height="500px"
