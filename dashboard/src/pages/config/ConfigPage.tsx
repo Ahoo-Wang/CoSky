@@ -26,6 +26,7 @@ import {configApiClient} from "../../services/clients.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ConfigEditor} from "./ConfigEditor.tsx";
 import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
+import {ConfigImporter} from "./ConfigImporter.tsx";
 
 export const ConfigPage: React.FC = () => {
     const {currentNamespace} = useNamespaceContext();
@@ -43,6 +44,17 @@ export const ConfigPage: React.FC = () => {
             loadConfigs();
         }} onCancel={closeDrawer}/>, {
             title: 'Add Config',
+        });
+    };
+    const handleImportConfig = () => {
+        openDrawer(<ConfigImporter namespace={currentNamespace}
+                                   onSuccess={() => {
+                                       closeDrawer();
+                                       loadConfigs();
+                                   }}
+                                   onCancel={closeDrawer}
+        />, {
+            title: 'Import Config',
         });
     };
     const {execute: deleteConfig} = useExecutePromise({
@@ -107,8 +119,7 @@ export const ConfigPage: React.FC = () => {
                         Add
                     </Button>
                     <Button danger icon={<ImportOutlined/>}
-                        // onClick={handleImportClick}
-
+                        onClick={handleImportConfig}
                     >
                         Import
                     </Button>
