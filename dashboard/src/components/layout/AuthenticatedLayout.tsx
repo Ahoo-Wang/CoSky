@@ -124,21 +124,42 @@ export const AuthenticatedLayout: React.FC = () => {
 
     return (
         <Layout style={{minHeight: '100vh'}}>
-            <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} breakpoint="md">
+            <Sider 
+                collapsible 
+                collapsed={collapsed} 
+                onCollapse={setCollapsed} 
+                breakpoint="md"
+                style={{
+                    boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)',
+                }}
+            >
                 <div style={{
                     height: 64,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'white'
+                    color: 'white',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
                 }}>
                     <a
                         href="https://github.com/Ahoo-Wang/CoSky"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{color: 'white', textDecoration: 'none'}}
+                        style={{
+                            color: 'white', 
+                            textDecoration: 'none',
+                            transition: 'opacity 0.3s ease',
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
                     >
-                        <h1 style={{margin: 0, fontSize: collapsed ? 18 : 24}}>
+                        <h1 style={{
+                            margin: 0, 
+                            fontSize: collapsed ? 18 : 24,
+                            fontWeight: 600,
+                            letterSpacing: '0.5px',
+                        }}>
                             {collapsed ? 'CS' : 'CoSky'}
                         </h1>
                     </a>
@@ -149,39 +170,77 @@ export const AuthenticatedLayout: React.FC = () => {
                     selectedKeys={[location.pathname]}
                     items={menuItems}
                     onClick={handleMenuClick}
+                    style={{
+                        borderRight: 'none',
+                    }}
                 />
             </Sider>
             <Layout>
                 <Header style={{
-                    padding: '0 16px',
-                    background: '#fff',
+                    padding: '0 24px',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between'
+                    justifyContent: 'space-between',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                    color: 'white',
                 }}>
-                    <div style={{display: 'flex', alignItems: 'center'}}>
+                    <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
                         {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
-                            style: {fontSize: 18, cursor: 'pointer'},
+                            style: {
+                                fontSize: 18, 
+                                cursor: 'pointer',
+                                color: 'white',
+                                transition: 'transform 0.3s ease',
+                            },
                             onClick: () => setCollapsed(!collapsed),
+                            onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
+                                (e.currentTarget as HTMLElement).style.transform = 'scale(1.1)';
+                            },
+                            onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
+                                (e.currentTarget as HTMLElement).style.transform = 'scale(1)';
+                            },
                         })}
                         <CurrentNamespaceSelector/>
                     </div>
                     <Dropdown menu={{items: userMenuItems}}>
-                        <a onClick={(e) => e.preventDefault()} style={{color: 'inherit'}}>
+                        <a 
+                            onClick={(e) => e.preventDefault()} 
+                            style={{
+                                color: 'white',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                transition: 'background 0.3s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'transparent';
+                            }}
+                        >
                             <UserOutlined/> {currentUser.sub} <DownOutlined/>
                         </a>
                     </Dropdown>
                 </Header>
-                <Content style={{margin: '16px', display: 'flex', flexDirection: 'column'}}>
+                <Content style={{
+                    margin: '24px', 
+                    display: 'flex', 
+                    flexDirection: 'column',
+                }}>
                     <Watermark content={currentUser.sub}>
                         <div style={{
-                            padding: 24,
+                            padding: 32,
                             minHeight: 360,
                             background: '#fff',
-                            borderRadius: 8,
+                            borderRadius: 12,
                             flex: 1,
                             display: 'flex',
-                            flexDirection: 'column'
+                            flexDirection: 'column',
+                            boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03), 0 2px 4px rgba(0, 0, 0, 0.03), 0 4px 8px rgba(0, 0, 0, 0.03)',
                         }}>
                             <ErrorBoundary>
                                 <Outlet/>
@@ -189,12 +248,28 @@ export const AuthenticatedLayout: React.FC = () => {
                         </div>
                     </Watermark>
                 </Content>
-                <Footer style={{textAlign: 'center'}}>
+                <Footer style={{
+                    textAlign: 'center',
+                    background: 'transparent',
+                    color: '#666',
+                    fontSize: '14px',
+                }}>
                     <a
                         href="https://github.com/Ahoo-Wang/CoSky"
                         target="_blank"
                         rel="noopener noreferrer"
                         title="High-performance, low-cost microservice governance platform. Service Discovery and Configuration Service."
+                        style={{
+                            color: '#667eea',
+                            fontWeight: 500,
+                            transition: 'color 0.3s ease',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#764ba2';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '#667eea';
+                        }}
                     >
                         CoSky
                     </a>

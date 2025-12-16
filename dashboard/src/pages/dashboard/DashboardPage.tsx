@@ -44,79 +44,166 @@ export function DashboardPage() {
     const topologyRef = useRef<HTMLDivElement>(null);
     return (
         <div>
-            <h2 style={{marginBottom: 24}}>Dashboard</h2>
-            <Row gutter={[16, 16]}>
+            <h2 style={{
+                marginBottom: 32,
+                fontSize: '28px',
+                fontWeight: 600,
+                color: '#262626',
+                letterSpacing: '-0.5px',
+            }}>Dashboard</h2>
+            <Row gutter={[24, 24]}>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: 12,
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                            transition: 'all 0.3s ease',
+                        }}
+                        styles={{
+                            body: {
+                                padding: '24px',
+                            }
+                        }}
+                    >
                         <Statistic
                             title="Namespace Count"
                             value={stat.namespaces}
-                            prefix={<PartitionOutlined/>}
+                            prefix={<PartitionOutlined style={{fontSize: '24px'}}/>}
                             styles={{
+                                title: {
+                                    color: '#0369a1',
+                                    fontWeight: 500,
+                                },
                                 content: {
-                                    color: '#3f8600'
+                                    color: '#0c4a6e',
+                                    fontSize: '32px',
                                 }
                             }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: 12,
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                            transition: 'all 0.3s ease',
+                        }}
+                        styles={{
+                            body: {
+                                padding: '24px',
+                            }
+                        }}
+                    >
                         <Statistic
                             title="Instance Count"
                             value={stat.instances}
-                            prefix={<ClusterOutlined/>}
+                            prefix={<ClusterOutlined style={{fontSize: '24px'}}/>}
                             styles={{
+                                title: {
+                                    color: '#7c3aed',
+                                    fontWeight: 500,
+                                },
                                 content: {
-                                    color: '#722ed1'
+                                    color: '#6b21a8',
+                                    fontSize: '32px',
                                 }
                             }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: 12,
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                            transition: 'all 0.3s ease',
+                        }}
+                        styles={{
+                            body: {
+                                padding: '24px',
+                            }
+                        }}
+                    >
                         <Statistic
                             title="Config Count"
                             value={stat.configs}
-                            prefix={<FileOutlined/>}
+                            prefix={<FileOutlined style={{fontSize: '24px'}}/>}
                             styles={{
+                                title: {
+                                    color: '#059669',
+                                    fontWeight: 500,
+                                },
                                 content: {
-                                    color: '#1890ff'
+                                    color: '#047857',
+                                    fontSize: '32px',
                                 }
                             }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card>
+                    <Card
+                        hoverable
+                        style={{
+                            borderRadius: 12,
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%)',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                            transition: 'all 0.3s ease',
+                        }}
+                        styles={{
+                            body: {
+                                padding: '24px',
+                            }
+                        }}
+                    >
                         <Statistic
                             title="Service Count"
                             value={stat.services.health}
                             suffix={`/ ${stat.services.total}`}
-                            prefix={<CloudServerOutlined/>}
+                            prefix={<CloudServerOutlined style={{fontSize: '24px'}}/>}
                             styles={{
+                                title: {
+                                    color: '#e11d48',
+                                    fontWeight: 500,
+                                },
                                 content: {
-                                    color: '#cf1322'
+                                    color: '#be123c',
+                                    fontSize: '32px',
                                 }
                             }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} sm={24} lg={24}>
-                    <Card ref={topologyRef} title={'Service Topology'}
-                          style={{
-                              height: "100%",
-                              display: "flex",
-                              flexDirection: "column",
-                          }}
-                          styles={{
-                              body: {
-                                  flex: "auto",
-                                  minHeight: "65vh",
-                              }
-                          }}
-                          extra={<Fullscreen target={topologyRef} size={"small"} type={"dashed"}/>}
+                    <Card 
+                        ref={topologyRef} 
+                        title={<span style={{fontSize: '18px', fontWeight: 600}}>Service Topology</span>}
+                        style={{
+                            height: "100%",
+                            display: "flex",
+                            flexDirection: "column",
+                            borderRadius: 12,
+                            border: 'none',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+                        }}
+                        styles={{
+                            body: {
+                                flex: "auto",
+                                minHeight: "65vh",
+                            }
+                        }}
+                        extra={<Fullscreen target={topologyRef} size={"small"} type={"dashed"}/>}
                     >
                         <Topology/>
                     </Card>

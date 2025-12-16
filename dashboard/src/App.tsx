@@ -12,7 +12,7 @@
  */
 
 import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
-import {ConfigProvider} from 'antd';
+import {ConfigProvider, theme} from 'antd';
 import {SecurityProvider} from '@ahoo-wang/fetcher-react'
 import {NamespaceProvider} from './contexts/NamespaceContext.tsx';
 import {DrawerProvider} from './contexts/DrawerContext';
@@ -31,7 +31,25 @@ import ErrorBoundary from "antd/es/alert/ErrorBoundary";
 
 function App() {
     return (
-        <ConfigProvider>
+        <ConfigProvider
+            theme={{
+                algorithm: theme.defaultAlgorithm,
+                token: {
+                    colorPrimary: '#667eea',
+                    borderRadius: 8,
+                    colorBgContainer: '#ffffff',
+                },
+                components: {
+                    Layout: {
+                        headerBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                        siderBg: '#001529',
+                    },
+                    Card: {
+                        borderRadiusLG: 12,
+                    },
+                },
+            }}
+        >
             <ErrorBoundary>
                 <SecurityProvider tokenStorage={tokenStorage}
                                   onSignIn={() => {
