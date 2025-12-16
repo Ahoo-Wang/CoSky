@@ -1,6 +1,6 @@
 import {
     AuditLogApiClient,
-    AuthenticateApiClient,
+    AuthenticateApiClient, ConfigApiClient,
     NamespaceApiClient,
     RoleApiClient,
     ServiceApiClient,
@@ -21,3 +21,5 @@ export const statApiClient = new StatApiClient();
 export const roleApiClient = new RoleApiClient();
 
 export const serviceApiClient = new ServiceApiClient();
+
+export const configApiClient = new ConfigApiClient();
