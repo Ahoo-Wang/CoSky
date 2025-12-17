@@ -13,12 +13,21 @@
 
 import React from 'react';
 import {Navigate} from 'react-router-dom';
-import {RouteGuard} from "@ahoo-wang/fetcher-react";
+import {RefreshableRouteGuard} from "@ahoo-wang/fetcher-react";
+import {coSecConfigurer} from "../../services/fetcher.ts";
+import {Spin} from "antd";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({children}) => {
-    return <RouteGuard fallback={<Navigate to="/login" replace/>}>{children}</RouteGuard>
+    return (
+        <RefreshableRouteGuard
+            tokenManager={coSecConfigurer.tokenManager!}
+            fallback={<Navigate to="/login" replace/>}
+            refreshing={<Spin/>}>
+            {children}
+        </RefreshableRouteGuard>)
+
 };

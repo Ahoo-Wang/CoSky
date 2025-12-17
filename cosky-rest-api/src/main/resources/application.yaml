@@ -23,7 +23,7 @@ cosec:
     algorithm: hmac256
     secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
     token-validity:
-      access: 15m
+      access: 30s
       refresh: 3H
 
 cosid:
