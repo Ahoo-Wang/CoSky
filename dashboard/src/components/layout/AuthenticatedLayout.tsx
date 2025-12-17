@@ -25,6 +25,7 @@ import {
     MenuFoldOutlined,
     MenuUnfoldOutlined,
     DownOutlined,
+    GithubOutlined,
 } from '@ant-design/icons';
 import {Outlet, useNavigate, useLocation} from 'react-router-dom';
 import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
@@ -203,28 +204,52 @@ export const AuthenticatedLayout: React.FC = () => {
                         })}
                         <CurrentNamespaceSelector/>
                     </div>
-                    <Dropdown menu={{items: userMenuItems}}>
-                        <a 
-                            onClick={(e) => e.preventDefault()} 
+                    <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+                        <a
+                            href="https://github.com/Ahoo-Wang/CoSky"
+                            target="_blank"
+                            rel="noopener noreferrer"
                             style={{
                                 color: 'white',
-                                padding: '8px 12px',
-                                borderRadius: '6px',
-                                transition: 'background 0.3s ease',
+                                fontSize: 22,
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px',
+                                transition: 'transform 0.3s ease, opacity 0.3s ease',
                             }}
                             onMouseEnter={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                e.currentTarget.style.transform = 'scale(1.1)';
+                                e.currentTarget.style.opacity = '0.8';
                             }}
                             onMouseLeave={(e) => {
-                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.transform = 'scale(1)';
+                                e.currentTarget.style.opacity = '1';
                             }}
                         >
-                            <UserOutlined/> {currentUser.sub} <DownOutlined/>
+                            <GithubOutlined />
                         </a>
-                    </Dropdown>
+                        <Dropdown menu={{items: userMenuItems}}>
+                            <a 
+                                onClick={(e) => e.preventDefault()} 
+                                style={{
+                                    color: 'white',
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    transition: 'background 0.3s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                }}
+                            >
+                                <UserOutlined/> {currentUser.sub} <DownOutlined/>
+                            </a>
+                        </Dropdown>
+                    </div>
                 </Header>
                 <Content style={{
                     margin: '24px', 
