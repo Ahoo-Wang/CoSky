@@ -15,6 +15,18 @@ const nodeTypes = {
 
 type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
+// Type guard to safely check if node data is CustomNodeData
+function isCustomNodeData(data: unknown): data is CustomNodeData {
+    return (
+        typeof data === 'object' &&
+        data !== null &&
+        'label' in data &&
+        'nodeType' in data &&
+        'inDegree' in data &&
+        'outDegree' in data
+    );
+}
+
 export function Topology() {
     const {currentNamespace} = useNamespaceContext();
     const [searchTerm, setSearchTerm] = useState('');
@@ -40,8 +52,8 @@ export function Topology() {
         // Find nodes that match search term
         if (searchTerm) {
             baseNodes.forEach(node => {
-                const nodeData = node.data as unknown as CustomNodeData;
-                if (nodeData.label.toLowerCase().includes(searchLower)) {
+                if (isCustomNodeData(node.data) && 
+                    node.data.label.toLowerCase().includes(searchLower)) {
                     matchedNodeIds.add(node.id);
                 }
             });
@@ -210,9 +222,11 @@ export function Topology() {
                 <Controls />
                 <MiniMap
                     nodeColor={(node) => {
-                        const nodeData = node.data as unknown as CustomNodeData;
-                        const nodeType = nodeData.nodeType || 'source';
-                        return NODE_TYPE_COLORS[nodeType].backgroundColor;
+                        if (isCustomNodeData(node.data)) {
+                            return NODE_TYPE_COLORS[node.data.nodeType].backgroundColor;
+                        }
+                        // Fallback color for unexpected node data
+                        return NODE_TYPE_COLORS.intermediate.backgroundColor;
                     }}
                     maskColor="rgba(0, 0, 0, 0.1)"
                     style={{

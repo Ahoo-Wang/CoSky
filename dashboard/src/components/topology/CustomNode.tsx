@@ -87,8 +87,8 @@ export const CustomNode = memo(({ data, selected }: NodeProps) => {
                 display: 'flex',
                 justifyContent: 'space-between',
             }}>
-                <span>↓ {inDegree}</span>
-                <span>↑ {outDegree}</span>
+                <span>In: {inDegree}</span>
+                <span>Out: {outDegree}</span>
             </div>
             
             {/* Output handle for outgoing edges */}

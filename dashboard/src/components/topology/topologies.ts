@@ -149,8 +149,8 @@ export function toReactFlowTopology(
             data: {
                 label: nodeName,
                 nodeType,
-                inDegree: inDegree.get(nodeName) || 0,
-                outDegree: outDegree.get(nodeName) || 0,
+                inDegree: inDegree.get(nodeName)!,
+                outDegree: outDegree.get(nodeName)!,
             },
             style: nodeStyle,
             position: {
