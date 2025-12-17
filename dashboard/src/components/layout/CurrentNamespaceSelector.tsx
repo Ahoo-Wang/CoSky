@@ -18,14 +18,23 @@ import {PartitionOutlined} from "@ant-design/icons";
 
 export const CurrentNamespaceSelector: React.FC = () => {
     const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
-    
+
     return (
-            <NamespaceSelector
-                style={{width: 200, marginLeft: 16}}
-                value={currentNamespace}
-                onChange={setCurrent}
-                showSearch
-                prefix={<PartitionOutlined />}
-            ></NamespaceSelector>
+        <NamespaceSelector
+            style={{
+                width: 200,
+                marginLeft: 16,
+                backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                borderColor: 'rgba(255, 255, 255, 0.3)',
+                borderRadius: 6,
+                color: 'white',
+                transition: 'all 0.3s ease',
+            }}
+            size={'large'}
+            value={currentNamespace}
+            onChange={setCurrent}
+            showSearch
+            prefix={<PartitionOutlined style={{color: 'white'}}/>}
+        />
     );
 };
