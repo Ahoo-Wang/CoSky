@@ -12,9 +12,9 @@
  */
 package me.ahoo.cosky.rest.configuration
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.rest.dto.ErrorResponse
 import me.ahoo.cosky.rest.dto.ErrorResponse.Companion.of
-import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.ExceptionHandler
@@ -32,22 +32,18 @@ class GlobalRestExceptionHandler {
     @ExceptionHandler(SecurityException::class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleCoSkySecurityException(ex: SecurityException): ErrorResponse {
-        if (log.isInfoEnabled) {
-            log.info(ex.message, ex)
-        }
-        return of(ex.message!!)
+        log.info(ex) { ex.message.orEmpty() }
+        return of(ex.message.orEmpty())
     }
 
     @ExceptionHandler
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     fun handleAll(ex: Exception): ErrorResponse {
-        if (log.isErrorEnabled) {
-            log.error(ex.message, ex)
-        }
-        return of(ex.message!!)
+        log.error(ex) { ex.message }
+        return of(ex.message.orEmpty())
     }
 
     companion object {
-        private val log = LoggerFactory.getLogger(GlobalRestExceptionHandler::class.java)
+        private val log = KotlinLogging.logger { }
     }
 }

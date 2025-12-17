@@ -17,7 +17,6 @@ import me.ahoo.cosec.api.token.CompositeToken
 import me.ahoo.cosec.token.TokenCompositeAuthentication
 import me.ahoo.cosky.rest.security.user.LoginRequest
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -30,7 +29,6 @@ import reactor.core.publisher.Mono
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUTHENTICATE_PREFIX)
 @Tag(name = "Authenticate")

@@ -20,7 +20,6 @@ import me.ahoo.cosky.core.NamespacedContext.namespace
 import me.ahoo.cosky.rest.security.rbac.RbacService
 import me.ahoo.cosky.rest.security.user.AdminPrincipal.isAdmin
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -34,7 +33,6 @@ import reactor.core.publisher.Mono
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.NAMESPACES_PREFIX)
 @Tag(name = "Namespace")
