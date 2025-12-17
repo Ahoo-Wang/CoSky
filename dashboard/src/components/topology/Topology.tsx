@@ -1,14 +1,26 @@
 import {useNamespaceContext} from "../../contexts/NamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
-import {useMemo} from "react";
+import {useMemo, useState, useCallback} from "react";
 import {toReactFlowTopology} from "./topologies.ts";
-import {Skeleton} from "antd";
-import {Background, Controls, MiniMap, ReactFlow} from "@xyflow/react";
+import {Skeleton, Input, Segmented, Space} from "antd";
+import {Background, Controls, MiniMap, ReactFlow, NodeMouseHandler, Node, Edge} from "@xyflow/react";
+import {CustomNode, CustomNodeData} from "./CustomNode.tsx";
+import {SearchOutlined} from "@ant-design/icons";
 import '@xyflow/react/dist/style.css';
+
+const nodeTypes = {
+    default: CustomNode,
+};
+
+type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 export function Topology() {
     const {currentNamespace} = useNamespaceContext();
+    const [searchTerm, setSearchTerm] = useState('');
+    const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
+    const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('TB');
+    
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
@@ -16,21 +28,206 @@ export function Topology() {
         },
     });
 
+    const {nodes: baseNodes, edges: baseEdges} = useMemo(() => {
+        return toReactFlowTopology(result, layoutDirection);
+    }, [result, layoutDirection]);
+
+    // Apply search filtering and highlighting
     const {nodes, edges} = useMemo(() => {
-        return toReactFlowTopology(result);
-    }, [result]);
+        const searchLower = searchTerm.toLowerCase();
+        const matchedNodeIds = new Set<string>();
+        
+        // Find nodes that match search term
+        if (searchTerm) {
+            baseNodes.forEach(node => {
+                const nodeData = node.data as unknown as CustomNodeData;
+                if (nodeData.label.toLowerCase().includes(searchLower)) {
+                    matchedNodeIds.add(node.id);
+                }
+            });
+        }
+        
+        // Determine which nodes to highlight
+        const nodesToHighlight = highlightedNodes.size > 0 
+            ? highlightedNodes 
+            : matchedNodeIds;
+        
+        // Update node styles for highlighting
+        const updatedNodes: Node[] = baseNodes.map(node => {
+            const isHighlighted = nodesToHighlight.has(node.id);
+            const isSearchMatch = matchedNodeIds.has(node.id);
+            
+            let style = { ...node.style };
+            
+            if (searchTerm && !isSearchMatch) {
+                // Dim non-matching nodes during search
+                style = {
+                    ...style,
+                    opacity: 0.3,
+                };
+            } else if (highlightedNodes.size > 0 && !isHighlighted) {
+                // Dim non-highlighted nodes when a node is clicked
+                style = {
+                    ...style,
+                    opacity: 0.3,
+                };
+            } else if (isSearchMatch) {
+                // Highlight search matches
+                style = {
+                    ...style,
+                    boxShadow: '0 0 10px 3px rgba(255, 215, 0, 0.8)',
+                    border: '2px solid #ffd700',
+                };
+            }
+            
+            return {
+                ...node,
+                style,
+            };
+        });
+        
+        // Update edge styles for highlighting
+        const updatedEdges: Edge[] = baseEdges.map(edge => {
+            const isConnected = 
+                nodesToHighlight.has(edge.source) || 
+                nodesToHighlight.has(edge.target);
+            
+            let style = { ...edge.style };
+            
+            if (nodesToHighlight.size > 0 && !isConnected) {
+                // Dim non-connected edges
+                style = {
+                    ...style,
+                    opacity: 0.2,
+                };
+            } else if (isConnected) {
+                // Highlight connected edges
+                style = {
+                    ...style,
+                    strokeWidth: 3,
+                    stroke: '#ffd700',
+                };
+            }
+            
+            return {
+                ...edge,
+                style,
+            };
+        });
+        
+        return {
+            nodes: updatedNodes,
+            edges: updatedEdges,
+        };
+    }, [baseNodes, baseEdges, searchTerm, highlightedNodes]);
+
+    // Handle node click to highlight connected nodes
+    const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
+        const connectedNodes = new Set([node.id]);
+        
+        // Find all connected nodes (both incoming and outgoing)
+        baseEdges.forEach(edge => {
+            if (edge.source === node.id) {
+                connectedNodes.add(edge.target);
+            }
+            if (edge.target === node.id) {
+                connectedNodes.add(edge.source);
+            }
+        });
+        
+        setHighlightedNodes(connectedNodes);
+    }, [baseEdges]);
+
+    // Clear highlights when clicking on pane
+    const onPaneClick = useCallback(() => {
+        setHighlightedNodes(new Set());
+    }, []);
+
     if (loading) {
         return <Skeleton/>
     }
+    
     return (
-        <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            fitView
-        >
-            <Background/>
-            <Controls/>
-            <MiniMap/>
-        </ReactFlow>
+        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            {/* Control Panel */}
+            <div style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                zIndex: 10,
+                background: 'rgba(255, 255, 255, 0.95)',
+                padding: '12px',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            }}>
+                <Space direction="vertical" size="middle">
+                    {/* Search Input */}
+                    <Input
+                        placeholder="Search nodes..."
+                        prefix={<SearchOutlined />}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        allowClear
+                        style={{ width: '250px' }}
+                    />
+                    
+                    {/* Layout Direction Selector */}
+                    <div>
+                        <div style={{ 
+                            fontSize: '12px', 
+                            marginBottom: '4px',
+                            color: '#666'
+                        }}>
+                            Layout Direction
+                        </div>
+                        <Segmented
+                            value={layoutDirection}
+                            onChange={(value) => setLayoutDirection(value as LayoutDirection)}
+                            options={[
+                                { label: '↓ TB', value: 'TB' },
+                                { label: '→ LR', value: 'LR' },
+                                { label: '↑ BT', value: 'BT' },
+                                { label: '← RL', value: 'RL' },
+                            ]}
+                        />
+                    </div>
+                </Space>
+            </div>
+
+            {/* React Flow Canvas */}
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                onNodeClick={onNodeClick}
+                onPaneClick={onPaneClick}
+                fitView
+                fitViewOptions={{
+                    padding: 0.2,
+                }}
+            >
+                <Background />
+                <Controls />
+                <MiniMap
+                    nodeColor={(node) => {
+                        const nodeData = node.data as { nodeType?: string };
+                        switch (nodeData.nodeType) {
+                            case 'source':
+                                return '#1890ff';
+                            case 'target':
+                                return '#ff7a45';
+                            case 'intermediate':
+                                return '#722ed1';
+                            default:
+                                return '#1890ff';
+                        }
+                    }}
+                    maskColor="rgba(0, 0, 0, 0.1)"
+                    style={{
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    }}
+                />
+            </ReactFlow>
+        </div>
     );
 }
