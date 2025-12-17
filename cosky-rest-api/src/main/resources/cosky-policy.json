@@ -35,8 +35,18 @@
           "method": "GET",
           "pattern": [
             "/",
-            "/dashboard/**",
-            "/favicon.ico"
+            "/index.html",
+            "/assets/**",
+            "/favicon.ico",
+            "/login",
+            "/home",
+            "/config",
+            "/service",
+            "/namespace",
+            "/user",
+            "/role",
+            "/audit-log",
+            "/login"
           ]
         }
       }

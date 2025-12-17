@@ -12,10 +12,12 @@
  */
 package me.ahoo.cosky.rest.security.audit
 
+import me.ahoo.cosec.webflux.ReactiveAuthorizationFilter.Companion.REACTIVE_AUTHORIZATION_FILTER_ORDER
 import me.ahoo.cosec.webflux.ServerWebExchanges.getSecurityContext
 import me.ahoo.cosky.rest.security.SecurityProperties
 import me.ahoo.cosky.rest.security.rbac.Action.Companion.asAction
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import org.springframework.core.Ordered
 import org.springframework.web.server.ServerWebExchange
 import org.springframework.web.server.WebFilter
 import org.springframework.web.server.WebFilterChain
@@ -29,7 +31,7 @@ import reactor.core.publisher.Mono
 class AuditLogHandlerInterceptor(
     private val auditService: AuditLogService,
     private val securityProperties: SecurityProperties
-) : WebFilter {
+) : WebFilter, Ordered {
     override fun filter(exchange: ServerWebExchange, chain: WebFilterChain): Mono<Void> {
         return chain.filter(exchange)
             .materialize()
@@ -66,5 +68,9 @@ class AuditLogHandlerInterceptor(
 
         val auditLog = AuditLog(operator, ip, requestPath, action, status, msg, opTime)
         auditService.addLog(auditLog).subscribe()
+    }
+
+    override fun getOrder(): Int {
+        return REACTIVE_AUTHORIZATION_FILTER_ORDER - 2
     }
 }

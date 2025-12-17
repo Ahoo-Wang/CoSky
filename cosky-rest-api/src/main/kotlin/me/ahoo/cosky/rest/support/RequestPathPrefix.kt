@@ -41,9 +41,9 @@ object RequestPathPrefix {
      * /v1/users/{username} .
      */
     const val USERS_USER = "/{username}"
-    const val USERS_USER_PASSWORD = USERS_USER + "/password"
-    const val USERS_USER_ROLE = USERS_USER + "/role"
-    const val USERS_USER_UNLOCK = USERS_USER + "/unlock"
+    const val USERS_USER_PASSWORD = "$USERS_USER/password"
+    const val USERS_USER_ROLE = "$USERS_USER/role"
+    const val USERS_USER_UNLOCK = "$USERS_USER/unlock"
     //endregion
     //region role
     /**
@@ -51,7 +51,7 @@ object RequestPathPrefix {
      */
     const val ROLES_PREFIX = V1 + "roles"
     const val ROLES_ROLE = "/{roleName}"
-    const val ROLES_ROLE_BIND = ROLES_ROLE + "/bind"
+    const val ROLES_ROLE_BIND = "$ROLES_ROLE/bind"
     //endregion
     //region audit
     /**
@@ -83,7 +83,7 @@ object RequestPathPrefix {
     /**
      * /v1/namespaces/current/{namespace} .
      */
-    const val NAMESPACES_CURRENT_NAMESPACE = NAMESPACES_CURRENT + "/{namespace}"
+    const val NAMESPACES_CURRENT_NAMESPACE = "$NAMESPACES_CURRENT/{namespace}"
     //endregion
     /**
      * /v1/namespaces/{namespace} .
