@@ -170,7 +170,7 @@ export function LoginPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         style={{
-                            color: '#999',
+                            color: ICON_COLOR,
                             fontSize: 20,
                             transition: 'color 0.3s ease, transform 0.3s ease',
                             display: 'inline-block',
@@ -180,7 +180,7 @@ export function LoginPage() {
                             e.currentTarget.style.transform = 'scale(1.1)';
                         }}
                         onMouseLeave={(e) => {
-                            e.currentTarget.style.color = '#999';
+                            e.currentTarget.style.color = ICON_COLOR;
                             e.currentTarget.style.transform = 'scale(1)';
                         }}
                     >
