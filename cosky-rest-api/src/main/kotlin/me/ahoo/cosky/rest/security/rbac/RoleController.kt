@@ -16,7 +16,6 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.support.RequestPathPrefix.ROLES_ROLE
 import me.ahoo.cosky.rest.support.RequestPathPrefix.ROLES_ROLE_BIND
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -31,7 +30,6 @@ import reactor.core.publisher.Mono
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.ROLES_PREFIX)
 @Tag(name = "Role")

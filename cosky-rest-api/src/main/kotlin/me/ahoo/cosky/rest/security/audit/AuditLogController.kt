@@ -14,7 +14,6 @@ package me.ahoo.cosky.rest.security.audit
 
 import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -25,7 +24,6 @@ import reactor.core.publisher.Mono
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.AUDIT_LOG_PREFIX)
 @Tag(name = "AuditLog")

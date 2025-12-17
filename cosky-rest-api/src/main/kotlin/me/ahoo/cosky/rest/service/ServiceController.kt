@@ -20,7 +20,6 @@ import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -35,7 +34,6 @@ import reactor.core.publisher.Mono
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.SERVICES_PREFIX)
 @Tag(name = "Service")

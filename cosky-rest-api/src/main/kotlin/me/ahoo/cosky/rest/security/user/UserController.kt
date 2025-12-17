@@ -19,7 +19,6 @@ import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_PASSWORD
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_ROLE
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_UNLOCK
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
@@ -35,7 +34,6 @@ import reactor.core.publisher.Mono
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.USERS_PREFIX)
 @Tag(name = "User")

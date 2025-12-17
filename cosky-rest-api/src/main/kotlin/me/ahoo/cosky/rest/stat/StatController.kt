@@ -19,7 +19,6 @@ import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
 import me.ahoo.cosky.discovery.ServiceTopology
 import me.ahoo.cosky.rest.support.RequestPathPrefix
-import org.springframework.web.bind.annotation.CrossOrigin
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -32,7 +31,6 @@ import java.util.stream.Collectors
  *
  * @author ahoo wang
  */
-@CrossOrigin("*")
 @RestController
 @RequestMapping(RequestPathPrefix.STAT_PREFIX)
 @Tag(name = "Stat")

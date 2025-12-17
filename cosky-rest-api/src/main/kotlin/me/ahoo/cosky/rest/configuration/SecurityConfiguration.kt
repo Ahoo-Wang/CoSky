@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.configuration
 
+import me.ahoo.cosec.webflux.OrderedCorsWebFilter
 import me.ahoo.cosky.rest.security.ConditionalOnSecurityEnabled
 import me.ahoo.cosky.rest.security.SecurityProperties
 import me.ahoo.cosky.rest.security.audit.AuditLogHandlerInterceptor
@@ -19,6 +20,9 @@ import me.ahoo.cosky.rest.security.audit.AuditLogService
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.web.cors.CorsConfiguration
+import org.springframework.web.cors.reactive.CorsWebFilter
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource
 
 /**
  * Security Configuration.
@@ -35,5 +39,15 @@ class SecurityConfiguration(private val securityProperties: SecurityProperties) 
         auditService: AuditLogService
     ): AuditLogHandlerInterceptor {
         return AuditLogHandlerInterceptor(auditService, securityProperties)
+    }
+
+    @Bean
+    fun corsFilter(): CorsWebFilter {
+        val config = CorsConfiguration().applyPermitDefaultValues()
+        config.allowedMethods = listOf("*")
+        val source = UrlBasedCorsConfigurationSource().apply {
+            registerCorsConfiguration("/**", config)
+        }
+        return OrderedCorsWebFilter(source)
     }
 }
