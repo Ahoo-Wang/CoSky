@@ -14,15 +14,15 @@
 import React from 'react';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
-import {PartitionOutlined} from "@ant-design/icons";
+import {PartitionOutlined, DownOutlined} from "@ant-design/icons";
 
 export const CurrentNamespaceSelector: React.FC = () => {
     const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
-
+    
     return (
         <NamespaceSelector
             style={{
-                width: 200,
+                minWidth: 200,
                 marginLeft: 16,
                 backgroundColor: 'rgba(255, 255, 255, 0.15)',
                 borderColor: 'rgba(255, 255, 255, 0.3)',
@@ -30,11 +30,11 @@ export const CurrentNamespaceSelector: React.FC = () => {
                 color: 'white',
                 transition: 'all 0.3s ease',
             }}
-            size={'large'}
             value={currentNamespace}
             onChange={setCurrent}
             showSearch
-            prefix={<PartitionOutlined style={{color: 'white'}}/>}
+            prefix={<PartitionOutlined style={{color: 'white'}} />}
+            suffixIcon={<DownOutlined style={{color: 'white'}} />}
         />
     );
 };
