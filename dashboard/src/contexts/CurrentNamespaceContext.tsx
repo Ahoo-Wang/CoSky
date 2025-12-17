@@ -31,7 +31,7 @@ export const currentNamespaceStorage = new KeyStorage<string>({
 
 const CurrentNamespaceContext = createContext<CurrentNamespaceContextType | undefined>(undefined);
 
-export const CurrentNamespaceContextProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+export const CurrentNamespaceProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const [currentNamespace, setCurrentNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
 
     const reset = useCallback(() => {

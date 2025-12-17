@@ -1,7 +1,7 @@
 import {Navigate, Route, Routes, useNavigate} from "react-router-dom";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
 import {tokenStorage} from "./security/tokenStorage.ts";
-import {CurrentNamespaceContextProvider} from "./contexts/CurrentNamespaceContext.tsx";
+import {CurrentNamespaceProvider} from "./contexts/CurrentNamespaceContext.tsx";
 import {DrawerProvider} from "./contexts/DrawerContext.tsx";
 import {LoginPage} from "./pages/login/LoginPage.tsx";
 import {AuthenticatedLayout} from "./components/layout/AuthenticatedLayout.tsx";
@@ -25,30 +25,31 @@ export function AppRoutes() {
                               navigate('/login')
                           }}
         >
-            <CurrentNamespaceContextProvider>
-                <DrawerProvider>
-                    <Routes>
-                        <Route path="/login" element={<LoginPage/>}/>
-                        <Route
-                            path="/"
-                            element={
+            <Routes>
+                <Route path="/login" element={<LoginPage/>}/>
+                <Route
+                    path="/"
+                    element={
+                        <DrawerProvider>
+                            <CurrentNamespaceProvider>
                                 <ProtectedRoute>
                                     <AuthenticatedLayout/>
                                 </ProtectedRoute>
-                            }
-                        >
-                            <Route index element={<Navigate to="/home" replace/>}/>
-                            <Route path="home" element={<DashboardPage/>}/>
-                            <Route path="config" element={<ConfigPage/>}/>
-                            <Route path="service" element={<ServicePage/>}/>
-                            <Route path="namespace" element={<NamespacePage/>}/>
-                            <Route path="user" element={<UserPage/>}/>
-                            <Route path="role" element={<RolePage/>}/>
-                            <Route path="audit-log" element={<AuditLogPage/>}/>
-                        </Route>
-                    </Routes>
-                </DrawerProvider>
-            </CurrentNamespaceContextProvider>
+                            </CurrentNamespaceProvider>
+                        </DrawerProvider>
+                    }
+                >
+                    <Route index element={<Navigate to="/home" replace/>}/>
+                    <Route path="home" element={<DashboardPage/>}/>
+                    <Route path="config" element={<ConfigPage/>}/>
+                    <Route path="service" element={<ServicePage/>}/>
+                    <Route path="namespace" element={<NamespacePage/>}/>
+                    <Route path="user" element={<UserPage/>}/>
+                    <Route path="role" element={<RolePage/>}/>
+                    <Route path="audit-log" element={<AuditLogPage/>}/>
+                </Route>
+            </Routes>
+
         </SecurityProvider>
     );
 }
