@@ -12,11 +12,11 @@
  */
 
 import React from 'react';
-import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
 import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
 
 export const CurrentNamespaceSelector: React.FC = () => {
-    const {currentNamespace, setCurrent} = useNamespaceContext();
+    const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
     return (
         <NamespaceSelector style={{width: 200, marginLeft: 16}}
                            value={currentNamespace}

@@ -1,7 +1,7 @@
 import {Navigate, Route, Routes, useNavigate} from "react-router-dom";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
 import {tokenStorage} from "./security/tokenStorage.ts";
-import {NamespaceProvider} from "./contexts/NamespaceContext.tsx";
+import {CurrentNamespaceContextProvider} from "./contexts/CurrentNamespaceContext.tsx";
 import {DrawerProvider} from "./contexts/DrawerContext.tsx";
 import {LoginPage} from "./pages/login/LoginPage.tsx";
 import {AuthenticatedLayout} from "./components/layout/AuthenticatedLayout.tsx";
@@ -25,7 +25,7 @@ export function AppRoutes() {
                               navigate('/login')
                           }}
         >
-            <NamespaceProvider>
+            <CurrentNamespaceContextProvider>
                 <DrawerProvider>
                     <Routes>
                         <Route path="/login" element={<LoginPage/>}/>
@@ -48,7 +48,7 @@ export function AppRoutes() {
                         </Route>
                     </Routes>
                 </DrawerProvider>
-            </NamespaceProvider>
+            </CurrentNamespaceContextProvider>
         </SecurityProvider>
     );
 }
