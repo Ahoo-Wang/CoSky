@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
-import { NodeType } from './topologies.ts';
+import { NodeType, NODE_TYPE_COLORS } from './topologies.ts';
 
 export interface CustomNodeData {
     label: string;
@@ -15,16 +15,8 @@ export const CustomNode = memo(({ data, selected }: NodeProps) => {
     
     // Get background color based on node type
     const getBackgroundColor = () => {
-        switch (nodeType) {
-            case 'source':
-                return selected ? '#096dd9' : '#1890ff';
-            case 'target':
-                return selected ? '#d4380d' : '#ff7a45';
-            case 'intermediate':
-                return selected ? '#531dab' : '#722ed1';
-            default:
-                return selected ? '#096dd9' : '#1890ff';
-        }
+        const colors = NODE_TYPE_COLORS[nodeType] || NODE_TYPE_COLORS.source;
+        return selected ? colors.borderColor : colors.backgroundColor;
     };
 
     // Get node icon based on type

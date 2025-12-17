@@ -8,9 +8,40 @@ export interface ReactFlowTopology {
 
 export type NodeType = 'source' | 'target' | 'intermediate';
 
+// Node dimension constants
 const BASE_NODE_WIDTH = 172;
 const NODE_HEIGHT = 36;
 const MIN_CHAR_WIDTH = 8; // Approximate character width in pixels
+const NODE_PADDING = 40; // Space for icon, margins, and padding
+
+// Dynamic layout thresholds and spacing
+const LARGE_GRAPH_THRESHOLD = 50;
+const MEDIUM_GRAPH_THRESHOLD = 20;
+const LARGE_GRAPH_NODESEP = 80;
+const MEDIUM_GRAPH_NODESEP = 60;
+const SMALL_GRAPH_NODESEP = 50;
+const LARGE_GRAPH_RANKSEP = 100;
+const MEDIUM_GRAPH_RANKSEP = 80;
+const SMALL_GRAPH_RANKSEP = 60;
+
+// Node type color configuration
+export const NODE_TYPE_COLORS = {
+    source: {
+        backgroundColor: '#1890ff',
+        color: '#fff',
+        borderColor: '#096dd9'
+    },
+    target: {
+        backgroundColor: '#ff7a45',
+        color: '#fff',
+        borderColor: '#d4380d'
+    },
+    intermediate: {
+        backgroundColor: '#722ed1',
+        color: '#fff',
+        borderColor: '#531dab'
+    }
+} as const;
 
 export function toReactFlowTopology(
     topology: Record<string, string[]>,
@@ -59,32 +90,21 @@ export function toReactFlowTopology(
     
     // Get node styles based on type
     const getNodeStyle = (nodeType: NodeType) => {
-        switch (nodeType) {
-            case 'source':
-                return { 
-                    backgroundColor: '#1890ff', 
-                    color: '#fff',
-                    borderColor: '#096dd9'
-                };
-            case 'target':
-                return { 
-                    backgroundColor: '#ff7a45', 
-                    color: '#fff',
-                    borderColor: '#d4380d'
-                };
-            case 'intermediate':
-                return { 
-                    backgroundColor: '#722ed1', 
-                    color: '#fff',
-                    borderColor: '#531dab'
-                };
-        }
+        return NODE_TYPE_COLORS[nodeType];
     };
 
     // Dynamic layout configuration based on node count
     const nodeCount = allNodes.size;
-    const nodesep = nodeCount > 50 ? 80 : nodeCount > 20 ? 60 : 50;
-    const ranksep = nodeCount > 50 ? 100 : nodeCount > 20 ? 80 : 60;
+    const nodesep = nodeCount > LARGE_GRAPH_THRESHOLD 
+        ? LARGE_GRAPH_NODESEP 
+        : nodeCount > MEDIUM_GRAPH_THRESHOLD 
+            ? MEDIUM_GRAPH_NODESEP 
+            : SMALL_GRAPH_NODESEP;
+    const ranksep = nodeCount > LARGE_GRAPH_THRESHOLD 
+        ? LARGE_GRAPH_RANKSEP 
+        : nodeCount > MEDIUM_GRAPH_THRESHOLD 
+            ? MEDIUM_GRAPH_RANKSEP 
+            : SMALL_GRAPH_RANKSEP;
 
     // Create a new directed graph
     const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
@@ -97,7 +117,7 @@ export function toReactFlowTopology(
 
     // Calculate dynamic node width based on label length
     const getNodeWidth = (label: string): number => {
-        return Math.max(BASE_NODE_WIDTH, label.length * MIN_CHAR_WIDTH + 40);
+        return Math.max(BASE_NODE_WIDTH, label.length * MIN_CHAR_WIDTH + NODE_PADDING);
     };
 
     // Add nodes to dagre graph with dynamic widths

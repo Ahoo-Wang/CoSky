@@ -2,7 +2,7 @@ import {useNamespaceContext} from "../../contexts/NamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback} from "react";
-import {toReactFlowTopology} from "./topologies.ts";
+import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
 import {Skeleton, Input, Segmented, Space} from "antd";
 import {Background, Controls, MiniMap, ReactFlow, NodeMouseHandler, Node, Edge} from "@xyflow/react";
 import {CustomNode, CustomNodeData} from "./CustomNode.tsx";
@@ -210,17 +210,9 @@ export function Topology() {
                 <Controls />
                 <MiniMap
                     nodeColor={(node) => {
-                        const nodeData = node.data as { nodeType?: string };
-                        switch (nodeData.nodeType) {
-                            case 'source':
-                                return '#1890ff';
-                            case 'target':
-                                return '#ff7a45';
-                            case 'intermediate':
-                                return '#722ed1';
-                            default:
-                                return '#1890ff';
-                        }
+                        const nodeData = node.data as unknown as CustomNodeData;
+                        const nodeType = nodeData.nodeType || 'source';
+                        return NODE_TYPE_COLORS[nodeType].backgroundColor;
                     }}
                     maskColor="rgba(0, 0, 0, 0.1)"
                     style={{
