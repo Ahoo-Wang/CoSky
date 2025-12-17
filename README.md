@@ -266,7 +266,7 @@ spec:
 ##### Import configuration from Nacos
 
 <p align="center">
-     <img src="./docs/dashboard-config-import.gif" alt="CoSky-Dashboard-config-import"/>
+     <img src="./docs/dashboard-config-import.png" alt="CoSky-Dashboard-config-rollback"/>
 </p>
 
 #### Service

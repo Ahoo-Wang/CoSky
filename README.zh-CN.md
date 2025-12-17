@@ -262,10 +262,10 @@ spec:
      <img src="./docs/dashboard-config-rollback.png" alt="CoSky-Dashboard-config-rollback"/>
 </p>
 
-##### 从 Nacos 导入配置
+_##### 从 Nacos 导入配置
 
 <p align="center">
-     <img src="./docs/dashboard-config-import.gif" alt="CoSky-Dashboard-config-import"/>
+     <img src="./docs/dashboard-config-import.png" alt="CoSky-Dashboard-config-rollback"/>
 </p>
 
 #### 服务管理
