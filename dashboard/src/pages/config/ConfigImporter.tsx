@@ -69,6 +69,9 @@ export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSucc
                         <InboxOutlined/>
                     </p>
                     <p className="ant-upload-text">Click or drag ZIP-file to this area to upload</p>
+                    <p className="ant-upload-hint">
+                        Support Nacos config format.
+                    </p>
                 </Dragger>
             </Form.Item>
             <Form.Item>
