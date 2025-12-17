@@ -63,14 +63,18 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
             </Descriptions>
             <Divider>History({version}) VS Current({currentConfig?.version})</Divider>
             <DiffEditor
+                key={`diff-${namespace}-${configId}-${version}`}
                 height="60vh"
                 theme="vs-dark"
                 language={fileNameWithExt.ext}
-                original={versionConfig?.data}
-                modified={currentConfig?.data}
+                original={versionConfig?.data || ''}
+                modified={currentConfig?.data || ''}
+                keepCurrentOriginalModel
+                keepCurrentModifiedModel
                 options={{
                     readOnly: true,
                     minimap: {enabled: false},
+
                 }}
             />
             <Divider/>
