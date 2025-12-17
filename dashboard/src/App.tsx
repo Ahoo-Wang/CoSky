@@ -11,23 +11,11 @@
  * limitations under the License.
  */
 
-import {BrowserRouter, Routes, Route, Navigate} from 'react-router-dom';
+import {BrowserRouter} from 'react-router-dom';
 import {ConfigProvider, theme} from 'antd';
-import {SecurityProvider} from '@ahoo-wang/fetcher-react'
-import {NamespaceProvider} from './contexts/NamespaceContext.tsx';
-import {DrawerProvider} from './contexts/DrawerContext';
-import {LoginPage} from './pages/login/LoginPage.tsx';
-import {AuthenticatedLayout} from './components/layout/AuthenticatedLayout';
-import {DashboardPage} from './pages/dashboard/DashboardPage.tsx';
-import {ConfigPage} from './pages/config/ConfigPage.tsx';
-import {ServicePage} from './pages/service/ServicePage.tsx';
-import {NamespacePage} from './pages/namespace/NamespacePage.tsx';
-import {UserPage} from './pages/user/UserPage.tsx';
-import {RolePage} from './pages/role/RolePage.tsx';
-import {AuditLogPage} from './pages/audit/AuditLogPage.tsx';
 import './services/fetcher'
-import {tokenStorage} from "./security/tokenStorage.ts";
 import ErrorBoundary from "antd/es/alert/ErrorBoundary";
+import {AppRoutes} from "./AppRoutes.tsx";
 
 function App() {
     return (
@@ -51,39 +39,9 @@ function App() {
             }}
         >
             <ErrorBoundary>
-                <SecurityProvider tokenStorage={tokenStorage}
-                                  onSignIn={() => {
-                                      window.location.href = '/home';
-                                  }}
-                                  onSignOut={() => {
-                                      window.location.href = '/login';
-                                  }}
-                >
-                    <NamespaceProvider>
-                        <DrawerProvider>
-                            <BrowserRouter>
-                                <Routes>
-                                    <Route path="/login" element={<LoginPage/>}/>
-                                    <Route
-                                        path="/"
-                                        element={
-                                            <AuthenticatedLayout/>
-                                        }
-                                    >
-                                        <Route index element={<Navigate to="/home" replace/>}/>
-                                        <Route path="home" element={<DashboardPage/>}/>
-                                        <Route path="config" element={<ConfigPage/>}/>
-                                        <Route path="service" element={<ServicePage/>}/>
-                                        <Route path="namespace" element={<NamespacePage/>}/>
-                                        <Route path="user" element={<UserPage/>}/>
-                                        <Route path="role" element={<RolePage/>}/>
-                                        <Route path="audit-log" element={<AuditLogPage/>}/>
-                                    </Route>
-                                </Routes>
-                            </BrowserRouter>
-                        </DrawerProvider>
-                    </NamespaceProvider>
-                </SecurityProvider>
+                <BrowserRouter>
+                    <AppRoutes />
+                </BrowserRouter>
             </ErrorBoundary>
         </ConfigProvider>
     );
