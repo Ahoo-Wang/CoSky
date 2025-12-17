@@ -22,7 +22,7 @@ import {
     ImportOutlined,
     SearchOutlined,
 } from '@ant-design/icons';
-import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
 import {configApiClient} from "../../services/clients.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
@@ -35,7 +35,7 @@ import dayjs from "dayjs";
 type ListConfig = { configId: string }
 
 export const ConfigPage: React.FC = () => {
-    const {currentNamespace} = useNamespaceContext();
+    const {currentNamespace} = useCurrentNamespaceContext();
     const {openDrawer, closeDrawer} = useDrawer();
     const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, ListConfig[]>({
         query: currentNamespace,

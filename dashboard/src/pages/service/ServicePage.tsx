@@ -13,7 +13,7 @@
 
 import {Table, Button, Space, message, Popconfirm, Input} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
-import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
 import {ServiceStat} from "../../generated";
@@ -25,7 +25,7 @@ import {ColumnsType, type FilterDropdownProps} from "antd/es/table/interface";
 import React from "react";
 
 export function ServicePage() {
-    const {currentNamespace} = useNamespaceContext();
+    const {currentNamespace} = useCurrentNamespaceContext();
     const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {

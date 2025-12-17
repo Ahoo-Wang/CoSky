@@ -18,7 +18,7 @@ import {SYSTEM_NAMESPACE} from "../pages/namespace/namespaces.ts";
 
 const NAMESPACE_KEY = 'cosky:ns:current';
 
-interface NamespaceContextType {
+interface CurrentNamespaceContextType {
     currentNamespace: string;
     setCurrent: (namespace: string) => void;
     reset: () => void;
@@ -29,9 +29,9 @@ export const currentNamespaceStorage = new KeyStorage<string>({
     serializer: typedIdentitySerializer()
 })
 
-const NamespaceContext = createContext<NamespaceContextType | undefined>(undefined);
+const CurrentNamespaceContext = createContext<CurrentNamespaceContextType | undefined>(undefined);
 
-export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+export const CurrentNamespaceContextProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
     const [currentNamespace, setCurrentNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
 
     const reset = useCallback(() => {
@@ -39,17 +39,17 @@ export const NamespaceProvider: React.FC<{ children: React.ReactNode }> = ({chil
     }, [setCurrentNamespace]);
 
 
-    const value: NamespaceContextType = {
+    const value: CurrentNamespaceContextType = {
         currentNamespace: currentNamespace,
         setCurrent: setCurrentNamespace,
         reset,
     };
 
-    return <NamespaceContext.Provider value={value}>{children}</NamespaceContext.Provider>;
+    return <CurrentNamespaceContext.Provider value={value}>{children}</CurrentNamespaceContext.Provider>;
 };
 
-export const useNamespaceContext = (): NamespaceContextType => {
-    const context = useContext(NamespaceContext);
+export const useCurrentNamespaceContext = (): CurrentNamespaceContextType => {
+    const context = useContext(CurrentNamespaceContext);
     if (!context) {
         throw new Error('useNamespace must be used within a NamespaceProvider');
     }

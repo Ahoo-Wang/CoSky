@@ -1,4 +1,4 @@
-import {useNamespaceContext} from "../../contexts/NamespaceContext.tsx";
+import {useCurrentNamespaceContext} from "../../contexts/CurrentNamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback, useEffect} from "react";
@@ -36,7 +36,7 @@ function isServiceNodeData(data: unknown): data is ServiceNodeData {
 }
 
 export function Topology() {
-    const {currentNamespace} = useNamespaceContext();
+    const {currentNamespace} = useCurrentNamespaceContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
     const [internalNodes, setInternalNodes] = useState<Node[]>([]);

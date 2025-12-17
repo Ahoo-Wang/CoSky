@@ -18,7 +18,7 @@ import {
     CloudServerOutlined,
     ClusterOutlined
 } from '@ant-design/icons';
-import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
 import {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {statApiClient} from "../../services/clients.ts";
@@ -27,7 +27,7 @@ import {useRef} from "react";
 import {Fullscreen} from "@ahoo-wang/fetcher-viewer";
 
 export function DashboardPage() {
-    const {currentNamespace} = useNamespaceContext();
+    const {currentNamespace} = useCurrentNamespaceContext();
     const {
         result: stat = {
             namespaces: 0,
