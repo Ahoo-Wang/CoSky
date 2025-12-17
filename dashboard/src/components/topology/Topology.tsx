@@ -3,8 +3,18 @@ import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback, useEffect} from "react";
 import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
-import {Skeleton, Input, Segmented, Space} from "antd";
-import {Background, Controls, MiniMap, ReactFlow, NodeMouseHandler, Node, Edge, OnNodesChange, applyNodeChanges} from "@xyflow/react";
+import {Skeleton, Input, Space} from "antd";
+import {
+    Background,
+    Controls,
+    MiniMap,
+    ReactFlow,
+    NodeMouseHandler,
+    Node,
+    Edge,
+    OnNodesChange,
+    applyNodeChanges
+} from "@xyflow/react";
 import {ServiceNode, ServiceNodeData} from "./ServiceNode.tsx";
 import {SearchOutlined} from "@ant-design/icons";
 import '@xyflow/react/dist/style.css';
@@ -12,8 +22,6 @@ import '@xyflow/react/dist/style.css';
 const nodeTypes = {
     default: ServiceNode,
 };
-
-type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
 // Type guard to safely check if node data is ServiceNodeData
 function isServiceNodeData(data: unknown): data is ServiceNodeData {
@@ -31,9 +39,8 @@ export function Topology() {
     const {currentNamespace} = useNamespaceContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
-    const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('TB');
     const [internalNodes, setInternalNodes] = useState<Node[]>([]);
-    
+
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
@@ -42,12 +49,12 @@ export function Topology() {
     });
 
     const {baseNodes, baseEdges} = useMemo(() => {
-        const topology = toReactFlowTopology(result, layoutDirection);
+        const topology = toReactFlowTopology(result);
         return {
             baseNodes: topology.nodes,
             baseEdges: topology.edges
         };
-    }, [result, layoutDirection]);
+    }, [result]);
 
     // Update internal nodes when base topology changes
     useEffect(() => {
@@ -58,29 +65,29 @@ export function Topology() {
     const {nodes, edges} = useMemo(() => {
         const searchLower = searchTerm.toLowerCase();
         const matchedNodeIds = new Set<string>();
-        
+
         // Find nodes that match search term
         if (searchTerm) {
             internalNodes.forEach(node => {
-                if (isServiceNodeData(node.data) && 
+                if (isServiceNodeData(node.data) &&
                     node.data.label.toLowerCase().includes(searchLower)) {
                     matchedNodeIds.add(node.id);
                 }
             });
         }
-        
+
         // Determine which nodes to highlight
-        const nodesToHighlight = highlightedNodes.size > 0 
-            ? highlightedNodes 
+        const nodesToHighlight = highlightedNodes.size > 0
+            ? highlightedNodes
             : matchedNodeIds;
-        
+
         // Update node styles for highlighting
         const updatedNodes: Node[] = internalNodes.map(node => {
             const isHighlighted = nodesToHighlight.has(node.id);
             const isSearchMatch = matchedNodeIds.has(node.id);
-            
-            let style = { ...node.style };
-            
+
+            let style = {...node.style};
+
             if (searchTerm && !isSearchMatch) {
                 // Dim non-matching nodes during search
                 style = {
@@ -101,21 +108,21 @@ export function Topology() {
                     border: '2px solid #ffd700',
                 };
             }
-            
+
             return {
                 ...node,
                 style,
             };
         });
-        
+
         // Update edge styles for highlighting
         const updatedEdges: Edge[] = baseEdges.map(edge => {
-            const isConnected = 
-                nodesToHighlight.has(edge.source) || 
+            const isConnected =
+                nodesToHighlight.has(edge.source) ||
                 nodesToHighlight.has(edge.target);
-            
-            let style = { ...edge.style };
-            
+
+            let style = {...edge.style};
+
             if (nodesToHighlight.size > 0 && !isConnected) {
                 // Dim non-connected edges
                 style = {
@@ -130,13 +137,13 @@ export function Topology() {
                     stroke: '#ffd700',
                 };
             }
-            
+
             return {
                 ...edge,
                 style,
             };
         });
-        
+
         return {
             nodes: updatedNodes,
             edges: updatedEdges,
@@ -146,7 +153,7 @@ export function Topology() {
     // Handle node click to highlight connected nodes
     const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
         const connectedNodes = new Set([node.id]);
-        
+
         // Find all connected nodes (both incoming and outgoing)
         baseEdges.forEach(edge => {
             if (edge.source === node.id) {
@@ -156,7 +163,7 @@ export function Topology() {
                 connectedNodes.add(edge.source);
             }
         });
-        
+
         setHighlightedNodes(connectedNodes);
     }, [baseEdges]);
 
@@ -173,9 +180,9 @@ export function Topology() {
     if (loading) {
         return <Skeleton/>
     }
-    
+
     return (
-        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+        <div style={{width: '100%', height: '100%', position: 'relative'}}>
             {/* Control Panel */}
             <div style={{
                 position: 'absolute',
@@ -187,37 +194,16 @@ export function Topology() {
                 borderRadius: '8px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}>
-                <Space direction="vertical" size="middle">
+                <Space size="middle">
                     {/* Search Input */}
                     <Input
                         placeholder="Search nodes..."
-                        prefix={<SearchOutlined />}
+                        prefix={<SearchOutlined/>}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         allowClear
-                        style={{ width: '250px' }}
+                        style={{width: '250px'}}
                     />
-                    
-                    {/* Layout Direction Selector */}
-                    <div>
-                        <div style={{ 
-                            fontSize: '12px', 
-                            marginBottom: '4px',
-                            color: '#666'
-                        }}>
-                            Layout Direction
-                        </div>
-                        <Segmented
-                            value={layoutDirection}
-                            onChange={(value) => setLayoutDirection(value as LayoutDirection)}
-                            options={[
-                                { label: '↓ TB', value: 'TB' },
-                                { label: '→ LR', value: 'LR' },
-                                { label: '↑ BT', value: 'BT' },
-                                { label: '← RL', value: 'RL' },
-                            ]}
-                        />
-                    </div>
                 </Space>
             </div>
 
@@ -235,8 +221,8 @@ export function Topology() {
                     padding: 0.2,
                 }}
             >
-                <Background />
-                <Controls />
+                <Background/>
+                <Controls/>
                 <MiniMap
                     nodeColor={(node) => {
                         if (isServiceNodeData(node.data)) {
