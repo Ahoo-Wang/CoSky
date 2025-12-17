@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
 
 export const CurrentNamespaceSelector: React.FC = () => {

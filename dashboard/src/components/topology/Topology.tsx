@@ -1,4 +1,4 @@
-import {useCurrentNamespaceContext} from "../../contexts/CurrentNamespaceContext.tsx";
+import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback, useEffect} from "react";

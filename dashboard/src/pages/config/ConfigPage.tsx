@@ -22,7 +22,7 @@ import {
     ImportOutlined,
     SearchOutlined,
 } from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
 import {configApiClient} from "../../services/clients.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";

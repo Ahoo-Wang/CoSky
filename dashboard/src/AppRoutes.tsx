@@ -1,7 +1,7 @@
 import {Navigate, Route, Routes, useNavigate} from "react-router-dom";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
 import {tokenStorage} from "./security/tokenStorage.ts";
-import {CurrentNamespaceProvider} from "./contexts/CurrentNamespaceContext.tsx";
+import {CurrentNamespaceProvider} from "./contexts/namespace/CurrentNamespaceContext.tsx";
 import {DrawerProvider} from "./contexts/DrawerContext.tsx";
 import {LoginPage} from "./pages/login/LoginPage.tsx";
 import {AuthenticatedLayout} from "./components/layout/AuthenticatedLayout.tsx";
@@ -13,6 +13,7 @@ import {UserPage} from "./pages/user/UserPage.tsx";
 import {RolePage} from "./pages/role/RolePage.tsx";
 import {AuditLogPage} from "./pages/audit/AuditLogPage.tsx";
 import {ProtectedRoute} from "./components/security/ProtectedRoute.tsx";
+import {NamespacesProvider} from "./contexts/namespace/NamespacesContext.tsx";
 
 export function AppRoutes() {
     const navigate = useNavigate();
@@ -31,11 +32,13 @@ export function AppRoutes() {
                     path="/"
                     element={
                         <DrawerProvider>
-                            <CurrentNamespaceProvider>
-                                <ProtectedRoute>
-                                    <AuthenticatedLayout/>
-                                </ProtectedRoute>
-                            </CurrentNamespaceProvider>
+                            <NamespacesProvider>
+                                <CurrentNamespaceProvider>
+                                    <ProtectedRoute>
+                                        <AuthenticatedLayout/>
+                                    </ProtectedRoute>
+                                </CurrentNamespaceProvider>
+                            </NamespacesProvider>
                         </DrawerProvider>
                     }
                 >

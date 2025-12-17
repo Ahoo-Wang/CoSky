@@ -13,22 +13,28 @@
 
 import {Table, Button, message, Popconfirm} from 'antd';
 import {DeleteOutlined} from '@ant-design/icons';
-import {useNamespaces} from "../../hooks/useNamespaces.ts";
 import {isSystemNamespace} from "./namespaces.ts";
 import {namespaceApiClient} from "../../services/clients.ts";
 import {AddNamespaceForm} from "./AddNamespaceForm.tsx";
+import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
+import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
 
 export function NamespacePage() {
-    const {namespaces, loading, reload} = useNamespaces();
+    const {currentNamespace} = useCurrentNamespaceContext()
+    const {namespaces, loading, refresh} = useNamespacesContext();
 
     const handleDelete = async (namespace: string) => {
         try {
             await namespaceApiClient.removeNamespace(namespace);
             message.success('Namespace deleted successfully');
-            reload();
+            refresh();
         } catch (error) {
             message.error('Failed to delete namespace');
         }
+    };
+
+    const isDisabled = (namespace: string) => {
+        return isSystemNamespace(namespace) || currentNamespace === namespace;
     };
 
     const columns = [
@@ -46,7 +52,7 @@ export function NamespacePage() {
                     okText="Yes"
                     cancelText="No"
                 >
-                    <Button type="link" danger icon={<DeleteOutlined/>} disabled={isSystemNamespace(record)}>
+                    <Button type="link" danger icon={<DeleteOutlined/>} disabled={isDisabled(record)}>
                         Delete
                     </Button>
                 </Popconfirm>
@@ -58,8 +64,8 @@ export function NamespacePage() {
     return (
         <div>
             <div style={{
-                marginBottom: 24, 
-                display: 'flex', 
+                marginBottom: 24,
+                display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
             }}>
@@ -70,11 +76,11 @@ export function NamespacePage() {
                     color: '#262626',
                     letterSpacing: '-0.5px',
                 }}>Namespace</h2>
-                <AddNamespaceForm onSuccess={reload}/>
+                <AddNamespaceForm onSuccess={refresh}/>
             </div>
-            <Table 
-                columns={columns} 
-                dataSource={namespaces} 
+            <Table
+                columns={columns}
+                dataSource={namespaces}
                 loading={loading}
                 rowKey={(record) => record}
                 style={{

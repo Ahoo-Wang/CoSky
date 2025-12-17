@@ -13,7 +13,7 @@
 
 import {Table, Button, Space, message, Popconfirm, Input} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/CurrentNamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
 import {ServiceStat} from "../../generated";
