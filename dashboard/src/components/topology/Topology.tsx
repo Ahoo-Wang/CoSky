@@ -1,7 +1,7 @@
 import {useNamespaceContext} from "../../contexts/NamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
-import {useMemo, useState, useCallback} from "react";
+import {useMemo, useState, useCallback, useEffect} from "react";
 import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
 import {Skeleton, Input, Segmented, Space} from "antd";
 import {Background, Controls, MiniMap, ReactFlow, NodeMouseHandler, Node, Edge, OnNodesChange, applyNodeChanges} from "@xyflow/react";
@@ -41,11 +41,18 @@ export function Topology() {
         },
     });
 
-    const baseEdges = useMemo(() => {
+    const {baseNodes, baseEdges} = useMemo(() => {
         const topology = toReactFlowTopology(result, layoutDirection);
-        setInternalNodes(topology.nodes);
-        return topology.edges;
+        return {
+            baseNodes: topology.nodes,
+            baseEdges: topology.edges
+        };
     }, [result, layoutDirection]);
+
+    // Update internal nodes when base topology changes
+    useEffect(() => {
+        setInternalNodes(baseNodes);
+    }, [baseNodes]);
 
     // Apply search filtering and highlighting
     const {nodes, edges} = useMemo(() => {
