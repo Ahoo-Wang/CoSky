@@ -46,7 +46,9 @@
             "/user",
             "/role",
             "/audit-log",
-            "/login"
+            "/login",
+            "/dashboard",
+            "/dashboard/**"
           ]
         }
       }

@@ -12,9 +12,11 @@
  */
 package me.ahoo.cosky.rest.dashboard
 
+import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.boot.autoconfigure.web.WebProperties
 import org.springframework.core.io.Resource
 import org.springframework.core.io.ResourceLoader
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Controller
 import org.springframework.web.bind.annotation.GetMapping
@@ -46,23 +48,31 @@ class DashboardConfiguration(private val webProperties: WebProperties, private v
         resource
     }
 
-    @Suppress("SpreadOperator")
     @GetMapping(
-        *[
-            "/",
-            HOME_ROUTE,
-            CONFIG_ROUTE,
-            SERVICE_ROUTE,
-            NAMESPACE_ROUTE,
-            USER_ROUTE,
-            ROLE_ROUTE,
-            AUDIT_LOG_ROUTE,
-            LOGIN_ROUTE,
-        ],
+        "/",
+        HOME_ROUTE,
+        CONFIG_ROUTE,
+        SERVICE_ROUTE,
+        NAMESPACE_ROUTE,
+        USER_ROUTE,
+        ROLE_ROUTE,
+        AUDIT_LOG_ROUTE,
+        LOGIN_ROUTE,
     )
     fun home(): ResponseEntity<Resource> {
         return ResponseEntity.ok()
             .contentType(org.springframework.http.MediaType.TEXT_HTML)
             .body(indexResource)
+    }
+
+    /**
+     * compatibility routing for dashboard paths
+     */
+    @GetMapping(RequestPathPrefix.DASHBOARD, "${RequestPathPrefix.DASHBOARD}**")
+    fun dashboard(): ResponseEntity<Void> {
+        HttpStatus.PERMANENT_REDIRECT
+        return ResponseEntity.status(HttpStatus.MOVED_PERMANENTLY)
+            .location(java.net.URI.create(HOME_ROUTE))
+            .build()
     }
 }
