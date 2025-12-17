@@ -50,9 +50,15 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
     }
     const columns = [
         {title: 'Schema', dataIndex: 'schema', key: 'schema'},
-        {title: 'Host', dataIndex: 'host', key: 'host'},
+        {
+            title: 'Host', dataIndex: 'host', key: 'host',
+            sorter: (a: ServiceInstance, b: ServiceInstance) => a.host.localeCompare(b.host),
+        },
         {title: 'Port', dataIndex: 'port', key: 'port'},
-        {title: 'Weight', dataIndex: 'weight', key: 'weight'},
+        {
+            title: 'Weight', dataIndex: 'weight', key: 'weight',
+            sorter: (a: ServiceInstance, b: ServiceInstance) => a.weight - b.weight,
+        },
         {
             title: 'Ephemeral',
             dataIndex: 'isEphemeral',
@@ -63,6 +69,7 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
             title: 'TtlAt',
             dataIndex: 'ttlAt',
             key: 'ttlAt',
+            sorter: (a: ServiceInstance, b: ServiceInstance) => a.ttlAt - b.ttlAt,
             render: (ttlAt: number) => dayjs(ttlAt * 1000).format('YYYY-MM-DD HH:mm:ss')
         },
         {

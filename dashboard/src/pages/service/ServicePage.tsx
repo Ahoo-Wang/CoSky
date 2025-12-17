@@ -69,7 +69,8 @@ export function ServicePage() {
         {
             title: 'Service ID',
             dataIndex: 'serviceId',
-            key: 'serviceId'
+            key: 'serviceId',
+            sorter: (a: ServiceStat, b: ServiceStat) => a.serviceId.localeCompare(b.serviceId),
         },
         {
             title: 'Instance Count',
