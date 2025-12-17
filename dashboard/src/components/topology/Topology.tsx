@@ -4,19 +4,19 @@ import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback} from "react";
 import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
 import {Skeleton, Input, Segmented, Space} from "antd";
-import {Background, Controls, MiniMap, ReactFlow, NodeMouseHandler, Node, Edge} from "@xyflow/react";
-import {CustomNode, CustomNodeData} from "./CustomNode.tsx";
+import {Background, Controls, MiniMap, ReactFlow, NodeMouseHandler, Node, Edge, OnNodesChange, applyNodeChanges} from "@xyflow/react";
+import {ServiceNode, ServiceNodeData} from "./ServiceNode.tsx";
 import {SearchOutlined} from "@ant-design/icons";
 import '@xyflow/react/dist/style.css';
 
 const nodeTypes = {
-    default: CustomNode,
+    default: ServiceNode,
 };
 
 type LayoutDirection = 'TB' | 'LR' | 'BT' | 'RL';
 
-// Type guard to safely check if node data is CustomNodeData
-function isCustomNodeData(data: unknown): data is CustomNodeData {
+// Type guard to safely check if node data is ServiceNodeData
+function isServiceNodeData(data: unknown): data is ServiceNodeData {
     return (
         typeof data === 'object' &&
         data !== null &&
@@ -32,6 +32,7 @@ export function Topology() {
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
     const [layoutDirection, setLayoutDirection] = useState<LayoutDirection>('TB');
+    const [internalNodes, setInternalNodes] = useState<Node[]>([]);
     
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
@@ -40,8 +41,10 @@ export function Topology() {
         },
     });
 
-    const {nodes: baseNodes, edges: baseEdges} = useMemo(() => {
-        return toReactFlowTopology(result, layoutDirection);
+    const baseEdges = useMemo(() => {
+        const topology = toReactFlowTopology(result, layoutDirection);
+        setInternalNodes(topology.nodes);
+        return topology.edges;
     }, [result, layoutDirection]);
 
     // Apply search filtering and highlighting
@@ -51,8 +54,8 @@ export function Topology() {
         
         // Find nodes that match search term
         if (searchTerm) {
-            baseNodes.forEach(node => {
-                if (isCustomNodeData(node.data) && 
+            internalNodes.forEach(node => {
+                if (isServiceNodeData(node.data) && 
                     node.data.label.toLowerCase().includes(searchLower)) {
                     matchedNodeIds.add(node.id);
                 }
@@ -65,7 +68,7 @@ export function Topology() {
             : matchedNodeIds;
         
         // Update node styles for highlighting
-        const updatedNodes: Node[] = baseNodes.map(node => {
+        const updatedNodes: Node[] = internalNodes.map(node => {
             const isHighlighted = nodesToHighlight.has(node.id);
             const isSearchMatch = matchedNodeIds.has(node.id);
             
@@ -131,7 +134,7 @@ export function Topology() {
             nodes: updatedNodes,
             edges: updatedEdges,
         };
-    }, [baseNodes, baseEdges, searchTerm, highlightedNodes]);
+    }, [internalNodes, baseEdges, searchTerm, highlightedNodes]);
 
     // Handle node click to highlight connected nodes
     const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
@@ -153,6 +156,11 @@ export function Topology() {
     // Clear highlights when clicking on pane
     const onPaneClick = useCallback(() => {
         setHighlightedNodes(new Set());
+    }, []);
+
+    // Handle node position changes (for dragging)
+    const onNodesChange: OnNodesChange = useCallback((changes) => {
+        setInternalNodes((nds) => applyNodeChanges(changes, nds));
     }, []);
 
     if (loading) {
@@ -213,6 +221,8 @@ export function Topology() {
                 nodeTypes={nodeTypes}
                 onNodeClick={onNodeClick}
                 onPaneClick={onPaneClick}
+                onNodesChange={onNodesChange}
+                nodesDraggable={true}
                 fitView
                 fitViewOptions={{
                     padding: 0.2,
@@ -222,7 +232,7 @@ export function Topology() {
                 <Controls />
                 <MiniMap
                     nodeColor={(node) => {
-                        if (isCustomNodeData(node.data)) {
+                        if (isServiceNodeData(node.data)) {
                             return NODE_TYPE_COLORS[node.data.nodeType].backgroundColor;
                         }
                         // Fallback color for unexpected node data

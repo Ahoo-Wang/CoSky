@@ -2,15 +2,15 @@ import { memo } from 'react';
 import { Handle, Position, NodeProps } from '@xyflow/react';
 import { NodeType, NODE_TYPE_COLORS } from './topologies.ts';
 
-export interface CustomNodeData {
+export interface ServiceNodeData {
     label: string;
     nodeType: NodeType;
     inDegree: number;
     outDegree: number;
 }
 
-export const CustomNode = memo(({ data, selected }: NodeProps) => {
-    const nodeData = data as unknown as CustomNodeData;
+export const ServiceNode = memo(({ data, selected }: NodeProps) => {
+    const nodeData = data as unknown as ServiceNodeData;
     const { label, nodeType, inDegree, outDegree } = nodeData;
     
     // Get background color based on node type
@@ -106,4 +106,4 @@ export const CustomNode = memo(({ data, selected }: NodeProps) => {
     );
 });
 
-CustomNode.displayName = 'CustomNode';
+ServiceNode.displayName = 'ServiceNode';
