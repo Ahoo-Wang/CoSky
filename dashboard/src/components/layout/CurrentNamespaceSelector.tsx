@@ -14,12 +14,18 @@
 import React from 'react';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
+import {PartitionOutlined} from "@ant-design/icons";
 
 export const CurrentNamespaceSelector: React.FC = () => {
     const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
+    
     return (
-        <NamespaceSelector style={{width: 200, marginLeft: 16}}
-                           value={currentNamespace}
-                           onChange={setCurrent}></NamespaceSelector>
+            <NamespaceSelector
+                style={{width: 200, marginLeft: 16}}
+                value={currentNamespace}
+                onChange={setCurrent}
+                showSearch
+                prefix={<PartitionOutlined />}
+            ></NamespaceSelector>
     );
 };
