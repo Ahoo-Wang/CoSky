@@ -100,7 +100,8 @@ export const ConfigPage: React.FC = () => {
     const columns = [
         {
             title: 'Config ID',
-            key: 'configId'
+            key: 'configId',
+            sorter: (a: string, b: string) => a.localeCompare(b),
         },
         {
             title: 'Action',
