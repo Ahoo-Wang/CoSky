@@ -194,7 +194,7 @@ spec:
 ### 🎨 Dashboard
 
 Access the web-based management interface at:
-> [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
+> [http://localhost:8080/dashboard](http://localhost:8080)
 
 <p align="center">
      <img src="./docs/dashboard-dashboard.png" alt="CoSky-Dashboard"/>
