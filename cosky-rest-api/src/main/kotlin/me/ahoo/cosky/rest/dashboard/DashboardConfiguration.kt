@@ -12,7 +12,7 @@
  */
 package me.ahoo.cosky.rest.dashboard
 
-import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.support.RequestPathPrefix.DASHBOARD
 import org.springframework.boot.autoconfigure.web.WebProperties
 import org.springframework.core.io.Resource
 import org.springframework.core.io.ResourceLoader
@@ -27,6 +27,18 @@ import org.springframework.web.bind.annotation.GetMapping
  */
 @Controller
 class DashboardConfiguration(private val webProperties: WebProperties, private val resourceLoader: ResourceLoader) {
+    companion object {
+        const val HOME_FILE = "index.html"
+        const val HOME_ROUTE = "/home"
+        const val CONFIG_ROUTE = "/config"
+        const val SERVICE_ROUTE = "/service"
+        const val NAMESPACE_ROUTE = "/namespace"
+        const val USER_ROUTE = "/user"
+        const val ROLE_ROUTE = "/role"
+        const val AUDIT_LOG_ROUTE = "/audit-log"
+        const val LOGIN_ROUTE = "/login"
+    }
+
     private val indexResource by lazy {
         val location = webProperties.resources.staticLocations.first()
         val resourcePath = "${location.removeSuffix("/")}/$HOME_FILE"
@@ -39,25 +51,19 @@ class DashboardConfiguration(private val webProperties: WebProperties, private v
     @GetMapping(
         *[
             "/",
-            RequestPathPrefix.DASHBOARD,
-            "${RequestPathPrefix.DASHBOARD}home",
-            "${RequestPathPrefix.DASHBOARD}topology",
-            "${RequestPathPrefix.DASHBOARD}config",
-            "${RequestPathPrefix.DASHBOARD}service",
-            "${RequestPathPrefix.DASHBOARD}namespace",
-            "${RequestPathPrefix.DASHBOARD}user",
-            "${RequestPathPrefix.DASHBOARD}role",
-            "${RequestPathPrefix.DASHBOARD}audit-log",
-            "${RequestPathPrefix.DASHBOARD}login",
+            HOME_ROUTE,
+            CONFIG_ROUTE,
+            SERVICE_ROUTE,
+            NAMESPACE_ROUTE,
+            USER_ROUTE,
+            ROLE_ROUTE,
+            AUDIT_LOG_ROUTE,
+            LOGIN_ROUTE,
         ],
     )
     fun home(): ResponseEntity<Resource> {
         return ResponseEntity.ok()
             .contentType(org.springframework.http.MediaType.TEXT_HTML)
             .body(indexResource)
-    }
-
-    companion object {
-        const val HOME_FILE = "index.html"
     }
 }

@@ -36,8 +36,9 @@ tasks.jar.configure {
 distributions {
     main {
         contents {
-            val dashboardDistPath = "${rootDir.absolutePath}/cosky-dashboard/dist"
-            from(dashboardDistPath).include("**")
+            from("${rootDir.absolutePath}/dashboard/dist") {
+                into("ui")
+            }
         }
     }
 }
