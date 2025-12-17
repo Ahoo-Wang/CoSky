@@ -47,7 +47,7 @@ export const AuthenticatedLayout: React.FC = () => {
             <ChangePwd onSubmit={closeDrawer} onCancel={closeDrawer}/>,
             {
                 title: 'Change Password',
-                width: 500,
+                defaultSize: '20vw',
             }
         );
     }
