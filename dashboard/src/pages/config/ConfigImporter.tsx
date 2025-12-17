@@ -13,7 +13,7 @@
 
 import React, {useEffect} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {Button, Form, message, Space} from "antd";
+import {App, Button, Form, Space} from "antd";
 import {configApiClient} from "../../services/clients.ts";
 import Dragger from "antd/es/upload/Dragger";
 import {InboxOutlined} from "@ant-design/icons";
@@ -28,6 +28,7 @@ interface ConfigImporterProps {
 }
 
 export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
+    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading, execute} = useExecutePromise<ImportResponse>({
         onSuccess: (result) => {

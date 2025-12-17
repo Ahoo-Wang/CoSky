@@ -12,7 +12,7 @@
  */
 
 import React, {useState} from 'react';
-import {Button, Descriptions, Divider, Input, message, Skeleton, Space} from 'antd';
+import {App, Button, Descriptions, Divider, Input, Skeleton, Space} from 'antd';
 import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
@@ -29,6 +29,7 @@ interface ConfigEditFormProps {
 }
 
 export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
+    const {message} = App.useApp()
     const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
     const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
     const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);

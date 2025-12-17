@@ -1,5 +1,5 @@
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {Button, Form, Input, message} from "antd";
+import {App, Button, Form, Input} from "antd";
 import {PlusOutlined} from "@ant-design/icons";
 import {serviceApiClient} from "../../services/clients.ts";
 
@@ -9,6 +9,7 @@ export interface AddServiceFormProps {
 }
 
 export function AddServiceForm({namespace, onSuccess}: AddServiceFormProps) {
+    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {

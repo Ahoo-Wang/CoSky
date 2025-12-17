@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, message, Popconfirm, Select} from 'antd';
+import {Table, Button, Space, Popconfirm, Select, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
@@ -21,6 +21,7 @@ import {userApiClient} from "../../services/clients.ts";
 import {CoSecPrincipal} from "../../generated";
 
 export function UserPage() {
+    const {message} = App.useApp()
     const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => {

@@ -12,7 +12,7 @@
  */
 
 import {useEffect} from 'react';
-import {Form, Input, Button, Space, Divider, message} from 'antd';
+import {Form, Input, Button, Space, Divider, App} from 'antd';
 import {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {roleApiClient} from "../../services/clients.ts";
@@ -33,6 +33,7 @@ export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
 export const EMPTY_ARRAY = []
 
 export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
+    const {message} = App.useApp()
     const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
         execute: (query, attributes, abortController) => {

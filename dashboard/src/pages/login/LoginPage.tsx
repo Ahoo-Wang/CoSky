@@ -12,7 +12,7 @@
  */
 
 import {useEffect} from 'react';
-import {Form, Input, Button, Card, Typography, message} from 'antd';
+import {Form, Input, Button, Card, Typography, App} from 'antd';
 import {UserOutlined, LockOutlined, CloudOutlined, GithubOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiClient} from "../../services/clients.ts";
@@ -31,6 +31,7 @@ interface LoginFormValues {
 const ICON_COLOR = '#999';
 
 export function LoginPage() {
+    const {message} = App.useApp()
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const [form] = Form.useForm();

@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import {Table, Button, Space, message, Popconfirm, Input} from 'antd';
+import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
 import type {ColumnsType, FilterDropdownProps} from 'antd/es/table/interface';
 import {
     PlusOutlined,
@@ -35,6 +35,7 @@ import dayjs from "dayjs";
 type ListConfig = { configId: string }
 
 export const ConfigPage: React.FC = () => {
+    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext();
     const {openDrawer, closeDrawer} = useDrawer();
     const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, ListConfig[]>({

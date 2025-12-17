@@ -1,6 +1,6 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
-import {Button, message, Popconfirm, Table} from "antd";
+import {App, Button, Popconfirm, Table} from "antd";
 import {ServiceInstance} from "../../generated";
 import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -13,6 +13,7 @@ export interface ServiceInstanceTableProps {
 }
 
 export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTableProps) {
+    const {message} = App.useApp()
     const {result: instances = [], loading: loadingInstances, execute: loadInstances} = useQuery({
         query: serviceId,
         execute: (query, _, abortController) => {

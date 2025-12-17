@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Table, Button, message, Popconfirm} from 'antd';
+import {Table, Button, Popconfirm, App} from 'antd';
 import {DeleteOutlined} from '@ant-design/icons';
 import {isSystemNamespace} from "./namespaces.ts";
 import {namespaceApiClient} from "../../services/clients.ts";
@@ -20,6 +20,7 @@ import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.t
 import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
 
 export function NamespacePage() {
+    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext()
     const {namespaces, loading, refresh} = useNamespacesContext();
 

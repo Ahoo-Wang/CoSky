@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, message, Popconfirm} from 'antd';
+import {Table, Button, Space, Popconfirm, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
 import {RoleDto} from '../../generated';
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
@@ -20,6 +20,7 @@ import {roleApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
 
 export function RolePage() {
+    const {message} = App.useApp()
     const {roles = [], loading, load} = useRoles()
     const {openDrawer, closeDrawer} = useDrawer();
 

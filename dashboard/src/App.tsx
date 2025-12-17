@@ -16,6 +16,7 @@ import {ConfigProvider, theme} from 'antd';
 import './services/fetcher'
 import ErrorBoundary from "antd/es/alert/ErrorBoundary";
 import {AppRoutes} from "./AppRoutes.tsx";
+import { App as AntdApp } from 'antd';
 
 function App() {
     return (
@@ -38,11 +39,13 @@ function App() {
                 },
             }}
         >
-            <ErrorBoundary>
-                <BrowserRouter>
-                    <AppRoutes />
-                </BrowserRouter>
-            </ErrorBoundary>
+            <AntdApp>
+                <ErrorBoundary>
+                    <BrowserRouter>
+                        <AppRoutes />
+                    </BrowserRouter>
+                </ErrorBoundary>
+            </AntdApp>
         </ConfigProvider>
     );
 }
