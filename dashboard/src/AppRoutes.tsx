@@ -12,6 +12,7 @@ import {NamespacePage} from "./pages/namespace/NamespacePage.tsx";
 import {UserPage} from "./pages/user/UserPage.tsx";
 import {RolePage} from "./pages/role/RolePage.tsx";
 import {AuditLogPage} from "./pages/audit/AuditLogPage.tsx";
+import {ProtectedRoute} from "./components/security/ProtectedRoute.tsx";
 
 export function AppRoutes() {
     const navigate = useNavigate();
@@ -31,7 +32,9 @@ export function AppRoutes() {
                         <Route
                             path="/"
                             element={
-                                <AuthenticatedLayout/>
+                                <ProtectedRoute>
+                                    <AuthenticatedLayout/>
+                                </ProtectedRoute>
                             }
                         >
                             <Route index element={<Navigate to="/home" replace/>}/>
