@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, message, Popconfirm} from 'antd';
-import {DeleteOutlined, AppstoreAddOutlined} from '@ant-design/icons';
+import {Table, Button, Space, message, Popconfirm, Input} from 'antd';
+import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
@@ -21,7 +21,8 @@ import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {ColumnsType} from "antd/es/table/interface";
+import {ColumnsType, type FilterDropdownProps} from "antd/es/table/interface";
+import React from "react";
 
 export function ServicePage() {
     const {currentNamespace} = useNamespaceContext();
@@ -71,6 +72,36 @@ export function ServicePage() {
             dataIndex: 'serviceId',
             key: 'serviceId',
             sorter: (a: ServiceStat, b: ServiceStat) => a.serviceId.localeCompare(b.serviceId),
+            filterDropdown: ({setSelectedKeys, selectedKeys, confirm, clearFilters}: FilterDropdownProps) => (
+                <div style={{padding: 8}}>
+                    <Input
+                        placeholder="Search Service ID"
+                        value={selectedKeys[0]}
+                        onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+                        onPressEnter={() => confirm()}
+                        style={{width: 188, marginBottom: 8, display: 'block'}}
+                    />
+                    <Space>
+                        <Button
+                            type="primary"
+                            onClick={() => confirm()}
+                            icon={<SearchOutlined/>}
+                            size="small"
+                            style={{width: 90}}
+                        >
+                            Search
+                        </Button>
+                        <Button onClick={() => clearFilters && clearFilters()} size="small" style={{width: 90}}>
+                            Reset
+                        </Button>
+                    </Space>
+                </div>
+            ),
+            filterIcon: (filtered: boolean) => (
+                <SearchOutlined style={{color: filtered ? '#1890ff' : undefined}}/>
+            ),
+            onFilter: (value: React.Key | boolean, record: ServiceStat) =>
+                record.serviceId.toLowerCase().includes(String(value).toLowerCase()),
         },
         {
             title: 'Instance Count',
@@ -108,8 +139,8 @@ export function ServicePage() {
     return (
         <div>
             <div style={{
-                marginBottom: 24, 
-                display: 'flex', 
+                marginBottom: 24,
+                display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
             }}>
