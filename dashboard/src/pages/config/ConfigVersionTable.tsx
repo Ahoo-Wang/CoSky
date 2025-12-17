@@ -41,7 +41,7 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
                                         }}/>,
             {
                 title: 'Config Version Differ',
-                width: '80vw',
+                defaultSize: '80vw',
             }
         )
     }
@@ -59,7 +59,7 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
     return (
         <Table
             dataSource={versions}
-            rowKey="configId"
+            rowKey="version"
             columns={columns}
             loading={loading}
         />

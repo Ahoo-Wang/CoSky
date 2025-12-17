@@ -135,8 +135,8 @@ export function UserPage() {
     return (
         <div>
             <div style={{
-                marginBottom: 24, 
-                display: 'flex', 
+                marginBottom: 24,
+                display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
             }}>
@@ -155,6 +155,7 @@ export function UserPage() {
                 columns={columns}
                 dataSource={users}
                 loading={loading}
+                rowKey='name'
                 style={{
                     background: '#fff',
                     borderRadius: 12,

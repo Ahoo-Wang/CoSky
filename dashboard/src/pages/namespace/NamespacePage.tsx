@@ -76,6 +76,7 @@ export function NamespacePage() {
                 columns={columns} 
                 dataSource={namespaces} 
                 loading={loading}
+                rowKey={(record) => record}
                 style={{
                     background: '#fff',
                     borderRadius: 12,
