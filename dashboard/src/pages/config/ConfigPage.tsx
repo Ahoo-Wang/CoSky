@@ -12,13 +12,15 @@
  */
 
 import React from 'react';
-import {Table, Button, Space, message, Popconfirm} from 'antd';
+import {Table, Button, Space, message, Popconfirm, Input} from 'antd';
+import type {FilterDropdownProps} from 'antd/es/table/interface';
 import {
     PlusOutlined,
     DeleteOutlined,
     EditOutlined,
     ExportOutlined,
     ImportOutlined,
+    SearchOutlined,
 } from '@ant-design/icons';
 import {useNamespaceContext} from '../../contexts/NamespaceContext.tsx';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
@@ -102,6 +104,36 @@ export const ConfigPage: React.FC = () => {
             title: 'Config ID',
             key: 'configId',
             sorter: (a: string, b: string) => a.localeCompare(b),
+            filterDropdown: ({setSelectedKeys, selectedKeys, confirm, clearFilters}: FilterDropdownProps) => (
+                <div style={{padding: 8}}>
+                    <Input
+                        placeholder="Search Config ID"
+                        value={selectedKeys[0]}
+                        onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+                        onPressEnter={() => confirm()}
+                        style={{width: 188, marginBottom: 8, display: 'block'}}
+                    />
+                    <Space>
+                        <Button
+                            type="primary"
+                            onClick={() => confirm()}
+                            icon={<SearchOutlined/>}
+                            size="small"
+                            style={{width: 90}}
+                        >
+                            Search
+                        </Button>
+                        <Button onClick={() => clearFilters && clearFilters()} size="small" style={{width: 90}}>
+                            Reset
+                        </Button>
+                    </Space>
+                </div>
+            ),
+            filterIcon: (filtered: boolean) => (
+                <SearchOutlined style={{color: filtered ? '#1890ff' : undefined}}/>
+            ),
+            onFilter: (value: React.Key | boolean, record: string) =>
+                record.toLowerCase().includes(String(value).toLowerCase()),
         },
         {
             title: 'Action',
