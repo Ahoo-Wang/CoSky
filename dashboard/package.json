@@ -18,7 +18,6 @@
     "@ahoo-wang/fetcher-storage": "^3.6.9",
     "@ahoo-wang/fetcher-viewer": "^3.6.9",
     "@ant-design/icons": "^6.1.0",
-    "@dagrejs/dagre": "^1.1.8",
     "@monaco-editor/react": "^4.7.0",
     "@types/file-saver": "^2.0.7",
     "@xyflow/react": "^12.10.0",
