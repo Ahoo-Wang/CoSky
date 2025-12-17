@@ -13,7 +13,7 @@
 
 import {useEffect} from 'react';
 import {Form, Input, Button, Card, Typography, message} from 'antd';
-import {UserOutlined, LockOutlined, CloudOutlined} from '@ant-design/icons';
+import {UserOutlined, LockOutlined, CloudOutlined, GithubOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiClient} from "../../services/clients.ts";
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
@@ -161,6 +161,32 @@ export function LoginPage() {
                         </Button>
                     </Form.Item>
                 </Form>
+                <div style={{
+                    marginTop: 24,
+                    textAlign: 'center',
+                }}>
+                    <a
+                        href="https://github.com/Ahoo-Wang/CoSky"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                            color: ICON_COLOR,
+                            fontSize: 20,
+                            transition: 'color 0.3s ease, transform 0.3s ease',
+                            display: 'inline-block',
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.color = '#667eea';
+                            e.currentTarget.style.transform = 'scale(1.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.color = ICON_COLOR;
+                            e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                    >
+                        <GithubOutlined />
+                    </a>
+                </div>
             </Card>
         </div>
     );
