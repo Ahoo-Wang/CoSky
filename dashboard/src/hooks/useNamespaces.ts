@@ -1,12 +1,18 @@
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {namespaceApiClient} from "../services/clients.ts";
 
-export function useNamespaces() {
-    const {result: namespaces = [], loading, error, execute} = useQuery<number, string[]>({
-        initialQuery: 0,
+export interface UseNamespacesReturn {
+    namespaces: string[],
+    loading: boolean,
+    refresh: () => void
+}
+
+export function useNamespaces(): UseNamespacesReturn {
+    const {result: namespaces = [], loading, execute} = useQuery<null, string[]>({
+        initialQuery: null,
         execute: () => {
             return namespaceApiClient.getNamespaces()
         }
     })
-    return {namespaces, loading, error, reload: execute}
+    return {namespaces, loading, refresh: execute}
 }
