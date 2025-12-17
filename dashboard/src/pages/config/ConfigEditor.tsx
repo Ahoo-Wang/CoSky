@@ -88,8 +88,8 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             )}
             {config && (
                 <Descriptions bordered>
-                    <Descriptions.Item label="File Name" span={24}>{config.configId}</Descriptions.Item>
-                    <Descriptions.Item label="Hash" span={24}>{config.hash}</Descriptions.Item>
+                    <Descriptions.Item label="File Name" span="filled">{config.configId}</Descriptions.Item>
+                    <Descriptions.Item label="Hash" span="filled">{config.hash}</Descriptions.Item>
                     <Descriptions.Item
                         label="Last Update Time">{dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
                     <Descriptions.Item label="Version">{config.version}</Descriptions.Item>

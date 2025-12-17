@@ -50,14 +50,14 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
     return (
         <>
             <Descriptions bordered>
-                <Descriptions.Item label={"File Name"} span={24}>{configId}</Descriptions.Item>
-                <Descriptions.Item label={"Hash"} span={24}>{versionConfig?.hash}</Descriptions.Item>
+                <Descriptions.Item label={"File Name"} span="filled">{configId}</Descriptions.Item>
+                <Descriptions.Item label={"Hash"} span="filled">{versionConfig?.hash}</Descriptions.Item>
                 <Descriptions.Item
                     label={"History Version"}>{versionConfig?.version}</Descriptions.Item>
                 <Descriptions.Item
-                    label={"Create Time"}>{dayjs((versionConfig?.createTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-                <Descriptions.Item
                     label={"Operation"}>{versionConfig?.op}</Descriptions.Item>
+                <Descriptions.Item
+                    label={"Create Time"}>{dayjs((versionConfig?.createTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
                 <Descriptions.Item
                     label={"Operation Time"}>{dayjs((versionConfig?.opTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
             </Descriptions>

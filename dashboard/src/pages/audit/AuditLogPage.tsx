@@ -12,10 +12,11 @@
  */
 
 import {Table} from 'antd';
-import {QueryLogResponse} from '../../generated';
+import {AuditLog, QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {auditLogApiClient} from "../../services/clients.ts";
+import {ColumnsType} from "antd/es/table/interface";
 
 type Paging = {
     pageIndex: number;
@@ -33,11 +34,11 @@ export function AuditLogPage() {
         },
     })
 
-    const columns = [
+    const columns: ColumnsType<AuditLog> = [
         {
             title: 'Timestamp',
-            dataIndex: 'timestamp',
-            key: 'timestamp',
+            dataIndex: 'opTime',
+            key: 'opTime',
             render: (timestamp: number) => dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss'),
         },
         {
@@ -84,6 +85,7 @@ export function AuditLogPage() {
             <Table
                 columns={columns}
                 dataSource={result?.list}
+                rowKey={(record) => `${record.operator}-${record.opTime}`}
                 pagination={{
                     total: result?.total,
                     showTotal: (total) => `Total ${total} items`,
