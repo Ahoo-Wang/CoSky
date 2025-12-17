@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.rest.dashboard
 
-import me.ahoo.cosky.rest.support.RequestPathPrefix.DASHBOARD
 import org.springframework.boot.autoconfigure.web.WebProperties
 import org.springframework.core.io.Resource
 import org.springframework.core.io.ResourceLoader
