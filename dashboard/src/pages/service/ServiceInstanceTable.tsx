@@ -12,11 +12,11 @@ export interface ServiceInstanceTableProps {
     serviceId: string
 }
 
-export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
+export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTableProps) {
     const {result: instances = [], loading: loadingInstances, execute: loadInstances} = useQuery({
-        query: props,
-        execute: (namespacedServiceId, _, abortController) => {
-            return serviceApiClient.getInstances(namespacedServiceId.namespace, namespacedServiceId.serviceId, {abortController});
+        query: serviceId,
+        execute: (query, _, abortController) => {
+            return serviceApiClient.getInstances(namespace, query, {abortController});
         }
     })
     const {loading: loadingExecutePromise, execute} = useExecutePromise({
@@ -32,8 +32,8 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
     const handleEditInstance = (serviceInstance: ServiceInstance) => {
         openDrawer(
             <ServiceInstanceEditor
-                namespace={props.namespace}
-                serviceId={props.serviceId}
+                namespace={namespace}
+                serviceId={serviceId}
                 initialValues={serviceInstance}
                 onSuccess={closeDrawer}
                 onCancel={closeDrawer}
@@ -45,7 +45,7 @@ export function ServiceInstanceTable(props: ServiceInstanceTableProps) {
     }
     const handleDeleteInstance = async (serviceId: string, instanceId: string) => {
         await execute(() => {
-            return serviceApiClient.deregister(props.namespace, serviceId, instanceId)
+            return serviceApiClient.deregister(namespace, serviceId, instanceId)
         })
     }
     const columns = [
