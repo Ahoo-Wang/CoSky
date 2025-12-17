@@ -44,7 +44,6 @@ export function RolePage() {
             />,
             {
                 title: 'Edit Role',
-                width: 500,
             }
         );
     };

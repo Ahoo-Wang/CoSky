@@ -68,10 +68,10 @@ export const ConfigPage: React.FC = () => {
 
     const handleEditConfig = (configId?: string) => {
         openDrawer(<ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
-            closeDrawer();
             loadConfigs();
+            closeDrawer();
         }} onCancel={closeDrawer}/>, {
-            title: 'Add Config',
+            title: `${configId === undefined ? "Add" : "Edit"} Config`,
         });
     };
     const handleImportConfig = () => {
