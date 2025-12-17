@@ -103,6 +103,7 @@ export const ConfigPage: React.FC = () => {
         {
             title: 'Config ID',
             key: 'configId',
+            render: (record: string) => record,
             sorter: (a: string, b: string) => a.localeCompare(b),
             filterDropdown: ({setSelectedKeys, selectedKeys, confirm, clearFilters}: FilterDropdownProps) => (
                 <div style={{padding: 8}}>
