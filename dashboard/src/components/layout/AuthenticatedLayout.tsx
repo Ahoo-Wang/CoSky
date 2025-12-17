@@ -27,7 +27,7 @@ import {
     DownOutlined,
     GithubOutlined,
 } from '@ant-design/icons';
-import {Outlet, useNavigate, useLocation} from 'react-router-dom';
+import {Outlet, useNavigate, useLocation, NavLink} from 'react-router-dom';
 import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
@@ -125,10 +125,10 @@ export const AuthenticatedLayout: React.FC = () => {
 
     return (
         <Layout style={{minHeight: '100vh'}}>
-            <Sider 
-                collapsible 
-                collapsed={collapsed} 
-                onCollapse={setCollapsed} 
+            <Sider
+                collapsible
+                collapsed={collapsed}
+                onCollapse={setCollapsed}
                 breakpoint="md"
                 style={{
                     boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)',
@@ -143,27 +143,23 @@ export const AuthenticatedLayout: React.FC = () => {
                     background: 'rgba(255, 255, 255, 0.05)',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
                 }}>
-                    <a
-                        href="https://github.com/Ahoo-Wang/CoSky"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                            color: 'white', 
-                            textDecoration: 'none',
-                            transition: 'opacity 0.3s ease',
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                        onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                    >
+                    <NavLink to="/" style={{
+                        color: 'white',
+                        textDecoration: 'none',
+                        transition: 'opacity 0.3s ease',
+                    }}
+                             onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                             onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}>
                         <h1 style={{
-                            margin: 0, 
+                            margin: 0,
                             fontSize: collapsed ? 18 : 24,
                             fontWeight: 600,
                             letterSpacing: '0.5px',
                         }}>
                             {collapsed ? 'CS' : 'CoSky'}
                         </h1>
-                    </a>
+                    </NavLink>
+
                 </div>
                 <Menu
                     theme="dark"
@@ -189,7 +185,7 @@ export const AuthenticatedLayout: React.FC = () => {
                     <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
                         {React.createElement(collapsed ? MenuUnfoldOutlined : MenuFoldOutlined, {
                             style: {
-                                fontSize: 18, 
+                                fontSize: 18,
                                 cursor: 'pointer',
                                 color: 'white',
                                 transition: 'transform 0.3s ease',
@@ -205,6 +201,28 @@ export const AuthenticatedLayout: React.FC = () => {
                         <CurrentNamespaceSelector/>
                     </div>
                     <div style={{display: 'flex', alignItems: 'center', gap: '16px'}}>
+                        <Dropdown menu={{items: userMenuItems}}>
+                            <a
+                                onClick={(e) => e.preventDefault()}
+                                style={{
+                                    color: 'white',
+                                    padding: '8px 12px',
+                                    borderRadius: '6px',
+                                    transition: 'background 0.3s ease',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = 'transparent';
+                                }}
+                            >
+                                <UserOutlined/> {currentUser.sub} <DownOutlined/>
+                            </a>
+                        </Dropdown>
                         <a
                             href="https://github.com/Ahoo-Wang/CoSky"
                             target="_blank"
@@ -225,35 +243,13 @@ export const AuthenticatedLayout: React.FC = () => {
                                 e.currentTarget.style.opacity = '1';
                             }}
                         >
-                            <GithubOutlined />
+                            <GithubOutlined/>
                         </a>
-                        <Dropdown menu={{items: userMenuItems}}>
-                            <a 
-                                onClick={(e) => e.preventDefault()} 
-                                style={{
-                                    color: 'white',
-                                    padding: '8px 12px',
-                                    borderRadius: '6px',
-                                    transition: 'background 0.3s ease',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = 'transparent';
-                                }}
-                            >
-                                <UserOutlined/> {currentUser.sub} <DownOutlined/>
-                            </a>
-                        </Dropdown>
                     </div>
                 </Header>
                 <Content style={{
-                    margin: '24px', 
-                    display: 'flex', 
+                    margin: '24px',
+                    display: 'flex',
                     flexDirection: 'column',
                 }}>
                     <Watermark content={currentUser.sub}>
