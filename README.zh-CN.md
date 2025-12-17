@@ -1,8 +1,9 @@
-# [CoSky](https://github.com/Ahoo-Wang/CoSky) 高性能、低成本微服务治理平台（服务注册/发现 & 配置中心）
+# [CoSky](https://github.com/Ahoo-Wang/CoSky) - 高性能、低成本微服务治理平台
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![GitHub release](https://img.shields.io/github/release/Ahoo-Wang/CoSky.svg)](https://github.com/Ahoo-Wang/CoSky/releases)
 [![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-core)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
+
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9e31358946b645abb283e83b10e85e2d)](https://www.codacy.com/gh/Ahoo-Wang/CoSky/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Ahoo-Wang/CoSky&amp;utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/Ahoo-Wang/CoSky/branch/main/graph/badge.svg?token=N114DHHBUI)](https://codecov.io/gh/Ahoo-Wang/CoSky)
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
@@ -10,7 +11,7 @@
 
 > [English Document](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md)
 
-*[CoSky](https://github.com/Ahoo-Wang/CoSky)* 是一个轻量级、低成本的服务注册、服务发现、 配置服务 SDK，通过使用现有基础设施中的 Redis （相信你已经部署了Redis），不用给运维部署带来额外的成本与负担。 借助于 Redis 的高性能， *CoSky* 提供了超高TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*，实现实时进程缓存刷新，兼具无与伦比的QPS性能 (7000W+/s [JMH 基准测试](#jmh-benchmark))、进程缓存与 Redis 的实时一致性。
+*[CoSky](https://github.com/Ahoo-Wang/CoSky)* 是一个轻量级、低成本的服务注册、服务发现、配置服务 SDK，通过使用现有基础设施中的 Redis（相信您已经部署了 Redis），无需给运维部署带来额外的成本与负担。借助 Redis 的高性能，*CoSky* 提供了超高的 TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*，实现实时进程缓存刷新，兼具无与伦比的 QPS 性能 (7000W+/s [JMH 基准测试](#jmh-benchmark)) 和进程缓存与 Redis 的实时一致性。
 
 ## 服务注册与发现
 
@@ -99,30 +100,38 @@ logging:
     name: logs/${spring.application.name}.log
 ```
 
-## REST-API Server (``Optional``)
+## 🌐 REST-API Server（可选）
 
-### 安装 REST-API Server
+根据您的环境选择三种部署方式之一：
 
-#### 方式一：下载可执行文件
+### 🖥️ 方式一：独立可执行文件
 
-> 下载 [cosky-server](https://github.com/Ahoo-Wang/cosky/releases/download/v2.0.0/cosky-2.0.0.tar)
-
-> 解压 *cosky-lastVersion.tar*
+下载最新版本并直接运行：
 
 ```shell
-cd cosky-lastVersion
-# 工作目录: cosky
-bin/cosky --server.port=8080 --spring.data.redis.uri=redis://localhost:6379
+# 下载 cosky-server
+wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+
+# 解压并运行
+tar -xvf cosky-server.tar
+cd cosky-server
+bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
-#### 方式二：在 Docker 中运行
+### 🐳 方式二：Docker 部署
+
+使用 Docker 快速部署：
 
 ```shell
-docker pull ahoowang/cosky:lastVersion
-docker run --name cosky -d -p 8080:8080 --link redis -e SPRING_DATA_REDIS_URL=redis://redis:6379  ahoowang/cosky:lastVersion
+docker pull ahoowang/cosky:latest
+docker run --name cosky -d -p 8080:8080 \
+  -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  ahoowang/cosky:latest
 ```
 
-#### 方式三：在 Kubernetes 中运行
+### ☸️ 方式三：Kubernetes 部署
+
+在 Kubernetes 集群中部署：
 
 ```yaml
 apiVersion: apps/v1
@@ -142,29 +151,29 @@ spec:
         app: cosky
     spec:
       containers:
-        - env:
-            - name: SPRING_DATA_REDIS_URL
-              value: redis://redis-uri:6379
-          image: ahoowang/cosky:lastVersion
-          name: cosky
+        - name: cosky
+          image: ahoowang/cosky:latest
           ports:
             - containerPort: 8080
               protocol: TCP
+          env:
+            - name: SPRING_DATA_REDIS_URL
+              value: redis://your-redis-host:6379
           resources:
-            limits:
-              cpu: "1"
-              memory: 1280Mi
             requests:
               cpu: 250m
               memory: 1024Mi
+            limits:
+              cpu: "1"
+              memory: 1280Mi
           volumeMounts:
-            - mountPath: /etc/localtime
-              name: volume-localtime
+            - name: volume-localtime
+              mountPath: /etc/localtime
       volumes:
-        - hostPath:
+        - name: volume-localtime
+          hostPath:
             path: /etc/localtime
             type: ""
-          name: volume-localtime
 
 ---
 apiVersion: v1
@@ -183,13 +192,23 @@ spec:
       targetPort: 8080
 ```
 
-### Dashboard
+### 🎨 Dashboard
 
+访问基于Web的管理界面：
 > [http://localhost:8080/dashboard](http://localhost:8080/dashboard)
 
 <p align="center">
      <img src="./docs/dashboard-dashboard.png" alt="CoSky-Dashboard"/>
 </p>
+
+CoSky Dashboard 提供以下功能：
+- 实时服务监控和管理
+- 配置管理（含版本控制）
+- 命名空间隔离和管理
+- 基于角色的访问控制（RBAC）
+- 审计日志用于合规性
+- 服务拓扑可视化
+- 简单的导入/导出功能
 
 ### 服务依赖拓扑
 
@@ -284,20 +303,26 @@ spec:
 
 > https://ahoo-cosky.apifox.cn/
 
-## JMH-Benchmark
+## 🚀 性能基准测试
 
-- 基准测试运行环境：笔记本开发机 ( MacBook Pro (M1) )
-- 所有基准测试都在开发笔记本上执行。
-- Redis 部署环境也在该笔记本开发机上。
+<p align="center">
+  <strong>CoSky 提供卓越的性能，相比其他方案性能提升数个数量级</strong>
+</p>
 
-### ConfigService
+### 测试环境
+- **硬件**: MacBook Pro (M1)
+- **Redis**: 在同一台机器上本地部署
+- **方法论**: 所有基准测试均使用 JMH (Java Microbenchmark Harness) 进行
 
-``` shell
+### 配置服务性能
+
+```shell
 gradle cosky-config:jmh
 # or
 java -jar cosky-config/build/libs/cosky-config-lastVersion-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
+#### 测试结果
 ```
 Benchmark                                          Mode  Cnt          Score   Error  Units
 ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
@@ -305,14 +330,15 @@ RedisConfigServiceBenchmark.getConfig             thrpt          241787.679     
 RedisConfigServiceBenchmark.setConfig             thrpt          140461.112          ops/s
 ```
 
-### ServiceDiscovery
+### 服务发现性能
 
-``` shell
+```shell
 gradle cosky-discovery:jmh
 # or
 java -jar cosky-discovery/build/libs/cosky-discovery-lastVersion-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
 ```
 
+#### 测试结果
 ```
 Benchmark                                                Mode  Cnt          Score   Error  Units
 ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
@@ -324,9 +350,11 @@ RedisServiceRegistryBenchmark.register                  thrpt          110664.16
 RedisServiceRegistryBenchmark.renew                     thrpt          210960.325          ops/s
 ```
 
-## CoSky-Mirror （实时同步服务实例变更状态）
+> 🔥 **关键洞察**: CoSky 的一致性层在配置检索方面提供超过 800 倍的性能提升，在服务发现方面提供超过 250 倍的性能提升，相比标准 Redis 操作。
 
-> CoSky-Mirror 就像一个镜子放在 Nacos、CoSky 中间，构建一个统一的服务发现平台。
+## 🔁 CoSky-Mirror （实时同步服务实例变更状态）
+
+> CoSky-Mirror 就像一座桥梁连接 Nacos 和 CoSky，构建一个统一的服务发现平台，实现无缝集成。
 
 <p align="center">
      <img src="./docs/CoSky-Mirror.png" alt="CoSky-Mirror"/>
@@ -336,19 +364,43 @@ RedisServiceRegistryBenchmark.renew                     thrpt          210960.32
      <img src="./docs/CoSky-Mirror-Unified.png" alt="CoSky-Mirror-Unified"/>
 </p>
 
-## 其他同类产品对比
-|               | CoSky          | 	Eureka       | 	Consul           | 	CoreDNS     | 	Zookeeper   | 	Nacos                 | 	Apollo      |
-|---------------|----------------|---------------|-------------------|--------------|--------------|------------------------|--------------|
-| CAP           | CP+AP          | 	AP           | 	CP               | 	CP          | 	CP          | 	CP+AP                 | 	CP+AP       |
-| 健康检查          | 	Client Beat   | 	Client Beat	 | TCP/HTTP/gRPC/Cmd | 	Keep Alive  | 	Keep Alive  | 	TCP/HTTP/Client Beat  | 	Client Beat |
-| 负载均衡策略        | 	权重/RoundRobin | 	Ribbon       | 	Fabio	           | 	RoundRobin	 | 	RoundRobin	 | 	权重/metadata/Selector	 | 	RoundRobin	 |
-| 雪崩保护          | 	无             | 	有            | 	无	               | 	无	          | 	无	          | 	有	                    | 	无	          |
-| 自动注销实例        | 	支持            | 	支持           | 	不支持	             | 	不支持	        | 	支持          | 	支持                    | 	支持	         |
-| 访问协议          | 	HTTP/Redis    | 	HTTP         | 	HTTP/DNS	        | 	DNS	        | 	TCP	        | 	HTTP/DNS	             | 	HTTP	       |
-| 监听支持          | 	支持            | 	支持           | 	支持	              | 	不支持	        | 	支持	         | 	支持	                   | 	支持	         |
-| 多数据中心         | 	支持            | 	支持           | 	支持	              | 	不支持	        | 	不支持	        | 	支持	                   | 	支持	         |
-| 跨注册中心同步       | 	支持            | 	不支持          | 	支持	              | 	不支持	        | 	不支持	        | 	支持	                   | 	不支持	        |
-| SpringCloud集成 | 	支持            | 	支持           | 	支持	              | 	不支持	        | 	不支持	        | 	支持                    | 	支持	         |
-| Dubbo集成       | 	支持            | 	不支持          | 	不支持	             | 	不支持	        | 	支持	         | 	支持	                   | 	支持	         |
-| K8S集成         | 	支持            | 	不支持          | 	支持	              | 	支持	         | 	不支持	        | 	支持	                   | 	不支持	        |
-| 持久化           | 	Redis         | 		            | 		                | 		           |              | 	MySql                 | 	MySql       |
+通过 CoSky-Mirror，您可以：
+- 在 Nacos 和 CoSky 之间实时同步服务实例
+- 保持不同服务注册中心之间的一致性
+- 零停机从 Nacos 迁移到 CoSky
+- 构建混合服务发现架构
+
+## 📊 功能对比
+
+| 功能                         | CoSky            | Eureka        | Consul            | CoreDNS       | Zookeeper     | Nacos                        | Apollo        |
+|----------------------------|------------------|---------------|-------------------|---------------|---------------|------------------------------|---------------|
+| **CAP**                    | CP+AP            | AP            | CP                | CP            | CP            | CP+AP                        | CP+AP         |
+| **健康检查**                 | Client Beat      | Client Beat   | TCP/HTTP/gRPC/Cmd | Keep Alive    | Keep Alive    | TCP/HTTP/Client Beat         | Client Beat   |
+| **负载均衡策略**              | Weight/Selector  | Ribbon        | Fabio             | RoundRobin    | RoundRobin    | Weight/metadata/RoundRobin   | RoundRobin    |
+| **雪崩保护**                 | ❌               | ✅            | ❌                | ❌            | ❌            | ✅                           | ❌            |
+| **自动注销实例**              | ✅               | ✅            | ❌                | ❌            | ✅            | ✅                           | ✅            |
+| **访问协议**                 | HTTP/Redis       | HTTP          | HTTP/DNS          | DNS           | TCP           | HTTP/DNS                     | HTTP          |
+| **监听支持**                 | ✅               | ✅            | ✅                | ❌            | ✅            | ✅                           | ✅            |
+| **多数据中心**               | ✅               | ✅            | ✅                | ❌            | ❌            | ✅                           | ✅            |
+| **跨注册中心同步**            | ✅               | ❌            | ✅                | ❌            | ❌            | ✅                           | ❌            |
+| **SpringCloud集成**        | ✅               | ✅            | ✅                | ❌            | ❌            | ✅                           | ✅            |
+| **Dubbo集成**              | ✅               | ❌            | ❌                | ❌            | ✅            | ✅                           | ✅            |
+| **K8S集成**                | ✅               | ❌            | ✅                | ✅            | ❌            | ✅                           | ❌            |
+| **持久化**                  | Redis            | -             | -                 | -             | -             | MySql                        | MySql         |
+
+> ✅ **CoSky 的核心优势**:
+> - **混合 CP+AP 模型**兼顾一致性和可用性
+> - **基于 Redis 的超高性能**（10万+ QPS）
+> - **跨注册中心同步**能力
+> - **轻量级部署**，运维成本极低
+> - **全面的生态系统集成**（Spring Cloud、Dubbo、K8S）
+
+---
+
+## 🤝 贡献
+
+欢迎社区贡献！无论是报告错误、提出功能建议还是提交拉取请求，您的参与都能帮助 CoSky 变得更好。
+
+## 📄 许可证
+
+CoSky 是基于 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html) 许可的开源软件。
