@@ -1,7 +1,7 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import {Config, ConfigHistory} from "../../generated";
-import {Button, Descriptions, Divider, message, Popconfirm, Skeleton} from "antd";
+import {App, Button, Descriptions, Divider, Popconfirm, Skeleton} from "antd";
 import {DiffEditor} from "@monaco-editor/react";
 import {getFileNameWithExt} from "./fileNames.ts";
 import dayjs from "dayjs";
@@ -14,6 +14,7 @@ export interface ConfigVersionDifferProps {
 }
 
 export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: ConfigVersionDifferProps) {
+    const {message} = App.useApp()
     const {loading: currentLoading, result: currentConfig} = useQuery<string, Config>({
         query: configId,
         execute: (configId, _, abortController) => {

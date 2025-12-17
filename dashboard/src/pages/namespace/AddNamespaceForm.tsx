@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Form, Input, Button, message} from 'antd';
+import {Form, Input, Button, App} from 'antd';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {namespaceApiClient} from "../../services/clients.ts";
 import {PlusOutlined} from "@ant-design/icons";
@@ -21,6 +21,7 @@ interface NamespaceFormProps {
 }
 
 export function AddNamespaceForm({onSuccess}: NamespaceFormProps) {
+    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading, execute: addNamespace} = useExecutePromise({
         onSuccess: () => {

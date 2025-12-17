@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, message, Popconfirm, Input} from 'antd';
+import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
@@ -25,6 +25,7 @@ import {ColumnsType, type FilterDropdownProps} from "antd/es/table/interface";
 import React from "react";
 
 export function ServicePage() {
+    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext();
     const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,

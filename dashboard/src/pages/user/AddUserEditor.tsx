@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Form, Input, Button, Space, message, Select} from 'antd';
+import {Form, Input, Button, Space, Select, App} from 'antd';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {userApiClient} from "../../services/clients.ts";
 
@@ -28,6 +28,7 @@ interface UserFormProps {
 }
 
 export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFormProps) {
+    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading: addUserLoading, execute: addUser} = useExecutePromise({
         onSuccess: () => {

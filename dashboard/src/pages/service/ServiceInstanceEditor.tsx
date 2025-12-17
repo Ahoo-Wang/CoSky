@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Form, Input, InputNumber, Button, Space, message, Switch, Divider} from 'antd';
+import {Form, Input, InputNumber, Button, Space, Switch, Divider, App} from 'antd';
 import {ServiceInstance} from "../../generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {useEffect, useState} from "react";
@@ -41,7 +41,7 @@ export function ServiceInstanceEditor({
                                           onSuccess,
                                           onCancel
                                       }: ServiceInstanceFormProps) {
-
+    const {message} = App.useApp()
     const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
 
     const [form] = Form.useForm();

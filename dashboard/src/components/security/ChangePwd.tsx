@@ -1,4 +1,4 @@
-import {Button, Form, Input, message, Space} from "antd";
+import {App, Button, Form, Input, Space} from "antd";
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
 import {ChangePwdRequest, ErrorResponse} from "../../generated";
 import {userApiClient} from "../../services/clients.ts";
@@ -10,6 +10,7 @@ export interface ChangePwdProps {
 }
 
 export function ChangePwd({onSubmit, onCancel}: ChangePwdProps) {
+    const {message} = App.useApp()
     const {currentUser} = useSecurityContext()
     const {loading, execute} = useExecutePromise<boolean, ExchangeError>({
         propagateError: true,
