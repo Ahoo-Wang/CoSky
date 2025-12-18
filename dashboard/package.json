@@ -26,7 +26,7 @@
     "file-saver": "^2.0.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-router-dom": "^7.10.1"
+    "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
     "@ahoo-wang/fetcher-generator": "^3.8.1",
