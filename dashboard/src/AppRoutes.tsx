@@ -1,6 +1,6 @@
 import {Navigate, Route, Routes, useNavigate} from "react-router-dom";
 import {lazy, Suspense} from "react";
-import {Spin} from "antd";
+import {Skeleton} from "antd";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
 import {tokenStorage} from "./security/tokenStorage.ts";
 import {CurrentNamespaceProvider} from "./contexts/namespace/CurrentNamespaceContext.tsx";
@@ -29,7 +29,7 @@ export function AppRoutes() {
                               navigate('/login')
                           }}
         >
-            <Suspense fallback={<Spin size="large"/>}>
+            <Suspense fallback={<Skeleton/>}>
                 <Routes>
                     <Route path="/login" element={<LoginPage/>}/>
                     <Route
