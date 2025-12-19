@@ -16,8 +16,6 @@ import me.ahoo.cosky.config.ConfigService
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
-import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
-import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.context.annotation.Bean
 
 /**
@@ -29,9 +27,7 @@ import org.springframework.context.annotation.Bean
 @AutoConfiguration
 @ConditionalOnCoSkyConfigEnabled
 @ImportAutoConfiguration(
-    DataRedisAutoConfiguration::class,
-    DataRedisReactiveAutoConfiguration::class,
-    CoSkyConfigAutoConfiguration::class,
+    CoSkyConfigAutoConfiguration::class
 )
 class CoSkyConfigBootstrapConfiguration {
 

@@ -1,5 +1,5 @@
 # Bootstrap Configuration
 org.springframework.cloud.bootstrap.BootstrapConfiguration=\
 me.ahoo.cosky.spring.cloud.CoSkyBootstrapConfiguration,\
-org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration,\
-org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration,\
+org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
