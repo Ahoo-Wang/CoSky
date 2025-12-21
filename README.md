@@ -10,7 +10,12 @@
 
 > [中文文档](https://github.com/Ahoo-Wang/CoSky/blob/main/README.zh-CN.md)
 
-*[CoSky](https://github.com/Ahoo-Wang/CoSky)* is a lightweight, low-cost service registration, service discovery, and configuration service SDK. By leveraging Redis in your existing infrastructure (which you've likely already deployed), CoSky eliminates additional operational costs and deployment burdens. Powered by Redis's high performance, CoSky delivers exceptional TPS&QPS (100,000+/s [JMH Benchmark](#jmh-benchmark)). Through its combination of local process caching strategies and *Redis PubSub*, CoSky achieves real-time cache refreshing with outstanding QPS performance (70,000,000+/s [JMH Benchmark](#jmh-benchmark)) and maintains real-time consistency between process cache and Redis.
+*[CoSky](https://github.com/Ahoo-Wang/CoSky)* is a lightweight, low-cost service registration, service discovery, and
+configuration service SDK. By leveraging Redis in your existing infrastructure (which you've likely already deployed),
+CoSky eliminates additional operational costs and deployment burdens. Powered by Redis's high performance, CoSky
+delivers exceptional TPS&QPS (100,000+/s [JMH Benchmark](#jmh-benchmark)). Through its combination of local process
+caching strategies and *Redis PubSub*, CoSky achieves real-time cache refreshing with outstanding QPS performance (
+70,000,000+/s [JMH Benchmark](#jmh-benchmark)) and maintains real-time consistency between process cache and Redis.
 
 ## Service Discovery
 
@@ -68,9 +73,9 @@
             <version>${cosky.version}</version>
         </dependency>
         <dependency>
-          <groupId>org.springframework.cloud</groupId>
-          <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-          <version>3.0.3</version>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+            <version>3.0.3</version>
         </dependency>
     </dependencies>
 
@@ -201,6 +206,7 @@ Access the web-based management interface at:
 </p>
 
 The CoSky Dashboard provides:
+
 - Real-time service monitoring and management
 - Configuration management with version control
 - Namespace isolation and management
@@ -208,6 +214,12 @@ The CoSky Dashboard provides:
 - Audit logging for compliance
 - Service topology visualization
 - Easy import/export functionality
+
+### Login
+
+<p align="center">
+      <img src="./docs/dashboard-login.png" alt="CoSky-Dashboard-login"/>
+</p>
 
 ### Service dependent topology
 
@@ -217,13 +229,17 @@ The CoSky Dashboard provides:
 
 ### Role-based access control(RBAC)
 
-- cosky: Reserved username, super user, with the highest authority. When the application is launched for the first time, the super user (cosky) password will be initialized and printed on the console. Don't worry if you forget your password, you can configure `enforce-init-super-user: true`, *CoSky* will help you reinitialize the password and print it on the console.
+- cosky: Reserved username, super user, with the highest authority. When the application is launched for the first time,
+  the super user (cosky) password will be initialized and printed on the console. Don't worry if you forget your
+  password, you can configure `enforce-init-super-user: true`, *CoSky* will help you reinitialize the password and print
+  it on the console.
 
 ```log
 ---------------- ****** CoSky -  init super user:[cosky] password:[6TrmOux4Oj] ****** ----------------
 ```
 
-- admin: Reserved roles, super administrator roles, have all permissions, a user can be bound to multiple roles, and a role can be bound to multiple resource operation permissions.
+- admin: Reserved roles, super administrator roles, have all permissions, a user can be bound to multiple roles, and a
+  role can be bound to multiple resource operation permissions.
 - Permission control granularity is namespace, read and write operations
 
 #### Role Permissions
@@ -309,6 +325,7 @@ The CoSky Dashboard provides:
 </p>
 
 ### Test Environment
+
 - **Hardware**: MacBook Pro (M1)
 - **Redis**: Deployed locally on the same machine
 - **Methodology**: All benchmarks conducted using JMH (Java Microbenchmark Harness)
@@ -322,6 +339,7 @@ java -jar cosky-config/build/libs/cosky-config-lastVersion-jmh.jar -bm thrpt -t 
 ```
 
 #### Results
+
 ```
 Benchmark                                          Mode  Cnt          Score   Error  Units
 ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
@@ -338,6 +356,7 @@ java -jar cosky-discovery/build/libs/cosky-discovery-lastVersion-jmh.jar -bm thr
 ```
 
 #### Results
+
 ```
 Benchmark                                                Mode  Cnt          Score   Error  Units
 ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
@@ -349,11 +368,13 @@ RedisServiceRegistryBenchmark.register                  thrpt          110664.16
 RedisServiceRegistryBenchmark.renew                     thrpt          210960.325          ops/s
 ```
 
-> 🔥 **Key Insight**: CoSky's consistency layer provides over 800x performance improvement for configuration retrieval and over 250x for service discovery compared to standard Redis operations.
+> 🔥 **Key Insight**: CoSky's consistency layer provides over 800x performance improvement for configuration retrieval
+> and over 250x for service discovery compared to standard Redis operations.
 
 ## 🔁 CoSky-Mirror (Real-time synchronization of service instance change status)
 
-> CoSky-Mirror acts as a bridge between Nacos and CoSky, creating a unified service discovery platform that enables seamless integration.
+> CoSky-Mirror acts as a bridge between Nacos and CoSky, creating a unified service discovery platform that enables
+> seamless integration.
 
 <p align="center">
      <img src="./docs/CoSky-Mirror.png" alt="CoSky-Mirror"/>
@@ -364,6 +385,7 @@ RedisServiceRegistryBenchmark.renew                     thrpt          210960.32
 </p>
 
 With CoSky-Mirror, you can:
+
 - Synchronize service instances between Nacos and CoSky in real-time
 - Maintain consistency across different service registries
 - Migrate from Nacos to CoSky with zero downtime
@@ -371,21 +393,21 @@ With CoSky-Mirror, you can:
 
 ## 📊 Feature Comparison
 
-| Feature                        | CoSky            | Eureka        | Consul            | CoreDNS       | Zookeeper     | Nacos                        | Apollo        |
-|-------------------------------|------------------|---------------|-------------------|---------------|---------------|------------------------------|---------------|
-| **CAP**                       | CP+AP            | AP            | CP                | CP            | CP            | CP+AP                        | CP+AP         |
-| **Health Check**              | Client Beat      | Client Beat   | TCP/HTTP/gRPC/Cmd | Keep Alive    | Keep Alive    | TCP/HTTP/Client Beat         | Client Beat   |
-| **Load Balancing**            | Weight/Selector  | Ribbon        | Fabio             | RoundRobin    | RoundRobin    | Weight/metadata/RoundRobin   | RoundRobin    |
-| **Avalanche Protection**      | ❌               | ✅            | ❌                | ❌            | ❌            | ✅                           | ❌            |
-| **Auto Logoff Instance**      | ✅               | ✅            | ❌                | ❌            | ✅            | ✅                           | ✅            |
-| **Access Protocol**           | HTTP/Redis       | HTTP          | HTTP/DNS          | DNS           | TCP           | HTTP/DNS                     | HTTP          |
-| **Listening Support**         | ✅               | ✅            | ✅                | ❌            | ✅            | ✅                           | ✅            |
-| **Multi-data Center**         | ✅               | ✅            | ✅                | ❌            | ❌            | ✅                           | ✅            |
-| **Cross Registry Sync**       | ✅               | ❌            | ✅                | ❌            | ❌            | ✅                           | ❌            |
-| **SpringCloud Integration**   | ✅               | ✅            | ✅                | ❌            | ❌            | ✅                           | ✅            |
-| **Dubbo Integration**         | ✅               | ❌            | ❌                | ❌            | ✅            | ✅                           | ✅            |
-| **K8S Integration**           | ✅               | ❌            | ✅                | ✅            | ❌            | ✅                           | ❌            |
-| **Persistence**               | Redis            | -             | -                 | -             | -             | MySql                        | MySql         |
+| Feature                     | CoSky           | Eureka      | Consul            | CoreDNS    | Zookeeper  | Nacos                      | Apollo      |
+|-----------------------------|-----------------|-------------|-------------------|------------|------------|----------------------------|-------------|
+| **CAP**                     | CP+AP           | AP          | CP                | CP         | CP         | CP+AP                      | CP+AP       |
+| **Health Check**            | Client Beat     | Client Beat | TCP/HTTP/gRPC/Cmd | Keep Alive | Keep Alive | TCP/HTTP/Client Beat       | Client Beat |
+| **Load Balancing**          | Weight/Selector | Ribbon      | Fabio             | RoundRobin | RoundRobin | Weight/metadata/RoundRobin | RoundRobin  |
+| **Avalanche Protection**    | ❌               | ✅           | ❌                 | ❌          | ❌          | ✅                          | ❌           |
+| **Auto Logoff Instance**    | ✅               | ✅           | ❌                 | ❌          | ✅          | ✅                          | ✅           |
+| **Access Protocol**         | HTTP/Redis      | HTTP        | HTTP/DNS          | DNS        | TCP        | HTTP/DNS                   | HTTP        |
+| **Listening Support**       | ✅               | ✅           | ✅                 | ❌          | ✅          | ✅                          | ✅           |
+| **Multi-data Center**       | ✅               | ✅           | ✅                 | ❌          | ❌          | ✅                          | ✅           |
+| **Cross Registry Sync**     | ✅               | ❌           | ✅                 | ❌          | ❌          | ✅                          | ❌           |
+| **SpringCloud Integration** | ✅               | ✅           | ✅                 | ❌          | ❌          | ✅                          | ✅           |
+| **Dubbo Integration**       | ✅               | ❌           | ❌                 | ❌          | ✅          | ✅                          | ✅           |
+| **K8S Integration**         | ✅               | ❌           | ✅                 | ✅          | ❌          | ✅                          | ❌           |
+| **Persistence**             | Redis           | -           | -                 | -          | -          | MySql                      | MySql       |
 
 > ✅ **Key Advantages of CoSky**:
 > - **Hybrid CP+AP model** for both consistency and availability
@@ -398,8 +420,10 @@ With CoSky-Mirror, you can:
 
 ## 🤝 Contributing
 
-We welcome contributions from the community! Whether it's reporting bugs, suggesting features, or submitting pull requests, your input helps make CoSky better for everyone.
+We welcome contributions from the community! Whether it's reporting bugs, suggesting features, or submitting pull
+requests, your input helps make CoSky better for everyone.
 
 ## 📄 License
 
-CoSky is open-sourced software licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
+CoSky is open-sourced software licensed under
+the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).

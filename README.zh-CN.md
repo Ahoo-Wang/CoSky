@@ -209,6 +209,12 @@ CoSky Dashboard 提供以下功能：
 - 服务拓扑可视化
 - 简单的导入/导出功能
 
+### 登录
+
+<p align="center">
+      <img src="./docs/dashboard-login.png" alt="CoSky-Dashboard-login"/>
+</p>
+
 ### 服务依赖拓扑
 
 <p align="center">
