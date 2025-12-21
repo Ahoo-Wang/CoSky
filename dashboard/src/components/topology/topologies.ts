@@ -77,15 +77,53 @@ export function toReactFlowTopology(
 
 
 
-    // Create grid layout for better visual appeal and user interaction
+    // Create layered layout: source (first layer), intermediate (middle), target (last)
     const nodeList = Array.from(allNodes);
-    const nodeCount = nodeList.length;
-    const cols = Math.ceil(Math.sqrt(nodeCount));
-    const spacing = 250; // Increased spacing for better visual separation
+    const sources = nodeList.filter(nodeName => getNodeType(nodeName) === 'source').sort();
+    const intermediates = nodeList.filter(nodeName => getNodeType(nodeName) === 'intermediate').sort();
+    const targets = nodeList.filter(nodeName => getNodeType(nodeName) === 'target').sort();
 
-    nodeList.forEach((nodeName, index) => {
-        const col = index % cols;
-        const row = Math.floor(index / cols);
+    const layerSpacingY = 400;
+    const nodeSpacingX = 250;
+    const rowSpacingY = 150;
+    const maxNodesPerRow = 6;
+
+    function layoutLayer(nodes: string[], y: number) {
+        const nodeCount = nodes.length;
+        if (nodeCount === 0) return [];
+        const rows = Math.ceil(nodeCount / maxNodesPerRow);
+        const positions: Array<{nodeName: string, x: number, y: number}> = [];
+
+        for (let row = 0; row < rows; row++) {
+            const rowStart = row * maxNodesPerRow;
+            const rowNodes = nodes.slice(rowStart, rowStart + maxNodesPerRow);
+            const rowNodeCount = rowNodes.length;
+            const totalWidth = (rowNodeCount - 1) * nodeSpacingX;
+            const startX = -totalWidth / 2;
+            const rowY = y + row * rowSpacingY;
+
+            rowNodes.forEach((nodeName, index) => {
+                positions.push({
+                    nodeName,
+                    x: startX + index * nodeSpacingX,
+                    y: rowY
+                });
+            });
+        }
+
+        return positions;
+    }
+
+    const sourcePositions = layoutLayer(sources, 0);
+    const intermediatePositions = layoutLayer(intermediates, layerSpacingY);
+    const targetPositions = layoutLayer(targets, 2 * layerSpacingY);
+
+    const positionMap = new Map<string, {x: number, y: number}>();
+    [...sourcePositions, ...intermediatePositions, ...targetPositions].forEach(({nodeName, x, y}) => {
+        positionMap.set(nodeName, {x, y});
+    });
+
+    nodeList.forEach((nodeName) => {
         const nodeType = getNodeType(nodeName);
         const nodeStyle = getNodeStyle(nodeType);
 
@@ -99,10 +137,7 @@ export function toReactFlowTopology(
                 outDegree: outDegree.get(nodeName)!,
             },
             style: nodeStyle,
-            position: {
-                x: col * spacing,
-                y: row * spacing,
-            },
+            position: positionMap.get(nodeName)!,
         });
     });
 
