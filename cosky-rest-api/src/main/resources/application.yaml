@@ -16,7 +16,7 @@ cosky:
     enabled: true
     audit-log:
       action: write
-    enforce-init-super-user: ${cosky.super.init:true}
+    enforce-init-super-user: ${cosky.super.init:false}
 
 cosec:
   jwt:
