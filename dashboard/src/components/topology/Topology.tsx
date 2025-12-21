@@ -3,7 +3,7 @@ import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback, useEffect} from "react";
 import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
-import {Skeleton, Input, Space} from "antd";
+import {Skeleton, Input} from "antd";
 import {
     Background,
     Controls,
@@ -13,7 +13,7 @@ import {
     Node,
     Edge,
     OnNodesChange,
-    applyNodeChanges
+    applyNodeChanges, Panel
 } from "@xyflow/react";
 import {ServiceNode, ServiceNodeData} from "./ServiceNode.tsx";
 import {SearchOutlined} from "@ant-design/icons";
@@ -182,61 +182,48 @@ export function Topology() {
     }
 
     return (
-        <div style={{width: '100%', height: '100%', position: 'relative'}}>
-            {/* Control Panel */}
-            <div style={{
-                position: 'absolute',
-                top: '10px',
-                left: '10px',
-                zIndex: 10,
-                background: 'rgba(255, 255, 255, 0.95)',
-                padding: '12px',
+        <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            onNodesChange={onNodesChange}
+            nodesDraggable={true}
+            fitView
+            fitViewOptions={{
+                padding: 0.2,
+            }}
+        >
+            <Panel style={{
+                padding: '8px',
                 borderRadius: '8px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}>
-                <Space size="middle">
-                    {/* Search Input */}
-                    <Input
-                        placeholder="Search nodes..."
-                        prefix={<SearchOutlined/>}
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        allowClear
-                        style={{width: '250px'}}
-                    />
-                </Space>
-            </div>
-
-            {/* React Flow Canvas */}
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                onNodeClick={onNodeClick}
-                onPaneClick={onPaneClick}
-                onNodesChange={onNodesChange}
-                nodesDraggable={true}
-                fitView
-                fitViewOptions={{
-                    padding: 0.2,
-                }}
-            >
-                <Background/>
-                <Controls/>
-                <MiniMap
-                    nodeColor={(node) => {
-                        if (isServiceNodeData(node.data)) {
-                            return NODE_TYPE_COLORS[node.data.nodeType].backgroundColor;
-                        }
-                        // Fallback color for unexpected node data
-                        return NODE_TYPE_COLORS.intermediate.backgroundColor;
-                    }}
-                    maskColor="rgba(0, 0, 0, 0.1)"
-                    style={{
-                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    }}
+                {/* Search Input */}
+                <Input
+                    placeholder="Search nodes..."
+                    prefix={<SearchOutlined/>}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    allowClear
                 />
-            </ReactFlow>
-        </div>
+            </Panel>
+            <Background/>
+            <Controls/>
+            <MiniMap
+                nodeColor={(node) => {
+                    if (isServiceNodeData(node.data)) {
+                        return NODE_TYPE_COLORS[node.data.nodeType].backgroundColor;
+                    }
+                    // Fallback color for unexpected node data
+                    return NODE_TYPE_COLORS.intermediate.backgroundColor;
+                }}
+                maskColor="rgba(0, 0, 0, 0.1)"
+                style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                }}
+            />
+        </ReactFlow>
     );
 }
