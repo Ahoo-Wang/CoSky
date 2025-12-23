@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
+import React from 'react';
 import {Layout, Menu, Dropdown, Watermark} from 'antd';
 import {
     DashboardOutlined,
@@ -33,11 +33,12 @@ import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ChangePwd} from "../security/ChangePwd.tsx";
 import {ErrorBoundary} from "../error/ErrorBoundary.tsx";
+import {useLayoutCollapsed} from "../../contexts/useCollapsed.ts";
 
 const {Header, Sider, Content, Footer} = Layout;
 
 export const AuthenticatedLayout: React.FC = () => {
-    const [collapsed, setCollapsed] = useState(false);
+    const [collapsed, setCollapsed] = useLayoutCollapsed();
     const {currentUser, signOut} = useSecurityContext();
     const navigate = useNavigate();
     const location = useLocation();
@@ -129,7 +130,6 @@ export const AuthenticatedLayout: React.FC = () => {
                 collapsible
                 collapsed={collapsed}
                 onCollapse={setCollapsed}
-                breakpoint="md"
                 style={{
                     boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)',
                 }}
