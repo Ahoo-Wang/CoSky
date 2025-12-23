@@ -129,7 +129,9 @@ export const AuthenticatedLayout: React.FC = () => {
             <Sider
                 collapsible
                 collapsed={collapsed}
-                onCollapse={setCollapsed}
+                onCollapse={(it) => {
+                    setCollapsed(it)
+                }}
                 style={{
                     boxShadow: '2px 0 8px rgba(0, 0, 0, 0.15)',
                 }}
