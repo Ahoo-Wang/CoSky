@@ -33,7 +33,7 @@ import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ChangePwd} from "../security/ChangePwd.tsx";
 import {ErrorBoundary} from "../error/ErrorBoundary.tsx";
-import {useLayoutCollapsed} from "../../contexts/useCollapsed.ts";
+import {useLayoutCollapsed} from "../../hooks/useLayoutCollapsed.ts";
 
 const {Header, Sider, Content, Footer} = Layout;
 
