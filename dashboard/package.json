@@ -11,17 +11,17 @@
     "generate": "fetcher-generator generate -i http://localhost:8080/v3/api-docs -o src/generated"
   },
   "dependencies": {
-    "@ahoo-wang/fetcher": "^3.8.3",
-    "@ahoo-wang/fetcher-cosec": "^3.8.3",
-    "@ahoo-wang/fetcher-decorator": "^3.8.3",
-    "@ahoo-wang/fetcher-react": "^3.8.3",
-    "@ahoo-wang/fetcher-storage": "^3.8.3",
-    "@ahoo-wang/fetcher-viewer": "^3.8.3",
+    "@ahoo-wang/fetcher": "^3.9.3",
+    "@ahoo-wang/fetcher-cosec": "^3.9.3",
+    "@ahoo-wang/fetcher-decorator": "^3.9.3",
+    "@ahoo-wang/fetcher-react": "^3.9.3",
+    "@ahoo-wang/fetcher-storage": "^3.9.3",
+    "@ahoo-wang/fetcher-viewer": "^3.9.3",
     "@ant-design/icons": "^6.1.0",
     "@monaco-editor/react": "^4.7.0",
     "@types/file-saver": "^2.0.7",
     "@xyflow/react": "^12.10.0",
-    "antd": "^6.1.1",
+    "antd": "^6.1.2",
     "dayjs": "^1.11.19",
     "file-saver": "^2.0.5",
     "react": "^19.2.3",
@@ -29,7 +29,7 @@
     "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
-    "@ahoo-wang/fetcher-generator": "^3.8.3",
+    "@ahoo-wang/fetcher-generator": "^3.9.3",
     "@eslint/js": "^9.39.2",
     "@types/dagre": "^0.7.53",
     "@types/node": "^24.10.4",
