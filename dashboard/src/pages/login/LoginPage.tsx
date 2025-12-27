@@ -15,10 +15,10 @@ import {useEffect} from 'react';
 import {Form, Input, Button, Card, Typography, App} from 'antd';
 import {UserOutlined, LockOutlined, CloudOutlined, GithubOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
-import {authenticateApiClient} from "../../services/clients.ts";
-import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
+import {authenticateApiHooks} from "../../services/clients.ts";
+import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import './LoginPage.css';
-import {CompositeToken, ErrorResponse} from "../../generated";
+import {ErrorResponse} from "../../generated";
 import {ExchangeError} from "@ahoo-wang/fetcher";
 
 const {Title, Text} = Typography;
@@ -35,7 +35,10 @@ export function LoginPage() {
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const [form] = Form.useForm();
-    const {loading, execute} = useExecutePromise<CompositeToken, ExchangeError>({
+    const {loading, execute: login} = authenticateApiHooks.useLogin({
+        onBeforeExecute: (abortController, args) => {
+            args[1].abortController = abortController
+        },
         onSuccess: (result) => {
             signIn(result)
         }, onError: async (error: ExchangeError) => {
@@ -44,6 +47,7 @@ export function LoginPage() {
             `);
         }
     })
+
     useEffect(() => {
         if (authenticated) {
             navigate('/home');
@@ -51,13 +55,10 @@ export function LoginPage() {
     }, [authenticated, navigate]);
 
     const handleSubmit = async (values: LoginFormValues) => {
-        execute((abortController) => {
-            return authenticateApiClient.login(values.username, {
-                abortController,
-                body: {
-                    password: values.password
-                }
-            })
+        await login(values.username, {
+            body: {
+                password: values.password
+            }
         })
     };
 
@@ -185,7 +186,7 @@ export function LoginPage() {
                             e.currentTarget.style.transform = 'scale(1)';
                         }}
                     >
-                        <GithubOutlined />
+                        <GithubOutlined/>
                     </a>
                 </div>
             </Card>
