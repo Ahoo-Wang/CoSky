@@ -24,6 +24,9 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
+            - name: JAVA_OPTS
+              # https://github.com/Ahoo-Wang/CoSky/pull/835
+              value: -Djava.net.preferIPv4Stack=true
           image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:4.0.0
           startupProbe:
             httpGet:
