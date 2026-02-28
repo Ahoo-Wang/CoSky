@@ -25,7 +25,7 @@ importers:
         version: 3.10.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.10.2))
       '@ahoo-wang/fetcher-viewer':
         specifier: ^3.10.2
-        version: 3.10.2(d1d153f46e1469b45fab1d63913e615a)
+        version: 3.12.2(d1d153f46e1469b45fab1d63913e615a)
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.1.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -157,8 +157,8 @@ packages:
     peerDependencies:
       '@ahoo-wang/fetcher-eventbus': ^3.0.0
 
-  '@ahoo-wang/fetcher-viewer@3.10.2':
-    resolution: {integrity: sha512-hjL7mG1MsXJmmcjzmPJJRU9ZTyCU+N6iFuQRiW+NaRYozT8n6TOEWfHUe8/dtj5hKnHJTRX7vGNCs9mljzNfCw==}
+  '@ahoo-wang/fetcher-viewer@3.12.2':
+    resolution: {integrity: sha512-CM3jwK1wy7AeBVera56oRhqph8TOOlWlbeV8Xy3zG5azXY7Gi3vGw4YPIPyMt9gBdPYqjwQ88yqAZqqIZ/xR3A==}
     peerDependencies:
       '@ahoo-wang/fetcher': ^3.0.0
       '@ahoo-wang/fetcher-decorator': ^3.0.0
@@ -169,7 +169,7 @@ packages:
       '@ahoo-wang/fetcher-storage': ^3.0.0
       '@ahoo-wang/fetcher-wow': ^3.0.0
       '@ant-design/icons': ^6.0.0
-      antd: ^6.2.3
+      antd: ^6.3.1
       dayjs: ^1.11.19
       react: ^19.2.4
       react-dom: ^19.2.4
@@ -1845,7 +1845,7 @@ snapshots:
     dependencies:
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.10.2)
 
-  '@ahoo-wang/fetcher-viewer@3.10.2(d1d153f46e1469b45fab1d63913e615a)':
+  '@ahoo-wang/fetcher-viewer@3.12.2(d1d153f46e1469b45fab1d63913e615a)':
     dependencies:
       '@ahoo-wang/fetcher': 3.10.2
       '@ahoo-wang/fetcher-decorator': 3.10.2(@ahoo-wang/fetcher@3.10.2)
