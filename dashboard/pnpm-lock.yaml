@@ -25,7 +25,7 @@ importers:
         version: 3.12.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.12.2))
       '@ahoo-wang/fetcher-viewer':
         specifier: ^3.12.2
-        version: 3.12.2(a8c639001d77fa5753e3e9a2b80f1004)
+        version: 3.12.5(a8c639001d77fa5753e3e9a2b80f1004)
       '@ant-design/icons':
         specifier: ^6.1.0
         version: 6.1.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -157,8 +157,8 @@ packages:
     peerDependencies:
       '@ahoo-wang/fetcher-eventbus': ^3.0.0
 
-  '@ahoo-wang/fetcher-viewer@3.12.2':
-    resolution: {integrity: sha512-CM3jwK1wy7AeBVera56oRhqph8TOOlWlbeV8Xy3zG5azXY7Gi3vGw4YPIPyMt9gBdPYqjwQ88yqAZqqIZ/xR3A==}
+  '@ahoo-wang/fetcher-viewer@3.12.5':
+    resolution: {integrity: sha512-VxrVCZeCgAK7I0xvoGkgAcj1kjiH0d1sdm5Fg4e4lImkEb9BUCDCtkbZowXUwn4hfcmiiaN4r5QOMddmoyZspw==}
     peerDependencies:
       '@ahoo-wang/fetcher': ^3.0.0
       '@ahoo-wang/fetcher-decorator': ^3.0.0
@@ -1843,7 +1843,7 @@ snapshots:
     dependencies:
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.12.2)
 
-  '@ahoo-wang/fetcher-viewer@3.12.2(a8c639001d77fa5753e3e9a2b80f1004)':
+  '@ahoo-wang/fetcher-viewer@3.12.5(a8c639001d77fa5753e3e9a2b80f1004)':
     dependencies:
       '@ahoo-wang/fetcher': 3.12.2
       '@ahoo-wang/fetcher-decorator': 3.12.2(@ahoo-wang/fetcher@3.12.2)
