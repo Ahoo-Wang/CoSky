@@ -47,6 +47,9 @@ importers:
       file-saver:
         specifier: ^2.0.5
         version: 2.0.5
+      monaco-editor:
+        specifier: ^0.55.1
+        version: 0.55.1
       react:
         specifier: ^19.2.4
         version: 19.2.4
