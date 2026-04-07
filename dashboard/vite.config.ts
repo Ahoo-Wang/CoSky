@@ -1,13 +1,17 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import react, { reactCompilerPreset } from '@vitejs/plugin-react'
+import babel from '@rolldown/plugin-babel'
+
+const exclude = [/src\/generated/, /node_modules/]
 
 export default defineConfig({
   plugins: [
     react({
-      exclude: [/src\/generated/, /node_modules/],
-      babel: {
-        plugins: [['babel-plugin-react-compiler']],
-      },
+      exclude,
+    }),
+    babel({
+      presets: [reactCompilerPreset()],
+      exclude,
     }),
   ],
   optimizeDeps: {
