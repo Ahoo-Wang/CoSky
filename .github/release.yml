@@ -25,6 +25,7 @@ changelog:
     - title: 🤖 Dependency Updates
       labels:
         - dependency
+        - dependencies
     - title: Other Changes
       labels:
         - '*'
