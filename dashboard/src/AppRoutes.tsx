@@ -3,11 +3,11 @@ import {lazy, Suspense} from "react";
 import {Skeleton} from "antd";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
 import {tokenStorage} from "./security/tokenStorage.ts";
-import {CurrentNamespaceProvider} from "./contexts/namespace/CurrentNamespaceContext.tsx";
-import {DrawerProvider} from "./contexts/DrawerContext.tsx";
 import {AuthenticatedLayout} from "./components/layout/AuthenticatedLayout.tsx";
 import {ProtectedRoute} from "./components/security/ProtectedRoute.tsx";
-import {NamespacesProvider} from "./contexts/namespace/NamespacesContext.tsx";
+import {CurrentNamespaceProvider} from "./contexts/namespace/CurrentNamespaceProvider.tsx";
+import {DrawerProvider} from "./contexts/DrawerProvider.tsx";
+import {NamespacesProvider} from "./contexts/namespace/NamespacesProvider.tsx";
 
 const LoginPage = lazy(() => import("./pages/login/LoginPage.tsx").then(module => ({default: module.LoginPage})));
 const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage.tsx").then(module => ({default: module.DashboardPage})));

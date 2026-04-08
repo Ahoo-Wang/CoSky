@@ -1,6 +1,6 @@
 import type { SelectProps} from "antd";
 import {Select} from "antd";
-import {useNamespacesContext} from "../../contexts/namespace/useNamespacesContext.ts";
+import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
 
 export type NamespaceSelectorProps = Omit<SelectProps<string>, 'loading' | 'options'>
 

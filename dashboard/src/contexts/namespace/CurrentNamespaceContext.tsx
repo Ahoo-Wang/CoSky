@@ -12,11 +12,7 @@
  */
 
 
-import React, {createContext} from 'react';
-import {useKeyStorage} from "@ahoo-wang/fetcher-react";
-import {SYSTEM_NAMESPACE} from "../../pages/namespace/namespaces.ts";
-import {currentNamespaceStorage} from "./CurrentNamespaceStorage.ts";
-import type {ReactNode} from 'react';
+import {createContext, useContext} from 'react';
 
 export interface CurrentNamespaceContextType {
     currentNamespace: string;
@@ -24,22 +20,12 @@ export interface CurrentNamespaceContextType {
     reset: () => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const CurrentNamespaceContext = createContext<CurrentNamespaceContextType | undefined>(undefined);
 
-export const CurrentNamespaceProvider: React.FC<{ children: ReactNode }> = ({children}) => {
-    const [currentNamespace, setCurrentNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
-
-    const reset = () => {
-        setCurrentNamespace(SYSTEM_NAMESPACE);
-    };
-
-
-    const value: CurrentNamespaceContextType = {
-        currentNamespace: currentNamespace,
-        setCurrent: setCurrentNamespace,
-        reset,
-    };
-
-    return <CurrentNamespaceContext.Provider value={value}>{children}</CurrentNamespaceContext.Provider>;
+export const useCurrentNamespaceContext = (): CurrentNamespaceContextType => {
+    const context = useContext(CurrentNamespaceContext);
+    if (!context) {
+        throw new Error('useNamespace must be used within a NamespaceProvider');
+    }
+    return context;
 };

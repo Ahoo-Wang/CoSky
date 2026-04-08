@@ -14,11 +14,11 @@
 import {Table, Button, Space, Popconfirm, Select, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useDrawer} from '../../contexts/useDrawer.ts';
 import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
 import {userApiClient} from "../../services/clients.ts";
 import type {CoSecPrincipal} from "../../generated";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function UserPage() {
     const {message} = App.useApp()

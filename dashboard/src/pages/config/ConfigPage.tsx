@@ -22,15 +22,15 @@ import {
     ImportOutlined,
     SearchOutlined,
 } from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/useCurrentNamespaceContext.ts';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
 import {configApiClient} from "../../services/clients.ts";
-import {useDrawer} from "../../contexts/useDrawer.ts";
 import {ConfigEditor} from "./ConfigEditor.tsx";
 import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
 import {ConfigImporter} from "./ConfigImporter.tsx";
 import {saveAs} from 'file-saver';
 import dayjs from "dayjs";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 type ListConfig = { configId: string }
 

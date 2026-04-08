@@ -4,8 +4,8 @@ import {App, Button, Popconfirm, Table} from "antd";
 import type {ServiceInstance} from "../../generated";
 import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
 import dayjs from "dayjs";
-import {useDrawer} from "../../contexts/useDrawer.ts";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export interface ServiceInstanceTableProps {
     namespace: string

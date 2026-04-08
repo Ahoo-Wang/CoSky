@@ -14,10 +14,10 @@
 import {Table, Button, Space, Popconfirm, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
 import type {RoleDto} from '../../generated';
-import {useDrawer} from '../../contexts/useDrawer.ts';
 import {RoleEditor} from './RoleEditor.tsx';
 import {roleApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function RolePage() {
     const {message} = App.useApp()

@@ -18,7 +18,7 @@ import {
     CloudServerOutlined,
     ClusterOutlined
 } from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/useCurrentNamespaceContext.ts';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import type {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {statApiClient} from "../../services/clients.ts";
