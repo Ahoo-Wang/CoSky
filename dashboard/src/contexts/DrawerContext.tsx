@@ -21,6 +21,7 @@ interface DrawerContextType {
     closeDrawer: () => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const DrawerContext = createContext<DrawerContextType | undefined>(undefined);
 
 export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) => {

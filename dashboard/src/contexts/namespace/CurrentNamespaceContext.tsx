@@ -24,6 +24,7 @@ export interface CurrentNamespaceContextType {
     reset: () => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const CurrentNamespaceContext = createContext<CurrentNamespaceContextType | undefined>(undefined);
 
 export const CurrentNamespaceProvider: React.FC<{ children: ReactNode }> = ({children}) => {
