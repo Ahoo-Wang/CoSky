@@ -13,17 +13,17 @@
 
 import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/useCurrentNamespaceContext.ts';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
 import type {ServiceStat} from "../../generated";
 import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
-import {useDrawer} from "../../contexts/useDrawer.ts";
 import type {ColumnsType} from "antd/es/table/interface";
-import { type FilterDropdownProps} from "antd/es/table/interface";
+import {type FilterDropdownProps} from "antd/es/table/interface";
 import React from "react";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function ServicePage() {
     const {message} = App.useApp()

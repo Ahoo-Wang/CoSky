@@ -11,54 +11,22 @@
  * limitations under the License.
  */
 
-import type { ReactNode} from 'react';
-import React, {createContext, useState} from 'react';
-import type { DrawerProps} from 'antd';
-import {Drawer} from 'antd';
+import type {ReactNode} from 'react';
+import { useContext} from 'react';
+import {createContext} from 'react';
+import type {DrawerProps} from 'antd';
 
 interface DrawerContextType {
     openDrawer: (content: ReactNode, props?: Partial<DrawerProps>) => void;
     closeDrawer: () => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export const DrawerContext = createContext<DrawerContextType | undefined>(undefined);
 
-export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) => {
-    const [open, setOpen] = useState(false);
-    const [content, setContent] = useState<ReactNode>(null);
-    const [drawerProps, setDrawerProps] = useState<Partial<DrawerProps>>({});
-
-    const openDrawer = (drawerContent: ReactNode, props: Partial<DrawerProps> = {}) => {
-        setContent(drawerContent);
-        setDrawerProps(props);
-        setOpen(true);
-    };
-
-    const closeDrawer = () => {
-        setOpen(false);
-        setTimeout(() => {
-            setContent(null);
-            setDrawerProps({});
-        }, 300);
-    };
-
-    const handleClose = () => {
-        closeDrawer();
-    };
-    return (
-        <DrawerContext.Provider value={{openDrawer, closeDrawer}}>
-            {children}
-            <Drawer
-                open={open}
-                onClose={handleClose}
-                defaultSize={'60vw'}
-                resizable
-                placement="right"
-                {...drawerProps}
-            >
-                {content}
-            </Drawer>
-        </DrawerContext.Provider>
-    );
+export const useDrawer = () => {
+    const context = useContext(DrawerContext);
+    if (!context) {
+        throw new Error('useDrawer must be used within DrawerProvider');
+    }
+    return context;
 };

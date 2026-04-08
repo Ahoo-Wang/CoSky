@@ -30,10 +30,10 @@ import {
 import {Outlet, useNavigate, useLocation, NavLink} from 'react-router-dom';
 import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
-import {useDrawer} from "../../contexts/useDrawer.ts";
 import {ChangePwd} from "../security/ChangePwd.tsx";
 import {ErrorBoundary} from "../error/ErrorBoundary.tsx";
 import {useLayoutCollapsed} from "../../hooks/useLayoutCollapsed.ts";
+import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 const {Header, Sider, Content, Footer} = Layout;
 
