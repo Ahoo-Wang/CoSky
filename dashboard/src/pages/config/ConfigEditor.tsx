@@ -19,7 +19,7 @@ import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
 import dayjs from "dayjs";
-import {Config} from "../../generated";
+import type {Config} from "../../generated";
 
 interface ConfigEditFormProps {
     namespace: string;

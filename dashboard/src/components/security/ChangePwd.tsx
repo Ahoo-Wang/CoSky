@@ -1,8 +1,8 @@
 import {App, Button, Form, Input, Space} from "antd";
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
-import {ChangePwdRequest, ErrorResponse} from "../../generated";
+import type {ChangePwdRequest, ErrorResponse} from "../../generated";
 import {userApiClient} from "../../services/clients.ts";
-import {ExchangeError} from "@ahoo-wang/fetcher";
+import type {ExchangeError} from "@ahoo-wang/fetcher";
 
 export interface ChangePwdProps {
     onSubmit: (values: ChangePwdRequest) => void;

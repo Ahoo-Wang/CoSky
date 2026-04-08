@@ -1,7 +1,7 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
 import {App, Button, Popconfirm, Table} from "antd";
-import {ServiceInstance} from "../../generated";
+import type {ServiceInstance} from "../../generated";
 import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
 import dayjs from "dayjs";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";

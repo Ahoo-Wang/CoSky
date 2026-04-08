@@ -13,7 +13,7 @@
 
 import {Table, Button, Space, Popconfirm, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
-import {RoleDto} from '../../generated';
+import type {RoleDto} from '../../generated';
 import {useDrawer} from '../../contexts/DrawerContext.tsx';
 import {RoleEditor} from './RoleEditor.tsx';
 import {roleApiClient} from "../../services/clients.ts";

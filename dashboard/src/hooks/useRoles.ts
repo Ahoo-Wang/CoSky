@@ -1,6 +1,6 @@
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {roleApiClient} from "../services/clients.ts";
-import {RoleDto} from "../generated";
+import type {RoleDto} from "../generated";
 
 export function useRoles() {
     const {result: roles = [], loading, error, execute: load} = useQuery<null, RoleDto[]>({

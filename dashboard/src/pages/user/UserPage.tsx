@@ -18,7 +18,7 @@ import {useDrawer} from '../../contexts/DrawerContext.tsx';
 import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
 import {userApiClient} from "../../services/clients.ts";
-import {CoSecPrincipal} from "../../generated";
+import type {CoSecPrincipal} from "../../generated";
 
 export function UserPage() {
     const {message} = App.useApp()

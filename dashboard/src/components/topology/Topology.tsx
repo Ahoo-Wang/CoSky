@@ -4,18 +4,20 @@ import {statApiClient} from "../../services/clients.ts";
 import {useMemo, useState, useCallback, useEffect} from "react";
 import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
 import {Skeleton, Input} from "antd";
+import type {
+    NodeMouseHandler,
+    Node,
+    Edge,
+    OnNodesChange} from "@xyflow/react";
 import {
     Background,
     Controls,
     MiniMap,
     ReactFlow,
-    NodeMouseHandler,
-    Node,
-    Edge,
-    OnNodesChange,
     applyNodeChanges, Panel
 } from "@xyflow/react";
-import {ServiceNode, ServiceNodeData} from "./ServiceNode.tsx";
+import type { ServiceNodeData} from "./ServiceNode.tsx";
+import {ServiceNode} from "./ServiceNode.tsx";
 import {SearchOutlined} from "@ant-design/icons";
 import '@xyflow/react/dist/style.css';
 

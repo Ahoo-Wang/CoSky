@@ -18,8 +18,8 @@ import {useNavigate} from 'react-router-dom';
 import {authenticateApiHooks} from "../../services/clients.ts";
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import './LoginPage.css';
-import {ErrorResponse} from "../../generated";
-import {ExchangeError} from "@ahoo-wang/fetcher";
+import type {ErrorResponse} from "../../generated";
+import type {ExchangeError} from "@ahoo-wang/fetcher";
 
 const {Title, Text} = Typography;
 

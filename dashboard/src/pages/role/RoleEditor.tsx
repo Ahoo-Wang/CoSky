@@ -13,7 +13,7 @@
 
 import {useEffect} from 'react';
 import {Form, Input, Button, Space, Divider, App} from 'antd';
-import {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
+import type {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {roleApiClient} from "../../services/clients.ts";
 import {MinusCircleOutlined, PlusOutlined} from "@ant-design/icons";

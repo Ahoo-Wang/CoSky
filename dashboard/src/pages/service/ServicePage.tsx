@@ -16,12 +16,13 @@ import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/i
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
-import {ServiceStat} from "../../generated";
+import type {ServiceStat} from "../../generated";
 import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {ColumnsType, type FilterDropdownProps} from "antd/es/table/interface";
+import type {ColumnsType} from "antd/es/table/interface";
+import { type FilterDropdownProps} from "antd/es/table/interface";
 import React from "react";
 
 export function ServicePage() {
