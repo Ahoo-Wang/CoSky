@@ -12,7 +12,7 @@
  */
 
 import React from 'react';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/useCurrentNamespaceContext.ts';
 import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
 import {PartitionOutlined, DownOutlined} from "@ant-design/icons";
 

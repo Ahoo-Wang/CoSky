@@ -12,7 +12,7 @@
  */
 
 import type { ReactNode} from 'react';
-import React, {createContext, useContext, useState} from 'react';
+import React, {createContext, useState} from 'react';
 import type { DrawerProps} from 'antd';
 import {Drawer} from 'antd';
 
@@ -21,7 +21,7 @@ interface DrawerContextType {
     closeDrawer: () => void;
 }
 
-const DrawerContext = createContext<DrawerContextType | undefined>(undefined);
+export const DrawerContext = createContext<DrawerContextType | undefined>(undefined);
 
 export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) => {
     const [open, setOpen] = useState(false);
@@ -36,7 +36,6 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
 
     const closeDrawer = () => {
         setOpen(false);
-        // Clear content and props after closing animation
         setTimeout(() => {
             setContent(null);
             setDrawerProps({});
@@ -61,12 +60,4 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             </Drawer>
         </DrawerContext.Provider>
     );
-};
-
-export const useDrawer = () => {
-    const context = useContext(DrawerContext);
-    if (!context) {
-        throw new Error('useDrawer must be used within DrawerProvider');
-    }
-    return context;
 };

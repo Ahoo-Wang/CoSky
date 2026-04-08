@@ -1,19 +1,8 @@
 import type { SelectProps} from "antd";
 import {Select} from "antd";
+import {IMPORT_POLICY_OPTIONS} from "./ImportPolicySelectorOptions.ts";
 
-export interface ImportPolicySelectorProps extends Omit<SelectProps, 'options'> {
-}
-
-export const IMPORT_POLICY_OPTIONS = [
-    {
-        label: 'Skip',
-        value: 'skip'
-    },
-    {
-        label: 'Overwrite',
-        value: 'overwrite'
-    }
-]
+export type ImportPolicySelectorProps = Omit<SelectProps, 'options'>
 
 export function ImportPolicySelector(props: ImportPolicySelectorProps) {
     return (

@@ -13,14 +13,14 @@
 
 import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
 import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/useCurrentNamespaceContext.ts';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
 import type {ServiceStat} from "../../generated";
 import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {useDrawer} from "../../contexts/useDrawer.ts";
 import type {ColumnsType} from "antd/es/table/interface";
 import { type FilterDropdownProps} from "antd/es/table/interface";
 import React from "react";
@@ -42,7 +42,7 @@ export function ServicePage() {
             await serviceApiClient.removeService(currentNamespace, serviceId);
             message.success('Service deleted successfully');
             loadServices();
-        } catch (error) {
+        } catch {
             message.error('Failed to delete service');
         }
     };
@@ -114,7 +114,7 @@ export function ServicePage() {
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: ServiceStat) => (
+            render: (_: unknown, record: ServiceStat) => (
                 <Space>
                     <Button
                         type="primary"

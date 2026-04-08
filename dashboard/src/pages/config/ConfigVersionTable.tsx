@@ -16,7 +16,7 @@ import {useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import type {ConfigVersion} from "../../generated";
 import type {ColumnsType} from "antd/es/table/interface";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {useDrawer} from "../../contexts/useDrawer.ts";
 import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
 import {HistoryOutlined} from "@ant-design/icons";
 

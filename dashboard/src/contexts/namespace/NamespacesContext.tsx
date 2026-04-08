@@ -1,7 +1,7 @@
 import type { UseNamespacesReturn} from "../../hooks/useNamespaces.ts";
 import {useNamespaces} from "../../hooks/useNamespaces.ts";
 import type { ReactNode} from "react";
-import {createContext, useContext} from "react";
+import {createContext} from "react";
 
 export type NamespacesContextType = UseNamespacesReturn
 
@@ -14,12 +14,4 @@ export function NamespacesProvider({children}: { children: ReactNode }) {
             {children}
         </NamespacesContext.Provider>
     )
-}
-
-export function useNamespacesContext() {
-    const context = useContext(NamespacesContext);
-    if (context === undefined) {
-        throw new Error("useNamespacesContext must be used within a NamespacesProvider");
-    }
-    return context;
 }

@@ -22,10 +22,10 @@ import {
     ImportOutlined,
     SearchOutlined,
 } from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
+import {useCurrentNamespaceContext} from '../../contexts/namespace/useCurrentNamespaceContext.ts';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
 import {configApiClient} from "../../services/clients.ts";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {useDrawer} from "../../contexts/useDrawer.ts";
 import {ConfigEditor} from "./ConfigEditor.tsx";
 import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
 import {ConfigImporter} from "./ConfigImporter.tsx";
@@ -147,7 +147,7 @@ export const ConfigPage: React.FC = () => {
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: ListConfig) => (
+            render: (_: unknown, record: ListConfig) => (
                 <Space>
                     <Button type="link" icon={<EditOutlined/>}
                             onClick={() => handleEditConfig(record.configId)}

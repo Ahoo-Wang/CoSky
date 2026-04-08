@@ -1,36 +1,8 @@
 import type { SelectProps} from "antd";
 import {Select} from "antd";
+import {CONFIG_FORMAT_SELECTOR_OPTIONS} from "./ConfigFormatSelectorOptions.ts";
 
-export interface ConfigFormatSelectorProps extends Omit<SelectProps, 'options'> {
-
-}
-
-export const CONFIG_FORMAT_SELECTOR_OPTIONS = [
-    {
-        label: 'YAML',
-        value: 'yaml',
-    },
-    {
-        label: 'YML',
-        value: 'yml',
-    },
-    {
-        label: 'JSON',
-        value: 'json',
-    },
-    {
-        label: 'XML',
-        value: 'xml',
-    },
-    {
-        label: 'Properties',
-        value: 'properties',
-    },
-    {
-        label: 'Text',
-        value: 'txt',
-    },
-]
+export type ConfigFormatSelectorProps = Omit<SelectProps, 'options'>
 
 export function ConfigFormatSelector(props: ConfigFormatSelectorProps) {
     return <Select {...props} options={CONFIG_FORMAT_SELECTOR_OPTIONS}/>

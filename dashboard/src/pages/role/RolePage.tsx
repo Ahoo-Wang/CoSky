@@ -14,7 +14,7 @@
 import {Table, Button, Space, Popconfirm, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
 import type {RoleDto} from '../../generated';
-import {useDrawer} from '../../contexts/DrawerContext.tsx';
+import {useDrawer} from '../../contexts/useDrawer.ts';
 import {RoleEditor} from './RoleEditor.tsx';
 import {roleApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
@@ -59,7 +59,7 @@ export function RolePage() {
             await roleApiClient.removeRole(roleName);
             message.success('Role deleted successfully');
             load();
-        } catch (error) {
+        } catch {
             message.error('Failed to delete role');
         }
     };
