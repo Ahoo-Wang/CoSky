@@ -12,7 +12,7 @@
  */
 
 import {Form, Input, InputNumber, Button, Space, Switch, Divider, App} from 'antd';
-import type {ServiceInstance} from "../../generated";
+import type {InstanceDto, ServiceInstance} from "../../generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {useEffect, useState} from "react";
 import {serviceApiClient} from "../../services/clients.ts";
@@ -63,13 +63,13 @@ export function ServiceInstanceEditor({
             form.resetFields();
         }
     }, [initialValues, form]);
-    const handleFinish = async (values: any) => {
+    const handleFinish = async (values: Partial<ServiceInstance>) => {
         return await execute(() => {
             return serviceApiClient.register(namespace, serviceId, {
                 body: {
                     ...values,
-                    metadata: JSON.parse(metadata)
-                }
+                    metadata: JSON.parse(metadata) as Record<string, string>
+                } as InstanceDto
             })
         })
     };
