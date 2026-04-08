@@ -1,18 +1,8 @@
 import type { SelectProps} from "antd";
 import {Select} from "antd";
+import {SCHEMA_SELECTOR_OPTIONS} from "./SchemaSelectorOptions.ts";
 
 export type SchemaSelectorProps = Omit<SelectProps, 'options'>
-
-export const SCHEMA_SELECTOR_OPTIONS = [
-    {
-        label: 'Http',
-        value: 'http'
-    },
-    {
-        label: 'Https',
-        value: 'https'
-    }
-]
 
 export function SchemaSelector(props: SchemaSelectorProps) {
     return (

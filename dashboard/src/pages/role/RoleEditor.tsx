@@ -19,6 +19,7 @@ import {roleApiClient} from "../../services/clients.ts";
 import {MinusCircleOutlined, PlusOutlined} from "@ant-design/icons";
 import {NamespaceSelector} from "../../components/namespace/NamespaceSelector.tsx";
 import {ResourceActionSelector} from "./ResourceActionSelector.tsx";
+import {EMPTY_ARRAY} from "./EmptyArray.ts";
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
@@ -29,8 +30,6 @@ interface RoleEditorProps {
 export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
 
 }
-
-export const EMPTY_ARRAY = []
 
 export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
     const {message} = App.useApp()

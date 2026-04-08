@@ -11,32 +11,27 @@
  * limitations under the License.
  */
 
-import React, {createContext, useContext, useCallback} from 'react';
-import {KeyStorage, typedIdentitySerializer} from "@ahoo-wang/fetcher-storage";
+
+import React, {createContext} from 'react';
 import {useKeyStorage} from "@ahoo-wang/fetcher-react";
 import {SYSTEM_NAMESPACE} from "../../pages/namespace/namespaces.ts";
+import {currentNamespaceStorage} from "./CurrentNamespaceStorage.ts";
+import type {ReactNode} from 'react';
 
-const NAMESPACE_KEY = 'cosky:ns:current';
-
-interface CurrentNamespaceContextType {
+export interface CurrentNamespaceContextType {
     currentNamespace: string;
     setCurrent: (namespace: string) => void;
     reset: () => void;
 }
 
-export const currentNamespaceStorage = new KeyStorage<string>({
-    key: NAMESPACE_KEY,
-    serializer: typedIdentitySerializer()
-})
+export const CurrentNamespaceContext = createContext<CurrentNamespaceContextType | undefined>(undefined);
 
-const CurrentNamespaceContext = createContext<CurrentNamespaceContextType | undefined>(undefined);
-
-export const CurrentNamespaceProvider: React.FC<{ children: React.ReactNode }> = ({children}) => {
+export const CurrentNamespaceProvider: React.FC<{ children: ReactNode }> = ({children}) => {
     const [currentNamespace, setCurrentNamespace] = useKeyStorage(currentNamespaceStorage, SYSTEM_NAMESPACE)
 
-    const reset = useCallback(() => {
+    const reset = () => {
         setCurrentNamespace(SYSTEM_NAMESPACE);
-    }, [setCurrentNamespace]);
+    };
 
 
     const value: CurrentNamespaceContextType = {
@@ -46,12 +41,4 @@ export const CurrentNamespaceProvider: React.FC<{ children: React.ReactNode }> =
     };
 
     return <CurrentNamespaceContext.Provider value={value}>{children}</CurrentNamespaceContext.Provider>;
-};
-
-export const useCurrentNamespaceContext = (): CurrentNamespaceContextType => {
-    const context = useContext(CurrentNamespaceContext);
-    if (!context) {
-        throw new Error('useNamespace must be used within a NamespaceProvider');
-    }
-    return context;
 };

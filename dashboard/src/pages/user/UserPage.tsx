@@ -14,7 +14,7 @@
 import {Table, Button, Space, Popconfirm, Select, App} from 'antd';
 import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useDrawer} from '../../contexts/DrawerContext.tsx';
+import {useDrawer} from '../../contexts/useDrawer.ts';
 import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
 import {userApiClient} from "../../services/clients.ts";
@@ -62,7 +62,7 @@ export function UserPage() {
             await userApiClient.bindRole(username, {body: roles});
             message.success('Role bind successfully');
             loadUsers();
-        } catch (error) {
+        } catch {
             message.error('Failed to bind role');
         }
     };
@@ -72,7 +72,7 @@ export function UserPage() {
             await userApiClient.removeUser(username);
             message.success('User deleted successfully');
             loadUsers();
-        } catch (error) {
+        } catch {
             message.error('Failed to delete user');
         }
     };
@@ -82,7 +82,7 @@ export function UserPage() {
             await userApiClient.unlock(username);
             message.success('User unlocked successfully');
             loadUsers();
-        } catch (error) {
+        } catch {
             message.error('Failed to unlock user');
         }
     };
@@ -109,7 +109,7 @@ export function UserPage() {
         {
             title: 'Action',
             key: 'action',
-            render: (_: any, record: CoSecPrincipal) => (
+            render: (_: unknown, record: CoSecPrincipal) => (
                 <Space>
                     <Popconfirm title="Ary you sure to unlock this user?"
                                 onConfirm={() => handleUnlock(record.name)}

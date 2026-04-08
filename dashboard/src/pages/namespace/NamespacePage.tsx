@@ -16,8 +16,8 @@ import {DeleteOutlined} from '@ant-design/icons';
 import {isSystemNamespace} from "./namespaces.ts";
 import {namespaceApiClient} from "../../services/clients.ts";
 import {AddNamespaceForm} from "./AddNamespaceForm.tsx";
-import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
-import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
+import {useNamespacesContext} from "../../contexts/namespace/useNamespacesContext.ts";
+import {useCurrentNamespaceContext} from "../../contexts/namespace/useCurrentNamespaceContext.ts";
 
 export function NamespacePage() {
     const {message} = App.useApp()
@@ -29,7 +29,7 @@ export function NamespacePage() {
             await namespaceApiClient.removeNamespace(namespace);
             message.success('Namespace deleted successfully');
             refresh();
-        } catch (error) {
+        } catch {
             message.error('Failed to delete namespace');
         }
     };
