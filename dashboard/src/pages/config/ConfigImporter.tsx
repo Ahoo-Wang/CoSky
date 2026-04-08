@@ -18,8 +18,8 @@ import {configApiClient} from "../../services/clients.ts";
 import Dragger from "antd/es/upload/Dragger";
 import {InboxOutlined} from "@ant-design/icons";
 import {ImportPolicySelector} from "./ImportPolicySelector.tsx";
-import {UploadChangeParam} from "antd/es/upload/interface";
-import {ImportResponse} from "../../generated";
+import type {UploadChangeParam} from "antd/es/upload/interface";
+import type {ImportResponse} from "../../generated";
 
 interface ConfigImporterProps {
     namespace: string;

@@ -1,4 +1,4 @@
-import {Node, Edge} from '@xyflow/react';
+import type {Node, Edge} from '@xyflow/react';
 
 export interface ReactFlowTopology {
     nodes: Node[];

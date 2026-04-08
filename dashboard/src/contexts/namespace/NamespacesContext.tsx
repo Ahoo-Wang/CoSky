@@ -1,5 +1,7 @@
-import {useNamespaces, UseNamespacesReturn} from "../../hooks/useNamespaces.ts";
-import {createContext, ReactNode, useContext} from "react";
+import type { UseNamespacesReturn} from "../../hooks/useNamespaces.ts";
+import {useNamespaces} from "../../hooks/useNamespaces.ts";
+import type { ReactNode} from "react";
+import {createContext, useContext} from "react";
 
 export type NamespacesContextType = UseNamespacesReturn
 

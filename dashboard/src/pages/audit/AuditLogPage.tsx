@@ -12,11 +12,11 @@
  */
 
 import {Table} from 'antd';
-import {AuditLog, QueryLogResponse} from '../../generated';
+import type {AuditLog, QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {auditLogApiClient} from "../../services/clients.ts";
-import {ColumnsType} from "antd/es/table/interface";
+import type {ColumnsType} from "antd/es/table/interface";
 
 type Paging = {
     pageIndex: number;

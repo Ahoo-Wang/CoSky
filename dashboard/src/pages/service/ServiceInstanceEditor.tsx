@@ -12,7 +12,7 @@
  */
 
 import {Form, Input, InputNumber, Button, Space, Switch, Divider, App} from 'antd';
-import {ServiceInstance} from "../../generated";
+import type {ServiceInstance} from "../../generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {useEffect, useState} from "react";
 import {serviceApiClient} from "../../services/clients.ts";

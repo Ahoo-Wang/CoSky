@@ -14,8 +14,8 @@
 import {Button, Table} from 'antd';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
-import {ConfigVersion} from "../../generated";
-import {ColumnsType} from "antd/es/table/interface";
+import type {ConfigVersion} from "../../generated";
+import type {ColumnsType} from "antd/es/table/interface";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
 import {HistoryOutlined} from "@ant-design/icons";

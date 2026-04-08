@@ -1,6 +1,6 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
-import {Config, ConfigHistory} from "../../generated";
+import type {Config, ConfigHistory} from "../../generated";
 import {App, Button, Descriptions, Divider, Popconfirm, Skeleton} from "antd";
 import {DiffEditor} from "@monaco-editor/react";
 import {getFileNameWithExt} from "./fileNames.ts";

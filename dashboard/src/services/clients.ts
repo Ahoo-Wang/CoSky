@@ -8,7 +8,7 @@ import {
     UserApiClient
 } from "../generated";
 import {createExecuteApiHooks} from "@ahoo-wang/fetcher-react";
-import {ExchangeError} from "@ahoo-wang/fetcher";
+import type {ExchangeError} from "@ahoo-wang/fetcher";
 
 export const authenticateApiClient = new AuthenticateApiClient();
 export const authenticateApiHooks = createExecuteApiHooks<AuthenticateApiClient, ExchangeError>({api: authenticateApiClient})

@@ -1,6 +1,8 @@
 import { memo } from 'react';
-import { Handle, Position, NodeProps } from '@xyflow/react';
-import { NodeType, NODE_TYPE_COLORS } from './topologies.ts';
+import type { NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
+import type { NodeType} from './topologies.ts';
+import { NODE_TYPE_COLORS } from './topologies.ts';
 
 export interface ServiceNodeData {
     label: string;

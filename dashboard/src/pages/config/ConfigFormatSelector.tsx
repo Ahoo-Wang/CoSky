@@ -1,4 +1,5 @@
-import {Select, SelectProps} from "antd";
+import type { SelectProps} from "antd";
+import {Select} from "antd";
 
 export interface ConfigFormatSelectorProps extends Omit<SelectProps, 'options'> {
 

@@ -11,8 +11,10 @@
  * limitations under the License.
  */
 
-import React, {createContext, useContext, useState, ReactNode} from 'react';
-import {Drawer, DrawerProps} from 'antd';
+import type { ReactNode} from 'react';
+import React, {createContext, useContext, useState} from 'react';
+import type { DrawerProps} from 'antd';
+import {Drawer} from 'antd';
 
 interface DrawerContextType {
     openDrawer: (content: ReactNode, props?: Partial<DrawerProps>) => void;
