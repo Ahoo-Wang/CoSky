@@ -13,19 +13,19 @@ importers:
         version: 3.15.0
       '@ahoo-wang/fetcher-cosec':
         specifier: ^3.15.0
-        version: 3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0)
+        version: 3.15.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-decorator':
         specifier: ^3.15.0
         version: 3.15.0(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-react':
         specifier: ^3.15.0
-        version: 3.15.0(@ahoo-wang/fetcher-cosec@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 3.15.0(@ahoo-wang/fetcher-cosec@3.15.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@ahoo-wang/fetcher-storage':
         specifier: ^3.15.0
         version: 3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))
       '@ahoo-wang/fetcher-viewer':
         specifier: ^3.15.0
-        version: 3.15.0(cc9787d0353c6f8eef870ed7b83dd6ea)
+        version: 3.15.0(7899a6acc5569f5960e81db6babc0ed8)
       '@ant-design/icons':
         specifier: ^6.1.1
         version: 6.1.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -114,8 +114,8 @@ importers:
 
 packages:
 
-  '@ahoo-wang/fetcher-cosec@3.15.0':
-    resolution: {integrity: sha512-6rwuUxifcMcUeaXfZFiIEmaVaXfiM8gCIDB8tPA5NLIso3ZRqctt66kRRwqrJO3USOcS93rwTtJu2ARPYx5Isg==}
+  '@ahoo-wang/fetcher-cosec@3.15.2':
+    resolution: {integrity: sha512-IDuWm4Y4xlMGPGPM8rkfph9fSoGMn3flU0Ky7+IOdUiBzVlyhgs/yJ7+UpdCYf7JSyEB6Cyfe4leGv3Pz9X8iQ==}
     peerDependencies:
       '@ahoo-wang/fetcher': ^3.0.0
       '@ahoo-wang/fetcher-eventbus': ^3.0.0
@@ -1914,7 +1914,7 @@ packages:
 
 snapshots:
 
-  '@ahoo-wang/fetcher-cosec@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0)':
+  '@ahoo-wang/fetcher-cosec@3.15.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0)':
     dependencies:
       '@ahoo-wang/fetcher': 3.15.0
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.15.0)
@@ -1947,10 +1947,10 @@ snapshots:
 
   '@ahoo-wang/fetcher-openapi@3.4.6': {}
 
-  '@ahoo-wang/fetcher-react@3.15.0(@ahoo-wang/fetcher-cosec@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@ahoo-wang/fetcher-react@3.15.0(@ahoo-wang/fetcher-cosec@3.15.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@ahoo-wang/fetcher': 3.15.0
-      '@ahoo-wang/fetcher-cosec': 3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0)
+      '@ahoo-wang/fetcher-cosec': 3.15.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-eventstream': 3.4.6(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-storage': 3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))
@@ -1963,14 +1963,14 @@ snapshots:
     dependencies:
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.15.0)
 
-  '@ahoo-wang/fetcher-viewer@3.15.0(cc9787d0353c6f8eef870ed7b83dd6ea)':
+  '@ahoo-wang/fetcher-viewer@3.15.0(7899a6acc5569f5960e81db6babc0ed8)':
     dependencies:
       '@ahoo-wang/fetcher': 3.15.0
       '@ahoo-wang/fetcher-decorator': 3.15.0(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-eventbus': 3.4.6(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-eventstream': 3.4.6(@ahoo-wang/fetcher@3.15.0)
       '@ahoo-wang/fetcher-openapi': 3.4.6
-      '@ahoo-wang/fetcher-react': 3.15.0(@ahoo-wang/fetcher-cosec@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@ahoo-wang/fetcher-react': 3.15.0(@ahoo-wang/fetcher-cosec@3.15.2(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-storage@3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0)))(@ahoo-wang/fetcher-wow@3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@ahoo-wang/fetcher-storage': 3.15.0(@ahoo-wang/fetcher-eventbus@3.4.6(@ahoo-wang/fetcher@3.15.0))
       '@ahoo-wang/fetcher-wow': 3.4.6(@ahoo-wang/fetcher-decorator@3.15.0(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher-eventstream@3.4.6(@ahoo-wang/fetcher@3.15.0))(@ahoo-wang/fetcher@3.15.0)
       '@ant-design/icons': 6.1.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
