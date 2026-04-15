@@ -23,7 +23,7 @@ import type {GetStatResponse} from '../../generated';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {statApiClient} from "../../services/clients.ts";
 import {Topology} from "../../components/topology/Topology.tsx";
-import {useRef, useEffect, useState} from "react";
+import {useRef, useEffect, useState, useCallback} from "react";
 import {Fullscreen} from "@ahoo-wang/fetcher-viewer";
 
 /* === Count-up Animation Hook === */
@@ -85,15 +85,17 @@ export function DashboardPage() {
     const configs = useCountUp(stat.configs);
     const services = useCountUp(stat.services.health);
 
+    const startAnimations = useCallback(() => {
+        namespaces.start();
+        instances.start();
+        configs.start();
+        services.start();
+    }, [namespaces, instances, configs, services]);
+
     useEffect(() => {
-        const timer = setTimeout(() => {
-            namespaces.start();
-            instances.start();
-            configs.start();
-            services.start();
-        }, 300);
+        const timer = setTimeout(startAnimations, 300);
         return () => clearTimeout(timer);
-    }, []);
+    }, [startAnimations]);
 
     const cardsData: CardData[] = [
         {
