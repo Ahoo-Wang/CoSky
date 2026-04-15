@@ -1,7 +1,7 @@
 {
   "name": "cosky-dashboard",
   "private": true,
-  "version": "5.5.3",
+  "version": "5.5.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
