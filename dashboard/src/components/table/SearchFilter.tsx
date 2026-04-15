@@ -23,6 +23,7 @@ interface SearchFilterProps {
     onReset?: () => void;
 }
 
+ 
 export function SearchFilter({
     placeholder = 'Search...',
     value,
@@ -57,6 +58,7 @@ export function SearchFilter({
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSearchFilter(dropdownProps: FilterDropdownProps) {
     const {setSelectedKeys, selectedKeys, confirm, clearFilters} = dropdownProps;
 
