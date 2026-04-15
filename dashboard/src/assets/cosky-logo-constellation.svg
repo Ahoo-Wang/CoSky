@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-labelledby="cosky-title-a cosky-desc-a">
+  <title id="cosky-title-a">CoSky Logo</title>
+  <desc id="cosky-desc-a">Hexagon frame with white constellation nodes</desc>
+  <defs>
+    <linearGradient id="gradient-a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#e0e7ff"/>
+    </linearGradient>
+    <linearGradient id="hex-stroke-a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff" stop-opacity="0.9"/>
+      <stop offset="100%" style="stop-color:#c7d2fe" stop-opacity="0.7"/>
+    </linearGradient>
+    <linearGradient id="node-center-a" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#a5b4fc"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Hexagon outer frame -->
+  <polygon
+    points="50,5 93,27.5 93,72.5 50,95 7,72.5 7,27.5"
+    fill="none"
+    stroke="url(#hex-stroke-a)"
+    stroke-width="2.5"
+    stroke-linejoin="round"
+  />
+
+  <!-- Constellation network -->
+  <g id="constellation-a">
+    <!-- Connection lines (subtle white) -->
+    <g stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.5">
+      <line x1="50" y1="50" x2="50" y2="28"/>
+      <line x1="50" y1="50" x2="70" y2="40"/>
+      <line x1="50" y1="50" x2="70" y2="65"/>
+      <line x1="50" y1="50" x2="50" y2="72"/>
+      <line x1="50" y1="50" x2="30" y2="65"/>
+      <line x1="50" y1="50" x2="30" y2="40"/>
+      <line x1="50" y1="28" x2="70" y2="40"/>
+      <line x1="70" y1="40" x2="70" y2="65"/>
+      <line x1="70" y1="65" x2="50" y2="72"/>
+      <line x1="50" y1="72" x2="30" y2="65"/>
+      <line x1="30" y1="65" x2="30" y2="40"/>
+      <line x1="30" y1="40" x2="50" y2="28"/>
+    </g>
+
+    <!-- Star nodes (white/bright) -->
+    <circle cx="50" cy="50" r="9" fill="url(#node-center-a)"/>
+    <circle cx="50" cy="28" r="6" fill="url(#gradient-a)"/>
+    <circle cx="70" cy="40" r="5" fill="url(#gradient-a)" opacity="0.9"/>
+    <circle cx="70" cy="65" r="6" fill="url(#gradient-a)"/>
+    <circle cx="50" cy="72" r="5" fill="url(#gradient-a)" opacity="0.9"/>
+    <circle cx="30" cy="65" r="6" fill="url(#gradient-a)"/>
+    <circle cx="30" cy="40" r="5" fill="url(#gradient-a)" opacity="0.9"/>
+  </g>
+
+  <!-- Sparkle accents -->
+  <g fill="#ffffff" opacity="0.9">
+    <circle cx="45" cy="35" r="1.5"/>
+    <circle cx="62" cy="55" r="1.2"/>
+    <circle cx="38" cy="58" r="1"/>
+    <circle cx="58" cy="42" r="1.2"/>
+  </g>
+</svg>

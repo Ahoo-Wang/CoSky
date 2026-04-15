@@ -34,6 +34,7 @@ import {ChangePwd} from "../security/ChangePwd.tsx";
 import {ErrorBoundary} from "../error/ErrorBoundary.tsx";
 import {useLayoutCollapsed} from "../../hooks/useLayoutCollapsed.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import CoskyLogo from "../../assets/cosky-logo-constellation.svg";
 
 const {Header, Sider, Content, Footer} = Layout;
 
@@ -149,17 +150,29 @@ export const AuthenticatedLayout: React.FC = () => {
                         color: 'white',
                         textDecoration: 'none',
                         transition: 'opacity 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
                     }}
                              onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
                              onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}>
-                        <h1 style={{
-                            margin: 0,
-                            fontSize: collapsed ? 18 : 24,
-                            fontWeight: 600,
-                            letterSpacing: '0.5px',
-                        }}>
-                            {collapsed ? 'CS' : 'CoSky'}
-                        </h1>
+                        <img
+                            src={CoskyLogo}
+                            alt="CoSky"
+                            style={{
+                                height: collapsed ? 28 : 32,
+                                width: 'auto',
+                            }}
+                        />
+                        {!collapsed && (
+                            <span style={{
+                                fontSize: 20,
+                                fontWeight: 600,
+                                letterSpacing: '0.5px',
+                            }}>
+                                CoSky
+                            </span>
+                        )}
                     </NavLink>
 
                 </div>

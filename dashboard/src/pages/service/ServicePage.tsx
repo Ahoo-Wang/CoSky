@@ -24,6 +24,8 @@ import type {ColumnsType} from "antd/es/table/interface";
 import {type FilterDropdownProps} from "antd/es/table/interface";
 import React from "react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {PageHeader} from "../../components/layout/PageHeader.tsx";
+import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
 
 export function ServicePage() {
     const {message} = App.useApp()
@@ -140,40 +142,25 @@ export function ServicePage() {
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>Service</h2>
-                <AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>
-            </div>
-            <Table
-                columns={columns}
-                pagination={{
-                    showSizeChanger: true
-                }}
-                dataSource={services}
-                loading={loading}
-                rowKey='serviceId'
-                expandable={{
-                    expandedRowRender,
-                    rowExpandable: (record) => record.instanceCount > 0,
-                }}
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
+            <PageHeader
+                title="Service"
+                actions={<AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>}
             />
+            <DataTableWrapper>
+                <Table
+                    columns={columns}
+                    pagination={{
+                        showSizeChanger: true
+                    }}
+                    dataSource={services}
+                    loading={loading}
+                    rowKey='serviceId'
+                    expandable={{
+                        expandedRowRender,
+                        rowExpandable: (record) => record.instanceCount > 0,
+                    }}
+                />
+            </DataTableWrapper>
         </div>
     );
 }

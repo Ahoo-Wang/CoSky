@@ -13,11 +13,12 @@
 
 import {useEffect} from 'react';
 import {Form, Input, Button, Card, Typography, App} from 'antd';
-import {UserOutlined, LockOutlined, CloudOutlined, GithubOutlined} from '@ant-design/icons';
+import {UserOutlined, LockOutlined, GithubOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiHooks} from "../../services/clients.ts";
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
 import './LoginPage.css';
+import CoskyLogo from "../../assets/cosky-logo-constellation.svg";
 import type {ErrorResponse} from "../../generated";
 import type {ExchangeError} from "@ahoo-wang/fetcher";
 
@@ -27,8 +28,6 @@ interface LoginFormValues {
     username: string;
     password: string;
 }
-
-const ICON_COLOR = '#999';
 
 export function LoginPage() {
     const {message} = App.useApp()
@@ -63,83 +62,94 @@ export function LoginPage() {
     };
 
     return (
-        <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '100vh',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            padding: '20px',
-        }}>
-            <Card
-                style={{
-                    width: '100%',
-                    maxWidth: 420,
-                    boxShadow: '0 20px 60px rgba(0, 0, 0, 0.3)',
-                    borderRadius: 16,
-                    border: 'none',
-                    overflow: 'hidden',
-                    animation: 'fadeInUp 0.6s ease-out',
-                }}
-                styles={{
-                    body: {
-                        padding: '48px 40px',
-                    }
-                }}
-            >
-                <div style={{textAlign: 'center', marginBottom: 40}}>
-                    <div style={{
+        <div className="login-container">
+            {/* Circuit lines */}
+            <div className="login-circuit"/>
+
+            {/* Floating particles */}
+            <div className="login-particles">
+                <div className="login-particle"/>
+                <div className="login-particle"/>
+                <div className="login-particle"/>
+                <div className="login-particle"/>
+                <div className="login-particle"/>
+            </div>
+
+            <Card className="login-card">
+                {/* Status indicator */}
+                <div className="login-status">
+                    <span className="login-status-dot"/>
+                    <span>Secure</span>
+                </div>
+
+                {/* Corner decorators */}
+                <div className="login-decorator login-decorator-top-left"/>
+                <div className="login-decorator login-decorator-top-right"/>
+                <div className="login-decorator login-decorator-bottom-left"/>
+                <div className="login-decorator login-decorator-bottom-right"/>
+
+                {/* Logo Section */}
+                <div style={{textAlign: 'center', marginBottom: 40, position: 'relative'}}>
+                    <div className="login-logo-glow"/>
+                    <div className="login-logo-ring"/>
+                    <div className="login-logo-container" style={{
                         display: 'inline-flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        width: 80,
-                        height: 80,
+                        width: 100,
+                        height: 100,
                         borderRadius: '50%',
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        marginBottom: 24,
-                        boxShadow: '0 8px 24px rgba(102, 126, 234, 0.4)',
+                        boxShadow: '0 8px 32px rgba(102, 126, 234, 0.5)',
+                        position: 'relative',
+                        zIndex: 1,
                     }}>
-                        <CloudOutlined style={{fontSize: 40, color: '#fff'}}/>
+                        <img
+                            src={CoskyLogo}
+                            alt="CoSky Logo"
+                            style={{
+                                width: 65,
+                                height: 65,
+                                objectFit: 'contain',
+                            }}
+                        />
                     </div>
-                    <Title level={2} style={{marginBottom: 8, fontWeight: 600}}>
-                        Welcome to CoSky
+                    <Title level={2} className="login-title" style={{marginBottom: 8, marginTop: 24, fontWeight: 600}}>
+                        CoSky
                     </Title>
-                    <Text type="secondary" style={{fontSize: 14}}>
-                        Sign in to manage your services
+                    <Text style={{color: 'rgba(255, 255, 255, 0.6)', fontSize: 14}}>
+                        Microservice Governance Platform
                     </Text>
                 </div>
+
+                {/* Login Form */}
                 <Form
                     form={form}
                     name="login"
                     onFinish={handleSubmit}
                     autoComplete="off"
                     size="large"
+                    className="login-form"
                 >
                     <Form.Item
                         name="username"
                         rules={[{required: true, message: 'Please input your username!'}]}
+                        style={{marginBottom: 24}}
                     >
                         <Input
-                            prefix={<UserOutlined style={{color: ICON_COLOR}}/>}
+                            prefix={<UserOutlined/>}
                             placeholder="Username"
-                            style={{
-                                borderRadius: 8,
-                                padding: '12px 16px',
-                            }}
                         />
                     </Form.Item>
 
                     <Form.Item
                         name="password"
                         rules={[{required: true, message: 'Please input your password!'}]}
+                        style={{marginBottom: 32}}
                     >
                         <Input.Password
-                            prefix={<LockOutlined style={{color: ICON_COLOR}}/>}
+                            prefix={<LockOutlined/>}
                             placeholder="Password"
-                            style={{
-                                borderRadius: 8,
-                                padding: '12px 16px',
-                            }}
                         />
                     </Form.Item>
 
@@ -150,41 +160,19 @@ export function LoginPage() {
                             block
                             loading={loading}
                             className="login-submit-button"
-                            style={{
-                                height: 48,
-                                borderRadius: 8,
-                                fontSize: 16,
-                                fontWeight: 500,
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                border: 'none',
-                            }}
                         >
                             Sign In
                         </Button>
                     </Form.Item>
                 </Form>
-                <div style={{
-                    marginTop: 24,
-                    textAlign: 'center',
-                }}>
+
+                {/* Footer */}
+                <div style={{marginTop: 32, textAlign: 'center'}}>
                     <a
                         href="https://github.com/Ahoo-Wang/CoSky"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{
-                            color: ICON_COLOR,
-                            fontSize: 20,
-                            transition: 'color 0.3s ease, transform 0.3s ease',
-                            display: 'inline-block',
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.color = '#667eea';
-                            e.currentTarget.style.transform = 'scale(1.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.color = ICON_COLOR;
-                            e.currentTarget.style.transform = 'scale(1)';
-                        }}
+                        className="login-github-link"
                     >
                         <GithubOutlined/>
                     </a>
