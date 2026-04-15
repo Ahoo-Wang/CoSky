@@ -23,3 +23,21 @@ package-lock.json
 *.njsproj
 *.sln
 *.sw?
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Testing
+coverage/
+*.lcov
+
+# OS
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.cache/

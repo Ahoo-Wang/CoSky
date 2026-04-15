@@ -31,6 +31,8 @@ import {ConfigImporter} from "./ConfigImporter.tsx";
 import {saveAs} from 'file-saver';
 import dayjs from "dayjs";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {PageHeader} from "../../components/layout/PageHeader.tsx";
+import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
 
 type ListConfig = { configId: string }
 
@@ -171,55 +173,42 @@ export const ConfigPage: React.FC = () => {
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>Configuration</h2>
-                <Space size="middle">
-                    <Button type="primary" icon={<PlusOutlined/>}
-                            onClick={() => handleEditConfig()}
-                            size="large"
-                    >
-                        Add
-                    </Button>
-                    <Button icon={<ImportOutlined/>}
-                            onClick={handleImportConfig}
-                            size="large"
-                    >
-                        Import
-                    </Button>
-                    <Button icon={<ExportOutlined/>} loading={exportLoading}
-                            onClick={handleExport}
-                            size="large"
-                    >
-                        Export
-                    </Button>
-                </Space>
-            </div>
-            <Table
-                columns={columns}
-                dataSource={configs}
-                rowKey="configId"
-                loading={loading}
-                expandable={{
-                    expandedRowRender
-                }}
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
+            <PageHeader
+                title="Configuration"
+                actions={
+                    <>
+                        <Button type="primary" icon={<PlusOutlined/>}
+                                onClick={() => handleEditConfig()}
+                                size="large"
+                        >
+                            Add
+                        </Button>
+                        <Button icon={<ImportOutlined/>}
+                                onClick={handleImportConfig}
+                                size="large"
+                        >
+                            Import
+                        </Button>
+                        <Button icon={<ExportOutlined/>} loading={exportLoading}
+                                onClick={handleExport}
+                                size="large"
+                        >
+                            Export
+                        </Button>
+                    </>
+                }
             />
+            <DataTableWrapper>
+                <Table
+                    columns={columns}
+                    dataSource={configs}
+                    rowKey="configId"
+                    loading={loading}
+                    expandable={{
+                        expandedRowRender
+                    }}
+                />
+            </DataTableWrapper>
         </div>
     );
 };
