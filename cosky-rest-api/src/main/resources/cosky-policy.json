@@ -37,7 +37,7 @@
             "/",
             "/index.html",
             "/assets/**",
-            "/favicon.ico",
+            "/favicon.svg",
             "/login",
             "/home",
             "/config",
