@@ -1,5 +1,9 @@
 # [CoSky](https://github.com/Ahoo-Wang/CoSky) - 高性能、低成本微服务治理平台
 
+<p align="center">
+     <img src="./docs/cosky-logo.svg" alt="CoSky Logo" width="200"/>
+</p>
+
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![GitHub release](https://img.shields.io/github/release/Ahoo-Wang/CoSky.svg)](https://github.com/Ahoo-Wang/CoSky/releases)
 [![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-core)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
