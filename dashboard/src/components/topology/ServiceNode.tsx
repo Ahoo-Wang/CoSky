@@ -1,15 +1,8 @@
 import { memo } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
-import type { NodeType} from './topologies.ts';
-import { NODE_TYPE_COLORS } from './topologies.ts';
-
-export interface ServiceNodeData {
-    label: string;
-    nodeType: NodeType;
-    inDegree: number;
-    outDegree: number;
-}
+import type {ServiceNodeData} from './topologies.ts';
+import {NODE_TYPE_COLORS} from './topologies.ts';
 
 export const ServiceNode = memo(({ data, selected }: NodeProps) => {
     const nodeData = data as unknown as ServiceNodeData;
