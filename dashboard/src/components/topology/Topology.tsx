@@ -1,7 +1,7 @@
 import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
-import {useMemo, useState, useCallback} from "react";
+import {useMemo, useState, useCallback, useEffect} from "react";
 import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
 import {Skeleton, Input} from "antd";
 import type {
@@ -14,7 +14,7 @@ import {
     Controls,
     MiniMap,
     ReactFlow,
-    Panel
+    applyNodeChanges, Panel
 } from "@xyflow/react";
 import type { ServiceNodeData} from "./ServiceNode.tsx";
 import {ServiceNode} from "./ServiceNode.tsx";
@@ -41,7 +41,8 @@ export function Topology() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
-    const [positionOverrides, setPositionOverrides] = useState<Map<string, {x: number, y: number}>>(new Map());
+    const [internalNodes, setInternalNodes] = useState<Node[]>([]);
+
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
@@ -57,14 +58,10 @@ export function Topology() {
         };
     }, [result]);
 
-    // Derive nodes with position overrides applied
-    const internalNodes = useMemo(() => {
-        if (positionOverrides.size === 0) return baseNodes;
-        return baseNodes.map(node => {
-            const pos = positionOverrides.get(node.id);
-            return pos ? {...node, position: pos} : node;
-        });
-    }, [baseNodes, positionOverrides]);
+    // Update internal nodes when base topology changes
+    useEffect(() => {
+        setInternalNodes(baseNodes);
+    }, [baseNodes]);
 
     // Apply search filtering and highlighting
     const {nodes, edges} = useMemo(() => {
@@ -179,15 +176,7 @@ export function Topology() {
 
     // Handle node position changes (for dragging)
     const onNodesChange: OnNodesChange = useCallback((changes) => {
-        setPositionOverrides(prev => {
-            const next = new Map(prev);
-            for (const change of changes) {
-                if (change.type === 'position' && change.position) {
-                    next.set(change.id, change.position);
-                }
-            }
-            return next;
-        });
+        setInternalNodes((nds) => applyNodeChanges(changes, nds));
     }, []);
 
     if (loading) {
