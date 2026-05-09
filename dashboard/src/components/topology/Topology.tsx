@@ -1,22 +1,25 @@
 import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {statApiClient} from "../../services/clients.ts";
-import {useMemo, useState, useCallback, useEffect} from "react";
-import {toReactFlowTopology, NODE_TYPE_COLORS} from "./topologies.ts";
+import {useMemo, useState, useCallback} from "react";
+import {
+    toReactFlowTopology,
+    NODE_TYPE_COLORS,
+    HIGHLIGHT_COLOR,
+    DIM_OPACITY,
+    getConnectedNodeIds,
+    isServiceNodeData,
+} from "./topologies.ts";
 import {Skeleton, Input} from "antd";
-import type {
-    NodeMouseHandler,
-    Node,
-    Edge,
-    OnNodesChange} from "@xyflow/react";
+import type {Node, Edge, NodeMouseHandler, OnNodesChange} from "@xyflow/react";
 import {
     Background,
     Controls,
     MiniMap,
     ReactFlow,
-    applyNodeChanges, Panel
+    Panel,
+    applyNodeChanges,
 } from "@xyflow/react";
-import type { ServiceNodeData} from "./ServiceNode.tsx";
 import {ServiceNode} from "./ServiceNode.tsx";
 import {SearchOutlined} from "@ant-design/icons";
 import '@xyflow/react/dist/style.css';
@@ -25,23 +28,10 @@ const nodeTypes = {
     default: ServiceNode,
 };
 
-// Type guard to safely check if node data is ServiceNodeData
-function isServiceNodeData(data: unknown): data is ServiceNodeData {
-    return (
-        typeof data === 'object' &&
-        data !== null &&
-        'label' in data &&
-        'nodeType' in data &&
-        'inDegree' in data &&
-        'outDegree' in data
-    );
-}
-
 export function Topology() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
-    const [internalNodes, setInternalNodes] = useState<Node[]>([]);
 
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
@@ -58,123 +48,87 @@ export function Topology() {
         };
     }, [result]);
 
-    // Update internal nodes when base topology changes
-    useEffect(() => {
+    const [internalNodes, setInternalNodes] = useState(baseNodes);
+    // getDerivedStateFromProps pattern: sync when baseNodes reference changes
+    const [prevBaseNodes, setPrevBaseNodes] = useState(baseNodes);
+    if (prevBaseNodes !== baseNodes) {
+        setPrevBaseNodes(baseNodes);
         setInternalNodes(baseNodes);
-    }, [baseNodes]);
+    }
 
-    // Apply search filtering and highlighting
     const {nodes, edges} = useMemo(() => {
+        const hasSearch = searchTerm.length > 0;
+        const hasHighlight = highlightedNodes.size > 0;
+
+        if (!hasSearch && !hasHighlight) {
+            return {nodes: internalNodes, edges: baseEdges};
+        }
+
         const searchLower = searchTerm.toLowerCase();
         const matchedNodeIds = new Set<string>();
 
-        // Find nodes that match search term
-        if (searchTerm) {
-            internalNodes.forEach(node => {
+        if (hasSearch) {
+            for (const node of internalNodes) {
                 if (isServiceNodeData(node.data) &&
                     node.data.label.toLowerCase().includes(searchLower)) {
                     matchedNodeIds.add(node.id);
                 }
-            });
+            }
         }
 
-        // Determine which nodes to highlight
-        const nodesToHighlight = highlightedNodes.size > 0
-            ? highlightedNodes
-            : matchedNodeIds;
+        const nodesToHighlight = hasHighlight ? highlightedNodes : matchedNodeIds;
 
-        // Update node styles for highlighting
         const updatedNodes: Node[] = internalNodes.map(node => {
             const isHighlighted = nodesToHighlight.has(node.id);
             const isSearchMatch = matchedNodeIds.has(node.id);
 
-            let style = {...node.style};
-
-            if (searchTerm && !isSearchMatch) {
-                // Dim non-matching nodes during search
-                style = {
-                    ...style,
-                    opacity: 0.3,
-                };
-            } else if (highlightedNodes.size > 0 && !isHighlighted) {
-                // Dim non-highlighted nodes when a node is clicked
-                style = {
-                    ...style,
-                    opacity: 0.3,
-                };
-            } else if (isSearchMatch) {
-                // Highlight search matches
-                style = {
-                    ...style,
-                    boxShadow: '0 0 10px 3px rgba(255, 215, 0, 0.8)',
-                    border: '2px solid #ffd700',
+            if (hasSearch && !isSearchMatch) {
+                return {...node, style: {...node.style, opacity: DIM_OPACITY}};
+            }
+            if (hasHighlight && !isHighlighted) {
+                return {...node, style: {...node.style, opacity: DIM_OPACITY}};
+            }
+            if (isSearchMatch) {
+                return {
+                    ...node,
+                    style: {
+                        ...node.style,
+                        boxShadow: `0 0 10px 3px ${HIGHLIGHT_COLOR}cc`,
+                        border: `2px solid ${HIGHLIGHT_COLOR}`,
+                    },
                 };
             }
-
-            return {
-                ...node,
-                style,
-            };
+            return node;
         });
 
-        // Update edge styles for highlighting
         const updatedEdges: Edge[] = baseEdges.map(edge => {
             const isConnected =
                 nodesToHighlight.has(edge.source) ||
                 nodesToHighlight.has(edge.target);
 
-            let style = {...edge.style};
-
             if (nodesToHighlight.size > 0 && !isConnected) {
-                // Dim non-connected edges
-                style = {
-                    ...style,
-                    opacity: 0.2,
-                };
-            } else if (isConnected) {
-                // Highlight connected edges
-                style = {
-                    ...style,
-                    strokeWidth: 3,
-                    stroke: '#ffd700',
+                return {...edge, style: {...edge.style, opacity: 0.2}};
+            }
+            if (isConnected) {
+                return {
+                    ...edge,
+                    style: {...edge.style, strokeWidth: 3, stroke: HIGHLIGHT_COLOR},
                 };
             }
-
-            return {
-                ...edge,
-                style,
-            };
+            return edge;
         });
 
-        return {
-            nodes: updatedNodes,
-            edges: updatedEdges,
-        };
+        return {nodes: updatedNodes, edges: updatedEdges};
     }, [internalNodes, baseEdges, searchTerm, highlightedNodes]);
 
-    // Handle node click to highlight connected nodes
     const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
-        const connectedNodes = new Set([node.id]);
-
-        // Find all connected nodes (both incoming and outgoing)
-        baseEdges.forEach(edge => {
-            if (edge.source === node.id) {
-                connectedNodes.add(edge.target);
-            }
-            if (edge.target === node.id) {
-                connectedNodes.add(edge.source);
-            }
-        });
-
-        setHighlightedNodes(connectedNodes);
+        setHighlightedNodes(getConnectedNodeIds(node.id, baseEdges));
     }, [baseEdges]);
 
-    // Clear highlights when clicking on pane
     const onPaneClick = useCallback(() => {
         setHighlightedNodes(new Set());
     }, []);
 
-    // Handle node position changes (for dragging)
     const onNodesChange: OnNodesChange = useCallback((changes) => {
         setInternalNodes((nds) => applyNodeChanges(changes, nds));
     }, []);
@@ -202,7 +156,6 @@ export function Topology() {
                 borderRadius: '8px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
             }}>
-                {/* Search Input */}
                 <Input
                     placeholder="Search nodes..."
                     prefix={<SearchOutlined/>}
@@ -216,9 +169,9 @@ export function Topology() {
             <MiniMap
                 nodeColor={(node) => {
                     if (isServiceNodeData(node.data)) {
-                        return NODE_TYPE_COLORS[node.data.nodeType].backgroundColor;
+                        return NODE_TYPE_COLORS[node.data.nodeType]?.backgroundColor
+                            ?? NODE_TYPE_COLORS.intermediate.backgroundColor;
                     }
-                    // Fallback color for unexpected node data
                     return NODE_TYPE_COLORS.intermediate.backgroundColor;
                 }}
                 maskColor="rgba(0, 0, 0, 0.1)"

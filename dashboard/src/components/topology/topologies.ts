@@ -7,7 +7,16 @@ export interface ReactFlowTopology {
 
 export type NodeType = 'source' | 'target' | 'intermediate';
 
-// Node type color configuration
+export interface ServiceNodeData {
+    label: string;
+    nodeType: NodeType;
+    inDegree: number;
+    outDegree: number;
+}
+
+export const HIGHLIGHT_COLOR = '#ffd700';
+export const DIM_OPACITY = 0.3;
+
 export const NODE_TYPE_COLORS = {
     source: {
         backgroundColor: '#1890ff',
@@ -25,6 +34,30 @@ export const NODE_TYPE_COLORS = {
         borderColor: '#531dab'
     }
 } as const;
+
+export function isServiceNodeData(data: unknown): data is ServiceNodeData {
+    return (
+        typeof data === 'object' &&
+        data !== null &&
+        'label' in data &&
+        'nodeType' in data &&
+        'inDegree' in data &&
+        'outDegree' in data &&
+        typeof (data as Record<string, unknown>).label === 'string' &&
+        ((data as Record<string, unknown>).nodeType === 'source' ||
+            (data as Record<string, unknown>).nodeType === 'target' ||
+            (data as Record<string, unknown>).nodeType === 'intermediate')
+    );
+}
+
+export function getConnectedNodeIds(nodeId: string, edges: Edge[]): Set<string> {
+    const connected = new Set([nodeId]);
+    for (const edge of edges) {
+        if (edge.source === nodeId) connected.add(edge.target);
+        if (edge.target === nodeId) connected.add(edge.source);
+    }
+    return connected;
+}
 
 export function toReactFlowTopology(
     topology: Record<string, string[]>
