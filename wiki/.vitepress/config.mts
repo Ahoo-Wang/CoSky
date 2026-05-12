@@ -9,6 +9,9 @@ export default defineConfig({
   lastUpdated: true,
   cleanUrls: true,
   ignoreDeadLinks: true,
+  sitemap: {
+    hostname: 'https://cosky.ahoo.tech',
+  },
   themeConfig: {
     search: {
       provider: 'local',
