@@ -12,7 +12,7 @@
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Ahoo-Wang/CoSky)
 
-> [English Document](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md)
+> [中文文档](https://cosky.ahoo.me/zh/) | [English Document](https://cosky.ahoo.me/)
 
 *[CoSky](https://github.com/Ahoo-Wang/CoSky)* 是一个轻量级、低成本的服务注册、服务发现、配置服务 SDK，通过使用现有基础设施中的 Redis（相信您已经部署了 Redis），无需给运维部署带来额外的成本与负担。借助 Redis 的高性能，*CoSky* 提供了超高的 TPS&QPS (10W+/s [JMH 基准测试](#jmh-benchmark))。*CoSky* 结合本地进程缓存策略 + *Redis PubSub*，实现实时进程缓存刷新，兼具无与伦比的 QPS 性能 (7000W+/s [JMH 基准测试](#jmh-benchmark)) 和进程缓存与 Redis 的实时一致性。
 

@@ -12,7 +12,7 @@
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Ahoo-Wang/CoSky)
 
-> [中文文档](https://github.com/Ahoo-Wang/CoSky/blob/main/README.zh-CN.md)
+> [中文文档](https://cosky.ahoo.me/zh/) | [English Document](https://cosky.ahoo.me/)
 
 *[CoSky](https://github.com/Ahoo-Wang/CoSky)* is a lightweight, low-cost service registration, service discovery, and
 configuration service SDK. By leveraging Redis in your existing infrastructure (which you've likely already deployed),
