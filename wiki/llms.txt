@@ -1,0 +1,54 @@
+# CoSky
+
+> High-Performance Microservice Governance Platform — Service Discovery & Configuration backed by Redis. Lightweight, zero-extra-infrastructure, 100K+ QPS standard / 70M+ QPS with consistency caching.
+
+## Onboarding
+
+- [Contributor Guide](guide/onboarding-contributor.md) — New contributor onboarding: foundations, architecture, and contributing workflow
+- [Staff Engineer Guide](guide/onboarding-staff-engineer.md) — Architectural deep-dive for staff/principal engineers
+- [Executive Guide](guide/onboarding-executive.md) — Capability map, cost model, and investment thesis for engineering leaders
+- [Product Manager Guide](guide/onboarding-pm.md) — Feature map, user journeys, and FAQ for non-engineering stakeholders
+
+## Getting Started
+
+- [Overview](guide/index.md) — CoSky guide index with architecture overview and documentation map
+- [Getting Started](guide/getting-started.md) — Quick start guide for Spring Cloud applications
+- [Installation](guide/installation.md) — Installation methods: Gradle, Maven, Docker, Kubernetes
+
+## Architecture
+
+- [Architecture Overview](guide/architecture.md) — Module structure, Redis data model, event-driven design, technology stack
+- [Core Module](guide/core.md) — Namespace management, Redis key utilities, PubSub event system
+
+## Configuration
+
+- [Configuration Management](guide/config-service.md) — Config CRUD, versioning, rollback, Lua scripts
+- [Consistency Layer](guide/config-consistency.md) — Local caching + PubSub invalidation pattern (256M+ QPS)
+
+## Service Discovery
+
+- [Service Registry](guide/service-registry.md) — Instance registration, heartbeat, deregistration
+- [Service Discovery](guide/service-discovery.md) — Service lookup with consistency caching (76M+ QPS)
+- [Load Balancers](guide/load-balancers.md) — Random, ArrayWeight, BinaryWeight, TreeWeight implementations
+- [Service Topology](guide/service-topology.md) — Consumer-producer dependency tracking and visualization
+
+## Spring Cloud Integration
+
+- [Config Starter](guide/spring-cloud-config.md) — PropertySourceLocator, @RefreshScope auto-refresh
+- [Discovery Starter](guide/spring-cloud-discovery.md) — DiscoveryClient, auto-registration, reactive support
+
+## REST API & Dashboard
+
+- [REST API Server](guide/rest-api.md) — HTTP endpoints for all CoSky operations
+- [Security & RBAC](guide/security-rbac.md) — JWT auth, namespace-scoped RBAC, audit logging
+- [Dashboard](guide/dashboard.md) — React 19 + Ant Design 6 web management interface
+
+## Deployment
+
+- [Docker Deployment](guide/deployment-docker.md) — Docker run and Docker Compose configurations
+- [Kubernetes Deployment](guide/deployment-kubernetes.md) — K8s deployment manifests for standalone and cluster Redis
+- [Standalone Deployment](guide/deployment-standalone.md) — JAR-based deployment with JVM options
+
+## Performance
+
+- [Benchmarks](guide/performance.md) — JMH benchmark results, comparison with alternatives

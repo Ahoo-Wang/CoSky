@@ -23,3 +23,9 @@ gradle-app.setting
 
 # IntelliJ IDEA
 .idea/
+
+# VitePress wiki
+wiki/node_modules/
+wiki/.vitepress/dist/
+wiki/.vitepress/cache/
+wiki/.tmp-mermaid/

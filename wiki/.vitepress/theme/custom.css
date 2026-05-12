@@ -1,0 +1,78 @@
+:root {
+  --vp-font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --vp-font-family-mono: "JetBrains Mono", ui-monospace, monospace;
+  --vp-c-brand-1: #6d5dfc;
+  --vp-c-brand-2: #7f71fb;
+  --vp-c-brand-3: #5a4de0;
+  --vp-c-brand-soft: rgba(109, 93, 252, 0.14);
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(135deg, #6d5dfc 10%, #a78bfa 100%);
+  --vp-home-hero-image-background-image: linear-gradient(135deg, #6d5dfc33 10%, #a78bfa33 100%);
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+.medium-zoom-overlay {
+  z-index: 999;
+}
+
+.medium-zoom-image--opened {
+  z-index: 1000;
+}
+
+.mermaid {
+  margin: 1.5em 0;
+  text-align: center;
+}
+
+.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon,
+.mermaid .node path {
+  fill: #2d333b !important;
+  stroke: #6d5dfc !important;
+  color: #e6edf3 !important;
+}
+
+.mermaid .edgeLabel {
+  background-color: #161b22 !important;
+  color: #e6edf3 !important;
+}
+
+.mermaid .edgePath .path {
+  stroke: #8b949e !important;
+}
+
+.mermaid .cluster rect {
+  fill: #161b22 !important;
+  stroke: #30363d !important;
+}
+
+.mermaid .label {
+  color: #e6edf3 !important;
+}
+
+.mermaid .actor {
+  fill: #2d333b !important;
+  stroke: #6d5dfc !important;
+}
+
+.mermaid .messageLine0,
+.mermaid .messageLine1 {
+  stroke: #8b949e !important;
+}
+
+.mermaid line,
+.mermaid path {
+  stroke: #8b949e !important;
+}
+
+.mermaid-marker {
+  fill: #8b949e !important;
+  stroke: #8b949e !important;
+}
