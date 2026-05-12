@@ -1,0 +1,54 @@
+# CoSky
+
+> High-Performance Microservice Governance Platform — Service Discovery & Configuration backed by Redis. Lightweight, zero-extra-infrastructure, 100K+ QPS standard / 70M+ QPS with consistency caching.
+
+## Getting Started
+
+- [Overview](wiki/guide/index.md)
+- [Getting Started](wiki/guide/getting-started.md)
+- [Installation](wiki/guide/installation.md)
+
+## Architecture
+
+- [Architecture Overview](wiki/guide/architecture.md)
+- [Core Module](wiki/guide/core.md)
+
+## Configuration Service
+
+- [Configuration Management](wiki/guide/config-service.md)
+- [Consistency Layer](wiki/guide/config-consistency.md)
+
+## Service Discovery
+
+- [Service Registry](wiki/guide/service-registry.md)
+- [Service Discovery](wiki/guide/service-discovery.md)
+- [Load Balancers](wiki/guide/load-balancers.md)
+- [Service Topology](wiki/guide/service-topology.md)
+
+## Spring Cloud Integration
+
+- [Config Starter](wiki/guide/spring-cloud-config.md)
+- [Discovery Starter](wiki/guide/spring-cloud-discovery.md)
+
+## REST API & Dashboard
+
+- [REST API Server](wiki/guide/rest-api.md)
+- [Security & RBAC](wiki/guide/security-rbac.md)
+- [Dashboard](wiki/guide/dashboard.md)
+
+## Deployment
+
+- [Docker Deployment](wiki/guide/deployment-docker.md)
+- [Kubernetes Deployment](wiki/guide/deployment-kubernetes.md)
+- [Standalone Deployment](wiki/guide/deployment-standalone.md)
+
+## Performance
+
+- [Benchmarks](wiki/guide/performance.md)
+
+## Optional
+
+- [Onboarding: Contributor](wiki/guide/onboarding-contributor.md)
+- [Onboarding: Staff Engineer](wiki/guide/onboarding-staff-engineer.md)
+- [Onboarding: Executive](wiki/guide/onboarding-executive.md)
+- [Onboarding: Product Manager](wiki/guide/onboarding-pm.md)

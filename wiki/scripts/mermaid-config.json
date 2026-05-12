@@ -1,0 +1,13 @@
+{
+  "theme": "dark",
+  "themeVariables": {
+    "primaryColor": "#2d333b",
+    "primaryTextColor": "#e6edf3",
+    "primaryBorderColor": "#6d5dfc",
+    "lineColor": "#8b949e",
+    "secondaryColor": "#161b22",
+    "tertiaryColor": "#21262d"
+  },
+  "flowchart": { "useMaxWidth": true, "htmlLabels": true, "curve": "basis" },
+  "sequence": { "useMaxWidth": true, "diagramMarginX": 50, "diagramMarginY": 10 }
+}
