@@ -5,7 +5,7 @@ import { zh } from './config/zh'
 export default defineConfig({
   title: 'CoSky',
   description: 'High-Performance Microservice Governance Platform',
-  base: '/CoSky/',
+  base: '/',
   lastUpdated: true,
   cleanUrls: true,
   ignoreDeadLinks: true,
