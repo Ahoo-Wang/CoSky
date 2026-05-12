@@ -9,6 +9,11 @@ export default defineConfig({
   lastUpdated: true,
   cleanUrls: true,
   ignoreDeadLinks: true,
+  themeConfig: {
+    search: {
+      provider: 'local',
+    },
+  },
   head: [
     ['link', { rel: 'icon', type: 'image/svg+xml', href: '/cosky-logo.svg' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
