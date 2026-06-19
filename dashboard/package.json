@@ -11,7 +11,7 @@
     "generate": "fetcher-generator generate -i http://localhost:8080/v3/api-docs -o src/generated"
   },
   "dependencies": {
-    "@ahoo-wang/fetcher": "^3.16.2",
+    "@ahoo-wang/fetcher": "^3.16.10",
     "@ahoo-wang/fetcher-cosec": "^3.16.2",
     "@ahoo-wang/fetcher-decorator": "^3.16.2",
     "@ahoo-wang/fetcher-react": "^3.16.2",
