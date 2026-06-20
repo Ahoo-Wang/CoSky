@@ -13,7 +13,7 @@
   "dependencies": {
     "@ahoo-wang/fetcher": "^3.16.2",
     "@ahoo-wang/fetcher-cosec": "^3.16.2",
-    "@ahoo-wang/fetcher-decorator": "^3.16.2",
+    "@ahoo-wang/fetcher-decorator": "^3.16.10",
     "@ahoo-wang/fetcher-react": "^3.16.2",
     "@ahoo-wang/fetcher-storage": "^3.16.2",
     "@ahoo-wang/fetcher-viewer": "^3.16.2",
