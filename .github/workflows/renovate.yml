@@ -14,12 +14,15 @@
 name: Renovate
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 2 * * 1'
   workflow_dispatch:
 
 concurrency:
   group: renovate
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   renovate:
@@ -27,15 +30,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # yamllint disable-line rule:line-length
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3  # v6.0.0
 
       - name: Self-hosted Renovate
-        uses: renovatebot/github-action@v46.1.15
+        # yamllint disable-line rule:line-length
+        uses: renovatebot/github-action@8217b3fc286df088d7c27f3255fe8414463bc0fd  # v46.1.15
         with:
           configurationFile: renovate.json
           token: ${{ secrets.RENOVATE_TOKEN }}
         env:
-          LOG_LEVEL: debug
+          LOG_LEVEL: info
           RENOVATE_REPOSITORIES: Ahoo-Wang/CoSky
           RENOVATE_ONBOARDING: 'false'
           RENOVATE_PLATFORM: github
