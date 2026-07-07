@@ -1,13 +1,31 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": ["config:recommended", ":semanticCommits", ":dependencyDashboard", ":enableVulnerabilityAlertsWithLabel(security)"],
   "timezone": "Asia/Shanghai",
+  "schedule": ["after 9am and before 11am every weekday"],
   "labels": ["dependencies"],
   "commitMessagePrefix": "fix(deps)",
   "commitMessageTopic": "{{depName}}",
-  "rangeStrategy": "bump",
-  "lockFileMaintenance": { "enabled": false },
+  "rangeStrategy": "auto",
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on Monday"]
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"],
+    "schedule": ["at any time"]
+  },
+  "dependencyDashboard": true,
+  "dependencyDashboardTitle": " Dependency Updates",
   "prConcurrentLimit": 5,
+  "prHourlyLimit": 2,
+  "branchConcurrentLimit": 5,
+  "separateMajorMinor": true,
+  "major": {
+    "labels": ["dependencies", "major"],
+    "dependencyDashboardApproval": true
+  },
   "packageRules": [
     {
       "description": "Group Spring ecosystem updates into a single PR",
@@ -18,6 +36,37 @@
       "description": "Group Kotlin-related updates into a single PR",
       "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"],
       "groupName": "kotlin"
+    },
+    {
+      "description": "Group Ahoo ecosystem libraries (cosid/simba/cosec/fluent-assert) that release in lockstep",
+      "matchPackagePatterns": ["^me\\.ahoo\\."],
+      "groupName": "ahoo-ecosystem"
+    },
+    {
+      "description": "Group testing and build tooling",
+      "matchPackageNames": ["io.mockk:mockk", "org.openjdk.jmh:jmh-core", "org.openjdk.jmh:jmh-generator-annprocess"],
+      "matchPackagePatterns": ["^io\\.gitlab\\.arturbosch\\.detekt", "^org\\.jetbrains\\.dokka", "^org\\.junit"],
+      "groupName": "test-and-build-tooling"
+    },
+    {
+      "description": "Let Renovate keep its own GitHub Action version up to date",
+      "matchDepTypes": ["action"],
+      "matchPackageNames": ["renovatebot/github-action"],
+      "schedule": ["before 6am on Monday"]
+    },
+    {
+      "description": "Pin GitHub Actions to a digest for supply-chain safety",
+      "matchDepTypes": ["action"],
+      "pinDigests": true
+    },
+    {
+      "description": "Auto-merge safe patch-level updates for dev/build tooling after CI passes",
+      "matchUpdateTypes": ["patch"],
+      "matchPackageNames": ["io.mockk:mockk"],
+      "matchPackagePatterns": ["^io\\.gitlab\\.arturbosch\\.detekt", "^org\\.jetbrains\\.dokka"],
+      "automerge": true,
+      "automergeType": "pr",
+      "platformAutomerge": true
     }
   ]
 }
