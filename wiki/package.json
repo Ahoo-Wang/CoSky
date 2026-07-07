@@ -12,7 +12,13 @@
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "^11.14.0",
     "medium-zoom": "^1.1.0",
-    "vitepress": "^1.6.3",
-    "vitepress-mermaid-renderer": "^1.1.23"
+    "vitepress": "2.0.0-alpha.18",
+    "vitepress-mermaid-renderer": "^1.1.27"
+  },
+  "pnpm": {
+    "overrides": {
+      "dompurify": "^3.4.11",
+      "js-yaml": "^4.2.0"
+    }
   }
 }
