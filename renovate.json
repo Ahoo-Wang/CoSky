@@ -38,8 +38,8 @@
       "groupName": "kotlin"
     },
     {
-      "description": "Group Ahoo ecosystem libraries (cosid/simba/cosec/fluent-assert) that release in lockstep",
-      "matchPackagePatterns": ["^me\\.ahoo\\."],
+      "description": "Group Ahoo ecosystem libraries (Maven me.ahoo.* + npm @ahoo-wang/*) that release in lockstep",
+      "matchPackagePatterns": ["^me\\.ahoo\\.", "^@ahoo-wang/"],
       "groupName": "ahoo-ecosystem"
     },
     {
