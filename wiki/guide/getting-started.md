@@ -59,7 +59,7 @@ graph LR
 #### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.5.8"
+val coskyVersion = "5.6.0"
 
 dependencies {
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
@@ -72,7 +72,7 @@ dependencies {
 
 ```xml
 <properties>
-    <cosky.version>5.5.8</cosky.version>
+    <cosky.version>5.6.0</cosky.version>
 </properties>
 <dependencies>
     <dependency>
@@ -278,7 +278,7 @@ graph TB
 
 ## References
 
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.5.8`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.6.0`)
 - [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt) -- core configuration properties
 - [CoSkyConfigProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt) -- config starter properties
 - [CoSkyDiscoveryProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt) -- discovery starter properties
