@@ -53,7 +53,7 @@ flowchart TD
 ### Gradle（Kotlin DSL）
 
 ```kotlin
-val coskyVersion = "5.5.8"
+val coskyVersion = "5.6.0"
 
 dependencies {
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
@@ -72,7 +72,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.5.8</cosky.version>
+        <cosky.version>5.6.0</cosky.version>
     </properties>
 
     <dependencies>
@@ -443,7 +443,7 @@ REST API 服务器运行后，通过以下地址访问基于 Web 的管理界面
 ## 参考
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- 根构建配置，使用 JVM 17 工具链
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 项目版本（`5.5.8`）
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 项目版本（`5.6.0`）
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- 所有模块定义
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes 部署（单机 Redis）
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes 部署（Redis 集群）

@@ -53,7 +53,7 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.5.8"
+val coskyVersion = "5.6.0"
 
 dependencies {
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
@@ -72,7 +72,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.5.8</cosky.version>
+        <cosky.version>5.6.0</cosky.version>
     </properties>
 
     <dependencies>
@@ -443,7 +443,7 @@ Source: [README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.
 ## References
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- root build configuration with JVM 17 toolchain
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.5.8`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.6.0`)
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- all module definitions
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes deployment (standalone Redis)
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes deployment (Redis Cluster)
