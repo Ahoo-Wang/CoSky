@@ -18,9 +18,9 @@
   },
   "dependencyDashboard": true,
   "dependencyDashboardTitle": " Dependency Updates",
-  "prConcurrentLimit": 5,
-  "prHourlyLimit": 2,
-  "branchConcurrentLimit": 5,
+  "prConcurrentLimit": 20,
+  "prHourlyLimit": 10,
+  "branchConcurrentLimit": 20,
   "separateMajorMinor": true,
   "major": {
     "labels": ["dependencies", "major"],
@@ -30,12 +30,14 @@
     {
       "description": "Group Spring ecosystem updates into a single PR",
       "matchPackagePatterns": ["^org\\.springframework"],
-      "groupName": "spring"
+      "groupName": "spring",
+      "prPriority": 10
     },
     {
       "description": "Group Kotlin-related updates into a single PR",
       "matchPackagePatterns": ["^org\\.jetbrains\\.kotlin"],
-      "groupName": "kotlin"
+      "groupName": "kotlin",
+      "prPriority": 10
     },
     {
       "description": "Group Ahoo ecosystem libraries (Maven me.ahoo.* + npm @ahoo-wang/*) that release in lockstep",

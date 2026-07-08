@@ -23,6 +23,7 @@ concurrency:
 
 permissions:
   contents: read
+  security-events: read
 
 jobs:
   renovate:
