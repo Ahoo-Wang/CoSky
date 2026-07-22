@@ -58,7 +58,7 @@ val coskyVersion = "5.6.0"
 dependencies {
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
 
@@ -89,7 +89,6 @@ dependencies {
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-            <version>3.0.3</version>
         </dependency>
     </dependencies>
 </project>

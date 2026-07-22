@@ -269,7 +269,9 @@ java -jar cosky-config/build/libs/cosky-config-*-jmh.jar \
 - **Service discovery via the consistency layer achieves 76M ops/s** for instances and **455M ops/s** for services -- 338x and 1,495x improvements respectively
 - **Write operations** (register, deregister, renew, setConfig) are bounded by Redis network latency, achieving 110K-255K ops/s
 - The consistency layer's performance advantage comes from replacing network round-trips with in-memory `ConcurrentHashMap` lookups, kept synchronized via Redis PubSub
-- CoSky's hybrid CP+AP model provides both strong consistency for writes and eventual consistency with extreme read performan```mermaid
+- CoSky's hybrid CP+AP model provides both strong consistency for writes and eventual consistency with extreme read performance
+
+```mermaid
 flowchart LR
     subgraph Performance Characteristics
         style Performance Characteristics fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -306,7 +308,6 @@ flowchart LR
     W4:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 <!-- Sources: docs/jmh/jmh-cosky-config.json:1, docs/jmh/jmh-cosky-discovery.json:1, README.md:376 -->

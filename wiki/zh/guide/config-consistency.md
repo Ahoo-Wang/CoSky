@@ -291,9 +291,9 @@ Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky
 
 ## 相关页面
 
-- [配置管理](./config-service.md) -- 核心配置 CRUD 操作、数据模型和 Redis 实现
-- [服务发现](./discovery-service.md) -- 采用类似一致性优化模式的服务注册
-- [REST API](./rest-api.md) -- 配置管理的 HTTP 端点
+- [配置管理](./config-service) -- 核心配置 CRUD 操作、数据模型和 Redis 实现
+- [服务发现](./service-discovery) -- 采用类似一致性优化模式的服务注册
+- [REST API](./rest-api) -- 配置管理的 HTTP 端点
 
 ## 参考文献
 

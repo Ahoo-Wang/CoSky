@@ -38,7 +38,7 @@ In addition, the inherited `ConfigRollback` interface adds:
 | Method | Return Type | Description | Source |
 |---|---|---|---|
 | `rollback(namespace, configId, targetVersion)` | `Mono<Boolean>` | Restores configuration to a prior version; archives current version and publishes a rollback event | [ConfigRollback.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L30) |
-| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | Lists the version history (up to 10 entries) in reverse chronological order | [ConfigRollback.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L32) |
+| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | Lists the version history in reverse chronological order (query returns the last `HISTORY_SIZE`=10; the underlying Redis history is not trimmed) | [ConfigRollback.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L32) |
 | `getConfigHistory(namespace, configId, version)` | `Mono<ConfigHistory>` | Retrieves the archived configuration for a specific version | [ConfigRollback.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L34) |
 
 ## Data Model
@@ -266,7 +266,7 @@ flowchart LR
 |---|---|---|
 | `{namespace}:cfg_idx` | SET | Index of all current config keys in a namespace |
 | `{namespace}:cfg:{configId}` | HASH | Current config entry with fields: `configId`, `data`, `hash`, `version`, `createTime` |
-| `{namespace}:cfg_htr_idx:{configId}` | ZSET | Sorted set of history entries for a config, scored by version number (up to 10 entries) |
+| `{namespace}:cfg_htr_idx:{configId}` | ZSET | Sorted set of history entries for a config, scored by version number (query returns the last 10 via `HISTORY_SIZE`; entries are never trimmed) |
 | `{namespace}:cfg_htr:{configId}:{version}` | HASH | Archived config snapshot with additional `op` and `opTime` fields |
 
 Source: [ConfigKeyGenerator.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L22)
@@ -299,7 +299,9 @@ Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L8
 
 ## Rollback Mechanism
 
-CoSky maintains up to 10 historical versions per configuration entry (defined by `ConfigRollback.HISTORY_SIZE`). Each time a configuration is set or removed, the prior version is atomically archived to a history entry via the Lua script. The rollback operation restores a target version by reading its archived data and creating a new version.
+CoSky archives every mutation (set, remove, rollback) of a configuration entry into a versioned history. The `getConfigVersions` query returns the **last 10 versions** in descending order — bounded by `ConfigRollback.HISTORY_SIZE`. Each time a configuration is set or removed, the prior version is atomically archived to a history entry via the Lua script. The rollback operation restores a target version by reading its archived data and creating a new version.
+
+> ⚠️ **Operational note**: `HISTORY_SIZE` is a **query cap only**, not a storage retention limit. The Lua scripts (`config_set.lua`, `config_remove.lua`, `config_rollback.lua`) archive history via `ZADD` but never run `ZREMRANGEBYRANK` or set `EXPIRE`, so the Redis history ZSET (`cfg_htr_idx`) and per-version history hashes (`cfg_htr`) **grow unbounded**. For configurations that are written very frequently, monitor Redis memory and prune old history keys manually if needed.
 
 ```mermaid
 stateDiagram-v2
@@ -382,8 +384,8 @@ flowchart TD
 ## Related Pages
 
 - [Consistency Layer](./config-consistency.md) -- Learn how CoSky achieves 1000x performance improvement through local caching and Redis PubSub invalidation
-- [Service Discovery](./discovery-service.md) -- Service registration and discovery with similar architecture patterns
-- [REST API](./rest-api.md) -- HTTP endpoints for configuration management
+- [Service Discovery](./service-discovery) -- Service registration and discovery with similar architecture patterns
+- [REST API](./rest-api) -- HTTP endpoints for configuration management
 
 ## References
 

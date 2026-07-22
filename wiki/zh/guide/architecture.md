@@ -149,9 +149,9 @@ sequenceDiagram
 
 | 技术 | 版本 | 用途 | 源码 |
 |-----------|---------|---------|--------|
-| Kotlin | 1.9+ (JVM 17 工具链) | 主要编程语言 | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
-| Spring Boot | 3.x | 应用框架 | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Cloud | 2024.x | 云原生抽象（DiscoveryClient、PropertySourceLocator） | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
+| Kotlin | 2.x (JVM 17 工具链) | 主要编程语言 | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
+| Spring Boot | 4.x | 应用框架 | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
+| Spring Cloud | 2025.x | 云原生抽象（DiscoveryClient、PropertySourceLocator） | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
 | Spring Data Redis | 最新 | 响应式 Redis 操作（ReactiveStringRedisTemplate） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Lettuce | 最新 | Redis 客户端驱动（异步、响应式） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Project Reactor | 最新 | 响应式编程模型（Flux、Mono） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
@@ -182,7 +182,7 @@ stateDiagram-v2
 
 ### Lua 脚本保证原子性
 
-关键写入操作（注册、注销、配置设置、配置回滚）作为 Lua 脚本在 Redis 服务器上执行。这保证了原子性——例如，注册脚本原子地将实例添加到服务索引、存储实例数据、发布变更事件并更新统计信息，全部在单个 Redis 命令中完成。在发现和配置模块中共有 **13 个 Lua 脚本**。
+关键写入操作（注册、注销、配置设置、配置回滚）作为 Lua 脚本在 Redis 服务器上执行。这保证了原子性——例如，注册脚本原子地将实例添加到服务索引、存储实例数据、发布变更事件并更新统计信息，全部在单个 Redis 命令中完成。在发现模块（13 个）和配置模块（3 个）中共有 **16 个 Lua 脚本**。
 
 ```mermaid
 flowchart LR
@@ -234,10 +234,10 @@ flowchart LR
 
 ## 交叉引用
 
-- [核心模块深入解析](./core.md) -- 命名空间模型、键生成和事件系统的详细讲解。
-- [配置模块](./config.md) -- 配置 CRUD、版本管理、回滚和 Spring Cloud PropertySource 集成。
-- [服务发现模块](./discovery.md) -- 服务注册、实例生命周期、负载均衡和拓扑。
-- [REST API](./rest-api.md) -- 管理 API 端点和控制台。
+- [核心模块深入解析](./core) -- 命名空间模型、键生成和事件系统的详细讲解。
+- [配置模块](./config-service) -- 配置 CRUD、版本管理、回滚和 Spring Cloud PropertySource 集成。
+- [服务发现模块](./service-discovery) -- 服务注册、实例生命周期、负载均衡和拓扑。
+- [REST API](./rest-api) -- 管理 API 端点和控制台。
 
 ## 参考
 

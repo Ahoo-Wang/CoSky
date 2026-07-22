@@ -36,13 +36,13 @@ Look for a line like:
 
 ## Container Architecture
 
-The Docker image is built from a multi-stage Dockerfile based on Dragonwell JDK 21. The build stage installs the Gradle distribution, and the runtime stage runs as a non-root user (`appuser`) with a built-in health check.
+The Docker image is built from a multi-stage Dockerfile based on Dragonwell JDK 25. The build stage copies a pre-built Gradle distribution (produced by CI via `./gradlew cosky-rest-api:installDist`), and the runtime stage runs as a non-root user (`appuser`) with a built-in health check.
 
 ```mermaid
 flowchart TB
     subgraph Docker Build Pipeline
         style Docker Build Pipeline fill:#161b22,stroke:#30363d,color:#e6edf3
-        B1["Stage 1: base<br>Dragonwell JDK 21"] --> B2["Stage 2: build<br>copy install dist"]
+        B1["Stage 1: base<br>Dragonwell JDK 25"] --> B2["Stage 2: build<br>copy install dist"]
         B2 --> B3["Stage 3: run<br>non-root appuser<br>HEALTHCHECK configured"]
     end
 
@@ -57,7 +57,9 @@ flowchart TB
 
 ## Deployment Topology
 
-A typical Docker Compose deployment consists of the CoSky container and a Redis container connected via an internal Docker networ```mermaid
+A typical Docker Compose deployment consists of the CoSky container and a Redis container connected via an internal Docker network.
+
+```mermaid
 flowchart LR
     subgraph docker-compose network
         style docker-compose network fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -71,7 +73,6 @@ flowchart LR
     U:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 <!-- Sources: cosky-rest-api/Dockerfile:1, README.md:134, cosky-rest-api/src/main/resources/application.yaml:1 -->
@@ -190,7 +191,9 @@ For Kubernetes deployments, the following probe paths are available:
 
 ## Networking
 
-CoSky exposes port `8080` by default. In the Docker Compose setup, the CoSky and Redis containers share an internal network where Redis is reachable by its service name (`redis://redis:6379`). No Redis ports need to be exposed to the host unless you want direct access for debu```mermaid
+CoSky exposes port `8080` by default. In the Docker Compose setup, the CoSky and Redis containers share an internal network where Redis is reachable by its service name (`redis://redis:6379`). No Redis ports need to be exposed to the host unless you want direct access for debugging.
+
+```mermaid
 flowchart TB
     subgraph Docker Network
         style Docker Network fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -216,8 +219,9 @@ flowchart TB
     F:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
+
+<!-- Sources: cosky-rest-api/Dockerfile:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
 <!-- Sources: cosky-rest-api/Dockerfile:26, cosky-rest-api/src/main/resources/application.yaml:14, README.md:134 -->
 

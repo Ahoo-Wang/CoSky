@@ -19,17 +19,17 @@ CoSky Dashboard 是一个基于 React 19、TypeScript 和 Ant Design 6 构建的
 | 技术 | 版本 | 用途 |
 |-----------|---------|---------|
 | React | 19.2.6 | UI 框架 |
-| TypeScript | ~5.9.3 | 类型安全开发 |
-| Vite | 8.0.11 | 构建工具和开发服务器 |
+| TypeScript | ~6.0.3 | 类型安全开发 |
+| Vite | 8.0.16 | 构建工具和开发服务器 |
 | Ant Design | 6.3.7 | UI 组件库 |
-| React Router DOM | 7.15.0 | 客户端路由 |
+| React Router DOM | 7.15.1 | 客户端路由 |
 | @xyflow/react | 12.10.2 | 服务拓扑可视化 |
 | Monaco Editor | 0.55.1 | 配置文本编辑器 |
-| @ahoo-wang/fetcher | 3.16.2 | 带 CoSec 认证的 HTTP 客户端 |
-| @ahoo-wang/fetcher-react | 3.16.2 | 用于 API 调用的 React Hooks |
-| @ahoo-wang/fetcher-cosec | 3.16.2 | CoSec 令牌刷新集成 |
-| @ahoo-wang/fetcher-viewer | 3.16.2 | 数据表格和筛选组件 |
-| @ahoo-wang/fetcher-generator | 3.16.2 | OpenAPI 代码生成 |
+| @ahoo-wang/fetcher | 3.16.10 | 带 CoSec 认证的 HTTP 客户端 |
+| @ahoo-wang/fetcher-react | 3.16.10 | 用于 API 调用的 React Hooks |
+| @ahoo-wang/fetcher-cosec | 3.16.10 | CoSec 令牌刷新集成 |
+| @ahoo-wang/fetcher-viewer | 3.16.10 | 数据表格和筛选组件 |
+| @ahoo-wang/fetcher-generator | 3.16.10 | OpenAPI 代码生成 |
 
 源码: [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json)
 

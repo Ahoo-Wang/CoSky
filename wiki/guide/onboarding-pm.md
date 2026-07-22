@@ -228,7 +228,7 @@ sequenceDiagram
 
     rect rgb(22, 27, 34)
         Note over Dev,Others: Normal Operation
-        loop Every 30 seconds
+        loop Every 10 seconds
             SVC->>CoSky: "Still alive!" (heartbeat)
         end
         Others->>CoSky: "Where is this service?" (discover)

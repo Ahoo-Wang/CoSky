@@ -50,7 +50,7 @@ graph LR
 | **Java** | 17+ | JVM 运行时 | CoSky 使用 JVM 17 工具链（[build.gradle.kts:93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L93)） |
 | **Redis** | 5.0+ | 服务和配置的后端存储 | 支持单机或集群模式 |
 | **Gradle** 或 **Maven** | 任意 | 构建工具 | Gradle 示例使用 Kotlin DSL |
-| **Spring Boot** | 3.x | 应用框架 | 兼容 Spring Cloud |
+| **Spring Boot** | 4.x | 应用框架 | 兼容 Spring Cloud |
 
 ## 快速开始
 
@@ -64,7 +64,7 @@ val coskyVersion = "5.6.0"
 dependencies {
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
     implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
 
@@ -88,7 +88,6 @@ dependencies {
     <dependency>
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        <version>3.0.3</version>
     </dependency>
 </dependencies>
 ```

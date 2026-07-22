@@ -179,7 +179,9 @@ flowchart TB
 
 ## Clustered Redis Topology
 
-When using Redis Cluster, CoSky connects through the Lettuce client with adaptive topology refres```mermaid
+When using Redis Cluster, CoSky connects through the Lettuce client with adaptive topology refresh.
+
+```mermaid
 flowchart TB
     subgraph Kubernetes Cluster
         style Kubernetes Cluster fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -215,7 +217,6 @@ flowchart TB
     N3:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 <!-- Sources: k8s/deployment/cosky-cluster.yml:1, k8s/deployment/cosky-service.yaml:1 -->
@@ -334,7 +335,9 @@ kubectl get pods -l app=cosky
 kubectl get svc cosky
 ```
 
-## Observabilit```mermaid
+## Observability
+
+```mermaid
 flowchart LR
     subgraph Observability Pipeline
         style Observability Pipeline fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -353,7 +356,6 @@ flowchart LR
     G:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
 
 <!-- Sources: k8s/deployment/cosky.yml:17, .github/workflows/docker-deploy.yml:1 -->

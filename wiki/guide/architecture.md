@@ -149,9 +149,9 @@ sequenceDiagram
 
 | Technology | Version | Purpose | Source |
 |-----------|---------|---------|--------|
-| Kotlin | 1.9+ (JVM 17 toolchain) | Primary language | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
-| Spring Boot | 3.x | Application framework | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Cloud | 2024.x | Cloud-native abstractions (DiscoveryClient, PropertySourceLocator) | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
+| Kotlin | 2.x (JVM 17 toolchain) | Primary language | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
+| Spring Boot | 4.x | Application framework | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
+| Spring Cloud | 2025.x | Cloud-native abstractions (DiscoveryClient, PropertySourceLocator) | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
 | Spring Data Redis | latest | Reactive Redis operations (ReactiveStringRedisTemplate) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Lettuce | latest | Redis client driver (async, reactive) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Project Reactor | latest | Reactive programming model (Flux, Mono) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
@@ -182,7 +182,7 @@ stateDiagram-v2
 
 ### Lua Scripts for Atomicity
 
-Critical write operations (register, deregister, config set, config rollback) are executed as Lua scripts on the Redis server. This guarantees atomicity -- for example, the register script atomically adds the instance to the service index, stores instance data, publishes a change event, and updates statistics, all in a single Redis command. There are **13 Lua scripts** across the discovery and config module.
+Critical write operations (register, deregister, config set, config rollback) are executed as Lua scripts on the Redis server. This guarantees atomicity -- for example, the register script atomically adds the instance to the service index, stores instance data, publishes a change event, and updates statistics, all in a single Redis command. There are **16 Lua scripts** across the discovery (13) and config (3) modules.
 
 ```mermaid
 flowchart LR
@@ -225,7 +225,6 @@ flowchart LR
     style O fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-```
 <!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24-71, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt:24-33 -->
 
 ### Local Caching for Performance
@@ -234,10 +233,10 @@ The `ConsistencyRedisServiceDiscovery` decorator maintains an in-memory `Concurr
 
 ## Cross-References
 
-- [Core Module Deep Dive](./core.md) -- Detailed walkthrough of the namespace model, key generation, and event system.
-- [Configuration Module](./config.md) -- Config CRUD, versioning, rollback, and Spring Cloud PropertySource integration.
-- [Service Discovery Module](./discovery.md) -- Service registry, instance lifecycle, load balancing, and topology.
-- [REST API](./rest-api.md) -- Management API endpoints and dashboard.
+- [Core Module Deep Dive](./core) -- Detailed walkthrough of the namespace model, key generation, and event system.
+- [Configuration Module](./config-service) -- Config CRUD, versioning, rollback, and Spring Cloud PropertySource integration.
+- [Service Discovery Module](./service-discovery) -- Service registry, instance lifecycle, load balancing, and topology.
+- [REST API](./rest-api) -- Management API endpoints and dashboard.
 
 ## References
 

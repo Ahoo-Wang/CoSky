@@ -36,13 +36,13 @@ docker logs cosky
 
 ## 容器架构
 
-Docker 镜像基于 Dragonwell JDK 21 的多阶段 Dockerfile 构建。构建阶段安装 Gradle 发行版，运行阶段以非 root 用户（`appuser`）运行，并配置了内置健康检查。
+Docker 镜像基于 Dragonwell JDK 25 的多阶段 Dockerfile 构建。构建阶段复制预构建的 Gradle 发行版（由 CI 通过 `./gradlew cosky-rest-api:installDist` 生成），运行阶段以非 root 用户（`appuser`）运行，并配置了内置健康检查。
 
 ```mermaid
 flowchart TB
     subgraph docker_build["Docker 构建流水线"]
         style docker_build fill:#161b22,stroke:#30363d,color:#e6edf3
-        B1["阶段 1: base<br>Dragonwell JDK 21"] --> B2["阶段 2: build<br>复制安装 dist"]
+        B1["阶段 1: base<br>Dragonwell JDK 25"] --> B2["阶段 2: build<br>复制安装 dist"]
         B2 --> B3["阶段 3: run<br>非 root appuser<br>HEALTHCHECK 已配置"]
     end
 
