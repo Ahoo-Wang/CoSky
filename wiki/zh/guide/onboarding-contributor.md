@@ -289,6 +289,8 @@ flowchart TD
     style READY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
+<!-- Sources: build.gradle.kts:92, AGENTS.md -->
+
 前置条件：
 - **JDK 17** — `build.gradle.kts` 中的 JVM 工具链配置要求
 - **Redis** — 集成测试必需

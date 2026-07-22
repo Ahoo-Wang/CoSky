@@ -122,10 +122,10 @@ All keys follow the pattern `{namespace}:type:identifier`. The hash tag wrapping
 Redis Cluster shards data across 16384 slots using `CRC16(key) % 16384`. The hash tag mechanism lets you force related keys to the same slot:
 
 ```
-CRC16("{cosky-{default}}:cfg_idx") % 16384 = CRC16("{cosky-{default}}:cfg:database.yaml") % 16384
+CRC16("cosky-{default}:cfg_idx") % 16384 = CRC16("cosky-{default}:cfg:database.yaml") % 16384
 ```
 
-This guarantees that a Lua script operating on `{cosky-{default}}:cfg_idx` and `{cosky-{default}}:cfg:database.yaml` executes on a single shard — cross-slot Lua scripts are forbidden in Redis Cluster.
+This guarantees that a Lua script operating on `cosky-{default}:cfg_idx` and `cosky-{default}:cfg:database.yaml` executes on a single shard — cross-slot Lua scripts are forbidden in Redis Cluster. The `{default}` portion inside the namespace is the Redis Cluster hash tag (the default namespace constant is `cosky-{default}`, defined in `Namespaced.kt`).
 
 The hash tag logic is implemented in [cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt), and the namespace auto-wrapping happens in [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt).
 

@@ -289,6 +289,8 @@ flowchart TD
     style READY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
+<!-- Sources: build.gradle.kts:92, AGENTS.md -->
+
 Prerequisites:
 - **JDK 17** — required by the JVM toolchain configuration in `build.gradle.kts`
 - **Redis** — required for integration tests

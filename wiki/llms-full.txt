@@ -248,7 +248,7 @@ graph LR
 | **Java** | 17+ | JVM runtime | CoSky uses JVM 17 toolchain ([build.gradle.kts:93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L93)) |
 | **Redis** | 5.0+ | Backend storage for services and configs | Standalone or cluster mode |
 | **Gradle** or **Maven** | Any | Build tool | Kotlin DSL shown for Gradle |
-| **Spring Boot** | 3.x | Application framework | Spring Cloud compatible |
+| **Spring Boot** | 4.x | Application framework | Spring Cloud compatible |
 
 ## Quick Start
 
@@ -257,12 +257,13 @@ graph LR
 #### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.5.8"
+val coskyVersion = "5.6.0"
 
 dependencies {
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
 
@@ -270,23 +271,31 @@ dependencies {
 
 ```xml
 <properties>
-    <cosky.version>5.5.8</cosky.version>
+    <cosky.version>5.6.0</cosky.version>
 </properties>
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>me.ahoo.cosky</groupId>
+            <artifactId>cosky-dependencies</artifactId>
+            <version>${cosky.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
 <dependencies>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
         <artifactId>spring-cloud-starter-cosky-config</artifactId>
-        <version>${cosky.version}</version>
     </dependency>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
         <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
-        <version>${cosky.version}</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        <version>3.0.3</version>
     </dependency>
 </dependencies>
 ```
@@ -476,7 +485,7 @@ graph TB
 
 ## References
 
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.5.8`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.6.0`)
 - [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt) -- core configuration properties
 - [CoSkyConfigProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt) -- config starter properties
 - [CoSkyDiscoveryProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt) -- discovery starter properties
@@ -535,12 +544,13 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.5.8"
+val coskyVersion = "5.6.0"
 
 dependencies {
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
 
@@ -554,24 +564,33 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.5.8</cosky.version>
+        <cosky.version>5.6.0</cosky.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-dependencies</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>spring-cloud-starter-cosky-config</artifactId>
-            <version>${cosky.version}</version>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
-            <version>${cosky.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-            <version>3.0.3</version>
         </dependency>
     </dependencies>
 </project>
@@ -925,7 +944,7 @@ Source: [README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.
 ## References
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- root build configuration with JVM 17 toolchain
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.5.8`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.6.0`)
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- all module definitions
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes deployment (standalone Redis)
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes deployment (Redis Cluster)
@@ -1082,9 +1101,9 @@ sequenceDiagram
 
 | Technology | Version | Purpose | Source |
 |-----------|---------|---------|--------|
-| Kotlin | 1.9+ (JVM 17 toolchain) | Primary language | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
-| Spring Boot | 3.x | Application framework | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Cloud | 2024.x | Cloud-native abstractions (DiscoveryClient, PropertySourceLocator) | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
+| Kotlin | 2.x (JVM 17 toolchain) | Primary language | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
+| Spring Boot | 4.x | Application framework | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
+| Spring Cloud | 2025.x | Cloud-native abstractions (DiscoveryClient, PropertySourceLocator) | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
 | Spring Data Redis | latest | Reactive Redis operations (ReactiveStringRedisTemplate) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Lettuce | latest | Redis client driver (async, reactive) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Project Reactor | latest | Reactive programming model (Flux, Mono) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
@@ -1109,15 +1128,15 @@ stateDiagram-v2
     Renewed --> Expired : TTL elapsed (ephemeral)
     Deregistered --> [*]
     Expired --> [*]
-
-    classDef default fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
 <!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:34-97 -->
 
 ### Lua Scripts for Atomicity
 
-Critical write operations (register, deregister, config set, config rollback) are executed as Lua scripts on the Redis server. This guarantees atomicity -- for example, the register script atomically adds the instance to the service index, stores instance data, publishes a change event, and updates statistics, all in a single Redis command. There are **13 Lua scripts** across the discovery and config module```mermaid
+Critical write operations (register, deregister, config set, config rollback) are executed as Lua scripts on the Redis server. This guarantees atomicity -- for example, the register script atomically adds the instance to the service index, stores instance data, publishes a change event, and updates statistics, all in a single Redis command. There are **16 Lua scripts** across the discovery (13) and config (3) modules.
+
+```mermaid
 flowchart LR
     subgraph Discovery Lua Scripts
         A[registry_register.lua]
@@ -1158,8 +1177,6 @@ flowchart LR
     style O fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-```
-
 <!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24-71, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt:24-33 -->
 
 ### Local Caching for Performance
@@ -1168,10 +1185,10 @@ The `ConsistencyRedisServiceDiscovery` decorator maintains an in-memory `Concurr
 
 ## Cross-References
 
-- [Core Module Deep Dive](./core.md) -- Detailed walkthrough of the namespace model, key generation, and event system.
-- [Configuration Module](./config.md) -- Config CRUD, versioning, rollback, and Spring Cloud PropertySource integration.
-- [Service Discovery Module](./discovery.md) -- Service registry, instance lifecycle, load balancing, and topology.
-- [REST API](./rest-api.md) -- Management API endpoints and dashboard.
+- [Core Module Deep Dive](./core) -- Detailed walkthrough of the namespace model, key generation, and event system.
+- [Configuration Module](./config-service) -- Config CRUD, versioning, rollback, and Spring Cloud PropertySource integration.
+- [Service Discovery Module](./service-discovery) -- Service registry, instance lifecycle, load balancing, and topology.
+- [REST API](./rest-api) -- Management API endpoints and dashboard.
 
 ## References
 
@@ -1561,9 +1578,9 @@ flowchart TD
 
 ## Cross-References
 
-- [Architecture Overview](./architecture.md) -- High-level module structure and design principles.
-- [Configuration Module](./config.md) -- How `cosky-config` builds on core's namespace and event abstractions.
-- [Service Discovery Module](./discovery.md) -- How `cosky-discovery` builds on core's namespace and event abstractions.
+- [Architecture Overview](./architecture) -- High-level module structure and design principles.
+- [Configuration Module](./config-service) -- How `cosky-config` builds on core's namespace and event abstractions.
+- [Service Discovery Module](./service-discovery) -- How `cosky-discovery` builds on core's namespace and event abstractions.
 
 ## References
 
@@ -1618,7 +1635,7 @@ In addition, the inherited `ConfigRollback` interface adds:
 | Method | Return Type | Description | Source |
 |---|---|---|---|
 | `rollback(namespace, configId, targetVersion)` | `Mono<Boolean>` | Restores configuration to a prior version; archives current version and publishes a rollback event | [ConfigRollback.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L30) |
-| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | Lists the version history (up to 10 entries) in reverse chronological order | [ConfigRollback.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L32) |
+| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | Lists the version history in reverse chronological order (query returns the last `HISTORY_SIZE`=10; the underlying Redis history is not trimmed) | [ConfigRollback.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L32) |
 | `getConfigHistory(namespace, configId, version)` | `Mono<ConfigHistory>` | Retrieves the archived configuration for a specific version | [ConfigRollback.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L34) |
 
 ## Data Model
@@ -1846,7 +1863,7 @@ flowchart LR
 |---|---|---|
 | `{namespace}:cfg_idx` | SET | Index of all current config keys in a namespace |
 | `{namespace}:cfg:{configId}` | HASH | Current config entry with fields: `configId`, `data`, `hash`, `version`, `createTime` |
-| `{namespace}:cfg_htr_idx:{configId}` | ZSET | Sorted set of history entries for a config, scored by version number (up to 10 entries) |
+| `{namespace}:cfg_htr_idx:{configId}` | ZSET | Sorted set of history entries for a config, scored by version number (query returns the last 10 via `HISTORY_SIZE`; entries are never trimmed) |
 | `{namespace}:cfg_htr:{configId}:{version}` | HASH | Archived config snapshot with additional `op` and `opTime` fields |
 
 Source: [ConfigKeyGenerator.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L22)
@@ -1879,7 +1896,9 @@ Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L8
 
 ## Rollback Mechanism
 
-CoSky maintains up to 10 historical versions per configuration entry (defined by `ConfigRollback.HISTORY_SIZE`). Each time a configuration is set or removed, the prior version is atomically archived to a history entry via the Lua script. The rollback operation restores a target version by reading its archived data and creating a new version.
+CoSky maintains a versioned history of configuration changes. When a configuration is **updated** (`setConfig` with an existing version) or **removed**, the prior version is atomically archived to a history entry via the Lua script. The **initial** `setConfig` (creating a new config) does not archive anything — there is no prior version to save. The rollback operation restores a target version by reading its archived data and creating a new version. The `getConfigVersions` query returns the **last 10 versions** in descending order — bounded by `ConfigRollback.HISTORY_SIZE`.
+
+> ⚠️ **Operational note**: `HISTORY_SIZE` is a **query cap only**, not a storage retention limit. The Lua scripts (`config_set.lua`, `config_remove.lua`, `config_rollback.lua`) archive history via `ZADD` but never run `ZREMRANGEBYRANK` or set `EXPIRE`, so the Redis history ZSET (`cfg_htr_idx`) and per-version history hashes (`cfg_htr`) **grow unbounded**. For configurations that are written very frequently, monitor Redis memory and prune old history keys manually if needed.
 
 ```mermaid
 stateDiagram-v2
@@ -1962,8 +1981,8 @@ flowchart TD
 ## Related Pages
 
 - [Consistency Layer](./config-consistency.md) -- Learn how CoSky achieves 1000x performance improvement through local caching and Redis PubSub invalidation
-- [Service Discovery](./discovery-service.md) -- Service registration and discovery with similar architecture patterns
-- [REST API](./rest-api.md) -- HTTP endpoints for configuration management
+- [Service Discovery](./service-discovery) -- Service registration and discovery with similar architecture patterns
+- [REST API](./rest-api) -- HTTP endpoints for configuration management
 
 ## References
 
@@ -2276,8 +2295,8 @@ Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky
 ## Related Pages
 
 - [Configuration Management](./config-service.md) -- Core configuration CRUD operations, data model, and Redis implementation
-- [Service Discovery](./discovery-service.md) -- Service registration with a similar consistency optimization pattern
-- [REST API](./rest-api.md) -- HTTP endpoints for managing configuration
+- [Service Discovery](./service-discovery) -- Service registration with a similar consistency optimization pattern
+- [REST API](./rest-api) -- HTTP endpoints for managing configuration
 
 ## References
 
@@ -2646,8 +2665,8 @@ The consistency layer delivers dramatically higher throughput by serving reads f
 
 | Operation | Standard Redis | Consistency Layer | Improvement |
 |---|---|---|---|
-| `getInstances` | ~2M ops/s | 76M+ ops/s | ~38x |
-| `getServices` | ~10M ops/s | 455M+ ops/s | ~45x |
+| `getInstances` | ~226K ops/s | 76M+ ops/s | ~338x |
+| `getServices` | ~304K ops/s | 455M+ ops/s | ~1,495x |
 | Latency (p99) | Variable (network-bound) | Sub-microsecond | Deterministic |
 
 ## ServiceStatistic
@@ -2947,9 +2966,6 @@ flowchart LR
     WB --> R2
     WC --> R3
 
-    style Instances fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style "Cumulative Weight Array" fill:#161b22,stroke:#30363d,color:#e6edf3
-    style "Weight Space (0-5)" fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
 <!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:41 -->
@@ -3257,7 +3273,7 @@ Statistics are automatically recalculated when instance events occur (excluding 
 
 ```mermaid
 flowchart TD
-    subgraph "Production Namespace"
+    subgraph ProdNS["Production Namespace"]
         GW["gateway-svc<br>instances: 3"]
         OS["order-svc<br>instances: 5"]
         US["user-svc<br>instances: 2"]
@@ -3273,7 +3289,7 @@ flowchart TD
     style OS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style US fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style PS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style "Production Namespace" fill:#161b22,stroke:#30363d,color:#e6edf3
+    style ProdNS fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
 <!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:10, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:96 -->
@@ -4099,14 +4115,14 @@ sequenceDiagram
 
     Client->>ServiceController: PUT /v1/namespaces/{ns}/services/{svcId}/instances
     ServiceController->>ServiceRegistry: register(namespace, ServiceInstance)
-    ServiceRegistry->>Redis: HMSET instance + ZADD service index + PEXPIRE TTL
+    ServiceRegistry->>Redis: HMSET instance + SADD service index + EXPIRE TTL
     Redis-->>ServiceRegistry: OK
     ServiceRegistry-->>ServiceController: true
     ServiceController-->>Client: 200 true
 
     Client->>ServiceController: DELETE /v1/namespaces/{ns}/services/{svcId}/instances/{instId}
     ServiceController->>ServiceRegistry: deregister(namespace, serviceId, instanceId)
-    ServiceRegistry->>Redis: ZREM instance from service set
+    ServiceRegistry->>Redis: SREM instance from service set
     Redis-->>ServiceRegistry: true
     ServiceRegistry-->>ServiceController: true
     ServiceController-->>Client: 200 true
@@ -4118,9 +4134,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart TB
-    subgraph "REST API Server"
+    subgraph api["REST API Server"]
         direction TB
-        subgraph "Controllers"
+        subgraph c["Controllers"]
             ConfigCtrl["ConfigController"]
             ServiceCtrl["ServiceController"]
             NamespaceCtrl["NamespaceController"]
@@ -4130,7 +4146,7 @@ flowchart TB
             RoleCtrl["RoleController"]
             AuditCtrl["AuditLogController"]
         end
-        subgraph "Core Services"
+        subgraph cs["Core Services"]
             ConfigSvc["ConfigService"]
             ServiceReg["ServiceRegistry"]
             ServiceDisc["ServiceDiscovery"]
@@ -4138,17 +4154,17 @@ flowchart TB
             ServiceTopo["ServiceTopology"]
             NSvc["NamespaceService"]
         end
-        subgraph "Infrastructure"
+        subgraph infra["Infrastructure"]
             SimbaScheduler["StatServiceScheduler<br>(Simba)"]
             CoSecAuth["CoSec Security"]
         end
     end
 
-    Controllers --> Core Services
-    Core Services --> Redis[(Redis)]
+    c --> cs
+    cs --> Redis[(Redis)]
     SimbaScheduler --> ServiceStat
     SimbaScheduler --> NSvc
-    CoSecAuth --> Controllers
+    CoSecAuth --> c
 ```
 
 <!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:23, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:33, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
@@ -4419,10 +4435,10 @@ classDiagram
         +removeRole(roleName): Mono~Boolean~
     }
 
-    Role --> ResourceAction : 1:n
+    Role --> ResourceAction : "1 to n"
     ResourceAction --> Action
     RoleController --> RbacService
-    RbacService --> Role : loads/saves
+    RbacService --> Role : loads,saves
 ```
 
 <!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:30 -->
@@ -4562,17 +4578,17 @@ The CoSky Dashboard is a modern single-page application built with React 19, Typ
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | React | 19.2.6 | UI framework |
-| TypeScript | ~5.9.3 | Type-safe development |
-| Vite | 8.0.11 | Build tool and dev server |
+| TypeScript | ~6.0.3 | Type-safe development |
+| Vite | 8.0.16 | Build tool and dev server |
 | Ant Design | 6.3.7 | UI component library |
-| React Router DOM | 7.15.0 | Client-side routing |
+| React Router DOM | 7.15.1 | Client-side routing |
 | @xyflow/react | 12.10.2 | Service topology visualization |
 | Monaco Editor | 0.55.1 | Configuration text editor |
-| @ahoo-wang/fetcher | 3.16.2 | HTTP client with CoSec auth |
-| @ahoo-wang/fetcher-react | 3.16.2 | React hooks for API calls |
-| @ahoo-wang/fetcher-cosec | 3.16.2 | CoSec token refresh integration |
-| @ahoo-wang/fetcher-viewer | 3.16.2 | Data table and filter components |
-| @ahoo-wang/fetcher-generator | 3.16.2 | OpenAPI code generation |
+| @ahoo-wang/fetcher | 3.16.10 | HTTP client with CoSec auth |
+| @ahoo-wang/fetcher-react | 3.16.10 | React hooks for API calls |
+| @ahoo-wang/fetcher-cosec | 3.16.10 | CoSec token refresh integration |
+| @ahoo-wang/fetcher-viewer | 3.16.10 | Data table and filter components |
+| @ahoo-wang/fetcher-generator | 3.16.10 | OpenAPI code generation |
 
 Source: [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json)
 
@@ -4760,13 +4776,13 @@ Look for a line like:
 
 ## Container Architecture
 
-The Docker image is built from a multi-stage Dockerfile based on Dragonwell JDK 21. The build stage installs the Gradle distribution, and the runtime stage runs as a non-root user (`appuser`) with a built-in health check.
+The Docker image is built from a multi-stage Dockerfile based on Dragonwell JDK 25. The build stage copies a pre-built Gradle distribution (produced by CI via `./gradlew cosky-rest-api:installDist`), and the runtime stage runs as a non-root user (`appuser`) with a built-in health check.
 
 ```mermaid
 flowchart TB
     subgraph Docker Build Pipeline
         style Docker Build Pipeline fill:#161b22,stroke:#30363d,color:#e6edf3
-        B1["Stage 1: base<br>Dragonwell JDK 21"] --> B2["Stage 2: build<br>copy install dist"]
+        B1["Stage 1: base<br>Dragonwell JDK 25"] --> B2["Stage 2: build<br>copy install dist"]
         B2 --> B3["Stage 3: run<br>non-root appuser<br>HEALTHCHECK configured"]
     end
 
@@ -4781,7 +4797,9 @@ flowchart TB
 
 ## Deployment Topology
 
-A typical Docker Compose deployment consists of the CoSky container and a Redis container connected via an internal Docker networ```mermaid
+A typical Docker Compose deployment consists of the CoSky container and a Redis container connected via an internal Docker network.
+
+```mermaid
 flowchart LR
     subgraph docker-compose network
         style docker-compose network fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -4795,7 +4813,6 @@ flowchart LR
     U:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 <!-- Sources: cosky-rest-api/Dockerfile:1, README.md:134, cosky-rest-api/src/main/resources/application.yaml:1 -->
@@ -4914,7 +4931,9 @@ For Kubernetes deployments, the following probe paths are available:
 
 ## Networking
 
-CoSky exposes port `8080` by default. In the Docker Compose setup, the CoSky and Redis containers share an internal network where Redis is reachable by its service name (`redis://redis:6379`). No Redis ports need to be exposed to the host unless you want direct access for debu```mermaid
+CoSky exposes port `8080` by default. In the Docker Compose setup, the CoSky and Redis containers share an internal network where Redis is reachable by its service name (`redis://redis:6379`). No Redis ports need to be exposed to the host unless you want direct access for debugging.
+
+```mermaid
 flowchart TB
     subgraph Docker Network
         style Docker Network fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -4940,8 +4959,9 @@ flowchart TB
     F:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
+
+<!-- Sources: cosky-rest-api/Dockerfile:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
 <!-- Sources: cosky-rest-api/Dockerfile:26, cosky-rest-api/src/main/resources/application.yaml:14, README.md:134 -->
 
@@ -5162,7 +5182,9 @@ flowchart TB
 
 ## Clustered Redis Topology
 
-When using Redis Cluster, CoSky connects through the Lettuce client with adaptive topology refres```mermaid
+When using Redis Cluster, CoSky connects through the Lettuce client with adaptive topology refresh.
+
+```mermaid
 flowchart TB
     subgraph Kubernetes Cluster
         style Kubernetes Cluster fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -5198,7 +5220,6 @@ flowchart TB
     N3:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 <!-- Sources: k8s/deployment/cosky-cluster.yml:1, k8s/deployment/cosky-service.yaml:1 -->
@@ -5317,7 +5338,9 @@ kubectl get pods -l app=cosky
 kubectl get svc cosky
 ```
 
-## Observabilit```mermaid
+## Observability
+
+```mermaid
 flowchart LR
     subgraph Observability Pipeline
         style Observability Pipeline fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -5336,7 +5359,6 @@ flowchart LR
     G:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
 
 <!-- Sources: k8s/deployment/cosky.yml:17, .github/workflows/docker-deploy.yml:1 -->
@@ -5584,7 +5606,9 @@ sequenceDiagram
 
 ## Configuration Precedence
 
-Spring Boot properties are resolved in the following order (highest priority first```mermaid
+Spring Boot properties are resolved in the following order (highest priority first):
+
+```mermaid
 flowchart TD
     A["Command-line arguments<br>--server.port=8080"] --> B["Environment variables<br>SPRING_DATA_REDIS_URL"]
     B --> C["application.yaml<br>(config/ directory)"]
@@ -5599,33 +5623,36 @@ flowchart TD
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-```
 
 <!-- Sources: cosky-rest-api/src/main/resources/application.yaml:1, cosky-rest-api/src/dist/config/application.yaml:1 -->
 
 ## JVM Options
 
-| Option | Recommended Value | Description |
-|--------|------------------|-------------|
-| `-Xms` | `512m` | Initial heap size |
-| `-Xmx` | `1024m` | Maximum heap size |
-| `-XX:+UseG1GC` | - | Use G1 garbage collector |
-| `-XX:MaxGCPauseMillis` | `200` | Target max GC pause |
-| `-Dfile.encoding` | `UTF-8` | Character encoding |
-| `-Duser.timezone` | `Asia/Shanghai` | Default timezone (or match your locale) |
+The following JVM options are the shipped defaults (defined in `cosky-rest-api/build.gradle.kts`):
+
+| Option | Shipped Default | Description |
+|--------|-----------------|-------------|
+| `-Xms` | `512M` | Initial heap size |
+| `-Xmx` | `512M` | Maximum heap size |
+| `-XX:MaxMetaspaceSize` | `128M` | Maximum metaspace size |
+| `-XX:MaxDirectMemorySize` | `256M` | Maximum direct memory |
+| `-Xss` | `1m` | Thread stack size |
+| `-XX:+UseZGC` | - | Use ZGC garbage collector (low-latency) |
 | `-XX:+HeapDumpOnOutOfMemoryError` | - | Generate heap dump on OOM |
-| `-XX:HeapDumpPath` | `logs/` | Directory for heap dumps |
+| `-XX:HeapDumpPath` | `data` | Directory for heap dumps |
 
 To pass JVM options through the startup script, set the `JAVA_OPTS` environment variable:
 
 ```bash
-export JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC"
+export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
 bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## Service Discovery and Self-Registration
 
-When `cosky.auto-registry` is enabled (the default), CoSky registers itself as a service instance. The `cosky.rest.api` service appears in the dashboard with a default weight of `8`. This allows other microservices using the CoSky SDK to discover the REST API server through standard service discovery mecha```mermaid
+When `cosky.auto-registry` is enabled (the default), CoSky registers itself as a service instance. The `cosky-rest-api` service appears in the dashboard with a default weight of `8`. This allows other microservices using the CoSky SDK to discover the REST API server through standard service discovery mechanisms.
+
+```mermaid
 flowchart LR
     subgraph Service Ecosystem
         style Service Ecosystem fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -5645,7 +5672,6 @@ flowchart LR
     R:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
 
 <!-- Sources: cosky-rest-api/src/main/resources/bootstrap.yaml:8, cosky-rest-api/src/main/resources/application.yaml:8 -->
@@ -5950,7 +5976,9 @@ java -jar cosky-config/build/libs/cosky-config-*-jmh.jar \
 - **Service discovery via the consistency layer achieves 76M ops/s** for instances and **455M ops/s** for services -- 338x and 1,495x improvements respectively
 - **Write operations** (register, deregister, renew, setConfig) are bounded by Redis network latency, achieving 110K-255K ops/s
 - The consistency layer's performance advantage comes from replacing network round-trips with in-memory `ConcurrentHashMap` lookups, kept synchronized via Redis PubSub
-- CoSky's hybrid CP+AP model provides both strong consistency for writes and eventual consistency with extreme read performan```mermaid
+- CoSky's hybrid CP+AP model provides both strong consistency for writes and eventual consistency with extreme read performance
+
+```mermaid
 flowchart LR
     subgraph Performance Characteristics
         style Performance Characteristics fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -5987,7 +6015,6 @@ flowchart LR
     W4:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 <!-- Sources: docs/jmh/jmh-cosky-config.json:1, docs/jmh/jmh-cosky-discovery.json:1, README.md:376 -->

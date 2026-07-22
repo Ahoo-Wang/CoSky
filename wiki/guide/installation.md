@@ -56,8 +56,9 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 val coskyVersion = "5.6.0"
 
 dependencies {
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -75,16 +76,26 @@ dependencies {
         <cosky.version>5.6.0</cosky.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-dependencies</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>spring-cloud-starter-cosky-config</artifactId>
-            <version>${cosky.version}</version>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
-            <version>${cosky.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>

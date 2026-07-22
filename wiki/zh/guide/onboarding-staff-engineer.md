@@ -122,10 +122,10 @@ T_stale = T_pubsub_delivery + T_redis_read + T_cache_update
 Redis Cluster 使用 `CRC16(key) % 16384` 将数据分片到 16384 个槽位。哈希标签机制允许你将相关键强制分配到同一槽位：
 
 ```
-CRC16("{cosky-{default}}:cfg_idx") % 16384 = CRC16("{cosky-{default}}:cfg:database.yaml") % 16384
+CRC16("cosky-{default}:cfg_idx") % 16384 = CRC16("cosky-{default}:cfg:database.yaml") % 16384
 ```
 
-这保证了操作 `{cosky-{default}}:cfg_idx` 和 `{cosky-{default}}:cfg:database.yaml` 的 Lua 脚本在单个分片上执行 — Redis Cluster 中禁止跨槽位的 Lua 脚本。
+这保证了操作 `cosky-{default}:cfg_idx` 和 `cosky-{default}:cfg:database.yaml` 的 Lua 脚本在单个分片上执行 — Redis Cluster 中禁止跨槽位的 Lua 脚本。命名空间中的 `{default}` 部分是 Redis Cluster 哈希标签（默认命名空间常量为 `cosky-{default}`，定义于 `Namespaced.kt`）。
 
 哈希标签逻辑实现于 [cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)，命名空间自动包裹发生在 [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt)。
 

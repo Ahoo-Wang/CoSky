@@ -299,7 +299,7 @@ Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L8
 
 ## 回滚机制
 
-CoSky 会将每次配置变更（设置、移除、回滚）归档为带版本号的历史记录。`getConfigVersions` 查询按倒序返回**最近 10 个版本** —— 受 `ConfigRollback.HISTORY_SIZE` 限制。每次配置被设置或移除时，先前的版本通过 Lua 脚本原子性地归档到历史条目。回滚操作通过读取已归档数据并创建新版本号来恢复目标版本。
+CoSky 维护配置变更的版本历史。当配置被**更新**（`setConfig` 已有版本时）或**移除**时，先前的版本通过 Lua 脚本原子性地归档到历史条目。**首次** `setConfig`（创建新配置）不会归档 —— 因为没有先前的版本可保存。回滚操作通过读取已归档数据并创建新版本号来恢复目标版本。`getConfigVersions` 查询按倒序返回**最近 10 个版本** —— 受 `ConfigRollback.HISTORY_SIZE` 限制。
 
 > ⚠️ **运维提示**：`HISTORY_SIZE` 仅是**查询上限**，并非存储保留策略。Lua 脚本（`config_set.lua`、`config_remove.lua`、`config_rollback.lua`）通过 `ZADD` 归档历史，但从不执行 `ZREMRANGEBYRANK` 或设置 `EXPIRE`，因此 Redis 历史有序集合（`cfg_htr_idx`）和各版本历史哈希（`cfg_htr`）会**无限制增长**。对于写入非常频繁的配置，请监控 Redis 内存，必要时手动清理旧的历史键。
 

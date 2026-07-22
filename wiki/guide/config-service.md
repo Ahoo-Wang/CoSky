@@ -299,7 +299,7 @@ Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L8
 
 ## Rollback Mechanism
 
-CoSky archives every mutation (set, remove, rollback) of a configuration entry into a versioned history. The `getConfigVersions` query returns the **last 10 versions** in descending order — bounded by `ConfigRollback.HISTORY_SIZE`. Each time a configuration is set or removed, the prior version is atomically archived to a history entry via the Lua script. The rollback operation restores a target version by reading its archived data and creating a new version.
+CoSky maintains a versioned history of configuration changes. When a configuration is **updated** (`setConfig` with an existing version) or **removed**, the prior version is atomically archived to a history entry via the Lua script. The **initial** `setConfig` (creating a new config) does not archive anything — there is no prior version to save. The rollback operation restores a target version by reading its archived data and creating a new version. The `getConfigVersions` query returns the **last 10 versions** in descending order — bounded by `ConfigRollback.HISTORY_SIZE`.
 
 > ⚠️ **Operational note**: `HISTORY_SIZE` is a **query cap only**, not a storage retention limit. The Lua scripts (`config_set.lua`, `config_remove.lua`, `config_rollback.lua`) archive history via `ZADD` but never run `ZREMRANGEBYRANK` or set `EXPIRE`, so the Redis history ZSET (`cfg_htr_idx`) and per-version history hashes (`cfg_htr`) **grow unbounded**. For configurations that are written very frequently, monitor Redis memory and prune old history keys manually if needed.
 
