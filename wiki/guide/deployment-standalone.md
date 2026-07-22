@@ -227,7 +227,9 @@ sequenceDiagram
 
 ## Configuration Precedence
 
-Spring Boot properties are resolved in the following order (highest priority first```mermaid
+Spring Boot properties are resolved in the following order (highest priority first):
+
+```mermaid
 flowchart TD
     A["Command-line arguments<br>--server.port=8080"] --> B["Environment variables<br>SPRING_DATA_REDIS_URL"]
     B --> C["application.yaml<br>(config/ directory)"]
@@ -242,33 +244,36 @@ flowchart TD
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-```
 
 <!-- Sources: cosky-rest-api/src/main/resources/application.yaml:1, cosky-rest-api/src/dist/config/application.yaml:1 -->
 
 ## JVM Options
 
-| Option | Recommended Value | Description |
-|--------|------------------|-------------|
-| `-Xms` | `512m` | Initial heap size |
-| `-Xmx` | `1024m` | Maximum heap size |
-| `-XX:+UseG1GC` | - | Use G1 garbage collector |
-| `-XX:MaxGCPauseMillis` | `200` | Target max GC pause |
-| `-Dfile.encoding` | `UTF-8` | Character encoding |
-| `-Duser.timezone` | `Asia/Shanghai` | Default timezone (or match your locale) |
+The following JVM options are the shipped defaults (defined in `cosky-rest-api/build.gradle.kts`):
+
+| Option | Shipped Default | Description |
+|--------|-----------------|-------------|
+| `-Xms` | `512M` | Initial heap size |
+| `-Xmx` | `512M` | Maximum heap size |
+| `-XX:MaxMetaspaceSize` | `128M` | Maximum metaspace size |
+| `-XX:MaxDirectMemorySize` | `256M` | Maximum direct memory |
+| `-Xss` | `1m` | Thread stack size |
+| `-XX:+UseZGC` | - | Use ZGC garbage collector (low-latency) |
 | `-XX:+HeapDumpOnOutOfMemoryError` | - | Generate heap dump on OOM |
-| `-XX:HeapDumpPath` | `logs/` | Directory for heap dumps |
+| `-XX:HeapDumpPath` | `data` | Directory for heap dumps |
 
 To pass JVM options through the startup script, set the `JAVA_OPTS` environment variable:
 
 ```bash
-export JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC"
+export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
 bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## Service Discovery and Self-Registration
 
-When `cosky.auto-registry` is enabled (the default), CoSky registers itself as a service instance. The `cosky.rest.api` service appears in the dashboard with a default weight of `8`. This allows other microservices using the CoSky SDK to discover the REST API server through standard service discovery mecha```mermaid
+When `cosky.auto-registry` is enabled (the default), CoSky registers itself as a service instance. The `cosky-rest-api` service appears in the dashboard with a default weight of `8`. This allows other microservices using the CoSky SDK to discover the REST API server through standard service discovery mechanisms.
+
+```mermaid
 flowchart LR
     subgraph Service Ecosystem
         style Service Ecosystem fill:#161b22,stroke:#30363d,color:#e6edf3
@@ -288,7 +293,6 @@ flowchart LR
     R:::node
 
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
 
 <!-- Sources: cosky-rest-api/src/main/resources/bootstrap.yaml:8, cosky-rest-api/src/main/resources/application.yaml:8 -->

@@ -228,7 +228,7 @@ sequenceDiagram
 
     rect rgb(22, 27, 34)
         Note over Dev,Others: 正常运行
-        loop 每 30 秒
+        loop 每 10 秒
             SVC->>CoSky: "我还活着！"（心跳）
         end
         Others->>CoSky: "这个服务在哪里？"（发现）

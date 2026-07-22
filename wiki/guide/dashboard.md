@@ -19,17 +19,17 @@ The CoSky Dashboard is a modern single-page application built with React 19, Typ
 | Technology | Version | Purpose |
 |-----------|---------|---------|
 | React | 19.2.6 | UI framework |
-| TypeScript | ~5.9.3 | Type-safe development |
-| Vite | 8.0.11 | Build tool and dev server |
+| TypeScript | ~6.0.3 | Type-safe development |
+| Vite | 8.0.16 | Build tool and dev server |
 | Ant Design | 6.3.7 | UI component library |
-| React Router DOM | 7.15.0 | Client-side routing |
+| React Router DOM | 7.15.1 | Client-side routing |
 | @xyflow/react | 12.10.2 | Service topology visualization |
 | Monaco Editor | 0.55.1 | Configuration text editor |
-| @ahoo-wang/fetcher | 3.16.2 | HTTP client with CoSec auth |
-| @ahoo-wang/fetcher-react | 3.16.2 | React hooks for API calls |
-| @ahoo-wang/fetcher-cosec | 3.16.2 | CoSec token refresh integration |
-| @ahoo-wang/fetcher-viewer | 3.16.2 | Data table and filter components |
-| @ahoo-wang/fetcher-generator | 3.16.2 | OpenAPI code generation |
+| @ahoo-wang/fetcher | 3.16.10 | HTTP client with CoSec auth |
+| @ahoo-wang/fetcher-react | 3.16.10 | React hooks for API calls |
+| @ahoo-wang/fetcher-cosec | 3.16.10 | CoSec token refresh integration |
+| @ahoo-wang/fetcher-viewer | 3.16.10 | Data table and filter components |
+| @ahoo-wang/fetcher-generator | 3.16.10 | OpenAPI code generation |
 
 Source: [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json)
 

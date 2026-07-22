@@ -65,8 +65,8 @@ The consistency layer delivers dramatically higher throughput by serving reads f
 
 | Operation | Standard Redis | Consistency Layer | Improvement |
 |---|---|---|---|
-| `getInstances` | ~2M ops/s | 76M+ ops/s | ~38x |
-| `getServices` | ~10M ops/s | 455M+ ops/s | ~45x |
+| `getInstances` | ~226K ops/s | 76M+ ops/s | ~338x |
+| `getServices` | ~304K ops/s | 455M+ ops/s | ~1,495x |
 | Latency (p99) | Variable (network-bound) | Sub-microsecond | Deterministic |
 
 ## ServiceStatistic

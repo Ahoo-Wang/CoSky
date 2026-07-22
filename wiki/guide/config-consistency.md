@@ -292,8 +292,8 @@ Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky
 ## Related Pages
 
 - [Configuration Management](./config-service.md) -- Core configuration CRUD operations, data model, and Redis implementation
-- [Service Discovery](./discovery-service.md) -- Service registration with a similar consistency optimization pattern
-- [REST API](./rest-api.md) -- HTTP endpoints for managing configuration
+- [Service Discovery](./service-discovery) -- Service registration with a similar consistency optimization pattern
+- [REST API](./rest-api) -- HTTP endpoints for managing configuration
 
 ## References
 

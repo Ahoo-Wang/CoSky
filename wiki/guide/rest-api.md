@@ -162,14 +162,14 @@ sequenceDiagram
 
     Client->>ServiceController: PUT /v1/namespaces/{ns}/services/{svcId}/instances
     ServiceController->>ServiceRegistry: register(namespace, ServiceInstance)
-    ServiceRegistry->>Redis: HMSET instance + ZADD service index + PEXPIRE TTL
+    ServiceRegistry->>Redis: HMSET instance + SADD service index + EXPIRE TTL
     Redis-->>ServiceRegistry: OK
     ServiceRegistry-->>ServiceController: true
     ServiceController-->>Client: 200 true
 
     Client->>ServiceController: DELETE /v1/namespaces/{ns}/services/{svcId}/instances/{instId}
     ServiceController->>ServiceRegistry: deregister(namespace, serviceId, instanceId)
-    ServiceRegistry->>Redis: ZREM instance from service set
+    ServiceRegistry->>Redis: SREM instance from service set
     Redis-->>ServiceRegistry: true
     ServiceRegistry-->>ServiceController: true
     ServiceController-->>Client: 200 true

@@ -24,7 +24,7 @@ The name comes from **Co** (configuration) + **Sky** (service discovery). The pr
 | Layer | Technology |
 |-------|-----------|
 | Language | Kotlin (JVM 17 toolchain) |
-| Framework | Spring Boot 3.x, Spring Cloud |
+| Framework | Spring Boot 4.x, Spring Cloud |
 | Reactive | Project Reactor (`Mono`/`Flux`) |
 | Storage | Redis (via `ReactiveStringRedisTemplate`) |
 | Atomicity | Lua scripts for all mutations |
@@ -269,7 +269,7 @@ CoSky uses Redis PubSub to propagate state changes. Events are string-based op c
 
 ### Development Environment Setup
 
-```mermaid```mermaid
+```mermaid
 flowchart TD
     CLONE["Clone repo<br>git clone https://github.com/Ahoo-Wang/CoSky"] --> JDK["Install JDK 17<br>brew install openjdk@17"]
     JDK --> REDIS["Start Redis<br>docker run -d -p 6379:6379 redis"]
@@ -287,7 +287,11 @@ flowchart TD
     style DETEKT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style TESTS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style READY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```sites:
+```
+
+<!-- Sources: build.gradle.kts:92, AGENTS.md -->
+
+Prerequisites:
 - **JDK 17** — required by the JVM toolchain configuration in `build.gradle.kts`
 - **Redis** — required for integration tests
 - **IntelliJ IDEA** — recommended (Kotlin support is first-class)

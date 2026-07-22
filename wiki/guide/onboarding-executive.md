@@ -77,7 +77,9 @@ flowchart TB
 
 CoSky scales through Redis and namespace multi-tenancy.
 
-### Horizontal Scaling via Red```mermaid
+### Horizontal Scaling via Redis
+
+```mermaid
 flowchart LR
     subgraph "Application Tier"
         A1["App Instance 1"]
@@ -109,7 +111,6 @@ flowchart LR
     style R2 fill:#2d333b,stroke:#30363d,color:#e6edf3
     style R3 fill:#2d333b,stroke:#30363d,color:#e6edf3
     style DASH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
 ```
 
 - **Application instances** scale independently — each has its own local cache and subscribes to Redis PubSub.
@@ -190,7 +191,9 @@ All namespaces share the same Redis instance. Data is separated by key prefix, n
 - You need DNS-based service discovery (Consul/CoreDNS)
 - You need a full service mesh with sidecar proxies (Istio/Linkerd)
 
-## Service-Level Archit```mermaid
+## Service-Level Architecture
+
+```mermaid
 flowchart TB
     subgraph "Development Team"
         DEV["Developer"]
@@ -234,7 +237,6 @@ flowchart TB
     style OPS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style DASH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style LB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```edf3
 ```
 
 ## Recommendations

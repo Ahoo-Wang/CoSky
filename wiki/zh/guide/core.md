@@ -375,9 +375,9 @@ flowchart TD
 
 ## 交叉引用
 
-- [架构概览](./architecture.md) -- 高层模块结构和设计原则。
-- [配置模块](./config.md) -- `cosky-config` 如何基于核心的命名空间和事件抽象构建。
-- [服务发现模块](./discovery.md) -- `cosky-discovery` 如何基于核心的命名空间和事件抽象构建。
+- [架构概览](./architecture) -- 高层模块结构和设计原则。
+- [配置模块](./config-service) -- `cosky-config` 如何基于核心的命名空间和事件抽象构建。
+- [服务发现模块](./service-discovery) -- `cosky-discovery` 如何基于核心的命名空间和事件抽象构建。
 
 ## 参考
 

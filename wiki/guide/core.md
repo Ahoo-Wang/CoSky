@@ -375,9 +375,9 @@ flowchart TD
 
 ## Cross-References
 
-- [Architecture Overview](./architecture.md) -- High-level module structure and design principles.
-- [Configuration Module](./config.md) -- How `cosky-config` builds on core's namespace and event abstractions.
-- [Service Discovery Module](./discovery.md) -- How `cosky-discovery` builds on core's namespace and event abstractions.
+- [Architecture Overview](./architecture) -- High-level module structure and design principles.
+- [Configuration Module](./config-service) -- How `cosky-config` builds on core's namespace and event abstractions.
+- [Service Discovery Module](./service-discovery) -- How `cosky-discovery` builds on core's namespace and event abstractions.
 
 ## References
 

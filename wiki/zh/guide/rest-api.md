@@ -162,14 +162,14 @@ sequenceDiagram
 
     Client->>ServiceController: PUT /v1/namespaces/{ns}/services/{svcId}/instances
     ServiceController->>ServiceRegistry: register(namespace, ServiceInstance)
-    ServiceRegistry->>Redis: HMSET 实例 + ZADD 服务索引 + PEXPIRE TTL
+    ServiceRegistry->>Redis: HMSET 实例 + SADD 服务索引 + EXPIRE TTL
     Redis-->>ServiceRegistry: OK
     ServiceRegistry-->>ServiceController: true
     ServiceController-->>Client: 200 true
 
     Client->>ServiceController: DELETE /v1/namespaces/{ns}/services/{svcId}/instances/{instId}
     ServiceController->>ServiceRegistry: deregister(namespace, serviceId, instanceId)
-    ServiceRegistry->>Redis: ZREM 从服务集合中移除实例
+    ServiceRegistry->>Redis: SREM 从服务集合中移除实例
     Redis-->>ServiceRegistry: true
     ServiceRegistry-->>ServiceController: true
     ServiceController-->>Client: 200 true

@@ -249,27 +249,29 @@ flowchart TD
 
 ## JVM 选项
 
-| 选项 | 推荐值 | 描述 |
+以下 JVM 选项为发布默认值（定义于 `cosky-rest-api/build.gradle.kts`）：
+
+| 选项 | 发布默认值 | 描述 |
 |--------|------------------|-------------|
-| `-Xms` | `512m` | 初始堆大小 |
-| `-Xmx` | `1024m` | 最大堆大小 |
-| `-XX:+UseG1GC` | - | 使用 G1 垃圾收集器 |
-| `-XX:MaxGCPauseMillis` | `200` | 目标最大 GC 停顿时间 |
-| `-Dfile.encoding` | `UTF-8` | 字符编码 |
-| `-Duser.timezone` | `Asia/Shanghai` | 默认时区（或匹配您的区域） |
+| `-Xms` | `512M` | 初始堆大小 |
+| `-Xmx` | `512M` | 最大堆大小 |
+| `-XX:MaxMetaspaceSize` | `128M` | 最大元空间大小 |
+| `-XX:MaxDirectMemorySize` | `256M` | 最大直接内存 |
+| `-Xss` | `1m` | 线程栈大小 |
+| `-XX:+UseZGC` | - | 使用 ZGC 垃圾收集器（低延迟） |
 | `-XX:+HeapDumpOnOutOfMemoryError` | - | 在 OOM 时生成堆转储 |
-| `-XX:HeapDumpPath` | `logs/` | 堆转储目录 |
+| `-XX:HeapDumpPath` | `data` | 堆转储目录 |
 
 要通过启动脚本传递 JVM 选项，请设置 `JAVA_OPTS` 环境变量：
 
 ```bash
-export JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC"
+export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
 bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## 服务发现与自注册
 
-当 `cosky.auto-registry` 启用时（默认），CoSky 将自身注册为一个服务实例。`cosky.rest.api` 服务会出现在 Dashboard 中，默认权重为 `8`。这允许其他使用 CoSky SDK 的微服务通过标准的服务发现机制发现 REST API。
+当 `cosky.auto-registry` 启用时（默认），CoSky 将自身注册为一个服务实例。`cosky-rest-api` 服务会出现在 Dashboard 中，默认权重为 `8`。这允许其他使用 CoSky SDK 的微服务通过标准的服务发现机制发现 REST API。
 
 ```mermaid
 flowchart LR

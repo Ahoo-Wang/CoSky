@@ -50,7 +50,7 @@ graph LR
 | **Java** | 17+ | JVM runtime | CoSky uses JVM 17 toolchain ([build.gradle.kts:93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L93)) |
 | **Redis** | 5.0+ | Backend storage for services and configs | Standalone or cluster mode |
 | **Gradle** or **Maven** | Any | Build tool | Kotlin DSL shown for Gradle |
-| **Spring Boot** | 3.x | Application framework | Spring Cloud compatible |
+| **Spring Boot** | 4.x | Application framework | Spring Cloud compatible |
 
 ## Quick Start
 
@@ -62,9 +62,10 @@ graph LR
 val coskyVersion = "5.6.0"
 
 dependencies {
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
+    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
 
@@ -74,21 +75,29 @@ dependencies {
 <properties>
     <cosky.version>5.6.0</cosky.version>
 </properties>
+<dependencyManagement>
+    <dependencies>
+        <dependency>
+            <groupId>me.ahoo.cosky</groupId>
+            <artifactId>cosky-dependencies</artifactId>
+            <version>${cosky.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+    </dependencies>
+</dependencyManagement>
 <dependencies>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
         <artifactId>spring-cloud-starter-cosky-config</artifactId>
-        <version>${cosky.version}</version>
     </dependency>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
         <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
-        <version>${cosky.version}</version>
     </dependency>
     <dependency>
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        <version>3.0.3</version>
     </dependency>
 </dependencies>
 ```
