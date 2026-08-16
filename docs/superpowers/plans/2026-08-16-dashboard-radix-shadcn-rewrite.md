@@ -1128,6 +1128,7 @@ git add -A dashboard && git commit -m "refactor(dashboard): swap global drawer h
 - Create: `dashboard/src/components/feedback/Empty.tsx`
 - Create: `dashboard/src/components/feedback/ErrorState.tsx`
 - Generate: `table alert-dialog`(shadcn CLI)
+- Untouched: `dashboard/src/components/table/index.tsx`(遗留 antd 助手仍被未迁移页面引用，T15 删除）
 
 **Interfaces:**
 - Consumes: shadcn `table/alert-dialog/dropdown-menu/popover/button/input/skeleton`;`cn`;`Spinner`。
@@ -1229,37 +1230,49 @@ export function ErrorState({error, onRetry}: { error?: unknown; onRetry?: () => 
 }
 ```
 
-- [ ] **Step 4: 重写 SearchFilter**
+- [ ] **Step 4: 重写 SearchFilter(保留 useSearchFilter!)**
 
-整体替换 `dashboard/src/components/table/SearchFilter.tsx`（保留 Apache 头；`useSearchFilter` hook 若存在且被引用则同步改为受控用法——先读该文件，保持其导出名称不变，内部用 shadcn `Input`/`Button` 实现）:
+整体替换 `dashboard/src/components/table/SearchFilter.tsx`。**必须原样保留文件末尾的 `useSearchFilter` hook**（含其 `antd/es/table/interface` 类型 import)——遗留 `table/index.tsx` 与未迁移页面的 antd `filterDropdown` 在共存期仍依赖它；只重写 `SearchFilter` 组件的 UI(antd → shadcn),props 保持可选、形状不变：
 
 ```tsx
 import {Input} from '@/components/ui/input';
 import {Button} from '@/components/ui/button';
+import type {FilterDropdownProps} from 'antd/es/table/interface';
 
 export interface SearchFilterProps {
     placeholder?: string;
-    value: string;
-    onChange: (value: string) => void;
-    onSearch: () => void;
-    onReset: () => void;
+    value?: string;
+    onChange?: (value: string) => void;
+    onSearch?: () => void;
+    onReset?: () => void;
 }
 
-export function SearchFilter({placeholder = 'Search', value, onChange, onSearch, onReset}: SearchFilterProps) {
+export function SearchFilter({placeholder = 'Search...', value, onChange, onSearch, onReset}: SearchFilterProps) {
     return (
-        <div className="flex flex-col gap-2">
+        <div className="flex w-56 flex-col gap-2">
             <Input
                 placeholder={placeholder}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') onSearch(); }}
+                value={value ?? ''}
+                onChange={(e) => onChange?.(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSearch?.(); }}
             />
             <div className="flex justify-end gap-2">
-                <Button variant="ghost" size="sm" onClick={onReset}>Reset</Button>
-                <Button size="sm" onClick={onSearch}>Search</Button>
+                <Button variant="ghost" size="sm" onClick={() => onReset?.()}>Reset</Button>
+                <Button size="sm" onClick={() => onSearch?.()}>Search</Button>
             </div>
         </div>
     );
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useSearchFilter(dropdownProps: FilterDropdownProps) {
+    const {setSelectedKeys, selectedKeys, confirm, clearFilters} = dropdownProps;
+    return {
+        value: (selectedKeys[0] as string) ?? '',
+        onChange: (val: string) => setSelectedKeys(val ? [val] : []),
+        onSearch: () => confirm(),
+        onReset: () => clearFilters?.(),
+    };
 }
 ```
 
@@ -1682,17 +1695,16 @@ export function DataTable<TData>({
 }
 ```
 
-- [ ] **Step 9: 更新 table/index.tsx 重导出**
+- [ ] **Step 9: 保持遗留 barrel 不动**
 
-整体替换 `dashboard/src/components/table/index.tsx`（保留 Apache 头）:
+**不要**修改 `dashboard/src/components/table/index.tsx`——其 antd 版 `createSearchColumn`/`createActionColumn`/`useSearchFilter` 仍被尚未迁移的 `ConfigPage`/`ServicePage` 引用，动了会让 `tsc -b` 立刻红。新组件不设 barrel；页面一律深路径导入：
 
 ```tsx
-export {DataTable, type DataTableProps, type DataTablePagination} from './DataTable';
-export {createSearchColumn, createActionColumn, type SearchColumnProps, type ActionItem} from './columns';
-export {SearchFilter, type SearchFilterProps} from './SearchFilter';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn, createSearchColumn} from '@/components/table/columns';
 ```
 
-若旧 `useSearchFilter` 仍被其他文件引用（`grep -rn "useSearchFilter" src` 确认），同步改造调用点为受控 `SearchFilter` 用法后删除该 hook。
+旧 `SearchFilter.tsx` 已被 Step 4 覆写，但新旧 props 形状一致（`value/onChange/onSearch/onReset`)，旧 antd `filterDropdown` 包装器在共存期继续可用。遗留 `index.tsx` 由 T15 在 grep 确认无引用后删除。
 
 - [ ] **Step 10: 门禁 + 提交**
 
@@ -1817,7 +1829,6 @@ export function AddNamespaceForm({onSuccess}: { onSuccess: () => void }) {
 整体替换 `dashboard/src/pages/namespace/NamespacePage.tsx`:
 
 ```tsx
-import {useMemo} from 'react';
 import {Trash2} from 'lucide-react';
 import {toast} from 'sonner';
 import {isSystemNamespace} from './namespaces';
@@ -1827,7 +1838,8 @@ import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceC
 import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
 import {PageHeader} from '@/components/layout/PageHeader';
 import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
-import {DataTable, createActionColumn} from '@/components/table';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn} from '@/components/table/columns';
 
 export function NamespacePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
@@ -1846,9 +1858,9 @@ export function NamespacePage() {
     const isDisabled = (namespace: string) =>
         isSystemNamespace(namespace) || currentNamespace === namespace;
 
-    const data = useMemo(() => namespaces.map((ns) => ({name: ns})), [namespaces]);
+    const data = namespaces.map((ns) => ({name: ns}));
 
-    const columns = useMemo(() => [
+    const columns = [
         {
             accessorKey: 'name',
             header: () => <span>Namespace</span>,
@@ -1866,8 +1878,7 @@ export function NamespacePage() {
                 },
             ],
         }),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    ], [currentNamespace]);
+    ];
 
     return (
         <div>
@@ -2842,13 +2853,17 @@ export default App;
             );
 ```
 
-- [ ] **Step 4: 删除死文件**
+- [ ] **Step 4: 删除死文件与遗留 barrel**
 
 ```bash
 cd dashboard
 rm src/App.css
-grep -rn "App.css" src   # 预期无输出
+grep -rn "App.css" src                        # 预期无输出
+grep -rn "components/table'" src              # 预期无输出(遗留 barrel 的引用形式)
+git rm src/components/table/index.tsx         # 遗留 antd 列助手
 ```
+
+随后把 `src/components/table/SearchFilter.tsx` 末尾的 `useSearchFilter` hook 及其 `antd/es/table/interface` 类型 import 一并删除（此时已无引用）。
 
 - [ ] **Step 5: 全量门禁**
 
