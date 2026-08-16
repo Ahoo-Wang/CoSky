@@ -11,19 +11,20 @@
  * limitations under the License.
  */
 
-import {Table, Button, Popconfirm} from 'antd';
+import {Trash2} from 'lucide-react';
 import {toast} from 'sonner';
-import {DeleteOutlined} from '@ant-design/icons';
-import {isSystemNamespace} from "./namespaces.ts";
-import {namespaceApiClient} from "../../services/clients.ts";
-import {AddNamespaceForm} from "./AddNamespaceForm.tsx";
-import { useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
-import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
-import {PageHeader} from "../../components/layout/PageHeader.tsx";
-import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
+import {isSystemNamespace} from './namespaces';
+import {namespaceApiClient} from '@/services/clients';
+import {AddNamespaceForm} from './AddNamespaceForm';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn} from '@/components/table/columns';
 
 export function NamespacePage() {
-    const {currentNamespace} = useCurrentNamespaceContext()
+    const {currentNamespace} = useCurrentNamespaceContext();
     const {namespaces, loading, refresh} = useNamespacesContext();
 
     const handleDelete = async (namespace: string) => {
@@ -36,48 +37,42 @@ export function NamespacePage() {
         }
     };
 
-    const isDisabled = (namespace: string) => {
-        return isSystemNamespace(namespace) || currentNamespace === namespace;
-    };
+    const isDisabled = (namespace: string) =>
+        isSystemNamespace(namespace) || currentNamespace === namespace;
+
+    const data = namespaces.map((ns) => ({name: ns}));
 
     const columns = [
         {
-            title: 'Namespace',
-            key: 'namespace',
+            accessorKey: 'name',
+            header: () => <span>Namespace</span>,
         },
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: string, record: string) => (
-                <Popconfirm
-                    title="Are you sure to delete this namespace?"
-                    onConfirm={() => handleDelete(record)}
-                    okText="Yes"
-                    cancelText="No"
-                >
-                    <Button type="link" danger icon={<DeleteOutlined/>} disabled={isDisabled(record)}>
-                        Delete
-                    </Button>
-                </Popconfirm>
-            ),
-        },
+        createActionColumn<{ name: string }>({
+            items: [
+                {
+                    key: 'delete',
+                    label: 'Delete',
+                    icon: <Trash2 className="mr-1 h-4 w-4"/>,
+                    danger: true,
+                    confirm: 'Are you sure to delete this namespace?',
+                    disabled: (record) => isDisabled(record.name),
+                    onClick: (record) => void handleDelete(record.name),
+                },
+            ],
+        }),
     ];
-
 
     return (
         <div>
-            <PageHeader
-                title="Namespace"
-                actions={<AddNamespaceForm onSuccess={refresh}/>}
-            />
+            <PageHeader title="Namespace" actions={<AddNamespaceForm onSuccess={refresh}/>}/>
             <DataTableWrapper>
-                <Table
+                <DataTable
                     columns={columns}
-                    dataSource={namespaces}
+                    data={data}
                     loading={loading}
-                    rowKey={(record) => record}
+                    getRowId={(row) => row.name}
                 />
             </DataTableWrapper>
         </div>
     );
-};
+}
