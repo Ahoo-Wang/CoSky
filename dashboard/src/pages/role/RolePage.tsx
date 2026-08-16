@@ -11,18 +11,28 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm} from 'antd';
+import type {ColumnDef} from '@tanstack/react-table';
+import {Pencil, Plus, Trash2} from 'lucide-react';
 import {toast} from 'sonner';
-import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
-import type {RoleDto} from '../../generated';
-import {RoleEditor} from './RoleEditor.tsx';
-import {roleApiClient} from "../../services/clients.ts";
-import {useRoles} from "../../hooks/useRoles.ts";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {Button} from '@/components/ui/button';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn, createSearchColumn} from '@/components/table/columns';
+import type {RoleDto} from '@/generated';
+import {roleApiClient} from '@/services/clients';
+import {useRoles} from '@/hooks/useRoles';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {RoleEditor} from './RoleEditor';
 
 export function RolePage() {
-    const {roles = [], loading, load} = useRoles()
+    const {roles = [], loading, error, load} = useRoles();
     const {openDrawer, closeDrawer} = useDrawer();
+
+    const handleSubmit = () => {
+        closeDrawer();
+        load();
+    };
 
     const handleAdd = () => {
         openDrawer(
@@ -49,11 +59,6 @@ export function RolePage() {
         );
     };
 
-    const handleSubmit = () => {
-        closeDrawer();
-        load();
-    };
-
     const handleDelete = async (roleName: string) => {
         try {
             await roleApiClient.removeRole(roleName);
@@ -64,71 +69,57 @@ export function RolePage() {
         }
     };
 
-    const columns = [
-        {
+    const columns: ColumnDef<RoleDto>[] = [
+        createSearchColumn<RoleDto>({
             title: 'Role Name',
-            dataIndex: 'name',
-            key: 'name',
-        },
+            accessorKey: 'name',
+            placeholder: 'Search role name',
+        }),
         {
-            title: 'Description',
-            dataIndex: 'desc',
-            key: 'desc',
+            accessorKey: 'desc',
+            header: () => <span>Description</span>,
         },
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: string, record: RoleDto) => (
-                <Space>
-                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
-                        Edit
-                    </Button>
-                    <Popconfirm
-                        title="Are you sure to delete this role?"
-                        onConfirm={() => handleDelete(record.name)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
-            ),
-        },
+        createActionColumn<RoleDto>({
+            items: [
+                {
+                    key: 'edit',
+                    label: 'Edit',
+                    icon: <Pencil className="mr-1 h-4 w-4"/>,
+                    onClick: handleEdit,
+                },
+                {
+                    key: 'delete',
+                    label: 'Delete',
+                    icon: <Trash2 className="mr-1 h-4 w-4"/>,
+                    danger: true,
+                    confirm: 'Are you sure to delete this role?',
+                    onClick: (record) => void handleDelete(record.name),
+                },
+            ],
+        }),
     ];
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>Role</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd} size="large">
-                    Add Role
-                </Button>
-            </div>
-            <Table
-                columns={columns}
-                dataSource={roles}
-                loading={loading}
-                rowKey="name"
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
+            <PageHeader
+                title="Role"
+                actions={
+                    <Button onClick={handleAdd}>
+                        <Plus className="mr-1 h-4 w-4"/>
+                        Add Role
+                    </Button>
+                }
             />
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={roles}
+                    loading={loading}
+                    error={error}
+                    onRetry={() => void load()}
+                    getRowId={(row) => row.name}
+                />
+            </DataTableWrapper>
         </div>
     );
-};
+}

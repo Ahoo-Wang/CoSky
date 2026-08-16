@@ -12,15 +12,34 @@
  */
 
 import {useEffect} from 'react';
-import {Form, Input, Button, Space, Divider} from 'antd';
+import {useFieldArray, useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
+import {Plus, Trash2} from 'lucide-react';
 import {toast} from 'sonner';
-import type {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
-import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {roleApiClient} from "../../services/clients.ts";
-import {MinusCircleOutlined, PlusOutlined} from "@ant-design/icons";
-import {NamespaceSelector} from "../../components/namespace/NamespaceSelector.tsx";
-import {ResourceActionSelector} from "./ResourceActionSelector.tsx";
-import {EMPTY_ARRAY} from "./EmptyArray.ts";
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Textarea} from '@/components/ui/textarea';
+import {Separator} from '@/components/ui/separator';
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
+import type {ResourceActionDto, RoleDto} from '@/generated';
+import {roleApiClient} from '@/services/clients';
+import {NamespaceSelector} from '@/components/namespace/NamespaceSelector';
+import {ResourceActionSelector} from './ResourceActionSelector';
+import {EMPTY_ARRAY} from './EmptyArray';
+
+const resourceActionBindItemSchema = z.object({
+    namespace: z.string().min(1, 'Missing namespace'),
+    action: z.string().min(1, 'Missing action'),
+});
+
+const schema = z.object({
+    name: z.string().min(1, 'Please input role name!'),
+    desc: z.string().min(1, 'Please input role description!'),
+    resourceActionBind: z.array(resourceActionBindItemSchema),
+});
+type Values = z.infer<typeof schema>;
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
@@ -28,104 +47,138 @@ interface RoleEditorProps {
     onCancel: () => void;
 }
 
-export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
-
-}
-
 export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
-    const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
+    const {result: resourceActionBind = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
-        execute: (query, attributes, abortController) => {
-            return roleApiClient.getResourceBind(query, attributes, abortController);
-        }
-    })
-    const {loading: saveLoading, execute: save} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Save role success!');
-            onSuccess();
-            form.resetFields();
+        execute: (query, _, abortController) => {
+            return roleApiClient.getResourceBind(query, {abortController});
         },
-        onError: () => {
-            toast.error('Failed to save role');
-        }
-    })
-    const handleFinish = async (values: RoleEditorFormValues) => {
-        await save(() => {
-            return roleApiClient.saveRole(values.name, {
-                body: values
-            })
-        })
-    };
-    const [form] = Form.useForm<RoleEditorFormValues>();
+    });
+    const form = useForm<Values>({
+        resolver: zodResolver(schema),
+        defaultValues: {
+            name: initialValues?.name ?? '',
+            desc: initialValues?.desc ?? '',
+            resourceActionBind: [],
+        },
+    });
+    const {fields, append, remove} = useFieldArray({
+        control: form.control,
+        name: 'resourceActionBind',
+    });
 
     useEffect(() => {
-        if (initialValues) {
-            const formValues = {
-                name: initialValues.name,
-                desc: initialValues.desc ?? "",
-                resourceActionBind: result
-            }
-            form.setFieldsValue(formValues);
-        } else {
-            form.resetFields();
+        if (!initialValues) {
+            return;
         }
-    }, [initialValues, form, result]);
+        form.reset({
+            name: initialValues.name,
+            desc: initialValues.desc ?? '',
+            resourceActionBind: resourceActionBind,
+        });
+    }, [initialValues, form, resourceActionBind]);
 
+    const onSubmit = async (values: Values) => {
+        try {
+            await roleApiClient.saveRole(values.name, {body: values});
+            toast.success('Save role success!');
+            onSuccess();
+            form.reset();
+        } catch {
+            toast.error('Failed to save role');
+        }
+    };
 
     return (
-        <Form form={form} layout="vertical" onFinish={handleFinish}>
-            <Form.Item
-                name="name"
-                label="Role Name"
-                rules={[{required: true, message: 'Please input role name!'}]}
-            >
-                <Input disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item name="desc" label="Description"
-                       rules={[{required: true, message: 'Please input role description!'}]}>
-                <Input.TextArea rows={4}/>
-            </Form.Item>
-            <Divider>Resource Bind</Divider>
-            <Form.List name="resourceActionBind">
-                {(fields, {add, remove}) => (
-                    <>
-                        {fields.map(({key, name, ...restField}) => (
-                            <Space key={key} style={{display: 'flex', marginBottom: 8}} align="baseline">
-                                <Form.Item
-                                    {...restField}
-                                    name={[name, 'namespace']}
-                                    rules={[{required: true, message: 'Missing namespace'}]}
-                                >
-                                    <NamespaceSelector className="min-w-[200px]"></NamespaceSelector>
-                                </Form.Item>
-                                <Form.Item
-                                    {...restField}
-                                    name={[name, 'action']}
-                                    rules={[{required: true, message: 'Missing action'}]}
-                                >
-                                    <ResourceActionSelector style={{minWidth: '200px'}}/>
-                                </Form.Item>
-                                <MinusCircleOutlined onClick={() => remove(name)}/>
-                            </Space>
-                        ))}
-                        <Form.Item>
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined/>}>
-                                Add permissions
-                            </Button>
-                        </Form.Item>
-                    </>
-                )}
-            </Form.List>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={saveLoading}>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Role Name</FormLabel>
+                            <FormControl>
+                                <Input disabled={!!initialValues} {...field} />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="desc"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Description</FormLabel>
+                            <FormControl>
+                                <Textarea rows={4} {...field} />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <div className="flex items-center gap-4 py-2">
+                    <Separator className="flex-1"/>
+                    <span className="text-sm font-medium text-muted-foreground">Resource Bind</span>
+                    <Separator className="flex-1"/>
+                </div>
+                {fields.map((rowField, index) => (
+                    <div key={rowField.id} className="flex items-start gap-2">
+                        <FormField
+                            control={form.control}
+                            name={`resourceActionBind.${index}.namespace`}
+                            render={({field}) => (
+                                <FormItem className="flex-1">
+                                    <FormControl>
+                                        <NamespaceSelector value={field.value} onChange={field.onChange}
+                                                           className="w-full min-w-[200px]"/>
+                                    </FormControl>
+                                    <FormMessage/>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name={`resourceActionBind.${index}.action`}
+                            render={({field}) => (
+                                <FormItem className="flex-1">
+                                    <FormControl>
+                                        <ResourceActionSelector value={field.value} onChange={field.onChange}/>
+                                    </FormControl>
+                                    <FormMessage/>
+                                </FormItem>
+                            )}
+                        />
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Remove resource bind"
+                            onClick={() => remove(index)}
+                        >
+                            <Trash2 className="h-4 w-4"/>
+                        </Button>
+                    </div>
+                ))}
+                <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => append({namespace: '', action: ''})}
+                >
+                    <Plus className="mr-1 h-4 w-4"/>
+                    Add permissions
+                </Button>
+                <div className="flex gap-2">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
                         Submit
                     </Button>
-                    <Button onClick={onCancel}>
+                    <Button type="button" variant="outline" onClick={onCancel}>
                         Cancel
                     </Button>
-                </Space>
-            </Form.Item>
+                </div>
+            </form>
         </Form>
     );
-};
+}
