@@ -9,7 +9,7 @@ import {defineConfig, globalIgnores} from 'eslint/config'
 export default defineConfig([
     globalIgnores(['dist']),
     {
-        ignores: ['src/generated/**'],
+        ignores: ['src/generated/**', 'src/components/ui/**'],
         files: ['**/*.{ts,tsx}'],
         extends: [
             js.configs.recommended,
