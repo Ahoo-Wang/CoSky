@@ -11,57 +11,69 @@
  * limitations under the License.
  */
 
-import {Button, Table} from 'antd';
-import {useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "../../services/clients.ts";
-import type {ConfigVersion} from "../../generated";
-import type {ColumnsType} from "antd/es/table/interface";
-import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
-import {HistoryOutlined} from "@ant-design/icons";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import type {ColumnDef} from '@tanstack/react-table';
+import {History} from 'lucide-react';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn} from '@/components/table/columns';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {configApiClient} from '@/services/clients';
+import type {ConfigVersion} from '@/generated';
+import {ConfigVersionDiffer} from './ConfigVersionDiffer';
 
-interface ConfigVersionTableProps {
+export interface ConfigVersionTableProps {
     namespace: string;
     configId: string;
 }
 
 export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProps) {
-    const {loading, result: versions, execute: loadVersions} = useQuery<string, ConfigVersion[]>({
+    const {result: versions = [], loading, execute: loadVersions} = useQuery<string, ConfigVersion[]>({
         query: configId,
-        execute: (query, attributes, abortController) => {
-            return configApiClient.getConfigVersions(namespace, query, attributes, abortController);
-        }
-    })
+        execute: (query, _, abortController) => {
+            return configApiClient.getConfigVersions(namespace, query, {abortController});
+        },
+    });
     const {openDrawer, closeDrawer} = useDrawer();
+
     const handleDiffVersion = (record: ConfigVersion) => {
-        openDrawer(<ConfigVersionDiffer namespace={namespace} configId={configId} version={record.version}
-                                        onSuccess={() => {
-                                            closeDrawer();
-                                            loadVersions()
-                                        }}/>,
+        openDrawer(
+            <ConfigVersionDiffer namespace={namespace} configId={configId} version={record.version}
+                                 onSuccess={() => {
+                                     closeDrawer();
+                                     loadVersions();
+                                 }}/>,
             {
                 title: 'Config Version Differ',
                 defaultSize: '80vw',
-            }
-        )
-    }
-    const columns: ColumnsType<ConfigVersion> = [
-        {title: 'Version', dataIndex: 'version', key: 'version'},
+            },
+        );
+    };
+
+    const columns: ColumnDef<ConfigVersion>[] = [
         {
-            title: 'Action', key: 'action', render: (_, record) => (
-                <Button type={'link'} icon={<HistoryOutlined/>} onClick={() => {
-                    handleDiffVersion(record)
-                }}>Diff</Button>
-            )
-        }
+            accessorKey: 'version',
+            enableSorting: false,
+            header: () => <span>Version</span>,
+        },
+        createActionColumn<ConfigVersion>({
+            items: [
+                {
+                    key: 'diff',
+                    label: 'Diff',
+                    icon: <History className="mr-1 h-4 w-4"/>,
+                    onClick: (record) => handleDiffVersion(record),
+                },
+            ],
+        }),
     ];
 
     return (
-        <Table
-            dataSource={versions}
-            rowKey="version"
+        <DataTable
             columns={columns}
+            data={versions}
             loading={loading}
+            getRowId={(row) => `${row.version}`}
+            showViewOptions={false}
         />
     );
 }

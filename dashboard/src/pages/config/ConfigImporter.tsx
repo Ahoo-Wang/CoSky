@@ -11,79 +11,107 @@
  * limitations under the License.
  */
 
-import React, {useEffect} from 'react';
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {Button, Form, Space} from "antd";
+import {useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
 import {toast} from 'sonner';
-import {configApiClient} from "../../services/clients.ts";
-import Dragger from "antd/es/upload/Dragger";
-import {InboxOutlined} from "@ant-design/icons";
-import {ImportPolicySelector} from "./ImportPolicySelector.tsx";
-import type {UploadChangeParam} from "antd/es/upload/interface";
-import type {ImportResponse} from "../../generated";
+import {useExecutePromise} from '@ahoo-wang/fetcher-react';
+import {Button} from '@/components/ui/button';
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
+import {FileDropzone} from '@/components/form/FileDropzone';
+import {configApiClient} from '@/services/clients';
+import type {ImportResponse} from '@/generated';
+import {ImportPolicySelector} from './ImportPolicySelector';
 
-interface ConfigImporterProps {
+const formSchema = z.object({
+    policy: z.string().min(1),
+    importZip: z.instanceof(File, {error: 'Please select a file!'}),
+});
+
+type ImporterFormValues = z.infer<typeof formSchema>;
+
+export interface ConfigImporterProps {
     namespace: string;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
-    const [form] = Form.useForm();
+export function ConfigImporter({namespace, onSuccess, onCancel}: ConfigImporterProps) {
     const {loading, execute} = useExecutePromise<ImportResponse>({
         onSuccess: (result) => {
-            toast.success(`ToTal : ${result.total} , Succeeded : ${result.succeeded} . `)
+            toast.success(`ToTal : ${result.total} , Succeeded : ${result.succeeded} . `);
             onSuccess();
         },
         onError: () => {
-            toast.error('Import config failed')
+            toast.error('Import config failed');
         },
-    })
-    const handleFinish = (values: { policy: string; importZip: UploadChangeParam<File> }) => {
+    });
+    const form = useForm<ImporterFormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            policy: 'skip',
+            importZip: undefined,
+        },
+    });
+
+    const onSubmit = (values: ImporterFormValues) => {
         const formData = new FormData();
         formData.append('policy', values.policy);
-        formData.append('importZip', values.importZip.file);
+        formData.append('importZip', values.importZip);
         execute(() => {
             return configApiClient.importZip(namespace, {
-                body: formData
-            })
-        })
+                body: formData,
+            });
+        });
     };
-    useEffect(() => {
-        form.setFieldValue('policy', 'skip')
-    }, [form]);
+
     return (
-        <Form form={form} onFinish={handleFinish}>
-            <Form.Item name="policy" label='Import Policy'>
-                <ImportPolicySelector/>
-            </Form.Item>
-            <Form.Item name="importZip"
-                       rules={[
-                           {
-                               required: true,
-                               message: 'Please select a file!'
-                           }
-                       ]}>
-                <Dragger multiple={false} maxCount={1} accept=".zip" beforeUpload={() => false}>
-                    <p className="ant-upload-drag-icon">
-                        <InboxOutlined/>
-                    </p>
-                    <p className="ant-upload-text">Click or drag ZIP-file to this area to upload</p>
-                    <p className="ant-upload-hint">
-                        Support Nacos config format.
-                    </p>
-                </Dragger>
-            </Form.Item>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={loading}>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="policy"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Import Policy</FormLabel>
+                            <FormControl>
+                                <ImportPolicySelector
+                                    value={field.value || undefined}
+                                    onChange={field.onChange}
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="importZip"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormControl>
+                                <FileDropzone
+                                    accept=".zip"
+                                    hint="Click or drag ZIP-file to this area to upload"
+                                    onFile={field.onChange}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Support Nacos config format.
+                                </p>
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <div className="flex gap-2">
+                    <Button type="submit" disabled={loading}>
                         Submit
                     </Button>
-                    <Button onClick={onCancel}>
+                    <Button type="button" variant="outline" onClick={onCancel}>
                         Cancel
                     </Button>
-                </Space>
-            </Form.Item>
+                </div>
+            </form>
         </Form>
     );
-};
+}

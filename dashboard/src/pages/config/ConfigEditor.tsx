@@ -11,38 +11,61 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
-import {Button, Descriptions, Divider, Input, Skeleton, Space} from 'antd';
+import dayjs from 'dayjs';
+import {useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
 import {toast} from 'sonner';
-import Editor from '@monaco-editor/react';
-import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
-import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "../../services/clients.ts";
-import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
-import dayjs from "dayjs";
-import type {Config} from "../../generated";
+import {Editor} from '@monaco-editor/react';
+import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Skeleton} from '@/components/ui/skeleton';
+import {Separator} from '@/components/ui/separator';
+import {Form, FormControl, FormField, FormItem, FormMessage} from '@/components/ui/form';
+import {DescriptionList} from '@/components/feedback/DescriptionList';
+import {configApiClient} from '@/services/clients';
+import {useTheme} from '@/theme/ThemeProvider';
+import type {Config} from '@/generated';
+import {ConfigFormatSelector} from './ConfigFormatSelector';
+import {getFileNameWithExt, getFullFileName} from './fileNames';
 
-interface ConfigEditFormProps {
+const formSchema = z.object({
+    fileName: z.string().min(1, 'Please enter file name!'),
+    fileExt: z.string(),
+    configData: z.string(),
+});
+
+type ConfigFormValues = z.infer<typeof formSchema>;
+
+export interface ConfigEditorProps {
     namespace: string;
     configId?: string;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
+export function ConfigEditor({namespace, configId, onSuccess, onCancel}: ConfigEditorProps) {
+    const {resolvedTheme} = useTheme();
     const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
-    const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
-    const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
-    const [configData, setConfigData] = useState<string>();
+    const form = useForm<ConfigFormValues>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            fileName: fileNameWithExt.name,
+            fileExt: fileNameWithExt.ext,
+            configData: '',
+        },
+    });
+    const fileExt = form.watch('fileExt');
     const {loading, result: config} = useQuery<string, Config>({
         query: configId,
-        execute: (query, attributes, abortController) => {
-            return configApiClient.getConfig(namespace, query, attributes, abortController);
+        execute: (query, _, abortController) => {
+            return configApiClient.getConfig(namespace, query, {abortController});
         },
         onSuccess: (config) => {
-            setConfigData(config.data)
-        }
-    })
+            form.setValue('configData', config.data);
+        },
+    });
     const {loading: loadingSave, execute: saveConfig} = useExecutePromise({
         propagateError: true,
         onSuccess: () => {
@@ -51,75 +74,105 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
         },
         onError: () => {
             toast.error('Config save failed');
-        }
-    })
+        },
+    });
 
-    const handleSubmit = () => {
-        if (!fileName) {
-            toast.error('Please enter file name!')
-            return;
-        }
-        const fullFileName = getFullFileName(fileName, fileExt)
+    const onSubmit = (values: ConfigFormValues) => {
+        const fullFileName = getFullFileName(values.fileName, values.fileExt);
         saveConfig(() => {
             return configApiClient.setConfig(namespace, fullFileName, {
-                body: configData
-            })
-        })
-    }
+                body: values.configData,
+            });
+        });
+    };
+
     if (configId && loading) {
         return (
-            <Skeleton/>
-        )
+            <Skeleton className="h-64 w-full"/>
+        );
     }
-    return (
-        <>
-            {!configId && (
-                <Space.Compact block>
-                    <Input disabled={!!configId} placeholder="Enter file name!" value={fileName} onChange={(e) => {
-                        setFileName(e.target.value);
-                    }}/>
-                    <ConfigFormatSelector disabled={!!configId}
-                                          value={fileExt}
-                                          onChange={(value) => {
-                                              setFileExt(value)
-                                          }}
-                                          defaultValue={'yaml'}
-                                          style={{width: 150}}/>
-                </Space.Compact>
-            )}
-            {config && (
-                <Descriptions bordered>
-                    <Descriptions.Item label="File Name" span="filled">{config.configId}</Descriptions.Item>
-                    <Descriptions.Item label="Hash" span="filled">{config.hash}</Descriptions.Item>
-                    <Descriptions.Item
-                        label="Last Update Time">{dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-                    <Descriptions.Item label="Version">{config.version}</Descriptions.Item>
-                </Descriptions>
-            )}
-            <Divider>Config Data</Divider>
-            <Editor
-                height="60vh"
-                theme="vs-dark"
-                language={fileExt}
-                value={configData}
-                onChange={setConfigData}
-                options={{
-                    minimap: {enabled: false},
-                }}
-            />
-            <Divider></Divider>
-            <Space>
-                <Button type="primary"
-                        onClick={handleSubmit}
-                        loading={loadingSave}
-                >
-                    Submit
-                </Button>
-                <Button onClick={onCancel}>
-                    Cancel
-                </Button>
-            </Space>
-        </>
 
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {!configId && (
+                    <div className="flex gap-2">
+                        <FormField
+                            control={form.control}
+                            name="fileName"
+                            render={({field}) => (
+                                <FormItem className="flex-1">
+                                    <FormControl>
+                                        <Input placeholder="Enter file name!" {...field} />
+                                    </FormControl>
+                                    <FormMessage/>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="fileExt"
+                            render={({field}) => (
+                                <FormItem className="w-[150px]">
+                                    <FormControl>
+                                        <ConfigFormatSelector
+                                            value={field.value || undefined}
+                                            onChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    <FormMessage/>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                )}
+                {config && (
+                    <DescriptionList items={[
+                        {label: 'File Name', value: config.configId},
+                        {label: 'Hash', value: config.hash},
+                        {
+                            label: 'Last Update Time',
+                            value: dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss'),
+                        },
+                        {label: 'Version', value: config.version},
+                    ]}/>
+                )}
+                <div className="flex items-center gap-4 py-2">
+                    <Separator className="flex-1"/>
+                    <span className="text-sm font-medium text-muted-foreground">Config Data</span>
+                    <Separator className="flex-1"/>
+                </div>
+                <FormField
+                    control={form.control}
+                    name="configData"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormControl>
+                                <Editor
+                                    height="60vh"
+                                    theme={resolvedTheme === 'dark' ? 'vs-dark' : 'vs'}
+                                    language={fileExt}
+                                    value={field.value}
+                                    onChange={(value) => field.onChange(value ?? '')}
+                                    options={{
+                                        minimap: {enabled: false},
+                                    }}
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <Separator/>
+                <div className="flex gap-2">
+                    <Button type="submit" disabled={loadingSave}>
+                        Submit
+                    </Button>
+                    <Button type="button" variant="outline" onClick={onCancel}>
+                        Cancel
+                    </Button>
+                </div>
+            </form>
+        </Form>
     );
-};
+}

@@ -11,33 +11,27 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {Table, Button, Space, Popconfirm, Input} from 'antd';
-import {toast} from 'sonner';
-import type {ColumnsType, FilterDropdownProps} from 'antd/es/table/interface';
-import {
-    PlusOutlined,
-    DeleteOutlined,
-    EditOutlined,
-    ExportOutlined,
-    ImportOutlined,
-    SearchOutlined,
-} from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
-import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
-import {configApiClient} from "../../services/clients.ts";
-import {ConfigEditor} from "./ConfigEditor.tsx";
-import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
-import {ConfigImporter} from "./ConfigImporter.tsx";
+import type {ColumnDef} from '@tanstack/react-table';
+import dayjs from 'dayjs';
 import {saveAs} from 'file-saver';
-import dayjs from "dayjs";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {PageHeader} from "../../components/layout/PageHeader.tsx";
-import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
+import {Download, Pencil, Plus, Trash2, Upload} from 'lucide-react';
+import {toast} from 'sonner';
+import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
+import {Button} from '@/components/ui/button';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn, createSearchColumn} from '@/components/table/columns';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {configApiClient} from '@/services/clients';
+import {ConfigEditor} from './ConfigEditor';
+import {ConfigImporter} from './ConfigImporter';
+import {ConfigVersionTable} from './ConfigVersionTable';
 
-type ListConfig = { configId: string }
+type ListConfig = { configId: string };
 
-export const ConfigPage: React.FC = () => {
+export function ConfigPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const {openDrawer, closeDrawer} = useDrawer();
     const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, ListConfig[]>({
@@ -47,7 +41,7 @@ export const ConfigPage: React.FC = () => {
             return responseResult.map(config => {
                 return {
                     configId: config,
-                }
+                };
             });
         },
     });
@@ -57,118 +51,85 @@ export const ConfigPage: React.FC = () => {
             toast.success('Export config success');
         },
         onError: () => {
-            toast.error('Export config failed')
-        }
-    })
+            toast.error('Export config failed');
+        },
+    });
 
     const handleExport = async () => {
         await executeExport(async () => {
             const blob = await configApiClient.exportZip(currentNamespace);
             const fileTime = dayjs().format('YYYY-MM-DD-HH-mm-ss');
             saveAs(blob, `cosky_${currentNamespace}-${fileTime}.zip`);
-        })
-    }
+        });
+    };
 
     const handleEditConfig = (configId?: string) => {
-        openDrawer(<ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
-            loadConfigs();
-            closeDrawer();
-        }} onCancel={closeDrawer}/>, {
-            title: `${configId === undefined ? "Add" : "Edit"} Config`,
-        });
+        openDrawer(
+            <ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
+                loadConfigs();
+                closeDrawer();
+            }} onCancel={closeDrawer}/>,
+            {
+                title: `${configId === undefined ? 'Add' : 'Edit'} Config`,
+            },
+        );
     };
+
     const handleImportConfig = () => {
-        openDrawer(<ConfigImporter namespace={currentNamespace}
-                                   onSuccess={() => {
-                                       closeDrawer();
-                                       loadConfigs();
-                                   }}
-                                   onCancel={closeDrawer}
-        />, {
-            title: 'Import Config',
-        });
+        openDrawer(
+            <ConfigImporter namespace={currentNamespace}
+                            onSuccess={() => {
+                                closeDrawer();
+                                loadConfigs();
+                            }}
+                            onCancel={closeDrawer}
+            />,
+            {
+                title: 'Import Config',
+            },
+        );
     };
+
     const {execute: deleteConfig} = useExecutePromise({
         onSuccess: () => {
             toast.success('Delete config success');
             loadConfigs();
         },
         onError: () => {
-            toast.error('Delete config failed')
-        }
-    })
+            toast.error('Delete config failed');
+        },
+    });
+
     const handleDelete = async (configId: string) => {
         await deleteConfig(() => {
             return configApiClient.removeConfig(currentNamespace, configId);
-        })
+        });
     };
 
-
-    const expandedRowRender = (record: ListConfig) => {
-        return (
-            <ConfigVersionTable namespace={currentNamespace} configId={record.configId}/>
-        )
-    }
-    const columns: ColumnsType<ListConfig> = [
-        {
+    const columns: ColumnDef<ListConfig>[] = [
+        createSearchColumn<ListConfig>({
             title: 'Config ID',
-            dataIndex: 'configId',
-            key: 'configId',
-            sorter: (a: ListConfig, b: ListConfig) => a.configId.localeCompare(b.configId),
-            filterDropdown: ({setSelectedKeys, selectedKeys, confirm, clearFilters}: FilterDropdownProps) => (
-                <div style={{padding: 8}}>
-                    <Input
-                        placeholder="Search Config ID"
-                        value={selectedKeys[0]}
-                        onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-                        onPressEnter={() => confirm()}
-                        style={{width: 188, marginBottom: 8, display: 'block'}}
-                    />
-                    <Space>
-                        <Button
-                            type="primary"
-                            onClick={() => confirm()}
-                            icon={<SearchOutlined/>}
-                            size="small"
-                            style={{width: 90}}
-                        >
-                            Search
-                        </Button>
-                        <Button onClick={() => clearFilters && clearFilters()} size="small" style={{width: 90}}>
-                            Reset
-                        </Button>
-                    </Space>
-                </div>
-            ),
-            filterIcon: (filtered: boolean) => (
-                <SearchOutlined style={{color: filtered ? '#1890ff' : undefined}}/>
-            ),
-            onFilter: (value: React.Key | boolean, record: ListConfig) =>
-                record.configId.toLowerCase().includes(String(value).toLowerCase()),
-        },
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: unknown, record: ListConfig) => (
-                <Space>
-                    <Button type="link" icon={<EditOutlined/>}
-                            onClick={() => handleEditConfig(record.configId)}
-                    >
-                        Edit
-                    </Button>
-                    <Popconfirm
-                        title="Are you sure to delete this config?"
-                        onConfirm={() => handleDelete(record.configId)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
-            ),
-        },
+            accessorKey: 'configId',
+            placeholder: 'Search Config ID',
+        }),
+        createActionColumn<ListConfig>({
+            items: [
+                {
+                    key: 'edit',
+                    label: 'Edit',
+                    icon: <Pencil className="mr-1 h-4 w-4"/>,
+                    onClick: (record) => handleEditConfig(record.configId),
+                },
+                {
+                    key: 'delete',
+                    label: 'Delete',
+                    icon: <Trash2 className="mr-1 h-4 w-4"/>,
+                    danger: true,
+                    confirm: 'Are you sure to delete this config?',
+                    onClick: (record) => void handleDelete(record.configId),
+                },
+            ],
+        }),
     ];
 
     return (
@@ -177,38 +138,32 @@ export const ConfigPage: React.FC = () => {
                 title="Configuration"
                 actions={
                     <>
-                        <Button type="primary" icon={<PlusOutlined/>}
-                                onClick={() => handleEditConfig()}
-                                size="large"
-                        >
+                        <Button onClick={() => handleEditConfig()}>
+                            <Plus className="mr-1 h-4 w-4"/>
                             Add
                         </Button>
-                        <Button icon={<ImportOutlined/>}
-                                onClick={handleImportConfig}
-                                size="large"
-                        >
+                        <Button variant="outline" onClick={handleImportConfig}>
+                            <Upload className="mr-1 h-4 w-4"/>
                             Import
                         </Button>
-                        <Button icon={<ExportOutlined/>} loading={exportLoading}
-                                onClick={handleExport}
-                                size="large"
-                        >
+                        <Button variant="outline" disabled={exportLoading} onClick={() => void handleExport()}>
+                            <Download className="mr-1 h-4 w-4"/>
                             Export
                         </Button>
                     </>
                 }
             />
             <DataTableWrapper>
-                <Table
+                <DataTable
                     columns={columns}
-                    dataSource={configs}
-                    rowKey="configId"
+                    data={configs}
                     loading={loading}
-                    expandable={{
-                        expandedRowRender
-                    }}
+                    getRowId={(row) => row.configId}
+                    renderExpanded={(row) => (
+                        <ConfigVersionTable namespace={currentNamespace} configId={row.configId}/>
+                    )}
                 />
             </DataTableWrapper>
         </div>
     );
-};
+}
