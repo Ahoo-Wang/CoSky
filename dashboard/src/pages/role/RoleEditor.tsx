@@ -12,7 +12,8 @@
  */
 
 import {useEffect} from 'react';
-import {Form, Input, Button, Space, Divider, App} from 'antd';
+import {Form, Input, Button, Space, Divider} from 'antd';
+import {toast} from 'sonner';
 import type {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {roleApiClient} from "../../services/clients.ts";
@@ -32,7 +33,6 @@ export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
 }
 
 export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
-    const {message} = App.useApp()
     const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
         execute: (query, attributes, abortController) => {
@@ -41,12 +41,12 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     })
     const {loading: saveLoading, execute: save} = useExecutePromise({
         onSuccess: () => {
-            message.success('Save role success!');
+            toast.success('Save role success!');
             onSuccess();
             form.resetFields();
         },
         onError: () => {
-            message.error('Failed to save role');
+            toast.error('Failed to save role');
         }
     })
     const handleFinish = async (values: RoleEditorFormValues) => {

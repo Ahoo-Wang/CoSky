@@ -1,6 +1,7 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
-import {App, Button, Popconfirm, Table} from "antd";
+import {Button, Popconfirm, Table} from "antd";
+import {toast} from 'sonner';
 import type {ServiceInstance} from "../../generated";
 import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -13,7 +14,6 @@ export interface ServiceInstanceTableProps {
 }
 
 export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTableProps) {
-    const {message} = App.useApp()
     const {result: instances = [], loading: loadingInstances, execute: loadInstances} = useQuery({
         query: serviceId,
         execute: (query, _, abortController) => {
@@ -22,11 +22,11 @@ export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTable
     })
     const {loading: loadingExecutePromise, execute} = useExecutePromise({
         onSuccess: async () => {
-            message.success('Delete instance success!');
+            toast.success('Delete instance success!');
             await loadInstances();
         },
         onError: () => {
-            message.error('Delete instance failed!');
+            toast.error('Delete instance failed!');
         }
     })
     const {openDrawer, closeDrawer} = useDrawer();

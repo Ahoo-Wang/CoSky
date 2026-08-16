@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, Select, App} from 'antd';
+import {Table, Button, Space, Popconfirm, Select} from 'antd';
+import {toast} from 'sonner';
 import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {AddUserEditor} from './AddUserEditor.tsx';
@@ -21,7 +22,6 @@ import type {CoSecPrincipal} from "../../generated";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function UserPage() {
-    const {message} = App.useApp()
     const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => {
@@ -60,30 +60,30 @@ export function UserPage() {
     const handleChangeRole = async (username: string, roles: string[]) => {
         try {
             await userApiClient.bindRole(username, {body: roles});
-            message.success('Role bind successfully');
+            toast.success('Role bind successfully');
             loadUsers();
         } catch {
-            message.error('Failed to bind role');
+            toast.error('Failed to bind role');
         }
     };
 
     const handleDelete = async (username: string) => {
         try {
             await userApiClient.removeUser(username);
-            message.success('User deleted successfully');
+            toast.success('User deleted successfully');
             loadUsers();
         } catch {
-            message.error('Failed to delete user');
+            toast.error('Failed to delete user');
         }
     };
 
     const handleUnlock = async (username: string) => {
         try {
             await userApiClient.unlock(username);
-            message.success('User unlocked successfully');
+            toast.success('User unlocked successfully');
             loadUsers();
         } catch {
-            message.error('Failed to unlock user');
+            toast.error('Failed to unlock user');
         }
     };
 

@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import {Form, Input, InputNumber, Button, Space, Switch, Divider, App} from 'antd';
+import {Form, Input, InputNumber, Button, Space, Switch, Divider} from 'antd';
+import {toast} from 'sonner';
 import type {InstanceDto, ServiceInstance} from "../../generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {useEffect, useState} from "react";
@@ -41,18 +42,17 @@ export function ServiceInstanceEditor({
                                           onSuccess,
                                           onCancel
                                       }: ServiceInstanceFormProps) {
-    const {message} = App.useApp()
     const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
 
     const [form] = Form.useForm();
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {
-            message.success('Save instance success!');
+            toast.success('Save instance success!');
             onSuccess();
             form.resetFields();
         },
         onError: () => {
-            message.error('Failed to save instance');
+            toast.error('Failed to save instance');
         }
     })
 

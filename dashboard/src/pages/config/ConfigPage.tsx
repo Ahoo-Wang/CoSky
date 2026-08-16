@@ -12,7 +12,8 @@
  */
 
 import React from 'react';
-import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
+import {Table, Button, Space, Popconfirm, Input} from 'antd';
+import {toast} from 'sonner';
 import type {ColumnsType, FilterDropdownProps} from 'antd/es/table/interface';
 import {
     PlusOutlined,
@@ -37,7 +38,6 @@ import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
 type ListConfig = { configId: string }
 
 export const ConfigPage: React.FC = () => {
-    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext();
     const {openDrawer, closeDrawer} = useDrawer();
     const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, ListConfig[]>({
@@ -54,10 +54,10 @@ export const ConfigPage: React.FC = () => {
     const {loading: exportLoading, execute: executeExport} = useExecutePromise({
         propagateError: true,
         onSuccess: () => {
-            message.success('Export config success');
+            toast.success('Export config success');
         },
         onError: () => {
-            message.error('Export config failed')
+            toast.error('Export config failed')
         }
     })
 
@@ -90,11 +90,11 @@ export const ConfigPage: React.FC = () => {
     };
     const {execute: deleteConfig} = useExecutePromise({
         onSuccess: () => {
-            message.success('Delete config success');
+            toast.success('Delete config success');
             loadConfigs();
         },
         onError: () => {
-            message.error('Delete config failed')
+            toast.error('Delete config failed')
         }
     })
     const handleDelete = async (configId: string) => {

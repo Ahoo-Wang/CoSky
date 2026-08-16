@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, App} from 'antd';
+import {Table, Button, Space, Popconfirm} from 'antd';
+import {toast} from 'sonner';
 import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
 import type {RoleDto} from '../../generated';
 import {RoleEditor} from './RoleEditor.tsx';
@@ -20,7 +21,6 @@ import {useRoles} from "../../hooks/useRoles.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 
 export function RolePage() {
-    const {message} = App.useApp()
     const {roles = [], loading, load} = useRoles()
     const {openDrawer, closeDrawer} = useDrawer();
 
@@ -57,10 +57,10 @@ export function RolePage() {
     const handleDelete = async (roleName: string) => {
         try {
             await roleApiClient.removeRole(roleName);
-            message.success('Role deleted successfully');
+            toast.success('Role deleted successfully');
             load();
         } catch {
-            message.error('Failed to delete role');
+            toast.error('Failed to delete role');
         }
     };
 

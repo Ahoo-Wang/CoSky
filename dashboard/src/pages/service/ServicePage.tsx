@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
+import {Table, Button, Space, Popconfirm, Input} from 'antd';
+import {toast} from 'sonner';
 import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
@@ -28,7 +29,6 @@ import {PageHeader} from "../../components/layout/PageHeader.tsx";
 import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
 
 export function ServicePage() {
-    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext();
     const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,
@@ -42,10 +42,10 @@ export function ServicePage() {
     const handleDeleteService = async (serviceId: string) => {
         try {
             await serviceApiClient.removeService(currentNamespace, serviceId);
-            message.success('Service deleted successfully');
+            toast.success('Service deleted successfully');
             loadServices();
         } catch {
-            message.error('Failed to delete service');
+            toast.error('Failed to delete service');
         }
     };
 

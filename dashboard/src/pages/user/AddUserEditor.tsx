@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import {Form, Input, Button, Space, Select, App} from 'antd';
+import {Form, Input, Button, Space, Select} from 'antd';
+import {toast} from 'sonner';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {userApiClient} from "../../services/clients.ts";
 
@@ -28,22 +29,21 @@ interface UserFormProps {
 }
 
 export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFormProps) {
-    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading: addUserLoading, execute: addUser} = useExecutePromise({
         onSuccess: () => {
-            message.success('Add user success!');
+            toast.success('Add user success!');
         },
         onError: () => {
-            message.error('Failed to add user');
+            toast.error('Failed to add user');
         }
     })
     const {loading: bindRoleLoading, execute: bindRole} = useExecutePromise({
         onSuccess: () => {
-            message.success('Bind role success!');
+            toast.success('Bind role success!');
         },
         onError: () => {
-            message.error('Failed to bind role');
+            toast.error('Failed to bind role');
         }
     })
     const handleFinish = async (values: UserFormValues) => {

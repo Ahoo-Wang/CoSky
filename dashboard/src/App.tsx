@@ -17,11 +17,18 @@ import './services/fetcher'
 import ErrorBoundary from "antd/es/alert/ErrorBoundary";
 import {AppRoutes} from "./AppRoutes.tsx";
 import { App as AntdApp } from 'antd';
-import {ThemeProvider} from './theme/ThemeProvider.tsx';
+import {Toaster} from 'sonner';
+import {ThemeProvider, useTheme} from './theme/ThemeProvider.tsx';
+
+function ThemedToaster() {
+    const {resolvedTheme} = useTheme();
+    return <Toaster richColors closeButton position="top-center" theme={resolvedTheme}/>;
+}
 
 function App() {
     return (
         <ThemeProvider>
+            <ThemedToaster/>
             <ConfigProvider
                 theme={{
                     algorithm: theme.defaultAlgorithm,

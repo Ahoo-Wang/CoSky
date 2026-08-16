@@ -1,5 +1,6 @@
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {App, Button, Form, Input} from "antd";
+import {Button, Form, Input} from "antd";
+import {toast} from 'sonner';
 import {PlusOutlined} from "@ant-design/icons";
 import {serviceApiClient} from "../../services/clients.ts";
 
@@ -9,16 +10,15 @@ export interface AddServiceFormProps {
 }
 
 export function AddServiceForm({namespace, onSuccess}: AddServiceFormProps) {
-    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {
-            message.success(`Add service success!`);
+            toast.success(`Add service success!`);
             onSuccess();
             form.resetFields();
         },
         onError: () => {
-            message.error('Add service failed!');
+            toast.error('Add service failed!');
         }
     });
     const handleFinish = async (values: { serviceId: string }) => {

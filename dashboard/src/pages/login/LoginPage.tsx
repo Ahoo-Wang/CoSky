@@ -12,7 +12,8 @@
  */
 
 import {useEffect} from 'react';
-import {Form, Input, Button, Card, Typography, App} from 'antd';
+import {Form, Input, Button, Card, Typography} from 'antd';
+import {toast} from 'sonner';
 import {UserOutlined, LockOutlined, GithubOutlined} from '@ant-design/icons';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiHooks} from "../../services/clients.ts";
@@ -30,7 +31,6 @@ interface LoginFormValues {
 }
 
 export function LoginPage() {
-    const {message} = App.useApp()
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const [form] = Form.useForm();
@@ -42,7 +42,7 @@ export function LoginPage() {
             signIn(result)
         }, onError: async (error: ExchangeError) => {
             const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
-            message.error(`Login failed. ${errorResponse.msg}
+            toast.error(`Login failed. ${errorResponse.msg}
             `);
         }
     })

@@ -13,7 +13,8 @@
 
 import React, {useEffect} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {App, Button, Form, Space} from "antd";
+import {Button, Form, Space} from "antd";
+import {toast} from 'sonner';
 import {configApiClient} from "../../services/clients.ts";
 import Dragger from "antd/es/upload/Dragger";
 import {InboxOutlined} from "@ant-design/icons";
@@ -28,15 +29,14 @@ interface ConfigImporterProps {
 }
 
 export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
-    const {message} = App.useApp()
     const [form] = Form.useForm();
     const {loading, execute} = useExecutePromise<ImportResponse>({
         onSuccess: (result) => {
-            message.success(`ToTal : ${result.total} , Succeeded : ${result.succeeded} . `)
+            toast.success(`ToTal : ${result.total} , Succeeded : ${result.succeeded} . `)
             onSuccess();
         },
         onError: () => {
-            message.error('Import config failed')
+            toast.error('Import config failed')
         },
     })
     const handleFinish = (values: { policy: string; importZip: UploadChangeParam<File> }) => {

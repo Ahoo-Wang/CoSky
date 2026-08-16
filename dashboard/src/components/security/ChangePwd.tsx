@@ -1,4 +1,5 @@
-import {App, Button, Form, Input, Space} from "antd";
+import {Button, Form, Input, Space} from "antd";
+import {toast} from 'sonner';
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
 import type {ChangePwdRequest, ErrorResponse} from "../../generated";
 import {userApiClient} from "../../services/clients.ts";
@@ -10,16 +11,15 @@ export interface ChangePwdProps {
 }
 
 export function ChangePwd({onSubmit, onCancel}: ChangePwdProps) {
-    const {message} = App.useApp()
     const {currentUser} = useSecurityContext()
     const {loading, execute} = useExecutePromise<boolean, ExchangeError>({
         propagateError: true,
         onSuccess: () => {
-            message.success('Change password success!');
+            toast.success('Change password success!');
         },
         onError: async (error) => {
             const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
-            message.error(`${errorResponse.msg}`);
+            toast.error(`${errorResponse.msg}`);
         }
     })
     const handleChangePwd = async (values: ChangePwdRequest) => {

@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import {Table, Button, Popconfirm, App} from 'antd';
+import {Table, Button, Popconfirm} from 'antd';
+import {toast} from 'sonner';
 import {DeleteOutlined} from '@ant-design/icons';
 import {isSystemNamespace} from "./namespaces.ts";
 import {namespaceApiClient} from "../../services/clients.ts";
@@ -22,17 +23,16 @@ import {PageHeader} from "../../components/layout/PageHeader.tsx";
 import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
 
 export function NamespacePage() {
-    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext()
     const {namespaces, loading, refresh} = useNamespacesContext();
 
     const handleDelete = async (namespace: string) => {
         try {
             await namespaceApiClient.removeNamespace(namespace);
-            message.success('Namespace deleted successfully');
+            toast.success('Namespace deleted successfully');
             refresh();
         } catch {
-            message.error('Failed to delete namespace');
+            toast.error('Failed to delete namespace');
         }
     };
 

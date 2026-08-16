@@ -12,7 +12,8 @@
  */
 
 import React, {useState} from 'react';
-import {App, Button, Descriptions, Divider, Input, Skeleton, Space} from 'antd';
+import {Button, Descriptions, Divider, Input, Skeleton, Space} from 'antd';
+import {toast} from 'sonner';
 import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
@@ -29,7 +30,6 @@ interface ConfigEditFormProps {
 }
 
 export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
-    const {message} = App.useApp()
     const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
     const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
     const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
@@ -46,17 +46,17 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
     const {loading: loadingSave, execute: saveConfig} = useExecutePromise({
         propagateError: true,
         onSuccess: () => {
-            message.success('Config saved successfully');
+            toast.success('Config saved successfully');
             onSuccess();
         },
         onError: () => {
-            message.error('Config save failed');
+            toast.error('Config save failed');
         }
     })
 
     const handleSubmit = () => {
         if (!fileName) {
-            message.error('Please enter file name!')
+            toast.error('Please enter file name!')
             return;
         }
         const fullFileName = getFullFileName(fileName, fileExt)
