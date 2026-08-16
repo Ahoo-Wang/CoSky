@@ -11,80 +11,108 @@
  * limitations under the License.
  */
 
-import {Form, Input, Button, Space, Select} from 'antd';
+import {useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
 import {toast} from 'sonner';
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {userApiClient} from "../../services/clients.ts";
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
+import {userApiClient} from '@/services/clients';
+import {RoleMultiSelect} from './RoleMultiSelect';
 
-export interface UserFormValues {
-    username: string;
-    password: string;
-    roles: string[];
-}
+const schema = z.object({
+    username: z.string().min(1, 'Please input username!'),
+    password: z.string().min(1, 'Please input password!'),
+    roles: z.array(z.string()),
+});
+type Values = z.infer<typeof schema>;
 
 interface UserFormProps {
-    roleSelectorOptions: { label: string, value: string }[];
+    roleSelectorOptions: string[];
     onSuccess: () => void;
     onCancel: () => void;
 }
 
 export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFormProps) {
-    const [form] = Form.useForm();
-    const {loading: addUserLoading, execute: addUser} = useExecutePromise({
-        onSuccess: () => {
+    const form = useForm<Values>({
+        resolver: zodResolver(schema),
+        defaultValues: {username: '', password: '', roles: []},
+    });
+
+    const onSubmit = async (values: Values) => {
+        try {
+            await userApiClient.addUser(values.username, {body: values});
             toast.success('Add user success!');
-        },
-        onError: () => {
+        } catch {
             toast.error('Failed to add user');
         }
-    })
-    const {loading: bindRoleLoading, execute: bindRole} = useExecutePromise({
-        onSuccess: () => {
+        try {
+            await userApiClient.bindRole(values.username, {body: values.roles});
             toast.success('Bind role success!');
-        },
-        onError: () => {
+        } catch {
             toast.error('Failed to bind role');
         }
-    })
-    const handleFinish = async (values: UserFormValues) => {
-        await addUser(() => {
-            return userApiClient.addUser(values.username, {body: values})
-        })
-        await bindRole(() => {
-            return userApiClient.bindRole(values.username, {body: values.roles})
-        })
         onSuccess();
-        form.resetFields();
+        form.reset();
     };
+
     return (
-        <Form form={form} layout="vertical" onFinish={handleFinish}>
-            <Form.Item
-                name="username"
-                label="Username"
-                rules={[{required: true, message: 'Please input username!'}]}
-            >
-                <Input/>
-            </Form.Item>
-            <Form.Item
-                name="password"
-                label="Password"
-                rules={[{required: true, message: 'Please input password!'}]}
-            >
-                <Input.Password/>
-            </Form.Item>
-            <Form.Item name="roles" label="Roles">
-                <Select mode="multiple" placeholder="Select Roles" options={roleSelectorOptions}/>
-            </Form.Item>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={addUserLoading || bindRoleLoading}>
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="username"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Username</FormLabel>
+                            <FormControl>
+                                <Input {...field} />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="password"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Password</FormLabel>
+                            <FormControl>
+                                <Input type="password" {...field} />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="roles"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Roles</FormLabel>
+                            <FormControl>
+                                <RoleMultiSelect
+                                    value={field.value ?? []}
+                                    onChange={field.onChange}
+                                    options={roleSelectorOptions}
+                                    placeholder="Select Roles"
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <div className="flex gap-2">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
                         Submit
                     </Button>
-                    <Button onClick={onCancel}>
+                    <Button type="button" variant="outline" onClick={onCancel}>
                         Cancel
                     </Button>
-                </Space>
-            </Form.Item>
+                </div>
+            </form>
         </Form>
     );
 }

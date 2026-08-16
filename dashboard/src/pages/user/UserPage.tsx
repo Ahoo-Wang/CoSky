@@ -11,31 +11,39 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, Select} from 'antd';
+import type {ColumnDef} from '@tanstack/react-table';
+import {Plus, Trash2, Unlock} from 'lucide-react';
 import {toast} from 'sonner';
-import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {AddUserEditor} from './AddUserEditor.tsx';
-import {useRoles} from "../../hooks/useRoles.ts";
-import {userApiClient} from "../../services/clients.ts";
-import type {CoSecPrincipal} from "../../generated";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {Button} from '@/components/ui/button';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn, createSearchColumn} from '@/components/table/columns';
+import {AddUserEditor} from './AddUserEditor';
+import {RoleMultiSelect} from './RoleMultiSelect';
+import {useRoles} from '@/hooks/useRoles';
+import {userApiClient} from '@/services/clients';
+import type {CoSecPrincipal} from '@/generated';
+import {useDrawer} from '@/contexts/DrawerContext';
 
 export function UserPage() {
-    const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
+    const {result: users = [], loading, error, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => {
             return userApiClient.query({abortController});
         },
     });
-    const {roles} = useRoles()
-    const roleSelectorOptions = roles.map(role => ({
-        label: role.name,
-        value: role.desc,
-    }))
+    const {roles} = useRoles();
+    const roleSelectorOptions = roles.map((role) => role.name);
     const {openDrawer, closeDrawer} = useDrawer();
     const loadUsers = () => {
         load();
+    };
+
+    const handleSubmit = () => {
+        closeDrawer();
+        loadUsers();
     };
 
     const handleAdd = () => {
@@ -49,12 +57,6 @@ export function UserPage() {
                 title: 'Add User',
             }
         );
-    };
-
-
-    const handleSubmit = () => {
-        closeDrawer();
-        loadUsers();
     };
 
     const handleChangeRole = async (username: string, roles: string[]) => {
@@ -87,83 +89,69 @@ export function UserPage() {
         }
     };
 
-    const columns = [
-        {
+    const columns: ColumnDef<CoSecPrincipal>[] = [
+        createSearchColumn<CoSecPrincipal>({
             title: 'Username',
-            dataIndex: 'name',
-            key: 'name',
-        },
+            accessorKey: 'name',
+            placeholder: 'Search username',
+        }),
         {
-            title: 'Roles',
-            dataIndex: 'roles',
-            key: 'roles',
-            render: (roles: string[], record: CoSecPrincipal) => {
-                return <Select mode="multiple"
-                               placeholder="Select Roles"
-                               style={{minWidth: 200}}
-                               options={roleSelectorOptions} value={roles}
-                               onChange={(value) => handleChangeRole(record.name, value)}
-                />
-            },
-        },
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: unknown, record: CoSecPrincipal) => (
-                <Space>
-                    <Popconfirm title="Ary you sure to unlock this user?"
-                                onConfirm={() => handleUnlock(record.name)}
-                    >
-                        <Button type="link" icon={<UnlockOutlined/>}>
-                            UnLock
-                        </Button>
-                    </Popconfirm>
-                    <Popconfirm
-                        title="Are you sure to delete this user?"
-                        onConfirm={() => handleDelete(record.name)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
+            accessorKey: 'roles',
+            enableSorting: false,
+            header: () => <span>Roles</span>,
+            cell: ({row}) => (
+                <div className="min-w-[220px]">
+                    <RoleMultiSelect
+                        value={row.original.roles}
+                        options={roleSelectorOptions}
+                        placeholder="Select Roles"
+                        onChange={(roles) => void handleChangeRole(row.original.name, roles)}
+                    />
+                </div>
             ),
         },
+        createActionColumn<CoSecPrincipal>({
+            items: [
+                {
+                    key: 'unlock',
+                    label: 'Unlock',
+                    icon: <Unlock className="mr-1 h-4 w-4"/>,
+                    confirm: 'Ary you sure to unlock this user?',
+                    onClick: (record) => void handleUnlock(record.name),
+                },
+                {
+                    key: 'delete',
+                    label: 'Delete',
+                    icon: <Trash2 className="mr-1 h-4 w-4"/>,
+                    danger: true,
+                    confirm: 'Are you sure to delete this user?',
+                    onClick: (record) => void handleDelete(record.name),
+                },
+            ],
+        }),
     ];
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>User</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd} size="large">
-                    Add User
-                </Button>
-            </div>
-            <Table
-                columns={columns}
-                dataSource={users}
-                loading={loading}
-                rowKey='name'
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
+            <PageHeader
+                title="User"
+                actions={
+                    <Button onClick={handleAdd}>
+                        <Plus className="mr-1 h-4 w-4"/>
+                        Add User
+                    </Button>
+                }
             />
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={users}
+                    loading={loading}
+                    error={error}
+                    onRetry={() => void load()}
+                    getRowId={(row) => row.name}
+                />
+            </DataTableWrapper>
         </div>
     );
-};
+}
