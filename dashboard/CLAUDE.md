@@ -32,8 +32,10 @@ pnpm generate
 ### Tech Stack
 - **Framework**: React 19 with TypeScript
 - **Build**: Vite with React Compiler (babel-plugin-react-compiler)
-- **UI**: Ant Design 6.x
+- **UI**: shadcn/ui (Radix UI) + Tailwind CSS v4, lucide-react icons, sonner toasts
 - **Routing**: React Router v7
+- **Tables**: @tanstack/react-table (shared DataTable in `src/components/table/`)
+- **Forms**: react-hook-form + zod
 - **Topology**: @xyflow/react for service topology visualization
 - **Config Editor**: Monaco Editor
 - **API Client**: @ahoo-wang/fetcher with auto-generated clients
@@ -55,7 +57,7 @@ Auto-generated API clients from the REST API OpenAPI spec:
 ### State Management (`src/contexts/`)
 - `NamespacesProvider/NamespacesContext` - Manages available namespaces list
 - `CurrentNamespaceProvider/CurrentNamespaceContext` - Current selected namespace
-- `DrawerProvider/DrawerContext` - Ant Design drawer for detail panels
+- `DrawerProvider/DrawerContext` - Global Sheet (side panel) host for detail editors
 
 ### Pages (`src/pages/`)
 Lazy-loaded routes: `dashboard`, `config`, `service`, `namespace`, `user`, `role`, `audit`

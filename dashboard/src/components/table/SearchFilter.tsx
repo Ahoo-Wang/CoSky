@@ -13,7 +13,6 @@
 
 import {Input} from '@/components/ui/input';
 import {Button} from '@/components/ui/button';
-import type {FilterDropdownProps} from 'antd/es/table/interface';
 
 export interface SearchFilterProps {
     placeholder?: string;
@@ -38,15 +37,4 @@ export function SearchFilter({placeholder = 'Search...', value, onChange, onSear
             </div>
         </div>
     );
-}
-
-// eslint-disable-next-line react-refresh/only-export-components
-export function useSearchFilter(dropdownProps: FilterDropdownProps) {
-    const {setSelectedKeys, selectedKeys, confirm, clearFilters} = dropdownProps;
-    return {
-        value: (selectedKeys[0] as string) ?? '',
-        onChange: (val: string) => setSelectedKeys(val ? [val] : []),
-        onSearch: () => confirm(),
-        onReset: () => clearFilters?.(),
-    };
 }

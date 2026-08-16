@@ -12,13 +12,11 @@
  */
 
 import {BrowserRouter} from 'react-router-dom';
-import {ConfigProvider, theme} from 'antd';
-import './services/fetcher'
-import ErrorBoundary from "antd/es/alert/ErrorBoundary";
-import {AppRoutes} from "./AppRoutes.tsx";
-import { App as AntdApp } from 'antd';
+import './services/fetcher';
 import {Toaster} from 'sonner';
 import {ThemeProvider, useTheme} from './theme/ThemeProvider.tsx';
+import {ErrorBoundary} from './components/error/ErrorBoundary.tsx';
+import {AppRoutes} from './AppRoutes.tsx';
 
 function ThemedToaster() {
     const {resolvedTheme} = useTheme();
@@ -29,33 +27,11 @@ function App() {
     return (
         <ThemeProvider>
             <ThemedToaster/>
-            <ConfigProvider
-                theme={{
-                    algorithm: theme.defaultAlgorithm,
-                    token: {
-                        colorPrimary: '#667eea',
-                        borderRadius: 8,
-                        colorBgContainer: '#ffffff',
-                    },
-                    components: {
-                        Layout: {
-                            headerBg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            siderBg: '#001529',
-                        },
-                        Card: {
-                            borderRadiusLG: 12,
-                        },
-                    },
-                }}
-            >
-                <AntdApp>
-                    <ErrorBoundary>
-                        <BrowserRouter>
-                            <AppRoutes />
-                        </BrowserRouter>
-                    </ErrorBoundary>
-                </AntdApp>
-            </ConfigProvider>
+            <ErrorBoundary>
+                <BrowserRouter>
+                    <AppRoutes/>
+                </BrowserRouter>
+            </ErrorBoundary>
         </ThemeProvider>
     );
 }

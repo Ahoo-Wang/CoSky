@@ -41,14 +41,14 @@ export class ErrorBoundary extends React.Component<
 
   render() {
     if (this.state.hasError) {
-      return (
-        <div style={{ padding: "24px", textAlign: "center" }}>
-          <h2>Something went wrong.</h2>
-          <details style={{ whiteSpace: "pre-wrap" }}>
-            {this.state.error?.toString()}
-          </details>
-        </div>
-      );
+            return (
+                <div className="flex flex-col items-center gap-3 p-8 text-center">
+                    <h2 className="text-lg font-semibold">Something went wrong.</h2>
+                    <details className="whitespace-pre-wrap text-sm text-muted-foreground">
+                        {this.state.error?.toString()}
+                    </details>
+                </div>
+            );
     }
 
     return this.props.children;
