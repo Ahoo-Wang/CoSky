@@ -14,10 +14,12 @@
 import type {ReactNode} from 'react';
 import {useTheme} from '@/theme/ThemeProvider';
 
+const escapeXml = (s: string) => s.replace(/[&<>"']/g, (c) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'}[c] as string));
+
 export function Watermark({content, children}: { content: string; children: ReactNode }) {
     const {resolvedTheme} = useTheme();
     const fill = resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
-    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='160'><text x='20' y='80' transform='rotate(-20 120 80)' fill='${fill}' font-size='16'>${content}</text></svg>`;
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='160'><text x='20' y='80' transform='rotate(-20 120 80)' fill='${fill}' font-size='16'>${escapeXml(content)}</text></svg>`;
     const backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
     return (
         <div className="relative flex-1">

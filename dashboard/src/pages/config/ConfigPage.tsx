@@ -35,7 +35,7 @@ type ListConfig = { configId: string };
 export function ConfigPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const {openDrawer, closeDrawer} = useDrawer();
-    const {result: configs = [], loading, execute: loadConfigs} = useQuery<string, ListConfig[]>({
+    const {result: configs = [], loading, error, execute: loadConfigs} = useQuery<string, ListConfig[]>({
         query: currentNamespace,
         execute: async (namespace, _, abortController) => {
             const responseResult = await configApiClient.getConfigs(namespace, {abortController});
@@ -161,6 +161,8 @@ export function ConfigPage() {
                     columns={columns}
                     data={configs}
                     loading={loading}
+                    error={error}
+                    onRetry={() => void loadConfigs()}
                     getRowId={(row) => row.configId}
                     renderExpanded={(row) => (
                         <ConfigVersionTable namespace={currentNamespace} configId={row.configId}/>

@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {useState, type PointerEvent as ReactPointerEvent, type ReactNode} from 'react';
+import {useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode} from 'react';
 import {Sheet, SheetContent, SheetHeader, SheetTitle} from '@/components/ui/sheet';
 import {DrawerContext, type DrawerOptions} from './DrawerContext';
 
@@ -22,13 +22,24 @@ function parseSize(size?: string): number {
     return window.innerWidth * 0.6;
 }
 
+const CLOSE_CLEAR_DELAY = 300;
+
 export function DrawerProvider({children}: { children: ReactNode }) {
     const [open, setOpen] = useState(false);
     const [content, setContent] = useState<ReactNode>(null);
     const [options, setOptions] = useState<DrawerOptions>({});
     const [width, setWidth] = useState<number>(window.innerWidth * 0.6);
+    const clearTimerRef = useRef<number | null>(null);
+
+    const clearPendingTimer = () => {
+        if (clearTimerRef.current !== null) {
+            window.clearTimeout(clearTimerRef.current);
+            clearTimerRef.current = null;
+        }
+    };
 
     const openDrawer = (drawerContent: ReactNode, drawerOptions: DrawerOptions = {}) => {
+        clearPendingTimer();
         setContent(drawerContent);
         setOptions(drawerOptions);
         setWidth(parseSize(drawerOptions.defaultSize));
@@ -37,10 +48,12 @@ export function DrawerProvider({children}: { children: ReactNode }) {
 
     const closeDrawer = () => {
         setOpen(false);
-        setTimeout(() => {
+        clearPendingTimer();
+        clearTimerRef.current = window.setTimeout(() => {
+            clearTimerRef.current = null;
             setContent(null);
             setOptions({});
-        }, 200);
+        }, CLOSE_CLEAR_DELAY);
     };
 
     const startResize = (e: ReactPointerEvent) => {

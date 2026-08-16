@@ -119,7 +119,7 @@ export function UserPage() {
                     key: 'unlock',
                     label: 'Unlock',
                     icon: <Unlock className="mr-1 h-4 w-4"/>,
-                    confirm: 'Ary you sure to unlock this user?',
+                    confirm: 'Are you sure to unlock this user?',
                     onClick: (record) => void handleUnlock(record.name),
                 },
                 {

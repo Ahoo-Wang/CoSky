@@ -31,7 +31,7 @@ import {ServiceInstanceTable} from './ServiceInstanceTable';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
+    const {result: services = [], loading, error, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return serviceApiClient.getServiceStats(namespace, {abortController});
@@ -125,6 +125,8 @@ export function ServicePage() {
                     columns={columns}
                     data={services}
                     loading={loading}
+                    error={error}
+                    onRetry={() => void loadServices()}
                     getRowId={(row) => row.serviceId}
                     renderExpanded={(row) => (
                         <ServiceInstanceTable namespace={currentNamespace} serviceId={row.serviceId}/>

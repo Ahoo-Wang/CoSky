@@ -25,7 +25,7 @@ import {createActionColumn} from '@/components/table/columns';
 
 export function NamespacePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {namespaces, loading, refresh} = useNamespacesContext();
+    const {namespaces, loading, error, refresh} = useNamespacesContext();
 
     const handleDelete = async (namespace: string) => {
         try {
@@ -70,6 +70,8 @@ export function NamespacePage() {
                     columns={columns}
                     data={data}
                     loading={loading}
+                    error={error}
+                    onRetry={() => void refresh()}
                     getRowId={(row) => row.name}
                 />
             </DataTableWrapper>

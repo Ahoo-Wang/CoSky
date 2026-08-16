@@ -30,7 +30,7 @@ export interface ServiceInstanceTableProps {
 }
 
 export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTableProps) {
-    const {result: instances = [], loading, execute: loadInstances} = useQuery<string, ServiceInstance[]>({
+    const {result: instances = [], loading, error, execute: loadInstances} = useQuery<string, ServiceInstance[]>({
         query: serviceId,
         execute: (query, _, abortController) => {
             return serviceApiClient.getInstances(namespace, query, {abortController});
@@ -128,6 +128,8 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
             columns={columns}
             data={instances}
             loading={loading}
+            error={error}
+            onRetry={() => void loadInstances()}
             getRowId={(row) => row.instanceId}
             showViewOptions={false}
         />

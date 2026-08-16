@@ -96,7 +96,7 @@ export function CommandPalette() {
                         <CommandItem key={action.cmd} value={action.label}
                                      onSelect={() => runCommand(() => {
                                          navigate(action.path);
-                                         setTimeout(() => emitCommand(action.cmd), 300);
+                                         emitCommand(action.cmd);
                                      })}>
                             <Plus className="mr-2 h-4 w-4"/>
                             {action.label}

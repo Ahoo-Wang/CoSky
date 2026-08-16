@@ -17,12 +17,19 @@ export type DashboardCommand = 'add-config' | 'add-service' | 'add-user' | 'add-
 
 const EVENT_NAME = 'cosky:dashboard-command';
 
+let pendingCommand: DashboardCommand | null = null;
+
 export function emitCommand(cmd: DashboardCommand) {
+    pendingCommand = cmd;
     window.dispatchEvent(new CustomEvent(EVENT_NAME, {detail: cmd}));
 }
 
 export function useDashboardCommand(cmd: DashboardCommand, handler: () => void) {
     useEffect(() => {
+        if (pendingCommand === cmd) {
+            pendingCommand = null;
+            handler();
+        }
         const listener = (e: Event) => {
             if ((e as CustomEvent<DashboardCommand>).detail === cmd) {
                 handler();
