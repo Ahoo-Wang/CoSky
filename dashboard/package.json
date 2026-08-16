@@ -13,6 +13,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.2.2",
     "@monaco-editor/react": "^4.7.0",
+    "@tanstack/react-table": "^8.21.3",
     "@types/file-saver": "^2.0.7",
     "@xyflow/react": "^12.10.2",
     "antd": "^6.3.7",

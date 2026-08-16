@@ -4,18 +4,18 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *      http://www.apache.org/licenses/LICENSE-2.0
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
 
-import {Button, Input, Space} from 'antd';
-import {SearchOutlined} from '@ant-design/icons';
+import {Input} from '@/components/ui/input';
+import {Button} from '@/components/ui/button';
 import type {FilterDropdownProps} from 'antd/es/table/interface';
 
-interface SearchFilterProps {
+export interface SearchFilterProps {
     placeholder?: string;
     value?: string;
     onChange?: (value: string) => void;
@@ -23,37 +23,19 @@ interface SearchFilterProps {
     onReset?: () => void;
 }
 
- 
-export function SearchFilter({
-    placeholder = 'Search...',
-    value,
-    onChange,
-    onSearch,
-    onReset,
-}: SearchFilterProps) {
+export function SearchFilter({placeholder = 'Search...', value, onChange, onSearch, onReset}: SearchFilterProps) {
     return (
-        <div style={{padding: 8}}>
+        <div className="flex w-56 flex-col gap-2">
             <Input
                 placeholder={placeholder}
-                value={value}
+                value={value ?? ''}
                 onChange={(e) => onChange?.(e.target.value)}
-                onPressEnter={() => onSearch?.()}
-                style={{width: 188, marginBottom: 8, display: 'block'}}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSearch?.(); }}
             />
-            <Space>
-                <Button
-                    type="primary"
-                    onClick={() => onSearch?.()}
-                    icon={<SearchOutlined/>}
-                    size="small"
-                    style={{width: 90}}
-                >
-                    Search
-                </Button>
-                <Button onClick={() => onReset?.()} size="small" style={{width: 90}}>
-                    Reset
-                </Button>
-            </Space>
+            <div className="flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => onReset?.()}>Reset</Button>
+                <Button size="sm" onClick={() => onSearch?.()}>Search</Button>
+            </div>
         </div>
     );
 }
@@ -61,7 +43,6 @@ export function SearchFilter({
 // eslint-disable-next-line react-refresh/only-export-components
 export function useSearchFilter(dropdownProps: FilterDropdownProps) {
     const {setSelectedKeys, selectedKeys, confirm, clearFilters} = dropdownProps;
-
     return {
         value: (selectedKeys[0] as string) ?? '',
         onChange: (val: string) => setSelectedKeys(val ? [val] : []),
