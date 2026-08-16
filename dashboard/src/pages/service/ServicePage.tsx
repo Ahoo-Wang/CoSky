@@ -11,22 +11,22 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, Input} from 'antd';
+import type {ColumnDef} from '@tanstack/react-table';
+import {Plus, Trash2} from 'lucide-react';
 import {toast} from 'sonner';
-import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {serviceApiClient} from "../../services/clients.ts";
-import type {ServiceStat} from "../../generated";
-import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
-import {AddServiceForm} from "./AddServiceForm.tsx";
-import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
-import type {ColumnsType} from "antd/es/table/interface";
-import {type FilterDropdownProps} from "antd/es/table/interface";
-import React from "react";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {PageHeader} from "../../components/layout/PageHeader.tsx";
-import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
+import {Button} from '@/components/ui/button';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {DataTable} from '@/components/table/DataTable';
+import {createActionColumn, createSearchColumn} from '@/components/table/columns';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {serviceApiClient} from '@/services/clients';
+import type {ServiceStat} from '@/generated';
+import {AddServiceForm} from './AddServiceForm';
+import {ServiceInstanceEditor} from './ServiceInstanceEditor';
+import {ServiceInstanceTable} from './ServiceInstanceTable';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
@@ -36,7 +36,6 @@ export function ServicePage() {
             return serviceApiClient.getServiceStats(namespace, {abortController});
         },
     });
-
     const {openDrawer, closeDrawer} = useDrawer();
 
     const handleDeleteService = async (serviceId: string) => {
@@ -63,102 +62,70 @@ export function ServicePage() {
         );
     };
 
+    const handleServiceAdded = () => {
+        closeDrawer();
+        loadServices();
+    };
 
-    const expandedRowRender = (record: ServiceStat) => {
-        return (
-            <ServiceInstanceTable namespace={currentNamespace} serviceId={record.serviceId}/>
+    const handleAddService = () => {
+        openDrawer(
+            <AddServiceForm namespace={currentNamespace} onSuccess={handleServiceAdded}/>,
+            {
+                title: 'Add Service',
+            }
         );
     };
 
-    const columns: ColumnsType<ServiceStat> = [
-        {
+    const columns: ColumnDef<ServiceStat>[] = [
+        createSearchColumn<ServiceStat>({
             title: 'Service ID',
-            dataIndex: 'serviceId',
-            key: 'serviceId',
-            sorter: (a: ServiceStat, b: ServiceStat) => a.serviceId.localeCompare(b.serviceId),
-            filterDropdown: ({setSelectedKeys, selectedKeys, confirm, clearFilters}: FilterDropdownProps) => (
-                <div style={{padding: 8}}>
-                    <Input
-                        placeholder="Search Service ID"
-                        value={selectedKeys[0]}
-                        onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-                        onPressEnter={() => confirm()}
-                        style={{width: 188, marginBottom: 8, display: 'block'}}
-                    />
-                    <Space>
-                        <Button
-                            type="primary"
-                            onClick={() => confirm()}
-                            icon={<SearchOutlined/>}
-                            size="small"
-                            style={{width: 90}}
-                        >
-                            Search
-                        </Button>
-                        <Button onClick={() => clearFilters && clearFilters()} size="small" style={{width: 90}}>
-                            Reset
-                        </Button>
-                    </Space>
-                </div>
-            ),
-            filterIcon: (filtered: boolean) => (
-                <SearchOutlined style={{color: filtered ? '#1890ff' : undefined}}/>
-            ),
-            onFilter: (value: React.Key | boolean, record: ServiceStat) =>
-                record.serviceId.toLowerCase().includes(String(value).toLowerCase()),
-        },
+            accessorKey: 'serviceId',
+            placeholder: 'Search Service ID',
+        }),
         {
-            title: 'Instance Count',
-            dataIndex: 'instanceCount',
-            key: 'instanceCount',
-            sorter: (a: ServiceStat, b: ServiceStat) => a.instanceCount - b.instanceCount,
+            accessorKey: 'instanceCount',
+            header: () => <span>Instance Count</span>,
         },
-        {
-            title: 'Action',
-            key: 'action',
-            render: (_: unknown, record: ServiceStat) => (
-                <Space>
-                    <Button
-                        type="primary"
-                        icon={<AppstoreAddOutlined/>}
-                        onClick={() => handleAddInstance(record.serviceId)}
-                    >
-                        Add instance
-                    </Button>
-                    <Popconfirm
-                        title="Are you sure to delete this service?"
-                        onConfirm={() => handleDeleteService(record.serviceId)}
-                        okText="Yes"
-                        cancelText="No"
-                    >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
-            ),
-        },
+        createActionColumn<ServiceStat>({
+            items: [
+                {
+                    key: 'addInstance',
+                    label: 'Add instance',
+                    icon: <Plus className="mr-1 h-4 w-4"/>,
+                    onClick: (record) => handleAddInstance(record.serviceId),
+                },
+                {
+                    key: 'delete',
+                    label: 'Delete',
+                    icon: <Trash2 className="mr-1 h-4 w-4"/>,
+                    danger: true,
+                    confirm: 'Are you sure to delete this service?',
+                    onClick: (record) => void handleDeleteService(record.serviceId),
+                },
+            ],
+        }),
     ];
 
     return (
         <div>
             <PageHeader
                 title="Service"
-                actions={<AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>}
+                actions={
+                    <Button onClick={handleAddService}>
+                        <Plus className="mr-1 h-4 w-4"/>
+                        Add Service
+                    </Button>
+                }
             />
             <DataTableWrapper>
-                <Table
+                <DataTable
                     columns={columns}
-                    pagination={{
-                        showSizeChanger: true
-                    }}
-                    dataSource={services}
+                    data={services}
                     loading={loading}
-                    rowKey='serviceId'
-                    expandable={{
-                        expandedRowRender,
-                        rowExpandable: (record) => record.instanceCount > 0,
-                    }}
+                    getRowId={(row) => row.serviceId}
+                    renderExpanded={(row) => (
+                        <ServiceInstanceTable namespace={currentNamespace} serviceId={row.serviceId}/>
+                    )}
                 />
             </DataTableWrapper>
         </div>

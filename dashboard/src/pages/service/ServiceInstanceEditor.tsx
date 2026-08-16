@@ -11,14 +11,34 @@
  * limitations under the License.
  */
 
-import {Form, Input, InputNumber, Button, Space, Switch, Divider} from 'antd';
+import {useForm} from 'react-hook-form';
+import {zodResolver} from '@hookform/resolvers/zod';
+import {z} from 'zod';
 import {toast} from 'sonner';
-import type {InstanceDto, ServiceInstance} from "../../generated";
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {useEffect, useState} from "react";
-import {serviceApiClient} from "../../services/clients.ts";
-import Editor from "@monaco-editor/react";
-import {SchemaSelector} from "./SchemaSelector.tsx";
+import {Editor} from '@monaco-editor/react';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Switch} from '@/components/ui/switch';
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
+import type {InstanceDto, ServiceInstance} from '@/generated';
+import {serviceApiClient} from '@/services/clients';
+import {useTheme} from '@/theme/ThemeProvider';
+import {SchemaSelector} from './SchemaSelector';
+
+const formSchema = z.object({
+    schema: z.string().min(1, 'Please input schema!'),
+    host: z.string().min(1, 'Please input host!'),
+    port: z.coerce.number({error: 'Please input port!'}).min(1, 'Please input port!'),
+    weight: z.preprocess(
+        (value) => (value === '' || value === null ? undefined : value),
+        z.coerce.number().optional(),
+    ),
+    isEphemeral: z.boolean(),
+    metadata: z.string(),
+});
+
+type InstanceFormValues = z.input<typeof formSchema>;
+type InstanceFormOutput = z.output<typeof formSchema>;
 
 interface ServiceInstanceFormProps {
     namespace: string;
@@ -28,101 +48,153 @@ interface ServiceInstanceFormProps {
     onCancel: () => void;
 }
 
-const formItemLayout = {
-    labelCol: {
-        xs: {span: 12},
-        sm: {span: 6},
-    },
-};
-
 export function ServiceInstanceEditor({
-                                          namespace,
-                                          serviceId,
-                                          initialValues,
-                                          onSuccess,
-                                          onCancel
-                                      }: ServiceInstanceFormProps) {
-    const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
-
-    const [form] = Form.useForm();
-    const {loading, execute} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Save instance success!');
-            onSuccess();
-            form.resetFields();
+                                           namespace,
+                                           serviceId,
+                                           initialValues,
+                                           onSuccess,
+                                           onCancel
+                                       }: ServiceInstanceFormProps) {
+    const {resolvedTheme} = useTheme();
+    const isEdit = !!initialValues;
+    const form = useForm<InstanceFormValues, unknown, InstanceFormOutput>({
+        resolver: zodResolver(formSchema),
+        defaultValues: {
+            schema: initialValues?.schema ?? '',
+            host: initialValues?.host ?? '',
+            port: initialValues?.port ?? '',
+            weight: initialValues?.weight ?? '',
+            isEphemeral: initialValues?.isEphemeral ?? false,
+            metadata: JSON.stringify(initialValues?.metadata ?? {}, null, 2),
         },
-        onError: () => {
+    });
+
+    const onSubmit = async (values: InstanceFormOutput) => {
+        try {
+            const body = {
+                ...values,
+                metadata: JSON.parse(values.metadata) as Record<string, string>,
+            } as InstanceDto;
+            await serviceApiClient.register(namespace, serviceId, {body});
+            toast.success('Save instance success!');
+            form.reset();
+            onSuccess();
+        } catch {
             toast.error('Failed to save instance');
         }
-    })
-
-    useEffect(() => {
-        if (initialValues) {
-            form.setFieldsValue(initialValues);
-        } else {
-            form.resetFields();
-        }
-    }, [initialValues, form]);
-    const handleFinish = async (values: Partial<ServiceInstance>) => {
-        return await execute(() => {
-            return serviceApiClient.register(namespace, serviceId, {
-                body: {
-                    ...values,
-                    metadata: JSON.parse(metadata) as Record<string, string>
-                } as InstanceDto
-            })
-        })
     };
-    return (
-        <Form {...formItemLayout} form={form} onFinish={handleFinish}>
-            <Form.Item name="schema" label="Schema"
-                       rules={[{required: true, message: 'Please input schema!'}]}
-            >
-                <SchemaSelector disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item
-                name="host"
-                label="Host"
-                rules={[{required: true, message: 'Please input host!'}]}
-            >
-                <Input disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item
-                name="port"
-                label="Port"
-                rules={[{required: true, message: 'Please input port!'}]}
-            >
-                <InputNumber disabled={!!initialValues}/>
-            </Form.Item>
 
-            <Form.Item name="weight" label="Weight">
-                <InputNumber disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item name="isEphemeral" label="Is Ephemeral?">
-                <Switch/>
-            </Form.Item>
-            <Divider>Metadata</Divider>
-            <Editor
-                height="50vh"
-                theme="vs-dark"
-                defaultLanguage="json"
-                defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
-                onChange={(value) => setMetadata(value || '{}')}
-                options={{
-                    minimap: {enabled: false},
-                }}
-            />
-            <Divider></Divider>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={loading}>
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                    control={form.control}
+                    name="schema"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Schema</FormLabel>
+                            <FormControl>
+                                <SchemaSelector
+                                    value={field.value || undefined}
+                                    onChange={field.onChange}
+                                    disabled={isEdit}
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="host"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Host</FormLabel>
+                            <FormControl>
+                                <Input disabled={isEdit} {...field} />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="port"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Port</FormLabel>
+                            <FormControl>
+                                <Input
+                                    type="number"
+                                    disabled={isEdit}
+                                    {...field}
+                                    value={field.value as string | number | undefined}
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="weight"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Weight</FormLabel>
+                            <FormControl>
+                                <Input
+                                    type="number"
+                                    disabled={isEdit}
+                                    {...field}
+                                    value={field.value as string | number | undefined}
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="isEphemeral"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Is Ephemeral?</FormLabel>
+                            <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange}/>
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="metadata"
+                    render={({field}) => (
+                        <FormItem>
+                            <FormLabel>Metadata</FormLabel>
+                            <FormControl>
+                                <Editor
+                                    height="200px"
+                                    language="json"
+                                    theme={resolvedTheme === 'dark' ? 'vs-dark' : 'vs'}
+                                    value={field.value}
+                                    onChange={(value) => field.onChange(value ?? '')}
+                                    options={{minimap: {enabled: false}}}
+                                />
+                            </FormControl>
+                            <FormMessage/>
+                        </FormItem>
+                    )}
+                />
+                <div className="flex gap-2">
+                    <Button type="submit" disabled={form.formState.isSubmitting}>
                         Submit
                     </Button>
-                    <Button onClick={onCancel}>
+                    <Button type="button" variant="outline" onClick={onCancel}>
                         Cancel
                     </Button>
-                </Space>
-            </Form.Item>
+                </div>
+            </form>
         </Form>
     );
 }
