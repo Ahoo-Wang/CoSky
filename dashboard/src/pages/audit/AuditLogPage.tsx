@@ -11,96 +11,94 @@
  * limitations under the License.
  */
 
-import {Table} from 'antd';
-import type {AuditLog, QueryLogResponse} from '../../generated';
+import {useState} from 'react';
+import type {ColumnDef} from '@tanstack/react-table';
 import dayjs from 'dayjs';
-import {useQuery} from "@ahoo-wang/fetcher-react";
-import {auditLogApiClient} from "../../services/clients.ts";
-import type {ColumnsType} from "antd/es/table/interface";
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import type {AuditLog, QueryLogResponse} from '@/generated';
+import {auditLogApiClient} from '@/services/clients';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {DataTable} from '@/components/table/DataTable';
 
 type Paging = {
     pageIndex: number;
     pageSize: number;
 };
 
+const INITIAL_PAGING: Paging = {
+    pageIndex: 0,
+    pageSize: 10,
+};
+
 export function AuditLogPage() {
-    const {result, loading, setQuery} = useQuery<Paging, QueryLogResponse>({
-        initialQuery: {
-            pageIndex: 1,
-            pageSize: 10,
-        },
+    const [paging, setPaging] = useState<Paging>(INITIAL_PAGING);
+    const {result, loading, error, execute, setQuery} = useQuery<Paging, QueryLogResponse>({
+        initialQuery: INITIAL_PAGING,
         execute: (query, _, abortController) => {
-            return auditLogApiClient.queryLog(query.pageIndex, query.pageSize, {abortController});
+            return auditLogApiClient.queryLog(
+                query.pageIndex * query.pageSize,
+                query.pageSize,
+                {abortController},
+            );
         },
     })
 
-    const columns: ColumnsType<AuditLog> = [
+    const columns: ColumnDef<AuditLog>[] = [
         {
-            title: 'Timestamp',
-            dataIndex: 'opTime',
-            key: 'opTime',
-            render: (timestamp: number) => dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss'),
+            accessorKey: 'opTime',
+            header: () => <span>Timestamp</span>,
+            cell: ({row}) => dayjs(row.original.opTime).format('YYYY-MM-DD HH:mm:ss'),
         },
         {
-            title: 'Operator',
-            dataIndex: 'operator',
-            key: 'operator',
+            accessorKey: 'operator',
+            header: () => <span>Operator</span>,
         },
         {
-            title: 'ClientIP',
-            dataIndex: 'ip',
-            key: 'ip',
+            accessorKey: 'ip',
+            header: () => <span>ClientIP</span>,
         },
         {
-            title: 'Resource',
-            dataIndex: 'resource',
-            key: 'resource',
+            accessorKey: 'resource',
+            header: () => <span>Resource</span>,
         },
         {
-            title: 'Action',
-            dataIndex: 'action',
-            key: 'action',
+            accessorKey: 'action',
+            header: () => <span>Action</span>,
         },
         {
-            title: 'Status',
-            dataIndex: 'status',
-            key: 'status',
+            accessorKey: 'status',
+            header: () => <span>Status</span>,
         },
         {
-            title: 'Msg',
-            dataIndex: 'msg',
-            key: 'msg',
+            accessorKey: 'msg',
+            header: () => <span>Msg</span>,
         },
     ];
 
     return (
         <div>
-            <h2 style={{
-                marginBottom: 24,
-                fontSize: '28px',
-                fontWeight: 600,
-                color: '#262626',
-                letterSpacing: '-0.5px',
-            }}>Audit Log</h2>
-            <Table
-                columns={columns}
-                dataSource={result?.list}
-                rowKey={(record) => `${record.operator}-${record.opTime}`}
-                pagination={{
-                    total: result?.total,
-                    showTotal: (total) => `Total ${total} items`,
-                    onChange: (pageIndex, pageSize) => {
-                        setQuery({pageIndex, pageSize});
-                    }
-                }}
-                loading={loading}
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
-            />
+            <PageHeader title="Audit Log"/>
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={result?.list ?? []}
+                    loading={loading}
+                    error={error}
+                    onRetry={() => void execute()}
+                    getRowId={(row) => `${row.operator}-${row.opTime}`}
+                    pagination={{
+                        mode: 'server',
+                        pageIndex: paging.pageIndex,
+                        pageSize: paging.pageSize,
+                        total: result?.total ?? 0,
+                        onPaginationChange: (pageIndex, pageSize) => {
+                            setPaging({pageIndex, pageSize});
+                            setQuery({pageIndex, pageSize});
+                        },
+                    }}
+                />
+            </DataTableWrapper>
         </div>
     );
 }
