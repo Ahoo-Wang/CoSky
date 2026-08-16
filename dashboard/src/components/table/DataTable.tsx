@@ -167,7 +167,7 @@ export function DataTable<TData>({
             {isServer && (
                 <DataTablePagination table={table} pagination={pagination}/>
             )}
-            {!isServer && rows.length > (pagination.mode === 'client' ? (pagination.pageSize ?? 10) : 10) && (
+            {!isServer && table.getPageCount() > 1 && (
                 <div className="flex items-center justify-end gap-2 border-t px-2 py-3">
                     <Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()}>Previous</Button>
                     <span className="text-sm text-muted-foreground">
