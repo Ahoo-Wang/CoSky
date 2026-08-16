@@ -1,37 +1,51 @@
-import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
-import {useQuery} from "@ahoo-wang/fetcher-react";
-import {statApiClient} from "../../services/clients.ts";
-import {useMemo, useState, useCallback} from "react";
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)]
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {statApiClient} from '../../services/clients.ts';
+import {useMemo, useState, useCallback} from 'react';
 import {
     toReactFlowTopology,
-    NODE_TYPE_COLORS,
-    HIGHLIGHT_COLOR,
+    flowThemes,
     DIM_OPACITY,
     getConnectedNodeIds,
     isServiceNodeData,
-} from "./topologies.ts";
-import {Skeleton, Input} from "antd";
-import type {Node, Edge, NodeMouseHandler, OnNodesChange} from "@xyflow/react";
+} from './topologies.ts';
+import {Skeleton} from '@/components/ui/skeleton';
+import {useTheme} from '@/theme/ThemeProvider';
+import type {Node, Edge, NodeMouseHandler, OnNodesChange} from '@xyflow/react';
 import {
     Background,
     Controls,
     MiniMap,
     ReactFlow,
-    Panel,
     applyNodeChanges,
-} from "@xyflow/react";
-import {ServiceNode} from "./ServiceNode.tsx";
-import {SearchOutlined} from "@ant-design/icons";
+} from '@xyflow/react';
+import {ServiceNode} from './ServiceNode.tsx';
 import '@xyflow/react/dist/style.css';
 
 const nodeTypes = {
     default: ServiceNode,
 };
 
-export function Topology() {
+export function Topology({searchTerm}: { searchTerm: string }) {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const [searchTerm, setSearchTerm] = useState('');
     const [highlightedNodes, setHighlightedNodes] = useState<Set<string>>(new Set());
+    const {resolvedTheme} = useTheme();
+    const flowTheme = flowThemes[resolvedTheme];
+    const {edge: edgeColor} = flowTheme;
+    const highlightColor = resolvedTheme === 'dark' ? '#a5b4fc' : '#667eea';
 
     const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
@@ -61,7 +75,13 @@ export function Topology() {
         const hasHighlight = highlightedNodes.size > 0;
 
         if (!hasSearch && !hasHighlight) {
-            return {nodes: internalNodes, edges: baseEdges};
+            return {
+                nodes: internalNodes,
+                edges: baseEdges.map(edge => ({
+                    ...edge,
+                    style: {...edge.style, stroke: edgeColor},
+                })),
+            };
         }
 
         const searchLower = searchTerm.toLowerCase();
@@ -93,8 +113,8 @@ export function Topology() {
                     ...node,
                     style: {
                         ...node.style,
-                        boxShadow: `0 0 10px 3px ${HIGHLIGHT_COLOR}cc`,
-                        border: `2px solid ${HIGHLIGHT_COLOR}`,
+                        boxShadow: `0 0 10px 3px ${highlightColor}cc`,
+                        border: `2px solid ${highlightColor}`,
                     },
                 };
             }
@@ -107,19 +127,25 @@ export function Topology() {
                 nodesToHighlight.has(edge.target);
 
             if (nodesToHighlight.size > 0 && !isConnected) {
-                return {...edge, style: {...edge.style, opacity: 0.2}};
+                return {
+                    ...edge,
+                    style: {...edge.style, stroke: edgeColor, opacity: 0.2},
+                };
             }
             if (isConnected) {
                 return {
                     ...edge,
-                    style: {...edge.style, strokeWidth: 3, stroke: HIGHLIGHT_COLOR},
+                    style: {...edge.style, strokeWidth: 3, stroke: highlightColor},
                 };
             }
-            return edge;
+            return {
+                ...edge,
+                style: {...edge.style, stroke: edgeColor},
+            };
         });
 
         return {nodes: updatedNodes, edges: updatedEdges};
-    }, [internalNodes, baseEdges, searchTerm, highlightedNodes]);
+    }, [internalNodes, baseEdges, searchTerm, highlightedNodes, edgeColor, highlightColor]);
 
     const onNodeClick: NodeMouseHandler = useCallback((_event, node) => {
         setHighlightedNodes(getConnectedNodeIds(node.id, baseEdges));
@@ -134,7 +160,7 @@ export function Topology() {
     }, []);
 
     if (loading) {
-        return <Skeleton/>
+        return <Skeleton className="h-full w-full"/>;
     }
 
     return (
@@ -151,32 +177,13 @@ export function Topology() {
                 padding: 0.2,
             }}
         >
-            <Panel style={{
-                padding: '8px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            }}>
-                <Input
-                    placeholder="Search nodes..."
-                    prefix={<SearchOutlined/>}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    allowClear
-                />
-            </Panel>
-            <Background/>
+            <Background color={flowTheme.background}/>
             <Controls/>
             <MiniMap
-                nodeColor={(node) => {
-                    if (isServiceNodeData(node.data)) {
-                        return NODE_TYPE_COLORS[node.data.nodeType]?.backgroundColor
-                            ?? NODE_TYPE_COLORS.intermediate.backgroundColor;
-                    }
-                    return NODE_TYPE_COLORS.intermediate.backgroundColor;
-                }}
-                maskColor="rgba(0, 0, 0, 0.1)"
+                nodeColor={() => flowTheme.nodeBorder}
+                maskColor={resolvedTheme === 'dark' ? 'rgba(0, 0, 0, 0.55)' : 'rgba(0, 0, 0, 0.1)'}
                 style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    backgroundColor: resolvedTheme === 'dark' ? '#18181b' : '#ffffff',
                 }}
             />
         </ReactFlow>

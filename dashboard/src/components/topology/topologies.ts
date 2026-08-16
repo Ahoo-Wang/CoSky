@@ -14,26 +14,20 @@ export interface ServiceNodeData {
     outDegree: number;
 }
 
-export const HIGHLIGHT_COLOR = '#ffd700';
 export const DIM_OPACITY = 0.3;
 
-export const NODE_TYPE_COLORS = {
-    source: {
-        backgroundColor: '#1890ff',
-        color: '#fff',
-        borderColor: '#096dd9'
-    },
-    target: {
-        backgroundColor: '#ff7a45',
-        color: '#fff',
-        borderColor: '#d4380d'
-    },
-    intermediate: {
-        backgroundColor: '#722ed1',
-        color: '#fff',
-        borderColor: '#531dab'
-    }
-} as const;
+export interface FlowTheme {
+    background: string;   // Background dot color
+    edge: string;
+    nodeBg: string;
+    nodeBorder: string;
+    nodeText: string;
+}
+
+export const flowThemes: Record<'light' | 'dark', FlowTheme> = {
+    light: {background: '#e4e4e7', edge: '#a1a1aa', nodeBg: '#ffffff', nodeBorder: '#667eea', nodeText: '#18181b'},
+    dark: {background: '#3f3f46', edge: '#52525b', nodeBg: '#27272a', nodeBorder: '#a5b4fc', nodeText: '#f4f4f5'},
+};
 
 export function isServiceNodeData(data: unknown): data is ServiceNodeData {
     return (
@@ -103,13 +97,6 @@ export function toReactFlowTopology(
         return 'intermediate';
     };
 
-    // Get node styles based on type
-    const getNodeStyle = (nodeType: NodeType) => {
-        return NODE_TYPE_COLORS[nodeType];
-    };
-
-
-
     // Create layered layout: source (first layer), intermediate (middle), target (last)
     const nodeList = Array.from(allNodes);
     const sources = nodeList.filter(nodeName => getNodeType(nodeName) === 'source').sort();
@@ -158,7 +145,6 @@ export function toReactFlowTopology(
 
     nodeList.forEach((nodeName) => {
         const nodeType = getNodeType(nodeName);
-        const nodeStyle = getNodeStyle(nodeType);
 
         nodes.push({
             id: nodeName,
@@ -169,7 +155,6 @@ export function toReactFlowTopology(
                 inDegree: inDegree.get(nodeName)!,
                 outDegree: outDegree.get(nodeName)!,
             },
-            style: nodeStyle,
             position: positionMap.get(nodeName)!,
         });
     });

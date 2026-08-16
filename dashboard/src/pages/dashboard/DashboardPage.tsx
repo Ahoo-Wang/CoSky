@@ -11,56 +11,25 @@
  * limitations under the License.
  */
 
-import {Card, Row, Col} from 'antd';
-import {
-    PartitionOutlined,
-    FileOutlined,
-    CloudServerOutlined,
-    ClusterOutlined
-} from '@ant-design/icons';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
-import type {GetStatResponse} from '../../generated';
+import {useRef, useState} from 'react';
+import {FileText, HeartPulse, Network, Server, type LucideIcon} from 'lucide-react';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {statApiClient} from "../../services/clients.ts";
-import {Topology} from "../../components/topology/Topology.tsx";
-import {useRef, useEffect, useState, useCallback} from "react";
-import {Fullscreen} from "@ahoo-wang/fetcher-viewer";
-
-/* === Count-up Animation Hook === */
-const useCountUp = (end: number, duration: number = 1500) => {
-    const [count, setCount] = useState(0);
-    const [started, setStarted] = useState(false);
-
-    useEffect(() => {
-        if (!started) return;
-        let startTime: number;
-        let animationFrame: number;
-
-        const animate = (timestamp: number) => {
-            if (!startTime) startTime = timestamp;
-            const progress = Math.min((timestamp - startTime) / duration, 1);
-            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-            setCount(Math.floor(easeOutQuart * end));
-
-            if (progress < 1) {
-                animationFrame = requestAnimationFrame(animate);
-            }
-        };
-
-        animationFrame = requestAnimationFrame(animate);
-        return () => cancelAnimationFrame(animationFrame);
-    }, [end, duration, started]);
-
-    return {count, start: () => setStarted(true)};
-};
+import {Card, CardAction, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
+import {Input} from '@/components/ui/input';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import type {GetStatResponse} from '@/generated';
+import {statApiClient} from '@/services/clients';
+import {Topology} from '@/components/topology/Topology';
+import {FullscreenButton} from '@/components/topology/FullscreenButton';
+import {useCountUp} from '@/hooks/useCountUp';
 
 /* === Card Data === */
-interface CardData {
+interface StatCard {
     title: string;
     value: number;
-    suffix: string;
-    prefix: React.ReactNode;
-    gradient: string;
+    suffix?: string;
+    icon: LucideIcon;
 }
 
 export function DashboardPage() {
@@ -78,210 +47,72 @@ export function DashboardPage() {
             return statApiClient.getStat(namespace, {abortController});
         },
     });
-    const topologyRef = useRef<HTMLDivElement>(null);
 
     const namespaces = useCountUp(stat.namespaces);
     const instances = useCountUp(stat.instances);
     const configs = useCountUp(stat.configs);
     const services = useCountUp(stat.services.health);
 
-    const startAnimations = useCallback(() => {
-        namespaces.start();
-        instances.start();
-        configs.start();
-        services.start();
-    }, [namespaces, instances, configs, services]);
+    const [searchTerm, setSearchTerm] = useState('');
+    const topologyRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const timer = setTimeout(startAnimations, 300);
-        return () => clearTimeout(timer);
-    }, [startAnimations]);
-
-    const cardsData: CardData[] = [
-        {
-            title: 'Namespace Count',
-            value: namespaces.count,
-            suffix: '',
-            prefix: <PartitionOutlined/>,
-            gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        },
-        {
-            title: 'Instance Count',
-            value: instances.count,
-            suffix: '',
-            prefix: <ClusterOutlined/>,
-            gradient: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-        },
-        {
-            title: 'Config Count',
-            value: configs.count,
-            suffix: '',
-            prefix: <FileOutlined/>,
-            gradient: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-        },
+    const statCards: StatCard[] = [
+        {title: 'Namespace Count', value: namespaces, icon: Network},
+        {title: 'Instance Count', value: instances, icon: Server},
+        {title: 'Config Count', value: configs, icon: FileText},
         {
             title: 'Service Health',
-            value: services.count,
+            value: services,
             suffix: `/ ${stat.services.total}`,
-            prefix: <CloudServerOutlined/>,
-            gradient: 'linear-gradient(135deg, #e11d48 0%, #f43f5e 100%)',
+            icon: HeartPulse,
         },
     ];
 
     return (
-        <div className="dashboard-container">
-            <h2 className="dashboard-title">Dashboard</h2>
-            <Row gutter={[24, 24]}>
-                {cardsData.map((card) => (
-                    <Col key={card.title} xs={24} sm={12} lg={6}>
-                        <Card
-                            hoverable
-                            className="stat-card"
-                            style={{background: card.gradient}}
-                            styles={{body: {padding: '24px'}}}
-                        >
-                            <div className="stat-card-content">
-                                <div className="stat-info">
-                                    <div className="stat-title">{card.title}</div>
-                                    <div className="stat-value">
+        <div>
+            <PageHeader title="Dashboard"/>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {statCards.map((card) => {
+                    const StatIcon = card.icon;
+                    return (
+                        <Card key={card.title} className="transition-shadow hover:shadow-md">
+                            <CardContent className="flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-sm font-medium text-muted-foreground">{card.title}</p>
+                                    <p className="text-3xl font-bold tabular-nums">
                                         {card.value.toLocaleString()}
-                                        <span className="stat-suffix">{card.suffix}</span>
-                                    </div>
+                                        {card.suffix && (
+                                            <span className="ml-1 text-base font-medium text-muted-foreground">
+                                                {card.suffix}
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
-                                <div className="stat-icon">
-                                    {card.prefix}
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                    <StatIcon className="h-5 w-5"/>
                                 </div>
-                            </div>
-                            <div className="stat-glow"/>
+                            </CardContent>
                         </Card>
-                    </Col>
-                ))}
-                <Col xs={24} sm={24} lg={24}>
-                    <Card
-                        ref={topologyRef}
-                        className="topology-card"
-                        title={<span className="topology-title">Service Topology</span>}
-                        extra={<Fullscreen target={topologyRef} size={"small"} type={"dashed"}/>}
-                        style={{height: "100%"}}
-                        styles={{body: {height: "65vh", padding: '16px'}}}
-                    >
-                        <Topology/>
-                    </Card>
-                </Col>
-            </Row>
-
-            <style>{`
-                .dashboard-container {
-                    animation: fadeInUp 0.6s ease-out;
-                }
-                .dashboard-title {
-                    margin-bottom: 32px;
-                    font-size: 28px;
-                    font-weight: 600;
-                    color: #262626;
-                    letter-spacing: -0.5px;
-                }
-                .stat-card {
-                    border-radius: 16px !important;
-                    border: none !important;
-                    position: relative;
-                    overflow: hidden;
-                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-                }
-                .stat-card::before {
-                    content: "";
-                    position: absolute;
-                    inset: 0;
-                    border-radius: 16px;
-                    padding: 1px;
-                    background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1));
-                    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    -webkit-mask-composite: xor;
-                    mask-composite: exclude;
-                    pointer-events: none;
-                }
-                .stat-card:hover {
-                    transform: translateY(-4px) scale(1.02);
-                    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2) !important;
-                }
-                .stat-card .ant-card-body {
-                    position: relative;
-                    z-index: 1;
-                }
-                .stat-card-content {
-                    display: flex;
-                    align-items: flex-start;
-                    justify-content: space-between;
-                }
-                .stat-info {
-                    flex: 1;
-                }
-                .stat-title {
-                    color: rgba(255,255,255,0.8);
-                    font-size: 14px;
-                    font-weight: 500;
-                    margin-bottom: 8px;
-                }
-                .stat-value {
-                    color: #fff;
-                    font-size: 36px;
-                    font-weight: 700;
-                    line-height: 1;
-                    text-shadow: 0 2px 8px rgba(0,0,0,0.15);
-                }
-                .stat-suffix {
-                    font-size: 16px;
-                    font-weight: 400;
-                    opacity: 0.8;
-                    margin-left: 4px;
-                }
-                .stat-icon {
-                    width: 48px;
-                    height: 48px;
-                    border-radius: 12px;
-                    background: rgba(255,255,255,0.2);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 24px;
-                    color: #fff;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                }
-                .stat-glow {
-                    position: absolute;
-                    top: -50px;
-                    right: -50px;
-                    width: 150px;
-                    height: 150px;
-                    border-radius: 50%;
-                    background: rgba(255,255,255,0.1);
-                    filter: blur(40px);
-                    pointer-events: none;
-                }
-                .topology-card {
-                    border-radius: 16px !important;
-                    border: none !important;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
-                }
-                .topology-title {
-                    font-size: 18px;
-                    font-weight: 600;
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                }
-                @keyframes fadeInUp {
-                    from {
-                        opacity: 0;
-                        transform: translateY(20px);
-                    }
-                    to {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-            `}</style>
+                    );
+                })}
+            </div>
+            <Card ref={topologyRef} className="mt-4">
+                <CardHeader>
+                    <CardTitle>Service Topology</CardTitle>
+                    <CardAction className="flex items-center gap-2">
+                        <Input
+                            placeholder="Search nodes..."
+                            value={searchTerm}
+                            onChange={(event) => setSearchTerm(event.target.value)}
+                            className="w-48"
+                        />
+                        <FullscreenButton targetRef={topologyRef}/>
+                    </CardAction>
+                </CardHeader>
+                <CardContent className="h-[65vh]">
+                    <Topology searchTerm={searchTerm}/>
+                </CardContent>
+            </Card>
         </div>
     );
 }

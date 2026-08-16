@@ -1,18 +1,27 @@
-import { memo } from 'react';
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)]
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
+import {useTheme} from '@/theme/ThemeProvider';
 import type {ServiceNodeData} from './topologies.ts';
-import {NODE_TYPE_COLORS} from './topologies.ts';
+import {flowThemes} from './topologies.ts';
 
-export const ServiceNode = memo(({ data, selected }: NodeProps) => {
+export function ServiceNode({ data, selected }: NodeProps) {
     const nodeData = data as unknown as ServiceNodeData;
     const { label, nodeType, inDegree, outDegree } = nodeData;
-    
-    // Get background color based on node type
-    const getBackgroundColor = () => {
-        const colors = NODE_TYPE_COLORS[nodeType] || NODE_TYPE_COLORS.source;
-        return selected ? colors.borderColor : colors.backgroundColor;
-    };
+    const {resolvedTheme} = useTheme();
+    const flowTheme = flowThemes[resolvedTheme];
 
     // Get node icon based on type
     const getIcon = () => {
@@ -33,11 +42,13 @@ export const ServiceNode = memo(({ data, selected }: NodeProps) => {
             style={{
                 padding: '8px 12px',
                 borderRadius: '6px',
-                background: getBackgroundColor(),
-                color: '#fff',
-                border: selected ? '2px solid #fff' : '2px solid transparent',
-                boxShadow: selected 
-                    ? '0 4px 12px rgba(0,0,0,0.3)' 
+                background: flowTheme.nodeBg,
+                color: flowTheme.nodeText,
+                border: selected
+                    ? `2px solid ${flowTheme.nodeBorder}`
+                    : '2px solid transparent',
+                boxShadow: selected
+                    ? '0 4px 12px rgba(0,0,0,0.3)'
                     : '0 2px 8px rgba(0,0,0,0.15)',
                 minWidth: '150px',
                 transition: 'all 0.2s ease',
@@ -49,21 +60,21 @@ export const ServiceNode = memo(({ data, selected }: NodeProps) => {
                 type="target"
                 position={Position.Top}
                 style={{
-                    background: '#fff',
+                    background: flowTheme.nodeBorder,
                     width: '8px',
                     height: '8px',
-                    border: '2px solid currentColor',
+                    border: '2px solid transparent',
                 }}
             />
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 {/* Icon indicator */}
                 <span style={{ fontSize: '14px', opacity: 0.9 }}>
                     {getIcon()}
                 </span>
-                
+
                 {/* Label with word wrap support */}
-                <div style={{ 
+                <div style={{
                     flex: 1,
                     fontSize: '13px',
                     fontWeight: 500,
@@ -73,7 +84,7 @@ export const ServiceNode = memo(({ data, selected }: NodeProps) => {
                     {label}
                 </div>
             </div>
-            
+
             {/* Degree information */}
             <div style={{
                 marginTop: '4px',
@@ -85,20 +96,18 @@ export const ServiceNode = memo(({ data, selected }: NodeProps) => {
                 <span>In: {inDegree}</span>
                 <span>Out: {outDegree}</span>
             </div>
-            
+
             {/* Output handle for outgoing edges */}
             <Handle
                 type="source"
                 position={Position.Bottom}
                 style={{
-                    background: '#fff',
+                    background: flowTheme.nodeBorder,
                     width: '8px',
                     height: '8px',
-                    border: '2px solid currentColor',
+                    border: '2px solid transparent',
                 }}
             />
         </div>
     );
-});
-
-ServiceNode.displayName = 'ServiceNode';
+}
