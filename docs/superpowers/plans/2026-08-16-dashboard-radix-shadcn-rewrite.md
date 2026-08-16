@@ -15,7 +15,7 @@
 - **无测试体系**（spec 决策）：每个任务的质量门禁 = `pnpm lint` 无错误 + `pnpm build`(`tsc -b` 严格模式 + Vite 构建）成功 + 任务内列出的 grep/手动走查项。所有命令工作目录为 `dashboard/`。
 - 包管理一律 `pnpm`(10.33);Node ^20.19 / >=22.12。
 - **禁止改动**:`src/generated/`、`src/services/`(fetcher/clients)、`src/security/`、路由结构、`@ahoo-wang/fetcher*` 依赖。
-- 新建源文件必须带 Apache 2.0 license 头（照抄现有文件头，`Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)]`)。
+- 新建源文件必须带 Apache 2.0 license 头（照抄现有文件头，`Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)]`);**例外**:`src/components/ui/` 下的 shadcn CLI 生成物不带（重新生成会被剥离）。
 - UI 文案一律英文。
 - shadcn 组件生成到 `src/components/ui/`，该目录被 ESLint 忽略；业务定制写在该目录之外。
 - React Compiler 全程开启；若 `eslint-plugin-react-compiler` 对 react-hook-form 表单文件报错，在该文件顶部第一行加 `"use no memo"` 指令豁免（不得全局关闭）。
