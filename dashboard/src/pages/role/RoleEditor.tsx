@@ -96,7 +96,7 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
                                     name={[name, 'namespace']}
                                     rules={[{required: true, message: 'Missing namespace'}]}
                                 >
-                                    <NamespaceSelector style={{minWidth: '200px'}}></NamespaceSelector>
+                                    <NamespaceSelector className="min-w-[200px]"></NamespaceSelector>
                                 </Form.Item>
                                 <Form.Item
                                     {...restField}

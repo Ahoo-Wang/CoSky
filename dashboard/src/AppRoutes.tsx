@@ -1,7 +1,7 @@
 import {Navigate, Route, Routes, useNavigate} from "react-router-dom";
 import {lazy, Suspense} from "react";
-import {Skeleton} from "antd";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
+import {Spinner} from "./components/feedback/Spinner.tsx";
 import {tokenStorage} from "./security/tokenStorage.ts";
 import {AuthenticatedLayout} from "./components/layout/AuthenticatedLayout.tsx";
 import {ProtectedRoute} from "./components/security/ProtectedRoute.tsx";
@@ -29,7 +29,11 @@ export function AppRoutes() {
                               navigate('/login')
                           }}
         >
-            <Suspense fallback={<Skeleton/>}>
+            <Suspense fallback={
+                <div className="flex h-[60vh] items-center justify-center">
+                    <Spinner/>
+                </div>
+            }>
                 <Routes>
                     <Route path="/login" element={<LoginPage/>}/>
                     <Route

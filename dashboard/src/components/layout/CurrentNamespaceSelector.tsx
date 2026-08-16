@@ -11,30 +11,16 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
-import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
-import {PartitionOutlined, DownOutlined} from "@ant-design/icons";
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {NamespaceSelector} from '@/components/namespace/NamespaceSelector';
 
-export const CurrentNamespaceSelector: React.FC = () => {
+export function CurrentNamespaceSelector() {
     const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
-    
     return (
         <NamespaceSelector
-            style={{
-                minWidth: 200,
-                marginLeft: 16,
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-                borderRadius: 6,
-                color: 'white',
-                transition: 'all 0.3s ease',
-            }}
             value={currentNamespace}
             onChange={setCurrent}
-            showSearch
-            prefix={<PartitionOutlined style={{color: 'white'}} />}
-            suffixIcon={<DownOutlined style={{color: 'white'}} />}
+            className="w-[220px]"
         />
     );
-};
+}

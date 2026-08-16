@@ -12,11 +12,17 @@
  */
 
 import type {ReactNode} from 'react';
+import {useTheme} from '@/theme/ThemeProvider';
 
-export function DataTableWrapper({children}: { children: ReactNode }) {
+export function Watermark({content, children}: { content: string; children: ReactNode }) {
+    const {resolvedTheme} = useTheme();
+    const fill = resolvedTheme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='240' height='160'><text x='20' y='80' transform='rotate(-20 120 80)' fill='${fill}' font-size='16'>${content}</text></svg>`;
+    const backgroundImage = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
     return (
-        <div className="overflow-hidden rounded-lg border bg-card">
+        <div className="relative flex-1">
             {children}
+            <div aria-hidden className="pointer-events-none absolute inset-0 z-10" style={{backgroundImage, backgroundRepeat: 'repeat'}}/>
         </div>
     );
 }
