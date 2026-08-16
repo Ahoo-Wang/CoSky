@@ -26,6 +26,7 @@ import {useRoles} from '@/hooks/useRoles';
 import {userApiClient} from '@/services/clients';
 import type {CoSecPrincipal} from '@/generated';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {useDashboardCommand} from '@/lib/commands';
 
 export function UserPage() {
     const {result: users = [], loading, error, execute: load} = useQuery<null, CoSecPrincipal[]>({
@@ -58,6 +59,8 @@ export function UserPage() {
             }
         );
     };
+
+    useDashboardCommand('add-user', () => handleAdd());
 
     const handleChangeRole = async (username: string, roles: string[]) => {
         try {

@@ -22,6 +22,7 @@ import {DataTable} from '@/components/table/DataTable';
 import {createActionColumn, createSearchColumn} from '@/components/table/columns';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {useDashboardCommand} from '@/lib/commands';
 import {serviceApiClient} from '@/services/clients';
 import type {ServiceStat} from '@/generated';
 import {AddServiceForm} from './AddServiceForm';
@@ -75,6 +76,8 @@ export function ServicePage() {
             }
         );
     };
+
+    useDashboardCommand('add-service', () => handleAddService());
 
     const columns: ColumnDef<ServiceStat>[] = [
         createSearchColumn<ServiceStat>({

@@ -23,6 +23,7 @@ import type {RoleDto} from '@/generated';
 import {roleApiClient} from '@/services/clients';
 import {useRoles} from '@/hooks/useRoles';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {useDashboardCommand} from '@/lib/commands';
 import {RoleEditor} from './RoleEditor';
 
 export function RolePage() {
@@ -45,6 +46,8 @@ export function RolePage() {
             }
         );
     };
+
+    useDashboardCommand('add-role', () => handleAdd());
 
     const handleEdit = (role: RoleDto) => {
         openDrawer(

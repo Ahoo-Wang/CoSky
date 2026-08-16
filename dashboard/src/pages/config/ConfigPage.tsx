@@ -24,6 +24,7 @@ import {DataTable} from '@/components/table/DataTable';
 import {createActionColumn, createSearchColumn} from '@/components/table/columns';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {useDashboardCommand} from '@/lib/commands';
 import {configApiClient} from '@/services/clients';
 import {ConfigEditor} from './ConfigEditor';
 import {ConfigImporter} from './ConfigImporter';
@@ -89,6 +90,8 @@ export function ConfigPage() {
             },
         );
     };
+
+    useDashboardCommand('add-config', () => handleEditConfig());
 
     const {execute: deleteConfig} = useExecutePromise({
         onSuccess: () => {

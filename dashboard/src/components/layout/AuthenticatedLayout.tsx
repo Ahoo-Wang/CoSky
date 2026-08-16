@@ -18,6 +18,7 @@ import {AppSidebar} from './AppSidebar';
 import {AppHeader} from './AppHeader';
 import {Watermark} from './Watermark';
 import {ErrorBoundary} from '@/components/error/ErrorBoundary';
+import {CommandPalette} from '@/components/command/CommandPalette';
 import {useLayoutCollapsed} from '@/hooks/useLayoutCollapsed';
 
 export function AuthenticatedLayout() {
@@ -49,6 +50,7 @@ export function AuthenticatedLayout() {
                     {' © 2021-present'}
                 </footer>
             </SidebarInset>
+            <CommandPalette/>
         </SidebarProvider>
     );
 }

@@ -42,6 +42,14 @@ export function AppHeader() {
                 <CurrentNamespaceSelector/>
             </div>
             <div className="flex items-center gap-2">
+                <Button
+                    variant="outline"
+                    className="hidden w-48 justify-between text-muted-foreground sm:flex"
+                    onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'k', metaKey: true}))}
+                >
+                    <span className="text-sm">Search...</span>
+                    <kbd className="pointer-events-none rounded border bg-muted px-1.5 text-xs">⌘K</kbd>
+                </Button>
                 <ThemeToggle/>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
