@@ -1,7 +1,10 @@
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {App, Button, Form, Input} from "antd";
-import {PlusOutlined} from "@ant-design/icons";
+import {useState} from "react";
+import {Plus} from "lucide-react";
 import {serviceApiClient} from "../../services/clients.ts";
+import {toast} from "sonner";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 
 export interface AddServiceFormProps {
     namespace: string;
@@ -9,37 +12,27 @@ export interface AddServiceFormProps {
 }
 
 export function AddServiceForm({namespace, onSuccess}: AddServiceFormProps) {
-    const {message} = App.useApp()
-    const [form] = Form.useForm();
+    const [serviceId, setServiceId] = useState('');
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {
-            message.success(`Add service success!`);
+            toast.success('Add service success!');
             onSuccess();
-            form.resetFields();
+            setServiceId('');
         },
         onError: () => {
-            message.error('Add service failed!');
+            toast.error('Add service failed!');
         }
     });
-    const handleFinish = async (values: { serviceId: string }) => {
+    const handleFinish = async () => {
         await execute(() => {
-            return serviceApiClient.setService(namespace, values.serviceId);
+            return serviceApiClient.setService(namespace, serviceId);
         })
     };
 
     return (
-        <Form form={form} layout="inline" onFinish={handleFinish}>
-            <Form.Item
-                name="serviceId"
-                rules={[{required: true, message: 'Please input serviceId!'}]}
-            >
-                <Input placeholder="Enter serviceId"/>
-            </Form.Item>
-            <Form.Item>
-                <Button type="primary" htmlType="submit" loading={loading} icon={<PlusOutlined/>}>
-                    Add Service
-                </Button>
-            </Form.Item>
-        </Form>
+        <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => {event.preventDefault(); handleFinish();}}>
+            <Input value={serviceId} onChange={event => setServiceId(event.target.value)} placeholder="Enter service ID" required className="w-52"/>
+            <Button type="submit" loading={loading}><Plus/>Add Service</Button>
+        </form>
     )
 }

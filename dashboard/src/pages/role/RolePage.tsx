@@ -11,16 +11,20 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, App} from 'antd';
-import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
+import {Pencil, Plus, Trash2} from 'lucide-react';
 import type {RoleDto} from '../../generated';
 import {RoleEditor} from './RoleEditor.tsx';
 import {roleApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
 
 export function RolePage() {
-    const {message} = App.useApp()
     const {roles = [], loading, load} = useRoles()
     const {openDrawer, closeDrawer} = useDrawer();
 
@@ -57,77 +61,59 @@ export function RolePage() {
     const handleDelete = async (roleName: string) => {
         try {
             await roleApiClient.removeRole(roleName);
-            message.success('Role deleted successfully');
+            toast.success('Role deleted successfully');
             load();
         } catch {
-            message.error('Failed to delete role');
+            toast.error('Failed to delete role');
         }
     };
 
-    const columns = [
+    const columns: DataTableColumn<RoleDto>[] = [
         {
-            title: 'Role Name',
-            dataIndex: 'name',
+            header: 'Role Name',
+            accessor: 'name',
             key: 'name',
+            sort: (left, right) => left.name.localeCompare(right.name),
         },
         {
-            title: 'Description',
-            dataIndex: 'desc',
+            header: 'Description',
+            accessor: 'desc',
             key: 'desc',
         },
         {
-            title: 'Action',
+            header: 'Action',
             key: 'action',
-            render: (_: string, record: RoleDto) => (
-                <Space>
-                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
-                        Edit
+            className: 'w-40 text-right',
+            cell: record => (
+                <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}>
+                        <Pencil/> Edit
                     </Button>
-                    <Popconfirm
+                    <ConfirmButton
                         title="Are you sure to delete this role?"
+                        description={`Role “${record.name}” will be removed.`}
                         onConfirm={() => handleDelete(record.name)}
-                        okText="Yes"
-                        cancelText="No"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
                     >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
+                        <Trash2/> Delete
+                    </ConfirmButton>
+                </div>
             ),
         },
     ];
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>Role</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd} size="large">
-                    Add Role
-                </Button>
-            </div>
-            <Table
+            <PageHeader title="Role" description="Define access policies for CoSky resources."
+                        actions={<Button onClick={handleAdd}><Plus/>Add Role</Button>}/>
+            <DataTable
                 columns={columns}
-                dataSource={roles}
+                data={roles}
                 loading={loading}
-                rowKey="name"
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
+                getRowKey={record => record.name}
+                search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
             />
         </div>
     );

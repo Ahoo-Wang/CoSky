@@ -1,10 +1,14 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import type {Config, ConfigHistory} from "../../generated";
-import {App, Button, Descriptions, Divider, Popconfirm, Skeleton} from "antd";
 import {DiffEditor} from "@monaco-editor/react";
 import {getFileNameWithExt} from "./fileNames.ts";
 import dayjs from "dayjs";
+import {toast} from 'sonner';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DefinitionList} from '@/components/ui/definition-list';
+import {Separator} from '@/components/ui/separator';
+import {Skeleton} from '@/components/ui/skeleton';
 
 export interface ConfigVersionDifferProps {
     namespace: string;
@@ -14,7 +18,6 @@ export interface ConfigVersionDifferProps {
 }
 
 export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: ConfigVersionDifferProps) {
-    const {message} = App.useApp()
     const {loading: currentLoading, result: currentConfig} = useQuery<string, Config>({
         query: configId,
         execute: (configId, _, abortController) => {
@@ -29,11 +32,11 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
     });
     const {loading: rollbackLoading, execute: rollback} = useExecutePromise({
         onSuccess: () => {
-            message.success('Rollback success');
+            toast.success('Rollback success');
             onSuccess()
         },
         onError: () => {
-            message.error('Rollback failed')
+            toast.error('Rollback failed');
         }
     })
 
@@ -45,24 +48,20 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
     const fileNameWithExt = getFileNameWithExt(configId);
     if (currentLoading || versionLoading) {
         return (
-            <Skeleton/>
+            <Skeleton className="h-96 w-full"/>
         )
     }
     return (
-        <>
-            <Descriptions bordered>
-                <Descriptions.Item label={"File Name"} span="filled">{configId}</Descriptions.Item>
-                <Descriptions.Item label={"Hash"} span="filled">{versionConfig?.hash}</Descriptions.Item>
-                <Descriptions.Item
-                    label={"History Version"}>{versionConfig?.version}</Descriptions.Item>
-                <Descriptions.Item
-                    label={"Operation"}>{versionConfig?.op}</Descriptions.Item>
-                <Descriptions.Item
-                    label={"Create Time"}>{dayjs((versionConfig?.createTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-                <Descriptions.Item
-                    label={"Operation Time"}>{dayjs((versionConfig?.opTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-            </Descriptions>
-            <Divider>History({version}) VS Current({currentConfig?.version})</Divider>
+        <div className="space-y-5">
+            <DefinitionList items={[
+                {label: 'File Name', value: configId},
+                {label: 'Hash', value: versionConfig?.hash},
+                {label: 'History Version', value: versionConfig?.version},
+                {label: 'Operation', value: versionConfig?.op},
+                {label: 'Create Time', value: dayjs((versionConfig?.createTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')},
+                {label: 'Operation Time', value: dayjs((versionConfig?.opTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')},
+            ]}/>
+            <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">History ({version}) vs Current ({currentConfig?.version})</span><Separator className="flex-1"/></div>
             <DiffEditor
                 key={`diff-${namespace}-${configId}-${version}`}
                 height="60vh"
@@ -78,13 +77,16 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
 
                 }}
             />
-            <Divider/>
-            <Popconfirm title="Are you sure to rollbak to version?"
+            <Separator/>
+            <ConfirmButton title="Rollback to this version?"
+                        description={`Configuration “${configId}” will be restored to version ${version}.`}
                         onConfirm={handleRollback}
+                        loading={rollbackLoading}
+                        className="w-full"
             >
-                <Button type={"primary"} block loading={rollbackLoading}>Rollback To Version[{version}]</Button>
-            </Popconfirm>
+                Rollback to version {version}
+            </ConfirmButton>
 
-        </>
+        </div>
     )
 }

@@ -13,11 +13,13 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
 import me.ahoo.cosky.discovery.TestServiceInstance.randomFixedInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
 import java.time.Duration
@@ -122,6 +124,17 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
+    }
+
+    @Test
+    fun registerFixedRemovesEphemeralRenewal() {
+        val ephemeralInstance = randomInstance()
+        val namespacedInstanceId = NamespacedInstanceId(namespace, ephemeralInstance.instanceId)
+        serviceRegistry.register(namespace, ephemeralInstance).block()
+        serviceRegistry.registeredEphemeralInstances.containsKey(namespacedInstanceId).assert().isTrue()
+
+        serviceRegistry.register(namespace, ephemeralInstance.withIsEphemeral(false)).block()
+        serviceRegistry.registeredEphemeralInstances.containsKey(namespacedInstanceId).assert().isFalse()
     }
 
     @Test

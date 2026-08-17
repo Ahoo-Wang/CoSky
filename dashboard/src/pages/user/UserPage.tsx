@@ -11,17 +11,23 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, Select, App} from 'antd';
-import {PlusOutlined, DeleteOutlined, UnlockOutlined} from '@ant-design/icons';
-import {useQuery} from '@ahoo-wang/fetcher-react';
+import {Plus, Trash2, Unlock} from 'lucide-react';
+import {useQuery, useSecurityContext} from '@ahoo-wang/fetcher-react';
 import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
 import {userApiClient} from "../../services/clients.ts";
 import type {CoSecPrincipal} from "../../generated";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
+import {MultiSelect} from '@/components/ui/multi-select';
 
 export function UserPage() {
-    const {message} = App.useApp()
+    const {currentUser} = useSecurityContext();
     const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => {
@@ -31,7 +37,7 @@ export function UserPage() {
     const {roles} = useRoles()
     const roleSelectorOptions = roles.map(role => ({
         label: role.name,
-        value: role.desc,
+        value: role.name,
     }))
     const {openDrawer, closeDrawer} = useDrawer();
     const loadUsers = () => {
@@ -60,109 +66,95 @@ export function UserPage() {
     const handleChangeRole = async (username: string, roles: string[]) => {
         try {
             await userApiClient.bindRole(username, {body: roles});
-            message.success('Role bind successfully');
+            toast.success('Role bind successfully');
             loadUsers();
         } catch {
-            message.error('Failed to bind role');
+            toast.error('Failed to bind role');
         }
     };
 
     const handleDelete = async (username: string) => {
         try {
             await userApiClient.removeUser(username);
-            message.success('User deleted successfully');
+            toast.success('User deleted successfully');
             loadUsers();
         } catch {
-            message.error('Failed to delete user');
+            toast.error('Failed to delete user');
         }
     };
 
     const handleUnlock = async (username: string) => {
         try {
             await userApiClient.unlock(username);
-            message.success('User unlocked successfully');
+            toast.success('User unlocked successfully');
             loadUsers();
         } catch {
-            message.error('Failed to unlock user');
+            toast.error('Failed to unlock user');
         }
     };
 
-    const columns = [
+    const columns: DataTableColumn<CoSecPrincipal>[] = [
         {
-            title: 'Username',
-            dataIndex: 'name',
+            header: 'Username',
+            accessor: 'name',
             key: 'name',
+            sort: (left, right) => left.name.localeCompare(right.name),
         },
         {
-            title: 'Roles',
-            dataIndex: 'roles',
+            header: 'Roles',
             key: 'roles',
-            render: (roles: string[], record: CoSecPrincipal) => {
-                return <Select mode="multiple"
-                               placeholder="Select Roles"
-                               style={{minWidth: 200}}
-                               options={roleSelectorOptions} value={roles}
+            cell: record => {
+                const isProtected = record.name === 'cosky' || record.name === currentUser.sub;
+                return <MultiSelect
+                               aria-label={`Roles for ${record.name}`}
+                               className="min-h-16 min-w-52"
+                               options={roleSelectorOptions} value={record.roles}
                                onChange={(value) => handleChangeRole(record.name, value)}
+                               disabled={isProtected}
                 />
             },
         },
         {
-            title: 'Action',
+            header: 'Action',
             key: 'action',
-            render: (_: unknown, record: CoSecPrincipal) => (
-                <Space>
-                    <Popconfirm title="Ary you sure to unlock this user?"
+            className: 'w-44 text-right',
+            cell: record => {
+                const isProtected = record.name === 'cosky' || record.name === currentUser.sub;
+                return <div className="flex justify-end gap-1">
+                    <ConfirmButton title="Unlock this user?"
+                                description={`User “${record.name}” will be unlocked.`}
                                 onConfirm={() => handleUnlock(record.name)}
+                                variant="ghost"
+                                size="sm"
                     >
-                        <Button type="link" icon={<UnlockOutlined/>}>
-                            UnLock
-                        </Button>
-                    </Popconfirm>
-                    <Popconfirm
+                        <Unlock/> Unlock
+                    </ConfirmButton>
+                    <ConfirmButton
                         title="Are you sure to delete this user?"
+                        description={`User “${record.name}” will be permanently removed.`}
                         onConfirm={() => handleDelete(record.name)}
-                        okText="Yes"
-                        cancelText="No"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        disabled={isProtected}
                     >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
-            ),
+                        <Trash2/> Delete
+                    </ConfirmButton>
+                </div>
+            },
         },
     ];
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>User</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd} size="large">
-                    Add User
-                </Button>
-            </div>
-            <Table
+            <PageHeader title="User" description="Manage accounts and role assignments."
+                        actions={<Button onClick={handleAdd}><Plus/>Add User</Button>}/>
+            <DataTable
                 columns={columns}
-                dataSource={users}
+                data={users}
                 loading={loading}
-                rowKey='name'
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
+                getRowKey={record => record.name}
+                search={{placeholder: 'Search users...', getValue: record => record.name}}
             />
         </div>
     );

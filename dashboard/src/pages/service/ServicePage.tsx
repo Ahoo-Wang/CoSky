@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, Input, App} from 'antd';
-import {DeleteOutlined, AppstoreAddOutlined, SearchOutlined} from '@ant-design/icons';
+import {Plus, Trash2} from 'lucide-react';
+import '../../monacoConfig';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {serviceApiClient} from "../../services/clients.ts";
@@ -20,15 +20,16 @@ import type {ServiceStat} from "../../generated";
 import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
 import {AddServiceForm} from "./AddServiceForm.tsx";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
-import type {ColumnsType} from "antd/es/table/interface";
-import {type FilterDropdownProps} from "antd/es/table/interface";
-import React from "react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {PageHeader} from "../../components/layout/PageHeader.tsx";
 import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
 
 export function ServicePage() {
-    const {message} = App.useApp()
     const {currentNamespace} = useCurrentNamespaceContext();
     const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,
@@ -42,10 +43,10 @@ export function ServicePage() {
     const handleDeleteService = async (serviceId: string) => {
         try {
             await serviceApiClient.removeService(currentNamespace, serviceId);
-            message.success('Service deleted successfully');
+            toast.success('Service deleted successfully');
             loadServices();
         } catch {
-            message.error('Failed to delete service');
+            toast.error('Failed to delete service');
         }
     };
 
@@ -54,7 +55,10 @@ export function ServicePage() {
             <ServiceInstanceEditor
                 namespace={currentNamespace}
                 serviceId={serviceId}
-                onSuccess={closeDrawer}
+                onSuccess={() => {
+                    closeDrawer();
+                    loadServices();
+                }}
                 onCancel={closeDrawer}
             />,
             {
@@ -70,72 +74,39 @@ export function ServicePage() {
         );
     };
 
-    const columns: ColumnsType<ServiceStat> = [
+    const columns: DataTableColumn<ServiceStat>[] = [
         {
-            title: 'Service ID',
-            dataIndex: 'serviceId',
+            header: 'Service ID',
+            accessor: 'serviceId',
             key: 'serviceId',
-            sorter: (a: ServiceStat, b: ServiceStat) => a.serviceId.localeCompare(b.serviceId),
-            filterDropdown: ({setSelectedKeys, selectedKeys, confirm, clearFilters}: FilterDropdownProps) => (
-                <div style={{padding: 8}}>
-                    <Input
-                        placeholder="Search Service ID"
-                        value={selectedKeys[0]}
-                        onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-                        onPressEnter={() => confirm()}
-                        style={{width: 188, marginBottom: 8, display: 'block'}}
-                    />
-                    <Space>
-                        <Button
-                            type="primary"
-                            onClick={() => confirm()}
-                            icon={<SearchOutlined/>}
-                            size="small"
-                            style={{width: 90}}
-                        >
-                            Search
-                        </Button>
-                        <Button onClick={() => clearFilters && clearFilters()} size="small" style={{width: 90}}>
-                            Reset
-                        </Button>
-                    </Space>
-                </div>
-            ),
-            filterIcon: (filtered: boolean) => (
-                <SearchOutlined style={{color: filtered ? '#1890ff' : undefined}}/>
-            ),
-            onFilter: (value: React.Key | boolean, record: ServiceStat) =>
-                record.serviceId.toLowerCase().includes(String(value).toLowerCase()),
+            sort: (left, right) => left.serviceId.localeCompare(right.serviceId),
         },
         {
-            title: 'Instance Count',
-            dataIndex: 'instanceCount',
+            header: 'Instance Count',
+            accessor: 'instanceCount',
             key: 'instanceCount',
-            sorter: (a: ServiceStat, b: ServiceStat) => a.instanceCount - b.instanceCount,
+            sort: (left, right) => left.instanceCount - right.instanceCount,
         },
         {
-            title: 'Action',
+            header: 'Action',
             key: 'action',
-            render: (_: unknown, record: ServiceStat) => (
-                <Space>
-                    <Button
-                        type="primary"
-                        icon={<AppstoreAddOutlined/>}
-                        onClick={() => handleAddInstance(record.serviceId)}
-                    >
-                        Add instance
+            className: 'w-56 text-right',
+            cell: record => (
+                <div className="flex justify-end gap-1">
+                    <Button size="sm" onClick={() => handleAddInstance(record.serviceId)}>
+                        <Plus/> Add instance
                     </Button>
-                    <Popconfirm
+                    <ConfirmButton
                         title="Are you sure to delete this service?"
+                        description={`Service “${record.serviceId}” and its registration will be removed.`}
                         onConfirm={() => handleDeleteService(record.serviceId)}
-                        okText="Yes"
-                        cancelText="No"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
                     >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
+                        <Trash2/> Delete
+                    </ConfirmButton>
+                </div>
             ),
         },
     ];
@@ -144,21 +115,19 @@ export function ServicePage() {
         <div>
             <PageHeader
                 title="Service"
+                description={`Register services and inspect instances in ${currentNamespace}.`}
                 actions={<AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>}
             />
             <DataTableWrapper>
-                <Table
+                <DataTable
                     columns={columns}
-                    pagination={{
-                        showSizeChanger: true
-                    }}
-                    dataSource={services}
+                    data={services}
                     loading={loading}
-                    rowKey='serviceId'
+                    getRowKey={record => record.serviceId}
                     expandable={{
-                        expandedRowRender,
-                        rowExpandable: (record) => record.instanceCount > 0,
+                        render: expandedRowRender,
                     }}
+                    search={{placeholder: 'Search services...', getValue: record => record.serviceId}}
                 />
             </DataTableWrapper>
         </div>

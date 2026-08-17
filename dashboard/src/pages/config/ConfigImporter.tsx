@@ -11,15 +11,15 @@
  * limitations under the License.
  */
 
-import React, {useEffect} from 'react';
+import React, {useState} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {App, Button, Form, Space} from "antd";
 import {configApiClient} from "../../services/clients.ts";
-import Dragger from "antd/es/upload/Dragger";
-import {InboxOutlined} from "@ant-design/icons";
+import {UploadCloud} from "lucide-react";
 import {ImportPolicySelector} from "./ImportPolicySelector.tsx";
-import type {UploadChangeParam} from "antd/es/upload/interface";
 import type {ImportResponse} from "../../generated";
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {Label} from '@/components/ui/label';
 
 interface ConfigImporterProps {
     namespace: string;
@@ -28,62 +28,47 @@ interface ConfigImporterProps {
 }
 
 export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
-    const {message} = App.useApp()
-    const [form] = Form.useForm();
+    const [policy, setPolicy] = useState('skip');
+    const [file, setFile] = useState<File>();
     const {loading, execute} = useExecutePromise<ImportResponse>({
         onSuccess: (result) => {
-            message.success(`ToTal : ${result.total} , Succeeded : ${result.succeeded} . `)
+            toast.success(`Total: ${result.total}, succeeded: ${result.succeeded}.`);
             onSuccess();
         },
         onError: () => {
-            message.error('Import config failed')
+            toast.error('Import config failed');
         },
     })
-    const handleFinish = (values: { policy: string; importZip: UploadChangeParam<File> }) => {
+    const handleFinish = () => {
+        if (!file) {
+            toast.error('Please select a ZIP file.');
+            return;
+        }
         const formData = new FormData();
-        formData.append('policy', values.policy);
-        formData.append('importZip', values.importZip.file);
+        formData.append('policy', policy);
+        formData.append('importZip', file);
         execute(() => {
             return configApiClient.importZip(namespace, {
                 body: formData
             })
         })
     };
-    useEffect(() => {
-        form.setFieldValue('policy', 'skip')
-    }, [form]);
     return (
-        <Form form={form} onFinish={handleFinish}>
-            <Form.Item name="policy" label='Import Policy'>
-                <ImportPolicySelector/>
-            </Form.Item>
-            <Form.Item name="importZip"
-                       rules={[
-                           {
-                               required: true,
-                               message: 'Please select a file!'
-                           }
-                       ]}>
-                <Dragger multiple={false} maxCount={1} accept=".zip" beforeUpload={() => false}>
-                    <p className="ant-upload-drag-icon">
-                        <InboxOutlined/>
-                    </p>
-                    <p className="ant-upload-text">Click or drag ZIP-file to this area to upload</p>
-                    <p className="ant-upload-hint">
-                        Support Nacos config format.
-                    </p>
-                </Dragger>
-            </Form.Item>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={loading}>
-                        Submit
-                    </Button>
-                    <Button onClick={onCancel}>
-                        Cancel
-                    </Button>
-                </Space>
-            </Form.Item>
-        </Form>
+        <form className="space-y-5" onSubmit={(event) => {event.preventDefault(); handleFinish();}}>
+            <div className="space-y-2">
+                <Label>Import Policy</Label>
+                <ImportPolicySelector value={policy} onChange={setPolicy}/>
+            </div>
+            <Label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed bg-muted/25 px-6 text-center transition-colors hover:border-primary hover:bg-primary/5">
+                <UploadCloud className="mb-3 size-9 text-primary"/>
+                <span className="font-medium">{file?.name ?? 'Choose a ZIP file'}</span>
+                <span className="mt-1 text-xs font-normal text-muted-foreground">Nacos configuration ZIP format</span>
+                <input type="file" accept=".zip,application/zip" className="sr-only" onChange={event => setFile(event.target.files?.[0])}/>
+            </Label>
+            <div className="flex gap-2">
+                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+            </div>
+        </form>
     );
 };

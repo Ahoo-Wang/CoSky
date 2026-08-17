@@ -14,24 +14,24 @@ export interface ServiceNodeData {
     outDegree: number;
 }
 
-export const HIGHLIGHT_COLOR = '#ffd700';
+export const HIGHLIGHT_COLOR = '#6d5ce8';
 export const DIM_OPACITY = 0.3;
 
 export const NODE_TYPE_COLORS = {
     source: {
-        backgroundColor: '#1890ff',
+        backgroundColor: '#6d8cff',
         color: '#fff',
-        borderColor: '#096dd9'
+        borderColor: '#536fe0'
     },
     target: {
-        backgroundColor: '#ff7a45',
+        backgroundColor: '#f59e42',
         color: '#fff',
-        borderColor: '#d4380d'
+        borderColor: '#d9822b'
     },
     intermediate: {
-        backgroundColor: '#722ed1',
+        backgroundColor: '#7657e8',
         color: '#fff',
-        borderColor: '#531dab'
+        borderColor: '#6045c6'
     }
 } as const;
 
@@ -103,22 +103,15 @@ export function toReactFlowTopology(
         return 'intermediate';
     };
 
-    // Get node styles based on type
-    const getNodeStyle = (nodeType: NodeType) => {
-        return NODE_TYPE_COLORS[nodeType];
-    };
-
-
-
     // Create layered layout: source (first layer), intermediate (middle), target (last)
     const nodeList = Array.from(allNodes);
     const sources = nodeList.filter(nodeName => getNodeType(nodeName) === 'source').sort();
     const intermediates = nodeList.filter(nodeName => getNodeType(nodeName) === 'intermediate').sort();
     const targets = nodeList.filter(nodeName => getNodeType(nodeName) === 'target').sort();
 
-    const layerSpacingY = 400;
-    const nodeSpacingX = 250;
-    const rowSpacingY = 150;
+    const layerSpacingY = 220;
+    const nodeSpacingX = 180;
+    const rowSpacingY = 120;
     const maxNodesPerRow = 6;
 
     function layoutLayer(nodes: string[], y: number) {
@@ -158,8 +151,6 @@ export function toReactFlowTopology(
 
     nodeList.forEach((nodeName) => {
         const nodeType = getNodeType(nodeName);
-        const nodeStyle = getNodeStyle(nodeType);
-
         nodes.push({
             id: nodeName,
             type: 'default',
@@ -169,7 +160,7 @@ export function toReactFlowTopology(
                 inDegree: inDegree.get(nodeName)!,
                 outDegree: outDegree.get(nodeName)!,
             },
-            style: nodeStyle,
+            style: {},
             position: positionMap.get(nodeName)!,
         });
     });
@@ -182,6 +173,10 @@ export function toReactFlowTopology(
                 source: nodeName,
                 target: targetName,
                 animated: true,    // Animated edges show data flow direction
+                style: {
+                    stroke: '#8b7aff',
+                    strokeWidth: 1.5,
+                },
             });
         });
     });

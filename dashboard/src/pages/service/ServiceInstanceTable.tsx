@@ -1,19 +1,23 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
-import {App, Button, Popconfirm, Table} from "antd";
 import type {ServiceInstance} from "../../generated";
-import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
+import {Pencil, Trash2} from "lucide-react";
 import dayjs from "dayjs";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {toast} from 'sonner';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
 
 export interface ServiceInstanceTableProps {
     namespace: string
     serviceId: string
 }
 
-export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTableProps) {
-    const {message} = App.useApp()
+export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTableProps) {
     const {result: instances = [], loading: loadingInstances, execute: loadInstances} = useQuery({
         query: serviceId,
         execute: (query, _, abortController) => {
@@ -22,11 +26,11 @@ export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTable
     })
     const {loading: loadingExecutePromise, execute} = useExecutePromise({
         onSuccess: async () => {
-            message.success('Delete instance success!');
+            toast.success('Delete instance success!');
             await loadInstances();
         },
         onError: () => {
-            message.error('Delete instance failed!');
+            toast.error('Delete instance failed!');
         }
     })
     const {openDrawer, closeDrawer} = useDrawer();
@@ -36,7 +40,10 @@ export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTable
                 namespace={namespace}
                 serviceId={serviceId}
                 initialValues={serviceInstance}
-                onSuccess={closeDrawer}
+                onSuccess={() => {
+                    closeDrawer();
+                    loadInstances();
+                }}
                 onCancel={closeDrawer}
             />,
             {
@@ -49,69 +56,65 @@ export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTable
             return serviceApiClient.deregister(namespace, serviceId, instanceId)
         })
     }
-    const columns = [
-        {title: 'Schema', dataIndex: 'schema', key: 'schema'},
+    const columns: DataTableColumn<ServiceInstance>[] = [
+        {header: 'Schema', accessor: 'schema', key: 'schema'},
         {
-            title: 'Host', dataIndex: 'host', key: 'host',
-            sorter: (a: ServiceInstance, b: ServiceInstance) => a.host.localeCompare(b.host),
+            header: 'Host', accessor: 'host', key: 'host',
+            sort: (left, right) => left.host.localeCompare(right.host),
         },
-        {title: 'Port', dataIndex: 'port', key: 'port'},
+        {header: 'Port', accessor: 'port', key: 'port'},
         {
-            title: 'Weight', dataIndex: 'weight', key: 'weight',
-            sorter: (a: ServiceInstance, b: ServiceInstance) => a.weight - b.weight,
+            header: 'Weight', accessor: 'weight', key: 'weight',
+            sort: (left, right) => left.weight - right.weight,
         },
         {
-            title: 'Ephemeral',
-            dataIndex: 'isEphemeral',
+            header: 'Ephemeral',
             key: 'isEphemeral',
-            render: (isEphemeral: boolean) => isEphemeral ? 'true' : 'false'
+            cell: record => <Badge variant={record.isEphemeral ? 'secondary' : 'outline'}>{record.isEphemeral ? 'Yes' : 'No'}</Badge>,
         },
         {
-            title: 'TtlAt',
-            dataIndex: 'ttlAt',
+            header: 'TTL At',
             key: 'ttlAt',
-            sorter: (a: ServiceInstance, b: ServiceInstance) => a.ttlAt - b.ttlAt,
-            render: (ttlAt: number) => dayjs(ttlAt * 1000).format('YYYY-MM-DD HH:mm:ss')
+            sort: (left, right) => left.ttlAt - right.ttlAt,
+            cell: record => dayjs(record.ttlAt * 1000).format('YYYY-MM-DD HH:mm:ss'),
         },
         {
-            title: 'Metadata',
-            dataIndex: 'metadata',
+            header: 'Metadata',
             key: 'metadata',
-            render: (metadata: Record<string, string>) => JSON.stringify(metadata)
+            cell: record => <code className="text-xs">{JSON.stringify(record.metadata)}</code>,
         },
         {
-            title: 'Action',
+            header: 'Action',
             key: 'action',
-            render: (_: unknown, record: ServiceInstance) => (
-                <>
-                    <Button
-                        type="link"
-                        icon={<EditOutlined/>}
-                        onClick={() => handleEditInstance(record)}
-                    >
-                        Edit
+            className: 'w-40 text-right',
+            cell: record => (
+                <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleEditInstance(record)}>
+                        <Pencil/> Edit
                     </Button>
-                    <Popconfirm
+                    <ConfirmButton
                         title="Are you sure to delete this instance?"
+                        description={`Instance “${record.instanceId}” will be deregistered.`}
                         onConfirm={() => handleDeleteInstance(record.serviceId, record.instanceId)}
-                        okText="Yes"
-                        cancelText="No"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        loading={loadingExecutePromise}
                     >
-                        <Button type="link" danger icon={<DeleteOutlined/>} loading={loadingExecutePromise}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </>
+                        <Trash2/> Delete
+                    </ConfirmButton>
+                </div>
             ),
         },
     ];
 
     return (
-        <Table
+        <DataTable
             loading={loadingInstances}
-            dataSource={instances}
+            data={instances}
             columns={columns}
-            rowKey={'instanceId'}
+            getRowKey={record => record.instanceId}
+            pagination={false}
         />
     )
 }

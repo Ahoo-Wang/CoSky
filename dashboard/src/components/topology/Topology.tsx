@@ -10,7 +10,6 @@ import {
     getConnectedNodeIds,
     isServiceNodeData,
 } from "./topologies.ts";
-import {Skeleton, Input} from "antd";
 import type {Node, Edge, NodeMouseHandler, OnNodesChange} from "@xyflow/react";
 import {
     Background,
@@ -21,7 +20,9 @@ import {
     applyNodeChanges,
 } from "@xyflow/react";
 import {ServiceNode} from "./ServiceNode.tsx";
-import {SearchOutlined} from "@ant-design/icons";
+import {Search} from "lucide-react";
+import {Input} from "@/components/ui/input";
+import {Skeleton} from "@/components/ui/skeleton";
 import '@xyflow/react/dist/style.css';
 
 const nodeTypes = {
@@ -134,7 +135,7 @@ export function Topology() {
     }, []);
 
     if (loading) {
-        return <Skeleton/>
+        return <Skeleton className="h-full min-h-96 w-full"/>;
     }
 
     return (
@@ -146,27 +147,28 @@ export function Topology() {
             onPaneClick={onPaneClick}
             onNodesChange={onNodesChange}
             nodesDraggable={true}
+            proOptions={{hideAttribution: true}}
             fitView
             fitViewOptions={{
                 padding: 0.2,
             }}
         >
-            <Panel style={{
-                padding: '8px',
-                borderRadius: '8px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            }}>
+            <Panel className="rounded-lg border bg-background p-2 shadow-sm">
+                <div className="relative">
+                    <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
                 <Input
                     placeholder="Search nodes..."
-                    prefix={<SearchOutlined/>}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    allowClear
+                    className="w-56 pl-8"
+                    style={{paddingLeft: '2.25rem'}}
                 />
+                </div>
             </Panel>
             <Background/>
             <Controls/>
             <MiniMap
+                position="top-right"
                 nodeColor={(node) => {
                     if (isServiceNodeData(node.data)) {
                         return NODE_TYPE_COLORS[node.data.nodeType]?.backgroundColor
@@ -176,7 +178,9 @@ export function Topology() {
                 }}
                 maskColor="rgba(0, 0, 0, 0.1)"
                 style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+                    width: 140,
+                    height: 96,
                 }}
             />
         </ReactFlow>

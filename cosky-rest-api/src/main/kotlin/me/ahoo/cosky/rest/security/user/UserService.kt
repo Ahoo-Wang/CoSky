@@ -36,7 +36,7 @@ import java.util.stream.Collectors
 class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
 
     fun initRoot(enforce: Boolean): Mono<Boolean> {
-        return Mono.from(if (enforce) removeUser(CoSecPrincipal.ROOT_ID) else Mono.empty())
+        return Mono.from(if (enforce) removeUserInternal(CoSecPrincipal.ROOT_ID) else Mono.empty())
             .then(
                 Mono.defer {
                     val coskyPwd = randomPwd(10)
@@ -85,6 +85,13 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
     }
 
     fun removeUser(username: String): Mono<Boolean> {
+        if (username == CoSecPrincipal.ROOT_ID) {
+            return Mono.error(IllegalArgumentException("Root user cannot be removed."))
+        }
+        return removeUserInternal(username)
+    }
+
+    private fun removeUserInternal(username: String): Mono<Boolean> {
         val userRoleBindKey = getUserRoleBindKey(username)
         return redisTemplate.delete(userRoleBindKey)
             .then(

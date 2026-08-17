@@ -100,11 +100,12 @@ class RedisServiceRegistry(
     }
 
     private fun addEphemeralInstance(namespace: String, serviceInstance: ServiceInstance) {
+        val namespacedInstanceId = NamespacedInstanceId(namespace, serviceInstance.instanceId)
         if (!serviceInstance.isEphemeral) {
+            registeredEphemeralInstances.remove(namespacedInstanceId)
             return
         }
-        registeredEphemeralInstances[NamespacedInstanceId(namespace, serviceInstance.instanceId)] =
-            serviceInstance
+        registeredEphemeralInstances[namespacedInstanceId] = serviceInstance
     }
 
     private fun removeEphemeralInstance(namespace: String, instanceId: String) {

@@ -11,35 +11,23 @@
  * limitations under the License.
  */
 
-import {Space, type SpaceProps} from 'antd';
-
 interface PageHeaderProps {
     title: string;
+    description?: string;
     actions?: React.ReactNode;
-    spaceProps?: SpaceProps;
 }
 
-export function PageHeader({title, actions, spaceProps}: PageHeaderProps) {
+export function PageHeader({title, description, actions}: PageHeaderProps) {
     return (
-        <div style={{
-            marginBottom: 24,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-        }}>
-            <h2 style={{
-                margin: 0,
-                fontSize: 28,
-                fontWeight: 600,
-                color: '#262626',
-                letterSpacing: '-0.5px',
-            }}>
-                {title}
-            </h2>
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
+                {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
+            </div>
             {actions && (
-                <Space size="middle" {...spaceProps}>
+                <div className="flex flex-wrap items-center gap-2">
                     {actions}
-                </Space>
+                </div>
             )}
         </div>
     );

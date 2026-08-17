@@ -14,27 +14,22 @@
 import React from 'react';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
 import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
-import {PartitionOutlined, DownOutlined} from "@ant-design/icons";
+import {Layers3} from "lucide-react";
 
 export const CurrentNamespaceSelector: React.FC = () => {
     const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
     
     return (
-        <NamespaceSelector
-            style={{
-                minWidth: 200,
-                marginLeft: 16,
-                backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-                borderRadius: 6,
-                color: 'white',
-                transition: 'all 0.3s ease',
-            }}
-            value={currentNamespace}
-            onChange={setCurrent}
-            showSearch
-            prefix={<PartitionOutlined style={{color: 'white'}} />}
-            suffixIcon={<DownOutlined style={{color: 'white'}} />}
-        />
+        <div className="app-namespace">
+            <Layers3/>
+            <div>
+                <span>Namespace</span>
+                <NamespaceSelector
+                    value={currentNamespace}
+                    onChange={setCurrent}
+                    triggerClassName="border-0 bg-transparent p-0 text-white shadow-none focus-visible:ring-0 [&_svg]:text-white/60"
+                />
+            </div>
+        </div>
     );
 };

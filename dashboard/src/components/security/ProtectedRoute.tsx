@@ -15,7 +15,7 @@ import React from 'react';
 import {Navigate} from 'react-router-dom';
 import {RefreshableRouteGuard} from "@ahoo-wang/fetcher-react";
 import {coSecConfigurer} from "../../services/fetcher.ts";
-import {Skeleton} from "antd";
+import {Skeleton} from "@/components/ui/skeleton";
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -26,7 +26,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({children}) => {
         <RefreshableRouteGuard
             tokenManager={coSecConfigurer.tokenManager!}
             fallback={<Navigate to="/login" replace/>}
-            refreshing={<Skeleton/>}>
+            refreshing={<div className="space-y-3 p-8"><Skeleton className="h-9 w-56"/><Skeleton className="h-64 w-full"/></div>}>
             {children}
         </RefreshableRouteGuard>)
 

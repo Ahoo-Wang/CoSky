@@ -12,7 +12,6 @@
  */
 
 import React, {useState} from 'react';
-import {App, Button, Descriptions, Divider, Input, Skeleton, Space} from 'antd';
 import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
@@ -20,6 +19,13 @@ import {configApiClient} from "../../services/clients.ts";
 import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
 import dayjs from "dayjs";
 import type {Config} from "../../generated";
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {DefinitionList} from '@/components/ui/definition-list';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Separator} from '@/components/ui/separator';
+import {Skeleton} from '@/components/ui/skeleton';
 
 interface ConfigEditFormProps {
     namespace: string;
@@ -29,12 +35,11 @@ interface ConfigEditFormProps {
 }
 
 export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
-    const {message} = App.useApp()
     const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
     const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
     const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
-    const [configData, setConfigData] = useState<string>();
-    const {loading, result: config} = useQuery<string, Config>({
+    const [configData, setConfigData] = useState('');
+    const {loading, error, result: config, execute: loadConfig} = useQuery<string, Config>({
         query: configId,
         execute: (query, attributes, abortController) => {
             return configApiClient.getConfig(namespace, query, attributes, abortController);
@@ -44,19 +49,18 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
         }
     })
     const {loading: loadingSave, execute: saveConfig} = useExecutePromise({
-        propagateError: true,
         onSuccess: () => {
-            message.success('Config saved successfully');
+            toast.success('Config saved successfully');
             onSuccess();
         },
         onError: () => {
-            message.error('Config save failed');
+            toast.error('Config save failed');
         }
     })
 
     const handleSubmit = () => {
         if (!fileName) {
-            message.error('Please enter file name!')
+            toast.error('Please enter file name!');
             return;
         }
         const fullFileName = getFullFileName(fileName, fileExt)
@@ -66,60 +70,65 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             })
         })
     }
-    if (configId && loading) {
+    if (configId && error) {
         return (
-            <Skeleton/>
+            <div role="alert" className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm">
+                <p>Failed to load this configuration. Nothing has been changed.</p>
+                <Button variant="outline" onClick={() => loadConfig()}>Retry</Button>
+            </div>
+        )
+    }
+    if (configId && (loading || !config)) {
+        return (
+            <Skeleton className="h-96 w-full"/>
         )
     }
     return (
-        <>
+        <div className="space-y-5">
             {!configId && (
-                <Space.Compact block>
-                    <Input disabled={!!configId} placeholder="Enter file name!" value={fileName} onChange={(e) => {
-                        setFileName(e.target.value);
-                    }}/>
-                    <ConfigFormatSelector disabled={!!configId}
-                                          value={fileExt}
-                                          onChange={(value) => {
-                                              setFileExt(value)
-                                          }}
-                                          defaultValue={'yaml'}
-                                          style={{width: 150}}/>
-                </Space.Compact>
+                <div className="space-y-2">
+                    <Label htmlFor="config-file-name">Config ID</Label>
+                    <div className="flex">
+                        <Input id="config-file-name" className="rounded-r-none" disabled={!!configId} placeholder="Enter file name" value={fileName} onChange={(e) => {
+                            setFileName(e.target.value);
+                        }}/>
+                        <ConfigFormatSelector disabled={!!configId}
+                                              value={fileExt}
+                                              onChange={(value) => {
+                                                  setFileExt(value)
+                                              }}
+                                              defaultValue="yaml"
+                                              className="w-40"
+                                              triggerClassName="rounded-l-none"/>
+                    </div>
+                </div>
             )}
             {config && (
-                <Descriptions bordered>
-                    <Descriptions.Item label="File Name" span="filled">{config.configId}</Descriptions.Item>
-                    <Descriptions.Item label="Hash" span="filled">{config.hash}</Descriptions.Item>
-                    <Descriptions.Item
-                        label="Last Update Time">{dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-                    <Descriptions.Item label="Version">{config.version}</Descriptions.Item>
-                </Descriptions>
+                <DefinitionList items={[
+                    {label: 'File Name', value: config.configId},
+                    {label: 'Hash', value: config.hash},
+                    {label: 'Last Update Time', value: dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss')},
+                    {label: 'Version', value: config.version},
+                ]}/>
             )}
-            <Divider>Config Data</Divider>
+            <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Config Data</span><Separator className="flex-1"/></div>
             <Editor
                 height="60vh"
                 theme="vs-dark"
                 language={fileExt}
                 value={configData}
-                onChange={setConfigData}
+                onChange={value => setConfigData(value ?? '')}
                 options={{
+                    ariaLabel: 'Config data editor',
                     minimap: {enabled: false},
                 }}
             />
-            <Divider></Divider>
-            <Space>
-                <Button type="primary"
-                        onClick={handleSubmit}
-                        loading={loadingSave}
-                >
-                    Submit
-                </Button>
-                <Button onClick={onCancel}>
-                    Cancel
-                </Button>
-            </Space>
-        </>
+            <Separator/>
+            <div className="flex gap-2">
+                <Button onClick={handleSubmit} loading={loadingSave}>Submit</Button>
+                <Button variant="outline" onClick={onCancel}>Cancel</Button>
+            </div>
+        </div>
 
     );
 };

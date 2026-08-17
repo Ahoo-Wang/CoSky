@@ -11,95 +11,89 @@
  * limitations under the License.
  */
 
-import {Table} from 'antd';
 import type {AuditLog, QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {auditLogApiClient} from "../../services/clients.ts";
-import type {ColumnsType} from "antd/es/table/interface";
+import {useState} from 'react';
+import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {Badge} from '@/components/ui/badge';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
 
 type Paging = {
-    pageIndex: number;
+    page: number;
     pageSize: number;
 };
 
 export function AuditLogPage() {
+    const [page, setPage] = useState(1);
     const {result, loading, setQuery} = useQuery<Paging, QueryLogResponse>({
         initialQuery: {
-            pageIndex: 1,
+            page: 1,
             pageSize: 10,
         },
         execute: (query, _, abortController) => {
-            return auditLogApiClient.queryLog(query.pageIndex, query.pageSize, {abortController});
+            return auditLogApiClient.queryLog((query.page - 1) * query.pageSize, query.pageSize, {abortController});
         },
     })
 
-    const columns: ColumnsType<AuditLog> = [
+    const columns: DataTableColumn<AuditLog>[] = [
         {
-            title: 'Timestamp',
-            dataIndex: 'opTime',
+            header: 'Timestamp',
             key: 'opTime',
-            render: (timestamp: number) => dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss'),
+            cell: record => dayjs(record.opTime).format('YYYY-MM-DD HH:mm:ss'),
         },
         {
-            title: 'Operator',
-            dataIndex: 'operator',
+            header: 'Operator',
+            accessor: 'operator',
             key: 'operator',
         },
         {
-            title: 'ClientIP',
-            dataIndex: 'ip',
+            header: 'Client IP',
+            accessor: 'ip',
             key: 'ip',
         },
         {
-            title: 'Resource',
-            dataIndex: 'resource',
+            header: 'Resource',
+            accessor: 'resource',
             key: 'resource',
         },
         {
-            title: 'Action',
-            dataIndex: 'action',
+            header: 'Action',
+            accessor: 'action',
             key: 'action',
         },
         {
-            title: 'Status',
-            dataIndex: 'status',
+            header: 'Status',
             key: 'status',
+            cell: record => <Badge variant={record.status < 400 ? 'secondary' : 'destructive'}>{record.status}</Badge>,
         },
         {
-            title: 'Msg',
-            dataIndex: 'msg',
+            header: 'Message',
+            accessor: 'msg',
             key: 'msg',
+            className: 'max-w-72 whitespace-normal',
         },
     ];
 
     return (
         <div>
-            <h2 style={{
-                marginBottom: 24,
-                fontSize: '28px',
-                fontWeight: 600,
-                color: '#262626',
-                letterSpacing: '-0.5px',
-            }}>Audit Log</h2>
-            <Table
+            <PageHeader title="Audit Log" description="Review administrative and security-sensitive operations."/>
+            <DataTable
                 columns={columns}
-                dataSource={result?.list}
-                rowKey={(record) => `${record.operator}-${record.opTime}`}
+                data={result?.list}
+                getRowKey={(record) => `${record.operator}-${record.opTime}`}
                 pagination={{
+                    page,
+                    pageSize: 10,
                     total: result?.total,
-                    showTotal: (total) => `Total ${total} items`,
-                    onChange: (pageIndex, pageSize) => {
-                        setQuery({pageIndex, pageSize});
+                    onChange: (page, pageSize) => {
+                        setPage(page);
+                        setQuery({page, pageSize});
                     }
                 }}
                 loading={loading}
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
             />
         </div>
     );

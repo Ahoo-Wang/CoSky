@@ -11,14 +11,15 @@
  * limitations under the License.
  */
 
-import {Button, Table} from 'antd';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import type {ConfigVersion} from "../../generated";
-import type {ColumnsType} from "antd/es/table/interface";
 import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
-import {HistoryOutlined} from "@ant-design/icons";
+import {History} from "lucide-react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {Button} from '@/components/ui/button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
 
 interface ConfigVersionTableProps {
     namespace: string;
@@ -41,27 +42,28 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
                                         }}/>,
             {
                 title: 'Config Version Differ',
-                defaultSize: '80vw',
+                width: 'min(88vw, 1320px)',
             }
         )
     }
-    const columns: ColumnsType<ConfigVersion> = [
-        {title: 'Version', dataIndex: 'version', key: 'version'},
+    const columns: DataTableColumn<ConfigVersion>[] = [
+        {header: 'Version', accessor: 'version', key: 'version', sort: (left, right) => left.version - right.version},
         {
-            title: 'Action', key: 'action', render: (_, record) => (
-                <Button type={'link'} icon={<HistoryOutlined/>} onClick={() => {
+            header: 'Action', key: 'action', className: 'w-28 text-right', cell: record => (
+                <Button variant="ghost" size="sm" onClick={() => {
                     handleDiffVersion(record)
-                }}>Diff</Button>
+                }}><History/>Diff</Button>
             )
         }
     ];
 
     return (
-        <Table
-            dataSource={versions}
-            rowKey="version"
+        <DataTable
+            data={versions}
+            getRowKey={record => record.version}
             columns={columns}
             loading={loading}
+            pagination={false}
         />
     );
 }
