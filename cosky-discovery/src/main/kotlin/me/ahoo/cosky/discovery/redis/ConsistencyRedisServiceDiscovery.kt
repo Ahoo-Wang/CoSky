@@ -121,9 +121,9 @@ class ConsistencyRedisServiceDiscovery(
 
         return instancesMono
             .flatMapIterable(Function.identity())
-            .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
             .filter { it.instanceId == instanceId }
             .next()
+            .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {

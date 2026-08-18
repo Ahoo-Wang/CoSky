@@ -12,7 +12,10 @@
  */
 package me.ahoo.cosky.discovery
 
+import io.mockk.every
+import io.mockk.mockk
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
 import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.registerRandomInstanceAndTestThenDeregister
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
@@ -24,6 +27,8 @@ import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
+import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
 import reactor.test.StepVerifier
 import java.time.Duration
@@ -127,6 +132,31 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
                 .expectNextMatches { it.t1 === it.t2 }
                 .verifyComplete()
         }
+    }
+
+    @Test
+    fun getInstanceFallsBackWhenCachedServiceMissesInstance() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val serviceId = MockIdGenerator.INSTANCE.generateAsString()
+        val cachedInstance = createInstance(serviceId).withIsEphemeral(false)
+        val missingInstance = createInstance(serviceId).withIsEphemeral(false)
+        val delegate = mockk<ServiceDiscovery>()
+        every { delegate.getInstances(namespace, serviceId) } returns Flux.just(cachedInstance)
+        every { delegate.getInstance(namespace, serviceId, missingInstance.instanceId) } returns Mono.just(missingInstance)
+        val instanceEventListenerContainer = mockk<InstanceEventListenerContainer>()
+        every { instanceEventListenerContainer.receive(any()) } returns Flux.never()
+        val serviceDiscovery = ConsistencyRedisServiceDiscovery(
+            delegate = delegate,
+            serviceEventListenerContainer = mockk(),
+            instanceEventListenerContainer = instanceEventListenerContainer,
+        )
+
+        serviceDiscovery.getInstances(namespace, serviceId).test()
+            .expectNext(cachedInstance)
+            .verifyComplete()
+        serviceDiscovery.getInstance(namespace, serviceId, missingInstance.instanceId).test()
+            .expectNext(missingInstance)
+            .verifyComplete()
     }
 
     @Test
