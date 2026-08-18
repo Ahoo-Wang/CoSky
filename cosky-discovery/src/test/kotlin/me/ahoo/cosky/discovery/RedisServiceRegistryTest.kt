@@ -181,10 +181,13 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     @Test
     fun deregister() {
         val testInstance = randomInstance()
+        val namespacedInstanceId = NamespacedInstanceId(namespace, testInstance.instanceId)
+        serviceRegistry.registeredEphemeralInstances[namespacedInstanceId] = testInstance
         serviceRegistry.deregister(namespace, testInstance)
             .test()
             .expectNext(false)
             .verifyComplete()
+        serviceRegistry.registeredEphemeralInstances[namespacedInstanceId].assert().isEqualTo(testInstance)
         serviceRegistry.register(namespace, testInstance)
             .test()
             .expectNext(true)
@@ -193,6 +196,25 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
+        serviceRegistry.registeredEphemeralInstances.containsKey(namespacedInstanceId).assert().isFalse()
+    }
+
+    @Test
+    fun deregisterFailurePreservesEphemeralRenewal() {
+        val failedRedisTemplate = mockk<ReactiveStringRedisTemplate>()
+        every {
+            failedRedisTemplate.execute(any<RedisScript<Boolean>>(), any(), any())
+        } returns Flux.error(IllegalStateException("deregistration failed"))
+        val failedRegistry = RedisServiceRegistry(RegistryProperties(Duration.ofSeconds(10)), failedRedisTemplate)
+        val ephemeralInstance = randomInstance()
+        val namespacedInstanceId = NamespacedInstanceId(namespace, ephemeralInstance.instanceId)
+        failedRegistry.registeredEphemeralInstances[namespacedInstanceId] = ephemeralInstance
+
+        failedRegistry.deregister(namespace, ephemeralInstance.serviceId, ephemeralInstance.instanceId)
+            .test()
+            .expectErrorMessage("deregistration failed")
+            .verify()
+        failedRegistry.registeredEphemeralInstances[namespacedInstanceId].assert().isEqualTo(ephemeralInstance)
     }
 
     @Test
