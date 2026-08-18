@@ -35,6 +35,12 @@ test.afterEach(async ({page}) => {
 
 test('rejects invalid credentials without leaving the login screen', async ({page}) => {
     await page.goto('/login');
+    const githubLink = page.getByRole('link', {name: 'View CoSky on GitHub'});
+    const giteeLink = page.getByRole('link', {name: 'View CoSky on Gitee'});
+    await expect(githubLink).toHaveAttribute('href', 'https://github.com/Ahoo-Wang/CoSky');
+    await expect(githubLink.locator('svg[data-brand="github"]')).toBeVisible();
+    await expect(giteeLink).toHaveAttribute('href', 'https://gitee.com/AhooWang/CoSky');
+    await expect(giteeLink.locator('svg')).toBeVisible();
     await page.getByRole('textbox', {name: 'Username', exact: true}).fill('denied');
     await page.getByLabel('Password', {exact: true}).fill('wrong');
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();

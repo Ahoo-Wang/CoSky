@@ -361,20 +361,39 @@
     opacity: 0.7;
 }
 
-/* === GitHub Link === */
-.login-github-link {
+/* === Repository Links === */
+.login-repository-links {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 32px;
+}
+
+.login-repository-link {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: rgba(255, 255, 255, 0.5) !important;
-    font-size: 24px !important;
     transition: all 0.3s ease !important;
 }
 
-.login-github-link:hover {
-    color: #667eea !important;
+.login-repository-link svg {
+    width: 24px;
+    height: 24px;
+}
+
+.login-repository-link:hover {
     transform: scale(1.2) !important;
+}
+
+.login-repository-link--github:hover {
+    color: #fff !important;
     text-shadow: 0 0 20px rgba(102, 126, 234, 0.8) !important;
+}
+
+.login-repository-link--gitee:hover {
+    color: #c71d23 !important;
+    filter: drop-shadow(0 0 10px rgba(199, 29, 35, 0.6));
 }
 
 /* === Decorative Elements === */
