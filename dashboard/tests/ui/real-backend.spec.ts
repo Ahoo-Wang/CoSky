@@ -99,7 +99,7 @@ test('all dashboard operations work against the real REST API and Redis', async 
 
     await login(page);
     await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
-    await expect(page.getByText('Service Topology')).toBeVisible();
+    await expect(page.getByText('Service Topology').first()).toBeVisible();
 
     await page.getByRole('link', {name: 'Namespace', exact: true}).click();
     await page.getByRole('textbox', {name: 'Enter namespace'}).fill(namespace);

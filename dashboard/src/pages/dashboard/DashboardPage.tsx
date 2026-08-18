@@ -11,9 +11,9 @@
  * limitations under the License.
  */
 
-import {useRef} from 'react';
+import {useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
-import {Activity, Box, CircleCheck, FileSliders, Layers3, Maximize2, TriangleAlert} from 'lucide-react';
+import {Activity, Box, CircleCheck, FileSliders, Layers3, Maximize2, Minimize2, TriangleAlert} from 'lucide-react';
 import dayjs from 'dayjs';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
@@ -27,7 +27,8 @@ import {Skeleton} from '@/components/ui/skeleton';
 
 export function DashboardPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const topologyRef = useRef<HTMLDivElement>(null);
+    const topologyDialogRef = useRef<HTMLDialogElement>(null);
+    const [topologyDialogOpen, setTopologyDialogOpen] = useState(false);
     const {result: stat = {
         namespaces: 0,
         configs: 0,
@@ -66,15 +67,15 @@ export function DashboardPage() {
             </div>
 
             <Card className="py-0">
-                <CardContent className="grid p-0 sm:grid-cols-2 xl:grid-cols-4">
+                <CardContent className="grid grid-cols-2 p-0 xl:grid-cols-4">
                     {metrics.map(({label, value, detail, icon: Icon, tone}) => (
-                        <div key={label} className="flex min-h-28 items-center gap-4 border-b p-6 last:border-b-0 sm:odd:border-r xl:border-b-0 xl:not-last:border-r">
-                            <div className={`grid size-14 flex-none place-items-center rounded-full ${tone}`}>
-                                <Icon className="size-6"/>
+                        <div key={label} className="flex min-h-24 items-center gap-3 border-b p-4 odd:border-r [&:nth-last-child(-n+2)]:border-b-0 xl:min-h-28 xl:border-r xl:border-b-0 xl:p-6 xl:last:border-r-0">
+                            <div className={`grid size-10 flex-none place-items-center rounded-full xl:size-14 ${tone}`}>
+                                <Icon className="size-5 xl:size-6"/>
                             </div>
                             <div>
                                 <p className="text-sm text-muted-foreground">{label}</p>
-                                <p className="mt-1 text-3xl font-semibold tracking-tight">
+                                <p className="mt-1 text-2xl font-semibold tracking-tight xl:text-3xl">
                                     {value.toLocaleString()}
                                     {detail && <span className="ml-1 text-sm font-normal text-muted-foreground">{detail}</span>}
                                 </p>
@@ -85,16 +86,22 @@ export function DashboardPage() {
             </Card>
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <Card ref={topologyRef} className="min-w-0">
+                <Card className="min-w-0">
                     <CardHeader className="border-b">
                         <CardTitle>Service Topology</CardTitle>
                         <CardAction>
-                            <Button variant="outline" size="icon-sm" onClick={() => topologyRef.current?.requestFullscreen()} aria-label="Open topology fullscreen">
+                            <Button variant="outline" size="icon-sm"
+                                    onClick={() => {
+                                        topologyDialogRef.current?.showModal();
+                                        setTopologyDialogOpen(true);
+                                    }}
+                                    title="Open fullscreen"
+                                    aria-label="Open topology fullscreen">
                                 <Maximize2/>
                             </Button>
                         </CardAction>
                     </CardHeader>
-                    <CardContent className="h-[660px] px-3">
+                    <CardContent className="h-[360px] px-3 sm:h-[520px] xl:h-[660px]">
                         <Topology/>
                     </CardContent>
                 </Card>
@@ -135,6 +142,25 @@ export function DashboardPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <dialog ref={topologyDialogRef}
+                    aria-labelledby="topology-dialog-title"
+                    onClose={() => setTopologyDialogOpen(false)}
+                    className="fixed inset-4 m-0 h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none rounded-xl border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/35">
+                <div className="flex h-full flex-col">
+                    <div className="flex items-center justify-between border-b px-5 py-4">
+                        <h2 id="topology-dialog-title" className="text-base font-semibold">Service Topology</h2>
+                        <form method="dialog">
+                            <Button variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen">
+                                <Minimize2/>
+                            </Button>
+                        </form>
+                    </div>
+                    <div className="min-h-0 flex-1 p-3">
+                        {topologyDialogOpen && <Topology/>}
+                    </div>
+                </div>
+            </dialog>
         </div>
     );
 }

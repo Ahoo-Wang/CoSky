@@ -17,7 +17,7 @@ interface DataTableWrapperProps {
 
 export function DataTableWrapper({children}: DataTableWrapperProps) {
     return (
-        <div className="rounded-xl bg-card">
+        <div className="rounded-xl bg-card p-3">
             {children}
         </div>
     );

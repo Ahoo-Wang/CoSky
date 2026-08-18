@@ -24,10 +24,12 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
             return serviceApiClient.getInstances(namespace, query, {abortController});
         }
     })
+    // ponytail: let the Redis consistency event settle before reading the updated instance.
+    const refreshInstances = () => window.setTimeout(loadInstances, 250);
     const {loading: loadingExecutePromise, execute} = useExecutePromise({
-        onSuccess: async () => {
+        onSuccess: () => {
             toast.success('Delete instance success!');
-            await loadInstances();
+            refreshInstances();
         },
         onError: () => {
             toast.error('Delete instance failed!');
@@ -42,7 +44,7 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
                 initialValues={serviceInstance}
                 onSuccess={() => {
                     closeDrawer();
-                    loadInstances();
+                    refreshInstances();
                 }}
                 onCancel={closeDrawer}
             />,
@@ -86,11 +88,11 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
         {
             header: 'Action',
             key: 'action',
-            className: 'w-40 text-right',
+            className: 'w-40 text-right max-sm:sticky max-sm:right-0 max-sm:z-10 max-sm:w-28 max-sm:bg-card max-sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]',
             cell: record => (
                 <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEditInstance(record)}>
-                        <Pencil/> Edit
+                    <Button variant="ghost" size="sm" className="max-sm:size-10 max-sm:px-0" onClick={() => handleEditInstance(record)} aria-label="Edit instance">
+                        <Pencil/> <span className="hidden sm:inline">Edit</span>
                     </Button>
                     <ConfirmButton
                         title="Are you sure to delete this instance?"
@@ -98,10 +100,11 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
                         onConfirm={() => handleDeleteInstance(record.serviceId, record.instanceId)}
                         variant="ghost"
                         size="sm"
-                        className="text-destructive"
+                        className="text-destructive max-sm:size-10 max-sm:px-0"
                         loading={loadingExecutePromise}
+                        aria-label="Delete instance"
                     >
-                        <Trash2/> Delete
+                        <Trash2/> <span className="hidden sm:inline">Delete</span>
                     </ConfirmButton>
                 </div>
             ),
@@ -115,6 +118,7 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
             columns={columns}
             getRowKey={record => record.instanceId}
             pagination={false}
+            emptyMessage="No instances registered yet."
         />
     )
 }

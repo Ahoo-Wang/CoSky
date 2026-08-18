@@ -172,10 +172,10 @@ export function toReactFlowTopology(
                 id: `${nodeName}-${targetName}`,
                 source: nodeName,
                 target: targetName,
-                animated: true,    // Animated edges show data flow direction
                 style: {
                     stroke: '#8b7aff',
-                    strokeWidth: 1.5,
+                    strokeWidth: 1,
+                    opacity: 0.28,
                 },
             });
         });

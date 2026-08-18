@@ -57,7 +57,8 @@ export function ServicePage() {
                 serviceId={serviceId}
                 onSuccess={() => {
                     closeDrawer();
-                    loadServices();
+                    // ponytail: let the Redis consistency event settle before refreshing the count.
+                    window.setTimeout(loadServices, 250);
                 }}
                 onCancel={closeDrawer}
             />,
@@ -77,24 +78,32 @@ export function ServicePage() {
     const columns: DataTableColumn<ServiceStat>[] = [
         {
             header: 'Service ID',
-            accessor: 'serviceId',
             key: 'serviceId',
             sort: (left, right) => left.serviceId.localeCompare(right.serviceId),
+            cell: record => (
+                <>
+                    <span>{record.serviceId}</span>
+                    <span className="ml-2 text-xs text-muted-foreground sm:hidden">
+                        {record.instanceCount} instance{record.instanceCount === 1 ? '' : 's'}
+                    </span>
+                </>
+            ),
         },
         {
             header: 'Instance Count',
             accessor: 'instanceCount',
             key: 'instanceCount',
+            className: 'max-sm:hidden',
             sort: (left, right) => left.instanceCount - right.instanceCount,
         },
         {
             header: 'Action',
             key: 'action',
-            className: 'w-56 text-right',
+            className: 'w-56 text-right max-sm:sticky max-sm:right-0 max-sm:z-10 max-sm:w-28 max-sm:bg-card max-sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]',
             cell: record => (
                 <div className="flex justify-end gap-1">
-                    <Button size="sm" onClick={() => handleAddInstance(record.serviceId)}>
-                        <Plus/> Add instance
+                    <Button variant="outline" size="sm" className="max-sm:size-10 max-sm:px-0" onClick={() => handleAddInstance(record.serviceId)} aria-label="Add instance">
+                        <Plus/> <span className="hidden sm:inline">Add instance</span>
                     </Button>
                     <ConfirmButton
                         title="Are you sure to delete this service?"
@@ -102,9 +111,10 @@ export function ServicePage() {
                         onConfirm={() => handleDeleteService(record.serviceId)}
                         variant="ghost"
                         size="sm"
-                        className="text-destructive"
+                        className="text-destructive max-sm:size-10 max-sm:px-0"
+                        aria-label="Delete service"
                     >
-                        <Trash2/> Delete
+                        <Trash2/> <span className="hidden sm:inline">Delete</span>
                     </ConfirmButton>
                 </div>
             ),
@@ -128,6 +138,7 @@ export function ServicePage() {
                         render: expandedRowRender,
                     }}
                     search={{placeholder: 'Search services...', getValue: record => record.serviceId}}
+                    emptyMessage="No services registered in this namespace yet."
                 />
             </DataTableWrapper>
         </div>

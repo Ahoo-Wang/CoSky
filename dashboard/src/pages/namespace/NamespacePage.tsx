@@ -84,6 +84,7 @@ export function NamespacePage() {
                     loading={loading}
                     getRowKey={(record) => record}
                     search={{placeholder: 'Search namespaces...', getValue: value => value}}
+                    emptyMessage="No namespaces found."
                 />
             </DataTableWrapper>
         </div>

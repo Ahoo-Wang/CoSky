@@ -19,12 +19,14 @@ import {userApiClient} from "../../services/clients.ts";
 import type {CoSecPrincipal} from "../../generated";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {MultiSelect} from '@/components/ui/multi-select';
+import {Badge} from '@/components/ui/badge';
 
 export function UserPage() {
     const {currentUser} = useSecurityContext();
@@ -53,6 +55,7 @@ export function UserPage() {
             />,
             {
                 title: 'Add User',
+                width: 'min(520px, 92vw)',
             }
         );
     };
@@ -105,12 +108,19 @@ export function UserPage() {
             key: 'roles',
             cell: record => {
                 const isProtected = record.name === 'cosky' || record.name === currentUser.sub;
+                if (isProtected) {
+                    return <div className="flex min-h-9 flex-wrap items-center gap-1.5">
+                        {record.roles.length > 0
+                            ? record.roles.map(role => <Badge key={role} variant="secondary">{role}</Badge>)
+                            : <Badge variant="outline">Protected account</Badge>}
+                    </div>;
+                }
                 return <MultiSelect
                                aria-label={`Roles for ${record.name}`}
-                               className="min-h-16 min-w-52"
+                               className="min-w-52"
                                options={roleSelectorOptions} value={record.roles}
                                onChange={(value) => handleChangeRole(record.name, value)}
-                               disabled={isProtected}
+                               placeholder="Select roles"
                 />
             },
         },
@@ -126,6 +136,7 @@ export function UserPage() {
                                 onConfirm={() => handleUnlock(record.name)}
                                 variant="ghost"
                                 size="sm"
+                                disabled={isProtected}
                     >
                         <Unlock/> Unlock
                     </ConfirmButton>
@@ -149,13 +160,16 @@ export function UserPage() {
         <div>
             <PageHeader title="User" description="Manage accounts and role assignments."
                         actions={<Button onClick={handleAdd}><Plus/>Add User</Button>}/>
-            <DataTable
-                columns={columns}
-                data={users}
-                loading={loading}
-                getRowKey={record => record.name}
-                search={{placeholder: 'Search users...', getValue: record => record.name}}
-            />
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={users}
+                    loading={loading}
+                    getRowKey={record => record.name}
+                    search={{placeholder: 'Search users...', getValue: record => record.name}}
+                    emptyMessage="No users found."
+                />
+            </DataTableWrapper>
         </div>
     );
 };

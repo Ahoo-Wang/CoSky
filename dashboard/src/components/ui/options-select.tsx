@@ -35,6 +35,8 @@ export interface OptionsSelectProps {
     className?: string;
     triggerClassName?: string;
     ariaLabel?: string;
+    'aria-invalid'?: boolean;
+    'aria-describedby'?: string;
 }
 
 export function OptionsSelect({
@@ -47,6 +49,8 @@ export function OptionsSelect({
     className,
     triggerClassName,
     ariaLabel,
+    'aria-invalid': ariaInvalid,
+    'aria-describedby': ariaDescribedBy,
 }: OptionsSelectProps) {
     return (
         <div className={cn('min-w-36', className)}>
@@ -56,7 +60,8 @@ export function OptionsSelect({
                 onValueChange={onChange}
                 disabled={disabled}
             >
-                <SelectTrigger className={cn('w-full', triggerClassName)} aria-label={ariaLabel ?? placeholder}>
+                <SelectTrigger className={cn('w-full', triggerClassName)} aria-label={ariaLabel ?? placeholder}
+                               aria-invalid={ariaInvalid} aria-describedby={ariaDescribedBy}>
                     <SelectValue placeholder={placeholder}/>
                 </SelectTrigger>
                 <SelectContent position="popper">

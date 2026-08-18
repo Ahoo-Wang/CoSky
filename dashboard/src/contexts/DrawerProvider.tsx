@@ -22,7 +22,7 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
             {children}
             <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && closeDrawer()}>
                 <SheetContent
-                    className="w-[min(60vw,960px)] max-w-[95vw] gap-0 sm:max-w-none"
+                    className="w-[calc(100vw-1.5rem)] max-w-none gap-0 sm:w-[min(60vw,960px)] sm:max-w-none"
                     style={{width: options.width}}
                 >
                     <SheetHeader className="border-b px-6 py-5">

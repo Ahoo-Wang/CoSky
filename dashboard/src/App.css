@@ -237,6 +237,7 @@
 .app-command-search input {
   height: 40px;
   padding-left: 38px;
+  padding-right: 42px;
   border-color: rgba(255, 255, 255, .12);
   background: rgba(255, 255, 255, .06);
   color: white;
@@ -244,6 +245,19 @@
 
 .app-command-search input::placeholder {
   color: #9292a6;
+}
+
+.app-command-search-submit {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  color: #aaaabd;
+}
+
+.app-command-search-submit:hover {
+  background: rgba(255, 255, 255, .08) !important;
+  color: white !important;
 }
 
 .app-icon-link {
@@ -269,7 +283,8 @@
   color: white;
 }
 
-.app-user-button:hover {
+.app-user-button:hover,
+.app-user-button[aria-expanded='true'] {
   background: rgba(255, 255, 255, .08) !important;
   color: white !important;
 }

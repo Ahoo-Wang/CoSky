@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
+import React, {useRef, useState} from 'react';
 import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
@@ -37,8 +37,10 @@ interface ConfigEditFormProps {
 export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
     const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
     const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
+    const [fileNameError, setFileNameError] = useState('');
     const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
     const [configData, setConfigData] = useState('');
+    const fileNameInput = useRef<HTMLInputElement>(null);
     const {loading, error, result: config, execute: loadConfig} = useQuery<string, Config>({
         query: configId,
         execute: (query, attributes, abortController) => {
@@ -59,11 +61,14 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
     })
 
     const handleSubmit = () => {
-        if (!fileName) {
-            toast.error('Please enter file name!');
+        const normalizedFileName = fileName.trim();
+        if (!normalizedFileName) {
+            setFileNameError('Please enter file name!');
+            fileNameInput.current?.focus();
             return;
         }
-        const fullFileName = getFullFileName(fileName, fileExt)
+        setFileNameError('');
+        const fullFileName = getFullFileName(normalizedFileName, fileExt)
         saveConfig(() => {
             return configApiClient.setConfig(namespace, fullFileName, {
                 body: configData
@@ -89,8 +94,11 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
                 <div className="space-y-2">
                     <Label htmlFor="config-file-name">Config ID</Label>
                     <div className="flex">
-                        <Input id="config-file-name" className="rounded-r-none" disabled={!!configId} placeholder="Enter file name" value={fileName} onChange={(e) => {
+                        <Input ref={fileNameInput} id="config-file-name" className="rounded-r-none" disabled={!!configId} placeholder="Enter file name" value={fileName}
+                               aria-invalid={!!fileNameError} aria-describedby={fileNameError ? 'config-file-name-error' : undefined}
+                               onChange={(e) => {
                             setFileName(e.target.value);
+                            if (fileNameError) setFileNameError('');
                         }}/>
                         <ConfigFormatSelector disabled={!!configId}
                                               value={fileExt}
@@ -101,6 +109,7 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
                                               className="w-40"
                                               triggerClassName="rounded-l-none"/>
                     </div>
+                    {fileNameError && <p id="config-file-name-error" role="alert" className="text-sm text-destructive">{fileNameError}</p>}
                 </div>
             )}
             {config && (

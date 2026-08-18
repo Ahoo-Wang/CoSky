@@ -64,6 +64,7 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
             columns={columns}
             loading={loading}
             pagination={false}
+            emptyMessage="No versions recorded yet."
         />
     );
 }

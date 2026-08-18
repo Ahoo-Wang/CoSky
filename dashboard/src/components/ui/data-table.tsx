@@ -13,7 +13,7 @@
 
 import {Fragment, useMemo, useState} from 'react';
 import type {ReactNode} from 'react';
-import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Search} from 'lucide-react';
+import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Inbox, Search, SearchX} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -61,6 +61,7 @@ interface DataTableProps<T> {
     search?: DataTableSearch<T>;
     expandable?: DataTableExpandable<T>;
     pagination?: false | DataTablePagination;
+    emptyMessage?: ReactNode;
     className?: string;
 }
 
@@ -72,6 +73,7 @@ export function DataTable<T>({
     search,
     expandable,
     pagination = {},
+    emptyMessage,
     className,
 }: DataTableProps<T>) {
     const [query, setQuery] = useState('');
@@ -99,10 +101,11 @@ export function DataTable<T>({
         return filtered;
     }, [columns, data, query, search, sortDirection, sortKey]);
 
-    const total = pagination === false ? filteredRows.length : (pagination.total ?? filteredRows.length);
+    const hasFilter = Boolean(search && query.trim());
+    const total = hasFilter || pagination === false ? filteredRows.length : (pagination.total ?? filteredRows.length);
     const pageCount = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, pageCount);
-    const rows = pagination === false || pagination.total !== undefined
+    const rows = pagination === false || (pagination.total !== undefined && !hasFilter)
         ? filteredRows
         : filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
@@ -136,7 +139,7 @@ export function DataTable<T>({
     return (
         <div className={cn('space-y-3', className)}>
             {search && (
-                <div className="relative max-w-sm">
+                <div className="relative w-full max-w-xl">
                     <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"/>
                     <Input
                         value={query}
@@ -152,8 +155,7 @@ export function DataTable<T>({
                 </div>
             )}
             <div className="overflow-hidden rounded-xl border bg-card">
-                <div className="overflow-x-auto">
-                    <Table>
+                <Table>
                         <TableHeader>
                             <TableRow>
                                 {expandable && <TableHead className="w-10"/>}
@@ -186,8 +188,13 @@ export function DataTable<T>({
                             ))}
                             {!loading && rows.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={columns.length + (expandable ? 1 : 0)} className="h-32 text-center text-muted-foreground">
-                                        No results found.
+                                    <TableCell colSpan={columns.length + (expandable ? 1 : 0)} className="h-40 text-center text-muted-foreground">
+                                        <div className="grid place-items-center gap-2">
+                                            {hasFilter
+                                                ? <SearchX className="size-7 opacity-50"/>
+                                                : <Inbox className="size-7 opacity-50"/>}
+                                            <span>{hasFilter ? 'No matching results.' : (emptyMessage ?? 'No data yet.')}</span>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )}
@@ -234,12 +241,11 @@ export function DataTable<T>({
                                 );
                             })}
                         </TableBody>
-                    </Table>
-                </div>
+                </Table>
             </div>
             {pagination !== false && total > 0 && (
                 <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                    <span>{total} item{total === 1 ? '' : 's'}</span>
+                    <span>{total} {hasFilter ? `matching item${total === 1 ? '' : 's'} on this page` : `item${total === 1 ? '' : 's'}`}</span>
                     <div className="flex items-center gap-2">
                         <Button variant="outline" size="icon-sm" disabled={safePage <= 1} onClick={() => changePage(safePage - 1)} aria-label="Previous page">
                             <ChevronLeft/>

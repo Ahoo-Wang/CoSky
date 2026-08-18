@@ -18,6 +18,7 @@ import {roleApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
@@ -36,6 +37,7 @@ export function RolePage() {
             />,
             {
                 title: 'Add Role',
+                width: 'min(680px, 92vw)',
             }
         );
     };
@@ -49,6 +51,7 @@ export function RolePage() {
             />,
             {
                 title: 'Edit Role',
+                width: 'min(680px, 92vw)',
             }
         );
     };
@@ -96,6 +99,8 @@ export function RolePage() {
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
+                        disabled={record.name === 'admin'}
+                        aria-label={record.name === 'admin' ? 'Delete admin (system role)' : `Delete ${record.name}`}
                     >
                         <Trash2/> Delete
                     </ConfirmButton>
@@ -108,13 +113,16 @@ export function RolePage() {
         <div>
             <PageHeader title="Role" description="Define access policies for CoSky resources."
                         actions={<Button onClick={handleAdd}><Plus/>Add Role</Button>}/>
-            <DataTable
-                columns={columns}
-                data={roles}
-                loading={loading}
-                getRowKey={record => record.name}
-                search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
-            />
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={roles}
+                    loading={loading}
+                    getRowKey={record => record.name}
+                    search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
+                    emptyMessage="No roles found."
+                />
+            </DataTableWrapper>
         </div>
     );
 };

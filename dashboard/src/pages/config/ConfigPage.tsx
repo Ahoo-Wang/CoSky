@@ -80,6 +80,7 @@ export function ConfigPage() {
                                    onCancel={closeDrawer}
         />, {
             title: 'Import Config',
+            width: 'min(640px, 92vw)',
         });
     };
     const {execute: deleteConfig} = useExecutePromise({
@@ -163,6 +164,7 @@ export function ConfigPage() {
                         render: expandedRowRender,
                     }}
                     search={{placeholder: 'Search configurations...', getValue: record => record.configId}}
+                    emptyMessage="No configurations in this namespace yet."
                 />
             </DataTableWrapper>
         </div>

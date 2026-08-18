@@ -17,6 +17,7 @@ import {useQuery} from "@ahoo-wang/fetcher-react";
 import {auditLogApiClient} from "../../services/clients.ts";
 import {useState} from 'react';
 import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
 import {Badge} from '@/components/ui/badge';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
@@ -42,6 +43,7 @@ export function AuditLogPage() {
         {
             header: 'Timestamp',
             key: 'opTime',
+            sort: (left, right) => left.opTime - right.opTime,
             cell: record => dayjs(record.opTime).format('YYYY-MM-DD HH:mm:ss'),
         },
         {
@@ -67,6 +69,7 @@ export function AuditLogPage() {
         {
             header: 'Status',
             key: 'status',
+            sort: (left, right) => left.status - right.status,
             cell: record => <Badge variant={record.status < 400 ? 'secondary' : 'destructive'}>{record.status}</Badge>,
         },
         {
@@ -80,21 +83,28 @@ export function AuditLogPage() {
     return (
         <div>
             <PageHeader title="Audit Log" description="Review administrative and security-sensitive operations."/>
-            <DataTable
-                columns={columns}
-                data={result?.list}
-                getRowKey={(record) => `${record.operator}-${record.opTime}`}
-                pagination={{
-                    page,
-                    pageSize: 10,
-                    total: result?.total,
-                    onChange: (page, pageSize) => {
-                        setPage(page);
-                        setQuery({page, pageSize});
-                    }
-                }}
-                loading={loading}
-            />
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={result?.list}
+                    getRowKey={(record) => `${record.operator}-${record.opTime}`}
+                    search={{
+                        placeholder: 'Filter this page by time, operator, status, resource, or action...',
+                        getValue: record => `${dayjs(record.opTime).format('YYYY-MM-DD HH:mm:ss')} ${record.operator} ${record.ip} ${record.resource} ${record.action} ${record.status} ${record.msg}`,
+                    }}
+                    pagination={{
+                        page,
+                        pageSize: 10,
+                        total: result?.total,
+                        onChange: (page, pageSize) => {
+                            setPage(page);
+                            setQuery({page, pageSize});
+                        }
+                    }}
+                    loading={loading}
+                    emptyMessage="No audit events recorded yet."
+                />
+            </DataTableWrapper>
         </div>
     );
 }

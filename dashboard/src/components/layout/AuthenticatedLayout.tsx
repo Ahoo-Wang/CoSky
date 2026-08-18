@@ -14,6 +14,7 @@
 import {useState} from 'react';
 import type {FormEvent} from 'react';
 import {
+    ArrowRight,
     ChevronDown,
     ChevronsLeft,
     ChevronsRight,
@@ -52,6 +53,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {Input} from '@/components/ui/input';
 import {cn} from '@/lib/utils';
+import {toast} from 'sonner';
 
 const primaryItems = [
     {to: '/home', label: 'Dashboard', icon: LayoutDashboard},
@@ -95,7 +97,9 @@ export const AuthenticatedLayout = () => {
         if (target) {
             navigate(target.to);
             setSearchValue('');
+            return;
         }
+        toast.error(`No page matches “${searchValue.trim()}”.`);
     };
 
     return (
@@ -154,18 +158,18 @@ export const AuthenticatedLayout = () => {
                         </Button>
                         <CurrentNamespaceSelector/>
                     </div>
-                    <form className="app-command-search" onSubmit={handleSearch}>
+                    <form className="app-command-search" role="search" onSubmit={handleSearch}>
                         <Search/>
                         <Input
-                            list="cosky-search-targets"
+                            type="search"
                             value={searchValue}
                             onChange={event => setSearchValue(event.target.value)}
-                            placeholder="Search services, namespaces, configs..."
+                            placeholder="Go to Dashboard, Configuration, Service..."
                             aria-label="Search navigation"
                         />
-                        <datalist id="cosky-search-targets">
-                            {searchTargets.map(item => <option key={item.to} value={item.label}/>) }
-                        </datalist>
+                        <Button type="submit" variant="ghost" size="icon-sm" className="app-command-search-submit" aria-label="Go to page">
+                            <ArrowRight/>
+                        </Button>
                     </form>
                     <div className="app-header-actions">
                         <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank" rel="noopener noreferrer" className="app-icon-link" aria-label="CoSky on GitHub">

@@ -42,7 +42,7 @@ const logs = [
 
 export interface MockApi {
     delayNext?: {method: string; path: RegExp; milliseconds: number};
-    emptyCollections: Set<'audit' | 'configs' | 'namespaces' | 'roles' | 'services' | 'users'>;
+    emptyCollections: Set<'audit' | 'configs' | 'namespaces' | 'roles' | 'services' | 'topology' | 'users'>;
     failNext?: {method: string; path: RegExp};
     manyServices?: boolean;
     requests: Array<{method: string; path: string; postData: string | null}>;
@@ -101,7 +101,7 @@ export async function installApiMock(page: Page) {
             return;
         }
         if (pathname.endsWith('/stat/topology')) {
-            await json(route, {
+            await json(route, mockApi.emptyCollections.has('topology') ? {} : {
                 'api-gateway': ['user-service', 'order-service', 'payment-service'],
                 'user-service': ['user-db'],
                 'order-service': ['order-db', 'redis-cache'],

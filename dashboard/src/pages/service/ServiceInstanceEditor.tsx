@@ -105,17 +105,19 @@ export function ServiceInstanceEditor({
                 </div>
             </div>
             <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Metadata</span><Separator className="flex-1"/></div>
-            <Editor
-                height="50vh"
-                theme="vs-dark"
-                defaultLanguage="json"
-                defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
-                onChange={(value) => setMetadata(value || '{}')}
-                options={{
-                    ariaLabel: 'Instance metadata editor',
-                    minimap: {enabled: false},
-                }}
-            />
+            <div className="h-[30vh] min-h-52 sm:h-[38vh] sm:max-h-96">
+                <Editor
+                    height="100%"
+                    theme="vs-dark"
+                    defaultLanguage="json"
+                    defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
+                    onChange={(value) => setMetadata(value || '{}')}
+                    options={{
+                        ariaLabel: 'Instance metadata editor',
+                        minimap: {enabled: false},
+                    }}
+                />
+            </div>
             <Separator/>
             <div className="flex gap-2">
                 <Button type="submit" loading={loading}>Submit</Button>

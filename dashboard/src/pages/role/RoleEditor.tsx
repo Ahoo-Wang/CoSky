@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {useState} from 'react';
+import {useRef, useState} from 'react';
 import type {FormEvent} from 'react';
 import {Plus, Trash2} from 'lucide-react';
 import {toast} from 'sonner';
@@ -37,6 +37,8 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     const [name, setName] = useState(initialValues?.name ?? '');
     const [desc, setDesc] = useState(initialValues?.desc ?? '');
     const [bindings, setBindings] = useState<ResourceActionDto[]>([]);
+    const [bindingError, setBindingError] = useState('');
+    const bindingsContainer = useRef<HTMLDivElement>(null);
     const {result = EMPTY_RESOURCE_ACTIONS} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
         execute: (query, attributes, abortController) => roleApiClient.getResourceBind(query, attributes, abortController),
@@ -57,6 +59,7 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     }
 
     const updateBinding = (index: number, key: keyof ResourceActionDto, value: string) => {
+        setBindingError('');
         setBindings(current => current.map((binding, bindingIndex) => bindingIndex === index
             ? {...binding, [key]: value}
             : binding));
@@ -65,9 +68,11 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         if (bindings.some(binding => !binding.namespace || !binding.action)) {
-            toast.error('Complete every permission binding before saving.');
+            setBindingError('Complete every permission binding before saving.');
+            requestAnimationFrame(() => bindingsContainer.current?.querySelector<HTMLButtonElement>('[aria-invalid="true"]')?.focus());
             return;
         }
+        setBindingError('');
         const body: SaveRoleRequest = {desc, resourceActionBind: bindings};
         await save(() => roleApiClient.saveRole(name, {body}));
     };
@@ -90,17 +95,26 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
                 />
             </div>
             <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resource Bind</span><Separator className="flex-1"/></div>
-            <div className="space-y-3">
+            <div ref={bindingsContainer} className="space-y-3">
                 {bindings.map((binding, index) => (
                     <div key={`${index}-${binding.namespace}-${binding.action}`} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_1fr_auto]">
-                        <NamespaceSelector value={binding.namespace} onChange={value => updateBinding(index, 'namespace', value)}/>
-                        <ResourceActionSelector value={binding.action} onChange={value => updateBinding(index, 'action', value)}/>
-                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setBindings(current => current.filter((_, bindingIndex) => bindingIndex !== index))} aria-label="Remove permission">
+                        <NamespaceSelector value={binding.namespace} onChange={value => updateBinding(index, 'namespace', value)}
+                                           aria-invalid={!!bindingError && !binding.namespace} aria-describedby={bindingError ? 'role-binding-error' : undefined}/>
+                        <ResourceActionSelector value={binding.action} onChange={value => updateBinding(index, 'action', value)}
+                                                aria-invalid={!!bindingError && !binding.action} aria-describedby={bindingError ? 'role-binding-error' : undefined}/>
+                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => {
+                            setBindingError('');
+                            setBindings(current => current.filter((_, bindingIndex) => bindingIndex !== index));
+                        }} aria-label="Remove permission">
                             <Trash2/>
                         </Button>
                     </div>
                 ))}
-                <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => setBindings(current => [...current, {namespace: '', action: ''}])}>
+                {bindingError && <p id="role-binding-error" role="alert" className="text-sm text-destructive">{bindingError}</p>}
+                <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => {
+                    setBindingError('');
+                    setBindings(current => [...current, {namespace: '', action: ''}]);
+                }}>
                     <Plus/> Add permission
                 </Button>
             </div>
