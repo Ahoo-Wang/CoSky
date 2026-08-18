@@ -43,4 +43,5 @@ redis.call("publish", instanceKey, "register");
 if not fixed then
     return redis.call("expire", instanceKey, instanceTtl);
 end
+redis.call("persist", instanceKey);
 return 1;
