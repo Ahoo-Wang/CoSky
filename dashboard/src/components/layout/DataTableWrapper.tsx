@@ -17,12 +17,7 @@ interface DataTableWrapperProps {
 
 export function DataTableWrapper({children}: DataTableWrapperProps) {
     return (
-        <div style={{
-            background: '#fff',
-            borderRadius: 12,
-            overflow: 'hidden',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-        }}>
+        <div data-slot="data-table-wrapper" className="rounded-xl bg-card p-3">
             {children}
         </div>
     );

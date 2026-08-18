@@ -11,13 +11,19 @@
  * limitations under the License.
  */
 
-import {Form, Input, InputNumber, Button, Space, Switch, Divider, App} from 'antd';
+import type {FormEvent} from 'react';
 import type {InstanceDto, ServiceInstance} from "../../generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {useEffect, useState} from "react";
+import {useState} from "react";
 import {serviceApiClient} from "../../services/clients.ts";
 import Editor from "@monaco-editor/react";
 import {SchemaSelector} from "./SchemaSelector.tsx";
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Separator} from '@/components/ui/separator';
+import {Switch} from '@/components/ui/switch';
 
 interface ServiceInstanceFormProps {
     namespace: string;
@@ -27,13 +33,6 @@ interface ServiceInstanceFormProps {
     onCancel: () => void;
 }
 
-const formItemLayout = {
-    labelCol: {
-        xs: {span: 12},
-        sm: {span: 6},
-    },
-};
-
 export function ServiceInstanceEditor({
                                           namespace,
                                           serviceId,
@@ -41,88 +40,89 @@ export function ServiceInstanceEditor({
                                           onSuccess,
                                           onCancel
                                       }: ServiceInstanceFormProps) {
-    const {message} = App.useApp()
     const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
-
-    const [form] = Form.useForm();
+    const [schema, setSchema] = useState(initialValues?.schema ?? 'http');
+    const [isEphemeral, setIsEphemeral] = useState(initialValues?.isEphemeral ?? true);
     const {loading, execute} = useExecutePromise({
         onSuccess: () => {
-            message.success('Save instance success!');
+            toast.success('Save instance success!');
             onSuccess();
-            form.resetFields();
         },
         onError: () => {
-            message.error('Failed to save instance');
+            toast.error('Failed to save instance');
         }
     })
 
-    useEffect(() => {
-        if (initialValues) {
-            form.setFieldsValue(initialValues);
-        } else {
-            form.resetFields();
+    const handleFinish = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const values = Object.fromEntries(new FormData(event.currentTarget));
+        let parsedMetadata: Record<string, string>;
+        try {
+            const parsed = JSON.parse(metadata) as unknown;
+            if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object' || Object.values(parsed).some(value => typeof value !== 'string')) {
+                throw new Error();
+            }
+            parsedMetadata = parsed as Record<string, string>;
+        } catch {
+            toast.error('Metadata must be a valid JSON object.');
+            return;
         }
-    }, [initialValues, form]);
-    const handleFinish = async (values: Partial<ServiceInstance>) => {
         return await execute(() => {
             return serviceApiClient.register(namespace, serviceId, {
                 body: {
-                    ...values,
-                    metadata: JSON.parse(metadata) as Record<string, string>
+                    schema,
+                    host: initialValues?.host ?? String(values.host),
+                    port: initialValues?.port ?? Number(values.port),
+                    weight: initialValues?.weight ?? Number(values.weight || 0),
+                    isEphemeral,
+                    metadata: parsedMetadata,
                 } as InstanceDto
             })
         })
     };
     return (
-        <Form {...formItemLayout} form={form} onFinish={handleFinish}>
-            <Form.Item name="schema" label="Schema"
-                       rules={[{required: true, message: 'Please input schema!'}]}
-            >
-                <SchemaSelector disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item
-                name="host"
-                label="Host"
-                rules={[{required: true, message: 'Please input host!'}]}
-            >
-                <Input disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item
-                name="port"
-                label="Port"
-                rules={[{required: true, message: 'Please input port!'}]}
-            >
-                <InputNumber disabled={!!initialValues}/>
-            </Form.Item>
-
-            <Form.Item name="weight" label="Weight">
-                <InputNumber disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item name="isEphemeral" label="Is Ephemeral?">
-                <Switch/>
-            </Form.Item>
-            <Divider>Metadata</Divider>
-            <Editor
-                height="50vh"
-                theme="vs-dark"
-                defaultLanguage="json"
-                defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
-                onChange={(value) => setMetadata(value || '{}')}
-                options={{
-                    minimap: {enabled: false},
-                }}
-            />
-            <Divider></Divider>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={loading}>
-                        Submit
-                    </Button>
-                    <Button onClick={onCancel}>
-                        Cancel
-                    </Button>
-                </Space>
-            </Form.Item>
-        </Form>
+        <form className="space-y-5" onSubmit={handleFinish}>
+            <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                    <Label>Schema</Label>
+                    <SchemaSelector value={schema} onChange={setSchema} disabled={!!initialValues}/>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="instance-host">Host</Label>
+                    <Input id="instance-host" name="host" defaultValue={initialValues?.host} disabled={!!initialValues} required/>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="instance-port">Port</Label>
+                    <Input id="instance-port" name="port" type="number" min={1} max={65535} defaultValue={initialValues?.port} disabled={!!initialValues} required/>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="instance-weight">Weight</Label>
+                    <Input id="instance-weight" name="weight" type="number" min={0} defaultValue={initialValues?.weight ?? 1} disabled={!!initialValues}/>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2.5 sm:col-span-2">
+                    <Label htmlFor="instance-ephemeral">Ephemeral instance</Label>
+                    <Switch id="instance-ephemeral" checked={isEphemeral} onCheckedChange={setIsEphemeral}/>
+                </div>
+            </div>
+            <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Metadata</span><Separator className="flex-1"/></div>
+            <div className="h-[30vh] min-h-52 sm:h-[38vh] sm:max-h-96">
+                <Editor
+                    height="100%"
+                    theme="vs-dark"
+                    defaultLanguage="json"
+                    defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
+                    onChange={(value) => setMetadata(value || '{}')}
+                    options={{
+                        ariaLabel: 'Instance metadata editor',
+                        minimap: {enabled: false},
+                    }}
+                />
+            </div>
+            <Separator/>
+            <div className="flex gap-2">
+                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+            </div>
+        </form>
     );
 }

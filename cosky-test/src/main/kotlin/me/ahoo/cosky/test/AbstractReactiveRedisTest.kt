@@ -41,7 +41,10 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
         val lettuceClientConfiguration = LettuceClientConfiguration
             .builder()
             .build()
-        val redisConfig = RedisStandaloneConfiguration()
+        val redisConfig = RedisStandaloneConfiguration(
+            System.getenv("COSKY_TEST_REDIS_HOST") ?: "localhost",
+            System.getenv("COSKY_TEST_REDIS_PORT")?.toIntOrNull() ?: 6379,
+        )
         connectionFactory = LettuceConnectionFactory(redisConfig, lettuceClientConfiguration)
         connectionFactory.afterPropertiesSet()
         connectionFactory.shareNativeConnection = enableShare

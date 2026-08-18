@@ -1,6 +1,5 @@
 import {Navigate, Route, Routes, useNavigate} from "react-router-dom";
 import {lazy, Suspense} from "react";
-import {Skeleton} from "antd";
 import {SecurityProvider} from "@ahoo-wang/fetcher-react";
 import {tokenStorage} from "./security/tokenStorage.ts";
 import {AuthenticatedLayout} from "./components/layout/AuthenticatedLayout.tsx";
@@ -8,6 +7,7 @@ import {ProtectedRoute} from "./components/security/ProtectedRoute.tsx";
 import {CurrentNamespaceProvider} from "./contexts/namespace/CurrentNamespaceProvider.tsx";
 import {DrawerProvider} from "./contexts/DrawerProvider.tsx";
 import {NamespacesProvider} from "./contexts/namespace/NamespacesProvider.tsx";
+import {Skeleton} from "@/components/ui/skeleton";
 
 const LoginPage = lazy(() => import("./pages/login/LoginPage.tsx").then(module => ({default: module.LoginPage})));
 const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage.tsx").then(module => ({default: module.DashboardPage})));
@@ -29,7 +29,7 @@ export function AppRoutes() {
                               navigate('/login')
                           }}
         >
-            <Suspense fallback={<Skeleton/>}>
+            <Suspense fallback={<div className="space-y-3 p-8"><Skeleton className="h-9 w-56"/><Skeleton className="h-64 w-full"/></div>}>
                 <Routes>
                     <Route path="/login" element={<LoginPage/>}/>
                     <Route

@@ -29,7 +29,7 @@ data class Role(
 
     companion object {
         const val ADMIN_ROLE = "admin"
-        const val ADMIN_ROLE_DESC = "System reserved role,Have the highest level of authority!"
+        const val ADMIN_ROLE_DESC = "System reserved role with full access."
         val ADMIN: Role = Role(ADMIN_ROLE, ADMIN_ROLE_DESC)
     }
 }

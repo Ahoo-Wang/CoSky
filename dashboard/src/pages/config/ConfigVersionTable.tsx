@@ -11,14 +11,17 @@
  * limitations under the License.
  */
 
-import {Button, Table} from 'antd';
 import {useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
-import type {ConfigVersion} from "../../generated";
-import type {ColumnsType} from "antd/es/table/interface";
+import type {ConfigHistory} from "../../generated";
 import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
-import {HistoryOutlined} from "@ant-design/icons";
+import {History} from "lucide-react";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {Button} from '@/components/ui/button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
+import {Badge} from '@/components/ui/badge';
+import dayjs from 'dayjs';
 
 interface ConfigVersionTableProps {
     namespace: string;
@@ -26,14 +29,17 @@ interface ConfigVersionTableProps {
 }
 
 export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProps) {
-    const {loading, result: versions, execute: loadVersions} = useQuery<string, ConfigVersion[]>({
-        query: configId,
-        execute: (query, attributes, abortController) => {
-            return configApiClient.getConfigVersions(namespace, query, attributes, abortController);
+    const {loading, error, result: versions, execute: loadVersions} = useQuery<string, ConfigHistory[]>({
+        query: `${namespace}/${configId}`,
+        execute: async (_, __, abortController) => {
+            const versionList = await configApiClient.getConfigVersions(namespace, configId, {abortController});
+            return Promise.all(versionList.map(version =>
+                configApiClient.getConfigHistory(namespace, configId, version.version, {abortController})
+            ));
         }
     })
     const {openDrawer, closeDrawer} = useDrawer();
-    const handleDiffVersion = (record: ConfigVersion) => {
+    const handleDiffVersion = (record: ConfigHistory) => {
         openDrawer(<ConfigVersionDiffer namespace={namespace} configId={configId} version={record.version}
                                         onSuccess={() => {
                                             closeDrawer();
@@ -41,27 +47,50 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
                                         }}/>,
             {
                 title: 'Config Version Differ',
-                defaultSize: '80vw',
+                width: 'min(88vw, 1320px)',
             }
         )
     }
-    const columns: ColumnsType<ConfigVersion> = [
-        {title: 'Version', dataIndex: 'version', key: 'version'},
+    const columns: DataTableColumn<ConfigHistory>[] = [
+        {header: 'Version', accessor: 'version', key: 'version', sort: (left, right) => left.version - right.version},
         {
-            title: 'Action', key: 'action', render: (_, record) => (
-                <Button type={'link'} icon={<HistoryOutlined/>} onClick={() => {
+            header: 'Operation',
+            key: 'operation',
+            cell: record => <Badge variant="outline">{record.op}</Badge>,
+        },
+        {
+            header: 'Updated',
+            key: 'opTime',
+            sort: (left, right) => left.opTime - right.opTime,
+            cell: record => dayjs(record.opTime * 1000).format('YYYY-MM-DD HH:mm:ss'),
+        },
+        {
+            header: 'Hash',
+            key: 'hash',
+            cell: record => <code className="text-xs" title={record.hash}>{record.hash.slice(0, 12)}</code>,
+        },
+        {
+            header: 'Action', key: 'action', className: 'w-28 text-right', cell: record => (
+                <Button variant="ghost" size="sm" onClick={() => {
                     handleDiffVersion(record)
-                }}>Diff</Button>
+                }}><History/>Diff</Button>
             )
         }
     ];
 
     return (
-        <Table
-            dataSource={versions}
-            rowKey="version"
-            columns={columns}
-            loading={loading}
-        />
+        <div className="space-y-3">
+            <p className="text-xs text-muted-foreground">Change attribution is recorded in Audit Log.</p>
+            <DataTable
+                data={versions}
+                getRowKey={record => record.version}
+                columns={columns}
+                loading={loading}
+                error={error}
+                onRetry={loadVersions}
+                pagination={false}
+                emptyMessage="No versions recorded yet."
+            />
+        </div>
     );
 }

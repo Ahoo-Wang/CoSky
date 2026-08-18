@@ -11,7 +11,427 @@
  * limitations under the License.
  */
 
-.app {
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  background: #f7f8fc;
+  transition: grid-template-columns 180ms ease;
+}
+
+.app-shell-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.app-sidebar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  overflow: hidden;
+  background: #111127;
+  color: #dadae7;
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.08);
+}
+
+.app-sidebar::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 34%;
+  pointer-events: none;
+  opacity: .36;
+  background: url('./assets/cosky-logo-constellation-icon.svg') center 80% / 140px no-repeat;
+}
+
+.app-brand {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 76px;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  color: white;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -.02em;
+}
+
+.app-brand img {
+  width: 34px;
+  height: 34px;
+  flex: none;
+}
+
+.app-brand-copy {
+  display: grid;
+  gap: 1px;
+}
+
+.app-brand-copy strong {
+  font-size: 18px;
+  line-height: 1.1;
+}
+
+.app-brand-copy small {
+  color: #9292a6;
+  font-size: 9px;
+  font-weight: 450;
+  letter-spacing: 0;
+}
+
+.app-nav {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 5px;
+  padding: 22px 10px;
+}
+
+.app-nav-item {
+  display: flex;
   width: 100%;
-  height: 100%;
+  min-height: 42px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 9px;
+  padding: 0 12px;
+  color: #aaaabd;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 150ms ease, background 150ms ease;
+}
+
+.app-nav-item svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.app-nav-item:hover,
+.app-nav-item.active {
+  color: white;
+  background: rgba(112, 84, 236, .2);
+}
+
+.app-nav-item.active {
+  box-shadow: inset 2px 0 0 #8b7aff;
+}
+
+.app-nav-group[data-state='open'] .app-nav-chevron {
+  transform: rotate(180deg);
+}
+
+.app-nav-group span {
+  flex: 1;
+  text-align: left;
+}
+
+.app-nav-chevron {
+  width: 14px !important;
+  height: 14px !important;
+  transition: transform 150ms ease;
+}
+
+.app-nav-submenu {
+  display: grid;
+  gap: 3px;
+  padding: 4px 0 3px 16px;
+}
+
+.app-collapse {
+  position: relative;
+  z-index: 1;
+  margin: 12px;
+  justify-content: flex-start;
+  color: #aaaabd;
+}
+
+.app-collapse:hover {
+  background: rgba(255, 255, 255, .08);
+  color: white;
+}
+
+.app-shell-collapsed .app-brand,
+.app-shell-collapsed .app-nav-item,
+.app-shell-collapsed .app-collapse {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.app-main {
+  display: flex;
+  min-width: 0;
+  min-height: 100vh;
+  flex-direction: column;
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  min-height: 76px;
+  grid-template-columns: minmax(200px, auto) minmax(280px, 640px) minmax(180px, auto);
+  align-items: center;
+  gap: 24px;
+  padding: 0 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  background: #111127;
+  color: white;
+}
+
+.app-header-start,
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.app-header-actions {
+  justify-content: flex-end;
+}
+
+.app-environment {
+  display: grid;
+  max-width: 180px;
+  line-height: 1.15;
+}
+
+.app-environment span {
+  color: #9a9aad;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.app-environment strong {
+  overflow: hidden;
+  color: #f2f2f8;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-namespace {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-namespace > svg {
+  width: 18px;
+  color: #6d5ce8;
+}
+
+.app-namespace > div {
+  display: grid;
+}
+
+.app-namespace span {
+  color: #9a9aad;
+  font-size: 11px;
+  line-height: 1.1;
+}
+
+.app-command-search {
+  position: relative;
+  width: 100%;
+}
+
+.app-command-search > svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  width: 17px;
+  transform: translateY(-50%);
+  color: #aaaabd;
+}
+
+.app-command-search input {
+  height: 40px;
+  padding-left: 38px;
+  padding-right: 42px;
+  border-color: rgba(255, 255, 255, .12);
+  background: rgba(255, 255, 255, .06);
+  color: white;
+}
+
+.app-command-search input::placeholder {
+  color: #9292a6;
+}
+
+.app-command-search-submit {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  color: #aaaabd;
+}
+
+.app-command-search-submit:hover {
+  background: rgba(255, 255, 255, .08) !important;
+  color: white !important;
+}
+
+.app-icon-link {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 8px;
+  color: #dadae7;
+}
+
+.app-icon-link:hover {
+  background: rgba(255, 255, 255, .08);
+  color: white;
+}
+
+.app-icon-link svg {
+  width: 18px;
+}
+
+.app-user-button {
+  height: 40px;
+  color: white;
+}
+
+.app-user-button:hover,
+.app-user-button[aria-expanded='true'] {
+  background: rgba(255, 255, 255, .08) !important;
+  color: white !important;
+}
+
+.app-avatar {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  background: #6d5ce8;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-mobile-menu {
+  display: none;
+}
+
+.app-desktop-menu {
+  color: #dadae7;
+}
+
+.app-desktop-menu:hover {
+  background: rgba(255, 255, 255, .08) !important;
+  color: white !important;
+}
+
+.app-mobile-close {
+  display: none;
+}
+
+.app-content {
+  flex: 1;
+  min-width: 0;
+  padding: 34px 36px 28px;
+}
+
+@media (max-width: 960px) {
+  .app-header {
+    grid-template-columns: auto minmax(220px, 1fr) auto;
+    padding-inline: 18px;
+  }
+
+  .app-user-name,
+  .app-icon-link,
+  .app-environment {
+    display: none;
+  }
+
+  .app-content {
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 720px) {
+  .app-shell,
+  .app-shell-collapsed {
+    display: block;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    left: 0;
+    width: 232px;
+    visibility: hidden;
+    transform: translateX(-100%);
+    transition: transform 180ms ease, visibility 180ms ease;
+  }
+
+  .app-mobile-open .app-sidebar {
+    visibility: visible;
+    transform: translateX(0);
+  }
+
+  .app-mobile-open {
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app-mobile-open::before {
+    content: '';
+    position: fixed;
+    z-index: 25;
+    inset: 0;
+    background: rgba(11, 11, 28, .42);
+    backdrop-filter: blur(2px);
+  }
+
+  .app-header {
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+  }
+
+  .app-mobile-menu {
+    display: inline-flex;
+  }
+
+  .app-desktop-menu {
+    display: none;
+  }
+
+  .app-command-search {
+    display: none;
+  }
+
+  .app-header-start {
+    grid-column: 1 / 3;
+  }
+
+  .app-header-actions {
+    grid-column: 3;
+  }
+
+  .app-collapse {
+    display: none;
+  }
+
+  .app-mobile-close {
+    position: absolute;
+    z-index: 3;
+    top: 23px;
+    right: 12px;
+    display: inline-flex;
+    color: #dadae7;
+  }
 }

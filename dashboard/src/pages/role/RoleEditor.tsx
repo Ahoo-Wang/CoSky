@@ -11,15 +11,20 @@
  * limitations under the License.
  */
 
-import {useEffect} from 'react';
-import {Form, Input, Button, Space, Divider, App} from 'antd';
-import type {ResourceActionDto, RoleDto, SaveRoleRequest} from "../../generated";
-import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {roleApiClient} from "../../services/clients.ts";
-import {MinusCircleOutlined, PlusOutlined} from "@ant-design/icons";
-import {NamespaceSelector} from "../../components/namespace/NamespaceSelector.tsx";
-import {ResourceActionSelector} from "./ResourceActionSelector.tsx";
-import {EMPTY_ARRAY} from "./EmptyArray.ts";
+import {useRef, useState} from 'react';
+import type {FormEvent} from 'react';
+import {Plus, Trash2} from 'lucide-react';
+import {toast} from 'sonner';
+import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
+import type {ResourceActionDto, RoleDto, SaveRoleRequest} from '../../generated';
+import {roleApiClient} from '../../services/clients.ts';
+import {NamespaceSelector} from '../../components/namespace/NamespaceSelector.tsx';
+import {ResourceActionSelector} from './ResourceActionSelector.tsx';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Separator} from '@/components/ui/separator';
+import {Skeleton} from '@/components/ui/skeleton';
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
@@ -27,105 +32,117 @@ interface RoleEditorProps {
     onCancel: () => void;
 }
 
-export interface RoleEditorFormValues extends RoleDto, SaveRoleRequest {
-
-}
+const EMPTY_RESOURCE_ACTIONS: ResourceActionDto[] = [];
 
 export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
-    const {message} = App.useApp()
-    const {result = EMPTY_ARRAY} = useQuery<string, ResourceActionDto[]>({
+    const [name, setName] = useState(initialValues?.name ?? '');
+    const [desc, setDesc] = useState(initialValues?.desc ?? '');
+    const [bindings, setBindings] = useState<ResourceActionDto[]>([]);
+    const [bindingError, setBindingError] = useState('');
+    const bindingsContainer = useRef<HTMLDivElement>(null);
+    const {result, loading: loadingBindings, error: bindingsError, execute: retryBindings} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
-        execute: (query, attributes, abortController) => {
-            return roleApiClient.getResourceBind(query, attributes, abortController);
-        }
-    })
-    const {loading: saveLoading, execute: save} = useExecutePromise({
+        execute: (query, _, abortController) => roleApiClient.getResourceBind(query, {abortController}),
+    });
+    const {loading, execute: save} = useExecutePromise({
         onSuccess: () => {
-            message.success('Save role success!');
+            toast.success('Save role success!');
             onSuccess();
-            form.resetFields();
         },
         onError: () => {
-            message.error('Failed to save role');
-        }
-    })
-    const handleFinish = async (values: RoleEditorFormValues) => {
-        await save(() => {
-            return roleApiClient.saveRole(values.name, {
-                body: values
-            })
-        })
+            toast.error('Failed to save role');
+        },
+    });
+    const bindingsResult = result ?? EMPTY_RESOURCE_ACTIONS;
+    const [previousResult, setPreviousResult] = useState(bindingsResult);
+    if (previousResult !== bindingsResult) {
+        setPreviousResult(bindingsResult);
+        setBindings(bindingsResult.map(binding => ({...binding})));
+    }
+
+    const updateBinding = (index: number, key: keyof ResourceActionDto, value: string) => {
+        setBindingError('');
+        setBindings(current => current.map((binding, bindingIndex) => bindingIndex === index
+            ? {...binding, [key]: value}
+            : binding));
     };
-    const [form] = Form.useForm<RoleEditorFormValues>();
 
-    useEffect(() => {
-        if (initialValues) {
-            const formValues = {
-                name: initialValues.name,
-                desc: initialValues.desc ?? "",
-                resourceActionBind: result
-            }
-            form.setFieldsValue(formValues);
-        } else {
-            form.resetFields();
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (bindings.some(binding => !binding.namespace || !binding.action)) {
+            setBindingError('Complete every permission binding before saving.');
+            requestAnimationFrame(() => bindingsContainer.current?.querySelector<HTMLButtonElement>('[aria-invalid="true"]')?.focus());
+            return;
         }
-    }, [initialValues, form, result]);
+        const uniqueBindings = new Set(bindings.map(binding => `${binding.namespace}:${binding.action}`));
+        if (uniqueBindings.size !== bindings.length) {
+            setBindingError('Remove duplicate permission bindings before saving.');
+            return;
+        }
+        setBindingError('');
+        const body: SaveRoleRequest = {desc, resourceActionBind: bindings};
+        await save(() => roleApiClient.saveRole(name, {body}));
+    };
 
+    if (initialValues && bindingsError) {
+        return <div role="alert" className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm">
+            <p>Could not load this role's permissions. Nothing has been changed.</p>
+            <Button type="button" variant="outline" onClick={retryBindings}>Retry</Button>
+        </div>;
+    }
+    if (initialValues && (loadingBindings || result === undefined)) return <Skeleton className="h-80 w-full"/>;
 
     return (
-        <Form form={form} layout="vertical" onFinish={handleFinish}>
-            <Form.Item
-                name="name"
-                label="Role Name"
-                rules={[{required: true, message: 'Please input role name!'}]}
-            >
-                <Input disabled={!!initialValues}/>
-            </Form.Item>
-            <Form.Item name="desc" label="Description"
-                       rules={[{required: true, message: 'Please input role description!'}]}>
-                <Input.TextArea rows={4}/>
-            </Form.Item>
-            <Divider>Resource Bind</Divider>
-            <Form.List name="resourceActionBind">
-                {(fields, {add, remove}) => (
-                    <>
-                        {fields.map(({key, name, ...restField}) => (
-                            <Space key={key} style={{display: 'flex', marginBottom: 8}} align="baseline">
-                                <Form.Item
-                                    {...restField}
-                                    name={[name, 'namespace']}
-                                    rules={[{required: true, message: 'Missing namespace'}]}
-                                >
-                                    <NamespaceSelector style={{minWidth: '200px'}}></NamespaceSelector>
-                                </Form.Item>
-                                <Form.Item
-                                    {...restField}
-                                    name={[name, 'action']}
-                                    rules={[{required: true, message: 'Missing action'}]}
-                                >
-                                    <ResourceActionSelector style={{minWidth: '200px'}}/>
-                                </Form.Item>
-                                <MinusCircleOutlined onClick={() => remove(name)}/>
-                            </Space>
-                        ))}
-                        <Form.Item>
-                            <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined/>}>
-                                Add permissions
-                            </Button>
-                        </Form.Item>
-                    </>
-                )}
-            </Form.List>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={saveLoading}>
-                        Submit
-                    </Button>
-                    <Button onClick={onCancel}>
-                        Cancel
-                    </Button>
-                </Space>
-            </Form.Item>
-        </Form>
+        <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+                <Label htmlFor="role-name">Role Name <span className="text-destructive">*</span></Label>
+                <Input id="role-name" value={name} onChange={event => setName(event.target.value)} disabled={!!initialValues} required/>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="role-description">Description <span className="text-destructive">*</span></Label>
+                <textarea
+                    id="role-description"
+                    value={desc}
+                    onChange={event => setDesc(event.target.value)}
+                    rows={4}
+                    required
+                    className="w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
+            </div>
+            <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resource Permissions</span><Separator className="flex-1"/></div>
+                <p className="text-xs text-muted-foreground">Permissions are scoped by namespace. A role with no bindings grants no resource access.</p>
+            </div>
+            <div ref={bindingsContainer} className="space-y-3">
+                {bindings.map((binding, index) => (
+                    <div key={`${index}-${binding.namespace}-${binding.action}`} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_1fr_auto]">
+                        <NamespaceSelector value={binding.namespace} onChange={value => updateBinding(index, 'namespace', value)}
+                                           aria-invalid={!!bindingError && !binding.namespace} aria-describedby={bindingError ? 'role-binding-error' : undefined}/>
+                        <ResourceActionSelector value={binding.action} onChange={value => updateBinding(index, 'action', value)}
+                                                aria-invalid={!!bindingError && !binding.action} aria-describedby={bindingError ? 'role-binding-error' : undefined}/>
+                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => {
+                            setBindingError('');
+                            setBindings(current => current.filter((_, bindingIndex) => bindingIndex !== index));
+                        }} aria-label="Remove permission">
+                            <Trash2/>
+                        </Button>
+                    </div>
+                ))}
+                {bindingError && <p id="role-binding-error" role="alert" className="text-sm text-destructive">{bindingError}</p>}
+                <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => {
+                    setBindingError('');
+                    setBindings(current => [...current, {namespace: '', action: ''}]);
+                }}>
+                    <Plus/> Add permission
+                </Button>
+            </div>
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+                {bindings.length === 0 ? 'No permission bindings.' : `${bindings.length} permission binding${bindings.length === 1 ? '' : 's'} ready to save.`}
+            </p>
+            <div className="flex gap-2">
+                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+            </div>
+        </form>
     );
-};
+}

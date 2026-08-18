@@ -12,13 +12,20 @@
  */
 package me.ahoo.cosky.discovery
 
+import io.mockk.every
+import io.mockk.mockk
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
 import me.ahoo.cosky.discovery.TestServiceInstance.randomFixedInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
+import reactor.core.publisher.Flux
 import reactor.kotlin.test.test
 import java.time.Duration
 
@@ -122,6 +129,35 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
+    }
+
+    @Test
+    fun registerFixedRemovesEphemeralRenewal() {
+        val ephemeralInstance = randomInstance()
+        val namespacedInstanceId = NamespacedInstanceId(namespace, ephemeralInstance.instanceId)
+        serviceRegistry.register(namespace, ephemeralInstance).block()
+        serviceRegistry.registeredEphemeralInstances.containsKey(namespacedInstanceId).assert().isTrue()
+
+        serviceRegistry.register(namespace, ephemeralInstance.withIsEphemeral(false)).block()
+        serviceRegistry.registeredEphemeralInstances.containsKey(namespacedInstanceId).assert().isFalse()
+    }
+
+    @Test
+    fun registerFixedFailurePreservesEphemeralRenewal() {
+        val failedRedisTemplate = mockk<ReactiveStringRedisTemplate>()
+        every {
+            failedRedisTemplate.execute(any<RedisScript<Boolean>>(), any(), any())
+        } returns Flux.error(IllegalStateException("registration failed"))
+        val failedRegistry = RedisServiceRegistry(RegistryProperties(Duration.ofSeconds(10)), failedRedisTemplate)
+        val ephemeralInstance = randomInstance()
+        val namespacedInstanceId = NamespacedInstanceId(namespace, ephemeralInstance.instanceId)
+        failedRegistry.registeredEphemeralInstances[namespacedInstanceId] = ephemeralInstance
+
+        failedRegistry.register(namespace, ephemeralInstance.withIsEphemeral(false))
+            .test()
+            .expectErrorMessage("registration failed")
+            .verify()
+        failedRegistry.registeredEphemeralInstances[namespacedInstanceId].assert().isEqualTo(ephemeralInstance)
     }
 
     @Test

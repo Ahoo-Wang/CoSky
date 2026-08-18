@@ -11,47 +11,40 @@
  * limitations under the License.
  */
 
-import {Form, Input, Button, App} from 'antd';
+import {useState} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {namespaceApiClient} from "../../services/clients.ts";
-import {PlusOutlined} from "@ant-design/icons";
+import {Plus} from "lucide-react";
+import {toast} from "sonner";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
 
 interface NamespaceFormProps {
     onSuccess: () => void;
 }
 
 export function AddNamespaceForm({onSuccess}: NamespaceFormProps) {
-    const {message} = App.useApp()
-    const [form] = Form.useForm();
+    const [namespace, setNamespace] = useState('');
     const {loading, execute: addNamespace} = useExecutePromise({
         onSuccess: () => {
-            message.success('Add namespace success!');
+            toast.success('Add namespace success!');
             onSuccess();
-            form.resetFields();
+            setNamespace('');
         },
         onError: () => {
-            message.error('Failed to add namespace');
+            toast.error('Failed to add namespace');
         }
     })
-    const handleFinish = async (values: { namespace: string }) => {
+    const handleFinish = async () => {
         await addNamespace(() => {
-            return namespaceApiClient.setNamespace(values.namespace)
+            return namespaceApiClient.setNamespace(namespace)
         })
     };
 
     return (
-        <Form form={form} layout="inline" onFinish={handleFinish}>
-            <Form.Item
-                name="namespace"
-                rules={[{required: true, message: 'Please input namespace!'}]}
-            >
-                <Input placeholder="Enter namespace"/>
-            </Form.Item>
-            <Form.Item>
-                <Button type="primary" htmlType="submit" loading={loading} icon={<PlusOutlined/>}>
-                    Add Namespace
-                </Button>
-            </Form.Item>
-        </Form>
+        <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => {event.preventDefault(); handleFinish();}}>
+            <Input value={namespace} onChange={event => setNamespace(event.target.value)} placeholder="Enter namespace" required className="w-52"/>
+            <Button type="submit" loading={loading}><Plus/>Add Namespace</Button>
+        </form>
     );
 }

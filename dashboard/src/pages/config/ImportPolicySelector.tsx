@@ -1,11 +1,11 @@
-import type { SelectProps} from "antd";
-import {Select} from "antd";
 import {IMPORT_POLICY_OPTIONS} from "./ImportPolicySelectorOptions.ts";
+import {OptionsSelect} from "@/components/ui/options-select";
+import type {OptionsSelectProps} from "@/components/ui/options-select";
 
-export type ImportPolicySelectorProps = Omit<SelectProps, 'options'>
+export type ImportPolicySelectorProps = Omit<OptionsSelectProps, 'options'>;
 
 export function ImportPolicySelector(props: ImportPolicySelectorProps) {
     return (
-        <Select defaultValue={'skip'} {...props} options={IMPORT_POLICY_OPTIONS}/>
-    )
+        <OptionsSelect defaultValue="skip" {...props} options={IMPORT_POLICY_OPTIONS}/>
+    );
 }

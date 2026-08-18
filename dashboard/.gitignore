@@ -33,6 +33,8 @@ package-lock.json
 # Testing
 coverage/
 *.lcov
+playwright-report/
+test-results/
 
 # OS
 Thumbs.db

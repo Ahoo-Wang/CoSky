@@ -19,6 +19,9 @@ pnpm build
 # Lint and auto-fix
 pnpm lint
 
+# Run end-to-end UI tests
+pnpm test:ui
+
 # Generate API clients from OpenAPI spec
 pnpm generate
 ```

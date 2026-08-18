@@ -11,17 +11,47 @@
  * limitations under the License.
  */
 
-import {Table, Button, Space, Popconfirm, App} from 'antd';
-import {PlusOutlined, DeleteOutlined, EditOutlined} from '@ant-design/icons';
-import type {RoleDto} from '../../generated';
+import {useState} from 'react';
+import {Pencil, Plus, Trash2} from 'lucide-react';
+import type {CoSecPrincipal, ResourceActionDto, RoleDto} from '../../generated';
 import {RoleEditor} from './RoleEditor.tsx';
-import {roleApiClient} from "../../services/clients.ts";
+import {roleApiClient, userApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {PageHeader} from '../../components/layout/PageHeader.tsx';
+import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
+import {Badge} from '@/components/ui/badge';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+
+const ACTION_LABELS: Record<string, string> = {r: 'Read', w: 'Write', rw: 'Read & write'};
+
+function RolePermissions({roleName}: {roleName: string}) {
+    const {result: bindings = [], loading, error, execute: retry} = useQuery<string, ResourceActionDto[]>({
+        query: roleName,
+        execute: (name, _, abortController) => roleApiClient.getResourceBind(name, {abortController}),
+    });
+    if (loading) return <span className="text-sm text-muted-foreground">Loading…</span>;
+    if (error) return <Button type="button" variant="outline" size="sm" onClick={retry}>Retry permissions</Button>;
+    if (bindings.length === 0) return <Badge variant="outline">No resource access</Badge>;
+    return <div className="flex max-w-xl flex-wrap gap-1.5">
+        {bindings.map(binding => <Badge key={`${binding.namespace}-${binding.action}`} variant="outline">
+            {binding.namespace}: {ACTION_LABELS[binding.action] ?? binding.action}
+        </Badge>)}
+    </div>;
+}
 
 export function RolePage() {
-    const {message} = App.useApp()
-    const {roles = [], loading, load} = useRoles()
+    const [roleRevision, setRoleRevision] = useState(0);
+    const {roles = [], loading, error, load} = useRoles()
+    const {result: users = [], loading: loadingUsers, error: usersError, execute: loadUsers} = useQuery<null, CoSecPrincipal[]>({
+        initialQuery: null,
+        execute: (_, __, abortController) => userApiClient.query({abortController}),
+    });
     const {openDrawer, closeDrawer} = useDrawer();
 
     const handleAdd = () => {
@@ -32,6 +62,7 @@ export function RolePage() {
             />,
             {
                 title: 'Add Role',
+                width: 'min(680px, 92vw)',
             }
         );
     };
@@ -45,90 +76,94 @@ export function RolePage() {
             />,
             {
                 title: 'Edit Role',
+                width: 'min(680px, 92vw)',
             }
         );
     };
 
     const handleSubmit = () => {
         closeDrawer();
+        setRoleRevision(revision => revision + 1);
         load();
     };
 
     const handleDelete = async (roleName: string) => {
         try {
             await roleApiClient.removeRole(roleName);
-            message.success('Role deleted successfully');
+            toast.success('Role deleted successfully');
             load();
         } catch {
-            message.error('Failed to delete role');
+            toast.error('Failed to delete role');
         }
     };
 
-    const columns = [
+    const columns: DataTableColumn<RoleDto>[] = [
         {
-            title: 'Role Name',
-            dataIndex: 'name',
+            header: 'Role Name',
+            accessor: 'name',
             key: 'name',
+            sort: (left, right) => left.name.localeCompare(right.name),
         },
         {
-            title: 'Description',
-            dataIndex: 'desc',
+            header: 'Description',
+            accessor: 'desc',
             key: 'desc',
         },
         {
-            title: 'Action',
+            header: 'Resource Permissions',
+            key: 'permissions',
+            cell: record => <RolePermissions key={`${record.name}-${roleRevision}`} roleName={record.name}/>,
+        },
+        {
+            header: 'Members',
+            key: 'members',
+            cell: record => loadingUsers ? '…' : users.filter(user => user.roles.includes(record.name)).length,
+        },
+        {
+            header: 'Action',
             key: 'action',
-            render: (_: string, record: RoleDto) => (
-                <Space>
-                    <Button type="link" icon={<EditOutlined/>} onClick={() => handleEdit(record)}>
-                        Edit
+            className: 'w-40 text-right',
+            cell: record => (
+                <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}>
+                        <Pencil/> Edit
                     </Button>
-                    <Popconfirm
+                    <ConfirmButton
                         title="Are you sure to delete this role?"
+                        description={`Role “${record.name}” is assigned to ${users.filter(user => user.roles.includes(record.name)).length} user(s). Removing it may revoke their access.`}
                         onConfirm={() => handleDelete(record.name)}
-                        okText="Yes"
-                        cancelText="No"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        disabled={record.name === 'admin'}
+                        aria-label={record.name === 'admin' ? 'Delete admin (system role)' : `Delete ${record.name}`}
                     >
-                        <Button type="link" danger icon={<DeleteOutlined/>}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </Space>
+                        <Trash2/> Delete
+                    </ConfirmButton>
+                </div>
             ),
         },
     ];
 
     return (
         <div>
-            <div style={{
-                marginBottom: 24,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-            }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '28px',
-                    fontWeight: 600,
-                    color: '#262626',
-                    letterSpacing: '-0.5px',
-                }}>Role</h2>
-                <Button type="primary" icon={<PlusOutlined/>} onClick={handleAdd} size="large">
-                    Add Role
-                </Button>
-            </div>
-            <Table
-                columns={columns}
-                dataSource={roles}
-                loading={loading}
-                rowKey="name"
-                style={{
-                    background: '#fff',
-                    borderRadius: 12,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                }}
-            />
+            <PageHeader title="Role" description="Define access policies for CoSky resources."
+                        actions={<Button onClick={handleAdd}><Plus/>Add Role</Button>}/>
+            <DataTableWrapper>
+                <DataTable
+                    columns={columns}
+                    data={roles}
+                    loading={loading || loadingUsers}
+                    error={error || usersError}
+                    onRetry={() => {
+                        load();
+                        loadUsers();
+                    }}
+                    getRowKey={record => record.name}
+                    search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
+                    emptyMessage="No roles found."
+                />
+            </DataTableWrapper>
         </div>
     );
 };

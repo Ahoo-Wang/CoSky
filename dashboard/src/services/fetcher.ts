@@ -10,7 +10,9 @@ export const coSecConfigurer = new CoSecConfigurer({
     tokenRefresher: tokenRefresher,
     tokenStorage: tokenStorage,
     onUnauthorized: () => {
-        window.location.replace("/login");
+        if (window.location.pathname !== "/login") {
+            window.location.replace("/login");
+        }
     },
 });
 

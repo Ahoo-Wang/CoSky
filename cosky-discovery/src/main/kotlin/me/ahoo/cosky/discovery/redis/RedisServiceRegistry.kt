@@ -94,17 +94,20 @@ class RedisServiceRegistry(
         log.info {
             "Register - instanceId:[${serviceInstance.instanceId}]  @ namespace:[$namespace]."
         }
-        return registerInternal(namespace, serviceInstance).doOnSubscribe {
-            addEphemeralInstance(namespace, serviceInstance)
+        return registerInternal(namespace, serviceInstance).doOnNext { registered ->
+            if (registered) {
+                addEphemeralInstance(namespace, serviceInstance)
+            }
         }
     }
 
     private fun addEphemeralInstance(namespace: String, serviceInstance: ServiceInstance) {
+        val namespacedInstanceId = NamespacedInstanceId(namespace, serviceInstance.instanceId)
         if (!serviceInstance.isEphemeral) {
+            registeredEphemeralInstances.remove(namespacedInstanceId)
             return
         }
-        registeredEphemeralInstances[NamespacedInstanceId(namespace, serviceInstance.instanceId)] =
-            serviceInstance
+        registeredEphemeralInstances[namespacedInstanceId] = serviceInstance
     }
 
     private fun removeEphemeralInstance(namespace: String, instanceId: String) {

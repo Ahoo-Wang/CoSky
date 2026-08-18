@@ -1,8 +1,12 @@
-import {App, Button, Form, Input, Space} from "antd";
+import type {FormEvent} from "react";
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
 import type {ChangePwdRequest, ErrorResponse} from "../../generated";
 import {userApiClient} from "../../services/clients.ts";
 import type {ExchangeError} from "@ahoo-wang/fetcher";
+import {toast} from "sonner";
+import {Button} from "@/components/ui/button";
+import {Input} from "@/components/ui/input";
+import {Label} from "@/components/ui/label";
 
 export interface ChangePwdProps {
     onSubmit: (values: ChangePwdRequest) => void;
@@ -10,51 +14,52 @@ export interface ChangePwdProps {
 }
 
 export function ChangePwd({onSubmit, onCancel}: ChangePwdProps) {
-    const {message} = App.useApp()
     const {currentUser} = useSecurityContext()
     const {loading, execute} = useExecutePromise<boolean, ExchangeError>({
         propagateError: true,
         onSuccess: () => {
-            message.success('Change password success!');
+            toast.success('Change password success!');
         },
         onError: async (error) => {
-            const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
-            message.error(`${errorResponse.msg}`);
+            try {
+                const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
+                toast.error(errorResponse.msg);
+            } catch {
+                toast.error('Change password failed.');
+            }
         }
     })
     const handleChangePwd = async (values: ChangePwdRequest) => {
-        await execute(() => {
-            return userApiClient.changePwd(currentUser.sub, {
-                body: values
+        try {
+            await execute(() => {
+                return userApiClient.changePwd(currentUser.sub, {
+                    body: values
+                })
             })
-        })
-        onSubmit(values)
+            onSubmit(values)
+        } catch {
+            // The hook already displayed the API error.
+        }
     }
-    const [form] = Form.useForm<ChangePwdRequest>();
-    return (<Form form={form} layout="vertical" onFinish={handleChangePwd}>
-        <Form.Item
-            name="oldPassword"
-            label="Old Password"
-            rules={[{required: true, message: 'Please input old password!'}]}
-        >
-            <Input.Password/>
-        </Form.Item>
-        <Form.Item
-            name="newPassword"
-            label="New Password"
-            rules={[{required: true, message: 'Please input new password!'}]}
-        >
-            <Input.Password/>
-        </Form.Item>
-        <Form.Item>
-            <Space>
-                <Button type="primary" htmlType="submit" loading={loading}>
-                    Submit
-                </Button>
-                <Button onClick={onCancel}>
-                    Cancel
-                </Button>
-            </Space>
-        </Form.Item>
-    </Form>)
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        handleChangePwd(Object.fromEntries(new FormData(event.currentTarget)) as unknown as ChangePwdRequest);
+    };
+
+    return (
+        <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+                <Label htmlFor="oldPassword">Old Password</Label>
+                <Input id="oldPassword" name="oldPassword" type="password" autoComplete="current-password" required/>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input id="newPassword" name="newPassword" type="password" autoComplete="new-password" required/>
+            </div>
+            <div className="flex gap-2 pt-2">
+                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+            </div>
+        </form>
+    );
 }

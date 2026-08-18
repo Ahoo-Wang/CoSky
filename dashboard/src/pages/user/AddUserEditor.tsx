@@ -11,9 +11,15 @@
  * limitations under the License.
  */
 
-import {Form, Input, Button, Space, Select, App} from 'antd';
+import {useState} from 'react';
+import type {FormEvent} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {userApiClient} from "../../services/clients.ts";
+import {toast} from 'sonner';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {MultiSelect} from '@/components/ui/multi-select';
 
 export interface UserFormValues {
     username: string;
@@ -27,64 +33,74 @@ interface UserFormProps {
     onCancel: () => void;
 }
 
+class UserCleanupError extends Error {
+    constructor(username: string) {
+        super(`User “${username}” was created, but role binding and automatic cleanup failed. Remove the account manually.`);
+    }
+}
+
 export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFormProps) {
-    const {message} = App.useApp()
-    const [form] = Form.useForm();
-    const {loading: addUserLoading, execute: addUser} = useExecutePromise({
+    const [roles, setRoles] = useState<string[]>([]);
+    const {loading, execute: saveUser} = useExecutePromise({
         onSuccess: () => {
-            message.success('Add user success!');
+            toast.success('Add user success!');
+            toast.success('Bind role success!');
+            onSuccess();
+            setRoles([]);
         },
-        onError: () => {
-            message.error('Failed to add user');
-        }
-    })
-    const {loading: bindRoleLoading, execute: bindRole} = useExecutePromise({
-        onSuccess: () => {
-            message.success('Bind role success!');
-        },
-        onError: () => {
-            message.error('Failed to bind role');
+        onError: (error) => {
+            if (error instanceof UserCleanupError) {
+                toast.error(error.message, {duration: 12_000});
+                onSuccess();
+                setRoles([]);
+                return;
+            }
+            toast.error(error instanceof Error && error.message === 'User already exists.'
+                ? error.message
+                : 'Failed to add user');
         }
     })
     const handleFinish = async (values: UserFormValues) => {
-        await addUser(() => {
-            return userApiClient.addUser(values.username, {body: values})
-        })
-        await bindRole(() => {
-            return userApiClient.bindRole(values.username, {body: values.roles})
-        })
-        onSuccess();
-        form.resetFields();
+        await saveUser(async () => {
+            const created = await userApiClient.addUser(values.username, {body: {password: values.password}});
+            if (!created) {
+                throw new Error('User already exists.');
+            }
+            try {
+                await userApiClient.bindRole(values.username, {body: values.roles});
+            } catch (error) {
+                try {
+                    await userApiClient.removeUser(values.username);
+                } catch {
+                    throw new UserCleanupError(values.username);
+                }
+                throw error;
+            }
+        });
+    };
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const values = Object.fromEntries(new FormData(event.currentTarget)) as unknown as Omit<UserFormValues, 'roles'>;
+        handleFinish({...values, roles});
     };
     return (
-        <Form form={form} layout="vertical" onFinish={handleFinish}>
-            <Form.Item
-                name="username"
-                label="Username"
-                rules={[{required: true, message: 'Please input username!'}]}
-            >
-                <Input/>
-            </Form.Item>
-            <Form.Item
-                name="password"
-                label="Password"
-                rules={[{required: true, message: 'Please input password!'}]}
-            >
-                <Input.Password/>
-            </Form.Item>
-            <Form.Item name="roles" label="Roles">
-                <Select mode="multiple" placeholder="Select Roles" options={roleSelectorOptions}/>
-            </Form.Item>
-            <Form.Item>
-                <Space>
-                    <Button type="primary" htmlType="submit" loading={addUserLoading || bindRoleLoading}>
-                        Submit
-                    </Button>
-                    <Button onClick={onCancel}>
-                        Cancel
-                    </Button>
-                </Space>
-            </Form.Item>
-        </Form>
+        <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="space-y-2">
+                <Label htmlFor="new-username">Username</Label>
+                <Input id="new-username" name="username" autoComplete="off" required/>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="new-user-password">Password</Label>
+                <Input id="new-user-password" name="password" type="password" autoComplete="new-password" required/>
+            </div>
+            <div className="space-y-2">
+                <Label htmlFor="new-user-roles">Roles</Label>
+                <MultiSelect id="new-user-roles" options={roleSelectorOptions} value={roles} onChange={setRoles}/>
+            </div>
+            <div className="flex gap-2">
+                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+            </div>
+        </form>
     );
 }

@@ -233,48 +233,80 @@
 
 /* === Title Styles === */
 .login-title {
+    margin: 24px 0 8px;
     color: #fff !important;
+    font-size: 30px;
+    font-weight: 650;
     animation: textGlow 3s ease-in-out infinite;
 }
 
+.login-subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 14px;
+}
+
+.login-card-content {
+    padding: 38px 24px 24px !important;
+}
+
+.login-logo-section {
+    position: relative;
+    margin-bottom: 40px;
+    text-align: center;
+}
+
 /* === Form Styles === */
-.login-form .ant-input-affix-wrapper,
-.login-form .ant-input {
-    background: rgba(255, 255, 255, 0.05) !important;
+.login-form {
+    display: grid;
+    gap: 24px;
+}
+
+.login-field {
+    position: relative;
+}
+
+.login-field > svg {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    z-index: 1;
+    width: 17px;
+    transform: translateY(-50%);
+    color: rgba(126, 145, 255, .9);
+}
+
+.login-form input {
+    height: 44px;
+    padding-inline: 42px;
+    background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(102, 126, 234, 0.3) !important;
     border-radius: 8px !important;
     color: #fff !important;
     transition: all 0.3s ease;
 }
 
-.login-form .ant-input-affix-wrapper:hover,
-.login-form .ant-input:hover {
+.login-form input:hover {
     border-color: rgba(102, 126, 234, 0.6) !important;
     box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
 }
 
-.login-form .ant-input-affix-wrapper-focused,
-.login-form .ant-input-focused {
+.login-form input:focus-visible {
     border-color: #667eea !important;
     box-shadow: 0 0 20px rgba(102, 126, 234, 0.5) !important;
     background: rgba(102, 126, 234, 0.1) !important;
 }
 
-.login-form .ant-input-prefix {
-    color: rgba(102, 126, 234, 0.8) !important;
-}
-
-.login-form .ant-input::placeholder {
+.login-form input::placeholder {
     color: rgba(255, 255, 255, 0.4) !important;
 }
 
-/* Password visibility icon */
-.login-form .ant-input-password-icon {
-    color: rgba(102, 126, 234, 0.7) !important;
-}
-
-.login-form .ant-input-password-icon:hover {
-    color: #667eea !important;
+.login-password-toggle {
+    position: absolute !important;
+    top: 50%;
+    right: 7px;
+    z-index: 2;
+    transform: translateY(-50%);
+    color: rgba(126, 145, 255, .85) !important;
 }
 
 /* === Submit Button === */
@@ -291,6 +323,7 @@
     overflow: hidden;
     transition: all 0.3s ease;
     box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    width: 100%;
 }
 
 .login-submit-button::before {
@@ -328,17 +361,39 @@
     opacity: 0.7;
 }
 
-/* === GitHub Link === */
-.login-github-link {
+/* === Repository Links === */
+.login-repository-links {
+    display: flex;
+    justify-content: center;
+    gap: 18px;
+    margin-top: 32px;
+}
+
+.login-repository-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: rgba(255, 255, 255, 0.5) !important;
-    font-size: 24px !important;
     transition: all 0.3s ease !important;
 }
 
-.login-github-link:hover {
-    color: #667eea !important;
+.login-repository-link svg {
+    width: 24px;
+    height: 24px;
+}
+
+.login-repository-link:hover {
     transform: scale(1.2) !important;
+}
+
+.login-repository-link--github:hover {
+    color: #fff !important;
     text-shadow: 0 0 20px rgba(102, 126, 234, 0.8) !important;
+}
+
+.login-repository-link--gitee:hover {
+    color: #c71d23 !important;
+    filter: drop-shadow(0 0 10px rgba(199, 29, 35, 0.6));
 }
 
 /* === Decorative Elements === */

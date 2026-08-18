@@ -1,32 +1,44 @@
+import {useEffect} from 'react';
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
-import {App, Button, Popconfirm, Table} from "antd";
 import type {ServiceInstance} from "../../generated";
-import {DeleteOutlined, EditOutlined} from "@ant-design/icons";
+import {Pencil, Trash2} from "lucide-react";
 import dayjs from "dayjs";
 import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {toast} from 'sonner';
+import {Badge} from '@/components/ui/badge';
+import {Button} from '@/components/ui/button';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
+import {getInstanceHealth} from './serviceHealth.ts';
 
 export interface ServiceInstanceTableProps {
     namespace: string
     serviceId: string
 }
 
-export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTableProps) {
-    const {message} = App.useApp()
-    const {result: instances = [], loading: loadingInstances, execute: loadInstances} = useQuery({
-        query: serviceId,
-        execute: (query, _, abortController) => {
-            return serviceApiClient.getInstances(namespace, query, {abortController});
+export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTableProps) {
+    const {result: instances = [], loading: loadingInstances, error, execute: loadInstances} = useQuery({
+        query: `${namespace}/${serviceId}`,
+        execute: (_, __, abortController) => {
+            return serviceApiClient.getInstances(namespace, serviceId, {abortController});
         }
     })
+    useEffect(() => {
+        const interval = window.setInterval(loadInstances, 30_000);
+        return () => window.clearInterval(interval);
+    }, [loadInstances]);
+    // ponytail: let the Redis consistency event settle before reading the updated instance.
+    const refreshInstances = () => window.setTimeout(loadInstances, 250);
     const {loading: loadingExecutePromise, execute} = useExecutePromise({
-        onSuccess: async () => {
-            message.success('Delete instance success!');
-            await loadInstances();
+        onSuccess: () => {
+            toast.success('Delete instance success!');
+            refreshInstances();
         },
         onError: () => {
-            message.error('Delete instance failed!');
+            toast.error('Delete instance failed!');
         }
     })
     const {openDrawer, closeDrawer} = useDrawer();
@@ -36,7 +48,10 @@ export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTable
                 namespace={namespace}
                 serviceId={serviceId}
                 initialValues={serviceInstance}
-                onSuccess={closeDrawer}
+                onSuccess={() => {
+                    closeDrawer();
+                    refreshInstances();
+                }}
                 onCancel={closeDrawer}
             />,
             {
@@ -49,69 +64,77 @@ export function ServiceInstanceTable({namespace,serviceId}: ServiceInstanceTable
             return serviceApiClient.deregister(namespace, serviceId, instanceId)
         })
     }
-    const columns = [
-        {title: 'Schema', dataIndex: 'schema', key: 'schema'},
+    const columns: DataTableColumn<ServiceInstance>[] = [
         {
-            title: 'Host', dataIndex: 'host', key: 'host',
-            sorter: (a: ServiceInstance, b: ServiceInstance) => a.host.localeCompare(b.host),
+            header: 'Health',
+            key: 'health',
+            cell: record => {
+                const health = getInstanceHealth(record);
+                return <Badge variant={health === 'Healthy' ? 'secondary' : health === 'Expiring soon' ? 'outline' : 'destructive'}>{health}</Badge>;
+            },
         },
-        {title: 'Port', dataIndex: 'port', key: 'port'},
+        {header: 'Schema', accessor: 'schema', key: 'schema'},
         {
-            title: 'Weight', dataIndex: 'weight', key: 'weight',
-            sorter: (a: ServiceInstance, b: ServiceInstance) => a.weight - b.weight,
+            header: 'Host', accessor: 'host', key: 'host',
+            sort: (left, right) => left.host.localeCompare(right.host),
+        },
+        {header: 'Port', accessor: 'port', key: 'port'},
+        {
+            header: 'Weight', accessor: 'weight', key: 'weight',
+            sort: (left, right) => left.weight - right.weight,
         },
         {
-            title: 'Ephemeral',
-            dataIndex: 'isEphemeral',
+            header: 'Ephemeral',
             key: 'isEphemeral',
-            render: (isEphemeral: boolean) => isEphemeral ? 'true' : 'false'
+            cell: record => <Badge variant={record.isEphemeral ? 'secondary' : 'outline'}>{record.isEphemeral ? 'Yes' : 'No'}</Badge>,
         },
         {
-            title: 'TtlAt',
-            dataIndex: 'ttlAt',
+            header: 'TTL At',
             key: 'ttlAt',
-            sorter: (a: ServiceInstance, b: ServiceInstance) => a.ttlAt - b.ttlAt,
-            render: (ttlAt: number) => dayjs(ttlAt * 1000).format('YYYY-MM-DD HH:mm:ss')
+            sort: (left, right) => left.ttlAt - right.ttlAt,
+            cell: record => dayjs(record.ttlAt * 1000).format('YYYY-MM-DD HH:mm:ss'),
         },
         {
-            title: 'Metadata',
-            dataIndex: 'metadata',
+            header: 'Metadata',
             key: 'metadata',
-            render: (metadata: Record<string, string>) => JSON.stringify(metadata)
+            cell: record => <code className="text-xs">{JSON.stringify(record.metadata)}</code>,
         },
         {
-            title: 'Action',
+            header: 'Action',
             key: 'action',
-            render: (_: unknown, record: ServiceInstance) => (
-                <>
-                    <Button
-                        type="link"
-                        icon={<EditOutlined/>}
-                        onClick={() => handleEditInstance(record)}
-                    >
-                        Edit
+            className: 'w-40 text-right max-sm:sticky max-sm:right-0 max-sm:z-10 max-sm:w-28 max-sm:bg-card max-sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]',
+            cell: record => (
+                <div className="flex justify-end gap-1">
+                    <Button variant="ghost" size="sm" className="max-sm:size-10 max-sm:px-0" onClick={() => handleEditInstance(record)} aria-label="Edit instance">
+                        <Pencil/> <span className="hidden sm:inline">Edit</span>
                     </Button>
-                    <Popconfirm
+                    <ConfirmButton
                         title="Are you sure to delete this instance?"
+                        description={`Instance “${record.instanceId}” will be deregistered.`}
                         onConfirm={() => handleDeleteInstance(record.serviceId, record.instanceId)}
-                        okText="Yes"
-                        cancelText="No"
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive max-sm:size-10 max-sm:px-0"
+                        loading={loadingExecutePromise}
+                        aria-label="Delete instance"
                     >
-                        <Button type="link" danger icon={<DeleteOutlined/>} loading={loadingExecutePromise}>
-                            Delete
-                        </Button>
-                    </Popconfirm>
-                </>
+                        <Trash2/> <span className="hidden sm:inline">Delete</span>
+                    </ConfirmButton>
+                </div>
             ),
         },
     ];
 
     return (
-        <Table
+        <DataTable
             loading={loadingInstances}
-            dataSource={instances}
+            data={instances}
             columns={columns}
-            rowKey={'instanceId'}
+            error={error}
+            onRetry={loadInstances}
+            getRowKey={record => record.instanceId}
+            pagination={false}
+            emptyMessage="No instances registered yet."
         />
     )
 }

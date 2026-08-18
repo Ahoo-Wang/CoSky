@@ -14,10 +14,14 @@
 import type {ReactNode} from 'react';
 import { useContext} from 'react';
 import {createContext} from 'react';
-import type {DrawerProps} from 'antd';
+
+export interface DrawerOptions {
+    title?: ReactNode;
+    width?: string;
+}
 
 interface DrawerContextType {
-    openDrawer: (content: ReactNode, props?: Partial<DrawerProps>) => void;
+    openDrawer: (content: ReactNode, options?: DrawerOptions) => void;
     closeDrawer: () => void;
 }
 
