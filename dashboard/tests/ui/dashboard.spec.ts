@@ -421,8 +421,10 @@ test('tables expose loading, empty, sorting, pagination, and server-error states
 
     api.manyServices = true;
     api.delayNext = {method: 'GET', path: /\/services\/stats$/, milliseconds: 800};
-    await page.getByRole('link', {name: 'Service', exact: true}).click();
-    await expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible();
+    await Promise.all([
+        expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible(),
+        page.getByRole('link', {name: 'Service', exact: true}).click(),
+    ]);
     await expect(page.getByText('api-gateway', {exact: true})).toBeVisible();
     await page.getByRole('button', {name: 'Next page'}).click();
     await expect(page.getByText('2 / 2')).toBeVisible();
