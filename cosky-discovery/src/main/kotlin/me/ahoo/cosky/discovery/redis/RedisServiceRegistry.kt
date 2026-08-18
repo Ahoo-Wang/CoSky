@@ -193,8 +193,10 @@ class RedisServiceRegistry(
             "Deregister - instanceId:[$instanceId] @ namespace:[$namespace]."
         }
         return deregisterInternal(namespace, serviceId, instanceId)
-            .doOnSubscribe {
-                removeEphemeralInstance(namespace, instanceId)
+            .doOnNext { deregistered ->
+                if (deregistered) {
+                    removeEphemeralInstance(namespace, instanceId)
+                }
             }
     }
 
@@ -203,8 +205,10 @@ class RedisServiceRegistry(
             "Deregister - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace]."
         }
         return deregisterInternal(namespace, serviceInstance.serviceId, serviceInstance.instanceId)
-            .doOnSubscribe {
-                removeEphemeralInstance(namespace, serviceInstance)
+            .doOnNext { deregistered ->
+                if (deregistered) {
+                    removeEphemeralInstance(namespace, serviceInstance)
+                }
             }
     }
 
