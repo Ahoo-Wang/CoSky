@@ -257,7 +257,7 @@ graph LR
 #### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.7.0"
+val coskyVersion = "5.7.1"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
@@ -271,7 +271,7 @@ dependencies {
 
 ```xml
 <properties>
-    <cosky.version>5.7.0</cosky.version>
+    <cosky.version>5.7.1</cosky.version>
 </properties>
 <dependencyManagement>
     <dependencies>
@@ -485,7 +485,7 @@ graph TB
 
 ## References
 
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.7.0`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.7.1`)
 - [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt) -- core configuration properties
 - [CoSkyConfigProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt) -- config starter properties
 - [CoSkyDiscoveryProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt) -- discovery starter properties
@@ -544,7 +544,7 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.7.0"
+val coskyVersion = "5.7.1"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
@@ -564,7 +564,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.7.0</cosky.version>
+        <cosky.version>5.7.1</cosky.version>
     </properties>
 
     <dependencyManagement>
@@ -944,7 +944,7 @@ Source: [README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.
 ## References
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- root build configuration with JVM 17 toolchain
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.7.0`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.7.1`)
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- all module definitions
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes deployment (standalone Redis)
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes deployment (Redis Cluster)
