@@ -38,8 +38,8 @@ class BinaryWeightRandomLoadBalancer(
         return BinaryChooser(serviceInstances)
     }
 
-    class BinaryChooser(instanceList: List<ServiceInstance>) : LoadBalancer.Chooser {
-        private val instanceList = instanceList.filterNot { it.weight == LoadBalancer.ZERO }
+    class BinaryChooser(instances: List<ServiceInstance>) : LoadBalancer.Chooser {
+        private val instanceList = instances.filterNot { it.weight == LoadBalancer.ZERO }
         private val totalWeight: Int
         private val randomBound: Int
         private val weightLine: IntArray = IntArray(instanceList.size)
