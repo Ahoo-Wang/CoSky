@@ -13,6 +13,8 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
 import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
 import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
@@ -82,6 +84,33 @@ class RedisServiceStatisticTest : AbstractReactiveRedisTest() {
         redisServiceStatistic.getInstanceCount(namespace)
             .test()
             .expectNext(0)
+            .verifyComplete()
+    }
+
+    @Test
+    fun getInstanceCountIgnoresExpiredIndexMembers() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val instance = randomInstance()
+        serviceRegistry.register(namespace, instance)
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        redisServiceStatistic.getInstanceCount(namespace)
+            .test()
+            .expectNext(1)
+            .verifyComplete()
+
+        redisTemplate.delete(getInstanceKey(namespace, instance.instanceId))
+            .test()
+            .expectNext(1)
+            .verifyComplete()
+        redisServiceStatistic.getInstanceCount(namespace)
+            .test()
+            .expectNext(0)
+            .verifyComplete()
+        redisTemplate.opsForSet().isMember(getInstanceIdxKey(namespace, instance.serviceId), instance.instanceId)
+            .test()
+            .expectNext(false)
             .verifyComplete()
     }
 
