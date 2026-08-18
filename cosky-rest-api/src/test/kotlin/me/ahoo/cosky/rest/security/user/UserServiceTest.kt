@@ -14,8 +14,12 @@ package me.ahoo.cosky.rest.security.user
 
 import me.ahoo.cosec.api.principal.CoSecPrincipal
 import org.junit.jupiter.api.Test
+import org.mockito.ArgumentMatchers.anyString
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.ReactiveValueOperations
+import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
 
 class UserServiceTest {
@@ -27,5 +31,34 @@ class UserServiceTest {
             .test()
             .expectErrorMatches { it is IllegalArgumentException && it.message == "Root user cannot be removed." }
             .verify()
+    }
+
+    @Test
+    fun rootUserCannotBeLocked() {
+        val userService = UserService(mock(ReactiveStringRedisTemplate::class.java))
+
+        userService.lock(CoSecPrincipal.ROOT_ID)
+            .test()
+            .expectErrorMatches { it is IllegalArgumentException && it.message == "Root user cannot be locked." }
+            .verify()
+    }
+
+    @Test
+    fun userLockStateFollowsFailedLoginCount() {
+        val redisTemplate = mock(ReactiveStringRedisTemplate::class.java)
+
+        @Suppress("UNCHECKED_CAST")
+        val valueOperations = mock(ReactiveValueOperations::class.java) as ReactiveValueOperations<String, String>
+        `when`(redisTemplate.opsForValue()).thenReturn(valueOperations)
+        `when`(valueOperations[anyString()]).thenReturn(Mono.just("11"))
+        val userService = UserService(redisTemplate)
+
+        userService.isLocked("locked-user").test().expectNext(true).verifyComplete()
+
+        `when`(valueOperations[anyString()]).thenReturn(Mono.just("10"))
+        userService.isLocked("active-user").test().expectNext(false).verifyComplete()
+
+        `when`(valueOperations[anyString()]).thenReturn(Mono.empty())
+        userService.isLocked("new-user").test().expectNext(false).verifyComplete()
     }
 }

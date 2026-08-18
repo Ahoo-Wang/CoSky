@@ -60,14 +60,16 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
     fun query(): Mono<out List<CoSecPrincipal>> {
         return redisTemplate.opsForHash<String, String>().keys(USER_IDX)
             .flatMap { username ->
-                getRoleBind(username)
-                    .collect(Collectors.toSet())
-                    .map { roleBind ->
-                        SimplePrincipal(
-                            id = username!!,
-                            roles = roleBind!!,
-                        )
-                    }
+                Mono.zip(
+                    getRoleBind(username).collect(Collectors.toSet()),
+                    isLocked(username),
+                ).map { userState ->
+                    SimplePrincipal(
+                        id = username,
+                        roles = userState.t1,
+                        attributes = mapOf(LOCKED_ATTRIBUTE to userState.t2),
+                    )
+                }
             }
             .collectList()
     }
@@ -93,7 +95,8 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
 
     private fun removeUserInternal(username: String): Mono<Boolean> {
         val userRoleBindKey = getUserRoleBindKey(username)
-        return redisTemplate.delete(userRoleBindKey)
+        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
+        return redisTemplate.delete(userRoleBindKey, loginLockKey)
             .then(
                 redisTemplate
                     .opsForHash<Any, Any>()
@@ -193,12 +196,33 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
             .map { affected: Long -> affected > 0 }
     }
 
+    fun lock(username: String): Mono<Boolean> {
+        if (username == CoSecPrincipal.ROOT_ID) {
+            return Mono.error(IllegalArgumentException("Root user cannot be locked."))
+        }
+        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
+        return existsUser(username).flatMap { exists ->
+            if (!exists) {
+                return@flatMap Mono.error(IllegalArgumentException("User does not exist."))
+            }
+            redisTemplate.opsForValue().set(loginLockKey, (MAX_LOGIN_ERROR_TIMES + 1).toString())
+        }
+    }
+
+    internal fun isLocked(username: String): Mono<Boolean> {
+        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
+        return redisTemplate.opsForValue()[loginLockKey]
+            .map { tryCount -> tryCount.toLongOrNull()?.let { it > MAX_LOGIN_ERROR_TIMES } ?: false }
+            .defaultIfEmpty(false)
+    }
+
     fun logout() = Unit
 
     companion object {
         const val USER_IDX = Namespaced.SYSTEM + ":user_idx"
         const val USER_ROLE_BIND = Namespaced.SYSTEM + ":user_role_bind:%s"
         const val USER_LOGIN_LOCK = Namespaced.SYSTEM + ":login_lock:%s"
+        const val LOCKED_ATTRIBUTE = "locked"
         private fun getUserRoleBindKey(username: String): String {
             return Strings.lenientFormat(USER_ROLE_BIND, username)
         }

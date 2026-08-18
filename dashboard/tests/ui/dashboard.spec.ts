@@ -58,6 +58,11 @@ test('dashboard supports health inspection, namespace switching, and sidebar con
     await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
     await expect(page.getByText('Environment', {exact: true})).toBeVisible();
     await expect(page.getByText('127.0.0.1:4175', {exact: true})).toBeVisible();
+    const headerGitHubLink = page.getByRole('link', {name: 'CoSky on GitHub'});
+    const headerGiteeLink = page.getByRole('link', {name: 'CoSky on Gitee'});
+    await expect(headerGitHubLink.locator('svg[data-brand="github"]')).toBeVisible();
+    await expect(headerGiteeLink).toHaveAttribute('href', 'https://gitee.com/AhooWang/CoSky');
+    await expect(headerGiteeLink.locator('svg[data-brand="gitee"]')).toBeVisible();
     await expect(page.getByText('Healthy Services')).toBeVisible();
     await expect(page.getByText(/128\s*\/\s*134/)).toBeVisible();
     await expect(page.getByText('Service Topology').first()).toBeVisible();
@@ -172,7 +177,10 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
     await page.getByRole('button', {name: 'Security', exact: true}).click();
     await page.getByRole('link', {name: 'User', exact: true}).click();
     await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
-    await expect(page.getByRole('row').filter({hasText: 'operator'}).getByText('Local', {exact: true})).toBeVisible();
+    const operatorRow = page.getByRole('row').filter({hasText: 'operator'});
+    await expect(operatorRow.getByText('Local', {exact: true})).toBeVisible();
+    await expect(operatorRow.getByText('Locked', {exact: true})).toBeVisible();
+    await expect(operatorRow.getByRole('button', {name: 'Unlock operator'})).toBeEnabled();
     const roleRequestsBefore = api.requests.filter(request => request.method === 'PATCH' && request.path.endsWith('/users/operator/role')).length;
     await page.getByRole('button', {name: 'Roles for operator'}).click();
     await page.getByRole('menuitemcheckbox', {name: 'auditor'}).click();
@@ -195,8 +203,9 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
 
     await page.getByRole('link', {name: 'Role', exact: true}).click();
     const adminRoleRow = page.getByRole('row').filter({hasText: 'admin'}).first();
-    await expect(adminRoleRow.getByText('default: Read & write', {exact: true})).toBeVisible();
+    await expect(adminRoleRow.getByText('System full access', {exact: true})).toBeVisible();
     await expect(adminRoleRow.getByRole('cell').nth(3)).toHaveText('1');
+    await expect(page.getByRole('button', {name: 'Edit admin (system role)'})).toBeDisabled();
     await expect(page.getByRole('button', {name: 'Delete admin (system role)'})).toBeDisabled();
     await page.getByRole('button', {name: 'Add Role'}).click();
     expect((await page.getByRole('dialog', {name: 'Add Role'}).boundingBox())?.width).toBeLessThanOrEqual(681);
@@ -323,9 +332,19 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await page.getByRole('button', {name: 'Security', exact: true}).click();
     await page.getByRole('link', {name: 'User', exact: true}).click();
     const operatorRow = page.getByRole('row').filter({hasText: 'operator'});
+    await expect(operatorRow.getByText('Locked', {exact: true})).toBeVisible();
     await operatorRow.getByRole('button', {name: 'Unlock'}).click();
     await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('User unlocked successfully')).toBeVisible();
+    await expect(page.getByText('User unlocked successfully').last()).toBeVisible();
+    await expect(operatorRow.getByText('Active', {exact: true})).toBeVisible();
+    await operatorRow.getByRole('button', {name: 'Lock operator'}).click();
+    await page.getByRole('button', {name: 'Continue'}).click();
+    await expect(page.getByText('User locked successfully')).toBeVisible();
+    await expect(operatorRow.getByText('Locked', {exact: true})).toBeVisible();
+    await operatorRow.getByRole('button', {name: 'Unlock operator'}).click();
+    await page.getByRole('button', {name: 'Continue'}).click();
+    await expect(page.getByText('User unlocked successfully').last()).toBeVisible();
+    await expect(operatorRow.getByText('Active', {exact: true})).toBeVisible();
     await operatorRow.getByRole('button', {name: 'Delete'}).click();
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('User deleted successfully')).toBeVisible();
@@ -357,6 +376,7 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
         ['DELETE', '/services/api-gateway'],
         ['DELETE', '/namespaces/production'],
         ['DELETE', '/users/operator/unlock'],
+        ['PUT', '/users/operator/lock'],
         ['DELETE', '/users/operator'],
         ['DELETE', '/roles/developer'],
     ] as const) {

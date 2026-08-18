@@ -112,7 +112,9 @@ export function RolePage() {
         {
             header: 'Resource Permissions',
             key: 'permissions',
-            cell: record => <RolePermissions key={`${record.name}-${roleRevision}`} roleName={record.name}/>,
+            cell: record => record.name === 'admin'
+                ? <Badge variant="secondary">System full access</Badge>
+                : <RolePermissions key={`${record.name}-${roleRevision}`} roleName={record.name}/>,
         },
         {
             header: 'Members',
@@ -125,7 +127,8 @@ export function RolePage() {
             className: 'w-40 text-right',
             cell: record => (
                 <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(record)}>
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(record)} disabled={record.name === 'admin'}
+                            aria-label={record.name === 'admin' ? 'Edit admin (system role)' : `Edit ${record.name}`}>
                         <Pencil/> Edit
                     </Button>
                     <ConfirmButton

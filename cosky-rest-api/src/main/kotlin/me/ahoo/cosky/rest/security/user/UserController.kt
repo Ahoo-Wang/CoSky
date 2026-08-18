@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosec.api.principal.CoSecPrincipal
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER
+import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_LOCK
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_PASSWORD
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_ROLE
 import me.ahoo.cosky.rest.support.RequestPathPrefix.USERS_USER_UNLOCK
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
@@ -61,6 +63,11 @@ class UserController(private val userService: UserService) {
     @DeleteMapping(USERS_USER)
     fun removeUser(@PathVariable username: String): Mono<Boolean> {
         return userService.removeUser(username)
+    }
+
+    @PutMapping(USERS_USER_LOCK)
+    fun lock(@PathVariable username: String): Mono<Boolean> {
+        return userService.lock(username)
     }
 
     @DeleteMapping(USERS_USER_UNLOCK)
