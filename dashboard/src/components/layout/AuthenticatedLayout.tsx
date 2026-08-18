@@ -91,7 +91,7 @@ export const AuthenticatedLayout = () => {
 
     useEffect(() => {
         const focusSearch = (event: globalThis.KeyboardEvent) => {
-            if (event.key !== '/' && event.code !== 'Slash') return;
+            if (event.key !== '/') return;
             if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
             event.preventDefault();
             searchInputRef.current?.focus();
@@ -155,7 +155,7 @@ export const AuthenticatedLayout = () => {
     };
 
     const handleLayoutKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.key !== '/' && event.code !== 'Slash') return;
+        if (event.key !== '/') return;
         if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
         event.preventDefault();
         event.stopPropagation();

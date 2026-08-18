@@ -480,6 +480,9 @@ test('route guards, command search, password visibility, and form validation sta
 
     const commandSearch = page.getByRole('combobox', {name: 'Search navigation'});
     await expect(commandSearch).toBeVisible();
+    await page.keyboard.press('?');
+    await expect(commandSearch).not.toBeFocused();
+    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeHidden();
     await page.keyboard.press('/');
     await expect(commandSearch).toBeFocused();
     await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeVisible();
