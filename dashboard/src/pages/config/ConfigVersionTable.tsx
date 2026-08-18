@@ -29,12 +29,12 @@ interface ConfigVersionTableProps {
 }
 
 export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProps) {
-    const {loading, result: versions, execute: loadVersions} = useQuery<string, ConfigHistory[]>({
-        query: configId,
-        execute: async (query, _, abortController) => {
-            const versionList = await configApiClient.getConfigVersions(namespace, query, {abortController});
+    const {loading, error, result: versions, execute: loadVersions} = useQuery<string, ConfigHistory[]>({
+        query: `${namespace}/${configId}`,
+        execute: async (_, __, abortController) => {
+            const versionList = await configApiClient.getConfigVersions(namespace, configId, {abortController});
             return Promise.all(versionList.map(version =>
-                configApiClient.getConfigHistory(namespace, query, version.version, {abortController})
+                configApiClient.getConfigHistory(namespace, configId, version.version, {abortController})
             ));
         }
     })
@@ -86,6 +86,8 @@ export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProp
                 getRowKey={record => record.version}
                 columns={columns}
                 loading={loading}
+                error={error}
+                onRetry={loadVersions}
                 pagination={false}
                 emptyMessage="No versions recorded yet."
             />

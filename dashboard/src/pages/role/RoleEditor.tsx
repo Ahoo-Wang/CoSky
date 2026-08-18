@@ -24,6 +24,7 @@ import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
+import {Skeleton} from '@/components/ui/skeleton';
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
@@ -39,7 +40,7 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     const [bindings, setBindings] = useState<ResourceActionDto[]>([]);
     const [bindingError, setBindingError] = useState('');
     const bindingsContainer = useRef<HTMLDivElement>(null);
-    const {result = EMPTY_RESOURCE_ACTIONS} = useQuery<string, ResourceActionDto[]>({
+    const {result, loading: loadingBindings, error: bindingsError, execute: retryBindings} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
         execute: (query, _, abortController) => roleApiClient.getResourceBind(query, {abortController}),
     });
@@ -52,10 +53,11 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
             toast.error('Failed to save role');
         },
     });
-    const [previousResult, setPreviousResult] = useState(result);
-    if (previousResult !== result) {
-        setPreviousResult(result);
-        setBindings(result.map(binding => ({...binding})));
+    const bindingsResult = result ?? EMPTY_RESOURCE_ACTIONS;
+    const [previousResult, setPreviousResult] = useState(bindingsResult);
+    if (previousResult !== bindingsResult) {
+        setPreviousResult(bindingsResult);
+        setBindings(bindingsResult.map(binding => ({...binding})));
     }
 
     const updateBinding = (index: number, key: keyof ResourceActionDto, value: string) => {
@@ -81,6 +83,14 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
         const body: SaveRoleRequest = {desc, resourceActionBind: bindings};
         await save(() => roleApiClient.saveRole(name, {body}));
     };
+
+    if (initialValues && bindingsError) {
+        return <div role="alert" className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm">
+            <p>Could not load this role's permissions. Nothing has been changed.</p>
+            <Button type="button" variant="outline" onClick={retryBindings}>Retry</Button>
+        </div>;
+    }
+    if (initialValues && (loadingBindings || result === undefined)) return <Skeleton className="h-80 w-full"/>;
 
     return (
         <form className="space-y-5" onSubmit={handleSubmit}>

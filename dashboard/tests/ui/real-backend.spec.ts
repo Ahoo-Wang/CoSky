@@ -235,8 +235,8 @@ test('all dashboard operations work against the real REST API and Redis', async 
     const userRow = page.getByRole('row').filter({hasText: userName}).first();
     await userRow.getByRole('button', {name: `Roles for ${userName}`}).click();
     await page.getByRole('menuitemcheckbox', {name: roleName}).click();
-    await expect(page.getByText('Role bind successfully')).toBeVisible();
     await page.keyboard.press('Escape');
+    await expect(page.getByText('Role bind successfully')).toBeVisible();
     await userRow.getByRole('button', {name: 'Unlock'}).click();
     await confirm(page);
     await expect(page.getByText('User unlocked successfully')).toBeVisible();

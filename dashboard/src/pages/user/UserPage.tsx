@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {useState} from 'react';
 import {Plus, Trash2, Unlock} from 'lucide-react';
 import {useQuery, useSecurityContext} from '@ahoo-wang/fetcher-react';
 import {AddUserEditor} from './AddUserEditor.tsx';
@@ -28,15 +29,44 @@ import type {DataTableColumn} from '@/components/ui/data-table';
 import {MultiSelect} from '@/components/ui/multi-select';
 import {Badge} from '@/components/ui/badge';
 
+interface UserRoleSelectProps {
+    user: CoSecPrincipal;
+    options: {label: string; value: string}[];
+    onSave: (username: string, roles: string[]) => Promise<boolean>;
+}
+
+function UserRoleSelect({user, options, onSave}: UserRoleSelectProps) {
+    const [draft, setDraft] = useState(user.roles);
+    const [saving, setSaving] = useState(false);
+
+    const saveOnClose = async (open: boolean) => {
+        if (open || saving || (draft.length === user.roles.length && draft.every(role => user.roles.includes(role)))) return;
+        setSaving(true);
+        if (!await onSave(user.name, draft)) setDraft(user.roles);
+        setSaving(false);
+    };
+
+    return <MultiSelect
+        aria-label={`Roles for ${user.name}`}
+        className="min-w-52"
+        options={options}
+        value={draft}
+        onChange={setDraft}
+        onOpenChange={open => void saveOnClose(open)}
+        disabled={saving}
+        placeholder={saving ? 'Saving roles…' : 'Select roles'}
+    />;
+}
+
 export function UserPage() {
     const {currentUser} = useSecurityContext();
-    const {result: users = [], loading, execute: load} = useQuery<null, CoSecPrincipal[]>({
+    const {result: users = [], loading, error, execute: load} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => {
             return userApiClient.query({abortController});
         },
     });
-    const {roles} = useRoles()
+    const {roles, error: rolesError, load: loadRoles} = useRoles()
     const roleSelectorOptions = roles.map(role => ({
         label: role.name,
         value: role.name,
@@ -66,13 +96,15 @@ export function UserPage() {
         loadUsers();
     };
 
-    const handleChangeRole = async (username: string, roles: string[]) => {
+    const handleChangeRole = async (username: string, roles: string[]): Promise<boolean> => {
         try {
             await userApiClient.bindRole(username, {body: roles});
             toast.success('Role bind successfully');
             loadUsers();
+            return true;
         } catch {
             toast.error('Failed to bind role');
+            return false;
         }
     };
 
@@ -115,13 +147,7 @@ export function UserPage() {
                             : <span className="text-sm text-muted-foreground">No roles assigned</span>}
                     </div>;
                 }
-                return <MultiSelect
-                               aria-label={`Roles for ${record.name}`}
-                               className="min-w-52"
-                               options={roleSelectorOptions} value={record.roles}
-                               onChange={(value) => handleChangeRole(record.name, value)}
-                               placeholder="Select roles"
-                />
+                return <UserRoleSelect key={`${record.name}-${record.roles.join(',')}`} user={record} options={roleSelectorOptions} onSave={handleChangeRole}/>;
             },
         },
         {
@@ -176,6 +202,11 @@ export function UserPage() {
                     columns={columns}
                     data={users}
                     loading={loading}
+                    error={error || rolesError}
+                    onRetry={() => {
+                        load();
+                        loadRoles();
+                    }}
                     getRowKey={record => record.name}
                     search={{placeholder: 'Search users...', getValue: record => `${record.name} ${record.roles.join(' ')}`}}
                     emptyMessage="No users found."

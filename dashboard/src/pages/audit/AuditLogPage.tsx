@@ -74,7 +74,7 @@ export function AuditLogPage() {
     const [filters, setFilters] = useState<AuditFilters>(EMPTY_FILTERS);
     const [exporting, setExporting] = useState(false);
     const {openDrawer} = useDrawer();
-    const {result, loading, setQuery} = useQuery<AuditQuery, QueryLogResponse>({
+    const {result, loading, error, execute: retry, setQuery} = useQuery<AuditQuery, QueryLogResponse>({
         initialQuery: {...EMPTY_FILTERS, page: 1, pageSize: 10},
         execute: (query, _, abortController) => auditLogApiClient.searchLog(
             (query.page - 1) * query.pageSize,
@@ -129,7 +129,6 @@ export function AuditLogPage() {
         {
             header: 'Timestamp',
             key: 'opTime',
-            sort: (left, right) => left.opTime - right.opTime,
             cell: record => dayjs(record.opTime).format('YYYY-MM-DD HH:mm:ss'),
         },
         {header: 'Operator', accessor: 'operator', key: 'operator'},
@@ -144,7 +143,6 @@ export function AuditLogPage() {
         {
             header: 'Status',
             key: 'status',
-            sort: (left, right) => left.status - right.status,
             cell: record => <Badge variant={record.status < 400 ? 'secondary' : 'destructive'}>{record.status}</Badge>,
         },
         {
@@ -216,6 +214,9 @@ export function AuditLogPage() {
                         },
                     }}
                     loading={loading}
+                    error={error}
+                    onRetry={retry}
+                    errorMessage="Could not load audit events. Existing results may be stale."
                     emptyMessage={filters.query || filters.from || filters.to || filters.status !== 'all'
                         ? 'No audit events match these filters.'
                         : 'No audit events recorded yet.'}

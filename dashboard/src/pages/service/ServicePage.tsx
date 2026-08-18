@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {useEffect} from 'react';
 import {Plus, Trash2} from 'lucide-react';
 import '../../monacoConfig';
 import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
@@ -32,12 +33,17 @@ import {Badge} from '@/components/ui/badge';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {result: services = [], loading, execute: loadServices} = useQuery<string, ServiceStat[]>({
+    const {result: services = [], loading, error, execute: loadServices} = useQuery<string, ServiceStat[]>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return serviceApiClient.getServiceStats(namespace, {abortController});
         },
     });
+
+    useEffect(() => {
+        const interval = window.setInterval(loadServices, 30_000);
+        return () => window.clearInterval(interval);
+    }, [loadServices]);
 
     const {openDrawer, closeDrawer} = useDrawer();
 
@@ -141,6 +147,8 @@ export function ServicePage() {
                     columns={columns}
                     data={services}
                     loading={loading}
+                    error={error}
+                    onRetry={loadServices}
                     getRowKey={record => record.serviceId}
                     expandable={{
                         render: expandedRowRender,

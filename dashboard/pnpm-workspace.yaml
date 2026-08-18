@@ -1,0 +1,6 @@
+packages:
+  - .
+
+overrides:
+  dompurify: ^3.4.11
+  js-yaml: ^4.2.0

@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {useState} from 'react';
 import {Pencil, Plus, Trash2} from 'lucide-react';
 import type {CoSecPrincipal, ResourceActionDto, RoleDto} from '../../generated';
 import {RoleEditor} from './RoleEditor.tsx';
@@ -30,11 +31,12 @@ import {useQuery} from '@ahoo-wang/fetcher-react';
 const ACTION_LABELS: Record<string, string> = {r: 'Read', w: 'Write', rw: 'Read & write'};
 
 function RolePermissions({roleName}: {roleName: string}) {
-    const {result: bindings = [], loading} = useQuery<string, ResourceActionDto[]>({
+    const {result: bindings = [], loading, error, execute: retry} = useQuery<string, ResourceActionDto[]>({
         query: roleName,
         execute: (name, _, abortController) => roleApiClient.getResourceBind(name, {abortController}),
     });
     if (loading) return <span className="text-sm text-muted-foreground">Loading…</span>;
+    if (error) return <Button type="button" variant="outline" size="sm" onClick={retry}>Retry permissions</Button>;
     if (bindings.length === 0) return <Badge variant="outline">No resource access</Badge>;
     return <div className="flex max-w-xl flex-wrap gap-1.5">
         {bindings.map(binding => <Badge key={`${binding.namespace}-${binding.action}`} variant="outline">
@@ -44,8 +46,9 @@ function RolePermissions({roleName}: {roleName: string}) {
 }
 
 export function RolePage() {
-    const {roles = [], loading, load} = useRoles()
-    const {result: users = [], loading: loadingUsers} = useQuery<null, CoSecPrincipal[]>({
+    const [roleRevision, setRoleRevision] = useState(0);
+    const {roles = [], loading, error, load} = useRoles()
+    const {result: users = [], loading: loadingUsers, error: usersError, execute: loadUsers} = useQuery<null, CoSecPrincipal[]>({
         initialQuery: null,
         execute: (_, __, abortController) => userApiClient.query({abortController}),
     });
@@ -80,6 +83,7 @@ export function RolePage() {
 
     const handleSubmit = () => {
         closeDrawer();
+        setRoleRevision(revision => revision + 1);
         load();
     };
 
@@ -108,7 +112,7 @@ export function RolePage() {
         {
             header: 'Resource Permissions',
             key: 'permissions',
-            cell: record => <RolePermissions roleName={record.name}/>,
+            cell: record => <RolePermissions key={`${record.name}-${roleRevision}`} roleName={record.name}/>,
         },
         {
             header: 'Members',
@@ -150,6 +154,11 @@ export function RolePage() {
                     columns={columns}
                     data={roles}
                     loading={loading || loadingUsers}
+                    error={error || usersError}
+                    onRetry={() => {
+                        load();
+                        loadUsers();
+                    }}
                     getRowKey={record => record.name}
                     search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
                     emptyMessage="No roles found."

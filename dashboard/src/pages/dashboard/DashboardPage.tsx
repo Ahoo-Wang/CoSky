@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {useRef, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {Link} from 'react-router-dom';
 import {Activity, Box, CircleCheck, FileSliders, Layers3, Maximize2, Minimize2, TriangleAlert} from 'lucide-react';
 import dayjs from 'dayjs';
@@ -29,19 +29,29 @@ export function DashboardPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const topologyDialogRef = useRef<HTMLDialogElement>(null);
     const [topologyDialogOpen, setTopologyDialogOpen] = useState(false);
+    const [lastUpdated, setLastUpdated] = useState<{namespace: string; at: Date}>();
     const {result: stat = {
         namespaces: 0,
         configs: 0,
         services: {total: 0, health: 0},
         instances: 0,
-    }} = useQuery<string, GetStatResponse>({
+    }, error: statError, execute: loadStat} = useQuery<string, GetStatResponse>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => statApiClient.getStat(namespace, {abortController}),
+        onSuccess: () => setLastUpdated({namespace: currentNamespace, at: new Date()}),
     });
-    const {result: recentChanges, loading: loadingChanges} = useQuery<null, QueryLogResponse>({
+    const {result: recentChanges, loading: loadingChanges, error: changesError, execute: loadRecentChanges} = useQuery<null, QueryLogResponse>({
         initialQuery: null,
         execute: (_, __, abortController) => auditLogApiClient.queryLog(0, 6, {abortController}),
     });
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            loadStat();
+            loadRecentChanges();
+        }, 30_000);
+        return () => window.clearInterval(interval);
+    }, [loadRecentChanges, loadStat]);
 
     const metrics = [
         {
@@ -63,7 +73,13 @@ export function DashboardPage() {
                     <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
                     <p className="mt-1 text-sm text-muted-foreground">System health and service relationships in {currentNamespace}.</p>
                 </div>
-                <span className="text-xs text-muted-foreground">Updated just now</span>
+                <span className="text-xs text-muted-foreground">
+                    {statError
+                        ? 'Update failed — retrying automatically'
+                        : lastUpdated?.namespace === currentNamespace
+                            ? `Updated at ${dayjs(lastUpdated.at).format('HH:mm:ss')}`
+                            : 'Updating…'}
+                </span>
             </div>
 
             <Card className="py-0">
@@ -117,7 +133,10 @@ export function DashboardPage() {
                         {loadingChanges && Array.from({length: 5}).map((_, index) => (
                             <div key={index} className="flex gap-3 px-4 py-4"><Skeleton className="size-8 rounded-full"/><Skeleton className="h-10 flex-1"/></div>
                         ))}
-                        {!loadingChanges && (recentChanges?.list.length ?? 0) === 0 && (
+                        {!loadingChanges && changesError && (
+                            <div role="alert" className="px-5 py-12 text-center text-sm text-destructive">Could not load recent changes. Retrying automatically.</div>
+                        )}
+                        {!loadingChanges && !changesError && (recentChanges?.list.length ?? 0) === 0 && (
                             <div className="px-5 py-16 text-center text-sm text-muted-foreground">No recent changes.</div>
                         )}
                         {recentChanges?.list.map((change, index) => {

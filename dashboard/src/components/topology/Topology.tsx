@@ -33,7 +33,7 @@ export function Topology() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedNodeId, setSelectedNodeId] = useState<string>();
 
-    const {result = {}, loading} = useQuery<string, Record<string, string[]>>({
+    const {result = {}, loading, error, execute: retry} = useQuery<string, Record<string, string[]>>({
         query: currentNamespace,
         execute: (namespace, _, abortController) => {
             return statApiClient.getTopology(namespace, {abortController});
@@ -140,6 +140,15 @@ export function Topology() {
 
     if (loading) {
         return <Skeleton className="h-full min-h-96 w-full"/>;
+    }
+    if (error) {
+        return <div role="alert" className="grid h-full min-h-96 place-items-center text-center">
+            <div className="space-y-3">
+                <Network className="mx-auto size-10 text-destructive/70"/>
+                <p className="font-medium">Could not load service topology</p>
+                <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={retry}>Retry</button>
+            </div>
+        </div>;
     }
     if (nodes.length === 0) {
         return (

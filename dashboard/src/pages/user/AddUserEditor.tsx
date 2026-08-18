@@ -33,6 +33,12 @@ interface UserFormProps {
     onCancel: () => void;
 }
 
+class UserCleanupError extends Error {
+    constructor(username: string) {
+        super(`User “${username}” was created, but role binding and automatic cleanup failed. Remove the account manually.`);
+    }
+}
+
 export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFormProps) {
     const [roles, setRoles] = useState<string[]>([]);
     const {loading, execute: saveUser} = useExecutePromise({
@@ -43,6 +49,12 @@ export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFo
             setRoles([]);
         },
         onError: (error) => {
+            if (error instanceof UserCleanupError) {
+                toast.error(error.message, {duration: 12_000});
+                onSuccess();
+                setRoles([]);
+                return;
+            }
             toast.error(error instanceof Error && error.message === 'User already exists.'
                 ? error.message
                 : 'Failed to add user');
@@ -57,7 +69,11 @@ export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFo
             try {
                 await userApiClient.bindRole(values.username, {body: values.roles});
             } catch (error) {
-                await userApiClient.removeUser(values.username).catch(() => undefined);
+                try {
+                    await userApiClient.removeUser(values.username);
+                } catch {
+                    throw new UserCleanupError(values.username);
+                }
                 throw error;
             }
         });

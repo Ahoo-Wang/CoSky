@@ -13,7 +13,7 @@
 
 import {Fragment, useMemo, useState} from 'react';
 import type {ReactNode} from 'react';
-import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Inbox, Search, SearchX} from 'lucide-react';
+import {AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Inbox, RotateCcw, Search, SearchX} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -60,6 +60,9 @@ interface DataTableProps<T> {
     columns: DataTableColumn<T>[];
     getRowKey: (row: T) => string | number;
     loading?: boolean;
+    error?: unknown;
+    onRetry?: () => void;
+    errorMessage?: string;
     search?: DataTableSearch<T>;
     expandable?: DataTableExpandable<T>;
     pagination?: false | DataTablePagination;
@@ -72,6 +75,9 @@ export function DataTable<T>({
     columns,
     getRowKey,
     loading,
+    error,
+    onRetry,
+    errorMessage = 'Could not load data. Previous results may be stale.',
     search,
     expandable,
     pagination = {},
@@ -156,6 +162,13 @@ export function DataTable<T>({
                     />
                 </div>
             )}
+            {!loading && Boolean(error) && (
+                <div role="alert" className="flex items-center gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                    <AlertTriangle className="size-4 flex-none"/>
+                    <span className="flex-1">{errorMessage}</span>
+                    {onRetry && <Button type="button" variant="outline" size="sm" onClick={onRetry}><RotateCcw/>Retry</Button>}
+                </div>
+            )}
             <div className="overflow-hidden rounded-xl border bg-card">
                 <Table>
                         <TableHeader>
@@ -188,7 +201,7 @@ export function DataTable<T>({
                                     ))}
                                 </TableRow>
                             ))}
-                            {!loading && rows.length === 0 && (
+                            {!loading && !error && rows.length === 0 && (
                                 <TableRow>
                                     <TableCell colSpan={columns.length + (expandable ? 1 : 0)} className="h-40 text-center text-muted-foreground">
                                         <div className="grid place-items-center gap-2">

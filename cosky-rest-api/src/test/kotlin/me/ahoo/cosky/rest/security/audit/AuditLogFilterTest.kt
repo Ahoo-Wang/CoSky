@@ -46,5 +46,6 @@ class AuditLogFilterTest {
         AuditLogController.csvCell("message, with \"quotes\"").assert()
             .isEqualTo("\"message, with \"\"quotes\"\"\"")
         AuditLogController.csvCell("=SUM(1,1)").assert().isEqualTo("\"'=SUM(1,1)\"")
+        AuditLogController.csvCell("\t=SUM(1,1)").assert().isEqualTo("\"'\t=SUM(1,1)\"")
     }
 }

@@ -69,6 +69,15 @@ async function json(route: Route, body: unknown, status = 200) {
 }
 
 export async function installApiMock(page: Page) {
+    const userRoles = new Map<string, string[]>([
+        ['admin', ['admin']],
+        ['operator', ['developer']],
+    ]);
+    const roleBindings = new Map<string, Array<{namespace: string; action: string}>>([
+        ['admin', [{namespace: 'default', action: 'rw'}]],
+        ['developer', [{namespace: 'default', action: 'rw'}]],
+        ['auditor', [{namespace: 'default', action: 'r'}]],
+    ]);
     const mockApi: MockApi = {
         emptyCollections: new Set(),
         requests: [],
@@ -98,6 +107,10 @@ export async function installApiMock(page: Page) {
         }
         if (pathname.includes('/authenticate/') && (pathname.endsWith('/login') || pathname.endsWith('/refresh'))) {
             await json(route, {accessToken: token, refreshToken: token});
+            return;
+        }
+        if (/^\/v1\/users\/cleanup-failure-user(?:\/role)?$/.test(pathname) && (method === 'PATCH' || method === 'DELETE')) {
+            await json(route, {msg: 'Expected cleanup failure'}, 500);
             return;
         }
         if (pathname === '/v1/namespaces') {
@@ -150,14 +163,28 @@ export async function installApiMock(page: Page) {
             return;
         }
         if (/^\/v1\/roles\/[^/]+\/bind$/.test(pathname)) {
-            await json(route, [{namespace: 'default', action: 'rw'}]);
+            const roleName = decodeURIComponent(pathname.split('/').at(-2)!);
+            await json(route, roleBindings.get(roleName) ?? []);
+            return;
+        }
+        if (/^\/v1\/roles\/[^/]+$/.test(pathname) && method === 'PUT') {
+            const roleName = decodeURIComponent(pathname.split('/').at(-1)!);
+            const body = JSON.parse(request.postData() ?? '{}') as {resourceActionBind?: Array<{namespace: string; action: string}>};
+            roleBindings.set(roleName, body.resourceActionBind ?? []);
+            await json(route, true);
             return;
         }
         if (pathname === '/v1/users') {
             await json(route, mockApi.emptyCollections.has('users') ? [] : [
-                {name: 'admin', id: '1', attributes: {}, authenticated: true, anonymous: false, policies: [], roles: ['admin']},
-                {name: 'operator', id: '2', attributes: {}, authenticated: true, anonymous: false, policies: [], roles: ['developer']},
+                {name: 'admin', id: '1', attributes: {}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('admin')},
+                {name: 'operator', id: '2', attributes: {}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('operator')},
             ]);
+            return;
+        }
+        if (/^\/v1\/users\/[^/]+\/role$/.test(pathname) && method === 'PATCH') {
+            const username = decodeURIComponent(pathname.split('/').at(-2)!);
+            userRoles.set(username, JSON.parse(request.postData() ?? '[]') as string[]);
+            await json(route, true);
             return;
         }
         if (pathname === '/v1/users/existing-user' && method === 'POST') {

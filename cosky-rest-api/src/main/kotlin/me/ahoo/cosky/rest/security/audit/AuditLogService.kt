@@ -34,7 +34,8 @@ class AuditLogService(private val objectMapper: ObjectMapper, private val redisT
 
     fun queryLog(offset: Long, limit: Long, filter: AuditLogFilter): Mono<QueryLogResponse> {
         require(offset >= 0) { "offset must not be negative." }
-        require(limit > 0) { "limit must be positive." }
+        require(limit in 1..MAX_PAGE_SIZE) { "limit must be between 1 and $MAX_PAGE_SIZE." }
+        require(offset <= Long.MAX_VALUE - (limit - 1)) { "offset and limit are too large." }
         if (filter.isEmpty) {
             return Mono.zip(
                 redisTemplate.opsForList().size(AUDIT_LOG_KEY),
@@ -44,32 +45,55 @@ class AuditLogService(private val objectMapper: ObjectMapper, private val redisT
                     .collectList(),
             ).map { QueryLogResponse(it.t2, it.t1) }
         }
-        return filteredLogs(filter)
-            // ponytail: audit logs currently use one Redis list; add indexed storage when a full scan becomes measurable.
-            .collectList()
-            .map { logs ->
-                QueryLogResponse(
-                    logs.drop(
-                        offset.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                    ).take(
-                        limit.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
-                    ),
-                    logs.size.toLong(),
-                )
+        return filteredLogs(filter).publish { logs ->
+            Mono.zip(
+                logs.skip(offset).take(limit).collectList(),
+                logs.count(),
+            ).map {
+                QueryLogResponse(it.t1, it.t2)
             }
+        }.next()
     }
 
     fun queryAll(filter: AuditLogFilter): Flux<AuditLog> = filteredLogs(filter)
 
     private fun filteredLogs(filter: AuditLogFilter): Flux<AuditLog> {
-        return redisTemplate
-            .opsForList()
-            .range(AUDIT_LOG_KEY, 0, -1)
-            .map { objectMapper.readValue(it, AuditLog::class.java) }
+        return redisTemplate.opsForList().size(AUDIT_LOG_KEY)
+            .flatMapMany { snapshotSize ->
+                if (snapshotSize == 0L) {
+                    Flux.empty()
+                } else {
+                    readBatch(snapshotSize, 0)
+                        // ponytail: filtering remains O(n); batches bound memory until indexed audit storage is justified.
+                        .expand { batch ->
+                            if (batch.nextOffset >= snapshotSize) {
+                                Mono.empty()
+                            } else {
+                                readBatch(snapshotSize, batch.nextOffset)
+                            }
+                        }
+                }
+            }
+            .concatMapIterable { it.logs }
             .filter(filter::matches)
     }
 
+    private fun readBatch(snapshotSize: Long, offset: Long): Mono<AuditLogBatch> {
+        val start = -snapshotSize + offset
+        val end = minOf(-1, start + READ_BATCH_SIZE - 1)
+        return redisTemplate
+            .opsForList()
+            .range(AUDIT_LOG_KEY, start, end)
+            .map { objectMapper.readValue(it, AuditLog::class.java) }
+            .collectList()
+            .map { AuditLogBatch(minOf(snapshotSize, offset + READ_BATCH_SIZE), it) }
+    }
+
+    private data class AuditLogBatch(val nextOffset: Long, val logs: List<AuditLog>)
+
     companion object {
         const val AUDIT_LOG_KEY = Namespaced.SYSTEM + ":audit:log"
+        private const val READ_BATCH_SIZE = 500
+        private const val MAX_PAGE_SIZE = 1000L
     }
 }

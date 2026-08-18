@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.nio.charset.StandardCharsets
 import java.time.Instant
@@ -53,8 +54,8 @@ class AuditLogController(private val auditService: AuditLogService) {
         @RequestParam(required = false) from: Long?,
         @RequestParam(required = false) to: Long?,
         @RequestParam(required = false) successful: Boolean?
-    ): Mono<ResponseEntity<ByteArray>> {
-        return auditService.queryAll(AuditLogFilter(query, from, to, successful))
+    ): ResponseEntity<Flux<String>> {
+        val rows = auditService.queryAll(AuditLogFilter(query, from, to, successful))
             .map { log ->
                 listOf(
                     Instant.ofEpochMilli(log.opTime),
@@ -68,30 +69,24 @@ class AuditLogController(private val auditService: AuditLogService) {
                     .joinToString(",") { csvCell(it.toString()) }
             }
             .startWith("Timestamp,Operator,Client IP,Resource,Action,Status,Message")
-            .collectList()
-            .map { rows ->
-                val headers = HttpHeaders()
-                headers.add(
-                    "Content-Disposition",
-                    "attachment;filename=cosky_audit_log_${System.currentTimeMillis()}.csv",
-                )
-                headers.contentType = MediaType(
-                    "text",
-                    "csv",
-                    StandardCharsets.UTF_8,
-                )
-                ResponseEntity(
-                    rows.joinToString("\n").toByteArray(StandardCharsets.UTF_8),
-                    headers,
-                    HttpStatus.OK,
-                )
-            }
+            .map { "$it\n" }
+        val headers = HttpHeaders()
+        headers.add(
+            "Content-Disposition",
+            "attachment;filename=cosky_audit_log_${System.currentTimeMillis()}.csv",
+        )
+        headers.contentType = MediaType(
+            "text",
+            "csv",
+            StandardCharsets.UTF_8,
+        )
+        return ResponseEntity(rows, headers, HttpStatus.OK)
     }
 
     companion object {
         internal fun csvCell(value: String): String {
             val safeValue = when (value.firstOrNull()) {
-                '=', '+', '-', '@' -> "'$value"
+                '=', '+', '-', '@', '\t', '\r' -> "'$value"
                 else -> value
             }
             return "\"${safeValue.replace("\"", "\"\"")}\""

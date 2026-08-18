@@ -57,6 +57,7 @@ test('dashboard supports health inspection, namespace switching, and sidebar con
     await expect(page.getByText('Service Topology').first()).toBeVisible();
     await expect(page.getByText('Recent Changes')).toBeVisible();
     await expect(page.getByText('inventory-service')).toBeVisible();
+    await expect(page.getByText(/Updated at \d{2}:\d{2}:\d{2}/)).toBeVisible();
 
     await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
     const topologyDialog = page.getByRole('dialog', {name: 'Service Topology'});
@@ -153,6 +154,7 @@ test('service workflow expands instances and registers a new instance', async ({
 });
 
 test('administration workflows cover namespaces, users, roles, and audit logs', async ({page}) => {
+    const api = apiMocks.get(page)!;
     await login(page);
     await page.getByRole('link', {name: 'Namespace', exact: true}).click();
     await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
@@ -165,10 +167,15 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
     await page.getByRole('link', {name: 'User', exact: true}).click();
     await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
     await expect(page.getByRole('row').filter({hasText: 'operator'}).getByText('Local', {exact: true})).toBeVisible();
+    const roleRequestsBefore = api.requests.filter(request => request.method === 'PATCH' && request.path.endsWith('/users/operator/role')).length;
     await page.getByRole('button', {name: 'Roles for operator'}).click();
     await page.getByRole('menuitemcheckbox', {name: 'auditor'}).click();
-    await expect(page.getByText('Role bind successfully')).toBeVisible();
+    await page.getByRole('menuitemcheckbox', {name: 'developer'}).click();
     await page.keyboard.press('Escape');
+    await expect(page.getByText('Role bind successfully')).toBeVisible();
+    const roleRequests = api.requests.filter(request => request.method === 'PATCH' && request.path.endsWith('/users/operator/role'));
+    expect(roleRequests).toHaveLength(roleRequestsBefore + 1);
+    expect(JSON.parse(roleRequests.at(-1)?.postData ?? '[]')).toEqual(['auditor']);
 
     await page.getByRole('button', {name: 'Add User'}).click();
     expect((await page.getByRole('dialog', {name: 'Add User'}).boundingBox())?.width).toBeLessThanOrEqual(521);
@@ -198,6 +205,7 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
     await expect(page.getByText('Save role success!')).toBeVisible();
 
     await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
+    await expect(page.getByRole('button', {name: 'Timestamp'})).toHaveCount(0);
     await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
     await expect(page.getByText('14 items')).toBeVisible();
     await page.getByRole('textbox', {name: 'Search all events'}).fill('inventory');
@@ -319,8 +327,11 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await page.getByRole('link', {name: 'Role', exact: true}).click();
     const developerRow = page.getByRole('row').filter({hasText: 'developer'}).first();
     await developerRow.getByRole('button', {name: 'Edit'}).click();
+    await page.getByRole('combobox', {name: 'Select Resource Action'}).click();
+    await page.getByRole('option', {name: 'Read only'}).click();
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('Save role success!')).toBeVisible();
+    await expect(developerRow.getByText('default: Read', {exact: true})).toBeVisible();
     await developerRow.getByRole('button', {name: 'Delete'}).click();
     await expect(page.getByRole('alertdialog')).toContainText('assigned to 1 user');
     await page.getByRole('button', {name: 'Continue'}).click();
@@ -419,9 +430,10 @@ test('tables expose loading, empty, sorting, pagination, and server-error states
     api.failNext = {method: 'GET', path: /\/audit-log$/};
     await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
     await expect(page.getByRole('heading', {name: 'Audit Log'})).toBeVisible();
-    await expect(page.getByText('No audit events recorded yet.')).toBeVisible();
+    await expect(page.getByRole('alert')).toContainText('Could not load audit events');
+    await expect(page.getByText('No audit events recorded yet.')).toBeHidden();
     browserErrors.set(page, []);
-    await page.reload();
+    await page.getByRole('button', {name: 'Retry'}).click();
     await expect(page.getByText('14 items')).toBeVisible();
     await page.getByRole('button', {name: 'Next page'}).click();
     await expect(page.getByText('2 / 2')).toBeVisible();
@@ -517,9 +529,20 @@ test('route guards, command search, password visibility, and form validation sta
     await page.getByRole('button', {name: 'Add User'}).click();
     await page.getByRole('textbox', {name: 'Username'}).fill('rollback-user');
     await page.getByLabel('Password', {exact: true}).fill('secret');
+    const rollbackDelete = page.waitForRequest(request => request.method() === 'DELETE' && request.url().endsWith('/users/rollback-user'));
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Failed to add user')).toBeVisible();
-    expect(api.requests.some(request => request.method === 'DELETE' && request.path.endsWith('/users/rollback-user'))).toBe(true);
+    await rollbackDelete;
+    browserErrors.set(page, []);
+
+    await page.getByRole('button', {name: 'Close', exact: true}).click();
+    await page.getByRole('button', {name: 'Add User'}).click();
+    await page.getByRole('textbox', {name: 'Username'}).fill('cleanup-failure-user');
+    await page.getByLabel('Password', {exact: true}).fill('secret');
+    const failedCleanupDelete = page.waitForRequest(request => request.method() === 'DELETE' && request.url().endsWith('/users/cleanup-failure-user'));
+    await page.getByRole('button', {name: 'Submit', exact: true}).click();
+    await failedCleanupDelete;
+    await expect(page.getByText(/automatic cleanup failed/)).toBeVisible();
+    await expect(page.getByRole('dialog', {name: 'Add User'})).toBeHidden();
     browserErrors.set(page, []);
 });
 

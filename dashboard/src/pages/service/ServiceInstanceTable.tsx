@@ -1,3 +1,4 @@
+import {useEffect} from 'react';
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {serviceApiClient} from "../../services/clients.ts";
 import type {ServiceInstance} from "../../generated";
@@ -19,12 +20,16 @@ export interface ServiceInstanceTableProps {
 }
 
 export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTableProps) {
-    const {result: instances = [], loading: loadingInstances, execute: loadInstances} = useQuery({
-        query: serviceId,
-        execute: (query, _, abortController) => {
-            return serviceApiClient.getInstances(namespace, query, {abortController});
+    const {result: instances = [], loading: loadingInstances, error, execute: loadInstances} = useQuery({
+        query: `${namespace}/${serviceId}`,
+        execute: (_, __, abortController) => {
+            return serviceApiClient.getInstances(namespace, serviceId, {abortController});
         }
     })
+    useEffect(() => {
+        const interval = window.setInterval(loadInstances, 30_000);
+        return () => window.clearInterval(interval);
+    }, [loadInstances]);
     // ponytail: let the Redis consistency event settle before reading the updated instance.
     const refreshInstances = () => window.setTimeout(loadInstances, 250);
     const {loading: loadingExecutePromise, execute} = useExecutePromise({
@@ -125,6 +130,8 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
             loading={loadingInstances}
             data={instances}
             columns={columns}
+            error={error}
+            onRetry={loadInstances}
             getRowKey={record => record.instanceId}
             pagination={false}
             emptyMessage="No instances registered yet."

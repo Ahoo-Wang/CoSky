@@ -32,6 +32,7 @@ interface MultiSelectProps {
     placeholder?: string;
     className?: string;
     disabled?: boolean;
+    onOpenChange?: (open: boolean) => void;
     'aria-label'?: string;
 }
 
@@ -43,6 +44,7 @@ export function MultiSelect({
     placeholder = 'Select roles',
     className,
     disabled,
+    onOpenChange,
     'aria-label': ariaLabel,
 }: MultiSelectProps) {
     const selectedLabels = options.filter(option => value.includes(option.value)).map(option => option.label);
@@ -53,7 +55,7 @@ export function MultiSelect({
     };
 
     return (
-        <DropdownMenu>
+        <DropdownMenu onOpenChange={onOpenChange}>
             <DropdownMenuTrigger asChild>
                 <Button
                     id={id}
