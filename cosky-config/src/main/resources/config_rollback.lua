@@ -47,11 +47,16 @@ local currentHash = redis.call("hget", configKey, hashField)
 if (currentHash ~= nil) and (currentHash == targetHash) then
     return 0;
 end
-redis.call("sadd", configIdxKey, configKey, configKey)
-
 local currentVersion = redis.call("hget", configKey, versionField)
-local nextVersion = currentVersion + 1;
-addHistory(currentVersion, configKey, op)
+local nextVersion;
+if currentVersion then
+    nextVersion = currentVersion + 1;
+    addHistory(currentVersion, configKey, op)
+else
+    local lastHistoryVersion = redis.call('zrevrange', configHistoryIdxKey, 0, 0, 'WITHSCORES')
+    nextVersion = lastHistoryVersion[2] + 1;
+end
+redis.call("sadd", configIdxKey, configKey)
 local data = targetHistoryConfig["data"];
 local createTime = redis.call('time')[1];
 
