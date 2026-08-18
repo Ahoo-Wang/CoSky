@@ -85,6 +85,23 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     }
 
     @Test
+    fun getInstanceRejectsWrongService() {
+        registerRandomInstanceAndTestThenDeregister(
+            namespace,
+            redisServiceRegistry,
+        ) {
+            val wrongServiceId = MockIdGenerator.INSTANCE.generateAsString()
+            redisServiceDiscovery.getInstance(namespace, wrongServiceId, it.instanceId)
+                .test()
+                .verifyComplete()
+            redisServiceDiscovery.getInstanceTtl(namespace, wrongServiceId, it.instanceId)
+                .test()
+                .expectNext(-2)
+                .verifyComplete()
+        }
+    }
+
+    @Test
     fun getInstanceTtl() {
         registerRandomInstanceAndTestThenDeregister(
             namespace,

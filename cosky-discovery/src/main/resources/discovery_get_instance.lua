@@ -6,6 +6,10 @@ local serviceId = ARGV[1];
 local instanceId = ARGV[2];
 local instanceIdxKey = namespace .. ':svc_itc_idx:' .. serviceId;
 
+if redis.call("sismember", instanceIdxKey, instanceId) == 0 then
+    return {  }
+end
+
 local function getInstanceKey(instanceId)
     return namespace .. ":svc_itc:" .. instanceId;
 end
@@ -37,5 +41,4 @@ if instanceTtl ~= -2 then
 end
 
 return {  }
-
 
