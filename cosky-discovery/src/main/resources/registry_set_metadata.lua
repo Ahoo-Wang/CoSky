@@ -15,7 +15,8 @@ if #instanceKeys > 0 then
     end
 end
 
-redis.call("hmset", instanceKey, unpack(ARGV, 2, #ARGV));
+if #ARGV > 1 then
+    redis.call("hmset", instanceKey, unpack(ARGV, 2, #ARGV));
+end
 redis.call("publish", instanceKey, "set_metadata");
 return 1;
-

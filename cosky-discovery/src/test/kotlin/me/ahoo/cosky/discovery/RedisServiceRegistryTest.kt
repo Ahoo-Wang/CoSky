@@ -108,6 +108,20 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     }
 
     @Test
+    fun clearMetadata() {
+        val instance = randomInstance()
+        serviceRegistry.register(namespace, instance)
+            .then(serviceRegistry.setMetadata(namespace, instance.serviceId, instance.instanceId, emptyMap()))
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
+            .test()
+            .expectNextMatches { it.metadata.isEmpty() }
+            .verifyComplete()
+    }
+
+    @Test
     fun renew() {
         serviceRegistry.renew(namespace, randomInstance())
             .test()
