@@ -12,7 +12,11 @@
  */
 package me.ahoo.cosky.config.redis
 
+import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.config.ConfigService
+import me.ahoo.test.asserts.assert
+import org.junit.jupiter.api.Test
+import reactor.kotlin.test.test
 
 /**
  * @author ahoo wang
@@ -21,5 +25,27 @@ class RedisConfigServiceTest : ConfigServiceSpec() {
 
     override fun createConfigService(): ConfigService {
         return RedisConfigService(redisTemplate)
+    }
+
+    @Test
+    fun rollbackRemovedConfig() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val configId = MockIdGenerator.INSTANCE.generateAsString()
+        val version1Data = "version-1"
+        configService.setConfig(namespace, configId, version1Data)
+            .then(configService.setConfig(namespace, configId, "version-2"))
+            .then(configService.removeConfig(namespace, configId))
+            .then(configService.rollback(namespace, configId, 1))
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        configService.getConfig(namespace, configId)
+            .test()
+            .expectNextMatches {
+                it.data.assert().isEqualTo(version1Data)
+                it.version.assert().isEqualTo(3)
+                true
+            }
+            .verifyComplete()
     }
 }
