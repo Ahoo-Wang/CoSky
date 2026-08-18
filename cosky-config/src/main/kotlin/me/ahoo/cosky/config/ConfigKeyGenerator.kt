@@ -73,10 +73,12 @@ object ConfigKeyGenerator {
     fun getConfigVersionOfHistoryKey(namespace: String, configHistoryKey: String): ConfigVersion {
         val configHistoryKeyPrefix = "$namespace:$CONFIG_HISTORY:"
         val configIdWithVersion = configHistoryKey.substring(configHistoryKeyPrefix.length)
-        val configIdWithVersionSplit: Array<String> =
-            configIdWithVersion.split(CoSky.KEY_SEPARATOR.toRegex()).dropWhile { it.isEmpty() }
-                .toTypedArray()
-        require(configIdWithVersionSplit.size == 2) { "configHistoryKey:[$configHistoryKey] format error." }
-        return ConfigVersionData(configIdWithVersionSplit[0], configIdWithVersionSplit[1].toInt())
+        val versionSeparatorIndex = configIdWithVersion.lastIndexOf(CoSky.KEY_SEPARATOR)
+        require(versionSeparatorIndex in 1 until configIdWithVersion.lastIndex) {
+            "configHistoryKey:[$configHistoryKey] format error."
+        }
+        val configId = configIdWithVersion.substring(0, versionSeparatorIndex)
+        val version = configIdWithVersion.substring(versionSeparatorIndex + CoSky.KEY_SEPARATOR.length).toInt()
+        return ConfigVersionData(configId, version)
     }
 }

@@ -48,4 +48,23 @@ class RedisConfigServiceTest : ConfigServiceSpec() {
             }
             .verifyComplete()
     }
+
+    @Test
+    fun getConfigVersionsWithColonInConfigId() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val configId = "${MockIdGenerator.INSTANCE.generateAsString()}:profile"
+        configService.setConfig(namespace, configId, "version-1")
+            .then(configService.setConfig(namespace, configId, "version-2"))
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        configService.getConfigVersions(namespace, configId)
+            .test()
+            .expectNextMatches {
+                it.configId.assert().isEqualTo(configId)
+                it.version.assert().isEqualTo(1)
+                true
+            }
+            .verifyComplete()
+    }
 }
