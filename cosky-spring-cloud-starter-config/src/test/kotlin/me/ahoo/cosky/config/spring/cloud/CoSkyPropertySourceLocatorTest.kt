@@ -67,4 +67,30 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
         source["spring.cloud.cosky.discovery.registry.weight"]?.value.assert().isEqualTo(8)
         source["cosid.namespace"]?.value.assert().isEqualTo("service")
     }
+
+    @Test
+    fun locateMultiDocumentYaml() {
+        val configId = "multi-document.yaml"
+        val configData = """
+            shared: first
+            first:
+              value: one
+            ---
+            shared: second
+            second:
+              value: two
+        """.trimIndent()
+        configService.setConfig(NamespacedContext.namespace, configId, configData)
+            .test()
+            .expectNextCount(1)
+            .verifyComplete()
+        val propertySource = CoSkyPropertySourceLocator(
+            CoSkyConfigProperties(configId = configId),
+            configService,
+        ).locate(mockk())
+
+        propertySource.getProperty("first.value").assert().isEqualTo("one")
+        propertySource.getProperty("second.value").assert().isEqualTo("two")
+        propertySource.getProperty("shared").assert().isEqualTo("second")
+    }
 }
