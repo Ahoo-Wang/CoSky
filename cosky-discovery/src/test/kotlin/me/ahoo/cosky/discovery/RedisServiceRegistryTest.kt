@@ -140,6 +140,10 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
 
         serviceRegistry.register(namespace, ephemeralInstance.withIsEphemeral(false)).block()
         serviceRegistry.registeredEphemeralInstances.containsKey(namespacedInstanceId).assert().isFalse()
+        serviceDiscovery.getInstanceTtl(namespace, ephemeralInstance.serviceId, ephemeralInstance.instanceId)
+            .test()
+            .expectNext(ServiceInstance.TTL_AT_FOREVER)
+            .verifyComplete()
     }
 
     @Test
