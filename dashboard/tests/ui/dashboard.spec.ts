@@ -36,7 +36,7 @@ test.afterEach(async ({page}) => {
 test('rejects invalid credentials without leaving the login screen', async ({page}) => {
     await page.goto('/login');
     await page.getByRole('textbox', {name: 'Username', exact: true}).fill('denied');
-    await page.getByRole('textbox', {name: 'Password', exact: true}).fill('wrong');
+    await page.getByLabel('Password', {exact: true}).fill('wrong');
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();
 
     await expect(page).toHaveURL(/\/login$/);
@@ -173,7 +173,7 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
     await page.getByRole('button', {name: 'Add User'}).click();
     expect((await page.getByRole('dialog', {name: 'Add User'}).boundingBox())?.width).toBeLessThanOrEqual(521);
     await page.getByRole('textbox', {name: 'Username'}).fill('qa-user');
-    await page.getByRole('textbox', {name: 'Password'}).fill('secret');
+    await page.getByLabel('Password', {exact: true}).fill('secret');
     await page.getByRole('button', {name: 'Select roles'}).click();
     await page.getByRole('menuitemcheckbox', {name: 'admin'}).click();
     await page.keyboard.press('Escape');
@@ -240,8 +240,8 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await expect(page.getByRole('menuitem', {name: 'Change password'})).toBeHidden();
     await accountButton.click();
     await page.getByRole('menuitem', {name: 'Change password'}).click();
-    await page.getByRole('textbox', {name: 'Old Password'}).fill('password');
-    await page.getByRole('textbox', {name: 'New Password'}).fill('new-password');
+    await page.getByLabel('Old Password', {exact: true}).fill('password');
+    await page.getByLabel('New Password', {exact: true}).fill('new-password');
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('Change password success!')).toBeVisible();
 
@@ -416,7 +416,12 @@ test('tables expose loading, empty, sorting, pagination, and server-error states
     browserErrors.set(page, []);
 
     await page.getByRole('button', {name: 'Security', exact: true}).click();
+    api.failNext = {method: 'GET', path: /\/audit-log$/};
     await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
+    await expect(page.getByRole('heading', {name: 'Audit Log'})).toBeVisible();
+    await expect(page.getByText('No audit events recorded yet.')).toBeVisible();
+    browserErrors.set(page, []);
+    await page.reload();
     await expect(page.getByText('14 items')).toBeVisible();
     await page.getByRole('button', {name: 'Next page'}).click();
     await expect(page.getByText('2 / 2')).toBeVisible();
@@ -428,7 +433,7 @@ test('route guards, command search, password visibility, and form validation sta
     await page.goto('/config');
     await expect(page).toHaveURL(/\/login$/);
 
-    const password = page.getByRole('textbox', {name: 'Password', exact: true});
+    const password = page.getByLabel('Password', {exact: true});
     await expect(password).toHaveAttribute('type', 'password');
     await page.getByRole('button', {name: 'Show password'}).click();
     await expect(password).toHaveAttribute('type', 'text');
@@ -495,7 +500,7 @@ test('route guards, command search, password visibility, and form validation sta
     api.failNext = {method: 'POST', path: /\/users\/failing-user$/};
     await page.getByRole('button', {name: 'Add User'}).click();
     await page.getByRole('textbox', {name: 'Username'}).fill('failing-user');
-    await page.getByRole('textbox', {name: 'Password'}).fill('secret');
+    await page.getByLabel('Password', {exact: true}).fill('secret');
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('Failed to add user')).toBeVisible();
     await expect(page.getByRole('dialog', {name: 'Add User'})).toBeVisible();
@@ -506,6 +511,16 @@ test('route guards, command search, password visibility, and form validation sta
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('User already exists.')).toBeVisible();
     expect(api.requests.some(request => request.method === 'PATCH' && request.path.endsWith('/users/existing-user/role'))).toBe(false);
+
+    await page.getByRole('button', {name: 'Close', exact: true}).click();
+    api.failNext = {method: 'PATCH', path: /\/users\/rollback-user\/role$/};
+    await page.getByRole('button', {name: 'Add User'}).click();
+    await page.getByRole('textbox', {name: 'Username'}).fill('rollback-user');
+    await page.getByLabel('Password', {exact: true}).fill('secret');
+    await page.getByRole('button', {name: 'Submit', exact: true}).click();
+    await expect(page.getByText('Failed to add user')).toBeVisible();
+    expect(api.requests.some(request => request.method === 'DELETE' && request.path.endsWith('/users/rollback-user'))).toBe(true);
+    browserErrors.set(page, []);
 });
 
 test('mobile layout keeps navigation and dashboard controls usable', async ({page}) => {

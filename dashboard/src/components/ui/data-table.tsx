@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/table';
 import {cn} from '@/lib/utils';
 
+const EMPTY_DATA: never[] = [];
+
 export interface DataTableColumn<T> {
     key: string;
     header: ReactNode;
@@ -66,7 +68,7 @@ interface DataTableProps<T> {
 }
 
 export function DataTable<T>({
-    data = [],
+    data = EMPTY_DATA,
     columns,
     getRowKey,
     loading,

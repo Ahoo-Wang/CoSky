@@ -94,8 +94,10 @@ class RedisServiceRegistry(
         log.info {
             "Register - instanceId:[${serviceInstance.instanceId}]  @ namespace:[$namespace]."
         }
-        return registerInternal(namespace, serviceInstance).doOnSubscribe {
-            addEphemeralInstance(namespace, serviceInstance)
+        return registerInternal(namespace, serviceInstance).doOnNext { registered ->
+            if (registered) {
+                addEphemeralInstance(namespace, serviceInstance)
+            }
         }
     }
 

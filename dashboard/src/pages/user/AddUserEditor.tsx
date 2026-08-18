@@ -54,7 +54,12 @@ export function AddUserEditor({roleSelectorOptions, onSuccess, onCancel}: UserFo
             if (!created) {
                 throw new Error('User already exists.');
             }
-            await userApiClient.bindRole(values.username, {body: values.roles});
+            try {
+                await userApiClient.bindRole(values.username, {body: values.roles});
+            } catch (error) {
+                await userApiClient.removeUser(values.username).catch(() => undefined);
+                throw error;
+            }
         });
     };
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {

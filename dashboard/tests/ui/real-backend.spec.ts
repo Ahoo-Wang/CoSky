@@ -30,7 +30,7 @@ const changedUserPassword = 'E2e-user-password-2';
 async function login(page: Page, loginUsername = username, loginPassword = password) {
     await page.goto('/login');
     await page.getByRole('textbox', {name: 'Username', exact: true}).fill(loginUsername);
-    await page.getByRole('textbox', {name: 'Password', exact: true}).fill(loginPassword);
+    await page.getByLabel('Password', {exact: true}).fill(loginPassword);
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();
     await page.waitForURL('**/home');
 }
@@ -92,7 +92,7 @@ test('all dashboard operations work against the real REST API and Redis', async 
 
     await page.goto('/login');
     await page.getByRole('textbox', {name: 'Username', exact: true}).fill(username);
-    await page.getByRole('textbox', {name: 'Password', exact: true}).fill('definitely-wrong');
+    await page.getByLabel('Password', {exact: true}).fill('definitely-wrong');
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByText(/Login failed/)).toBeVisible();
@@ -205,7 +205,7 @@ test('all dashboard operations work against the real REST API and Redis', async 
     await page.getByRole('link', {name: 'User', exact: true}).click();
     await page.getByRole('button', {name: 'Add User'}).click();
     await page.getByRole('textbox', {name: 'Username'}).fill(userName);
-    await page.getByRole('textbox', {name: 'Password'}).fill(userPassword);
+    await page.getByLabel('Password', {exact: true}).fill(userPassword);
     await page.getByRole('button', {name: 'Select roles'}).click();
     await page.getByRole('menuitemcheckbox', {name: roleName}).click();
     await page.getByRole('menuitemcheckbox', {name: 'admin'}).click();
@@ -219,8 +219,8 @@ test('all dashboard operations work against the real REST API and Redis', async 
     await login(page, userName, userPassword);
     await page.getByRole('button', {name: accountButtonName(userName), exact: true}).click();
     await page.getByRole('menuitem', {name: 'Change password'}).click();
-    await page.getByRole('textbox', {name: 'Old Password'}).fill(userPassword);
-    await page.getByRole('textbox', {name: 'New Password'}).fill(changedUserPassword);
+    await page.getByLabel('Old Password', {exact: true}).fill(userPassword);
+    await page.getByLabel('New Password', {exact: true}).fill(changedUserPassword);
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('Change password success!')).toBeVisible();
     await page.getByRole('button', {name: accountButtonName(userName), exact: true}).click();

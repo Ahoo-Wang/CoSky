@@ -14,11 +14,12 @@
 import type {Page, Route} from '@playwright/test';
 
 const now = Date.UTC(2026, 7, 18, 1, 0, 0);
+const tokenNow = Math.floor(Date.now() / 1000);
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const token = `${encode({alg: 'none', typ: 'JWT'})}.${encode({
     sub: 'admin',
-    iat: Math.floor(now / 1000),
-    exp: Math.floor(now / 1000) + 86_400,
+    iat: tokenNow,
+    exp: tokenNow + 86_400,
     roles: ['admin'],
 })}.`;
 
@@ -240,7 +241,7 @@ export async function installApiMock(page: Page) {
 export async function login(page: Page) {
     await page.goto('/login');
     await page.getByRole('textbox', {name: 'Username', exact: true}).fill('admin');
-    await page.getByRole('textbox', {name: 'Password', exact: true}).fill('password');
+    await page.getByLabel('Password', {exact: true}).fill('password');
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();
     await page.waitForURL('**/home');
 }
