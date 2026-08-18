@@ -16,6 +16,21 @@ abstract class ChooserSpec {
     abstract fun createChooser(instances: List<ServiceInstance>): LoadBalancer.Chooser
 
     @Test
+    fun ignoreZeroWeight() {
+        val serviceId = "zero-weight"
+        val active = TestServiceInstance.createInstance(serviceId)
+        val instances = listOf(
+            TestServiceInstance.createInstance(serviceId).withWeight(0),
+            active,
+            TestServiceInstance.createInstance(serviceId).withWeight(0),
+        )
+        val chooser = createChooser(instances)
+        repeat(10) {
+            chooser.choose().assert().isEqualTo(active)
+        }
+    }
+
+    @Test
     fun choose() {
         val serviceId = "ChooserSpec"
         val totalTimes = 1000_000_0
