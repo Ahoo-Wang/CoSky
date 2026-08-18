@@ -20,7 +20,6 @@ import {
     ChevronsRight,
     Cloud,
     FileText,
-    ExternalLink,
     LayoutDashboard,
     LogOut,
     Menu,
@@ -54,6 +53,7 @@ import {
 import {Input} from '@/components/ui/input';
 import {cn} from '@/lib/utils';
 import {toast} from 'sonner';
+import {GiteeIcon, GitHubIcon} from '@/components/icons/repository-icons';
 
 const primaryItems = [
     {to: '/home', label: 'Dashboard', icon: LayoutDashboard},
@@ -179,7 +179,10 @@ export const AuthenticatedLayout = () => {
                             <strong>{environmentName}</strong>
                         </span>
                         <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank" rel="noopener noreferrer" className="app-icon-link" aria-label="CoSky on GitHub">
-                            <ExternalLink/>
+                            <GitHubIcon/>
+                        </a>
+                        <a href="https://gitee.com/AhooWang/CoSky" target="_blank" rel="noopener noreferrer" className="app-icon-link app-icon-link--gitee" aria-label="CoSky on Gitee">
+                            <GiteeIcon/>
                         </a>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

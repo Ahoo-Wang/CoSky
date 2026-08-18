@@ -78,6 +78,7 @@ export async function installApiMock(page: Page) {
         ['developer', [{namespace: 'default', action: 'rw'}]],
         ['auditor', [{namespace: 'default', action: 'r'}]],
     ]);
+    const lockedUsers = new Set(['operator']);
     const mockApi: MockApi = {
         emptyCollections: new Set(),
         requests: [],
@@ -176,9 +177,19 @@ export async function installApiMock(page: Page) {
         }
         if (pathname === '/v1/users') {
             await json(route, mockApi.emptyCollections.has('users') ? [] : [
-                {name: 'admin', id: '1', attributes: {}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('admin')},
-                {name: 'operator', id: '2', attributes: {}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('operator')},
+                {name: 'admin', id: '1', attributes: {locked: lockedUsers.has('admin')}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('admin')},
+                {name: 'operator', id: '2', attributes: {locked: lockedUsers.has('operator')}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('operator')},
             ]);
+            return;
+        }
+        if (/^\/v1\/users\/[^/]+\/unlock$/.test(pathname) && method === 'DELETE') {
+            lockedUsers.delete(decodeURIComponent(pathname.split('/').at(-2)!));
+            await json(route, true);
+            return;
+        }
+        if (/^\/v1\/users\/[^/]+\/lock$/.test(pathname) && method === 'PUT') {
+            lockedUsers.add(decodeURIComponent(pathname.split('/').at(-2)!));
+            await json(route, true);
             return;
         }
         if (/^\/v1\/users\/[^/]+\/role$/.test(pathname) && method === 'PATCH') {

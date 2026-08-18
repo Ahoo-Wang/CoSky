@@ -12,7 +12,7 @@
  */
 
 import {useState} from 'react';
-import {Plus, Trash2, Unlock} from 'lucide-react';
+import {Lock, Plus, Trash2, Unlock} from 'lucide-react';
 import {useQuery, useSecurityContext} from '@ahoo-wang/fetcher-react';
 import {AddUserEditor} from './AddUserEditor.tsx';
 import {useRoles} from "../../hooks/useRoles.ts";
@@ -128,6 +128,16 @@ export function UserPage() {
         }
     };
 
+    const handleLock = async (username: string) => {
+        try {
+            await userApiClient.lock(username);
+            toast.success('User locked successfully');
+            loadUsers();
+        } catch {
+            toast.error('Failed to lock user');
+        }
+    };
+
     const columns: DataTableColumn<CoSecPrincipal>[] = [
         {
             header: 'Username',
@@ -155,8 +165,10 @@ export function UserPage() {
             key: 'account',
             cell: record => {
                 const isProtected = record.name === 'cosky' || record.name === currentUser.sub;
+                const locked = record.attributes.locked === true;
                 return <div className="flex flex-wrap gap-1.5">
                     <Badge variant="outline">{record.anonymous ? 'Anonymous' : 'Local'}</Badge>
+                    <Badge variant={locked ? 'destructive' : 'secondary'}>{locked ? 'Locked' : 'Active'}</Badge>
                     {isProtected && <Badge variant="secondary">Protected</Badge>}
                 </div>;
             },
@@ -167,15 +179,17 @@ export function UserPage() {
             className: 'w-44 text-right',
             cell: record => {
                 const isProtected = record.name === 'cosky' || record.name === currentUser.sub;
+                const locked = record.attributes.locked === true;
                 return <div className="flex justify-end gap-1">
-                    <ConfirmButton title="Unlock this user?"
-                                description={`User “${record.name}” will be unlocked.`}
-                                onConfirm={() => handleUnlock(record.name)}
+                    <ConfirmButton title={locked ? 'Unlock this user?' : 'Lock this user?'}
+                                description={`User “${record.name}” will be ${locked ? 'unlocked' : 'locked'}.`}
+                                onConfirm={() => locked ? handleUnlock(record.name) : handleLock(record.name)}
                                 variant="ghost"
                                 size="sm"
                                 disabled={isProtected}
+                                aria-label={`${locked ? 'Unlock' : 'Lock'} ${record.name}`}
                     >
-                        <Unlock/> Unlock
+                        {locked ? <><Unlock/> Unlock</> : <><Lock/> Lock</>}
                     </ConfirmButton>
                     <ConfirmButton
                         title="Are you sure to delete this user?"

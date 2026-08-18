@@ -296,6 +296,10 @@
   color: white;
 }
 
+.app-icon-link--gitee:hover {
+  color: #c71d23;
+}
+
 .app-icon-link svg {
   width: 18px;
 }

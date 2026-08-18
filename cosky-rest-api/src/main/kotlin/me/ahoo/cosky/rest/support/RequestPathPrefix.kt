@@ -43,6 +43,7 @@ object RequestPathPrefix {
     const val USERS_USER = "/{username}"
     const val USERS_USER_PASSWORD = "$USERS_USER/password"
     const val USERS_USER_ROLE = "$USERS_USER/role"
+    const val USERS_USER_LOCK = "$USERS_USER/lock"
     const val USERS_USER_UNLOCK = "$USERS_USER/unlock"
     //endregion
     //region role
