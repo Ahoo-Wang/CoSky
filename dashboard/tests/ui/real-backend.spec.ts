@@ -228,6 +228,11 @@ test('all dashboard operations work against the real REST API and Redis', async 
     await login(page, userName, changedUserPassword);
     await page.getByRole('button', {name: accountButtonName(userName), exact: true}).click();
     await page.getByRole('menuitem', {name: 'Sign out'}).click();
+    const userAuthentication = await request.post(new URL(`/v1/authenticate/${userName}/login`, apiBaseURL).toString(), {
+        data: {password: changedUserPassword},
+    });
+    expect(userAuthentication.ok()).toBe(true);
+    const refreshCredentials = await userAuthentication.json() as {accessToken: string; refreshToken: string};
     for (let attempt = 0; attempt <= 10; attempt++) {
         await request.post(new URL(`/v1/authenticate/${userName}/login`, apiBaseURL).toString(), {
             data: {password: 'definitely-wrong'},
@@ -251,6 +256,16 @@ test('all dashboard operations work against the real REST API and Redis', async 
     await confirm(page);
     await expect(page.getByText('User locked successfully')).toBeVisible();
     await expect(userRow.getByText('Locked', {exact: true})).toBeVisible();
+    const lockedLogin = await request.post(new URL(`/v1/authenticate/${userName}/login`, apiBaseURL).toString(), {
+        data: {password: changedUserPassword},
+    });
+    expect(lockedLogin.ok()).toBe(false);
+    expect(await lockedLogin.text()).toContain('administrator');
+    const lockedRefresh = await request.post(new URL(`/v1/authenticate/${userName}/refresh`, apiBaseURL).toString(), {
+        data: refreshCredentials,
+    });
+    expect(lockedRefresh.ok()).toBe(false);
+    expect(await lockedRefresh.text()).toContain('administrator');
     await userRow.getByRole('button', {name: `Unlock ${userName}`}).click();
     await confirm(page);
     await expect(page.getByText('User unlocked successfully').last()).toBeVisible();

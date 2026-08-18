@@ -94,14 +94,8 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
     }
 
     private fun removeUserInternal(username: String): Mono<Boolean> {
-        val userRoleBindKey = getUserRoleBindKey(username)
-        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
-        return redisTemplate.delete(userRoleBindKey, loginLockKey)
-            .then(
-                redisTemplate
-                    .opsForHash<Any, Any>()
-                    .remove(USER_IDX, username),
-            ).map { affected -> affected > 0 }
+        return executeUserState(USER_OPERATION_REMOVE, username)
+            .map { affected -> affected > 0 }
     }
 
     fun bindRole(username: String, roleBind: Set<String>): Mono<Void> {
@@ -143,21 +137,15 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
 
     @Throws(SecurityException::class)
     fun login(username: String, pwd: String): Mono<out CoSecPrincipal> {
-        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
-        return redisTemplate
-            .opsForValue()
-            .increment(loginLockKey)
+        return executeUserState(USER_OPERATION_LOGIN_ATTEMPT, username)
             .flatMap { tryCount: Long ->
-                val expansion = Math.max(tryCount / MAX_LOGIN_ERROR_TIMES, 1).toInt().toLong()
-                val loginLockExpire = Math.min(LOGIN_LOCK_EXPIRE * expansion, MAX_LOGIN_LOCK_EXPIRE)
-                if (tryCount > MAX_LOGIN_ERROR_TIMES) {
-                    return@flatMap SecurityException(
-                        "User:[$username] sign in freezes for [${
-                            Duration.ofMillis(loginLockExpire).toMinutes()
-                        }] minutes,Too many:[$tryCount] sign in errors!",
-                    ).toMono()
+                if (tryCount == MANUAL_LOCK_RESULT) {
+                    return@flatMap manualLockError(username).toMono()
                 }
-                redisTemplate.expire(loginLockKey, Duration.ofMillis(loginLockExpire))
+                if (tryCount > MAX_LOGIN_ERROR_TIMES) {
+                    return@flatMap failedLoginLockError(username, tryCount).toMono()
+                }
+                Mono.just(tryCount)
             }
             .flatMap {
                 redisTemplate
@@ -174,10 +162,15 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
                                 "username:[$username] - password is incorrect.!",
                             ).toMono()
                         }
-                        redisTemplate.delete(loginLockKey)
+                        executeUserState(USER_OPERATION_LOGIN_SUCCESS, username)
                     }
             }
-            .flatMap { getRoleBind(username).collect(Collectors.toSet()) }
+            .flatMap { lockResult ->
+                if (lockResult == MANUAL_LOCK_RESULT) {
+                    return@flatMap manualLockError(username).toMono()
+                }
+                getRoleBind(username).collect(Collectors.toSet())
+            }
             .map { roleBind ->
                 SimplePrincipal(
                     id = username,
@@ -200,20 +193,66 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
         if (username == CoSecPrincipal.ROOT_ID) {
             return Mono.error(IllegalArgumentException("Root user cannot be locked."))
         }
-        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
-        return existsUser(username).flatMap { exists ->
-            if (!exists) {
-                return@flatMap Mono.error(IllegalArgumentException("User does not exist."))
+        return executeUserState(USER_OPERATION_LOCK, username).flatMap { locked ->
+            if (locked > 0) {
+                Mono.just(true)
+            } else {
+                Mono.error(IllegalArgumentException("User does not exist."))
             }
-            redisTemplate.opsForValue().set(loginLockKey, (MAX_LOGIN_ERROR_TIMES + 1).toString())
         }
     }
 
     internal fun isLocked(username: String): Mono<Boolean> {
+        return getLoginLock(username)
+            .map { lock -> lock == MANUAL_LOCK_MARKER || lock.toLongOrNull()?.let { it > MAX_LOGIN_ERROR_TIMES } == true }
+            .defaultIfEmpty(false)
+    }
+
+    fun ensureUnlocked(username: String): Mono<Void> {
+        return getLoginLock(username)
+            .flatMap { lock ->
+                when {
+                    lock == MANUAL_LOCK_MARKER -> Mono.error(manualLockError(username))
+                    lock.toLongOrNull()?.let { it > MAX_LOGIN_ERROR_TIMES } == true ->
+                        Mono.error(failedLoginLockError(username, lock.toLong()))
+                    else -> Mono.empty()
+                }
+            }.then()
+    }
+
+    private fun getLoginLock(username: String): Mono<String> {
         val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
         return redisTemplate.opsForValue()[loginLockKey]
-            .map { tryCount -> tryCount.toLongOrNull()?.let { it > MAX_LOGIN_ERROR_TIMES } ?: false }
-            .defaultIfEmpty(false)
+    }
+
+    private fun executeUserState(operation: String, username: String): Mono<Long> {
+        return redisTemplate.execute(
+            UserRedisScripts.SCRIPT_USER_STATE,
+            listOf(USER_IDX, getUserRoleBindKey(username), Strings.lenientFormat(USER_LOGIN_LOCK, username)),
+            listOf(
+                operation,
+                username,
+                MANUAL_LOCK_MARKER,
+                MAX_LOGIN_ERROR_TIMES.toString(),
+                LOGIN_LOCK_EXPIRE.toString(),
+            ),
+        ).next()
+    }
+
+    private fun manualLockError(username: String): SecurityException {
+        return SecurityException(
+            "User:[$username] is locked by an administrator. Contact an administrator to unlock the account.",
+        )
+    }
+
+    private fun failedLoginLockError(username: String, tryCount: Long): SecurityException {
+        val expansion = Math.max(tryCount / MAX_LOGIN_ERROR_TIMES, 1).toInt().toLong()
+        val loginLockExpire = Math.min(LOGIN_LOCK_EXPIRE * expansion, MAX_LOGIN_LOCK_EXPIRE)
+        return SecurityException(
+            "User:[$username] sign in freezes for [${
+                Duration.ofMillis(loginLockExpire).toMinutes()
+            }] minutes,Too many:[$tryCount] sign in errors!",
+        )
     }
 
     fun logout() = Unit
@@ -223,6 +262,12 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
         const val USER_ROLE_BIND = Namespaced.SYSTEM + ":user_role_bind:%s"
         const val USER_LOGIN_LOCK = Namespaced.SYSTEM + ":login_lock:%s"
         const val LOCKED_ATTRIBUTE = "locked"
+        internal const val MANUAL_LOCK_MARKER = "manual"
+        private const val MANUAL_LOCK_RESULT = -1L
+        private const val USER_OPERATION_LOCK = "lock"
+        private const val USER_OPERATION_REMOVE = "remove"
+        private const val USER_OPERATION_LOGIN_ATTEMPT = "login-attempt"
+        private const val USER_OPERATION_LOGIN_SUCCESS = "login-success"
         private fun getUserRoleBindKey(username: String): String {
             return Strings.lenientFormat(USER_ROLE_BIND, username)
         }

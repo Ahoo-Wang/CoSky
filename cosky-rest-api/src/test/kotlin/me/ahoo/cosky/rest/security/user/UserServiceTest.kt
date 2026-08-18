@@ -55,10 +55,38 @@ class UserServiceTest {
 
         userService.isLocked("locked-user").test().expectNext(true).verifyComplete()
 
+        `when`(valueOperations[anyString()]).thenReturn(Mono.just(UserService.MANUAL_LOCK_MARKER))
+        userService.isLocked("manually-locked-user").test().expectNext(true).verifyComplete()
+
         `when`(valueOperations[anyString()]).thenReturn(Mono.just("10"))
         userService.isLocked("active-user").test().expectNext(false).verifyComplete()
 
         `when`(valueOperations[anyString()]).thenReturn(Mono.empty())
         userService.isLocked("new-user").test().expectNext(false).verifyComplete()
+    }
+
+    @Test
+    fun ensureUnlockedRejectsLockedUsers() {
+        val redisTemplate = mock(ReactiveStringRedisTemplate::class.java)
+
+        @Suppress("UNCHECKED_CAST")
+        val valueOperations = mock(ReactiveValueOperations::class.java) as ReactiveValueOperations<String, String>
+        `when`(redisTemplate.opsForValue()).thenReturn(valueOperations)
+        `when`(valueOperations[anyString()]).thenReturn(Mono.just(UserService.MANUAL_LOCK_MARKER))
+        val userService = UserService(redisTemplate)
+
+        userService.ensureUnlocked("manual-user")
+            .test()
+            .expectErrorMatches { it is SecurityException && it.message!!.contains("administrator") }
+            .verify()
+
+        `when`(valueOperations[anyString()]).thenReturn(Mono.just("11"))
+        userService.ensureUnlocked("temporary-user")
+            .test()
+            .expectErrorMatches { it is SecurityException && it.message!!.contains("15") }
+            .verify()
+
+        `when`(valueOperations[anyString()]).thenReturn(Mono.just("10"))
+        userService.ensureUnlocked("active-user").test().verifyComplete()
     }
 }
