@@ -21,6 +21,7 @@ import me.ahoo.cosky.core.NamespacedContext
 import org.springframework.boot.env.OriginTrackedMapPropertySource
 import org.springframework.boot.env.PropertySourceLoader
 import org.springframework.cloud.bootstrap.config.PropertySourceLocator
+import org.springframework.core.env.CompositePropertySource
 import org.springframework.core.env.Environment
 import org.springframework.core.env.PropertySource
 import org.springframework.core.io.ByteArrayResource
@@ -88,24 +89,20 @@ class CoSkyPropertySourceLocator(
     private fun getCoSkyPropertySourceOfConfig(
         sourceLoader: PropertySourceLoader,
         config: Config
-    ): OriginTrackedMapPropertySource {
+    ): PropertySource<*> {
         val byteArrayResource = ByteArrayResource(config.data.toByteArray())
         val propertySourceList = sourceLoader.load(config.configId, byteArrayResource)
-        val source = getMapSource(config.configId, propertySourceList)
-        return OriginTrackedMapPropertySource(getNameOfConfigId(config.configId), source)
-    }
-
-    private fun getMapSource(configId: String, propertySourceList: List<PropertySource<*>>): Map<String, Any> {
-        if (propertySourceList.isEmpty()) {
-            return emptyMap()
+        val name = getNameOfConfigId(config.configId)
+        if (propertySourceList.size > 1) {
+            val composite = CompositePropertySource(name)
+            propertySourceList.forEach { composite.addFirstPropertySource(it) }
+            return composite
         }
-        if (propertySourceList.size == 1) {
-            val propertySource = propertySourceList[0]
-            if (propertySource.source is Map<*, *>) {
-                @Suppress("UNCHECKED_CAST")
-                return propertySource.source as Map<String, Any>
-            }
+        val source = propertySourceList.singleOrNull()?.source
+        if (source !is Map<*, *>) {
+            return OriginTrackedMapPropertySource(name, emptyMap<Any, Any>())
         }
-        return mapOf(getNameOfConfigId(configId) to propertySourceList)
+        @Suppress("UNCHECKED_CAST")
+        return OriginTrackedMapPropertySource(name, source as Map<String, Any>)
     }
 }
