@@ -17,7 +17,7 @@ CoSky 是一个高性能的微服务治理平台，提供**服务发现**和**�
 
 - 仓库地址：[https://github.com/Ahoo-Wang/CoSky](https://github.com/Ahoo-Wang/CoSky)
 - Group ID：`me.ahoo.cosky`
-- 当前版本：5.6.0
+- 当前版本：5.7.0
 
 ### 技术栈
 
