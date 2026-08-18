@@ -41,7 +41,7 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     const bindingsContainer = useRef<HTMLDivElement>(null);
     const {result = EMPTY_RESOURCE_ACTIONS} = useQuery<string, ResourceActionDto[]>({
         initialQuery: initialValues?.name,
-        execute: (query, attributes, abortController) => roleApiClient.getResourceBind(query, attributes, abortController),
+        execute: (query, _, abortController) => roleApiClient.getResourceBind(query, {abortController}),
     });
     const {loading, execute: save} = useExecutePromise({
         onSuccess: () => {
@@ -72,6 +72,11 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
             requestAnimationFrame(() => bindingsContainer.current?.querySelector<HTMLButtonElement>('[aria-invalid="true"]')?.focus());
             return;
         }
+        const uniqueBindings = new Set(bindings.map(binding => `${binding.namespace}:${binding.action}`));
+        if (uniqueBindings.size !== bindings.length) {
+            setBindingError('Remove duplicate permission bindings before saving.');
+            return;
+        }
         setBindingError('');
         const body: SaveRoleRequest = {desc, resourceActionBind: bindings};
         await save(() => roleApiClient.saveRole(name, {body}));
@@ -80,11 +85,11 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
     return (
         <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="space-y-2">
-                <Label htmlFor="role-name">Role Name</Label>
+                <Label htmlFor="role-name">Role Name <span className="text-destructive">*</span></Label>
                 <Input id="role-name" value={name} onChange={event => setName(event.target.value)} disabled={!!initialValues} required/>
             </div>
             <div className="space-y-2">
-                <Label htmlFor="role-description">Description</Label>
+                <Label htmlFor="role-description">Description <span className="text-destructive">*</span></Label>
                 <textarea
                     id="role-description"
                     value={desc}
@@ -94,7 +99,10 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
                     className="w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
             </div>
-            <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resource Bind</span><Separator className="flex-1"/></div>
+            <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resource Permissions</span><Separator className="flex-1"/></div>
+                <p className="text-xs text-muted-foreground">Permissions are scoped by namespace. A role with no bindings grants no resource access.</p>
+            </div>
             <div ref={bindingsContainer} className="space-y-3">
                 {bindings.map((binding, index) => (
                     <div key={`${index}-${binding.namespace}-${binding.action}`} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -118,6 +126,9 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
                     <Plus/> Add permission
                 </Button>
             </div>
+            <p className="text-xs text-muted-foreground" aria-live="polite">
+                {bindings.length === 0 ? 'No permission bindings.' : `${bindings.length} permission binding${bindings.length === 1 ? '' : 's'} ready to save.`}
+            </p>
             <div className="flex gap-2">
                 <Button type="submit" loading={loading}>Submit</Button>
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>

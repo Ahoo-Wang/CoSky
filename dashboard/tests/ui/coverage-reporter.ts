@@ -11,14 +11,22 @@
  * limitations under the License.
  */
 
-interface DataTableWrapperProps {
-    children: React.ReactNode;
-}
+import type {Reporter} from '@playwright/test/reporter';
+import {CoverageReport} from 'monocart-coverage-reports';
+import {coverageEnabled, coverageOptions} from './coverage';
 
-export function DataTableWrapper({children}: DataTableWrapperProps) {
-    return (
-        <div data-slot="data-table-wrapper" className="rounded-xl bg-card p-3">
-            {children}
-        </div>
-    );
+export default class CoverageReporter implements Reporter {
+    onBegin() {
+        if (coverageEnabled) new CoverageReport(coverageOptions).cleanCache();
+    }
+
+    async onEnd() {
+        if (!coverageEnabled) return;
+        try {
+            await new CoverageReport(coverageOptions).generate();
+        } catch (error) {
+            console.error(error);
+            return {status: 'failed' as const};
+        }
+    }
 }

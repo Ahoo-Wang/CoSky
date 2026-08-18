@@ -78,6 +78,8 @@ export const AuthenticatedLayout = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const {openDrawer, closeDrawer} = useDrawer();
+    const apiOrigin = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin, window.location.origin).origin;
+    const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || new URL(apiOrigin).host;
 
     const handleChangePwd = () => {
         openDrawer(
@@ -172,6 +174,10 @@ export const AuthenticatedLayout = () => {
                         </Button>
                     </form>
                     <div className="app-header-actions">
+                        <span className="app-environment" title={`Connected to ${apiOrigin}`}>
+                            <span>Environment</span>
+                            <strong>{environmentName}</strong>
+                        </span>
                         <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank" rel="noopener noreferrer" className="app-icon-link" aria-label="CoSky on GitHub">
                             <ExternalLink/>
                         </a>

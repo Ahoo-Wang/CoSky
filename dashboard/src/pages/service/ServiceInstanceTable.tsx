@@ -11,6 +11,7 @@ import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
+import {getInstanceHealth} from './serviceHealth.ts';
 
 export interface ServiceInstanceTableProps {
     namespace: string
@@ -59,6 +60,14 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
         })
     }
     const columns: DataTableColumn<ServiceInstance>[] = [
+        {
+            header: 'Health',
+            key: 'health',
+            cell: record => {
+                const health = getInstanceHealth(record);
+                return <Badge variant={health === 'Healthy' ? 'secondary' : health === 'Expiring soon' ? 'outline' : 'destructive'}>{health}</Badge>;
+            },
+        },
         {header: 'Schema', accessor: 'schema', key: 'schema'},
         {
             header: 'Host', accessor: 'host', key: 'host',

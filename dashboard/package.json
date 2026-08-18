@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint . --fix",
+    "test:unit": "playwright test --config playwright.unit.config.ts",
     "test:ui": "playwright test",
+    "test:coverage": "COSKY_COVERAGE=1 playwright test tests/ui/dashboard.spec.ts",
     "test:ui:real": "playwright test tests/ui/real-backend.spec.ts --workers=1",
     "preview": "vite preview",
     "generate": "fetcher-generator generate -i http://localhost:8080/v3/api-docs -o src/generated"
@@ -54,6 +56,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.4",
     "globals": "^17.6.0",
+    "monocart-coverage-reports": "^2.12.12",
     "shadcn": "^4.18.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",

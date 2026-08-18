@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-import {expect, test} from '@playwright/test';
 import type {Page} from '@playwright/test';
+import {expect, test} from './coverage';
 import {installApiMock, login} from './mock-api';
 import type {MockApi} from './mock-api';
 
@@ -50,6 +50,8 @@ test('dashboard supports health inspection, namespace switching, and sidebar con
     await login(page);
 
     await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
+    await expect(page.getByText('Environment', {exact: true})).toBeVisible();
+    await expect(page.getByText('127.0.0.1:4175', {exact: true})).toBeVisible();
     await expect(page.getByText('Healthy Services')).toBeVisible();
     await expect(page.getByText(/128\s*\/\s*134/)).toBeVisible();
     await expect(page.getByText('Service Topology').first()).toBeVisible();
@@ -57,9 +59,14 @@ test('dashboard supports health inspection, namespace switching, and sidebar con
     await expect(page.getByText('inventory-service')).toBeVisible();
 
     await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
-    await expect(page.getByRole('dialog', {name: 'Service Topology'})).toBeVisible();
+    const topologyDialog = page.getByRole('dialog', {name: 'Service Topology'});
+    await expect(topologyDialog).toBeVisible();
+    await expect(topologyDialog.getByRole('textbox', {name: 'Search nodes...'})).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(topologyDialog).toBeHidden();
+    await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
     await page.getByRole('button', {name: 'Close topology fullscreen'}).click();
-    await expect(page.getByRole('dialog', {name: 'Service Topology'})).toBeHidden();
+    await expect(topologyDialog).toBeHidden();
 
     await page.getByTestId('rf__node-api-gateway').click();
     const directEdge = page.getByTestId('rf__edge-api-gateway-user-service').locator('.react-flow__edge-path');
@@ -98,6 +105,8 @@ test('configuration workflow covers search, history, editor, and import', async 
 
     await page.getByRole('button', {name: 'Expand row'}).first().click();
     await expect(page.getByRole('cell', {name: '3', exact: true})).toBeVisible();
+    await expect(page.getByRole('cell', {name: 'UPDATE', exact: true}).first()).toBeVisible();
+    await expect(page.getByRole('cell', {name: '8f4a21c', exact: true}).first()).toBeVisible();
     await page.getByRole('button', {name: 'Diff', exact: true}).first().click();
     await expect(page.getByRole('dialog', {name: 'Config Version Differ'})).toBeVisible();
     await expect(page.getByRole('button', {name: 'Rollback to version 3'})).toBeVisible();
@@ -130,10 +139,12 @@ test('service workflow expands instances and registers a new instance', async ({
 
     await page.getByRole('button', {name: 'Expand row'}).first().click();
     await expect(page.getByText('api-gateway.default.svc.cluster.local')).toBeVisible();
+    await expect(page.getByText('Healthy', {exact: true})).toBeVisible();
     await page.getByRole('button', {name: 'Add instance', exact: true}).first().click();
 
     await expect(page.getByRole('dialog', {name: 'Add [api-gateway] Instance'})).toBeVisible();
     expect((await page.locator('.monaco-editor:visible').boundingBox())?.height).toBeGreaterThanOrEqual(360);
+    await expect(page.getByRole('button', {name: 'Submit', exact: true})).toBeInViewport();
     await page.getByRole('textbox', {name: 'Host'}).fill('api-gateway-02.default.svc.cluster.local');
     await page.getByRole('spinbutton', {name: 'Port'}).fill('8081');
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
@@ -144,6 +155,7 @@ test('service workflow expands instances and registers a new instance', async ({
 test('administration workflows cover namespaces, users, roles, and audit logs', async ({page}) => {
     await login(page);
     await page.getByRole('link', {name: 'Namespace', exact: true}).click();
+    await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
     await expect(page.getByRole('button', {name: 'Delete'}).first()).toBeDisabled();
     await page.getByRole('textbox', {name: 'Enter namespace'}).fill('qa');
     await page.getByRole('button', {name: 'Add Namespace'}).click();
@@ -151,6 +163,8 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
 
     await page.getByRole('button', {name: 'Security', exact: true}).click();
     await page.getByRole('link', {name: 'User', exact: true}).click();
+    await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
+    await expect(page.getByRole('row').filter({hasText: 'operator'}).getByText('Local', {exact: true})).toBeVisible();
     await page.getByRole('button', {name: 'Roles for operator'}).click();
     await page.getByRole('menuitemcheckbox', {name: 'auditor'}).click();
     await expect(page.getByText('Role bind successfully')).toBeVisible();
@@ -167,6 +181,9 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
     await expect(page.getByText('Add user success!')).toBeVisible();
 
     await page.getByRole('link', {name: 'Role', exact: true}).click();
+    const adminRoleRow = page.getByRole('row').filter({hasText: 'admin'}).first();
+    await expect(adminRoleRow.getByText('default: Read & write', {exact: true})).toBeVisible();
+    await expect(adminRoleRow.getByRole('cell').nth(3)).toHaveText('1');
     await expect(page.getByRole('button', {name: 'Delete admin (system role)'})).toBeDisabled();
     await page.getByRole('button', {name: 'Add Role'}).click();
     expect((await page.getByRole('dialog', {name: 'Add Role'}).boundingBox())?.width).toBeLessThanOrEqual(681);
@@ -183,10 +200,31 @@ test('administration workflows cover namespaces, users, roles, and audit logs', 
     await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
     await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
     await expect(page.getByText('14 items')).toBeVisible();
-    await page.getByRole('textbox', {name: 'Filter this page by time, operator, status, resource, or action...'}).fill('inventory');
+    await page.getByRole('textbox', {name: 'Search all events'}).fill('inventory');
+    await page.getByRole('button', {name: 'Apply'}).click();
     await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
     await expect(page.getByRole('cell', {name: 'order-service'})).toBeHidden();
-    await expect(page.getByText('1 matching item on this page')).toBeVisible();
+    await expect(page.getByText('1 item')).toBeVisible();
+    await page.getByRole('button', {name: 'Details'}).click();
+    await expect(page.getByRole('dialog', {name: 'Audit Event Details'})).toContainText('Probe failed');
+    await page.getByRole('button', {name: 'Close', exact: true}).click();
+
+    const auditDownload = page.waitForEvent('download');
+    await page.getByRole('button', {name: 'Export CSV'}).click();
+    expect((await auditDownload).suggestedFilename()).toMatch(/^cosky_audit_log_\d{8}_\d{6}\.csv$/);
+    await expect(page.getByText('Audit log exported')).toBeVisible();
+
+    await page.getByRole('button', {name: 'Clear audit filters'}).click();
+    await page.getByRole('combobox', {name: 'Filter by status'}).click();
+    await page.getByRole('option', {name: 'Failed', exact: true}).click();
+    await page.getByRole('button', {name: 'Apply'}).click();
+    await expect(page.getByText('1 item')).toBeVisible();
+    await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
+
+    await page.getByLabel('From', {exact: true}).fill('2026-08-19T00:00');
+    await page.getByLabel('To', {exact: true}).fill('2026-08-18T00:00');
+    await page.getByRole('button', {name: 'Apply'}).click();
+    await expect(page.getByText('From must be earlier than To.')).toBeVisible();
 });
 
 test('remaining mutations cover edit, export, rollback, delete, password, and sign-out', async ({page}) => {
@@ -197,6 +235,10 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await accountButton.click();
     await expect(accountButton).toHaveCSS('color', 'rgb(255, 255, 255)');
     await expect(accountButton).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.08)');
+    await expect(page.getByRole('menuitem', {name: 'Change password'})).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('menuitem', {name: 'Change password'})).toBeHidden();
+    await accountButton.click();
     await page.getByRole('menuitem', {name: 'Change password'}).click();
     await page.getByRole('textbox', {name: 'Old Password'}).fill('password');
     await page.getByRole('textbox', {name: 'New Password'}).fill('new-password');
@@ -222,6 +264,19 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await expect(page.getByText('Rollback success')).toBeVisible();
 
     const configRow = page.getByRole('row').filter({hasText: 'application.yaml'}).first();
+    const deleteRequestsBeforeCancel = api.requests.filter(request =>
+        request.method === 'DELETE' && request.path.endsWith('/configs/application.yaml')
+    ).length;
+    await configRow.getByRole('button', {name: 'Delete'}).click();
+    const deleteDialog = page.getByRole('alertdialog', {name: 'Are you sure to delete this config?'});
+    await expect(deleteDialog).toBeVisible();
+    await expect(deleteDialog).toContainText('version history');
+    await deleteDialog.getByRole('button', {name: 'Cancel'}).click();
+    await expect(deleteDialog).toBeHidden();
+    expect(api.requests.filter(request =>
+        request.method === 'DELETE' && request.path.endsWith('/configs/application.yaml')
+    )).toHaveLength(deleteRequestsBeforeCancel);
+    await expect(configRow).toBeVisible();
     await configRow.getByRole('button', {name: 'Delete'}).click();
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('Delete config success')).toBeVisible();
@@ -240,12 +295,14 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await expect(page.getByText('Delete instance success!')).toBeVisible();
     const serviceRow = page.getByRole('row').filter({hasText: 'api-gateway'}).first();
     await serviceRow.getByRole('button', {name: 'Delete'}).click();
+    await expect(page.getByRole('alertdialog')).toContainText('3 registered instances');
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('Service deleted successfully')).toBeVisible();
 
     await page.getByRole('link', {name: 'Namespace', exact: true}).click();
     const namespaceRow = page.getByRole('row').filter({hasText: 'production'});
     await namespaceRow.getByRole('button', {name: 'Delete'}).click();
+    await expect(page.getByRole('alertdialog')).toContainText('not automatically deleted');
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('Namespace deleted successfully')).toBeVisible();
 
@@ -265,6 +322,7 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('Save role success!')).toBeVisible();
     await developerRow.getByRole('button', {name: 'Delete'}).click();
+    await expect(page.getByRole('alertdialog')).toContainText('assigned to 1 user');
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('Role deleted successfully')).toBeVisible();
 
@@ -287,6 +345,37 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     ] as const) {
         expect(api.requests.some(request => request.method === method && request.path.endsWith(path)), `${method} ${path}`).toBe(true);
     }
+});
+
+test('resource pages expose useful empty states and keep primary actions available', async ({page}) => {
+    const api = apiMocks.get(page)!;
+    await login(page);
+
+    api.emptyCollections.add('services');
+    await page.getByRole('link', {name: 'Service', exact: true}).click();
+    await expect(page.getByText('No services registered in this namespace yet.')).toBeVisible();
+    await expect(page.getByRole('button', {name: 'Add Service'})).toBeVisible();
+
+    api.emptyCollections.add('namespaces');
+    await page.reload();
+    await page.getByRole('link', {name: 'Namespace', exact: true}).click();
+    await expect(page.getByText('No namespaces found.')).toBeVisible();
+    await expect(page.getByRole('button', {name: 'Add Namespace'})).toBeVisible();
+
+    await page.getByRole('button', {name: 'Security', exact: true}).click();
+    api.emptyCollections.add('users');
+    await page.getByRole('link', {name: 'User', exact: true}).click();
+    await expect(page.getByText('No users found.')).toBeVisible();
+    await expect(page.getByRole('button', {name: 'Add User'})).toBeVisible();
+
+    api.emptyCollections.add('roles');
+    await page.getByRole('link', {name: 'Role', exact: true}).click();
+    await expect(page.getByText('No roles found.')).toBeVisible();
+    await expect(page.getByRole('button', {name: 'Add Role'})).toBeVisible();
+
+    api.emptyCollections.add('audit');
+    await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
+    await expect(page.getByText('No audit events recorded yet.')).toBeVisible();
 });
 
 test('tables expose loading, empty, sorting, pagination, and server-error states', async ({page}) => {
@@ -357,7 +446,8 @@ test('route guards, command search, password visibility, and form validation sta
     await page.getByRole('button', {name: 'Import', exact: true}).click();
     await page.getByRole('button', {name: 'Submit', exact: true}).click();
     await expect(page.getByText('Please select a ZIP file.')).toBeVisible();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog', {name: 'Import Config'})).toBeHidden();
 
     await page.getByRole('button', {name: 'Add', exact: true}).click();
     await page.getByRole('button', {name: 'Submit', exact: true}).click();

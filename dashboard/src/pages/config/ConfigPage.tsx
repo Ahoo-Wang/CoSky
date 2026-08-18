@@ -122,7 +122,7 @@ export function ConfigPage() {
                     </Button>
                     <ConfirmButton
                         title="Are you sure to delete this config?"
-                        description={`Configuration “${record.configId}” will be deleted.`}
+                        description={`Configuration “${record.configId}” and access to its retained version history will be removed from ${currentNamespace}.`}
                         onConfirm={() => handleDelete(record.configId)}
                         variant="ghost"
                         size="sm"

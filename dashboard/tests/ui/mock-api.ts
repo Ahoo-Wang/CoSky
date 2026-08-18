@@ -53,11 +53,14 @@ const instances = (serviceId: string) => [{
     host: `${serviceId}.default.svc.cluster.local`,
     port: 8080,
     weight: 100,
-    ttlAt: Math.floor(now / 1000) + 3600,
+    ttlAt: Math.floor(Date.now() / 1000) + 3600,
     metadata: {zone: 'cn-east-1'},
     isEphemeral: true,
+    isExpired: false,
     instanceId: `${serviceId}-01`,
     serviceId,
+    uri: `http://${serviceId}.default.svc.cluster.local:8080`,
+    secure: false,
 }];
 
 async function json(route: Route, body: unknown, status = 200) {
@@ -113,8 +116,25 @@ export async function installApiMock(page: Page) {
             await json(route, {namespaces: 12, configs: 342, services: {total: 134, health: 128}, instances: 512});
             return;
         }
+        if (pathname === '/v1/audit-log/export') {
+            await route.fulfill({
+                status: 200,
+                contentType: 'text/csv',
+                headers: {'Content-Disposition': 'attachment; filename="cosky_audit_log.csv"'},
+                body: 'Timestamp,Operator,Client IP,Resource,Action,Status,Message\n',
+            });
+            return;
+        }
         if (pathname === '/v1/audit-log') {
-            const auditLogs = mockApi.emptyCollections.has('audit') ? [] : logs;
+            const search = url.searchParams.get('query')?.trim().toLowerCase();
+            const from = Number(url.searchParams.get('from') ?? Number.NEGATIVE_INFINITY);
+            const to = Number(url.searchParams.get('to') ?? Number.POSITIVE_INFINITY);
+            const successful = url.searchParams.get('successful');
+            const auditLogs = (mockApi.emptyCollections.has('audit') ? [] : logs).filter(log => {
+                const matchesQuery = !search || `${log.operator} ${log.ip} ${log.resource} ${log.action} ${log.status} ${log.msg}`.toLowerCase().includes(search);
+                const matchesStatus = successful === null || (log.status < 400) === (successful === 'true');
+                return matchesQuery && matchesStatus && log.opTime >= from && log.opTime <= to;
+            });
             const offset = Number(url.searchParams.get('offset') ?? 0);
             const limit = Number(url.searchParams.get('limit') ?? 10);
             await json(route, {list: auditLogs.slice(offset, offset + limit), total: auditLogs.length});

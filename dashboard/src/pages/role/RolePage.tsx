@@ -12,9 +12,9 @@
  */
 
 import {Pencil, Plus, Trash2} from 'lucide-react';
-import type {RoleDto} from '../../generated';
+import type {CoSecPrincipal, ResourceActionDto, RoleDto} from '../../generated';
 import {RoleEditor} from './RoleEditor.tsx';
-import {roleApiClient} from "../../services/clients.ts";
+import {roleApiClient, userApiClient} from "../../services/clients.ts";
 import {useRoles} from "../../hooks/useRoles.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {PageHeader} from '../../components/layout/PageHeader.tsx';
@@ -24,9 +24,31 @@ import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
+import {Badge} from '@/components/ui/badge';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+
+const ACTION_LABELS: Record<string, string> = {r: 'Read', w: 'Write', rw: 'Read & write'};
+
+function RolePermissions({roleName}: {roleName: string}) {
+    const {result: bindings = [], loading} = useQuery<string, ResourceActionDto[]>({
+        query: roleName,
+        execute: (name, _, abortController) => roleApiClient.getResourceBind(name, {abortController}),
+    });
+    if (loading) return <span className="text-sm text-muted-foreground">Loading…</span>;
+    if (bindings.length === 0) return <Badge variant="outline">No resource access</Badge>;
+    return <div className="flex max-w-xl flex-wrap gap-1.5">
+        {bindings.map(binding => <Badge key={`${binding.namespace}-${binding.action}`} variant="outline">
+            {binding.namespace}: {ACTION_LABELS[binding.action] ?? binding.action}
+        </Badge>)}
+    </div>;
+}
 
 export function RolePage() {
     const {roles = [], loading, load} = useRoles()
+    const {result: users = [], loading: loadingUsers} = useQuery<null, CoSecPrincipal[]>({
+        initialQuery: null,
+        execute: (_, __, abortController) => userApiClient.query({abortController}),
+    });
     const {openDrawer, closeDrawer} = useDrawer();
 
     const handleAdd = () => {
@@ -84,6 +106,16 @@ export function RolePage() {
             key: 'desc',
         },
         {
+            header: 'Resource Permissions',
+            key: 'permissions',
+            cell: record => <RolePermissions roleName={record.name}/>,
+        },
+        {
+            header: 'Members',
+            key: 'members',
+            cell: record => loadingUsers ? '…' : users.filter(user => user.roles.includes(record.name)).length,
+        },
+        {
             header: 'Action',
             key: 'action',
             className: 'w-40 text-right',
@@ -94,7 +126,7 @@ export function RolePage() {
                     </Button>
                     <ConfirmButton
                         title="Are you sure to delete this role?"
-                        description={`Role “${record.name}” will be removed.`}
+                        description={`Role “${record.name}” is assigned to ${users.filter(user => user.roles.includes(record.name)).length} user(s). Removing it may revoke their access.`}
                         onConfirm={() => handleDelete(record.name)}
                         variant="ghost"
                         size="sm"
@@ -117,7 +149,7 @@ export function RolePage() {
                 <DataTable
                     columns={columns}
                     data={roles}
-                    loading={loading}
+                    loading={loading || loadingUsers}
                     getRowKey={record => record.name}
                     search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
                     emptyMessage="No roles found."

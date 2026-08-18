@@ -10,16 +10,21 @@ pnpm dev
 ```
 
 Set `VITE_API_BASE_URL` to override the CoSky REST API base URL.
+Set `VITE_ENVIRONMENT_NAME` to show an explicit environment or cluster name in the authenticated header.
 
 ## Verification
 
 ```bash
 pnpm lint
 pnpm build
+pnpm test:unit
 pnpm test:ui
+pnpm test:coverage
 ```
 
 `test:ui` runs the Playwright end-to-end suite against an isolated mocked API. It covers authentication, Dashboard, configuration, service instances, namespaces, users, roles, audit logs, and the mobile navigation layout.
+
+`test:coverage` generates HTML and LCOV reports in `coverage/` and enforces 80% statements, functions, and lines plus 75% branches.
 
 Run the production-contract suite against an isolated CoSky REST API and Redis instance with:
 

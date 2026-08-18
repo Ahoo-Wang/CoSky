@@ -11,14 +11,12 @@
  * limitations under the License.
  */
 
-interface DataTableWrapperProps {
-    children: React.ReactNode;
-}
+import {defineConfig} from '@playwright/test';
 
-export function DataTableWrapper({children}: DataTableWrapperProps) {
-    return (
-        <div data-slot="data-table-wrapper" className="rounded-xl bg-card p-3">
-            {children}
-        </div>
-    );
-}
+export default defineConfig({
+    testDir: './tests/unit',
+    fullyParallel: true,
+    forbidOnly: !!process.env.CI,
+    reporter: 'list',
+    timeout: 10_000,
+});

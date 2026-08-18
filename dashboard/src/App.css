@@ -199,6 +199,28 @@
   justify-content: flex-end;
 }
 
+.app-environment {
+  display: grid;
+  max-width: 180px;
+  line-height: 1.15;
+}
+
+.app-environment span {
+  color: #9a9aad;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.app-environment strong {
+  overflow: hidden;
+  color: #f2f2f8;
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-namespace {
   display: flex;
   align-items: center;
@@ -331,7 +353,8 @@
   }
 
   .app-user-name,
-  .app-icon-link {
+  .app-icon-link,
+  .app-environment {
     display: none;
   }
 

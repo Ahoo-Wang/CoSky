@@ -21,7 +21,10 @@ export default defineConfig({
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
-    reporter: 'list',
+    reporter: [
+        ['list'],
+        ['./tests/ui/coverage-reporter.ts'],
+    ],
     timeout: 30_000,
     expect: {
         timeout: 5_000,

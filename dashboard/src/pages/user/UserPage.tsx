@@ -112,7 +112,7 @@ export function UserPage() {
                     return <div className="flex min-h-9 flex-wrap items-center gap-1.5">
                         {record.roles.length > 0
                             ? record.roles.map(role => <Badge key={role} variant="secondary">{role}</Badge>)
-                            : <Badge variant="outline">Protected account</Badge>}
+                            : <span className="text-sm text-muted-foreground">No roles assigned</span>}
                     </div>;
                 }
                 return <MultiSelect
@@ -122,6 +122,17 @@ export function UserPage() {
                                onChange={(value) => handleChangeRole(record.name, value)}
                                placeholder="Select roles"
                 />
+            },
+        },
+        {
+            header: 'Account',
+            key: 'account',
+            cell: record => {
+                const isProtected = record.name === 'cosky' || record.name === currentUser.sub;
+                return <div className="flex flex-wrap gap-1.5">
+                    <Badge variant="outline">{record.anonymous ? 'Anonymous' : 'Local'}</Badge>
+                    {isProtected && <Badge variant="secondary">Protected</Badge>}
+                </div>;
             },
         },
         {
@@ -142,7 +153,7 @@ export function UserPage() {
                     </ConfirmButton>
                     <ConfirmButton
                         title="Are you sure to delete this user?"
-                        description={`User “${record.name}” will be permanently removed.`}
+                        description={`User “${record.name}” with ${record.roles.length} assigned role${record.roles.length === 1 ? '' : 's'} will be permanently removed.`}
                         onConfirm={() => handleDelete(record.name)}
                         variant="ghost"
                         size="sm"
@@ -166,7 +177,7 @@ export function UserPage() {
                     data={users}
                     loading={loading}
                     getRowKey={record => record.name}
-                    search={{placeholder: 'Search users...', getValue: record => record.name}}
+                    search={{placeholder: 'Search users...', getValue: record => `${record.name} ${record.roles.join(' ')}`}}
                     emptyMessage="No users found."
                 />
             </DataTableWrapper>

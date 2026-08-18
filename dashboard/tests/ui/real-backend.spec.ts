@@ -195,6 +195,7 @@ test('all dashboard operations work against the real REST API and Redis', async 
 
     await page.getByRole('textbox', {name: 'Search roles...'}).fill(roleName);
     const roleRow = page.getByRole('row').filter({hasText: roleName}).first();
+    await expect(roleRow.getByText(`${namespace}: Read & write`, {exact: true})).toBeVisible();
     await roleRow.getByRole('button', {name: 'Edit'}).click();
     await expect(page.getByRole('combobox', {name: 'Select Resource Action'})).toContainText('Read and write');
     await page.getByRole('textbox', {name: 'Description'}).fill('Updated end-to-end role');
@@ -250,7 +251,15 @@ test('all dashboard operations work against the real REST API and Redis', async 
 
     await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
     await expect(page.getByText(/\d+ items/)).toBeVisible();
+    await page.getByRole('textbox', {name: 'Search all events'}).fill(userName);
+    await page.getByRole('button', {name: 'Apply'}).click();
     await expect(page.getByRole('cell', {name: username, exact: true}).first()).toBeVisible();
+    await page.getByRole('button', {name: 'Details'}).first().click();
+    await expect(page.getByRole('dialog', {name: 'Audit Event Details'})).toContainText(userName);
+    await page.getByRole('button', {name: 'Close', exact: true}).click();
+    const auditDownloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', {name: 'Export CSV'}).click();
+    expect((await auditDownloadPromise).suggestedFilename()).toMatch(/^cosky_audit_log_\d{8}_\d{6}\.csv$/);
 
     await page.getByRole('link', {name: 'Configuration', exact: true}).click();
     const importedConfigRow = page.getByRole('row').filter({hasText: configId}).first();

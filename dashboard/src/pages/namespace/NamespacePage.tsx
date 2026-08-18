@@ -56,7 +56,7 @@ export function NamespacePage() {
             cell: record => (
                 <ConfirmButton
                     title="Are you sure to delete this namespace?"
-                    description={`Namespace “${record}” will be removed.`}
+                    description={`Namespace “${record}” will be removed from the selector. Namespaced configuration and service data are not automatically deleted.`}
                     onConfirm={() => handleDelete(record)}
                     variant="ghost"
                     size="sm"

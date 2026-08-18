@@ -11,14 +11,12 @@
  * limitations under the License.
  */
 
-interface DataTableWrapperProps {
-    children: React.ReactNode;
-}
+import {expect, test} from '@playwright/test';
+import {isSystemNamespace, SYSTEM_NAMESPACE} from '../../src/pages/namespace/namespaces.ts';
 
-export function DataTableWrapper({children}: DataTableWrapperProps) {
-    return (
-        <div data-slot="data-table-wrapper" className="rounded-xl bg-card p-3">
-            {children}
-        </div>
-    );
-}
+test('recognizes only the exact protected system namespace', () => {
+    expect(isSystemNamespace(SYSTEM_NAMESPACE)).toBe(true);
+    expect(isSystemNamespace('COSKY-{SYSTEM}')).toBe(false);
+    expect(isSystemNamespace(` ${SYSTEM_NAMESPACE}`)).toBe(false);
+    expect(isSystemNamespace('topology')).toBe(false);
+});

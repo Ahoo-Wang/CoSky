@@ -36,18 +36,12 @@ export const NODE_TYPE_COLORS = {
 } as const;
 
 export function isServiceNodeData(data: unknown): data is ServiceNodeData {
-    return (
-        typeof data === 'object' &&
-        data !== null &&
-        'label' in data &&
-        'nodeType' in data &&
-        'inDegree' in data &&
-        'outDegree' in data &&
-        typeof (data as Record<string, unknown>).label === 'string' &&
-        ((data as Record<string, unknown>).nodeType === 'source' ||
-            (data as Record<string, unknown>).nodeType === 'target' ||
-            (data as Record<string, unknown>).nodeType === 'intermediate')
-    );
+    if (typeof data !== 'object' || data === null) return false;
+    const record = data as Record<string, unknown>;
+    return typeof record.label === 'string' &&
+        (record.nodeType === 'source' || record.nodeType === 'target' || record.nodeType === 'intermediate') &&
+        Number.isFinite(record.inDegree) &&
+        Number.isFinite(record.outDegree);
 }
 
 export function getConnectedNodeIds(nodeId: string, edges: Edge[]): Set<string> {

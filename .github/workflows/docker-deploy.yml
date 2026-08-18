@@ -59,13 +59,17 @@ jobs:
         working-directory: dashboard
         run: pnpm build
 
+      - name: Test Dashboard-UI Units
+        working-directory: dashboard
+        run: pnpm test:unit
+
       - name: Install Playwright Chromium
         working-directory: dashboard
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Test Dashboard-UI
+      - name: Test Dashboard-UI with coverage
         working-directory: dashboard
-        run: pnpm test:ui
+        run: pnpm test:coverage
 
       - name: Set up JDK 17
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5

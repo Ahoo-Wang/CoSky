@@ -79,7 +79,7 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
             />
             <Separator/>
             <ConfirmButton title="Rollback to this version?"
-                        description={`Configuration “${configId}” will be restored to version ${version}.`}
+                        description={`Configuration “${configId}” will change from version ${currentConfig?.version} to history version ${version}. A new audit event will be recorded.`}
                         onConfirm={handleRollback}
                         loading={rollbackLoading}
                         className="w-full"

@@ -28,6 +28,7 @@ import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
+import {Badge} from '@/components/ui/badge';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
@@ -97,6 +98,13 @@ export function ServicePage() {
             sort: (left, right) => left.instanceCount - right.instanceCount,
         },
         {
+            header: 'Registration',
+            key: 'registration',
+            cell: record => <Badge variant={record.instanceCount > 0 ? 'secondary' : 'destructive'}>
+                {record.instanceCount > 0 ? 'Registered' : 'No instances'}
+            </Badge>,
+        },
+        {
             header: 'Action',
             key: 'action',
             className: 'w-56 text-right max-sm:sticky max-sm:right-0 max-sm:z-10 max-sm:w-28 max-sm:bg-card max-sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]',
@@ -107,7 +115,7 @@ export function ServicePage() {
                     </Button>
                     <ConfirmButton
                         title="Are you sure to delete this service?"
-                        description={`Service “${record.serviceId}” and its registration will be removed.`}
+                        description={`Service “${record.serviceId}” has ${record.instanceCount} registered instance${record.instanceCount === 1 ? '' : 's'}. Removing it may interrupt discovery for dependents.`}
                         onConfirm={() => handleDeleteService(record.serviceId)}
                         variant="ghost"
                         size="sm"
