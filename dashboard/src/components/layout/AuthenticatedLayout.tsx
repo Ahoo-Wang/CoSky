@@ -11,8 +11,8 @@
  * limitations under the License.
  */
 
-import {useState} from 'react';
-import type {FormEvent} from 'react';
+import {useEffect, useRef, useState} from 'react';
+import type {FocusEvent, FormEvent, KeyboardEvent} from 'react';
 import {
     ArrowRight,
     ChevronDown,
@@ -56,16 +56,16 @@ import {toast} from 'sonner';
 import {GiteeIcon, GitHubIcon} from '@/components/icons/repository-icons';
 
 const primaryItems = [
-    {to: '/home', label: 'Dashboard', icon: LayoutDashboard},
-    {to: '/config', label: 'Configuration', icon: FileText},
-    {to: '/service', label: 'Service', icon: Cloud},
-    {to: '/namespace', label: 'Namespace', icon: Network},
+    {to: '/home', label: 'Dashboard', description: 'System health and topology', icon: LayoutDashboard},
+    {to: '/config', label: 'Configuration', description: 'Manage configuration files', icon: FileText},
+    {to: '/service', label: 'Service', description: 'Services and instances', icon: Cloud},
+    {to: '/namespace', label: 'Namespace', description: 'Isolation boundaries', icon: Network},
 ];
 
 const securityItems = [
-    {to: '/user', label: 'User', icon: User},
-    {to: '/role', label: 'Role', icon: ShieldCheck},
-    {to: '/audit-log', label: 'Audit Log', icon: FileText},
+    {to: '/user', label: 'User', description: 'Accounts and role assignments', icon: User},
+    {to: '/role', label: 'Role', description: 'Access policies', icon: ShieldCheck},
+    {to: '/audit-log', label: 'Audit Log', description: 'Security and operation history', icon: FileText},
 ];
 
 const searchTargets = [...primaryItems, ...securityItems];
@@ -73,13 +73,33 @@ const searchTargets = [...primaryItems, ...securityItems];
 export const AuthenticatedLayout = () => {
     const [collapsed, setCollapsed] = useLayoutCollapsed();
     const [searchValue, setSearchValue] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [activeSearchIndex, setActiveSearchIndex] = useState(0);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const {currentUser, signOut} = useSecurityContext();
     const navigate = useNavigate();
     const location = useLocation();
     const {openDrawer, closeDrawer} = useDrawer();
     const apiOrigin = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin, window.location.origin).origin;
     const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || new URL(apiOrigin).host;
+    const searchQuery = searchValue.trim().toLowerCase();
+    const filteredSearchTargets = searchTargets.filter(item =>
+        `${item.label} ${item.description}`.toLowerCase().includes(searchQuery)
+    );
+    const commandShortcut = '/';
+
+    useEffect(() => {
+        const focusSearch = (event: globalThis.KeyboardEvent) => {
+            if (event.key !== '/' && event.code !== 'Slash') return;
+            if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+            event.preventDefault();
+            searchInputRef.current?.focus();
+            setSearchOpen(true);
+        };
+        window.addEventListener('keydown', focusSearch);
+        return () => window.removeEventListener('keydown', focusSearch);
+    }, []);
 
     const handleChangePwd = () => {
         openDrawer(
@@ -91,21 +111,64 @@ export const AuthenticatedLayout = () => {
         );
     };
 
+    const navigateToSearchTarget = (target: (typeof searchTargets)[number]) => {
+        navigate(target.to);
+        setSearchValue('');
+        setSearchOpen(false);
+        searchInputRef.current?.blur();
+    };
+
     const handleSearch = (event: FormEvent) => {
         event.preventDefault();
-        const query = searchValue.trim().toLowerCase();
-        if (!query) return;
-        const target = searchTargets.find(item => item.label.toLowerCase().includes(query));
+        const target = filteredSearchTargets[activeSearchIndex];
         if (target) {
-            navigate(target.to);
-            setSearchValue('');
+            navigateToSearchTarget(target);
             return;
         }
         toast.error(`No page matches “${searchValue.trim()}”.`);
     };
 
+    const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            event.currentTarget.form?.requestSubmit();
+            return;
+        }
+        if (event.key === 'Escape') {
+            setSearchOpen(false);
+            return;
+        }
+        if (!['ArrowDown', 'ArrowUp'].includes(event.key) || filteredSearchTargets.length === 0) return;
+        event.preventDefault();
+        setSearchOpen(true);
+        setActiveSearchIndex(index =>
+            event.key === 'ArrowDown'
+                ? (index + 1) % filteredSearchTargets.length
+                : (index - 1 + filteredSearchTargets.length) % filteredSearchTargets.length
+        );
+    };
+
+    const handleSearchFocus = () => {
+        const nextIndex = filteredSearchTargets.findIndex(item => item.to !== location.pathname);
+        setActiveSearchIndex(nextIndex >= 0 ? nextIndex : 0);
+        setSearchOpen(true);
+    };
+
+    const handleLayoutKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== '/' && event.code !== 'Slash') return;
+        if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+        event.preventDefault();
+        event.stopPropagation();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+    };
+
+    const handleSearchBlur = (event: FocusEvent<HTMLFormElement>) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false);
+    };
+
     return (
-        <div className={cn('app-shell', collapsed && 'app-shell-collapsed', mobileOpen && 'app-mobile-open')}>
+        <div className={cn('app-shell', collapsed && 'app-shell-collapsed', mobileOpen && 'app-mobile-open')} onKeyDownCapture={handleLayoutKeyDown}>
             <aside className="app-sidebar">
                 <NavLink to="/home" className="app-brand" onClick={() => setMobileOpen(false)}>
                     <img src={CoskyLogo} alt="CoSky"/>
@@ -160,18 +223,70 @@ export const AuthenticatedLayout = () => {
                         </Button>
                         <CurrentNamespaceSelector/>
                     </div>
-                    <form className="app-command-search" role="search" onSubmit={handleSearch}>
+                    <form className="app-command-search" role="search" onSubmit={handleSearch} onBlur={handleSearchBlur}>
                         <Search/>
                         <Input
-                            type="search"
+                            ref={searchInputRef}
+                            type="text"
+                            role="combobox"
                             value={searchValue}
-                            onChange={event => setSearchValue(event.target.value)}
-                            placeholder="Go to Dashboard, Configuration, Service..."
+                            onChange={event => {
+                                setSearchValue(event.target.value);
+                                setActiveSearchIndex(0);
+                                setSearchOpen(true);
+                            }}
+                            onFocus={handleSearchFocus}
+                            onKeyDown={handleSearchKeyDown}
+                            placeholder="Search pages..."
                             aria-label="Search navigation"
+                            aria-expanded={searchOpen}
+                            aria-controls="navigation-search-results"
+                            aria-autocomplete="list"
+                            aria-activedescendant={searchOpen && filteredSearchTargets.length > 0 ? `navigation-search-result-${activeSearchIndex}` : undefined}
                         />
-                        <Button type="submit" variant="ghost" size="icon-sm" className="app-command-search-submit" aria-label="Go to page">
-                            <ArrowRight/>
-                        </Button>
+                        {searchValue ? (
+                            <Button type="submit" variant="ghost" size="icon-sm" className="app-command-search-submit" aria-label="Open selected page">
+                                <ArrowRight/>
+                            </Button>
+                        ) : <kbd className="app-command-shortcut">{commandShortcut}</kbd>}
+                        {searchOpen && (
+                            <div id="navigation-search-results" className="app-command-results" role="listbox" aria-label="Navigation results">
+                                <div className="app-command-results-header">
+                                    <span>{searchQuery ? 'Matching pages' : 'Quick navigation'}</span>
+                                    <small>{filteredSearchTargets.length} result{filteredSearchTargets.length === 1 ? '' : 's'}</small>
+                                </div>
+                                {filteredSearchTargets.map((item, index) => {
+                                    const Icon = item.icon;
+                                    const isCurrent = location.pathname === item.to;
+                                    return <button
+                                        key={item.to}
+                                        id={`navigation-search-result-${index}`}
+                                        type="button"
+                                        role="option"
+                                        aria-selected={index === activeSearchIndex}
+                                        className="app-command-result"
+                                        onMouseEnter={() => setActiveSearchIndex(index)}
+                                        onClick={() => navigateToSearchTarget(item)}
+                                    >
+                                        <span className="app-command-result-icon"><Icon/></span>
+                                        <span className="app-command-result-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
+                                        {isCurrent ? <span className="app-command-result-current">Current</span> : <ArrowRight/>}
+                                    </button>;
+                                })}
+                                {filteredSearchTargets.length === 0 && (
+                                    <div className="app-command-empty" role="status">
+                                        <Search/>
+                                        <strong>No pages found</strong>
+                                        <span>Try “service”, “user”, or “audit”.</span>
+                                    </div>
+                                )}
+                                <div className="app-command-results-footer">
+                                    <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
+                                    <span><kbd>Enter</kbd> Open</span>
+                                    <span><kbd>Esc</kbd> Close</span>
+                                </div>
+                            </div>
+                        )}
                     </form>
                     <div className="app-header-actions">
                         <span className="app-environment" title={`Connected to ${apiOrigin}`}>

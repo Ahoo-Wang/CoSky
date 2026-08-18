@@ -478,12 +478,28 @@ test('route guards, command search, password visibility, and form validation sta
     await page.getByRole('button', {name: 'Hide password'}).click();
     await login(page);
 
-    const commandSearch = page.getByRole('searchbox', {name: 'Search navigation'});
+    const commandSearch = page.getByRole('combobox', {name: 'Search navigation'});
+    await expect(commandSearch).toBeVisible();
+    await page.keyboard.press('/');
+    await expect(commandSearch).toBeFocused();
+    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeVisible();
+    await expect(page.getByRole('option', {name: /Configuration/})).toHaveAttribute('aria-selected', 'true');
+    await commandSearch.press('Enter');
+    await expect(page).toHaveURL(/\/config$/);
+    await page.keyboard.press('/');
+    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeVisible();
+    await commandSearch.press('Escape');
+    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeHidden();
+    await commandSearch.fill('service');
+    await expect(page.getByRole('option', {name: /Service/})).toBeVisible();
+    await commandSearch.press('Enter');
+    await expect(page).toHaveURL(/\/service$/);
     await commandSearch.fill('configuration');
     await commandSearch.press('Enter');
     await expect(page).toHaveURL(/\/config$/);
     await commandSearch.fill('missing-page');
-    await page.getByRole('button', {name: 'Go to page'}).click();
+    await expect(page.getByText('No pages found')).toBeVisible();
+    await page.getByRole('button', {name: 'Open selected page'}).click();
     await expect(page.getByText('No page matches “missing-page”.')).toBeVisible();
 
     await page.getByRole('button', {name: 'Import', exact: true}).click();
