@@ -137,6 +137,10 @@ object RedisKeys {
 }
 ```
 
+`RedisKeys` is an explicit utility, not a global key interceptor. `NamespaceService`, `ConfigKeyGenerator`, `DiscoveryKeyGenerator`, and the REST API preserve the namespace string supplied by the caller. `CoSkyProperties` applies `RedisKeys.ofKey(true, namespace)` to the Spring Cloud client's configured namespace, so its resulting value must exactly match the namespace used by the REST API and RBAC bindings.
+
+For Redis Cluster, choose a namespace containing a non-empty hash tag before writing data—for example, `{dev}`, `{prod}`, or `cosky-{system}`. Plain `dev` and tagged `{dev}` generate different physical keys. Converting an existing namespace requires an explicit data migration and rollback plan; changing only configuration makes the old data appear missing.
+
 ### Key Pattern Reference
 
 The following table shows how keys are structured across all domains. Each module contributes its own key generator (`DiscoveryKeyGenerator`, `ConfigKeyGenerator`) that uses the same `{namespace}:` prefix convention:

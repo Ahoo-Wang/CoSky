@@ -74,6 +74,11 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 | PUT | `/v1/namespaces/{namespace}` | Create a namespace | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
 | DELETE | `/v1/namespaces/{namespace}` | Remove a namespace | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
 
+> [!IMPORTANT]
+> The REST API passes `{namespace}` to namespace storage and Redis key generators exactly as supplied; it does not add or normalize Redis hash tags. In Redis Cluster, use a namespace with a non-empty hash tag, such as `{dev}`, `{prod}`, or `cosky-{system}`. Use that exact value consistently in namespace endpoints, config and service URLs, current-namespace selection, RBAC bindings, and Spring clients.
+>
+> `dev` and `{dev}` are different Redis key prefixes and therefore different data sets. Do not add braces to an existing namespace in place. A change requires key and RBAC inventory, backup, data migration, reconciliation, cutover, and a tested rollback plan.
+
 ### Stat Endpoints
 
 | Method | Path | Description | Controller Method | Source |

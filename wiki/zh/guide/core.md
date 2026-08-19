@@ -137,6 +137,10 @@ object RedisKeys {
 }
 ```
 
+`RedisKeys` 是显式工具，而不是全局 key 拦截器。`NamespaceService`、`ConfigKeyGenerator`、`DiscoveryKeyGenerator` 和 REST API 都会保留调用方传入的 namespace 字符串。`CoSkyProperties` 会对 Spring Cloud 客户端配置的 namespace 调用 `RedisKeys.ofKey(true, namespace)`，因此其结果必须与 REST API 和 RBAC 绑定使用的 namespace 完全一致。
+
+在 Redis Cluster 中，应在写入数据前确定包含非空 hashtag 的命名空间，例如 `{dev}`、`{prod}` 或 `cosky-{system}`。普通 `dev` 与带 hashtag 的 `{dev}` 会生成不同的物理 key。转换既有命名空间必须制定明确的数据迁移与回滚方案；只修改配置会使旧数据表现为“丢失”。
+
 ### 键模式参考
 
 下表展示了所有领域中键的结构方式。每个模块都有自己的键生成器（`DiscoveryKeyGenerator`、`ConfigKeyGenerator`），使用相同的 `{namespace}:` 前缀约定：
