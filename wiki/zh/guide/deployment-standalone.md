@@ -8,32 +8,33 @@ title: "Standalone Deployment"
 
 独立部署选项允许您直接在主机上运行 CoSky，无需 Docker 或 Kubernetes。这种方式非常适合开发环境、小规模部署或没有容器运行时的环境。独立发行版将 CoSky 打包为一个包含启动脚本、配置文件和内置 Dashboard UI 的自包含应用程序。
 
-## 下载并解压
+## 构建并解压
 
-下载最新版本的压缩包并解压：
+GitHub Releases 并未发布预构建的压缩包，因此需要从源码构建独立发行版（需要 JDK 17+）：
 
 ```bash
-# 下载最新版本
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# 构建发行版压缩包
+./gradlew :cosky-rest-api:distTar
 
 # 解压
-tar -xvf cosky-server.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
 
 # 进入目录
-cd cosky-server
+cd cosky-rest-api-5.7.2
 ```
+
+发行版会将 `dashboard/dist` 中的 Dashboard 静态文件打包到 `ui/` 目录。如果该目录不存在，请先执行 `cd dashboard && pnpm install && pnpm build` 构建 Dashboard。
 
 解压后的目录结构包含：
 
 ```
-cosky-server/
+cosky-rest-api-5.7.2/
   bin/
-    cosky              # 启动脚本 (Unix)
+    cosky-rest-api     # 启动脚本 (Unix)
   config/
     application.yaml   # 应用程序配置
     bootstrap.yaml     # 引导配置
-  dashboard/
-    dist/              # Dashboard UI 静态文件
+  ui/                  # Dashboard UI 静态文件
   lib/
     *.jar              # 运行时依赖
 ```
@@ -43,7 +44,7 @@ cosky-server/
 使用必需的 Redis 连接参数启动 CoSky：
 
 ```bash
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 所有 Spring Boot 属性都可以使用 `--property=value` 格式作为命令行参数传入。也可以将它们设置为环境变量或直接编辑配置文件。
@@ -60,7 +61,7 @@ flowchart TD
     C -->|"是"| E["Kubernetes 部署"]
     C -->|"否"| F["Docker / Docker Compose"]
     D --> G{"JDK 17+<br>已安装?"}
-    G -->|"是"| H["下载压缩包<br>bin/cosky"]
+    G -->|"是"| H["构建压缩包<br>bin/cosky-rest-api"]
     G -->|"否"| I["安装 JDK 17+"]
     I --> H
     H --> J{"Redis<br>可用?"}
@@ -104,7 +105,7 @@ spring:
           weight: 8
   web:
     resources:
-      static-locations: file:./dashboard/dist/
+      static-locations: file:./ui/
 cosky:
   security:
     enabled: true
@@ -203,7 +204,7 @@ sequenceDiagram
     participant R as Redis
     participant US as cosky（超级用户）
 
-    OS->>JVM: bin/cosky --server.port=8080
+    OS->>JVM: bin/cosky-rest-api --server.port=8080
     JVM->>SB: 启动应用上下文
     SB->>SB: 加载 bootstrap.yaml
     SB->>SB: 解析应用名称: cosky-rest-api
@@ -266,7 +267,7 @@ flowchart TD
 
 ```bash
 export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## 服务发现与自注册
@@ -310,7 +311,7 @@ logging:
 要更改日志位置，请覆盖 `logging.file.name` 属性：
 
 ```bash
-bin/cosky --logging.file.name=/var/log/cosky/cosky.log
+bin/cosky-rest-api --logging.file.name=/var/log/cosky/cosky.log
 ```
 
 ## 相关页面

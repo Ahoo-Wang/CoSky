@@ -31,7 +31,7 @@ features:
     details: 100K+ QPS for standard operations, 70M+ QPS with consistency caching layer. Powered by Redis Lua scripts and in-process caching.
   - title: Spring Cloud Native
     icon: 🌿
-    details: Drop-in Spring Cloud integration via starters. Supports both reactive (WebClient) and blocking (RestClient) programming models.
+    details: Drop-in Spring Cloud integration via starters for both configuration and service discovery.
   - title: Security & RBAC
     icon: 🔐
     details: JWT authentication, namespace-scoped RBAC, audit logging, and policy-based authorization powered by CoSec.

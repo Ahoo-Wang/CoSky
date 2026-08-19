@@ -31,7 +31,7 @@ features:
     details: 标准操作 100K+ QPS，一致性缓存层可达 70M+ QPS。基于 Redis Lua 脚本和进程内缓存。
   - title: Spring Cloud 原生集成
     icon: 🌿
-    details: 通过 Starter 开箱即用的 Spring Cloud 集成。同时支持响应式（WebClient）和阻塞式（RestClient）编程模型。
+    details: 通过 Starter 开箱即用的 Spring Cloud 集成，同时覆盖配置中心与服务发现。
   - title: 安全与 RBAC
     icon: 🔐
     details: JWT 认证、命名空间级别的 RBAC 权限控制、审计日志和基于 CoSec 的策略授权。

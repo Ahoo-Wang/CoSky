@@ -8,32 +8,33 @@ title: "Standalone Deployment"
 
 The standalone deployment option lets you run CoSky directly on a host machine without Docker or Kubernetes. This approach is ideal for development environments, small-scale deployments, or environments where container runtimes are not available. The standalone distribution packages CoSky as a self-contained application with startup scripts, configuration files, and the built-in dashboard UI.
 
-## Download and Extract
+## Build and Extract
 
-Download the latest release tarball and extract it:
+GitHub releases do not publish a pre-built tarball, so build the standalone distribution from source (JDK 17+ required):
 
 ```bash
-# Download the latest release
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# Build the distribution tarball
+./gradlew :cosky-rest-api:distTar
 
 # Extract
-tar -xvf cosky-server.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
 
 # Enter the directory
-cd cosky-server
+cd cosky-rest-api-5.7.2
 ```
+
+The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`. If that directory is missing, build the dashboard first with `cd dashboard && pnpm install && pnpm build`.
 
 The extracted directory structure contains:
 
 ```
-cosky-server/
+cosky-rest-api-5.7.2/
   bin/
-    cosky              # Startup script (Unix)
+    cosky-rest-api     # Startup script (Unix)
   config/
     application.yaml   # Application configuration
     bootstrap.yaml     # Bootstrap configuration
-  dashboard/
-    dist/              # Dashboard UI static files
+  ui/                  # Dashboard UI static files
   lib/
     *.jar              # Runtime dependencies
 ```
@@ -43,7 +44,7 @@ cosky-server/
 Start CoSky with the required Redis connection parameter:
 
 ```bash
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 All Spring Boot properties can be passed as command-line arguments using the `--property=value` format. Alternatively, set them as environment variables or edit the configuration files directly.
@@ -60,7 +61,7 @@ flowchart TD
     C -->|"Yes"| E["Kubernetes Deployment"]
     C -->|"No"| F["Docker / Docker Compose"]
     D --> G{"JDK 17+<br>installed?"}
-    G -->|"Yes"| H["Download tarball<br>bin/cosky"]
+    G -->|"Yes"| H["Build tarball<br>bin/cosky-rest-api"]
     G -->|"No"| I["Install JDK 17+"]
     I --> H
     H --> J{"Redis<br>available?"}
@@ -104,7 +105,7 @@ spring:
           weight: 8
   web:
     resources:
-      static-locations: file:./dashboard/dist/
+      static-locations: file:./ui/
 cosky:
   security:
     enabled: true
@@ -203,7 +204,7 @@ sequenceDiagram
     participant R as Redis
     participant US as cosky (super user)
 
-    OS->>JVM: bin/cosky --server.port=8080
+    OS->>JVM: bin/cosky-rest-api --server.port=8080
     JVM->>SB: start application context
     SB->>SB: load bootstrap.yaml
     SB->>SB: resolve application name: cosky-rest-api
@@ -266,7 +267,7 @@ To pass JVM options through the startup script, set the `JAVA_OPTS` environment 
 
 ```bash
 export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## Service Discovery and Self-Registration
@@ -310,7 +311,7 @@ logging:
 To change the log location, override the `logging.file.name` property:
 
 ```bash
-bin/cosky --logging.file.name=/var/log/cosky/cosky.log
+bin/cosky-rest-api --logging.file.name=/var/log/cosky/cosky.log
 ```
 
 ## Related Pages

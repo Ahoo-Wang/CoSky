@@ -156,7 +156,7 @@ sequenceDiagram
 | Lettuce | 最新 | Redis 客户端驱动（异步、响应式） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Project Reactor | 最新 | 响应式编程模型（Flux、Mono） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Lua (Redis 脚本) | N/A | 原子多步操作 | [DiscoveryRedisScripts.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) |
-| Gradle (Kotlin DSL) | 8.x | 构建系统 | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
+| Gradle (Kotlin DSL) | 9.x | 构建系统 | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
 
 ## 设计原则
 

@@ -136,7 +136,7 @@ The key detail is that the cache stores a `Mono<Config>` that has been `.cache()
 
 ## Cache Invalidation Flow
 
-When any process modifies a configuration, the Lua script publishes a change event on the Redis PubSub channel. Every instance listening on that channel receives the invalidation and refreshes its cache.
+When any process modifies a configuration, the Lua script publishes a change event on the Redis PubSub channel. Every instance listening on that channel receives the invalidation and lazily refreshes its cache.
 
 ```mermaid
 sequenceDiagram
@@ -157,16 +157,14 @@ sequenceDiagram
     PS-->>Listener: Message received
     Listener->>Listener: Parse ConfigChangedEvent
     Listener-->>RCS: onConfigChanged(event)
-    RCS->>Cache: remove old entry
-    RCS->>RDS: getConfig(namespace, configId)
-    RDS->>Redis: HGETALL
-    Redis-->>RDS: new config data
-    RDS-->>RCS: Config
-    RCS->>Cache: put new cached Mono
-    Note over Cache: Next read returns<br>fresh data
+    RCS->>Cache: Overwrite entry with a new cold<br>Mono cached with 1-minute TTL
+    Note over RCS,Cache: No Redis call happens here -- the fetch is deferred<br>until the next getConfig() subscriber arrives
+    Note over Cache: Next read re-executes the fetch<br>and returns fresh data
 ```
 
 <!-- Sources: RedisConsistencyConfigService.kt:68, RedisConfigEventListenerContainer.kt:18, config_set.lua:1 -->
+
+The invalidation path is a single overwrite: `onConfigChanged` replaces the map entry with `delegate.getConfig(...).cache(CONFIG_CACHE_TTL)` -- a cold `Mono` that is never subscribed at invalidation time (hence the `@Suppress("ReactiveStreamsUnusedPublisher")` in the source). The event type (`SET`, `REMOVE`, `ROLLBACK`) is not inspected; all three follow the identical overwrite path, and a removed config simply yields a cached *empty* `Mono`.
 
 ## Event Listener Container
 
@@ -212,28 +210,23 @@ The local cache for each configuration entry goes through a well-defined set of 
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Empty: Initial state
+    [*] --> CachedNoTTL: First getConfig() call<br>entry = getConfig().cache()
 
-    Empty --> Loading: First getConfig() call
-    Loading --> Valid: Redis returns Config data
-    Loading --> Empty: Redis returns null / error
+    CachedNoTTL --> CachedNoTTL: Subsequent getConfig() (cache hit,<br>never expires on its own)
+    CachedNoTTL --> CachedTTL: Any PubSub event (set / remove /<br>rollback) overwrites the entry
 
-    Valid --> Valid: Subsequent getConfig() (cache hit)
-    Valid --> Invalidated: PubSub event received
+    CachedTTL --> CachedTTL: getConfig() within TTL (cache hit)
+    CachedTTL --> Refetching: Cache TTL reached (1 minute)
+    Refetching --> CachedTTL: Next getConfig() re-executes the fetch<br>and caches for another minute
+    CachedTTL --> CachedTTL: Next PubSub event (overwrite)
 
-    Invalidated --> Loading: Re-fetch from Redis
-    Invalidated --> Removed: Event type = REMOVE
-
-    Removed --> Loading: New getConfig() call
-    Removed --> [*]: Config no longer exists
-
-    Valid --> TTLExpired: Cache TTL reached (1 minute)
-    TTLExpired --> Loading: Re-fetch from Redis
+    CachedNoTTL --> [*]: Listener terminated<br>(entry removed from map)
+    CachedTTL --> [*]: Listener terminated<br>(entry removed from map)
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46 -->
+<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:57, RedisConsistencyConfigService.kt:68 -->
 
-The `CONFIG_CACHE_TTL` is set to `Duration.ofMinutes(1)`. When a cache entry is refreshed due to a PubSub invalidation event, the new `Mono` is created with `.cache(CONFIG_CACHE_TTL)`, ensuring that even without further invalidation events, stale data is eventually evicted.
+The `CONFIG_CACHE_TTL` is set to `Duration.ofMinutes(1)`, but it applies **only to entries written by the PubSub refresh path** (`onConfigChanged` uses `.cache(CONFIG_CACHE_TTL)`). The initial cache entry, created on the first `getConfig()` call, uses plain `.cache()` with **no TTL** and never expires on its own. If the PubSub listener terminates, its `doFinally` hook removes the entry from the map, so the next `getConfig()` re-creates the entry and re-subscribes.
 
 Source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)
 
@@ -281,7 +274,9 @@ Each cached configuration entry occupies memory in the JVM heap for the `Concurr
 
 ### PubSub Reliability
 
-Redis PubSub is a fire-and-forget protocol -- if an instance is temporarily disconnected (network blip, GC pause), it will miss invalidation messages. CoSky mitigates this through the `CONFIG_CACHE_TTL` of 1 minute: even if an invalidation event is missed, the cache entry will expire and be re-fetched from Redis within 60 seconds.
+Redis PubSub is a fire-and-forget protocol -- if an instance is temporarily disconnected (network blip, GC pause), it will miss invalidation messages. The `CONFIG_CACHE_TTL` of 1 minute bounds this staleness **only for entries that have already been refreshed by a previous invalidation event**: those entries are re-fetched from Redis at most 60 seconds after their last refresh. The initial cache entry, however, is created with plain `.cache()` (no TTL) and never expires on its own -- if the very first invalidation event for a config is missed, that entry keeps serving stale data until a later event arrives, the listener terminates (which evicts the entry), or the process restarts.
+
+Source: [RedisConsistencyConfigService.kt:64-76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L64)
 
 ### Delegation Pattern
 

@@ -156,7 +156,7 @@ sequenceDiagram
 | Lettuce | latest | Redis client driver (async, reactive) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Project Reactor | latest | Reactive programming model (Flux, Mono) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Lua (Redis scripting) | N/A | Atomic multi-step operations | [DiscoveryRedisScripts.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) |
-| Gradle (Kotlin DSL) | 8.x | Build system | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
+| Gradle (Kotlin DSL) | 9.x | Build system | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
 
 ## Design Principles
 

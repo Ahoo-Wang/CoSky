@@ -76,6 +76,10 @@ spec:
 
 <!-- Sources: k8s/deployment/cosky.yml:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
+::: tip Image tag
+The in-repo manifests pin the image tag to `5.3.5` ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)), while the current release is `5.7.2` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). Override the image (e.g. `ahoowang/cosky:latest` on Docker Hub) to run the latest version.
+:::
+
 ## Clustered Redis Deployment
 
 For production environments with Redis Cluster, use the cluster manifest which reads connection details from a Kubernetes Secret:

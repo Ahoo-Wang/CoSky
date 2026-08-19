@@ -269,7 +269,7 @@ val instance = Instance.asInstance(
     metadata = mapOf("version" to "v2")
 )
 
-serviceRegistry.register(instance = instance).block()
+serviceRegistry.register(serviceInstance = instance).block()
 ```
 
 权重存储在 Redis 哈希的 `weight` 字段中，由 `ServiceInstanceCodec` 解码 ([ServiceInstanceCodec.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L32))。

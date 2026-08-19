@@ -94,7 +94,7 @@ CoSky 提供两种发现客户端实现，将 CoSky `ServiceDiscovery` API 适�
 
 ### 阻塞式：CoSkyDiscoveryClient
 
-[CoSkyDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt) 实现了 Spring 的 `DiscoveryClient`。它委托给响应式 `ServiceDiscovery` 并使用配置的超时时间进行阻塞（[CoSkyDiscoveryClient.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L33)）。来自 CoSky 的每个 `ServiceInstance` 都被包装在 `CoSkyServiceInstance` 适配器中。
+[CoSkyDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt) 实现了 Spring 的 `DiscoveryClient`。它委托给响应式 `ServiceDiscovery` 并使用配置的超时时间进行阻塞（[CoSkyDiscoveryClient.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L36)）。来自 CoSky 的每个 `ServiceInstance` 都被包装在 `CoSkyServiceInstance` 适配器中。
 
 ### 响应式：CoSkyReactiveDiscoveryClient
 
@@ -135,7 +135,7 @@ sequenceDiagram
 
 ### CoSkyServiceRegistry
 
-[CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt) 实现了 Spring 的 `ServiceRegistry<CoSkyRegistration>` 接口。在 `register()` 时，它委托给 CoSky `ServiceRegistry` 将实例持久化到 Redis，然后启动心跳 `RenewInstanceService`（[CoSkyServiceRegistry.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L30)）。在 `deregister()` 时，它移除实例并停止心跳。`close()` 方法也会停止续期服务（[CoSkyServiceRegistry.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L45)）。
+[CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt) 实现了 Spring 的 `ServiceRegistry<CoSkyRegistration>` 接口。在 `register()` 时，它委托给 CoSky `ServiceRegistry` 将实例持久化到 Redis，然后启动心跳 `RenewInstanceService`（[CoSkyServiceRegistry.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L30)）。在 `deregister()` 时，它仅通过 CoSky `ServiceRegistry` 移除实例——心跳会继续运行（[CoSkyServiceRegistry.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L38)）。续期服务由 `close()` 方法停止（[CoSkyServiceRegistry.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L45)）。
 
 ### CoSkyRegistration
 
@@ -147,7 +147,7 @@ sequenceDiagram
 
 ### 非 Web 应用自动注册
 
-[CoSkyAutoServiceRegistrationOfNoneWeb](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt) 处理非 Web 应用程序（如 gRPC 服务、CLI 工具）。它监听 `ApplicationStartedEvent`，如果应用程序上下文不是 `WebServerApplicationContext`，则使用**进程 ID（PID）作为端口**注册服务（[CoSkyAutoServiceRegistrationOfNoneWeb.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L51)）。即使没有 HTTP 端口，这也提供了一个有意义的标识符。
+[CoSkyAutoServiceRegistrationOfNoneWeb](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt) 处理非 Web 应用程序（如 gRPC 服务、CLI 工具）。它监听 `ApplicationStartedEvent`，如果应用程序上下文不是 `WebServerApplicationContext`，则使用**进程 ID（PID）作为端口**注册服务（[CoSkyAutoServiceRegistrationOfNoneWeb.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L52)）。即使没有 HTTP 端口，这也提供了一个有意义的标识符。
 
 ### 服务注册流程
 
@@ -197,13 +197,13 @@ sequenceDiagram
 发现启动器使用 `ConsistencyRedisServiceDiscovery` 作为主要的 `ServiceDiscovery` Bean（[CoSkyDiscoveryAutoConfiguration.kt:81](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L81)）。此装饰器通过订阅以下事件，用本地一致性保证包装 `RedisServiceDiscovery`：
 
 - **ServiceEventListenerContainer** -- 监听 Redis Pub/Sub 事件，当服务被添加或移除时触发（[CoSkyDiscoveryAutoConfiguration.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L62)）。
-- **InstanceEventListenerContainer** -- 监听 Redis Pub/Sub 事件，当单个实例发生变化（注册、注销、元数据更新）时触发（[CoSkyDiscoveryAutoConfiguration.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L69)）。
+- **InstanceEventListenerContainer** -- 监听 Redis Pub/Sub 事件，当单个实例发生变化（注册、注销、元数据更新）时触发（[CoSkyDiscoveryAutoConfiguration.kt:71](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L71)）。
 
 这种事件驱动的方式确保本地服务缓存被及时失效和刷新，而不依赖轮询。
 
 ## 负载均衡器集成
 
-CoSky 提供了自定义的 `BinaryWeightRandomLoadBalancer`（[CoSkyDiscoveryAutoConfiguration.kt:106](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L106)），支持每实例权重。它使用在累积权重数组上的二分搜索算法，实现 O(log n) 的实例选择。负载均衡器继承 `AbstractLoadBalancer`，并在 `InstanceEventListenerContainer` 报告实例列表变更时重建其选择器。
+CoSky 提供了自定义的 `BinaryWeightRandomLoadBalancer`（[CoSkyDiscoveryAutoConfiguration.kt:109](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L109)），支持每实例权重。它使用在累积权重数组上的二分搜索算法，实现 O(log n) 的实例选择。负载均衡器继承 `AbstractLoadBalancer`，并在 `InstanceEventListenerContainer` 报告实例列表变更时重建其选择器。
 
 ## 类图
 
@@ -347,8 +347,8 @@ spring:
 ## 相关页面
 
 - [Spring Cloud Config Starter](/guide/spring-cloud-config) -- 基于 Redis 的配置管理，支持实时刷新
-- [Service Discovery](/guide/discovery) -- CoSky 核心服务发现 API 和 Redis 数据模型
-- [Service Registry](/guide/registry) -- CoSky 的服务注册和心跳机制
+- [Service Discovery](/guide/service-discovery) -- CoSky 核心服务发现 API 和 Redis 数据模型
+- [Service Registry](/guide/service-registry) -- CoSky 的服务注册和心跳机制
 
 ## 参考
 

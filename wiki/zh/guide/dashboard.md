@@ -4,13 +4,13 @@ title: Dashboard
 
 # Dashboard
 
-CoSky Dashboard 是一个基于 React 19、TypeScript 和 Ant Design 6 构建的现代化单页应用。它为所有 CoSky 功能提供了可视化管理界面：服务监控、配置管理、服务拓扑可视化、RBAC 管理、用户管理和审计日志查看。Dashboard 由 REST API 服务器直接作为静态资源提供服务，并通过 CoSky REST API 与后端通信。
+CoSky Dashboard 是一个基于 React 19、TypeScript、Radix UI 和 shadcn/ui（Tailwind CSS 4 样式）构建的现代化单页应用。它为所有 CoSky 功能提供了可视化管理界面：服务监控、配置管理、服务拓扑可视化、RBAC 管理、用户管理和审计日志查看。Dashboard 由 REST API 服务器直接作为静态资源提供服务，并通过 CoSky REST API 与后端通信。
 
 ## 一览
 
 | 方面 | 详情 | 关键文件 | 源码 |
 |--------|--------|----------|--------|
-| 前端应用 | React 19 SPA + Ant Design 6 | `dashboard/package.json` | [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json) |
+| 前端应用 | React 19 SPA + Radix UI + shadcn/ui | `dashboard/package.json` | [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json) |
 | SPA 路由服务 | 为所有 Dashboard 路由提供 `index.html` | `DashboardConfiguration.kt` | [cosky-rest-api/.../DashboardConfiguration.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/dashboard/DashboardConfiguration.kt#L30) |
 | API 客户端 | 从 OpenAPI 规范自动生成 | `dashboard/src/generated/` | [dashboard/package.json:12](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json#L12) |
 
@@ -18,18 +18,23 @@ CoSky Dashboard 是一个基于 React 19、TypeScript 和 Ant Design 6 构建的
 
 | 技术 | 版本 | 用途 |
 |-----------|---------|---------|
-| React | 19.2.6 | UI 框架 |
+| React | 19.2.6 | UI 框架（启用 React Compiler） |
 | TypeScript | ~6.0.3 | 类型安全开发 |
 | Vite | 8.0.16 | 构建工具和开发服务器 |
-| Ant Design | 6.3.7 | UI 组件库 |
+| Radix UI | 1.6.7 | 无头 UI 基础组件 |
+| shadcn/ui | 4.18.0 | 内置于源码的组件模式（`src/components/ui/`） |
+| Tailwind CSS | 4.3.3 | 原子化样式 |
+| lucide-react | 1.31.0 | 图标库 |
+| sonner | 2.0.8 | Toast 通知 |
 | React Router DOM | 7.15.1 | 客户端路由 |
 | @xyflow/react | 12.10.2 | 服务拓扑可视化 |
-| Monaco Editor | 0.55.1 | 配置文本编辑器 |
+| Monaco Editor | 0.55.1（通过 @monaco-editor/react 4.7.0） | 配置文本编辑器 |
 | @ahoo-wang/fetcher | 3.16.10 | 带 CoSec 认证的 HTTP 客户端 |
 | @ahoo-wang/fetcher-react | 3.16.10 | 用于 API 调用的 React Hooks |
 | @ahoo-wang/fetcher-cosec | 3.16.10 | CoSec 令牌刷新集成 |
-| @ahoo-wang/fetcher-viewer | 3.16.10 | 数据表格和筛选组件 |
+| @ahoo-wang/fetcher-storage | 3.16.10 | 令牌存储 |
 | @ahoo-wang/fetcher-generator | 3.16.10 | OpenAPI 代码生成 |
+| Playwright | 1.62.1 | 单元与端到端 UI 测试 |
 
 源码: [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json)
 
@@ -73,13 +78,17 @@ CoSky Dashboard 是一个基于 React 19、TypeScript 和 Ant Design 6 构建的
 
 ![用户](/dashboard-user.png)
 
-用户管理支持创建用户、分配角色、修改密码和解锁被锁定的账户。
+用户管理支持创建用户、分配角色、修改密码，以及锁定/解锁账户。每行会展示反映账户状态的 `locked` 徽标。被管理员手动锁定的用户在解锁前无法登录或刷新令牌；root 用户（`cosky`）不可被锁定。锁定语义详见[安全与 RBAC](/guide/security-rbac#login-lockout-mechanism)。
 
 ### 审计日志
 
 ![审计日志](/dashboard-audit-log.png)
 
-审计日志页面显示所有审计操作的分页列表，包含操作者、IP、路径、操作、状态和时间戳列。
+审计日志页面显示所有审计操作的分页列表，包含操作者、IP、资源、操作、状态和时间戳列，并支持将审计日志导出为 CSV 文件（`GET /v1/audit-log/export`）。
+
+### 导航搜索
+
+侧边栏提供键盘优先的导航搜索。在输入框之外按下 `/` 即可聚焦搜索框，按名称或描述筛选页面，使用 `ArrowUp`/`ArrowDown` 移动，按 `Enter` 跳转。
 
 ### 登录
 
@@ -103,10 +112,10 @@ flowchart TD
     end
 
     subgraph "Redis"
-        UserRedis["用户索引<br>system:user_idx"]
+        UserRedis["用户索引<br>cosky-{system}:user_idx"]
         ConfigRedis["配置<br>命名空间键"]
         ServiceRedis["服务<br>命名空间键"]
-        AuditRedis["审计日志<br>system:audit:log"]
+        AuditRedis["审计日志<br>cosky-{system}:audit:log"]
     end
 
     SPA -->|"HTML/JS/CSS"| DashboardConfig
