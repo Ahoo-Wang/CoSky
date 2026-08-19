@@ -637,8 +637,8 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # Extract (the archive name includes the version)
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
-cd cosky-rest-api-5.7.2
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
+cd cosky-rest-api-5.8.0
 
 # Run with Redis connection
 bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
@@ -726,7 +726,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           startupProbe:
             httpGet:
               port: http
@@ -761,7 +761,7 @@ spec:
           name: volume-localtime
 ```
 
-> **Note:** The example above uses the current release `5.7.2`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
+> **Note:** The example above uses the current release `5.8.0`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
 
 Source: [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -810,7 +810,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           startupProbe:
             httpGet:
               port: http
@@ -1403,6 +1403,10 @@ object RedisKeys {
 }
 ```
 
+`RedisKeys` is an explicit utility, not a global key interceptor. `NamespaceService`, `ConfigKeyGenerator`, `DiscoveryKeyGenerator`, and the REST API preserve the namespace string supplied by the caller. Regardless of Redis topology, `CoSkyProperties` applies `RedisKeys.ofKey(true, namespace)` to the Spring Cloud client's configured namespace, so its effective value must exactly match the namespace used by the REST API and RBAC bindings.
+
+For every deployment, choose a namespace containing a non-empty hash tag before writing data—for example, `{dev}`, `{prod}`, or `cosky-{dev}`. This is required for multi-key Lua operations in Redis Cluster and prevents standalone REST clients from diverging from Spring's effective namespace. Plain `dev` and tagged `{dev}` generate different physical keys. Converting an existing namespace requires an explicit data migration and rollback plan; changing only configuration makes the old data appear missing.
+
 ### Key Pattern Reference
 
 The following table shows how keys are structured across all domains. Each module contributes its own key generator (`DiscoveryKeyGenerator`, `ConfigKeyGenerator`) that uses the same `{namespace}:` prefix convention:
@@ -1605,20 +1609,19 @@ sequenceDiagram
 
 ## Namespace-Scoped Operations Flow
 
-Every operation in CoSky flows through the namespace model. The following diagram illustrates how a typical service discovery request resolves keys within a namespace scope:
+Every operation in CoSky flows through the namespace model. `CoSkyProperties` wraps the Spring Cloud client's configured namespace before storing it as the default context; explicitly supplied namespaces pass through unchanged. The following diagram illustrates how a typical service discovery request resolves keys within a namespace scope:
 
 ```mermaid
 flowchart TD
-    A[Client calls getInstances] --> B{Namespace provided?}
-    B -->|No| C[Use NamespacedContext.namespace]
-    B -->|Yes| D[Use provided namespace]
-    C --> E[Construct key: ns:svc_itc_idx:serviceId]
-    D --> E
-    E --> F{Is Redis Cluster?}
-    F -->|Yes| G[Apply hash tag via RedisKeys.ofKey]
-    F -->|No| H[Use key as-is]
-    G --> I[EVALSHA discovery_get_instances.lua]
-    H --> I
+    A[Spring client configures namespace] --> B[CoSkyProperties applies RedisKeys.ofKey]
+    B --> C[NamespacedContext stores effective namespace]
+    D[Client calls getInstances] --> E{Namespace provided?}
+    E -->|No| F[Use NamespacedContext.namespace]
+    E -->|Yes| G[Use provided namespace unchanged]
+    C -.-> F
+    F --> H[DiscoveryKeyGenerator interpolates namespace unchanged]
+    G --> H
+    H --> I[EVALSHA discovery_get_instances.lua]
     I --> J[Read instance data from svc_itc keys]
     J --> K[Decode via ServiceInstanceCodec]
     K --> L[Return Flux of ServiceInstance]
@@ -1637,7 +1640,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt:20-23, cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt:24-31, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:47-49 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt:31-35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54 -->
 
 ## Cross-References
 
@@ -2415,7 +2418,7 @@ A [`ServiceInstance`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discove
 | `weight` | `Int` | `1` | Load balancer weight |
 | `isEphemeral` | `Boolean` | `true` | Ephemeral instances expire; persistent instances do not |
 | `ttlAt` | `Long` | `TTL_AT_FOREVER (-1)` | Absolute TTL expiry timestamp (epoch seconds) |
-| `metadata` | `Map<String, String>` | `emptyMap()` | Arbitrary key-value metadata attached to the instance |
+| `metadata` | `Map<String, String>` | `emptyMap()` | User-defined key-value metadata; keys beginning with `_` are rejected |
 
 The `isExpired` property on `ServiceInstance` compares `ttlAt` against the current system time to determine whether an ephemeral instance has expired ([ServiceInstance.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt#L34)).
 
@@ -2425,8 +2428,13 @@ The `isExpired` property on `ServiceInstance` compares `ttlAt` against the curre
 
 ```kotlin
 // Encoding: metadata key "version" becomes "_version" in Redis
-fun encodeMetadataKey(key: String): String = METADATA_PREFIX + key
+fun encodeMetadataKey(key: String): String {
+    require(!key.startsWith(METADATA_PREFIX))
+    return METADATA_PREFIX + key
+}
 ```
+
+Metadata keys must not begin with `_`. That prefix is reserved for internal fields such as `__last_renew_pub_ttl_at`; rejecting it prevents user metadata from colliding with registry state.
 
 The `decode` function ([ServiceInstanceCodec.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57)) parses the flat key-value list returned by Redis `HGETALL` into a `ServiceInstance` object.
 
@@ -4095,6 +4103,11 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 | PUT | `/v1/namespaces/{namespace}` | Create a namespace | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
 | DELETE | `/v1/namespaces/{namespace}` | Remove a namespace | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
 
+> [!IMPORTANT]
+> The REST API passes `{namespace}` to namespace storage and Redis key generators exactly as supplied; it does not add or normalize Redis hash tags. Spring Cloud clients behave differently: `CoSkyProperties` always converts a configured plain namespace such as `dev` to the effective value `{dev}`, regardless of Redis topology. Use an explicit namespace with a non-empty hash tag—even with standalone Redis—such as `{dev}`, `{prod}`, or `cosky-{dev}`. Use that effective tagged value consistently in namespace endpoints, config and service URLs, current-namespace selection, RBAC bindings, and Spring clients.
+>
+> `dev` and `{dev}` are different Redis key prefixes and therefore different data sets. Do not add braces to an existing namespace in place. A change requires key and RBAC inventory, backup, data migration, reconciliation, cutover, and a tested rollback plan.
+
 ### Stat Endpoints
 
 | Method | Path | Description | Controller Method | Source |
@@ -5120,7 +5133,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           ports:
             - name: http
               containerPort: 8080
@@ -5164,7 +5177,7 @@ spec:
 <!-- Sources: k8s/deployment/cosky.yml:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
 ::: tip Image tag
-The manifests below use the current release `5.7.2` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
+The manifests below use the current release `5.8.0` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
 :::
 
 ## Clustered Redis Deployment
@@ -5192,7 +5205,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           env:
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:
@@ -5488,10 +5501,10 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # Extract
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
 
 # Enter the directory
-cd cosky-rest-api-5.7.2
+cd cosky-rest-api-5.8.0
 ```
 
 The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`.
@@ -5499,7 +5512,7 @@ The distribution bundles the dashboard static files from `dashboard/dist` into `
 The extracted directory structure contains:
 
 ```
-cosky-rest-api-5.7.2/
+cosky-rest-api-5.8.0/
   bin/
     cosky-rest-api     # Startup script (Unix)
   config/

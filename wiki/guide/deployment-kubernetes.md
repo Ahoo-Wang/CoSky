@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           ports:
             - name: http
               containerPort: 8080
@@ -77,7 +77,7 @@ spec:
 <!-- Sources: k8s/deployment/cosky.yml:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
 ::: tip Image tag
-The manifests below use the current release `5.7.2` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
+The manifests below use the current release `5.8.0` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
 :::
 
 ## Clustered Redis Deployment
@@ -105,7 +105,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           env:
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:

@@ -21,10 +21,10 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # 解压
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
 
 # 进入目录
-cd cosky-rest-api-5.7.2
+cd cosky-rest-api-5.8.0
 ```
 
 发行版会将 `dashboard/dist` 中的 Dashboard 静态文件打包到 `ui/` 目录。
@@ -32,7 +32,7 @@ cd cosky-rest-api-5.7.2
 解压后的目录结构包含：
 
 ```
-cosky-rest-api-5.7.2/
+cosky-rest-api-5.8.0/
   bin/
     cosky-rest-api     # 启动脚本 (Unix)
   config/
