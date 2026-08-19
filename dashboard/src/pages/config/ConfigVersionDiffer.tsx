@@ -6,7 +6,6 @@ import {getFileNameWithExt} from "./fileNames.ts";
 import dayjs from "dayjs";
 import {toast} from 'sonner';
 import {ConfirmButton} from '@/components/ui/confirm-button';
-import {Badge} from '@/components/ui/badge';
 import {DefinitionList} from '@/components/ui/definition-list';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
@@ -46,7 +45,6 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
             return configApiClient.rollback(namespace, configId, version)
         });
     }
-    const isCurrent = versionConfig?.version !== undefined && versionConfig.version === currentConfig?.version;
     const fileNameWithExt = getFileNameWithExt(configId);
     if (currentLoading || versionLoading) {
         return (
@@ -58,15 +56,7 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
             <DefinitionList items={[
                 {label: 'File Name', value: configId},
                 {label: 'Hash', value: versionConfig?.hash},
-                {
-                    label: 'History Version',
-                    value: (
-                        <span className="inline-flex items-center gap-2">
-                            {versionConfig?.version}
-                            {isCurrent && <Badge variant="secondary">Current</Badge>}
-                        </span>
-                    ),
-                },
+                {label: 'History Version', value: versionConfig?.version},
                 {label: 'Operation', value: versionConfig?.op},
                 {label: 'Create Time', value: dayjs((versionConfig?.createTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')},
                 {label: 'Operation Time', value: dayjs((versionConfig?.opTime ?? 0) * 1000).format('YYYY-MM-DD HH:mm:ss')},
@@ -88,14 +78,10 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
                 }}
             />
             <Separator/>
-            {isCurrent && (
-                <p className="text-center text-xs text-muted-foreground">This version is currently active — there is nothing to roll back.</p>
-            )}
             <ConfirmButton title="Rollback to this version?"
                         description={`Configuration “${configId}” will change from version ${currentConfig?.version} to history version ${version}. A new audit event will be recorded.`}
                         onConfirm={handleRollback}
                         loading={rollbackLoading}
-                        disabled={isCurrent}
                         className="w-full"
             >
                 Rollback to version {version}

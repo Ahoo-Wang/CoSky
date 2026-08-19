@@ -24,7 +24,7 @@ export function DefinitionList({items}: {items: DefinitionItem[]}) {
             {items.map((item) => (
                 <div key={item.label} className="grid grid-cols-[9rem_1fr] border-b px-4 py-3 last:border-b-0 sm:even:border-l">
                     <dt className="text-sm text-muted-foreground">{item.label}</dt>
-                    <dd className="break-words text-sm font-medium text-foreground">{item.value}</dd>
+                    <dd className="min-w-0 break-words text-sm font-medium text-foreground">{item.value}</dd>
                 </div>
             ))}
         </dl>

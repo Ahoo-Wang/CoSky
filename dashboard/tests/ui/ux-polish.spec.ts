@@ -34,25 +34,49 @@ test('collapsed sidebar drops the inert Security group toggle and keeps icons di
     expect(await iconOf('Configuration')).not.toBe(await iconOf('Audit Log'));
 });
 
-test('config differ marks the current version and blocks a no-op rollback', async ({page}) => {
+test('definition list wraps long unbroken values instead of clipping them', async ({page}) => {
     await login(page);
     await page.getByRole('link', {name: 'Configuration', exact: true}).click();
     await page.getByRole('button', {name: 'Expand row'}).first().click();
+    await page.getByRole('table').nth(1).getByRole('button', {name: 'Diff', exact: true}).first().click();
 
-    const versionTable = page.getByRole('table').nth(1);
-    const diffButtons = versionTable.getByRole('button', {name: 'Diff', exact: true});
-
-    // First data row is version 3, which the mocked current config also reports as its version.
-    await diffButtons.first().click();
     const differ = page.getByRole('dialog', {name: 'Config Version Differ'});
-    await expect(differ.getByText('Current', {exact: true})).toBeVisible();
-    await expect(differ.getByRole('button', {name: 'Rollback to version 3'})).toBeDisabled();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+    // The mock serves a realistic 64-char hash — a single unbroken word that must
+    // wrap within the definition cell instead of overflowing the overflow-hidden list.
+    const hashCell = differ.getByText(/^[0-9a-f]{64}$/);
+    const metrics = await hashCell.evaluate(element => {
+        const cellRect = element.getBoundingClientRect();
+        const listRect = element.closest('dl')!.getBoundingClientRect();
+        return {cellRight: cellRect.right, listRight: listRect.right};
+    });
+    expect(metrics.cellRight).toBeLessThanOrEqual(metrics.listRight + 1);
+});
 
-    // Older versions still offer rollback.
-    await diffButtons.nth(1).click();
-    await expect(differ.getByRole('button', {name: 'Rollback to version 2'})).toBeEnabled();
-    await expect(differ.getByText('Current', {exact: true})).toBeHidden();
+test('command palette shortcuts stay inert inside the native topology dialog', async ({page}) => {
+    await login(page);
+    const search = page.getByRole('combobox', {name: 'Search navigation'});
+    await expect(search).toBeVisible();
+
+    await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
+    const dialog = page.getByRole('dialog', {name: 'Service Topology'});
+    await expect(dialog).toBeVisible();
+
+    const paletteState = () => page.evaluate(() => {
+        const searchInput = document.querySelector('input[aria-label="Search navigation"]');
+        return {
+            ariaExpanded: searchInput?.getAttribute('aria-expanded'),
+            searchFocused: document.activeElement === searchInput,
+        };
+    });
+
+    // Focus a non-input control inside the native <dialog>, then try both shortcuts.
+    await page.getByRole('button', {name: 'Close topology fullscreen'}).focus();
+    await page.keyboard.press('/');
+    await page.keyboard.press('Control+k');
+
+    const state = await paletteState();
+    expect(state.ariaExpanded).toBe('false');
+    expect(state.searchFocused).toBe(false);
 });
 
 test('command palette shortcuts do not steal focus from open dialogs', async ({page}) => {

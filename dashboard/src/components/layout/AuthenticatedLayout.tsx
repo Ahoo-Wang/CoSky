@@ -72,6 +72,11 @@ const securityItems = [
 
 const searchTargets = [...primaryItems, ...securityItems];
 
+// Radix sheets/dialogs expose explicit roles; the topology fullscreen uses a native
+// <dialog> whose implicit role carries no attribute, hence the dialog[open] check.
+const isModalOpen = () =>
+    Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]'));
+
 export const AuthenticatedLayout = () => {
     const [collapsed, setCollapsed] = useLayoutCollapsed();
     const [searchValue, setSearchValue] = useState('');
@@ -96,7 +101,7 @@ export const AuthenticatedLayout = () => {
             const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
             if (!isCommandK && event.key !== '/') return;
             // Never hijack keys while a modal surface (sheet, dialog, alert dialog) is open.
-            if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+            if (isModalOpen()) return;
             // '/' stays out of the way of typing; Ctrl/Cmd+K intentionally works from anywhere.
             if (!isCommandK && event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
             event.preventDefault();
@@ -164,6 +169,7 @@ export const AuthenticatedLayout = () => {
 
     const handleLayoutKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key !== '/') return;
+        if (isModalOpen()) return;
         if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
         event.preventDefault();
         event.stopPropagation();

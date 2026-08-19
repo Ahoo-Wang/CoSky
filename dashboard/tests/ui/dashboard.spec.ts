@@ -116,12 +116,12 @@ test('configuration workflow covers search, history, editor, and import', async 
     await search.clear();
 
     await page.getByRole('button', {name: 'Expand row'}).first().click();
-    await expect(page.getByRole('cell', {name: '3', exact: true})).toBeVisible();
+    await expect(page.getByRole('cell', {name: '2', exact: true})).toBeVisible();
     await expect(page.getByRole('cell', {name: 'UPDATE', exact: true}).first()).toBeVisible();
-    await expect(page.getByRole('cell', {name: '8f4a21c', exact: true}).first()).toBeVisible();
+    await expect(page.getByRole('cell', {name: '8f4a21c9e3b7', exact: true}).first()).toBeVisible();
     await page.getByRole('button', {name: 'Diff', exact: true}).first().click();
     await expect(page.getByRole('dialog', {name: 'Config Version Differ'})).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Rollback to version 3'})).toBeVisible();
+    await expect(page.getByRole('button', {name: 'Rollback to version 2'})).toBeVisible();
     await page.getByRole('button', {name: 'Close', exact: true}).click();
 
     await page.getByRole('button', {name: 'Add', exact: true}).click();
@@ -281,7 +281,7 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await expect(page.getByText('Export config success')).toBeVisible();
 
     await page.getByRole('button', {name: 'Expand row'}).first().click();
-    await page.getByRole('button', {name: 'Diff', exact: true}).nth(1).click();
+    await page.getByRole('button', {name: 'Diff', exact: true}).first().click();
     await page.getByRole('button', {name: 'Rollback to version 2'}).click();
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('Rollback success')).toBeVisible();
