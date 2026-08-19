@@ -140,8 +140,8 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # 解压（归档文件名包含版本号）
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
-cd cosky-rest-api-5.7.2
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
+cd cosky-rest-api-5.8.0
 
 # 使用 Redis 连接运行
 bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
@@ -229,7 +229,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           startupProbe:
             httpGet:
               port: http
@@ -264,7 +264,7 @@ spec:
           name: volume-localtime
 ```
 
-> **注意：** 上述示例使用当前发布版本 `5.7.2`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
+> **注意：** 上述示例使用当前发布版本 `5.8.0`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
 
 源码：[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -313,7 +313,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
           startupProbe:
             httpGet:
               port: http
