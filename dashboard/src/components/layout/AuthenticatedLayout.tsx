@@ -20,6 +20,7 @@ import {
     ChevronsRight,
     Cloud,
     FileText,
+    History,
     LayoutDashboard,
     LogOut,
     Menu,
@@ -28,6 +29,7 @@ import {
     PanelLeftOpen,
     Search,
     Settings,
+    Shield,
     ShieldCheck,
     User,
     X,
@@ -65,7 +67,7 @@ const primaryItems = [
 const securityItems = [
     {to: '/user', label: 'User', description: 'Accounts and role assignments', icon: User},
     {to: '/role', label: 'Role', description: 'Access policies', icon: ShieldCheck},
-    {to: '/audit-log', label: 'Audit Log', description: 'Security and operation history', icon: FileText},
+    {to: '/audit-log', label: 'Audit Log', description: 'Security and operation history', icon: History},
 ];
 
 const searchTargets = [...primaryItems, ...securityItems];
@@ -91,8 +93,12 @@ export const AuthenticatedLayout = () => {
 
     useEffect(() => {
         const focusSearch = (event: globalThis.KeyboardEvent) => {
-            if (event.key !== '/') return;
-            if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
+            const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+            if (!isCommandK && event.key !== '/') return;
+            // Never hijack keys while a modal surface (sheet, dialog, alert dialog) is open.
+            if (document.querySelector('[role="dialog"], [role="alertdialog"]')) return;
+            // '/' stays out of the way of typing; Ctrl/Cmd+K intentionally works from anywhere.
+            if (!isCommandK && event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
             event.preventDefault();
             searchInputRef.current?.focus();
             setSearchOpen(true);
@@ -135,7 +141,9 @@ export const AuthenticatedLayout = () => {
             return;
         }
         if (event.key === 'Escape') {
+            setSearchValue('');
             setSearchOpen(false);
+            event.currentTarget.blur();
             return;
         }
         if (!['ArrowDown', 'ArrowUp'].includes(event.key) || filteredSearchTargets.length === 0) return;
@@ -182,14 +190,14 @@ export const AuthenticatedLayout = () => {
                             {!collapsed && <span>{label}</span>}
                         </NavLink>
                     ))}
-                    <Collapsible defaultOpen={securityItems.some(item => item.to === location.pathname)}>
-                        <CollapsibleTrigger asChild>
-                            <button type="button" className="app-nav-item app-nav-group" title="Security">
-                                <ShieldCheck/>
-                                {!collapsed && <><span>Security</span><ChevronDown className="app-nav-chevron"/></>}
-                            </button>
-                        </CollapsibleTrigger>
-                        {!collapsed && (
+                    {!collapsed ? (
+                        <Collapsible defaultOpen={securityItems.some(item => item.to === location.pathname)}>
+                            <CollapsibleTrigger asChild>
+                                <button type="button" className="app-nav-item app-nav-group" title="Security">
+                                    <Shield/>
+                                    <span>Security</span><ChevronDown className="app-nav-chevron"/>
+                                </button>
+                            </CollapsibleTrigger>
                             <CollapsibleContent className="app-nav-submenu">
                                 {securityItems.map(({to, label, icon: Icon}) => (
                                     <NavLink key={to} to={to} onClick={() => setMobileOpen(false)} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
@@ -198,9 +206,8 @@ export const AuthenticatedLayout = () => {
                                     </NavLink>
                                 ))}
                             </CollapsibleContent>
-                        )}
-                    </Collapsible>
-                    {collapsed && securityItems.map(({to, label, icon: Icon}) => (
+                        </Collapsible>
+                    ) : securityItems.map(({to, label, icon: Icon}) => (
                         <NavLink key={to} to={to} title={label} onClick={() => setMobileOpen(false)} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
                             <Icon/>
                         </NavLink>

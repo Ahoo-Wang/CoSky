@@ -84,16 +84,16 @@ export function ServiceInstanceEditor({
         <form className="space-y-5" onSubmit={handleFinish}>
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                    <Label>Schema</Label>
-                    <SchemaSelector value={schema} onChange={setSchema} disabled={!!initialValues}/>
+                    <Label>Scheme</Label>
+                    <SchemaSelector value={schema} onChange={setSchema} disabled={!!initialValues} ariaLabel="Scheme"/>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="instance-host">Host</Label>
-                    <Input id="instance-host" name="host" defaultValue={initialValues?.host} disabled={!!initialValues} required/>
+                    <Input id="instance-host" name="host" placeholder="192.168.0.10 or api.internal" defaultValue={initialValues?.host} disabled={!!initialValues} required/>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="instance-port">Port</Label>
-                    <Input id="instance-port" name="port" type="number" min={1} max={65535} defaultValue={initialValues?.port} disabled={!!initialValues} required/>
+                    <Input id="instance-port" name="port" type="number" min={1} max={65535} placeholder="8080" defaultValue={initialValues?.port} disabled={!!initialValues} required/>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="instance-weight">Weight</Label>

@@ -200,6 +200,7 @@ export function Topology() {
                     <Background/>
                     <Controls/>
                     <MiniMap
+                        className="max-sm:hidden"
                         position="top-right"
                         nodeColor={(node) => {
                             if (isServiceNodeData(node.data)) {

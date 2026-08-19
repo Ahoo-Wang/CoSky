@@ -73,7 +73,7 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
                 return <Badge variant={health === 'Healthy' ? 'secondary' : health === 'Expiring soon' ? 'outline' : 'destructive'}>{health}</Badge>;
             },
         },
-        {header: 'Schema', accessor: 'schema', key: 'schema'},
+        {header: 'Scheme', accessor: 'schema', key: 'schema'},
         {
             header: 'Host', accessor: 'host', key: 'host',
             sort: (left, right) => left.host.localeCompare(right.host),

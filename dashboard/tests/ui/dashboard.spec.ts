@@ -281,8 +281,8 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     await expect(page.getByText('Export config success')).toBeVisible();
 
     await page.getByRole('button', {name: 'Expand row'}).first().click();
-    await page.getByRole('button', {name: 'Diff', exact: true}).first().click();
-    await page.getByRole('button', {name: 'Rollback to version 3'}).click();
+    await page.getByRole('button', {name: 'Diff', exact: true}).nth(1).click();
+    await page.getByRole('button', {name: 'Rollback to version 2'}).click();
     await page.getByRole('button', {name: 'Continue'}).click();
     await expect(page.getByText('Rollback success')).toBeVisible();
 
@@ -369,7 +369,7 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     for (const [method, path] of [
         ['PATCH', '/v1/users/admin/password'],
         ['GET', '/configs/export'],
-        ['PUT', '/to/3'],
+        ['PUT', '/to/2'],
         ['DELETE', '/configs/application.yaml'],
         ['PUT', '/services/qa-service'],
         ['DELETE', '/instances/api-gateway-01'],

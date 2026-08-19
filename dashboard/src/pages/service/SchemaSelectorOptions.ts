@@ -1,10 +1,10 @@
 export const SCHEMA_SELECTOR_OPTIONS = [
     {
-        label: 'Http',
+        label: 'HTTP',
         value: 'http'
     },
     {
-        label: 'Https',
+        label: 'HTTPS',
         value: 'https'
     }
 ]
