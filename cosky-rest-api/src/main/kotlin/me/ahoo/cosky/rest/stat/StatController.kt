@@ -19,6 +19,7 @@ import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
 import me.ahoo.cosky.discovery.ServiceTopology
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.support.normalizeNamespace
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
@@ -42,14 +43,15 @@ class StatController(
 ) {
     @GetMapping
     fun getStat(@PathVariable namespace: String): Mono<GetStatResponse> {
+        val normalizedNamespace = namespace.normalizeNamespace()
         val getNamespacesFuture = namespaceService
             .namespaces
             .collect(Collectors.toSet())
         val getConfigsFuture = configService.getConfigs(
-            namespace,
+            normalizedNamespace,
         ).collect(Collectors.toSet())
         val getServiceStatsFuture = serviceStatistic
-            .getServiceStats(namespace)
+            .getServiceStats(normalizedNamespace)
             .collectList()
         return Mono.zip(getNamespacesFuture, getConfigsFuture, getServiceStatsFuture)
             .map {
@@ -72,6 +74,6 @@ class StatController(
 
     @GetMapping("topology")
     fun getTopology(@PathVariable namespace: String): Mono<Map<String, Set<String>>> {
-        return serviceTopology.getTopology(namespace)
+        return serviceTopology.getTopology(namespace.normalizeNamespace())
     }
 }

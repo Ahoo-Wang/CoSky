@@ -20,6 +20,7 @@ import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.support.normalizeNamespace
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -45,22 +46,22 @@ class ServiceController(
 ) {
     @GetMapping
     fun getServices(@PathVariable namespace: String): Mono<List<String>> {
-        return discoveryService.getServices(namespace).collectList()
+        return discoveryService.getServices(namespace.normalizeNamespace()).collectList()
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_SERVICE)
     fun setService(@PathVariable namespace: String, @PathVariable serviceId: String): Mono<Boolean> {
-        return serviceRegistry.setService(namespace, serviceId)
+        return serviceRegistry.setService(namespace.normalizeNamespace(), serviceId)
     }
 
     @DeleteMapping(RequestPathPrefix.SERVICES_SERVICE)
     fun removeService(@PathVariable namespace: String, @PathVariable serviceId: String): Mono<Boolean> {
-        return serviceRegistry.removeService(namespace, serviceId)
+        return serviceRegistry.removeService(namespace.normalizeNamespace(), serviceId)
     }
 
     @GetMapping(RequestPathPrefix.SERVICES_INSTANCES)
     fun getInstances(@PathVariable namespace: String, @PathVariable serviceId: String): Mono<List<ServiceInstance>> {
-        return discoveryService.getInstances(namespace, serviceId).collectList()
+        return discoveryService.getInstances(namespace.normalizeNamespace(), serviceId).collectList()
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES)
@@ -69,7 +70,7 @@ class ServiceController(
         @PathVariable serviceId: String,
         @RequestBody instanceDto: InstanceDto
     ): Mono<Boolean> {
-        return serviceRegistry.register(namespace, instanceDto.asServiceInstance(serviceId))
+        return serviceRegistry.register(namespace.normalizeNamespace(), instanceDto.asServiceInstance(serviceId))
     }
 
     @DeleteMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE)
@@ -78,7 +79,7 @@ class ServiceController(
         @PathVariable serviceId: String,
         @PathVariable instanceId: String
     ): Mono<Boolean> {
-        return serviceRegistry.deregister(namespace, serviceId, instanceId)
+        return serviceRegistry.deregister(namespace.normalizeNamespace(), serviceId, instanceId)
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES_INSTANCE_METADATA)
@@ -88,16 +89,16 @@ class ServiceController(
         @PathVariable instanceId: String,
         @RequestBody metadata: Map<String, String>
     ): Mono<Boolean> {
-        return serviceRegistry.setMetadata(namespace, serviceId, instanceId, metadata)
+        return serviceRegistry.setMetadata(namespace.normalizeNamespace(), serviceId, instanceId, metadata)
     }
 
     @GetMapping(RequestPathPrefix.SERVICES_STATS)
     fun getServiceStats(@PathVariable namespace: String): Mono<List<ServiceStat>> {
-        return serviceStatistic.getServiceStats(namespace).collectList()
+        return serviceStatistic.getServiceStats(namespace.normalizeNamespace()).collectList()
     }
 
     @GetMapping(RequestPathPrefix.SERVICES_LB)
     fun choose(@PathVariable namespace: String, @PathVariable serviceId: String): Mono<ServiceInstance> {
-        return loadBalancer.choose(namespace, serviceId)
+        return loadBalancer.choose(namespace.normalizeNamespace(), serviceId)
     }
 }

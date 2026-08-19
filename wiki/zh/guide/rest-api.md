@@ -74,6 +74,8 @@ fun main(args: Array<String>) {
 | PUT | `/v1/namespaces/{namespace}` | 创建命名空间 | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
 | DELETE | `/v1/namespaces/{namespace}` | 移除命名空间 | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
 
+所有 `{namespace}` 路径值和角色绑定都会在鉴权和服务调用之前归一化为包含 Redis hashtag 的形式。例如，`dev` 会转换为 `{dev}`；`{dev}` 和 `cosky-{system}` 保持不变。命名空间列表和当前命名空间返回归一化后的值。`{}` 等空 hashtag 将被拒绝。
+
 ### 统计端点
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |

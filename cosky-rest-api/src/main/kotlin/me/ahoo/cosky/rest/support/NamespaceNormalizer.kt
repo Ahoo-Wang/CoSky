@@ -10,20 +10,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.rest.security.rbac
+package me.ahoo.cosky.rest.support
 
-import me.ahoo.cosky.rest.support.normalizeNamespace
+import me.ahoo.cosky.core.util.RedisKeys.hashTag
+import me.ahoo.cosky.core.util.RedisKeys.unwrap
 
-/**
- * Resource Action Dto.
- *
- * @author ahoo wang
- */
-data class ResourceActionDto(
-    var namespace: String,
-    var action: String
-) {
-    init {
-        namespace = namespace.normalizeNamespace()
-    }
+internal fun String.normalizeNamespace(): String {
+    require(isNotBlank()) { "namespace must not be blank!" }
+    val normalized = hashTag(this)
+    require(unwrap(normalized).isNotBlank()) { "namespace must contain a non-empty Redis hash tag!" }
+    return normalized
 }

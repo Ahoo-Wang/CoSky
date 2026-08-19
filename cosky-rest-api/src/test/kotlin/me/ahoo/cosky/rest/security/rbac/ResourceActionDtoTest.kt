@@ -12,18 +12,13 @@
  */
 package me.ahoo.cosky.rest.security.rbac
 
-import me.ahoo.cosky.rest.support.normalizeNamespace
+import me.ahoo.test.asserts.assert
+import org.junit.jupiter.api.Test
 
-/**
- * Resource Action Dto.
- *
- * @author ahoo wang
- */
-data class ResourceActionDto(
-    var namespace: String,
-    var action: String
-) {
-    init {
-        namespace = namespace.normalizeNamespace()
+class ResourceActionDtoTest {
+    @Test
+    fun `normalizes namespace`() {
+        ResourceActionDto("dev", "read").namespace.assert().isEqualTo("{dev}")
+        ResourceActionDto("cosky-{system}", "read").namespace.assert().isEqualTo("cosky-{system}")
     }
 }

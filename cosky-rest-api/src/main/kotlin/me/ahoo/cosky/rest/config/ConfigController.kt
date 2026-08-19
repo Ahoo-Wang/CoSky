@@ -20,6 +20,7 @@ import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.ConfigVersion
 import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.support.normalizeNamespace
 import me.ahoo.cosky.rest.util.Zips.ZipItem.Companion.of
 import me.ahoo.cosky.rest.util.Zips.unzip
 import me.ahoo.cosky.rest.util.Zips.zip
@@ -63,7 +64,7 @@ class ConfigController(private val configService: ConfigService) {
 
     @GetMapping
     fun getConfigs(@PathVariable namespace: String): Mono<List<String>> {
-        return configService.getConfigs(namespace).collectList()
+        return configService.getConfigs(namespace.normalizeNamespace()).collectList()
     }
 
     @PostMapping(consumes = [MediaType.MULTIPART_FORM_DATA_VALUE])
@@ -72,6 +73,7 @@ class ConfigController(private val configService: ConfigService) {
         @RequestParam(required = false) policy: String?,
         @RequestPart importZip: Mono<FilePart>
     ): Mono<ImportResponse> {
+        val normalizedNamespace = namespace.normalizeNamespace()
         val importPolicy = if (policy.isNullOrEmpty()) {
             IMPORT_POLICY_SKIP
         } else {
@@ -106,22 +108,26 @@ class ConfigController(private val configService: ConfigService) {
                 val configData = zipItem.data
                 when (importPolicy) {
                     IMPORT_POLICY_OVERWRITE -> {
-                        return@flatMap configService.setConfig(namespace, configId, configData)
+                        return@flatMap configService.setConfig(normalizedNamespace, configId, configData)
                     }
 
                     IMPORT_POLICY_SKIP -> {
-                        return@flatMap configService.containsConfig(namespace, configId)
+                        return@flatMap configService.containsConfig(normalizedNamespace, configId)
                             .filter { contained ->
                                 if (contained) {
                                     if (log.isInfoEnabled) {
-                                        log.info("ImportZip - Skip - [{}]@[{}] has contained.", configId, namespace)
+                                        log.info(
+                                            "ImportZip - Skip - [{}]@[{}] has contained.",
+                                            configId,
+                                            normalizedNamespace,
+                                        )
                                     }
                                 }
                                 !contained
                             }
                             .flatMap {
                                 configService.setConfig(
-                                    namespace,
+                                    normalizedNamespace,
                                     configId,
                                     configData,
                                 )
@@ -149,15 +155,16 @@ class ConfigController(private val configService: ConfigService) {
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_EXPORT)
     fun exportZip(@PathVariable namespace: String): Mono<ResponseEntity<ByteArray>> {
-        return configService.getConfigs(namespace)
+        val normalizedNamespace = namespace.normalizeNamespace()
+        return configService.getConfigs(normalizedNamespace)
             .flatMap {
-                configService.getConfig(namespace, it)
+                configService.getConfig(normalizedNamespace, it)
             }
             .map { of(it.configId, it.data) }
             .collectList()
             .map {
                 val headers = HttpHeaders()
-                val fileName = "${CoSky.COSKY}_${namespace}_config_${System.currentTimeMillis()}.zip"
+                val fileName = "${CoSky.COSKY}_${normalizedNamespace}_config_${System.currentTimeMillis()}.zip"
                 headers.add("Content-Disposition", "attachment;filename=$fileName")
                 headers.contentType = MediaType.APPLICATION_OCTET_STREAM
                 ResponseEntity(zip(it), headers, HttpStatus.OK)
@@ -170,17 +177,17 @@ class ConfigController(private val configService: ConfigService) {
         @PathVariable configId: String,
         @RequestBody data: String
     ): Mono<Boolean> {
-        return configService.setConfig(namespace, configId, data)
+        return configService.setConfig(namespace.normalizeNamespace(), configId, data)
     }
 
     @DeleteMapping(RequestPathPrefix.CONFIGS_CONFIG)
     fun removeConfig(@PathVariable namespace: String, @PathVariable configId: String): Mono<Boolean> {
-        return configService.removeConfig(namespace, configId)
+        return configService.removeConfig(namespace.normalizeNamespace(), configId)
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG)
     fun getConfig(@PathVariable namespace: String, @PathVariable configId: String): Mono<Config> {
-        return configService.getConfig(namespace, configId)
+        return configService.getConfig(namespace.normalizeNamespace(), configId)
     }
 
     @PutMapping(RequestPathPrefix.CONFIGS_CONFIG_TO)
@@ -189,7 +196,7 @@ class ConfigController(private val configService: ConfigService) {
         @PathVariable configId: String,
         @PathVariable targetVersion: Int
     ): Mono<Boolean> {
-        return configService.rollback(namespace, configId, targetVersion)
+        return configService.rollback(namespace.normalizeNamespace(), configId, targetVersion)
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS)
@@ -197,7 +204,7 @@ class ConfigController(private val configService: ConfigService) {
         @PathVariable namespace: String,
         @PathVariable configId: String
     ): Mono<List<ConfigVersion>> {
-        return configService.getConfigVersions(namespace, configId).collectList()
+        return configService.getConfigVersions(namespace.normalizeNamespace(), configId).collectList()
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_VERSIONS_VERSION)
@@ -206,6 +213,6 @@ class ConfigController(private val configService: ConfigService) {
         @PathVariable configId: String,
         @PathVariable version: Int
     ): Mono<ConfigHistory> {
-        return configService.getConfigHistory(namespace, configId, version)
+        return configService.getConfigHistory(namespace.normalizeNamespace(), configId, version)
     }
 }

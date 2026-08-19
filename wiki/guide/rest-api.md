@@ -74,6 +74,8 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 | PUT | `/v1/namespaces/{namespace}` | Create a namespace | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
 | DELETE | `/v1/namespaces/{namespace}` | Remove a namespace | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
 
+Every `{namespace}` path value and role binding is normalized to a Redis hash-tagged form before authorization and service dispatch. For example, `dev` becomes `{dev}`; `{dev}` and `cosky-{system}` remain unchanged. Namespace lists and the current namespace return the normalized value. Empty hash tags such as `{}` are rejected.
+
 ### Stat Endpoints
 
 | Method | Path | Description | Controller Method | Source |

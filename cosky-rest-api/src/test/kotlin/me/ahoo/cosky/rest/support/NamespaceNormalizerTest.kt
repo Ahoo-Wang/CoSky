@@ -10,20 +10,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.rest.security.rbac
+package me.ahoo.cosky.rest.support
 
-import me.ahoo.cosky.rest.support.normalizeNamespace
+import me.ahoo.test.asserts.assert
+import me.ahoo.test.asserts.assertThrownBy
+import org.junit.jupiter.api.Test
 
-/**
- * Resource Action Dto.
- *
- * @author ahoo wang
- */
-data class ResourceActionDto(
-    var namespace: String,
-    var action: String
-) {
-    init {
-        namespace = namespace.normalizeNamespace()
+class NamespaceNormalizerTest {
+    @Test
+    fun normalizeNamespace() {
+        "dev".normalizeNamespace().assert().isEqualTo("{dev}")
+        "{dev}".normalizeNamespace().assert().isEqualTo("{dev}")
+        "cosky-{system}".normalizeNamespace().assert().isEqualTo("cosky-{system}")
+        assertThrownBy<IllegalArgumentException> {
+            "{}".normalizeNamespace()
+        }.hasMessage("namespace must contain a non-empty Redis hash tag!")
     }
 }

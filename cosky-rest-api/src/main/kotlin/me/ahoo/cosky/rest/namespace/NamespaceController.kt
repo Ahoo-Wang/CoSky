@@ -20,6 +20,7 @@ import me.ahoo.cosky.core.NamespacedContext.namespace
 import me.ahoo.cosky.rest.security.rbac.RbacService
 import me.ahoo.cosky.rest.security.user.AdminPrincipal.isAdmin
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.support.normalizeNamespace
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -55,16 +56,16 @@ class NamespaceController(private val namespaceService: NamespaceService, privat
 
     @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
     fun setCurrentContextNamespace(@PathVariable namespace: String) {
-        NamespacedContext.namespace = namespace
+        NamespacedContext.namespace = namespace.normalizeNamespace()
     }
 
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     fun setNamespace(@PathVariable namespace: String): Mono<Boolean> {
-        return namespaceService.setNamespace(namespace)
+        return namespaceService.setNamespace(namespace.normalizeNamespace())
     }
 
     @DeleteMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)
     fun removeNamespace(@PathVariable namespace: String): Mono<Boolean> {
-        return namespaceService.removeNamespace(namespace)
+        return namespaceService.removeNamespace(namespace.normalizeNamespace())
     }
 }

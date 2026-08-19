@@ -15,6 +15,7 @@ package me.ahoo.cosky.rest.security.rbac
 import com.google.common.base.Strings
 import me.ahoo.cosky.core.Namespaced
 import me.ahoo.cosky.rest.security.rbac.Action.Companion.asAction
+import me.ahoo.cosky.rest.support.normalizeNamespace
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
@@ -89,7 +90,7 @@ class RbacService(private val redisTemplate: ReactiveStringRedisTemplate) {
             .switchIfEmpty(Mono.error(NotFoundRoleException(roleName)))
             .map { (key, value) ->
                 ResourceAction(
-                    key,
+                    key.normalizeNamespace(),
                     value.asAction(),
                 )
             }
