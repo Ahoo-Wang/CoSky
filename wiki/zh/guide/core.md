@@ -137,9 +137,9 @@ object RedisKeys {
 }
 ```
 
-`RedisKeys` 是显式工具，而不是全局 key 拦截器。`NamespaceService`、`ConfigKeyGenerator`、`DiscoveryKeyGenerator` 和 REST API 都会保留调用方传入的 namespace 字符串。`CoSkyProperties` 会对 Spring Cloud 客户端配置的 namespace 调用 `RedisKeys.ofKey(true, namespace)`，因此其结果必须与 REST API 和 RBAC 绑定使用的 namespace 完全一致。
+`RedisKeys` 是显式工具，而不是全局 key 拦截器。`NamespaceService`、`ConfigKeyGenerator`、`DiscoveryKeyGenerator` 和 REST API 都会保留调用方传入的 namespace 字符串。无论 Redis 拓扑如何，`CoSkyProperties` 都会对 Spring Cloud 客户端配置的 namespace 调用 `RedisKeys.ofKey(true, namespace)`，因此其实际生效值必须与 REST API 和 RBAC 绑定使用的 namespace 完全一致。
 
-在 Redis Cluster 中，应在写入数据前确定包含非空 hashtag 的命名空间，例如 `{dev}`、`{prod}` 或 `cosky-{system}`。普通 `dev` 与带 hashtag 的 `{dev}` 会生成不同的物理 key。转换既有命名空间必须制定明确的数据迁移与回滚方案；只修改配置会使旧数据表现为“丢失”。
+所有部署都应在写入数据前确定包含非空 hashtag 的命名空间，例如 `{dev}`、`{prod}` 或 `cosky-{dev}`。Redis Cluster 的多 key Lua 操作要求这样做，同时也能避免 Redis Standalone 下 REST 客户端与 Spring 实际生效的 namespace 不一致。普通 `dev` 与带 hashtag 的 `{dev}` 会生成不同的物理 key。转换既有命名空间必须制定明确的数据迁移与回滚方案；只修改配置会使旧数据表现为“丢失”。
 
 ### 键模式参考
 
@@ -343,20 +343,19 @@ sequenceDiagram
 
 ## 命名空间作用域操作流程
 
-CoSky 中的每个操作都流经命名空间模型。下图说明了典型的服务发现请求如何在命名空间作用域内解析键：
+CoSky 中的每个操作都流经命名空间模型。`CoSkyProperties` 会先包装 Spring Cloud 客户端配置的 namespace，再把它存入默认上下文；显式传入的 namespace 则保持原样。下图说明了典型的服务发现请求如何在命名空间作用域内解析键：
 
 ```mermaid
 flowchart TD
-    A[客户端调用 getInstances] --> B{提供了命名空间？}
-    B -->|否| C[使用 NamespacedContext.namespace]
-    B -->|是| D[使用提供的命名空间]
-    C --> E[构建键: ns:svc_itc_idx:serviceId]
-    D --> E
-    E --> F{是 Redis 集群？}
-    F -->|是| G[通过 RedisKeys.ofKey 应用 hashtag]
-    F -->|否| H[直接使用键]
-    G --> I[EVALSHA discovery_get_instances.lua]
-    H --> I
+    A[Spring 客户端配置 namespace] --> B[CoSkyProperties 调用 RedisKeys.ofKey]
+    B --> C[NamespacedContext 存储实际生效的 namespace]
+    D[客户端调用 getInstances] --> E{提供了命名空间？}
+    E -->|否| F[使用 NamespacedContext.namespace]
+    E -->|是| G[原样使用显式传入的 namespace]
+    C -.-> F
+    F --> H[DiscoveryKeyGenerator 原样拼接 namespace]
+    G --> H
+    H --> I[EVALSHA discovery_get_instances.lua]
     I --> J[从 svc_itc 键读取实例数据]
     J --> K[通过 ServiceInstanceCodec 解码]
     K --> L[返回 Flux of ServiceInstance]
@@ -375,7 +374,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt:20-23, cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt:24-31, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:47-49 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt:31-35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54 -->
 
 ## 交叉引用
 
