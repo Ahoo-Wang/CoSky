@@ -13,6 +13,10 @@ The standalone deployment option lets you run CoSky directly on a host machine w
 GitHub releases do not publish a pre-built tarball, so build the standalone distribution from source (JDK 17+ required):
 
 ```bash
+# Build the dashboard first (dashboard/dist is gitignored;
+# without this step the archive has no web UI)
+cd dashboard && pnpm install && pnpm build && cd ..
+
 # Build the distribution tarball
 ./gradlew :cosky-rest-api:distTar
 
@@ -23,7 +27,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
 cd cosky-rest-api-5.7.2
 ```
 
-The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`. If that directory is missing, build the dashboard first with `cd dashboard && pnpm install && pnpm build`.
+The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`.
 
 The extracted directory structure contains:
 

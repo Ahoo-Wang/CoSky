@@ -78,7 +78,7 @@ CoSky Dashboard 是一个基于 React 19、TypeScript、Radix UI 和 shadcn/ui�
 
 ![用户](/dashboard-user.png)
 
-用户管理支持创建用户、分配角色、修改密码，以及锁定/解锁账户。每行会展示反映账户状态的 `locked` 徽标。被管理员手动锁定的用户在解锁前无法登录或刷新令牌；root 用户（`cosky`）不可被锁定。锁定语义详见[安全与 RBAC](/guide/security-rbac#login-lockout-mechanism)。
+用户管理支持创建用户、分配角色、修改密码，以及锁定/解锁账户。每行会展示反映账户状态的 `locked` 徽标。被管理员手动锁定的用户在解锁前无法登录或刷新令牌；root 用户（`cosky`）不可被锁定。锁定语义详见[安全与 RBAC](/zh/guide/security-rbac#登录锁定机制)。
 
 ### 审计日志
 
@@ -181,8 +181,8 @@ flowchart LR
 
 ## 相关页面
 
-- [REST API Server](/guide/rest-api) -- Dashboard 消费的 API 端点
-- [安全与 RBAC](/guide/security-rbac) -- 认证和授权详情
+- [REST API Server](/zh/guide/rest-api) -- Dashboard 消费的 API 端点
+- [安全与 RBAC](/zh/guide/security-rbac) -- 认证和授权详情
 
 ## 参考
 

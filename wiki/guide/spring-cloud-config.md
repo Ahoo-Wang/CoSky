@@ -209,7 +209,7 @@ With the above configuration, CoSky will:
 ## Related Pages
 
 - [Spring Cloud Discovery Starter](/guide/spring-cloud-discovery) -- service registration and discovery backed by Redis
-- [Configuration Center](/guide/config) -- CoSky's config management APIs and Redis storage model
+- [Configuration Center](/guide/config-service) -- CoSky's config management APIs and Redis storage model
 
 ## References
 

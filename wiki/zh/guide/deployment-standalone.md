@@ -13,6 +13,10 @@ title: "Standalone Deployment"
 GitHub Releases 并未发布预构建的压缩包，因此需要从源码构建独立发行版（需要 JDK 17+）：
 
 ```bash
+# 先构建 Dashboard（dashboard/dist 已被 gitignore；
+# 缺少此步骤打包出的发行版将没有 Web UI）
+cd dashboard && pnpm install && pnpm build && cd ..
+
 # 构建发行版压缩包
 ./gradlew :cosky-rest-api:distTar
 
@@ -23,7 +27,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
 cd cosky-rest-api-5.7.2
 ```
 
-发行版会将 `dashboard/dist` 中的 Dashboard 静态文件打包到 `ui/` 目录。如果该目录不存在，请先执行 `cd dashboard && pnpm install && pnpm build` 构建 Dashboard。
+发行版会将 `dashboard/dist` 中的 Dashboard 静态文件打包到 `ui/` 目录。
 
 解压后的目录结构包含：
 

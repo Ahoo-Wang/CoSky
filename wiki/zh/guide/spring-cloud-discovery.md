@@ -346,9 +346,9 @@ spring:
 
 ## 相关页面
 
-- [Spring Cloud Config Starter](/guide/spring-cloud-config) -- 基于 Redis 的配置管理，支持实时刷新
-- [Service Discovery](/guide/service-discovery) -- CoSky 核心服务发现 API 和 Redis 数据模型
-- [Service Registry](/guide/service-registry) -- CoSky 的服务注册和心跳机制
+- [Spring Cloud Config Starter](/zh/guide/spring-cloud-config) -- 基于 Redis 的配置管理，支持实时刷新
+- [Service Discovery](/zh/guide/service-discovery) -- CoSky 核心服务发现 API 和 Redis 数据模型
+- [Service Registry](/zh/guide/service-registry) -- CoSky 的服务注册和心跳机制
 
 ## 参考
 

@@ -269,8 +269,8 @@ simba:
 
 ## 相关页面
 
-- [安全与 RBAC](/guide/security-rbac) -- 认证、授权和基于角色的访问控制
-- [Dashboard](/guide/dashboard) -- CoSky 管理 UI
+- [安全与 RBAC](/zh/guide/security-rbac) -- 认证、授权和基于角色的访问控制
+- [Dashboard](/zh/guide/dashboard) -- CoSky 管理 UI
 
 ## 参考
 

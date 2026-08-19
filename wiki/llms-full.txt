@@ -8,7 +8,7 @@
 | Feature | Description | Source |
 |---------|-------------|--------|
 | **Service Discovery** | Register, discover, and manage service instances with automatic renewal via client heartbeat. Supports weighted load balancing and service topology. | [ServiceRegistry.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L24), [ServiceDiscovery.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L24) |
-| **Configuration Management** | Dynamic configuration with version history (last 10 versions), rollback support, and file import/export. Changes propagate instantly via Redis PubSub. | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
+| **Configuration Management** | Dynamic configuration with version history and rollback support, plus file import/export. Changes propagate instantly via Redis PubSub. | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
 | **Consistency Caching** | Local process cache kept in sync via Redis PubSub, achieving 250x-800x performance improvement over direct Redis reads. | [RedisConsistencyConfigService](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt), [ConsistencyRedisServiceDiscovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt) |
 | **Spring Cloud Integration** | Drop-in starters for both config and discovery. Auto-configures via Spring Boot `@AutoConfiguration`. | [CoSkyConfigAutoConfiguration.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L43), [CoSkyDiscoveryAutoConfiguration.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L47) |
 | **Weighted Load Balancing** | Binary weight random load balancer integrated with service discovery for efficient instance selection. | [CoSkyDiscoveryAutoConfiguration.kt:105](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L105) |
@@ -23,8 +23,8 @@
 graph TB
     subgraph Applications["Applications"]
         style Applications fill:#161b22,stroke:#30363d,color:#e6edf3
-        A["Spring Boot App 1"] --> |uses| SC_C["spring-cloud-starter-cosky-config"]
-        A --> |uses| SC_D["spring-cloud-starter-cosky-discovery"]
+        A["Spring Boot App 1"] --> |uses| SC_C["cosky-spring-cloud-starter-config"]
+        A --> |uses| SC_D["cosky-spring-cloud-starter-discovery"]
         B["Spring Boot App 2"] --> |uses| SC_C
         B --> |uses| SC_D
     end
@@ -75,8 +75,8 @@ graph LR
         style Modules fill:#161b22,stroke:#30363d,color:#e6edf3
         CORE["cosky-core"] --> CONFIG["cosky-config"]
         CORE --> DISCOVERY["cosky-discovery"]
-        CONFIG --> SCC["spring-cloud-starter-cosky-config"]
-        DISCOVERY --> SCD["spring-cloud-starter-cosky-discovery"]
+        CONFIG --> SCC["cosky-spring-cloud-starter-config"]
+        DISCOVERY --> SCD["cosky-spring-cloud-starter-discovery"]
         SCC --> REST["cosky-rest-api"]
         SCD --> REST
         SC_CORE["cosky-spring-cloud-core"] --> SCC
@@ -260,9 +260,10 @@ graph LR
 val coskyVersion = "5.7.2"
 
 dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -277,6 +278,13 @@ dependencies {
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
+            <artifactId>cosky-bom</artifactId>
+            <version>${cosky.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-dependencies</artifactId>
             <version>${cosky.version}</version>
             <type>pom</type>
@@ -287,11 +295,11 @@ dependencies {
 <dependencies>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
-        <artifactId>spring-cloud-starter-cosky-config</artifactId>
+        <artifactId>cosky-spring-cloud-starter-config</artifactId>
     </dependency>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
-        <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+        <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
     </dependency>
     <dependency>
         <groupId>org.springframework.cloud</groupId>
@@ -304,27 +312,25 @@ Current version defined in [gradle.properties:14](https://github.com/Ahoo-Wang/C
 
 ### Step 2: Configure Bootstrap
 
-Create `src/main/resources/bootstrap.yaml`:
+Create `src/main/resources/bootstrap.yaml`. Shown below is the configuration used by the bundled example provider:
 
 ```yaml
+server:
+  port: 8099
 spring:
   application:
-    name: ${service.name:my-service}
-  data:
-    redis:
-      url: redis://localhost:6379
+    name: ${service.name:example-provider}
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{default}}
+      namespace: ${cosky.namespace:dev}
       config:
         config-id: ${spring.application.name}.yaml
-    service-registry:
-      auto-registration:
-        enabled: ${cosky.auto-registry:true}
 logging:
   file:
     name: logs/${spring.application.name}.log
 ```
+
+The example relies on Spring Boot's default Redis connection (`localhost:6379`); set `spring.data.redis.url` explicitly if your Redis instance runs elsewhere. Service auto-registration is enabled by default (`spring.cloud.service-registry.auto-registration.enabled`).
 
 | Property | Default | Description |
 |----------|---------|-------------|
@@ -332,7 +338,7 @@ logging:
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace for service/config isolation ([CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)) |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load ([CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48)) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension for config lookup ([CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27)) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension for config lookup ([CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)) |
 
 Source: [examples/cosky-service-provider/src/main/resources/bootstrap.yaml](https://github.com/Ahoo-Wang/CoSky/blob/main/examples/cosky-service-provider/src/main/resources/bootstrap.yaml)
 
@@ -547,9 +553,10 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 val coskyVersion = "5.7.2"
 
 dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -571,6 +578,13 @@ dependencies {
         <dependencies>
             <dependency>
                 <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-bom</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
                 <artifactId>cosky-dependencies</artifactId>
                 <version>${cosky.version}</version>
                 <type>pom</type>
@@ -582,11 +596,11 @@ dependencies {
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-config</artifactId>
+            <artifactId>cosky-spring-cloud-starter-config</artifactId>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+            <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -596,15 +610,16 @@ dependencies {
 </project>
 ```
 
-Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-87](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L87)
+Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-108](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L108)
 
 ### Available Artifacts
 
 | Artifact | Purpose | Module |
 |----------|---------|--------|
-| `spring-cloud-starter-cosky-config` | Spring Cloud config loading and real-time refresh | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
-| `spring-cloud-starter-cosky-discovery` | Spring Cloud service registration and discovery | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-bom` | Bill of Materials for dependency version management | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-spring-cloud-starter-config` | Spring Cloud config loading and real-time refresh | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
+| `cosky-spring-cloud-starter-discovery` | Spring Cloud service registration and discovery | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
+| `cosky-bom` | Bill of Materials — manages CoSky module versions | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-dependencies` | Version catalog — manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions (required for the versionless `spring-cloud-starter-loadbalancer`) | [cosky-dependencies](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-dependencies) |
 
 ## REST API Server Installation
 
@@ -612,19 +627,24 @@ The REST API server provides a management dashboard, REST endpoints, security (R
 
 ### Option 1: Standalone JAR
 
-Download the latest release and run directly:
+GitHub releases do not publish prebuilt archives, so build the server distribution from source (JDK 17 required):
 
 ```bash
-# Download cosky-server
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# (Optional) Build the dashboard first so the web UI is bundled into the distribution
+cd dashboard && pnpm install && pnpm build && cd ..
 
-# Extract
-tar -xvf cosky-server.tar
-cd cosky-server
+# Build the distribution archive
+./gradlew :cosky-rest-api:distTar
+
+# Extract (the archive name includes the version)
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
+cd cosky-rest-api-5.7.2
 
 # Run with Redis connection
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
+
+The distribution contains `bin/` start scripts, `lib/` dependencies, `config/` configuration files, and `ui/` with the dashboard static resources (served via `spring.web.resources.static-locations: file:./ui/`).
 
 On first startup, CoSky initializes the super user and prints the generated password to the console:
 
@@ -634,7 +654,7 @@ On first startup, CoSky initializes the super user and prints the generated pass
 
 To reinitialize the password, set `enforce-init-super-user: true` in your configuration.
 
-Source: [README.md:119-127](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L119-L127)
+Source: [cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44), [cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13), [README.md:267](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L267)
 
 ### Option 2: Docker
 
@@ -671,7 +691,7 @@ services:
       - redis
 ```
 
-Source: [README.md:132-137](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L132-L137)
+Source: [README.md:159-163](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L159-L163)
 
 ### Option 3: Kubernetes
 
@@ -695,20 +715,18 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          ports:
-            - containerPort: 8080
-              protocol: TCP
-          env:
+        - env:
             - name: SPRING_DATA_REDIS_HOST
               value: redis-uri:6379
             - name: SPRING_DATA_REDIS_PASSWORD
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -721,21 +739,29 @@ spec:
             httpGet:
               port: http
               path: /actuator/health/liveness
+          name: cosky
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
           resources:
-            requests:
-              cpu: 250m
-              memory: 1024Mi
             limits:
               cpu: "1"
               memory: 1280Mi
+            requests:
+              cpu: 250m
+              memory: 1024Mi
           volumeMounts:
-            - name: volume-localtime
-              mountPath: /etc/localtime
+            - mountPath: /etc/localtime
+              name: volume-localtime
       volumes:
-        - name: volume-localtime
-          hostPath:
+        - hostPath:
             path: /etc/localtime
+            type: ""
+          name: volume-localtime
 ```
+
+> **Note:** The example above uses the current release `5.7.2`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
 
 Source: [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -759,11 +785,13 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          env:
+        - env:
+            - name: LANG
+              value: C.utf8
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:
                 secretKeyRef:
@@ -780,6 +808,41 @@ spec:
               value: "true"
             - name: SPRING_DATA_REDIS_LETTUCE_CLUSTER_REFRESH_PERIOD
               value: 30s
+            - name: TZ
+              value: Asia/Shanghai
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          startupProbe:
+            httpGet:
+              port: http
+              path: /actuator/health
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/readiness
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
+          name: cosky
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1280Mi
+            requests:
+              cpu: 250m
+              memory: 1024Mi
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: volume-localtime
+      volumes:
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: volume-localtime
 ```
 
 Source: [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml)
@@ -856,8 +919,8 @@ Key configuration properties for CoSky:
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | Isolation namespace for services and configs | [CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30) |
 | `spring.cloud.cosky.config.enabled` | `true` | Enable config loading from Redis | [CoSkyConfigProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L26) |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load | [CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48) |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension | [CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27) |
-| `spring.cloud.cosky.config.timeout` | `2s` | Timeout for config loading | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
+| `spring.cloud.cosky.config.timeout` | `2s` | Timeout for config loading | [CoSkyConfigProperties.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L29) |
 | `spring.cloud.cosky.discovery.enabled` | `true` | Enable service discovery | [CoSkyDiscoveryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L26) |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | Timeout for discovery operations | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
@@ -872,7 +935,7 @@ When using the discovery starter, service instances have configurable TTL and he
 |----------|---------|-------------|--------|
 | Instance TTL | `60s` | How long an instance lives before being considered expired | [RegistryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt#L26) |
 | Renew period | `10s` | How often the instance sends a heartbeat to renew its TTL | [RenewProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L28) |
-| Renew initial delay | `1s` | Delay before the first heartbeat after registration | [RenewProperties.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L25) |
+| Renew initial delay | `1s` | Delay before the first heartbeat after registration | [RenewProperties.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L23) |
 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
@@ -939,7 +1002,7 @@ The dashboard provides:
 - Service topology visualization
 - Import/export functionality (including Nacos migration)
 
-Source: [README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L206-L219)
+Source: [README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L238-L246)
 
 ## References
 
@@ -1108,7 +1171,7 @@ sequenceDiagram
 | Lettuce | latest | Redis client driver (async, reactive) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Project Reactor | latest | Reactive programming model (Flux, Mono) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
 | Lua (Redis scripting) | N/A | Atomic multi-step operations | [DiscoveryRedisScripts.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) |
-| Gradle (Kotlin DSL) | 8.x | Build system | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
+| Gradle (Kotlin DSL) | 9.x | Build system | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
 
 ## Design Principles
 
@@ -1881,18 +1944,24 @@ spring:
       url: redis://localhost:6379
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-production}
+      namespace: ${cosky.namespace:cosky-{default}}
       config:
         config-id: ${spring.application.name}.yaml
+    service-registry:
+      auto-registration:
+        enabled: ${cosky.auto-registry:true}
+logging:
+  file:
+    name: logs/${spring.application.name}.log
 ```
 
 | Config Property | Description | Example |
 |---|---|---|
 | `spring.data.redis.url` | Redis connection URL | `redis://localhost:6379` |
-| `spring.cloud.cosky.namespace` | Namespace for config isolation | `cosky-production` |
+| `spring.cloud.cosky.namespace` | Namespace for config isolation | `cosky-{default}` |
 | `spring.cloud.cosky.config.config-id` | The configId to load (typically `{app}.yaml`) | `order-service.yaml` |
 
-Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L89)
+Source: [README.md:111](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L111)
 
 ## Rollback Mechanism
 
@@ -2139,7 +2208,7 @@ The key detail is that the cache stores a `Mono<Config>` that has been `.cache()
 
 ## Cache Invalidation Flow
 
-When any process modifies a configuration, the Lua script publishes a change event on the Redis PubSub channel. Every instance listening on that channel receives the invalidation and refreshes its cache.
+When any process modifies a configuration, the Lua script publishes a change event on the Redis PubSub channel. Every instance listening on that channel receives the invalidation and lazily refreshes its cache.
 
 ```mermaid
 sequenceDiagram
@@ -2160,16 +2229,14 @@ sequenceDiagram
     PS-->>Listener: Message received
     Listener->>Listener: Parse ConfigChangedEvent
     Listener-->>RCS: onConfigChanged(event)
-    RCS->>Cache: remove old entry
-    RCS->>RDS: getConfig(namespace, configId)
-    RDS->>Redis: HGETALL
-    Redis-->>RDS: new config data
-    RDS-->>RCS: Config
-    RCS->>Cache: put new cached Mono
-    Note over Cache: Next read returns<br>fresh data
+    RCS->>Cache: Overwrite entry with a new cold<br>Mono cached with 1-minute TTL
+    Note over RCS,Cache: No Redis call happens here -- the fetch is deferred<br>until the next getConfig() subscriber arrives
+    Note over Cache: Next read re-executes the fetch<br>and returns fresh data
 ```
 
 <!-- Sources: RedisConsistencyConfigService.kt:68, RedisConfigEventListenerContainer.kt:18, config_set.lua:1 -->
+
+The invalidation path is a single overwrite: `onConfigChanged` replaces the map entry with `delegate.getConfig(...).cache(CONFIG_CACHE_TTL)` -- a cold `Mono` that is never subscribed at invalidation time (hence the `@Suppress("ReactiveStreamsUnusedPublisher")` in the source). The event type (`SET`, `REMOVE`, `ROLLBACK`) is not inspected; all three follow the identical overwrite path, and a removed config simply yields a cached *empty* `Mono`.
 
 ## Event Listener Container
 
@@ -2215,28 +2282,23 @@ The local cache for each configuration entry goes through a well-defined set of 
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Empty: Initial state
+    [*] --> CachedNoTTL: First getConfig() call<br>entry = getConfig().cache()
 
-    Empty --> Loading: First getConfig() call
-    Loading --> Valid: Redis returns Config data
-    Loading --> Empty: Redis returns null / error
+    CachedNoTTL --> CachedNoTTL: Subsequent getConfig() (cache hit,<br>never expires on its own)
+    CachedNoTTL --> CachedTTL: Any PubSub event (set / remove /<br>rollback) overwrites the entry
 
-    Valid --> Valid: Subsequent getConfig() (cache hit)
-    Valid --> Invalidated: PubSub event received
+    CachedTTL --> CachedTTL: getConfig() within TTL (cache hit)
+    CachedTTL --> Refetching: Cache TTL reached (1 minute)
+    Refetching --> CachedTTL: Next getConfig() re-executes the fetch<br>and caches for another minute
+    CachedTTL --> CachedTTL: Next PubSub event (overwrite)
 
-    Invalidated --> Loading: Re-fetch from Redis
-    Invalidated --> Removed: Event type = REMOVE
-
-    Removed --> Loading: New getConfig() call
-    Removed --> [*]: Config no longer exists
-
-    Valid --> TTLExpired: Cache TTL reached (1 minute)
-    TTLExpired --> Loading: Re-fetch from Redis
+    CachedNoTTL --> [*]: Listener terminated<br>(entry removed from map)
+    CachedTTL --> [*]: Listener terminated<br>(entry removed from map)
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46 -->
+<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:57, RedisConsistencyConfigService.kt:68 -->
 
-The `CONFIG_CACHE_TTL` is set to `Duration.ofMinutes(1)`. When a cache entry is refreshed due to a PubSub invalidation event, the new `Mono` is created with `.cache(CONFIG_CACHE_TTL)`, ensuring that even without further invalidation events, stale data is eventually evicted.
+The `CONFIG_CACHE_TTL` is set to `Duration.ofMinutes(1)`, but it applies **only to entries written by the PubSub refresh path** (`onConfigChanged` uses `.cache(CONFIG_CACHE_TTL)`). The initial cache entry, created on the first `getConfig()` call, uses plain `.cache()` with **no TTL** and never expires on its own. If the PubSub listener terminates, its `doFinally` hook removes the entry from the map, so the next `getConfig()` re-creates the entry and re-subscribes.
 
 Source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)
 
@@ -2284,7 +2346,9 @@ Each cached configuration entry occupies memory in the JVM heap for the `Concurr
 
 ### PubSub Reliability
 
-Redis PubSub is a fire-and-forget protocol -- if an instance is temporarily disconnected (network blip, GC pause), it will miss invalidation messages. CoSky mitigates this through the `CONFIG_CACHE_TTL` of 1 minute: even if an invalidation event is missed, the cache entry will expire and be re-fetched from Redis within 60 seconds.
+Redis PubSub is a fire-and-forget protocol -- if an instance is temporarily disconnected (network blip, GC pause), it will miss invalidation messages. The `CONFIG_CACHE_TTL` of 1 minute bounds this staleness **only for entries that have already been refreshed by a previous invalidation event**: those entries are re-fetched from Redis at most 60 seconds after their last refresh. The initial cache entry, however, is created with plain `.cache()` (no TTL) and never expires on its own -- if the very first invalidation event for a config is missed, that entry keeps serving stale data until a later event arrives, the listener terminates (which evicts the entry), or the process restarts.
+
+Source: [RedisConsistencyConfigService.kt:64-76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L64)
 
 ### Delegation Pattern
 
@@ -2381,8 +2445,8 @@ class RedisServiceRegistry(
 
 Key design points:
 - Ephemeral instances are tracked in a `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` for heartbeat renewal ([RedisServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L40)).
-- The `register` method adds to the ephemeral map before executing the Lua script ([RedisServiceRegistry.kt:98](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L98)).
-- If a renew fails (instance key missing), it automatically re-registers the instance ([RedisServiceRegistry.kt:178](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L178)).
+- The `register` method adds to the ephemeral map only after the Lua script succeeds -- inside `doOnNext`, and only when the script returned `true` ([RedisServiceRegistry.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L97)).
+- If a renew fails (instance key missing), it automatically re-registers the instance ([RedisServiceRegistry.kt:184](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L184)).
 
 ### DiscoveryRedisScripts
 
@@ -2430,7 +2494,6 @@ sequenceDiagram
     participant Sub as PubSub Subscribers
 
     App->>SR: register(namespace, serviceInstance)
-    SR->>EMap: addEphemeralInstance(namespace, instance)
     SR->>SR: build ARGV (ttl, serviceId, instanceId, schema, host, port, weight, metadata)
     SR->>Redis: EVAL registry_register.lua KEYS=[namespace] ARGV=[...]
     Redis->>Redis: SADD svc_itc_idx:{serviceId} {instanceId}
@@ -2439,10 +2502,13 @@ sequenceDiagram
     Redis->>Sub: PUBLISH svc_itc:{instanceId} "register"
     Redis->>Redis: EXPIRE svc_itc:{instanceId} {ttl}
     Redis-->>SR: Boolean (success)
+    alt registered == true
+        SR->>EMap: addEphemeralInstance(namespace, instance)
+    end
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:43, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
 
 ### Renew / Heartbeat Flow
 
@@ -2473,7 +2539,7 @@ sequenceDiagram
     end
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:70, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:160 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:70, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:163 -->
 
 ### Deregister Flow
 
@@ -2500,7 +2566,7 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:188, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:191, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
 
 ## Redis Key Structure
 
@@ -2511,9 +2577,11 @@ The registry uses a structured key pattern for organizing service and instance d
 | `{namespace}:svc_idx` | SET | Set of all service IDs in the namespace | `production:svc_idx` |
 | `{namespace}:svc_stat` | HASH | Service ID to instance count statistics | `production:svc_stat` |
 | `{namespace}:svc_itc_idx:{serviceId}` | SET | Set of instance IDs for a given service | `production:svc_itc_idx:order-service` |
-| `{namespace}:svc_itc:{instanceId}` | HASH | Instance data (fields: instanceId, serviceId, schema, host, port, weight, ephemeral, ttl_at, metadata) | `production:svc_itc:order-service@http#10.0.1.5#8080` |
+| `{namespace}:svc_itc:{instanceId}` | HASH | Instance data (fields: instanceId, serviceId, schema, host, port, weight, ephemeral, metadata) | `production:svc_itc:order-service@http#10.0.1.5#8080` |
 | `{namespace}:topology_idx` | HASH | Topology index: consumer name to timestamp | `production:topology_idx` |
 | `{namespace}:topology:{consumer}` | HASH | Topology deps: producer name to timestamp | `production:topology:gateway-service` |
+
+Note: `ttl_at` is **not** stored in the instance hash. It is computed at read time as `now + ttl` by the discovery scripts ([discovery_get_instances.lua:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua#L33), [discovery_get_instance.lua:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instance.lua#L30)). The renew script may additionally write the system field `__last_renew_pub_ttl_at` into the hash for publish throttling ([registry_renew.lua:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L9)).
 
 The instance ID format is `{serviceId}@{schema}#{host}#{port}` (e.g., `order-service@http#10.0.1.5#8080`), as defined in [`Instance.asInstanceId`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/Instance.kt#L57).
 
@@ -3107,7 +3175,7 @@ val instance = Instance.asInstance(
     metadata = mapOf("version" to "v2")
 )
 
-serviceRegistry.register(instance = instance).block()
+serviceRegistry.register(serviceInstance = instance).block()
 ```
 
 The weight is stored in the Redis hash under the `weight` field and decoded by `ServiceInstanceCodec` ([ServiceInstanceCodec.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L32)).
@@ -3578,7 +3646,7 @@ With the above configuration, CoSky will:
 ## Related Pages
 
 - [Spring Cloud Discovery Starter](/guide/spring-cloud-discovery) -- service registration and discovery backed by Redis
-- [Configuration Center](/guide/config) -- CoSky's config management APIs and Redis storage model
+- [Configuration Center](/guide/config-service) -- CoSky's config management APIs and Redis storage model
 
 ## References
 
@@ -3683,7 +3751,7 @@ CoSky provides two discovery client implementations that adapt the CoSky `Servic
 
 ### Blocking: CoSkyDiscoveryClient
 
-The [CoSkyDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt) implements Spring's `DiscoveryClient`. It delegates to the reactive `ServiceDiscovery` and blocks with the configured timeout ([CoSkyDiscoveryClient.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L33)). Each `ServiceInstance` from CoSky is wrapped in a `CoSkyServiceInstance` adapter.
+The [CoSkyDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt) implements Spring's `DiscoveryClient`. It delegates to the reactive `ServiceDiscovery` and blocks with the configured timeout ([CoSkyDiscoveryClient.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L36)). Each `ServiceInstance` from CoSky is wrapped in a `CoSkyServiceInstance` adapter.
 
 ### Reactive: CoSkyReactiveDiscoveryClient
 
@@ -3724,7 +3792,7 @@ sequenceDiagram
 
 ### CoSkyServiceRegistry
 
-The [CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt) implements Spring's `ServiceRegistry<CoSkyRegistration>` interface. On `register()`, it delegates to the CoSky `ServiceRegistry` to persist the instance in Redis, then starts the heartbeat `RenewInstanceService` ([CoSkyServiceRegistry.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L30)). On `deregister()`, it removes the instance and stops the heartbeat. The `close()` method also stops the renewal service ([CoSkyServiceRegistry.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L45)).
+The [CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt) implements Spring's `ServiceRegistry<CoSkyRegistration>` interface. On `register()`, it delegates to the CoSky `ServiceRegistry` to persist the instance in Redis, then starts the heartbeat `RenewInstanceService` ([CoSkyServiceRegistry.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L30)). On `deregister()`, it only removes the instance via the CoSky `ServiceRegistry` -- the heartbeat keeps running ([CoSkyServiceRegistry.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L38)). The renewal service is stopped by `close()` ([CoSkyServiceRegistry.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L45)).
 
 ### CoSkyRegistration
 
@@ -3736,7 +3804,7 @@ The [CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-sp
 
 ### Auto-Registration for Non-Web Apps
 
-[CoSkyAutoServiceRegistrationOfNoneWeb](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt) handles non-web applications (e.g. gRPC services, CLI tools). It listens for `ApplicationStartedEvent` and, if the application context is not a `WebServerApplicationContext`, registers the service using the **process ID (PID) as the port** ([CoSkyAutoServiceRegistrationOfNoneWeb.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L51)). This provides a meaningful identifier even when there is no HTTP port.
+[CoSkyAutoServiceRegistrationOfNoneWeb](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt) handles non-web applications (e.g. gRPC services, CLI tools). It listens for `ApplicationStartedEvent` and, if the application context is not a `WebServerApplicationContext`, registers the service using the **process ID (PID) as the port** ([CoSkyAutoServiceRegistrationOfNoneWeb.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L52)). This provides a meaningful identifier even when there is no HTTP port.
 
 ### Service Registration Flow
 
@@ -3786,13 +3854,13 @@ sequenceDiagram
 The discovery starter uses `ConsistencyRedisServiceDiscovery` as the primary `ServiceDiscovery` bean ([CoSkyDiscoveryAutoConfiguration.kt:81](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L81)). This decorator wraps `RedisServiceDiscovery` with local consistency guarantees by subscribing to:
 
 - **ServiceEventListenerContainer** -- listens for Redis Pub/Sub events when services are added or removed ([CoSkyDiscoveryAutoConfiguration.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L62)).
-- **InstanceEventListenerContainer** -- listens for Redis Pub/Sub events when individual instances change (register, deregister, metadata update) ([CoSkyDiscoveryAutoConfiguration.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L69)).
+- **InstanceEventListenerContainer** -- listens for Redis Pub/Sub events when individual instances change (register, deregister, metadata update) ([CoSkyDiscoveryAutoConfiguration.kt:71](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L71)).
 
 This event-driven approach ensures that local service caches are invalidated and refreshed promptly without relying on polling.
 
 ## Load Balancer Integration
 
-CoSky provides a custom `BinaryWeightRandomLoadBalancer` ([CoSkyDiscoveryAutoConfiguration.kt:106](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L106)) that respects per-instance weights. It uses a binary-search algorithm over a cumulative weight array for O(log n) instance selection. The load balancer extends `AbstractLoadBalancer` and rebuilds its chooser whenever `InstanceEventListenerContainer` reports a change in the instance list.
+CoSky provides a custom `BinaryWeightRandomLoadBalancer` ([CoSkyDiscoveryAutoConfiguration.kt:109](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L109)) that respects per-instance weights. It uses a binary-search algorithm over a cumulative weight array for O(log n) instance selection. The load balancer extends `AbstractLoadBalancer` and rebuilds its chooser whenever `InstanceEventListenerContainer` reports a change in the instance list.
 
 ## Class Diagram
 
@@ -3936,8 +4004,8 @@ With this configuration, the `order-service` will:
 ## Related Pages
 
 - [Spring Cloud Config Starter](/guide/spring-cloud-config) -- Redis-backed configuration management with live refresh
-- [Service Discovery](/guide/discovery) -- CoSky's core service discovery API and Redis data model
-- [Service Registry](/guide/registry) -- CoSky's service registration and heartbeat mechanism
+- [Service Discovery](/guide/service-discovery) -- CoSky's core service discovery API and Redis data model
+- [Service Registry](/guide/service-registry) -- CoSky's service registration and heartbeat mechanism
 
 ## References
 
@@ -4045,12 +4113,13 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/users` | List all users with roles | `query` | [UserController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L42) |
-| POST | `/v1/users/{username}` | Add a new user | `addUser` | [UserController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L52) |
-| DELETE | `/v1/users/{username}` | Remove a user | `removeUser` | [UserController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L62) |
-| PATCH | `/v1/users/{username}/password` | Change password | `changePwd` | [UserController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L47) |
-| PATCH | `/v1/users/{username}/role` | Bind roles to user | `bindRole` | [UserController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L57) |
-| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | `unlock` | [UserController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L67) |
+| GET | `/v1/users` | List all users with roles | `query` | [UserController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L44) |
+| POST | `/v1/users/{username}` | Add a new user | `addUser` | [UserController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L54) |
+| DELETE | `/v1/users/{username}` | Remove a user | `removeUser` | [UserController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L64) |
+| PATCH | `/v1/users/{username}/password` | Change password | `changePwd` | [UserController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L49) |
+| PATCH | `/v1/users/{username}/role` | Bind roles to user | `bindRole` | [UserController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L59) |
+| PUT | `/v1/users/{username}/lock` | Lock a user (manual lock; root user cannot be locked) | `lock` | [UserController.kt:68](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L68) |
+| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | `unlock` | [UserController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L74) |
 
 ### Role Endpoints
 
@@ -4065,7 +4134,8 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/audit-log` | Query audit logs | `queryLog` | [AuditLogController.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L32) |
+| GET | `/v1/audit-log` | Query audit logs | `queryLog` | [AuditLogController.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L40) |
+| GET | `/v1/audit-log/export` | Export audit log as CSV | `exportLog` | [AuditLogController.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L51) |
 
 ## Sequence Diagrams
 
@@ -4192,12 +4262,12 @@ cosky:
     enabled: true                    # Enable/disable security
     audit-log:
       action: write                  # Audit log filter: "write", "read", or "rw"
-    enforce-init-super-user: false   # Force re-initialize super user on startup
+    enforce-init-super-user: ${cosky.super.init:false}   # Force re-initialize super user on startup
 
 cosec:
   jwt:
     algorithm: hmac256               # JWT signing algorithm
-    secret: ${cosky.security.key}    # JWT secret key
+    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}    # JWT secret key
     token-validity:
       access: 15m                    # Access token TTL
       refresh: 3H                    # Refresh token TTL
@@ -4238,7 +4308,7 @@ Source: [cosky-rest-api/src/main/resources/application.yaml](https://github.com/
 <doc title="Security & RBAC" path="guide/security-rbac.md">
 # Security & RBAC
 
-CoSky implements a comprehensive three-layer security model -- **Authentication**, **Authorization**, and **Audit** -- built on the [CoSec](https://github.com/Ahoo-Wang/CoSec) security framework. User credentials are stored in Redis with SHA-256 hashing. Authorization combines a policy engine (CoSec policy JSON) with namespace-scoped RBAC. All operations are audited and persisted to a Redis List for querying.
+CoSky implements a comprehensive three-layer security model -- **Authentication**, **Authorization**, and **Audit** -- built on the [CoSec](https://github.com/Ahoo-Wang/CoSec) security framework. User credentials are stored in Redis with SHA-256 hashing. Authorization combines a policy engine (CoSec policy JSON) with namespace-scoped RBAC. Operations are audited (write operations by default, configurable) and persisted to a Redis List for querying.
 
 ## At a Glance
 
@@ -4286,7 +4356,7 @@ flowchart LR
 CoSky supports two authentication methods:
 
 1. **UserPasswordAuthentication** -- validates username/password against SHA-256 hashed credentials stored in Redis. On success, the `UserService.login()` method returns a `SimplePrincipal` with the user's role bindings.
-2. **RefreshTokenAuthentication** -- accepts an access/refresh token pair and validates the refresh token via CoSec's `TokenVerifier`. Returns a refreshed token pair on success.
+2. **RefreshTokenAuthentication** -- accepts an access/refresh token pair and validates the refresh token via CoSec's `TokenVerifier`. After verification it calls `UserService.ensureUnlocked()`, so a locked account can no longer refresh its tokens. Returns a refreshed token pair on success.
 
 ### AuthenticateController Endpoints
 
@@ -4297,16 +4367,17 @@ CoSky supports two authentication methods:
 
 ### Login Lockout Mechanism
 
-`UserService.login()` implements progressive account lockout to prevent brute-force attacks:
+`UserService.login()` implements progressive account lockout to prevent brute-force attacks. Each lock-state mutation (`login-attempt`, `login-success`, `lock`, `remove`) executes as a single atomic `user_state.lua` script invocation, so individual counter updates cannot be corrupted by concurrent sign-ins. Note that one full login performs two separate script invocations (attempt, then success after password verification) and `unlock()` deletes the lock key directly, so the end-to-end login sequence is not one atomic unit.
 
 - **Max failed attempts**: 10 (`MAX_LOGIN_ERROR_TIMES`)
-- **Base lockout duration**: 15 minutes (`LOGIN_LOCK_EXPIRE`)
-- **Maximum lockout**: 3 days (`MAX_LOGIN_LOCK_EXPIRE`)
-- **Exponential backoff**: `lockoutDuration = baseLockout * max(tryCount / maxErrorTimes, 1)`, capped at the maximum.
-- **Lock tracking**: A Redis key (`system:login_lock:{username}`) is incremented on each failed attempt and deleted on successful login.
-- **Unlock**: Admins can unlock a user via `DELETE /v1/users/{username}/unlock`.
+- **Lock tracking**: A Redis key (`cosky-{system}:login_lock:{username}`) is incremented on each login attempt and deleted on successful login. While the count is within the limit, the script refreshes the key's TTL to 15 minutes (`LOGIN_LOCK_EXPIRE`) on every attempt, so a freeze effectively lifts 15 minutes after the last counted attempt.
+- **Freeze message**: Once the count exceeds 10, sign-in is rejected until the key expires. The error message reports a freeze duration computed with progressive backoff: `lockoutDuration = baseLockout * max(tryCount / maxErrorTimes, 1)`, capped at 3 days (`MAX_LOGIN_LOCK_EXPIRE`).
+- **Manual lock**: Admins can lock a user immediately via `PUT /v1/users/{username}/lock`. The script writes a `manual` marker (no TTL) to the lock key, so the account stays locked until explicitly unlocked. The root user (`cosky`) cannot be locked.
+- **Refresh tokens rejected**: Locked users (manual marker or over the failed-attempt limit) are also rejected when refreshing tokens -- see [RefreshTokenAuthentication](#authentication).
+- **Unlock**: Admins can unlock a user via `DELETE /v1/users/{username}/unlock`, which deletes the lock key.
+- **Visibility**: `GET /v1/users` returns a `locked` attribute per user, `true` when the account is manually locked or over the failed-attempt limit.
 
-Source: [UserService.kt:135-177](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L135)
+Sources: [UserService.kt:138-180](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L138), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
 
 ### Login Flow
 
@@ -4324,19 +4395,20 @@ sequenceDiagram
     AuthenticateController->>TokenCompositeAuth: authenticateAsToken(UserPasswordCredentials)
     TokenCompositeAuth->>UserPasswordAuth: authenticate(credentials)
     UserPasswordAuth->>UserService: login(username, pwd)
-    UserService->>Redis: INCR system:login_lock:{username}
-    Redis-->>UserService: tryCount
-    alt tryCount > 10
+    UserService->>Redis: EVAL user_state.lua (login-attempt)<br>INCR cosky-{system}:login_lock:{username}
+    Redis-->>UserService: tryCount (-1 if manually locked)
+    alt manually locked (tryCount = -1)
+        UserService-->>UserPasswordAuth: SecurityException (locked by administrator)
+    else tryCount > 10
         UserService-->>UserPasswordAuth: SecurityException (account frozen)
     else within limit
-        UserService->>Redis: GET from system:user_idx (hashed pwd)
+        UserService->>Redis: HGET cosky-{system}:user_idx (hashed pwd)
         Redis-->>UserService: storedHash
         alt SHA-256(pwd) != storedHash
-            UserService->>Redis: EXPIRE lock key (backoff duration)
             UserService-->>UserPasswordAuth: SecurityException (incorrect password)
         else password matches
-            UserService->>Redis: DEL system:login_lock:{username}
-            UserService->>Redis: SMEMBERS system:user_role_bind:{username}
+            UserService->>Redis: EVAL user_state.lua (login-success)<br>DEL login lock key
+            UserService->>Redis: SMEMBERS cosky-{system}:user_role_bind:{username}
             Redis-->>UserService: roleSet
             UserService-->>UserPasswordAuth: SimplePrincipal(id, roles)
         end
@@ -4346,7 +4418,7 @@ sequenceDiagram
     AuthenticateController-->>Client: 200 CompositeToken
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:135 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:139, cosky-rest-api/src/main/resources/user_state.lua:31 -->
 
 ## Authorization
 
@@ -4382,7 +4454,7 @@ flowchart TD
 
 ### CoSkyPolicy and InitialPolicyLoader
 
-`CoSkyPolicy` loads the security policy from CoSky's own config service. The policy is stored as a config item in the `system` namespace. It subscribes to config change events and refreshes the policy cache automatically when updated.
+`CoSkyPolicy` loads the security policy from CoSky's own config service. The policy is stored as a config item in the `cosky-{system}` namespace. It subscribes to config change events and refreshes the policy cache automatically when updated.
 
 If no policy exists in the config service, `InitialPolicyLoader` loads the bundled `cosky-policy.json` from the classpath as a fallback.
 
@@ -4445,7 +4517,7 @@ classDiagram
 
 ### Super User and Admin Role
 
-- **Super user**: The `cosky` user (root) bypasses all authorization. It is initialized by `SecurityCommand` on application startup when `cosky.security.enforce-init-super-user` is `true`. A random 10-character password is generated and printed to stdout.
+- **Super user**: The `cosky` user (root) bypasses all authorization. `SecurityCommand` calls `UserService.initRoot()` on every application startup; the root user is created with a random 10-character password (printed to stdout) whenever it is absent. Setting `cosky.security.enforce-init-super-user` to `true` additionally deletes the existing root user first, forcing a password reset on every restart.
 - **Admin role**: The `admin` role is a system-reserved role granted full access by the policy engine's `admin` statement. It is automatically included in the role list.
 
 Sources: [UserService.kt:38-52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L38), [Role.kt:31-34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt#L31), [SecurityCommand.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityCommand.kt#L25)
@@ -4458,7 +4530,7 @@ Sources: [UserService.kt:38-52](https://github.com/Ahoo-Wang/CoSky/blob/main/cos
 
 - **operator** -- the username (from security context, or extracted from the login path)
 - **ip** -- remote address
-- **path** -- request URI
+- **resource** -- request URI
 - **action** -- HTTP method name
 - **status** -- HTTP response status code
 - **msg** -- error message (if any)
@@ -4470,9 +4542,9 @@ Source: [AuditLogHandlerInterceptor.kt:31-76](https://github.com/Ahoo-Wang/CoSky
 
 ### AuditLogService
 
-`AuditLogService` persists audit log entries as JSON strings in a Redis List (`system:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`.
+`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
 
-Source: [AuditLogService.kt:27-51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L27)
+Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 
 ## User Management
 
@@ -4480,17 +4552,19 @@ Source: [AuditLogService.kt:27-51](https://github.com/Ahoo-Wang/CoSky/blob/main/
 
 `UserService` manages users entirely in Redis:
 
-- **User index**: A Redis Hash (`system:user_idx`) mapping usernames to SHA-256 password hashes.
-- **Role bindings**: A Redis Set (`system:user_role_bind:{username}`) storing role names assigned to each user.
+- **User index**: A Redis Hash (`cosky-{system}:user_idx`) mapping usernames to SHA-256 password hashes.
+- **Role bindings**: A Redis Set (`cosky-{system}:user_role_bind:{username}`) storing role names assigned to each user.
 - **Password hashing**: Uses Guava's `Hashing.sha256()` with UTF-8 encoding.
-- **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above.
-- **Root initialization**: `initRoot(enforce)` creates or resets the `cosky` super user with a random password.
+- **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above. Each lock-state transition is executed atomically by the `user_state.lua` script.
+- **User listing**: `query()` returns each user with role bindings and a `locked` attribute (`true` when manually locked or over the failed-attempt limit).
+- **Removal guard**: The root user (`cosky`) can be neither removed nor locked.
+- **Root initialization**: `initRoot(enforce)` creates the `cosky` super user with a random password when absent; `enforce = true` removes the existing root first, forcing re-initialization.
 
-Source: [UserService.kt:36-212](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36)
+Source: [UserService.kt:36-288](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36)
 
 ### SecurityCommand
 
-`SecurityCommand` is a `CommandLineRunner` that runs on application startup. It calls `UserService.initRoot()` to initialize the super user. This happens automatically if `cosky.security.enforce-init-super-user` is set to `true`.
+`SecurityCommand` is a `CommandLineRunner` that runs on application startup. It unconditionally calls `UserService.initRoot()`, passing through the `cosky.security.enforce-init-super-user` flag (default `false`). The root user is created whenever it does not exist; the flag only controls whether an existing root is deleted and re-initialized.
 
 Source: [SecurityCommand.kt:25-34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityCommand.kt#L25)
 
@@ -4498,12 +4572,13 @@ Source: [SecurityCommand.kt:25-34](https://github.com/Ahoo-Wang/CoSky/blob/main/
 
 | Method | Path | Description | Source |
 |--------|------|-------------|--------|
-| GET | `/v1/users` | List all users with role bindings | [UserController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L42) |
-| POST | `/v1/users/{username}` | Create a new user | [UserController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L52) |
-| DELETE | `/v1/users/{username}` | Remove a user | [UserController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L62) |
-| PATCH | `/v1/users/{username}/password` | Change password | [UserController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L47) |
-| PATCH | `/v1/users/{username}/role` | Bind roles to a user | [UserController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L57) |
-| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | [UserController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L67) |
+| GET | `/v1/users` | List all users with role bindings and lock state | [UserController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L44) |
+| POST | `/v1/users/{username}` | Create a new user | [UserController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L54) |
+| DELETE | `/v1/users/{username}` | Remove a user | [UserController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L64) |
+| PATCH | `/v1/users/{username}/password` | Change password | [UserController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L49) |
+| PATCH | `/v1/users/{username}/role` | Bind roles to a user | [UserController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L59) |
+| PUT | `/v1/users/{username}/lock` | Manually lock a user (root cannot be locked) | [UserController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L69) |
+| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | [UserController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L74) |
 
 ## Default Security Policy
 
@@ -4563,13 +4638,13 @@ Source: [cosky-rest-api/src/main/resources/cosky-policy.json](https://github.com
 <doc title="Dashboard" path="guide/dashboard.md">
 # Dashboard
 
-The CoSky Dashboard is a modern single-page application built with React 19, TypeScript, and Ant Design 6. It provides a visual management interface for all CoSky capabilities: service monitoring, configuration management, service topology visualization, RBAC administration, user management, and audit log review. The dashboard is served directly by the REST API server as static assets and communicates with the backend exclusively through the CoSky REST API.
+The CoSky Dashboard is a modern single-page application built with React 19, TypeScript, Radix UI, and shadcn/ui (styled with Tailwind CSS 4). It provides a visual management interface for all CoSky capabilities: service monitoring, configuration management, service topology visualization, RBAC administration, user management, and audit log review. The dashboard is served directly by the REST API server as static assets and communicates with the backend exclusively through the CoSky REST API.
 
 ## At a Glance
 
 | Aspect | Detail | Key File | Source |
 |--------|--------|----------|--------|
-| Frontend app | React 19 SPA with Ant Design 6 | `dashboard/package.json` | [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json) |
+| Frontend app | React 19 SPA with Radix UI + shadcn/ui | `dashboard/package.json` | [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json) |
 | SPA route serving | Serves `index.html` for all dashboard routes | `DashboardConfiguration.kt` | [cosky-rest-api/.../DashboardConfiguration.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/dashboard/DashboardConfiguration.kt#L30) |
 | API client | Auto-generated from OpenAPI spec | `dashboard/src/generated/` | [dashboard/package.json:12](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json#L12) |
 
@@ -4577,18 +4652,23 @@ The CoSky Dashboard is a modern single-page application built with React 19, Typ
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| React | 19.2.6 | UI framework |
+| React | 19.2.6 | UI framework (with React Compiler) |
 | TypeScript | ~6.0.3 | Type-safe development |
 | Vite | 8.0.16 | Build tool and dev server |
-| Ant Design | 6.3.7 | UI component library |
+| Radix UI | 1.6.7 | Headless UI primitives |
+| shadcn/ui | 4.18.0 | Vendored component pattern (`src/components/ui/`) |
+| Tailwind CSS | 4.3.3 | Utility-first styling |
+| lucide-react | 1.31.0 | Icon set |
+| sonner | 2.0.8 | Toast notifications |
 | React Router DOM | 7.15.1 | Client-side routing |
 | @xyflow/react | 12.10.2 | Service topology visualization |
-| Monaco Editor | 0.55.1 | Configuration text editor |
+| Monaco Editor | 0.55.1 (via @monaco-editor/react 4.7.0) | Configuration text editor |
 | @ahoo-wang/fetcher | 3.16.10 | HTTP client with CoSec auth |
 | @ahoo-wang/fetcher-react | 3.16.10 | React hooks for API calls |
 | @ahoo-wang/fetcher-cosec | 3.16.10 | CoSec token refresh integration |
-| @ahoo-wang/fetcher-viewer | 3.16.10 | Data table and filter components |
+| @ahoo-wang/fetcher-storage | 3.16.10 | Token storage |
 | @ahoo-wang/fetcher-generator | 3.16.10 | OpenAPI code generation |
+| Playwright | 1.62.1 | Unit and end-to-end UI testing |
 
 Source: [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json)
 
@@ -4632,13 +4712,17 @@ The role management page allows administrators to create roles and assign namesp
 
 ![User](/dashboard-user.png)
 
-User management supports creating users, assigning roles, changing passwords, and unlocking locked accounts.
+User management supports creating users, assigning roles, changing passwords, and locking/unlocking accounts. Each row shows a `locked` badge reflecting the account state returned by the API. A manually locked user can no longer sign in or refresh tokens until an administrator unlocks the account; the root user (`cosky`) cannot be locked. See [Security & RBAC](/guide/security-rbac#login-lockout-mechanism) for the lockout semantics.
 
 ### Audit Log
 
 ![Audit Log](/dashboard-audit-log.png)
 
-The audit log page displays a paginated list of all audited operations with operator, IP, path, action, status, and timestamp columns.
+The audit log page displays a paginated list of all audited operations with operator, IP, resource, action, status, and timestamp columns, and can export the audit log as a CSV file (`GET /v1/audit-log/export`).
+
+### Navigation Search
+
+The sidebar includes a keyboard-first navigation search. Press `/` anywhere outside an input field to focus it, filter pages by name or description, move with `ArrowUp`/`ArrowDown`, and jump with `Enter`.
 
 ### Login
 
@@ -4662,10 +4746,10 @@ flowchart TD
     end
 
     subgraph "Redis"
-        UserRedis["User Index<br>system:user_idx"]
+        UserRedis["User Index<br>cosky-{system}:user_idx"]
         ConfigRedis["Configs<br>Namespaced keys"]
         ServiceRedis["Services<br>Namespaced keys"]
-        AuditRedis["Audit Log<br>system:audit:log"]
+        AuditRedis["Audit Log<br>cosky-{system}:audit:log"]
     end
 
     SPA -->|"HTML/JS/CSS"| DashboardConfig
@@ -5036,7 +5120,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           ports:
             - name: http
               containerPort: 8080
@@ -5079,6 +5163,10 @@ spec:
 
 <!-- Sources: k8s/deployment/cosky.yml:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
+::: tip Image tag
+The manifests below use the current release `5.7.2` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
+:::
+
 ## Clustered Redis Deployment
 
 For production environments with Redis Cluster, use the cluster manifest which reads connection details from a Kubernetes Secret:
@@ -5104,7 +5192,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           env:
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:
@@ -5387,32 +5475,37 @@ flowchart LR
 
 The standalone deployment option lets you run CoSky directly on a host machine without Docker or Kubernetes. This approach is ideal for development environments, small-scale deployments, or environments where container runtimes are not available. The standalone distribution packages CoSky as a self-contained application with startup scripts, configuration files, and the built-in dashboard UI.
 
-## Download and Extract
+## Build and Extract
 
-Download the latest release tarball and extract it:
+GitHub releases do not publish a pre-built tarball, so build the standalone distribution from source (JDK 17+ required):
 
 ```bash
-# Download the latest release
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# Build the dashboard first (dashboard/dist is gitignored;
+# without this step the archive has no web UI)
+cd dashboard && pnpm install && pnpm build && cd ..
+
+# Build the distribution tarball
+./gradlew :cosky-rest-api:distTar
 
 # Extract
-tar -xvf cosky-server.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
 
 # Enter the directory
-cd cosky-server
+cd cosky-rest-api-5.7.2
 ```
+
+The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`.
 
 The extracted directory structure contains:
 
 ```
-cosky-server/
+cosky-rest-api-5.7.2/
   bin/
-    cosky              # Startup script (Unix)
+    cosky-rest-api     # Startup script (Unix)
   config/
     application.yaml   # Application configuration
     bootstrap.yaml     # Bootstrap configuration
-  dashboard/
-    dist/              # Dashboard UI static files
+  ui/                  # Dashboard UI static files
   lib/
     *.jar              # Runtime dependencies
 ```
@@ -5422,7 +5515,7 @@ cosky-server/
 Start CoSky with the required Redis connection parameter:
 
 ```bash
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 All Spring Boot properties can be passed as command-line arguments using the `--property=value` format. Alternatively, set them as environment variables or edit the configuration files directly.
@@ -5439,7 +5532,7 @@ flowchart TD
     C -->|"Yes"| E["Kubernetes Deployment"]
     C -->|"No"| F["Docker / Docker Compose"]
     D --> G{"JDK 17+<br>installed?"}
-    G -->|"Yes"| H["Download tarball<br>bin/cosky"]
+    G -->|"Yes"| H["Build tarball<br>bin/cosky-rest-api"]
     G -->|"No"| I["Install JDK 17+"]
     I --> H
     H --> J{"Redis<br>available?"}
@@ -5483,7 +5576,7 @@ spring:
           weight: 8
   web:
     resources:
-      static-locations: file:./dashboard/dist/
+      static-locations: file:./ui/
 cosky:
   security:
     enabled: true
@@ -5582,7 +5675,7 @@ sequenceDiagram
     participant R as Redis
     participant US as cosky (super user)
 
-    OS->>JVM: bin/cosky --server.port=8080
+    OS->>JVM: bin/cosky-rest-api --server.port=8080
     JVM->>SB: start application context
     SB->>SB: load bootstrap.yaml
     SB->>SB: resolve application name: cosky-rest-api
@@ -5645,7 +5738,7 @@ To pass JVM options through the startup script, set the `JAVA_OPTS` environment 
 
 ```bash
 export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## Service Discovery and Self-Registration
@@ -5689,7 +5782,7 @@ logging:
 To change the log location, override the `logging.file.name` property:
 
 ```bash
-bin/cosky --logging.file.name=/var/log/cosky/cosky.log
+bin/cosky-rest-api --logging.file.name=/var/log/cosky/cosky.log
 ```
 
 ## Related Pages

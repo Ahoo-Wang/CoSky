@@ -307,8 +307,8 @@ classDiagram
 
 ## 相关页面
 
-- [REST API Server](/guide/rest-api) -- API 端点和服务器架构
-- [Dashboard](/guide/dashboard) -- CoSky 管理 UI
+- [REST API Server](/zh/guide/rest-api) -- API 端点和服务器架构
+- [Dashboard](/zh/guide/dashboard) -- CoSky 管理 UI
 
 ## 参考
 
