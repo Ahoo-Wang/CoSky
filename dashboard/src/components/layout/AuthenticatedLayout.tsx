@@ -100,6 +100,8 @@ export const AuthenticatedLayout = () => {
         const focusSearch = (event: globalThis.KeyboardEvent) => {
             const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
             if (!isCommandK && event.key !== '/') return;
+            // The search control is display:none below 720px — leave the shortcuts alone there.
+            if (searchInputRef.current?.checkVisibility() !== true) return;
             // Never hijack keys while a modal surface (sheet, dialog, alert dialog) is open.
             if (isModalOpen()) return;
             // '/' stays out of the way of typing; Ctrl/Cmd+K intentionally works from anywhere.
@@ -169,6 +171,7 @@ export const AuthenticatedLayout = () => {
 
     const handleLayoutKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key !== '/') return;
+        if (searchInputRef.current?.checkVisibility() !== true) return;
         if (isModalOpen()) return;
         if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
         event.preventDefault();

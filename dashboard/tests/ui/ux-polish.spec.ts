@@ -52,6 +52,30 @@ test('definition list wraps long unbroken values instead of clipping them', asyn
     expect(metrics.cellRight).toBeLessThanOrEqual(metrics.listRight + 1);
 });
 
+test('command palette shortcuts stay inert while the search is hidden on small screens', async ({page}) => {
+    await page.setViewportSize({width: 390, height: 844});
+    await login(page);
+    // Let the layout effects settle before relying on the global shortcut listener.
+    await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
+
+    const paletteState = () => page.evaluate(() => {
+        const searchInput = document.querySelector('input[aria-label="Search navigation"]');
+        return {
+            ariaExpanded: searchInput?.getAttribute('aria-expanded'),
+            searchFocused: document.activeElement === searchInput,
+        };
+    });
+
+    await page.keyboard.press('Control+k');
+    await page.keyboard.press('/');
+
+    // The search control is display:none below 720px — shortcuts must not consume the
+    // event, focus the hidden input, or open results that can never be seen.
+    const state = await paletteState();
+    expect(state.ariaExpanded).toBe('false');
+    expect(state.searchFocused).toBe(false);
+});
+
 test('command palette shortcuts stay inert inside the native topology dialog', async ({page}) => {
     await login(page);
     const search = page.getByRole('combobox', {name: 'Search navigation'});
