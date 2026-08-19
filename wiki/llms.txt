@@ -41,7 +41,7 @@
 
 - [REST API Server](guide/rest-api.md) — HTTP endpoints for all CoSky operations
 - [Security & RBAC](guide/security-rbac.md) — JWT auth, namespace-scoped RBAC, audit logging
-- [Dashboard](guide/dashboard.md) — React 19 + Ant Design 6 web management interface
+- [Dashboard](guide/dashboard.md) — React 19 + Radix UI + shadcn/ui web management interface
 
 ## Deployment
 

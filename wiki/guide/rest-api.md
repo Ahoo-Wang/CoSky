@@ -97,12 +97,13 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/users` | List all users with roles | `query` | [UserController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L42) |
-| POST | `/v1/users/{username}` | Add a new user | `addUser` | [UserController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L52) |
-| DELETE | `/v1/users/{username}` | Remove a user | `removeUser` | [UserController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L62) |
-| PATCH | `/v1/users/{username}/password` | Change password | `changePwd` | [UserController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L47) |
-| PATCH | `/v1/users/{username}/role` | Bind roles to user | `bindRole` | [UserController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L57) |
-| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | `unlock` | [UserController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L67) |
+| GET | `/v1/users` | List all users with roles | `query` | [UserController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L44) |
+| POST | `/v1/users/{username}` | Add a new user | `addUser` | [UserController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L54) |
+| DELETE | `/v1/users/{username}` | Remove a user | `removeUser` | [UserController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L64) |
+| PATCH | `/v1/users/{username}/password` | Change password | `changePwd` | [UserController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L49) |
+| PATCH | `/v1/users/{username}/role` | Bind roles to user | `bindRole` | [UserController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L59) |
+| PUT | `/v1/users/{username}/lock` | Lock a user (manual lock; root user cannot be locked) | `lock` | [UserController.kt:68](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L68) |
+| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | `unlock` | [UserController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L74) |
 
 ### Role Endpoints
 
@@ -117,7 +118,8 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/audit-log` | Query audit logs | `queryLog` | [AuditLogController.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L32) |
+| GET | `/v1/audit-log` | Query audit logs | `queryLog` | [AuditLogController.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L40) |
+| GET | `/v1/audit-log/export` | Export audit log as CSV | `exportLog` | [AuditLogController.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L51) |
 
 ## Sequence Diagrams
 
@@ -244,12 +246,12 @@ cosky:
     enabled: true                    # Enable/disable security
     audit-log:
       action: write                  # Audit log filter: "write", "read", or "rw"
-    enforce-init-super-user: false   # Force re-initialize super user on startup
+    enforce-init-super-user: ${cosky.super.init:false}   # Force re-initialize super user on startup
 
 cosec:
   jwt:
     algorithm: hmac256               # JWT signing algorithm
-    secret: ${cosky.security.key}    # JWT secret key
+    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}    # JWT secret key
     token-validity:
       access: 15m                    # Access token TTL
       refresh: 3H                    # Refresh token TTL

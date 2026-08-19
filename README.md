@@ -45,9 +45,13 @@ caching strategies and *Redis PubSub*, CoSky achieves real-time cache refreshing
 
 ``` kotlin
     val coskyVersion = "lastVersion";
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config:${coskyVersion}")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery:${coskyVersion}")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer:3.0.3")
+    // cosky-bom: manages CoSky module versions
+    // cosky-dependencies: manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
+    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 ```
 
 ### Maven
@@ -65,21 +69,39 @@ caching strategies and *Redis PubSub*, CoSky achieves real-time cache refreshing
         <cosky.version>lastVersion</cosky.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- cosky-bom: manages CoSky module versions -->
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-bom</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- cosky-dependencies: manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions -->
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-dependencies</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-config</artifactId>
-            <version>${cosky.version}</version>
+            <artifactId>cosky-spring-cloud-starter-config</artifactId>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
-            <version>${cosky.version}</version>
+            <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-            <version>3.0.3</version>
         </dependency>
     </dependencies>
 
@@ -97,7 +119,7 @@ spring:
       url: redis://localhost:6379
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{system}}
+      namespace: ${cosky.namespace:cosky-{default}}
       config:
         config-id: ${spring.application.name}.yaml
     service-registry:
@@ -114,16 +136,19 @@ Choose from three deployment options based on your environment:
 
 ### 🖥️ Option 1: Standalone Executable
 
-Download the latest release and run directly:
+Build the distribution from source and run directly:
 
 ```shell
-# Download cosky-server
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# Build the dashboard first (dashboard/dist is gitignored; without this the archive has no web UI)
+cd dashboard && pnpm install && pnpm build && cd ..
+
+# Build the distribution (outputs to cosky-rest-api/build/distributions/)
+./gradlew :cosky-rest-api:distTar
 
 # Extract and run
-tar -xvf cosky-server.tar
-cd cosky-server
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-*.tar
+cd cosky-rest-api-*
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ### 🐳 Option 2: Docker Deployment

@@ -56,9 +56,10 @@ flowchart TD
 val coskyVersion = "5.8.0"
 
 dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -80,6 +81,13 @@ dependencies {
         <dependencies>
             <dependency>
                 <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-bom</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
                 <artifactId>cosky-dependencies</artifactId>
                 <version>${cosky.version}</version>
                 <type>pom</type>
@@ -91,11 +99,11 @@ dependencies {
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-config</artifactId>
+            <artifactId>cosky-spring-cloud-starter-config</artifactId>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+            <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -105,15 +113,16 @@ dependencies {
 </project>
 ```
 
-源码：[gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-87](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L87)
+源码：[gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-108](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L108)
 
 ### 可用构件
 
 | 构件 | 用途 | 模块 |
 |----------|---------|--------|
-| `spring-cloud-starter-cosky-config` | Spring Cloud 配置加载和实时刷新 | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
-| `spring-cloud-starter-cosky-discovery` | Spring Cloud 服务注册和发现 | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-bom` | 用于依赖版本管理的物料清单 | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-spring-cloud-starter-config` | Spring Cloud 配置加载和实时刷新 | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
+| `cosky-spring-cloud-starter-discovery` | Spring Cloud 服务注册和发现 | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
+| `cosky-bom` | 物料清单 —— 管理 CoSky 模块版本 | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-dependencies` | 版本目录 —— 管理 Spring Boot / Spring Cloud / CosID / Simba / CoSec 版本（无版本号的 `spring-cloud-starter-loadbalancer` 依赖需要它） | [cosky-dependencies](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-dependencies) |
 
 ## REST API 服务器安装
 
@@ -121,19 +130,24 @@ REST API 服务器提供管理控制台、REST 端点、安全（RBAC）和审�
 
 ### 方式 1：独立 JAR
 
-下载最新版本并直接运行：
+GitHub Releases 不发布预构建的归档文件，因此需要从源码构建服务器发行包（需要 JDK 17）：
 
 ```bash
-# 下载 cosky-server
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# （可选）先构建控制台前端，以便将 Web UI 打包进发行包
+cd dashboard && pnpm install && pnpm build && cd ..
 
-# 解压
-tar -xvf cosky-server.tar
-cd cosky-server
+# 构建发行包归档
+./gradlew :cosky-rest-api:distTar
+
+# 解压（归档文件名包含版本号）
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
+cd cosky-rest-api-5.7.2
 
 # 使用 Redis 连接运行
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
+
+发行包包含 `bin/` 启动脚本、`lib/` 依赖库、`config/` 配置文件，以及存放控制台静态资源的 `ui/` 目录（通过 `spring.web.resources.static-locations: file:./ui/` 提供访问）。
 
 首次启动时，CoSky 会初始化超级用户并将生成的密码打印到控制台：
 
@@ -143,7 +157,7 @@ bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 
 要重新初始化密码，请在配置中设置 `enforce-init-super-user: true`。
 
-源码：[README.md:119-127](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L119-L127)
+源码：[cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44)、[cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13)、[README.md:267](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L267)
 
 ### 方式 2：Docker
 
@@ -180,7 +194,7 @@ services:
       - redis
 ```
 
-源码：[README.md:132-137](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L132-L137)
+源码：[README.md:159-163](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L159-L163)
 
 ### 方式 3：Kubernetes
 
@@ -204,20 +218,18 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          ports:
-            - containerPort: 8080
-              protocol: TCP
-          env:
+        - env:
             - name: SPRING_DATA_REDIS_HOST
               value: redis-uri:6379
             - name: SPRING_DATA_REDIS_PASSWORD
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -230,21 +242,29 @@ spec:
             httpGet:
               port: http
               path: /actuator/health/liveness
+          name: cosky
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
           resources:
-            requests:
-              cpu: 250m
-              memory: 1024Mi
             limits:
               cpu: "1"
               memory: 1280Mi
+            requests:
+              cpu: 250m
+              memory: 1024Mi
           volumeMounts:
-            - name: volume-localtime
-              mountPath: /etc/localtime
+            - mountPath: /etc/localtime
+              name: volume-localtime
       volumes:
-        - name: volume-localtime
-          hostPath:
+        - hostPath:
             path: /etc/localtime
+            type: ""
+          name: volume-localtime
 ```
+
+> **注意：** 上述示例使用当前发布版本 `5.7.2`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
 
 源码：[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -268,11 +288,13 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          env:
+        - env:
+            - name: LANG
+              value: C.utf8
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:
                 secretKeyRef:
@@ -289,6 +311,41 @@ spec:
               value: "true"
             - name: SPRING_DATA_REDIS_LETTUCE_CLUSTER_REFRESH_PERIOD
               value: 30s
+            - name: TZ
+              value: Asia/Shanghai
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          startupProbe:
+            httpGet:
+              port: http
+              path: /actuator/health
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/readiness
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
+          name: cosky
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1280Mi
+            requests:
+              cpu: 250m
+              memory: 1024Mi
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: volume-localtime
+      volumes:
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: volume-localtime
 ```
 
 源码：[k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml)
@@ -365,8 +422,8 @@ CoSky 的关键配置属性：
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务和配置的隔离命名空间 | [CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30) |
 | `spring.cloud.cosky.config.enabled` | `true` | 启用从 Redis 加载配置 | [CoSkyConfigProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L26) |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID | [CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48) |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | 默认文件扩展名 | [CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27) |
-| `spring.cloud.cosky.config.timeout` | `2s` | 配置加载超时时间 | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | 默认文件扩展名 | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
+| `spring.cloud.cosky.config.timeout` | `2s` | 配置加载超时时间 | [CoSkyConfigProperties.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L29) |
 | `spring.cloud.cosky.discovery.enabled` | `true` | 启用服务发现 | [CoSkyDiscoveryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L26) |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | 发现操作超时时间 | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
@@ -381,7 +438,7 @@ CoSky 的关键配置属性：
 |----------|---------|-------------|--------|
 | 实例 TTL | `60s` | 实例在被视为过期前的存活时间 | [RegistryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt#L26) |
 | 续约周期 | `10s` | 实例发送心跳以续约 TTL 的频率 | [RenewProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L28) |
-| 续约初始延迟 | `1s` | 注册后首次心跳前的延迟时间 | [RenewProperties.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L25) |
+| 续约初始延迟 | `1s` | 注册后首次心跳前的延迟时间 | [RenewProperties.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L23) |
 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
@@ -448,7 +505,7 @@ REST API 服务器运行后，通过以下地址访问基于 Web 的管理界面
 - 服务拓扑可视化
 - 导入/导出功能（包括 Nacos 迁移）
 
-源码：[README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L206-L219)
+源码：[README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L238-L246)
 
 ## 参考
 

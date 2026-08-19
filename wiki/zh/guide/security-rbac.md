@@ -4,7 +4,7 @@ title: Security & RBAC
 
 # 安全与 RBAC
 
-CoSky 实现了全面的三层安全模型 -- **认证**、**授权**和**审计** -- 基于 [CoSec](https://github.com/Ahoo-Wang/CoSec) 安全框架构建。用户凭据使用 SHA-256 哈希存储在 Redis 中。授权结合了策略引擎（CoSec 策略 JSON）和命名空间范围的 RBAC。所有操作都会被审计并持久化到 Redis List 中以供查询。
+CoSky 实现了全面的三层安全模型 -- **认证**、**授权**和**审计** -- 基于 [CoSec](https://github.com/Ahoo-Wang/CoSec) 安全框架构建。用户凭据使用 SHA-256 哈希存储在 Redis 中。授权结合了策略引擎（CoSec 策略 JSON）和命名空间范围的 RBAC。操作会被审计（默认仅写操作，可配置）并持久化到 Redis List 中以供查询。
 
 ## 一览
 
@@ -52,7 +52,7 @@ flowchart LR
 CoSky 支持两种认证方式：
 
 1. **UserPasswordAuthentication** -- 使用 SHA-256 哈希凭据（存储在 Redis 中）验证用户名/密码。成功时，`UserService.login()` 方法返回包含用户角色绑定的 `SimplePrincipal`。
-2. **RefreshTokenAuthentication** -- 接受访问/刷新令牌对，并通过 CoSec 的 `TokenVerifier` 验证刷新令牌。成功时返回新的令牌对。
+2. **RefreshTokenAuthentication** -- 接受访问/刷新令牌对，并通过 CoSec 的 `TokenVerifier` 验证刷新令牌。验证通过后会调用 `UserService.ensureUnlocked()`，因此已被锁定的账户无法再刷新令牌。成功时返回新的令牌对。
 
 ### AuthenticateController 端点
 
@@ -63,16 +63,17 @@ CoSky 支持两种认证方式：
 
 ### 登录锁定机制
 
-`UserService.login()` 实现了渐进式账户锁定以防止暴力破解攻击：
+`UserService.login()` 实现了渐进式账户锁定以防止暴力破解攻击。每个锁定状态变更（`login-attempt`、`login-success`、`lock`、`remove`）都以单次原子性 `user_state.lua` 脚本调用执行，因此单个计数更新不会被并发登录破坏。注意，一次完整登录包含两次独立的脚本调用（先 attempt，密码校验通过后再 success），而 `unlock()` 会直接删除锁定键，因此端到端的登录序列并非一个原子整体。
 
 - **最大失败次数**：10 次（`MAX_LOGIN_ERROR_TIMES`）
-- **基础锁定时长**：15 分钟（`LOGIN_LOCK_EXPIRE`）
-- **最大锁定时长**：3 天（`MAX_LOGIN_LOCK_EXPIRE`）
-- **指数退避**：`lockoutDuration = baseLockout * max(tryCount / maxErrorTimes, 1)`，不超过最大值。
-- **锁定追踪**：Redis 键（`system:login_lock:{username}`）在每次失败尝试时递增，在成功登录时删除。
-- **解锁**：管理员可通过 `DELETE /v1/users/{username}/unlock` 解锁用户。
+- **锁定追踪**：Redis 键（`cosky-{system}:login_lock:{username}`）在每次登录尝试时递增，在成功登录时删除。当计数未超过阈值时，脚本会在每次尝试时将键的 TTL 刷新为 15 分钟（`LOGIN_LOCK_EXPIRE`），因此冻结实际会在最后一次计数尝试的 15 分钟后解除。
+- **冻结提示**：当计数超过 10 次后，登录将被拒绝直到键过期。错误消息中的冻结时长按渐进退避公式计算：`lockoutDuration = baseLockout * max(tryCount / maxErrorTimes, 1)`，上限为 3 天（`MAX_LOGIN_LOCK_EXPIRE`）。
+- **手动锁定**：管理员可通过 `PUT /v1/users/{username}/lock` 立即锁定用户。脚本会向锁定键写入 `manual` 标记（无 TTL），账户将保持锁定直到被显式解锁。root 用户（`cosky`）不可被锁定。
+- **刷新令牌被拒绝**：被锁定的用户（手动标记或超过失败次数阈值）在刷新令牌时同样会被拒绝 -- 参见 [RefreshTokenAuthentication](#认证)。
+- **解锁**：管理员可通过 `DELETE /v1/users/{username}/unlock` 解锁用户，该操作会删除锁定键。
+- **可见性**：`GET /v1/users` 会为每个用户返回 `locked` 属性，当账户被手动锁定或超过失败次数阈值时为 `true`。
 
-源码: [UserService.kt:135-177](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L135)
+源码: [UserService.kt:138-180](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L138), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
 
 ### 登录流程
 
@@ -90,19 +91,20 @@ sequenceDiagram
     AuthenticateController->>TokenCompositeAuth: authenticateAsToken(UserPasswordCredentials)
     TokenCompositeAuth->>UserPasswordAuth: authenticate(credentials)
     UserPasswordAuth->>UserService: login(username, pwd)
-    UserService->>Redis: INCR system:login_lock:{username}
-    Redis-->>UserService: tryCount
-    alt tryCount > 10
+    UserService->>Redis: EVAL user_state.lua (login-attempt)<br>INCR cosky-{system}:login_lock:{username}
+    Redis-->>UserService: tryCount（手动锁定时为 -1）
+    alt 手动锁定（tryCount = -1）
+        UserService-->>UserPasswordAuth: SecurityException（被管理员锁定）
+    else tryCount > 10
         UserService-->>UserPasswordAuth: SecurityException（账户已冻结）
     else 在限制内
-        UserService->>Redis: GET system:user_idx（哈希密码）
+        UserService->>Redis: HGET cosky-{system}:user_idx（哈希密码）
         Redis-->>UserService: storedHash
         alt SHA-256(pwd) != storedHash
-            UserService->>Redis: EXPIRE 锁定键（退避时长）
             UserService-->>UserPasswordAuth: SecurityException（密码错误）
         else 密码匹配
-            UserService->>Redis: DEL system:login_lock:{username}
-            UserService->>Redis: SMEMBERS system:user_role_bind:{username}
+            UserService->>Redis: EVAL user_state.lua (login-success)<br>DEL 锁定键
+            UserService->>Redis: SMEMBERS cosky-{system}:user_role_bind:{username}
             Redis-->>UserService: roleSet
             UserService-->>UserPasswordAuth: SimplePrincipal(id, roles)
         end
@@ -112,7 +114,7 @@ sequenceDiagram
     AuthenticateController-->>Client: 200 CompositeToken
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:135 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:139, cosky-rest-api/src/main/resources/user_state.lua:31 -->
 
 ## 授权
 
@@ -148,7 +150,7 @@ flowchart TD
 
 ### CoSkyPolicy 和 InitialPolicyLoader
 
-`CoSkyPolicy` 从 CoSky 自身的配置服务加载安全策略。策略存储在 `system` 命名空间中的配置项中。它订阅配置变更事件，并在更新时自动刷新策略缓存。
+`CoSkyPolicy` 从 CoSky 自身的配置服务加载安全策略。策略存储在 `cosky-{system}` 命名空间中的配置项中。它订阅配置变更事件，并在更新时自动刷新策略缓存。
 
 如果配置服务中不存在策略，`InitialPolicyLoader` 会从 classpath 加载内置的 `cosky-policy.json` 作为回退。
 
@@ -211,7 +213,7 @@ classDiagram
 
 ### 超级用户和管理员角色
 
-- **超级用户**：`cosky` 用户（root）绕过所有授权。当 `cosky.security.enforce-init-super-user` 为 `true` 时，由 `SecurityCommand` 在应用启动时初始化。会生成一个随机 10 字符密码并打印到标准输出。
+- **超级用户**：`cosky` 用户（root）绕过所有授权。`SecurityCommand` 在每次应用启动时都会调用 `UserService.initRoot()`；只要 root 用户不存在，就会为其生成随机 10 字符密码（打印到标准输出）。将 `cosky.security.enforce-init-super-user` 设为 `true` 会先删除已有的 root 用户，从而在每次重启时强制重置密码。
 - **管理员角色**：`admin` 角色是系统保留角色，由策略引擎的 `admin` 语句授予完全访问权限。它会自动包含在角色列表中。
 
 源码: [UserService.kt:38-52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L38), [Role.kt:31-34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt#L31), [SecurityCommand.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityCommand.kt#L25)
@@ -224,7 +226,7 @@ classDiagram
 
 - **operator** -- 用户名（来自安全上下文，或从登录路径提取）
 - **ip** -- 远程地址
-- **path** -- 请求 URI
+- **resource** -- 请求 URI
 - **action** -- HTTP 方法名
 - **status** -- HTTP 响应状态码
 - **msg** -- 错误消息（如有）
@@ -236,9 +238,9 @@ classDiagram
 
 ### AuditLogService
 
-`AuditLogService` 将审计日志条目以 JSON 字符串的形式持久化到 Redis List（`system:audit:log`）中。新条目推入头部（`leftPush`）。查询支持通过 `range` 进行偏移/限制分页。
+`AuditLogService` 将审计日志条目以 JSON 字符串的形式持久化到 Redis List（`cosky-{system}:audit:log`）中。新条目推入头部（`leftPush`）。查询支持通过 `range` 进行偏移/限制分页，并可通过 `GET /v1/audit-log/export` 导出为 CSV。
 
-源码: [AuditLogService.kt:27-51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L27)
+源码: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 
 ## 用户管理
 
@@ -246,17 +248,19 @@ classDiagram
 
 `UserService` 完全在 Redis 中管理用户：
 
-- **用户索引**：Redis Hash（`system:user_idx`），将用户名映射到 SHA-256 密码哈希。
-- **角色绑定**：Redis Set（`system:user_role_bind:{username}`），存储分配给每个用户的角色名称。
+- **用户索引**：Redis Hash（`cosky-{system}:user_idx`），将用户名映射到 SHA-256 密码哈希。
+- **角色绑定**：Redis Set（`cosky-{system}:user_role_bind:{username}`），存储分配给每个用户的角色名称。
 - **密码哈希**：使用 Guava 的 `Hashing.sha256()` 进行 UTF-8 编码。
-- **登录锁定**：参见上方[登录锁定机制](#登录锁定机制)。
-- **Root 初始化**：`initRoot(enforce)` 使用随机密码创建或重置 `cosky` 超级用户。
+- **登录锁定**：参见上方[登录锁定机制](#登录锁定机制)。每个锁定状态变更都由 `user_state.lua` 脚本原子执行。
+- **用户列表**：`query()` 返回每个用户的角色绑定及 `locked` 属性（手动锁定或超过失败次数阈值时为 `true`）。
+- **删除保护**：root 用户（`cosky`）既不可被删除，也不可被锁定。
+- **Root 初始化**：`initRoot(enforce)` 在 root 用户不存在时创建 `cosky` 超级用户并生成随机密码；`enforce = true` 会先删除已有 root，强制重新初始化。
 
-源码: [UserService.kt:36-212](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36)
+源码: [UserService.kt:36-288](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36)
 
 ### SecurityCommand
 
-`SecurityCommand` 是一个在应用启动时运行的 `CommandLineRunner`。它调用 `UserService.initRoot()` 来初始化超级用户。当 `cosky.security.enforce-init-super-user` 设置为 `true` 时会自动执行。
+`SecurityCommand` 是一个在应用启动时运行的 `CommandLineRunner`。它无条件调用 `UserService.initRoot()`，并透传 `cosky.security.enforce-init-super-user` 标志（默认 `false`）。只要 root 用户不存在就会被创建；该标志仅控制是否先删除已有 root 并重新初始化。
 
 源码: [SecurityCommand.kt:25-34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityCommand.kt#L25)
 
@@ -264,12 +268,13 @@ classDiagram
 
 | 方法 | 路径 | 描述 | 源码 |
 |--------|------|-------------|--------|
-| GET | `/v1/users` | 列出所有用户及其角色绑定 | [UserController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L42) |
-| POST | `/v1/users/{username}` | 创建新用户 | [UserController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L52) |
-| DELETE | `/v1/users/{username}` | 移除用户 | [UserController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L62) |
-| PATCH | `/v1/users/{username}/password` | 修改密码 | [UserController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L47) |
-| PATCH | `/v1/users/{username}/role` | 绑定角色到用户 | [UserController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L57) |
-| DELETE | `/v1/users/{username}/unlock` | 解锁被锁定的用户 | [UserController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L67) |
+| GET | `/v1/users` | 列出所有用户及其角色绑定与锁定状态 | [UserController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L44) |
+| POST | `/v1/users/{username}` | 创建新用户 | [UserController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L54) |
+| DELETE | `/v1/users/{username}` | 移除用户 | [UserController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L64) |
+| PATCH | `/v1/users/{username}/password` | 修改密码 | [UserController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L49) |
+| PATCH | `/v1/users/{username}/role` | 绑定角色到用户 | [UserController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L59) |
+| PUT | `/v1/users/{username}/lock` | 手动锁定用户（root 不可被锁定） | [UserController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L69) |
+| DELETE | `/v1/users/{username}/unlock` | 解锁被锁定的用户 | [UserController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L74) |
 
 ## 默认安全策略
 
@@ -302,8 +307,8 @@ classDiagram
 
 ## 相关页面
 
-- [REST API Server](/guide/rest-api) -- API 端点和服务器架构
-- [Dashboard](/guide/dashboard) -- CoSky 管理 UI
+- [REST API Server](/zh/guide/rest-api) -- API 端点和服务器架构
+- [Dashboard](/zh/guide/dashboard) -- CoSky 管理 UI
 
 ## 参考
 

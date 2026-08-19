@@ -62,9 +62,10 @@ graph LR
 val coskyVersion = "5.8.0"
 
 dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -79,6 +80,13 @@ dependencies {
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
+            <artifactId>cosky-bom</artifactId>
+            <version>${cosky.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-dependencies</artifactId>
             <version>${cosky.version}</version>
             <type>pom</type>
@@ -89,11 +97,11 @@ dependencies {
 <dependencies>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
-        <artifactId>spring-cloud-starter-cosky-config</artifactId>
+        <artifactId>cosky-spring-cloud-starter-config</artifactId>
     </dependency>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
-        <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+        <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
     </dependency>
     <dependency>
         <groupId>org.springframework.cloud</groupId>
@@ -106,27 +114,25 @@ dependencies {
 
 ### 第 2 步：配置 Bootstrap
 
-创建 `src/main/resources/bootstrap.yaml`：
+创建 `src/main/resources/bootstrap.yaml`。下面是内置示例提供者（example provider）使用的配置：
 
 ```yaml
+server:
+  port: 8099
 spring:
   application:
-    name: ${service.name:my-service}
-  data:
-    redis:
-      url: redis://localhost:6379
+    name: ${service.name:example-provider}
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{default}}
+      namespace: ${cosky.namespace:dev}
       config:
         config-id: ${spring.application.name}.yaml
-    service-registry:
-      auto-registration:
-        enabled: ${cosky.auto-registry:true}
 logging:
   file:
     name: logs/${spring.application.name}.log
 ```
+
+该示例依赖 Spring Boot 默认的 Redis 连接（`localhost:6379`）；如果您的 Redis 实例在其他地址运行，请显式设置 `spring.data.redis.url`。服务自动注册默认启用（`spring.cloud.service-registry.auto-registration.enabled`）。
 
 | 属性 | 默认值 | 说明 |
 |----------|---------|-------------|
@@ -134,7 +140,7 @@ logging:
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务/配置隔离的命名空间（[CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)） |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID（[CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48)） |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | 配置查找的默认文件扩展名（[CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27)） |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | 配置查找的默认文件扩展名（[CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)） |
 
 源码：[examples/cosky-service-provider/src/main/resources/bootstrap.yaml](https://github.com/Ahoo-Wang/CoSky/blob/main/examples/cosky-service-provider/src/main/resources/bootstrap.yaml)
 

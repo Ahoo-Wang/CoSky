@@ -269,7 +269,7 @@ val instance = Instance.asInstance(
     metadata = mapOf("version" to "v2")
 )
 
-serviceRegistry.register(instance = instance).block()
+serviceRegistry.register(serviceInstance = instance).block()
 ```
 
 The weight is stored in the Redis hash under the `weight` field and decoded by `ServiceInstanceCodec` ([ServiceInstanceCodec.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L32)).

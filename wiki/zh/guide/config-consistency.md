@@ -136,7 +136,7 @@ sequenceDiagram
 
 ## 缓存失效流程
 
-当任何进程修改配置时，Lua 脚本在 Redis PubSub 通道上发布变更事件。监听该通道的每个实例收到失效通知并刷新缓存。
+当任何进程修改配置时，Lua 脚本在 Redis PubSub 通道上发布变更事件。监听该通道的每个实例收到失效通知并惰性刷新缓存。
 
 ```mermaid
 sequenceDiagram
@@ -157,16 +157,14 @@ sequenceDiagram
     PS-->>Listener: 收到消息
     Listener->>Listener: 解析 ConfigChangedEvent
     Listener-->>RCS: onConfigChanged(event)
-    RCS->>Cache: 移除旧条目
-    RCS->>RDS: getConfig(namespace, configId)
-    RDS->>Redis: HGETALL
-    Redis-->>RDS: 新配置数据
-    RDS-->>RCS: Config
-    RCS->>Cache: 存入新的缓存 Mono
-    Note over Cache: 下次读取返回<br>最新数据
+    RCS->>Cache: 用新的冷 Mono 覆盖条目<br>（缓存 TTL 为 1 分钟）
+    Note over RCS,Cache: 此处不会发起 Redis 调用——获取被推迟到<br>下一个 getConfig() 订阅者到来时
+    Note over Cache: 下次读取会重新执行获取<br>并返回最新数据
 ```
 
 <!-- Sources: RedisConsistencyConfigService.kt:68, RedisConfigEventListenerContainer.kt:18, config_set.lua:1 -->
+
+失效路径是一次性覆盖：`onConfigChanged` 用 `delegate.getConfig(...).cache(CONFIG_CACHE_TTL)` 替换映射表中的条目——这是一个冷 `Mono`，在失效时不会被订阅（源码中因此标注了 `@Suppress("ReactiveStreamsUnusedPublisher")`）。事件类型（`SET`、`REMOVE`、`ROLLBACK`）不会被区分处理；三者走完全相同的覆盖路径，被删除的配置只是得到一个缓存的*空* `Mono`。
 
 ## 事件监听器容器
 
@@ -212,28 +210,23 @@ Source: [RedisConfigEventListenerContainer.kt:18](https://github.com/Ahoo-Wang/C
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Empty: 初始状态
+    [*] --> CachedNoTTL: 首次 getConfig() 调用<br>条目 = getConfig().cache()
 
-    Empty --> Loading: 首次 getConfig() 调用
-    Loading --> Valid: Redis 返回 Config 数据
-    Loading --> Empty: Redis 返回 null / 错误
+    CachedNoTTL --> CachedNoTTL: 后续 getConfig()（缓存命中，<br>自身永不过期）
+    CachedNoTTL --> CachedTTL: 任意 PubSub 事件（set / remove /<br>rollback）覆盖该条目
 
-    Valid --> Valid: 后续 getConfig()（缓存命中）
-    Valid --> Invalidated: 收到 PubSub 事件
+    CachedTTL --> CachedTTL: TTL 内的 getConfig()（缓存命中）
+    CachedTTL --> Refetching: 缓存 TTL 到达（1 分钟）
+    Refetching --> CachedTTL: 下次 getConfig() 重新执行获取<br>并再缓存一分钟
+    CachedTTL --> CachedTTL: 下一个 PubSub 事件（覆盖）
 
-    Invalidated --> Loading: 从 Redis 重新获取
-    Invalidated --> Removed: 事件类型 = REMOVE
-
-    Removed --> Loading: 新的 getConfig() 调用
-    Removed --> [*]: 配置不再存在
-
-    Valid --> TTLExpired: 缓存 TTL 到达（1 分钟）
-    TTLExpired --> Loading: 从 Redis 重新获取
+    CachedNoTTL --> [*]: 监听器终止<br>（条目从映射表移除）
+    CachedTTL --> [*]: 监听器终止<br>（条目从映射表移除）
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46 -->
+<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:57, RedisConsistencyConfigService.kt:68 -->
 
-`CONFIG_CACHE_TTL` 设置为 `Duration.ofMinutes(1)`。当缓存条目因 PubSub 失效事件而刷新时，新的 `Mono` 使用 `.cache(CONFIG_CACHE_TTL)` 创建，确保即使没有后续失效事件，过期数据最终也会被驱逐。
+`CONFIG_CACHE_TTL` 设置为 `Duration.ofMinutes(1)`，但它**仅作用于 PubSub 刷新路径写入的条目**（`onConfigChanged` 使用 `.cache(CONFIG_CACHE_TTL)`）。首次 `getConfig()` 调用创建的初始缓存条目使用不带 TTL 的 `.cache()`，**自身永不过期**。如果 PubSub 监听器终止，其 `doFinally` 钩子会将条目从映射表中移除，因此下一次 `getConfig()` 会重新创建条目并重新订阅。
 
 Source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)
 
@@ -281,7 +274,9 @@ Lua 脚本 PUBLISH -> Redis PubSub 通道 -> 订阅者回调 -> 缓存刷新
 
 ### PubSub 可靠性
 
-Redis PubSub 是一种即发即忘协议——如果实例暂时断开连接（网络抖动、GC 暂停），它将错过失效消息。CoSky 通过 `CONFIG_CACHE_TTL`（1 分钟）来缓解这个问题：即使错过了失效事件，缓存条目也会在 60 秒内过期并从 Redis 重新获取。
+Redis PubSub 是一种即发即忘协议——如果实例暂时断开连接（网络抖动、GC 暂停），它将错过失效消息。`CONFIG_CACHE_TTL`（1 分钟）**只对已被之前的失效事件刷新过的条目**限制过期时长：这些条目距上次刷新最多 60 秒后会从 Redis 重新获取。然而，初始缓存条目使用不带 TTL 的 `.cache()` 创建，自身永不过期——如果某个配置的第一个失效事件被错过，该条目会持续提供过期数据，直到有后续事件到达、监听器终止（条目被驱逐）或进程重启。
+
+Source: [RedisConsistencyConfigService.kt:64-76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L64)
 
 ### 委托模式
 

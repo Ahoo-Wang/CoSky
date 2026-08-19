@@ -12,7 +12,7 @@ description: Explore CoSky's architecture, features, and documentation for high-
 | Feature | Description | Source |
 |---------|-------------|--------|
 | **Service Discovery** | Register, discover, and manage service instances with automatic renewal via client heartbeat. Supports weighted load balancing and service topology. | [ServiceRegistry.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L24), [ServiceDiscovery.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L24) |
-| **Configuration Management** | Dynamic configuration with version history (last 10 versions), rollback support, and file import/export. Changes propagate instantly via Redis PubSub. | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
+| **Configuration Management** | Dynamic configuration with version history and rollback support, plus file import/export. Changes propagate instantly via Redis PubSub. | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
 | **Consistency Caching** | Local process cache kept in sync via Redis PubSub, achieving 250x-800x performance improvement over direct Redis reads. | [RedisConsistencyConfigService](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt), [ConsistencyRedisServiceDiscovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt) |
 | **Spring Cloud Integration** | Drop-in starters for both config and discovery. Auto-configures via Spring Boot `@AutoConfiguration`. | [CoSkyConfigAutoConfiguration.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L43), [CoSkyDiscoveryAutoConfiguration.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L47) |
 | **Weighted Load Balancing** | Binary weight random load balancer integrated with service discovery for efficient instance selection. | [CoSkyDiscoveryAutoConfiguration.kt:105](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L105) |
@@ -27,8 +27,8 @@ description: Explore CoSky's architecture, features, and documentation for high-
 graph TB
     subgraph Applications["Applications"]
         style Applications fill:#161b22,stroke:#30363d,color:#e6edf3
-        A["Spring Boot App 1"] --> |uses| SC_C["spring-cloud-starter-cosky-config"]
-        A --> |uses| SC_D["spring-cloud-starter-cosky-discovery"]
+        A["Spring Boot App 1"] --> |uses| SC_C["cosky-spring-cloud-starter-config"]
+        A --> |uses| SC_D["cosky-spring-cloud-starter-discovery"]
         B["Spring Boot App 2"] --> |uses| SC_C
         B --> |uses| SC_D
     end
@@ -79,8 +79,8 @@ graph LR
         style Modules fill:#161b22,stroke:#30363d,color:#e6edf3
         CORE["cosky-core"] --> CONFIG["cosky-config"]
         CORE --> DISCOVERY["cosky-discovery"]
-        CONFIG --> SCC["spring-cloud-starter-cosky-config"]
-        DISCOVERY --> SCD["spring-cloud-starter-cosky-discovery"]
+        CONFIG --> SCC["cosky-spring-cloud-starter-config"]
+        DISCOVERY --> SCD["cosky-spring-cloud-starter-discovery"]
         SCC --> REST["cosky-rest-api"]
         SCD --> REST
         SC_CORE["cosky-spring-cloud-core"] --> SCC

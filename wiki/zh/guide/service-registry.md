@@ -77,8 +77,8 @@ class RedisServiceRegistry(
 
 关键设计要点：
 - 临时实例被跟踪在 `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` 中，用于心跳续约 ([RedisServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L40))。
-- `register` 方法在执行 Lua 脚本之前先将实例添加到临时映射 ([RedisServiceRegistry.kt:98](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L98))。
-- 如果续约失败（实例键不存在），会自动重新注册实例 ([RedisServiceRegistry.kt:178](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L178))。
+- `register` 方法只在 Lua 脚本执行成功后才将实例添加到临时映射——在 `doOnNext` 中，且仅当脚本返回 `true` 时 ([RedisServiceRegistry.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L97))。
+- 如果续约失败（实例键不存在），会自动重新注册实例 ([RedisServiceRegistry.kt:184](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L184))。
 
 ### DiscoveryRedisScripts
 
@@ -126,7 +126,6 @@ sequenceDiagram
     participant Sub as PubSub 订阅者
 
     App->>SR: register(namespace, serviceInstance)
-    SR->>EMap: addEphemeralInstance(namespace, instance)
     SR->>SR: 构建 ARGV（ttl、serviceId、instanceId、schema、host、port、weight、metadata）
     SR->>Redis: EVAL registry_register.lua KEYS=[namespace] ARGV=[...]
     Redis->>Redis: SADD svc_itc_idx:{serviceId} {instanceId}
@@ -135,10 +134,13 @@ sequenceDiagram
     Redis->>Sub: PUBLISH svc_itc:{instanceId} "register"
     Redis->>Redis: EXPIRE svc_itc:{instanceId} {ttl}
     Redis-->>SR: Boolean (成功)
+    alt registered == true
+        SR->>EMap: addEphemeralInstance(namespace, instance)
+    end
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:43, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
 
 ### 续约 / 心跳流程
 
@@ -169,7 +171,7 @@ sequenceDiagram
     end
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:70, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:160 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:70, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:163 -->
 
 ### 注销流程
 
@@ -196,7 +198,7 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:188, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:191, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
 
 ## Redis 键结构
 
@@ -207,9 +209,11 @@ sequenceDiagram
 | `{namespace}:svc_idx` | SET | 命名空间中所有服务 ID 的集合 | `production:svc_idx` |
 | `{namespace}:svc_stat` | HASH | 服务 ID 到实例数统计 | `production:svc_stat` |
 | `{namespace}:svc_itc_idx:{serviceId}` | SET | 指定服务的实例 ID 集合 | `production:svc_itc_idx:order-service` |
-| `{namespace}:svc_itc:{instanceId}` | HASH | 实例数据（字段：instanceId、serviceId、schema、host、port、weight、ephemeral、ttl_at、metadata） | `production:svc_itc:order-service@http#10.0.1.5#8080` |
+| `{namespace}:svc_itc:{instanceId}` | HASH | 实例数据（字段：instanceId、serviceId、schema、host、port、weight、ephemeral、metadata） | `production:svc_itc:order-service@http#10.0.1.5#8080` |
 | `{namespace}:topology_idx` | HASH | 拓扑索引：消费者名称到时间戳 | `production:topology_idx` |
 | `{namespace}:topology:{consumer}` | HASH | 拓扑依赖：生产者名称到时间戳 | `production:topology:gateway-service` |
+
+注意：`ttl_at` **并不**存储在实例哈希中。它由发现脚本在读取时按 `now + ttl` 计算得出（[discovery_get_instances.lua:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua#L33)、[discovery_get_instance.lua:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instance.lua#L30)）。续约脚本还可能向哈希中写入系统字段 `__last_renew_pub_ttl_at`，用于发布节流（[registry_renew.lua:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L9)）。
 
 实例 ID 格式为 `{serviceId}@{schema}#{host}#{port}`（例如 `order-service@http#10.0.1.5#8080`），由 [`Instance.asInstanceId`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/Instance.kt#L57) 定义。
 

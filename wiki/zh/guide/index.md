@@ -12,7 +12,7 @@ description: Explore CoSky's architecture, features, and documentation for high-
 | 特性 | 说明 | 源码 |
 |---------|-------------|--------|
 | **服务发现** | 通过客户端心跳自动续约，注册、发现和管理服务实例。支持加权负载均衡和服务拓扑。 | [ServiceRegistry.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L24), [ServiceDiscovery.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L24) |
-| **配置管理** | 支持版本历史（最近 10 个版本）、回滚和文件导入/导出的动态配置。变更通过 Redis PubSub 即时传播。 | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
+| **配置管理** | 支持版本历史与回滚、文件导入/导出的动态配置。变更通过 Redis PubSub 即时传播。 | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
 | **一致性缓存** | 通过 Redis PubSub 保持同步的本地进程缓存，相比直接读取 Redis 实现 250 倍至 800 倍的性能提升。 | [RedisConsistencyConfigService](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt), [ConsistencyRedisServiceDiscovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt) |
 | **Spring Cloud 集成** | 配置和发现的即用型 Starter。通过 Spring Boot `@AutoConfiguration` 自动配置。 | [CoSkyConfigAutoConfiguration.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L43), [CoSkyDiscoveryAutoConfiguration.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L47) |
 | **加权负载均衡** | 与服务发现集成的二进制权重随机负载均衡器，用于高效的实例选择。 | [CoSkyDiscoveryAutoConfiguration.kt:105](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L105) |
@@ -27,8 +27,8 @@ description: Explore CoSky's architecture, features, and documentation for high-
 graph TB
     subgraph Applications["应用程序"]
         style Applications fill:#161b22,stroke:#30363d,color:#e6edf3
-        A["Spring Boot 应用 1"] --> |使用| SC_C["spring-cloud-starter-cosky-config"]
-        A --> |使用| SC_D["spring-cloud-starter-cosky-discovery"]
+        A["Spring Boot 应用 1"] --> |使用| SC_C["cosky-spring-cloud-starter-config"]
+        A --> |使用| SC_D["cosky-spring-cloud-starter-discovery"]
         B["Spring Boot 应用 2"] --> |使用| SC_C
         B --> |使用| SC_D
     end
@@ -79,8 +79,8 @@ graph LR
         style Modules fill:#161b22,stroke:#30363d,color:#e6edf3
         CORE["cosky-core"] --> CONFIG["cosky-config"]
         CORE --> DISCOVERY["cosky-discovery"]
-        CONFIG --> SCC["spring-cloud-starter-cosky-config"]
-        DISCOVERY --> SCD["spring-cloud-starter-cosky-discovery"]
+        CONFIG --> SCC["cosky-spring-cloud-starter-config"]
+        DISCOVERY --> SCD["cosky-spring-cloud-starter-discovery"]
         SCC --> REST["cosky-rest-api"]
         SCD --> REST
         SC_CORE["cosky-spring-cloud-core"] --> SCC

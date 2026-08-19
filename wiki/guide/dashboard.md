@@ -4,13 +4,13 @@ title: Dashboard
 
 # Dashboard
 
-The CoSky Dashboard is a modern single-page application built with React 19, TypeScript, and Ant Design 6. It provides a visual management interface for all CoSky capabilities: service monitoring, configuration management, service topology visualization, RBAC administration, user management, and audit log review. The dashboard is served directly by the REST API server as static assets and communicates with the backend exclusively through the CoSky REST API.
+The CoSky Dashboard is a modern single-page application built with React 19, TypeScript, Radix UI, and shadcn/ui (styled with Tailwind CSS 4). It provides a visual management interface for all CoSky capabilities: service monitoring, configuration management, service topology visualization, RBAC administration, user management, and audit log review. The dashboard is served directly by the REST API server as static assets and communicates with the backend exclusively through the CoSky REST API.
 
 ## At a Glance
 
 | Aspect | Detail | Key File | Source |
 |--------|--------|----------|--------|
-| Frontend app | React 19 SPA with Ant Design 6 | `dashboard/package.json` | [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json) |
+| Frontend app | React 19 SPA with Radix UI + shadcn/ui | `dashboard/package.json` | [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json) |
 | SPA route serving | Serves `index.html` for all dashboard routes | `DashboardConfiguration.kt` | [cosky-rest-api/.../DashboardConfiguration.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/dashboard/DashboardConfiguration.kt#L30) |
 | API client | Auto-generated from OpenAPI spec | `dashboard/src/generated/` | [dashboard/package.json:12](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json#L12) |
 
@@ -18,18 +18,23 @@ The CoSky Dashboard is a modern single-page application built with React 19, Typ
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| React | 19.2.6 | UI framework |
+| React | 19.2.6 | UI framework (with React Compiler) |
 | TypeScript | ~6.0.3 | Type-safe development |
 | Vite | 8.0.16 | Build tool and dev server |
-| Ant Design | 6.3.7 | UI component library |
+| Radix UI | 1.6.7 | Headless UI primitives |
+| shadcn/ui | 4.18.0 | Vendored component pattern (`src/components/ui/`) |
+| Tailwind CSS | 4.3.3 | Utility-first styling |
+| lucide-react | 1.31.0 | Icon set |
+| sonner | 2.0.8 | Toast notifications |
 | React Router DOM | 7.15.1 | Client-side routing |
 | @xyflow/react | 12.10.2 | Service topology visualization |
-| Monaco Editor | 0.55.1 | Configuration text editor |
+| Monaco Editor | 0.55.1 (via @monaco-editor/react 4.7.0) | Configuration text editor |
 | @ahoo-wang/fetcher | 3.16.10 | HTTP client with CoSec auth |
 | @ahoo-wang/fetcher-react | 3.16.10 | React hooks for API calls |
 | @ahoo-wang/fetcher-cosec | 3.16.10 | CoSec token refresh integration |
-| @ahoo-wang/fetcher-viewer | 3.16.10 | Data table and filter components |
+| @ahoo-wang/fetcher-storage | 3.16.10 | Token storage |
 | @ahoo-wang/fetcher-generator | 3.16.10 | OpenAPI code generation |
+| Playwright | 1.62.1 | Unit and end-to-end UI testing |
 
 Source: [dashboard/package.json](https://github.com/Ahoo-Wang/CoSky/blob/main/dashboard/package.json)
 
@@ -73,13 +78,17 @@ The role management page allows administrators to create roles and assign namesp
 
 ![User](/dashboard-user.png)
 
-User management supports creating users, assigning roles, changing passwords, and unlocking locked accounts.
+User management supports creating users, assigning roles, changing passwords, and locking/unlocking accounts. Each row shows a `locked` badge reflecting the account state returned by the API. A manually locked user can no longer sign in or refresh tokens until an administrator unlocks the account; the root user (`cosky`) cannot be locked. See [Security & RBAC](/guide/security-rbac#login-lockout-mechanism) for the lockout semantics.
 
 ### Audit Log
 
 ![Audit Log](/dashboard-audit-log.png)
 
-The audit log page displays a paginated list of all audited operations with operator, IP, path, action, status, and timestamp columns.
+The audit log page displays a paginated list of all audited operations with operator, IP, resource, action, status, and timestamp columns, and can export the audit log as a CSV file (`GET /v1/audit-log/export`).
+
+### Navigation Search
+
+The sidebar includes a keyboard-first navigation search. Press `/` anywhere outside an input field to focus it, filter pages by name or description, move with `ArrowUp`/`ArrowDown`, and jump with `Enter`.
 
 ### Login
 
@@ -103,10 +112,10 @@ flowchart TD
     end
 
     subgraph "Redis"
-        UserRedis["User Index<br>system:user_idx"]
+        UserRedis["User Index<br>cosky-{system}:user_idx"]
         ConfigRedis["Configs<br>Namespaced keys"]
         ServiceRedis["Services<br>Namespaced keys"]
-        AuditRedis["Audit Log<br>system:audit:log"]
+        AuditRedis["Audit Log<br>cosky-{system}:audit:log"]
     end
 
     SPA -->|"HTML/JS/CSS"| DashboardConfig

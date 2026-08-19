@@ -97,12 +97,13 @@ fun main(args: Array<String>) {
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/users` | 列出所有用户及其角色 | `query` | [UserController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L42) |
-| POST | `/v1/users/{username}` | 添加新用户 | `addUser` | [UserController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L52) |
-| DELETE | `/v1/users/{username}` | 移除用户 | `removeUser` | [UserController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L62) |
-| PATCH | `/v1/users/{username}/password` | 修改密码 | `changePwd` | [UserController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L47) |
-| PATCH | `/v1/users/{username}/role` | 绑定角色到用户 | `bindRole` | [UserController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L57) |
-| DELETE | `/v1/users/{username}/unlock` | 解锁被锁定的用户 | `unlock` | [UserController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L67) |
+| GET | `/v1/users` | 列出所有用户及其角色 | `query` | [UserController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L44) |
+| POST | `/v1/users/{username}` | 添加新用户 | `addUser` | [UserController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L54) |
+| DELETE | `/v1/users/{username}` | 移除用户 | `removeUser` | [UserController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L64) |
+| PATCH | `/v1/users/{username}/password` | 修改密码 | `changePwd` | [UserController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L49) |
+| PATCH | `/v1/users/{username}/role` | 绑定角色到用户 | `bindRole` | [UserController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L59) |
+| PUT | `/v1/users/{username}/lock` | 锁定用户（手动锁定；root 用户不可被锁定） | `lock` | [UserController.kt:68](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L68) |
+| DELETE | `/v1/users/{username}/unlock` | 解锁被锁定的用户 | `unlock` | [UserController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L74) |
 
 ### 角色端点
 
@@ -117,7 +118,8 @@ fun main(args: Array<String>) {
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/audit-log` | 查询审计日志 | `queryLog` | [AuditLogController.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L32) |
+| GET | `/v1/audit-log` | 查询审计日志 | `queryLog` | [AuditLogController.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L40) |
+| GET | `/v1/audit-log/export` | 导出审计日志为 CSV | `exportLog` | [AuditLogController.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogController.kt#L51) |
 
 ## 时序图
 
@@ -244,12 +246,12 @@ cosky:
     enabled: true                    # 启用/禁用安全
     audit-log:
       action: write                  # 审计日志过滤："write"、"read" 或 "rw"
-    enforce-init-super-user: false   # 启动时强制重新初始化超级用户
+    enforce-init-super-user: ${cosky.super.init:false}   # 启动时强制重新初始化超级用户
 
 cosec:
   jwt:
     algorithm: hmac256               # JWT 签名算法
-    secret: ${cosky.security.key}    # JWT 密钥
+    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}    # JWT 密钥
     token-validity:
       access: 15m                    # 访问令牌 TTL
       refresh: 3H                    # 刷新令牌 TTL
@@ -272,8 +274,8 @@ simba:
 
 ## 相关页面
 
-- [安全与 RBAC](/guide/security-rbac) -- 认证、授权和基于角色的访问控制
-- [Dashboard](/guide/dashboard) -- CoSky 管理 UI
+- [安全与 RBAC](/zh/guide/security-rbac) -- 认证、授权和基于角色的访问控制
+- [Dashboard](/zh/guide/dashboard) -- CoSky 管理 UI
 
 ## 参考
 

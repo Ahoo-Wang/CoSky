@@ -62,9 +62,10 @@ graph LR
 val coskyVersion = "5.8.0"
 
 dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -79,6 +80,13 @@ dependencies {
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
+            <artifactId>cosky-bom</artifactId>
+            <version>${cosky.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-dependencies</artifactId>
             <version>${cosky.version}</version>
             <type>pom</type>
@@ -89,11 +97,11 @@ dependencies {
 <dependencies>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
-        <artifactId>spring-cloud-starter-cosky-config</artifactId>
+        <artifactId>cosky-spring-cloud-starter-config</artifactId>
     </dependency>
     <dependency>
         <groupId>me.ahoo.cosky</groupId>
-        <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+        <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
     </dependency>
     <dependency>
         <groupId>org.springframework.cloud</groupId>
@@ -106,27 +114,25 @@ Current version defined in [gradle.properties:14](https://github.com/Ahoo-Wang/C
 
 ### Step 2: Configure Bootstrap
 
-Create `src/main/resources/bootstrap.yaml`:
+Create `src/main/resources/bootstrap.yaml`. Shown below is the configuration used by the bundled example provider:
 
 ```yaml
+server:
+  port: 8099
 spring:
   application:
-    name: ${service.name:my-service}
-  data:
-    redis:
-      url: redis://localhost:6379
+    name: ${service.name:example-provider}
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{default}}
+      namespace: ${cosky.namespace:dev}
       config:
         config-id: ${spring.application.name}.yaml
-    service-registry:
-      auto-registration:
-        enabled: ${cosky.auto-registry:true}
 logging:
   file:
     name: logs/${spring.application.name}.log
 ```
+
+The example relies on Spring Boot's default Redis connection (`localhost:6379`); set `spring.data.redis.url` explicitly if your Redis instance runs elsewhere. Service auto-registration is enabled by default (`spring.cloud.service-registry.auto-registration.enabled`).
 
 | Property | Default | Description |
 |----------|---------|-------------|
@@ -134,7 +140,7 @@ logging:
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace for service/config isolation ([CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)) |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load ([CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48)) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension for config lookup ([CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27)) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension for config lookup ([CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)) |
 
 Source: [examples/cosky-service-provider/src/main/resources/bootstrap.yaml](https://github.com/Ahoo-Wang/CoSky/blob/main/examples/cosky-service-provider/src/main/resources/bootstrap.yaml)
 

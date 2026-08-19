@@ -56,9 +56,10 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 val coskyVersion = "5.8.0"
 
 dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
     implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-config")
-    implementation("me.ahoo.cosky:spring-cloud-starter-cosky-discovery")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
+    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
@@ -80,6 +81,13 @@ dependencies {
         <dependencies>
             <dependency>
                 <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-bom</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
                 <artifactId>cosky-dependencies</artifactId>
                 <version>${cosky.version}</version>
                 <type>pom</type>
@@ -91,11 +99,11 @@ dependencies {
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-config</artifactId>
+            <artifactId>cosky-spring-cloud-starter-config</artifactId>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
-            <artifactId>spring-cloud-starter-cosky-discovery</artifactId>
+            <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
@@ -105,15 +113,16 @@ dependencies {
 </project>
 ```
 
-Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-87](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L87)
+Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-108](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L108)
 
 ### Available Artifacts
 
 | Artifact | Purpose | Module |
 |----------|---------|--------|
-| `spring-cloud-starter-cosky-config` | Spring Cloud config loading and real-time refresh | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
-| `spring-cloud-starter-cosky-discovery` | Spring Cloud service registration and discovery | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-bom` | Bill of Materials for dependency version management | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-spring-cloud-starter-config` | Spring Cloud config loading and real-time refresh | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
+| `cosky-spring-cloud-starter-discovery` | Spring Cloud service registration and discovery | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
+| `cosky-bom` | Bill of Materials — manages CoSky module versions | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-dependencies` | Version catalog — manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions (required for the versionless `spring-cloud-starter-loadbalancer`) | [cosky-dependencies](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-dependencies) |
 
 ## REST API Server Installation
 
@@ -121,19 +130,24 @@ The REST API server provides a management dashboard, REST endpoints, security (R
 
 ### Option 1: Standalone JAR
 
-Download the latest release and run directly:
+GitHub releases do not publish prebuilt archives, so build the server distribution from source (JDK 17 required):
 
 ```bash
-# Download cosky-server
-wget https://github.com/Ahoo-Wang/cosky/releases/latest/download/cosky-server.tar
+# (Optional) Build the dashboard first so the web UI is bundled into the distribution
+cd dashboard && pnpm install && pnpm build && cd ..
 
-# Extract
-tar -xvf cosky-server.tar
-cd cosky-server
+# Build the distribution archive
+./gradlew :cosky-rest-api:distTar
+
+# Extract (the archive name includes the version)
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.7.2.tar
+cd cosky-rest-api-5.7.2
 
 # Run with Redis connection
-bin/cosky --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
+
+The distribution contains `bin/` start scripts, `lib/` dependencies, `config/` configuration files, and `ui/` with the dashboard static resources (served via `spring.web.resources.static-locations: file:./ui/`).
 
 On first startup, CoSky initializes the super user and prints the generated password to the console:
 
@@ -143,7 +157,7 @@ On first startup, CoSky initializes the super user and prints the generated pass
 
 To reinitialize the password, set `enforce-init-super-user: true` in your configuration.
 
-Source: [README.md:119-127](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L119-L127)
+Source: [cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44), [cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13), [README.md:267](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L267)
 
 ### Option 2: Docker
 
@@ -180,7 +194,7 @@ services:
       - redis
 ```
 
-Source: [README.md:132-137](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L132-L137)
+Source: [README.md:159-163](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L159-L163)
 
 ### Option 3: Kubernetes
 
@@ -204,20 +218,18 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          ports:
-            - containerPort: 8080
-              protocol: TCP
-          env:
+        - env:
             - name: SPRING_DATA_REDIS_HOST
               value: redis-uri:6379
             - name: SPRING_DATA_REDIS_PASSWORD
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -230,21 +242,29 @@ spec:
             httpGet:
               port: http
               path: /actuator/health/liveness
+          name: cosky
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
           resources:
-            requests:
-              cpu: 250m
-              memory: 1024Mi
             limits:
               cpu: "1"
               memory: 1280Mi
+            requests:
+              cpu: 250m
+              memory: 1024Mi
           volumeMounts:
-            - name: volume-localtime
-              mountPath: /etc/localtime
+            - mountPath: /etc/localtime
+              name: volume-localtime
       volumes:
-        - name: volume-localtime
-          hostPath:
+        - hostPath:
             path: /etc/localtime
+            type: ""
+          name: volume-localtime
 ```
+
+> **Note:** The example above uses the current release `5.7.2`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
 
 Source: [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -268,11 +288,13 @@ spec:
     metadata:
       labels:
         app: cosky
+      annotations:
+        instrumentation.opentelemetry.io/inject-java: "true"
     spec:
       containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          env:
+        - env:
+            - name: LANG
+              value: C.utf8
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:
                 secretKeyRef:
@@ -289,6 +311,41 @@ spec:
               value: "true"
             - name: SPRING_DATA_REDIS_LETTUCE_CLUSTER_REFRESH_PERIOD
               value: 30s
+            - name: TZ
+              value: Asia/Shanghai
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
+          startupProbe:
+            httpGet:
+              port: http
+              path: /actuator/health
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/readiness
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
+          name: cosky
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1280Mi
+            requests:
+              cpu: 250m
+              memory: 1024Mi
+          volumeMounts:
+            - mountPath: /etc/localtime
+              name: volume-localtime
+      volumes:
+        - hostPath:
+            path: /etc/localtime
+            type: ""
+          name: volume-localtime
 ```
 
 Source: [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml)
@@ -365,8 +422,8 @@ Key configuration properties for CoSky:
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | Isolation namespace for services and configs | [CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30) |
 | `spring.cloud.cosky.config.enabled` | `true` | Enable config loading from Redis | [CoSkyConfigProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L26) |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load | [CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48) |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension | [CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27) |
-| `spring.cloud.cosky.config.timeout` | `2s` | Timeout for config loading | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
+| `spring.cloud.cosky.config.timeout` | `2s` | Timeout for config loading | [CoSkyConfigProperties.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L29) |
 | `spring.cloud.cosky.discovery.enabled` | `true` | Enable service discovery | [CoSkyDiscoveryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L26) |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | Timeout for discovery operations | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
@@ -381,7 +438,7 @@ When using the discovery starter, service instances have configurable TTL and he
 |----------|---------|-------------|--------|
 | Instance TTL | `60s` | How long an instance lives before being considered expired | [RegistryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt#L26) |
 | Renew period | `10s` | How often the instance sends a heartbeat to renew its TTL | [RenewProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L28) |
-| Renew initial delay | `1s` | Delay before the first heartbeat after registration | [RenewProperties.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L25) |
+| Renew initial delay | `1s` | Delay before the first heartbeat after registration | [RenewProperties.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt#L23) |
 
 ```mermaid
 %%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
@@ -448,7 +505,7 @@ The dashboard provides:
 - Service topology visualization
 - Import/export functionality (including Nacos migration)
 
-Source: [README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L206-L219)
+Source: [README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L238-L246)
 
 ## References
 

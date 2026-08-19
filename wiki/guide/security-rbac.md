@@ -4,7 +4,7 @@ title: Security & RBAC
 
 # Security & RBAC
 
-CoSky implements a comprehensive three-layer security model -- **Authentication**, **Authorization**, and **Audit** -- built on the [CoSec](https://github.com/Ahoo-Wang/CoSec) security framework. User credentials are stored in Redis with SHA-256 hashing. Authorization combines a policy engine (CoSec policy JSON) with namespace-scoped RBAC. All operations are audited and persisted to a Redis List for querying.
+CoSky implements a comprehensive three-layer security model -- **Authentication**, **Authorization**, and **Audit** -- built on the [CoSec](https://github.com/Ahoo-Wang/CoSec) security framework. User credentials are stored in Redis with SHA-256 hashing. Authorization combines a policy engine (CoSec policy JSON) with namespace-scoped RBAC. Operations are audited (write operations by default, configurable) and persisted to a Redis List for querying.
 
 ## At a Glance
 
@@ -52,7 +52,7 @@ flowchart LR
 CoSky supports two authentication methods:
 
 1. **UserPasswordAuthentication** -- validates username/password against SHA-256 hashed credentials stored in Redis. On success, the `UserService.login()` method returns a `SimplePrincipal` with the user's role bindings.
-2. **RefreshTokenAuthentication** -- accepts an access/refresh token pair and validates the refresh token via CoSec's `TokenVerifier`. Returns a refreshed token pair on success.
+2. **RefreshTokenAuthentication** -- accepts an access/refresh token pair and validates the refresh token via CoSec's `TokenVerifier`. After verification it calls `UserService.ensureUnlocked()`, so a locked account can no longer refresh its tokens. Returns a refreshed token pair on success.
 
 ### AuthenticateController Endpoints
 
@@ -63,16 +63,17 @@ CoSky supports two authentication methods:
 
 ### Login Lockout Mechanism
 
-`UserService.login()` implements progressive account lockout to prevent brute-force attacks:
+`UserService.login()` implements progressive account lockout to prevent brute-force attacks. Each lock-state mutation (`login-attempt`, `login-success`, `lock`, `remove`) executes as a single atomic `user_state.lua` script invocation, so individual counter updates cannot be corrupted by concurrent sign-ins. Note that one full login performs two separate script invocations (attempt, then success after password verification) and `unlock()` deletes the lock key directly, so the end-to-end login sequence is not one atomic unit.
 
 - **Max failed attempts**: 10 (`MAX_LOGIN_ERROR_TIMES`)
-- **Base lockout duration**: 15 minutes (`LOGIN_LOCK_EXPIRE`)
-- **Maximum lockout**: 3 days (`MAX_LOGIN_LOCK_EXPIRE`)
-- **Exponential backoff**: `lockoutDuration = baseLockout * max(tryCount / maxErrorTimes, 1)`, capped at the maximum.
-- **Lock tracking**: A Redis key (`system:login_lock:{username}`) is incremented on each failed attempt and deleted on successful login.
-- **Unlock**: Admins can unlock a user via `DELETE /v1/users/{username}/unlock`.
+- **Lock tracking**: A Redis key (`cosky-{system}:login_lock:{username}`) is incremented on each login attempt and deleted on successful login. While the count is within the limit, the script refreshes the key's TTL to 15 minutes (`LOGIN_LOCK_EXPIRE`) on every attempt, so a freeze effectively lifts 15 minutes after the last counted attempt.
+- **Freeze message**: Once the count exceeds 10, sign-in is rejected until the key expires. The error message reports a freeze duration computed with progressive backoff: `lockoutDuration = baseLockout * max(tryCount / maxErrorTimes, 1)`, capped at 3 days (`MAX_LOGIN_LOCK_EXPIRE`).
+- **Manual lock**: Admins can lock a user immediately via `PUT /v1/users/{username}/lock`. The script writes a `manual` marker (no TTL) to the lock key, so the account stays locked until explicitly unlocked. The root user (`cosky`) cannot be locked.
+- **Refresh tokens rejected**: Locked users (manual marker or over the failed-attempt limit) are also rejected when refreshing tokens -- see [RefreshTokenAuthentication](#authentication).
+- **Unlock**: Admins can unlock a user via `DELETE /v1/users/{username}/unlock`, which deletes the lock key.
+- **Visibility**: `GET /v1/users` returns a `locked` attribute per user, `true` when the account is manually locked or over the failed-attempt limit.
 
-Source: [UserService.kt:135-177](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L135)
+Sources: [UserService.kt:138-180](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L138), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
 
 ### Login Flow
 
@@ -90,19 +91,20 @@ sequenceDiagram
     AuthenticateController->>TokenCompositeAuth: authenticateAsToken(UserPasswordCredentials)
     TokenCompositeAuth->>UserPasswordAuth: authenticate(credentials)
     UserPasswordAuth->>UserService: login(username, pwd)
-    UserService->>Redis: INCR system:login_lock:{username}
-    Redis-->>UserService: tryCount
-    alt tryCount > 10
+    UserService->>Redis: EVAL user_state.lua (login-attempt)<br>INCR cosky-{system}:login_lock:{username}
+    Redis-->>UserService: tryCount (-1 if manually locked)
+    alt manually locked (tryCount = -1)
+        UserService-->>UserPasswordAuth: SecurityException (locked by administrator)
+    else tryCount > 10
         UserService-->>UserPasswordAuth: SecurityException (account frozen)
     else within limit
-        UserService->>Redis: GET from system:user_idx (hashed pwd)
+        UserService->>Redis: HGET cosky-{system}:user_idx (hashed pwd)
         Redis-->>UserService: storedHash
         alt SHA-256(pwd) != storedHash
-            UserService->>Redis: EXPIRE lock key (backoff duration)
             UserService-->>UserPasswordAuth: SecurityException (incorrect password)
         else password matches
-            UserService->>Redis: DEL system:login_lock:{username}
-            UserService->>Redis: SMEMBERS system:user_role_bind:{username}
+            UserService->>Redis: EVAL user_state.lua (login-success)<br>DEL login lock key
+            UserService->>Redis: SMEMBERS cosky-{system}:user_role_bind:{username}
             Redis-->>UserService: roleSet
             UserService-->>UserPasswordAuth: SimplePrincipal(id, roles)
         end
@@ -112,7 +114,7 @@ sequenceDiagram
     AuthenticateController-->>Client: 200 CompositeToken
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:135 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:139, cosky-rest-api/src/main/resources/user_state.lua:31 -->
 
 ## Authorization
 
@@ -148,7 +150,7 @@ flowchart TD
 
 ### CoSkyPolicy and InitialPolicyLoader
 
-`CoSkyPolicy` loads the security policy from CoSky's own config service. The policy is stored as a config item in the `system` namespace. It subscribes to config change events and refreshes the policy cache automatically when updated.
+`CoSkyPolicy` loads the security policy from CoSky's own config service. The policy is stored as a config item in the `cosky-{system}` namespace. It subscribes to config change events and refreshes the policy cache automatically when updated.
 
 If no policy exists in the config service, `InitialPolicyLoader` loads the bundled `cosky-policy.json` from the classpath as a fallback.
 
@@ -211,7 +213,7 @@ classDiagram
 
 ### Super User and Admin Role
 
-- **Super user**: The `cosky` user (root) bypasses all authorization. It is initialized by `SecurityCommand` on application startup when `cosky.security.enforce-init-super-user` is `true`. A random 10-character password is generated and printed to stdout.
+- **Super user**: The `cosky` user (root) bypasses all authorization. `SecurityCommand` calls `UserService.initRoot()` on every application startup; the root user is created with a random 10-character password (printed to stdout) whenever it is absent. Setting `cosky.security.enforce-init-super-user` to `true` additionally deletes the existing root user first, forcing a password reset on every restart.
 - **Admin role**: The `admin` role is a system-reserved role granted full access by the policy engine's `admin` statement. It is automatically included in the role list.
 
 Sources: [UserService.kt:38-52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L38), [Role.kt:31-34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt#L31), [SecurityCommand.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityCommand.kt#L25)
@@ -224,7 +226,7 @@ Sources: [UserService.kt:38-52](https://github.com/Ahoo-Wang/CoSky/blob/main/cos
 
 - **operator** -- the username (from security context, or extracted from the login path)
 - **ip** -- remote address
-- **path** -- request URI
+- **resource** -- request URI
 - **action** -- HTTP method name
 - **status** -- HTTP response status code
 - **msg** -- error message (if any)
@@ -236,9 +238,9 @@ Source: [AuditLogHandlerInterceptor.kt:31-76](https://github.com/Ahoo-Wang/CoSky
 
 ### AuditLogService
 
-`AuditLogService` persists audit log entries as JSON strings in a Redis List (`system:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`.
+`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
 
-Source: [AuditLogService.kt:27-51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L27)
+Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 
 ## User Management
 
@@ -246,17 +248,19 @@ Source: [AuditLogService.kt:27-51](https://github.com/Ahoo-Wang/CoSky/blob/main/
 
 `UserService` manages users entirely in Redis:
 
-- **User index**: A Redis Hash (`system:user_idx`) mapping usernames to SHA-256 password hashes.
-- **Role bindings**: A Redis Set (`system:user_role_bind:{username}`) storing role names assigned to each user.
+- **User index**: A Redis Hash (`cosky-{system}:user_idx`) mapping usernames to SHA-256 password hashes.
+- **Role bindings**: A Redis Set (`cosky-{system}:user_role_bind:{username}`) storing role names assigned to each user.
 - **Password hashing**: Uses Guava's `Hashing.sha256()` with UTF-8 encoding.
-- **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above.
-- **Root initialization**: `initRoot(enforce)` creates or resets the `cosky` super user with a random password.
+- **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above. Each lock-state transition is executed atomically by the `user_state.lua` script.
+- **User listing**: `query()` returns each user with role bindings and a `locked` attribute (`true` when manually locked or over the failed-attempt limit).
+- **Removal guard**: The root user (`cosky`) can be neither removed nor locked.
+- **Root initialization**: `initRoot(enforce)` creates the `cosky` super user with a random password when absent; `enforce = true` removes the existing root first, forcing re-initialization.
 
-Source: [UserService.kt:36-212](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36)
+Source: [UserService.kt:36-288](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36)
 
 ### SecurityCommand
 
-`SecurityCommand` is a `CommandLineRunner` that runs on application startup. It calls `UserService.initRoot()` to initialize the super user. This happens automatically if `cosky.security.enforce-init-super-user` is set to `true`.
+`SecurityCommand` is a `CommandLineRunner` that runs on application startup. It unconditionally calls `UserService.initRoot()`, passing through the `cosky.security.enforce-init-super-user` flag (default `false`). The root user is created whenever it does not exist; the flag only controls whether an existing root is deleted and re-initialized.
 
 Source: [SecurityCommand.kt:25-34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityCommand.kt#L25)
 
@@ -264,12 +268,13 @@ Source: [SecurityCommand.kt:25-34](https://github.com/Ahoo-Wang/CoSky/blob/main/
 
 | Method | Path | Description | Source |
 |--------|------|-------------|--------|
-| GET | `/v1/users` | List all users with role bindings | [UserController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L42) |
-| POST | `/v1/users/{username}` | Create a new user | [UserController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L52) |
-| DELETE | `/v1/users/{username}` | Remove a user | [UserController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L62) |
-| PATCH | `/v1/users/{username}/password` | Change password | [UserController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L47) |
-| PATCH | `/v1/users/{username}/role` | Bind roles to a user | [UserController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L57) |
-| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | [UserController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L67) |
+| GET | `/v1/users` | List all users with role bindings and lock state | [UserController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L44) |
+| POST | `/v1/users/{username}` | Create a new user | [UserController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L54) |
+| DELETE | `/v1/users/{username}` | Remove a user | [UserController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L64) |
+| PATCH | `/v1/users/{username}/password` | Change password | [UserController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L49) |
+| PATCH | `/v1/users/{username}/role` | Bind roles to a user | [UserController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L59) |
+| PUT | `/v1/users/{username}/lock` | Manually lock a user (root cannot be locked) | [UserController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L69) |
+| DELETE | `/v1/users/{username}/unlock` | Unlock a locked-out user | [UserController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserController.kt#L74) |
 
 ## Default Security Policy
 

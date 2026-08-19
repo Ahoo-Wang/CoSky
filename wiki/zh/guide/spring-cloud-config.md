@@ -208,8 +208,8 @@ spring:
 
 ## 相关页面
 
-- [Spring Cloud Discovery Starter](/guide/spring-cloud-discovery) -- 基于 Redis 的服务注册与发现
-- [Configuration Center](/guide/config) -- CoSky 的配置管理 API 和 Redis 存储模型
+- [Spring Cloud Discovery Starter](/zh/guide/spring-cloud-discovery) -- 基于 Redis 的服务注册与发现
+- [Configuration Center](/zh/guide/config-service) -- CoSky 的配置管理 API 和 Redis 存储模型
 
 ## 参考
 
