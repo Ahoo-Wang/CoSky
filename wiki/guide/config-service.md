@@ -284,7 +284,7 @@ spring:
       url: redis://localhost:6379
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{system}}
+      namespace: ${cosky.namespace:cosky-{default}}
       config:
         config-id: ${spring.application.name}.yaml
     service-registry:
@@ -298,10 +298,10 @@ logging:
 | Config Property | Description | Example |
 |---|---|---|
 | `spring.data.redis.url` | Redis connection URL | `redis://localhost:6379` |
-| `spring.cloud.cosky.namespace` | Namespace for config isolation | `cosky-{system}` |
+| `spring.cloud.cosky.namespace` | Namespace for config isolation | `cosky-{default}` |
 | `spring.cloud.cosky.config.config-id` | The configId to load (typically `{app}.yaml`) | `order-service.yaml` |
 
-Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L89)
+Source: [README.md:111](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L111)
 
 ## Rollback Mechanism
 

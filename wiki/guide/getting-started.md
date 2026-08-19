@@ -63,6 +63,7 @@ val coskyVersion = "5.7.2"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
@@ -80,6 +81,13 @@ dependencies {
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-bom</artifactId>
+            <version>${cosky.version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+        </dependency>
+        <dependency>
+            <groupId>me.ahoo.cosky</groupId>
+            <artifactId>cosky-dependencies</artifactId>
             <version>${cosky.version}</version>
             <type>pom</type>
             <scope>import</scope>

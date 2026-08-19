@@ -57,6 +57,7 @@ val coskyVersion = "5.7.2"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
@@ -85,6 +86,13 @@ dependencies {
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-dependencies</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -105,7 +113,7 @@ dependencies {
 </project>
 ```
 
-源码：[gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-87](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L87)
+源码：[gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-108](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L108)
 
 ### 可用构件
 
@@ -113,7 +121,8 @@ dependencies {
 |----------|---------|--------|
 | `cosky-spring-cloud-starter-config` | Spring Cloud 配置加载和实时刷新 | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
 | `cosky-spring-cloud-starter-discovery` | Spring Cloud 服务注册和发现 | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-bom` | 用于依赖版本管理的物料清单 | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-bom` | 物料清单 —— 管理 CoSky 模块版本 | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-dependencies` | 版本目录 —— 管理 Spring Boot / Spring Cloud / CosID / Simba / CoSec 版本（无版本号的 `spring-cloud-starter-loadbalancer` 依赖需要它） | [cosky-dependencies](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-dependencies) |
 
 ## REST API 服务器安装
 
@@ -148,7 +157,7 @@ bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:
 
 要重新初始化密码，请在配置中设置 `enforce-init-super-user: true`。
 
-源码：[cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44)、[cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13)、[README.md:242](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L242)
+源码：[cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44)、[cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13)、[README.md:267](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L267)
 
 ### 方式 2：Docker
 
@@ -185,7 +194,7 @@ services:
       - redis
 ```
 
-源码：[README.md:132-137](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L132-L137)
+源码：[README.md:159-163](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L159-L163)
 
 ### 方式 3：Kubernetes
 
@@ -220,7 +229,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -255,7 +264,7 @@ spec:
           name: volume-localtime
 ```
 
-> **注意：** 仓库内的清单将镜像标签固定为 `5.3.5`，而当前发布版本为 `5.7.2`。您可能需要覆盖镜像标签——例如使用 Docker Hub 上的 `ahoowang/cosky:5.7.2` 或其他镜像仓库的相应标签。
+> **注意：** 上述示例使用当前发布版本 `5.7.2`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
 
 源码：[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -304,7 +313,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -496,7 +505,7 @@ REST API 服务器运行后，通过以下地址访问基于 Web 的管理界面
 - 服务拓扑可视化
 - 导入/导出功能（包括 Nacos 迁移）
 
-源码：[README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L206-L219)
+源码：[README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L238-L246)
 
 ## 参考
 

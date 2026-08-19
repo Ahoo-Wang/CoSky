@@ -57,6 +57,7 @@ val coskyVersion = "5.7.2"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
@@ -85,6 +86,13 @@ dependencies {
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <dependency>
+                <groupId>me.ahoo.cosky</groupId>
+                <artifactId>cosky-dependencies</artifactId>
+                <version>${cosky.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -105,7 +113,7 @@ dependencies {
 </project>
 ```
 
-Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-87](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L87)
+Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14), [README.md:46-108](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L46-L108)
 
 ### Available Artifacts
 
@@ -113,7 +121,8 @@ Source: [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/grad
 |----------|---------|--------|
 | `cosky-spring-cloud-starter-config` | Spring Cloud config loading and real-time refresh | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config) |
 | `cosky-spring-cloud-starter-discovery` | Spring Cloud service registration and discovery | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-bom` | Bill of Materials for dependency version management | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-bom` | Bill of Materials — manages CoSky module versions | [cosky-bom](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-bom) |
+| `cosky-dependencies` | Version catalog — manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions (required for the versionless `spring-cloud-starter-loadbalancer`) | [cosky-dependencies](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-dependencies) |
 
 ## REST API Server Installation
 
@@ -148,7 +157,7 @@ On first startup, CoSky initializes the super user and prints the generated pass
 
 To reinitialize the password, set `enforce-init-super-user: true` in your configuration.
 
-Source: [cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44), [cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13), [README.md:242](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L242)
+Source: [cosky-rest-api/build.gradle.kts:36-44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/build.gradle.kts#L36-L44), [cosky-rest-api/src/dist/config/application.yaml:13](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L13), [README.md:267](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L267)
 
 ### Option 2: Docker
 
@@ -185,7 +194,7 @@ services:
       - redis
 ```
 
-Source: [README.md:132-137](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L132-L137)
+Source: [README.md:159-163](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L159-L163)
 
 ### Option 3: Kubernetes
 
@@ -220,7 +229,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -255,7 +264,7 @@ spec:
           name: volume-localtime
 ```
 
-> **Note:** The in-repo manifest pins the image tag to `5.3.5` while the current release is `5.7.2`. You may want to override the image tag — for example `ahoowang/cosky:5.7.2` from Docker Hub or the equivalent tag on another registry.
+> **Note:** The example above uses the current release `5.7.2`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
 
 Source: [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -304,7 +313,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           startupProbe:
             httpGet:
               port: http
@@ -496,7 +505,7 @@ The dashboard provides:
 - Service topology visualization
 - Import/export functionality (including Nacos migration)
 
-Source: [README.md:206-219](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L206-L219)
+Source: [README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L238-L246)
 
 ## References
 

@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           ports:
             - name: http
               containerPort: 8080
@@ -77,7 +77,7 @@ spec:
 <!-- Sources: k8s/deployment/cosky.yml:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
 ::: tip 镜像标签
-仓库内置清单将镜像标签固定为 `5.3.5`（[k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)），而当前发布版本为 `5.7.2`（[gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)）。可覆盖镜像（例如 Docker Hub 上的 `ahoowang/cosky:latest`）以运行最新版本。
+下方清单使用当前发布版本 `5.7.2`（[gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)）。仓库内置清单（[k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
 :::
 
 ## 集群化 Redis 部署
@@ -105,7 +105,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.7.2
           env:
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:

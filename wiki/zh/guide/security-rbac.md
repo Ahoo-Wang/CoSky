@@ -63,7 +63,7 @@ CoSky 支持两种认证方式：
 
 ### 登录锁定机制
 
-`UserService.login()` 实现了渐进式账户锁定以防止暴力破解攻击。所有锁定状态变更都在原子性 Lua 脚本 `user_state.lua` 中执行（操作：`login-attempt`、`login-success`、`lock`、`remove`），因此并发登录不会破坏计数器。
+`UserService.login()` 实现了渐进式账户锁定以防止暴力破解攻击。每个锁定状态变更（`login-attempt`、`login-success`、`lock`、`remove`）都以单次原子性 `user_state.lua` 脚本调用执行，因此单个计数更新不会被并发登录破坏。注意，一次完整登录包含两次独立的脚本调用（先 attempt，密码校验通过后再 success），而 `unlock()` 会直接删除锁定键，因此端到端的登录序列并非一个原子整体。
 
 - **最大失败次数**：10 次（`MAX_LOGIN_ERROR_TIMES`）
 - **锁定追踪**：Redis 键（`cosky-{system}:login_lock:{username}`）在每次登录尝试时递增，在成功登录时删除。当计数未超过阈值时，脚本会在每次尝试时将键的 TTL 刷新为 15 分钟（`LOGIN_LOCK_EXPIRE`），因此冻结实际会在最后一次计数尝试的 15 分钟后解除。
@@ -251,7 +251,7 @@ classDiagram
 - **用户索引**：Redis Hash（`cosky-{system}:user_idx`），将用户名映射到 SHA-256 密码哈希。
 - **角色绑定**：Redis Set（`cosky-{system}:user_role_bind:{username}`），存储分配给每个用户的角色名称。
 - **密码哈希**：使用 Guava 的 `Hashing.sha256()` 进行 UTF-8 编码。
-- **登录锁定**：参见上方[登录锁定机制](#登录锁定机制)。所有锁定状态变更都由 `user_state.lua` 脚本原子执行。
+- **登录锁定**：参见上方[登录锁定机制](#登录锁定机制)。每个锁定状态变更都由 `user_state.lua` 脚本原子执行。
 - **用户列表**：`query()` 返回每个用户的角色绑定及 `locked` 属性（手动锁定或超过失败次数阈值时为 `true`）。
 - **删除保护**：root 用户（`cosky`）既不可被删除，也不可被锁定。
 - **Root 初始化**：`initRoot(enforce)` 在 root 用户不存在时创建 `cosky` 超级用户并生成随机密码；`enforce = true` 会先删除已有 root，强制重新初始化。

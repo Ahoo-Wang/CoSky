@@ -63,7 +63,7 @@ CoSky supports two authentication methods:
 
 ### Login Lockout Mechanism
 
-`UserService.login()` implements progressive account lockout to prevent brute-force attacks. All lock-state transitions run inside the atomic Lua script `user_state.lua` (operations: `login-attempt`, `login-success`, `lock`, `remove`), so concurrent sign-ins can never corrupt the counter.
+`UserService.login()` implements progressive account lockout to prevent brute-force attacks. Each lock-state mutation (`login-attempt`, `login-success`, `lock`, `remove`) executes as a single atomic `user_state.lua` script invocation, so individual counter updates cannot be corrupted by concurrent sign-ins. Note that one full login performs two separate script invocations (attempt, then success after password verification) and `unlock()` deletes the lock key directly, so the end-to-end login sequence is not one atomic unit.
 
 - **Max failed attempts**: 10 (`MAX_LOGIN_ERROR_TIMES`)
 - **Lock tracking**: A Redis key (`cosky-{system}:login_lock:{username}`) is incremented on each login attempt and deleted on successful login. While the count is within the limit, the script refreshes the key's TTL to 15 minutes (`LOGIN_LOCK_EXPIRE`) on every attempt, so a freeze effectively lifts 15 minutes after the last counted attempt.
@@ -251,7 +251,7 @@ Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/
 - **User index**: A Redis Hash (`cosky-{system}:user_idx`) mapping usernames to SHA-256 password hashes.
 - **Role bindings**: A Redis Set (`cosky-{system}:user_role_bind:{username}`) storing role names assigned to each user.
 - **Password hashing**: Uses Guava's `Hashing.sha256()` with UTF-8 encoding.
-- **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above. All lock-state transitions are executed atomically by the `user_state.lua` script.
+- **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above. Each lock-state transition is executed atomically by the `user_state.lua` script.
 - **User listing**: `query()` returns each user with role bindings and a `locked` attribute (`true` when manually locked or over the failed-attempt limit).
 - **Removal guard**: The root user (`cosky`) can be neither removed nor locked.
 - **Root initialization**: `initRoot(enforce)` creates the `cosky` super user with a random password when absent; `enforce = true` removes the existing root first, forcing re-initialization.

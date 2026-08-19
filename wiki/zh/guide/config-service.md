@@ -284,7 +284,7 @@ spring:
       url: redis://localhost:6379
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{system}}
+      namespace: ${cosky.namespace:cosky-{default}}
       config:
         config-id: ${spring.application.name}.yaml
     service-registry:
@@ -298,10 +298,10 @@ logging:
 | 配置属性 | 描述 | 示例 |
 |---|---|---|
 | `spring.data.redis.url` | Redis 连接 URL | `redis://localhost:6379` |
-| `spring.cloud.cosky.namespace` | 用于配置隔离的命名空间 | `cosky-{system}` |
+| `spring.cloud.cosky.namespace` | 用于配置隔离的命名空间 | `cosky-{default}` |
 | `spring.cloud.cosky.config.config-id` | 要加载的 configId（通常为 `{app}.yaml`） | `order-service.yaml` |
 
-Source: [README.md:89](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L89)
+Source: [README.md:111](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L111)
 
 ## 回滚机制
 
