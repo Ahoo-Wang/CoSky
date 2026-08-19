@@ -42,7 +42,7 @@ A [`ServiceInstance`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discove
 | `weight` | `Int` | `1` | Load balancer weight |
 | `isEphemeral` | `Boolean` | `true` | Ephemeral instances expire; persistent instances do not |
 | `ttlAt` | `Long` | `TTL_AT_FOREVER (-1)` | Absolute TTL expiry timestamp (epoch seconds) |
-| `metadata` | `Map<String, String>` | `emptyMap()` | Arbitrary key-value metadata attached to the instance |
+| `metadata` | `Map<String, String>` | `emptyMap()` | User-defined key-value metadata; keys beginning with `_` are rejected |
 
 The `isExpired` property on `ServiceInstance` compares `ttlAt` against the current system time to determine whether an ephemeral instance has expired ([ServiceInstance.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt#L34)).
 
@@ -54,6 +54,8 @@ The `isExpired` property on `ServiceInstance` compares `ttlAt` against the curre
 // Encoding: metadata key "version" becomes "_version" in Redis
 fun encodeMetadataKey(key: String): String = METADATA_PREFIX + key
 ```
+
+Metadata keys must not begin with `_`. That prefix is reserved for internal fields such as `__last_renew_pub_ttl_at`; rejecting it prevents user metadata from colliding with registry state.
 
 The `decode` function ([ServiceInstanceCodec.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57)) parses the flat key-value list returned by Redis `HGETALL` into a `ServiceInstance` object.
 

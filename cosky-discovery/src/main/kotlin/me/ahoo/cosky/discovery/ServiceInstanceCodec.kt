@@ -34,6 +34,9 @@ object ServiceInstanceCodec {
     private const val TTL_AT = "ttl_at"
 
     fun encodeMetadataKey(key: String): String {
+        require(!key.startsWith(METADATA_PREFIX)) {
+            "metadata key:[$key] must not start with reserved prefix [$METADATA_PREFIX]."
+        }
         return METADATA_PREFIX + key
     }
 
