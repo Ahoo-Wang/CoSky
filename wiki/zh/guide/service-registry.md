@@ -42,7 +42,7 @@ CoSky 的服务注册管理微服务集群中服务实例的生命周期。基�
 | `weight` | `Int` | `1` | 负载均衡权重 |
 | `isEphemeral` | `Boolean` | `true` | 临时实例会过期；持久实例不会 |
 | `ttlAt` | `Long` | `TTL_AT_FOREVER (-1)` | 绝对 TTL 过期时间戳（纪元秒） |
-| `metadata` | `Map<String, String>` | `emptyMap()` | 附加到实例的任意键值元数据 |
+| `metadata` | `Map<String, String>` | `emptyMap()` | 用户自定义键值元数据；拒绝以 `_` 开头的键 |
 
 `ServiceInstance` 上的 `isExpired` 属性将 `ttlAt` 与当前系统时间比较，以确定临时实例是否已过期 ([ServiceInstance.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt#L34))。
 
@@ -52,8 +52,13 @@ CoSky 的服务注册管理微服务集群中服务实例的生命周期。基�
 
 ```kotlin
 // 编码：元数据键 "version" 在 Redis 中变为 "_version"
-fun encodeMetadataKey(key: String): String = METADATA_PREFIX + key
+fun encodeMetadataKey(key: String): String {
+    require(!key.startsWith(METADATA_PREFIX))
+    return METADATA_PREFIX + key
+}
 ```
+
+元数据键不得以 `_` 开头。该前缀保留给 `__last_renew_pub_ttl_at` 等内部字段；拒绝此类键可防止用户元数据与注册中心状态冲突。
 
 `decode` 函数 ([ServiceInstanceCodec.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57)) 将 Redis `HGETALL` 返回的扁平键值列表解析为 `ServiceInstance` 对象。
 
