@@ -137,6 +137,10 @@ object RedisKeys {
 }
 ```
 
+`RedisKeys` is an explicit utility, not a global key interceptor. `NamespaceService`, `ConfigKeyGenerator`, `DiscoveryKeyGenerator`, and the REST API preserve the namespace string supplied by the caller. Regardless of Redis topology, `CoSkyProperties` applies `RedisKeys.ofKey(true, namespace)` to the Spring Cloud client's configured namespace, so its effective value must exactly match the namespace used by the REST API and RBAC bindings.
+
+For every deployment, choose a namespace containing a non-empty hash tag before writing data—for example, `{dev}`, `{prod}`, or `cosky-{dev}`. This is required for multi-key Lua operations in Redis Cluster and prevents standalone REST clients from diverging from Spring's effective namespace. Plain `dev` and tagged `{dev}` generate different physical keys. Converting an existing namespace requires an explicit data migration and rollback plan; changing only configuration makes the old data appear missing.
+
 ### Key Pattern Reference
 
 The following table shows how keys are structured across all domains. Each module contributes its own key generator (`DiscoveryKeyGenerator`, `ConfigKeyGenerator`) that uses the same `{namespace}:` prefix convention:
@@ -339,20 +343,19 @@ sequenceDiagram
 
 ## Namespace-Scoped Operations Flow
 
-Every operation in CoSky flows through the namespace model. The following diagram illustrates how a typical service discovery request resolves keys within a namespace scope:
+Every operation in CoSky flows through the namespace model. `CoSkyProperties` wraps the Spring Cloud client's configured namespace before storing it as the default context; explicitly supplied namespaces pass through unchanged. The following diagram illustrates how a typical service discovery request resolves keys within a namespace scope:
 
 ```mermaid
 flowchart TD
-    A[Client calls getInstances] --> B{Namespace provided?}
-    B -->|No| C[Use NamespacedContext.namespace]
-    B -->|Yes| D[Use provided namespace]
-    C --> E[Construct key: ns:svc_itc_idx:serviceId]
-    D --> E
-    E --> F{Is Redis Cluster?}
-    F -->|Yes| G[Apply hash tag via RedisKeys.ofKey]
-    F -->|No| H[Use key as-is]
-    G --> I[EVALSHA discovery_get_instances.lua]
-    H --> I
+    A[Spring client configures namespace] --> B[CoSkyProperties applies RedisKeys.ofKey]
+    B --> C[NamespacedContext stores effective namespace]
+    D[Client calls getInstances] --> E{Namespace provided?}
+    E -->|No| F[Use NamespacedContext.namespace]
+    E -->|Yes| G[Use provided namespace unchanged]
+    C -.-> F
+    F --> H[DiscoveryKeyGenerator interpolates namespace unchanged]
+    G --> H
+    H --> I[EVALSHA discovery_get_instances.lua]
     I --> J[Read instance data from svc_itc keys]
     J --> K[Decode via ServiceInstanceCodec]
     K --> L[Return Flux of ServiceInstance]
@@ -371,7 +374,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt:20-23, cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt:24-31, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:47-49 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt:31-35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54 -->
 
 ## Cross-References
 

@@ -74,6 +74,11 @@ fun main(args: Array<String>) {
 | PUT | `/v1/namespaces/{namespace}` | 创建命名空间 | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
 | DELETE | `/v1/namespaces/{namespace}` | 移除命名空间 | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
 
+> [!IMPORTANT]
+> REST API 会把 `{namespace}` 原样传给命名空间存储和 Redis key 生成器，不会自动添加或归一化 Redis hashtag。Spring Cloud 客户端的行为不同：无论 Redis 拓扑如何，`CoSkyProperties` 都会把配置的普通命名空间（如 `dev`）转换为实际生效值 `{dev}`。即使使用 Redis Standalone，也应显式采用包含非空 hashtag 的命名空间，例如 `{dev}`、`{prod}` 或 `cosky-{dev}`。命名空间接口、配置与服务 URL、当前命名空间、RBAC 绑定及 Spring 客户端必须始终使用该实际生效的带 hashtag 值。
+>
+> `dev` 与 `{dev}` 是不同的 Redis key 前缀，因此对应不同的数据集。不要直接给既有命名空间添加大括号。变更前必须完成 key 与 RBAC 清单、备份、数据迁移、核对、流量切换以及经过验证的回滚方案。
+
 ### 统计端点
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |
