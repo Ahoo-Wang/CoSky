@@ -52,7 +52,10 @@ CoSky 的服务注册管理微服务集群中服务实例的生命周期。基�
 
 ```kotlin
 // 编码：元数据键 "version" 在 Redis 中变为 "_version"
-fun encodeMetadataKey(key: String): String = METADATA_PREFIX + key
+fun encodeMetadataKey(key: String): String {
+    require(!key.startsWith(METADATA_PREFIX))
+    return METADATA_PREFIX + key
+}
 ```
 
 元数据键不得以 `_` 开头。该前缀保留给 `__last_renew_pub_ttl_at` 等内部字段；拒绝此类键可防止用户元数据与注册中心状态冲突。

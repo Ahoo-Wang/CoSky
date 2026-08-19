@@ -52,7 +52,10 @@ The `isExpired` property on `ServiceInstance` compares `ttlAt` against the curre
 
 ```kotlin
 // Encoding: metadata key "version" becomes "_version" in Redis
-fun encodeMetadataKey(key: String): String = METADATA_PREFIX + key
+fun encodeMetadataKey(key: String): String {
+    require(!key.startsWith(METADATA_PREFIX))
+    return METADATA_PREFIX + key
+}
 ```
 
 Metadata keys must not begin with `_`. That prefix is reserved for internal fields such as `__last_renew_pub_ttl_at`; rejecting it prevents user metadata from colliding with registry state.
