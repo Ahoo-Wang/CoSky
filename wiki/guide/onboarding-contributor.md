@@ -17,7 +17,7 @@ The name comes from **Co** (configuration) + **Sky** (service discovery). The pr
 
 - Repository: [https://github.com/Ahoo-Wang/CoSky](https://github.com/Ahoo-Wang/CoSky)
 - Group ID: `me.ahoo.cosky`
-- Current version: 5.7.2
+- Current version: 5.8.0
 
 ### Tech Stack
 
