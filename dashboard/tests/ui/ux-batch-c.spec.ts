@@ -13,6 +13,7 @@
 
 import {expect, test} from './coverage';
 import {installApiMock, login} from './mock-api';
+import type {Request} from '@playwright/test';
 
 test.beforeEach(async ({page}) => {
     await installApiMock(page);
@@ -102,7 +103,7 @@ test('config importer accepts a ZIP dropped onto the drop zone and surfaces erro
     await page.getByRole('button', {name: 'Import', exact: true}).click();
     const dialog2 = page.getByRole('dialog', {name: 'Import Config'});
     let strayPost = false;
-    const onRequest = (request: import('@playwright/test').Request) => {
+    const onRequest = (request: Request) => {
         if (request.method() === 'POST' && /\/v1\/namespaces\/[^/]+\/configs$/.test(request.url())) {
             strayPost = true;
         }
