@@ -12,7 +12,7 @@
  */
 
 import type {FormEvent} from 'react';
-import {useState} from 'react';
+import {useEffect, useMemo, useRef, useState} from 'react';
 import type {AuditLog, QueryLogResponse} from '../../generated';
 import dayjs from 'dayjs';
 import {useQuery} from '@ahoo-wang/fetcher-react';
@@ -31,6 +31,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {OptionsSelect} from '@/components/ui/options-select';
 import {toast} from 'sonner';
+import {useSearchParams} from 'react-router-dom';
 
 type AuditStatus = 'all' | 'successful' | 'failed';
 
@@ -69,13 +70,16 @@ function AuditLogDetails({log}: {log: AuditLog}) {
 }
 
 export function AuditLogPage() {
+    const [searchParams] = useSearchParams();
+    const initialQuery = searchParams.get('query')?.trim() ?? '';
+    const seededFilters = useMemo<AuditFilters>(() => ({...EMPTY_FILTERS, query: initialQuery}), [initialQuery]);
     const [page, setPage] = useState(1);
-    const [draftFilters, setDraftFilters] = useState<AuditFilters>(EMPTY_FILTERS);
-    const [filters, setFilters] = useState<AuditFilters>(EMPTY_FILTERS);
+    const [draftFilters, setDraftFilters] = useState<AuditFilters>(seededFilters);
+    const [filters, setFilters] = useState<AuditFilters>(seededFilters);
     const [exporting, setExporting] = useState(false);
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: retry, setQuery} = useQuery<AuditQuery, QueryLogResponse>({
-        initialQuery: {...EMPTY_FILTERS, page: 1, pageSize: 10},
+        initialQuery: {...seededFilters, page: 1, pageSize: 10},
         execute: (query, _, abortController) => auditLogApiClient.searchLog(
             (query.page - 1) * query.pageSize,
             query.pageSize,
@@ -86,6 +90,18 @@ export function AuditLogPage() {
             {abortController},
         ),
     });
+    const initialFiltersRef = useRef(seededFilters);
+    useEffect(() => {
+        // Sync displayed draft filters whenever the URL ?query= changes (deep links, back/forward).
+        // The initial mount uses initialQuery above and skips the re-fetch here so we don't
+        // double-hit the API on first paint.
+        if (initialFiltersRef.current.query === initialQuery) return;
+        initialFiltersRef.current = seededFilters;
+        setDraftFilters(seededFilters);
+        setFilters(seededFilters);
+        setPage(1);
+        setQuery({...seededFilters, page: 1, pageSize: 10});
+    }, [initialQuery, seededFilters, setQuery]);
 
     const applyFilters = (event: FormEvent) => {
         event.preventDefault();

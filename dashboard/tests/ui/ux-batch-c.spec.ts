@@ -45,6 +45,32 @@ test('login failure shows an inline error and clears it on the next submit', asy
     await expect(usernameInput).toHaveAttribute('aria-invalid', 'false');
 });
 
+test('dashboard deep link from Recent Changes seeds the audit log query', async ({page}) => {
+    await login(page);
+    await page.goto('/home');
+    const recentLink = page.getByRole('link', {name: /user-service|order-service|rate-limiter/}).first();
+    const resource = (await recentLink.locator('p').first().textContent())?.trim() ?? '';
+    expect(resource).not.toEqual('');
+
+    // Subscribe BEFORE clicking so we capture the audit-log fetch the destination page fires.
+    const requests: string[] = [];
+    const onRequest = (request: Request) => {
+        if (request.url().includes('/audit-log') && !request.url().includes('/export')) {
+            requests.push(request.url());
+        }
+    };
+    page.on('request', onRequest);
+    await recentLink.click();
+    await expect(page).toHaveURL(/\/audit-log\?query=/);
+
+    const queryInput = page.getByRole('textbox', {name: 'Search all events'});
+    await expect(queryInput).toHaveValue(resource);
+    await expect(page.getByRole('cell', {name: resource, exact: true}).first()).toBeVisible();
+    await page.waitForTimeout(500);
+    page.off('request', onRequest);
+    expect(requests.some(url => decodeURIComponent(url).includes(`query=${resource}`))).toBe(true);
+});
+
 test('dashboard metrics and recent changes deep-link to their respective pages', async ({page}) => {
     await login(page);
     // The dashboard refreshes every 30s and re-creates metric links, so use direct navigation
@@ -60,7 +86,8 @@ test('dashboard metrics and recent changes deep-link to their respective pages',
     await page.locator('a[href="/namespace"]').first().click();
     await expect(page).toHaveURL(/\/namespace$/);
 
-    // Recent Changes rows must deep-link to the audit log filtered by the resource name.
+    // Recent Changes rows must deep-link to the audit log (filter seeding is covered
+    // by the dedicated deep-link test above).
     await page.goto('/home');
     await expect(page.getByRole('heading', {name: 'Dashboard', level: 1})).toBeVisible();
     const recentLink = page.getByRole('link', {name: /user-service|order-service|rate-limiter/}).first();
