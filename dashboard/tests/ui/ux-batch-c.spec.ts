@@ -19,6 +19,42 @@ test.beforeEach(async ({page}) => {
     await installApiMock(page);
 });
 
+test('a stale login failure after the form has changed does not re-flag the inputs', async ({page}) => {
+    await page.goto('/login');
+    await expect(page.getByRole('heading', {name: 'CoSky'})).toBeVisible();
+
+    // Slow down the next login response so we can edit the form after submitting.
+    await page.evaluate(() => {
+        const delay = 600;
+        const originalFetch = window.fetch;
+        (window as unknown as {__originalFetch: typeof fetch}).__originalFetch = originalFetch;
+        window.fetch = async (...args: Parameters<typeof fetch>) => {
+            const url = typeof args[0] === 'string' ? args[0] : args[0].url;
+            if (url.includes('/authenticate/denied/login')) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+                return new Response(JSON.stringify({msg: 'Invalid credentials'}), {status: 401, headers: {'Content-Type': 'application/json'}});
+            }
+            return originalFetch(...args);
+        };
+    });
+
+    await page.getByRole('textbox', {name: 'Username', exact: true}).fill('denied');
+    await page.getByLabel('Password', {exact: true}).fill('wrong');
+    await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+
+    // While the request is in-flight, correct the credentials so the form changes after submit.
+    await page.waitForTimeout(120);
+    await page.getByRole('textbox', {name: 'Username', exact: true}).fill('admin');
+    await page.getByLabel('Password', {exact: true}).fill('password');
+    await expect(page.getByRole('textbox', {name: 'Username', exact: true})).toHaveAttribute('aria-invalid', 'false');
+
+    // The slow failure resolves now, but the corrected values must stay un-flagged.
+    await page.waitForTimeout(700);
+    await expect(page.getByRole('alert').filter({hasText: /Login failed/i})).toHaveCount(0);
+    await expect(page.getByRole('textbox', {name: 'Username', exact: true})).toHaveAttribute('aria-invalid', 'false');
+    await expect(page.getByLabel('Password', {exact: true})).toHaveAttribute('aria-invalid', 'false');
+});
+
 test('login failure shows an inline error and clears it on the next submit', async ({page}) => {
     await page.goto('/login');
     await expect(page.getByRole('heading', {name: 'CoSky'})).toBeVisible();

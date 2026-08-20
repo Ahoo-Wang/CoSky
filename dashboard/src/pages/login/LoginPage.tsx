@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {useEffect, useState} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import type {FormEvent} from 'react';
 import {AlertCircle, Eye, EyeOff, LockKeyhole, User} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
@@ -36,6 +36,11 @@ interface LoginFormValues {
 export function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [formError, setFormError] = useState<string>();
+    // A request in flight has committed its values. If the user edits either field
+    // before the response lands, this flag flips and the in-flight failure is
+    // discarded so the corrected values are not flagged against an error they
+    // never produced.
+    const dirtySinceSubmitRef = useRef(false);
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const {loading, execute: login} = authenticateApiHooks.useLogin({
@@ -45,7 +50,9 @@ export function LoginPage() {
         onSuccess: (result) => {
             signIn(result)
         }, onError: async (error: ExchangeError) => {
+            if (dirtySinceSubmitRef.current) return;
             const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
+            if (dirtySinceSubmitRef.current) return;
             const message = `Login failed. ${errorResponse.msg}`;
             setFormError(message);
             toast.error(message);
@@ -61,6 +68,7 @@ export function LoginPage() {
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setFormError(undefined);
+        dirtySinceSubmitRef.current = false;
         const values = Object.fromEntries(new FormData(event.currentTarget)) as unknown as LoginFormValues;
         await login(values.username, {
             body: {
@@ -131,7 +139,10 @@ export function LoginPage() {
                     onSubmit={handleSubmit}
                     autoComplete="off"
                     className="login-form"
-                    onChange={() => formError && setFormError(undefined)}
+                    onChange={() => {
+                        dirtySinceSubmitRef.current = true;
+                        if (formError) setFormError(undefined);
+                    }}
                 >
                     <div className="login-field">
                         <Label htmlFor="username" className="sr-only">Username</Label>
