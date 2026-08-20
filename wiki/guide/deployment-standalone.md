@@ -21,10 +21,10 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # Extract
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 
 # Enter the directory
-cd cosky-rest-api-5.8.0
+cd cosky-rest-api-5.8.1
 ```
 
 The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`.
@@ -32,7 +32,7 @@ The distribution bundles the dashboard static files from `dashboard/dist` into `
 The extracted directory structure contains:
 
 ```
-cosky-rest-api-5.8.0/
+cosky-rest-api-5.8.1/
   bin/
     cosky-rest-api     # Startup script (Unix)
   config/

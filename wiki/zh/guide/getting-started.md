@@ -59,7 +59,7 @@ graph LR
 #### Gradle（Kotlin DSL）
 
 ```kotlin
-val coskyVersion = "5.8.0"
+val coskyVersion = "5.8.1"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
@@ -74,7 +74,7 @@ dependencies {
 
 ```xml
 <properties>
-    <cosky.version>5.8.0</cosky.version>
+    <cosky.version>5.8.1</cosky.version>
 </properties>
 <dependencyManagement>
     <dependencies>
@@ -293,7 +293,7 @@ graph TB
 
 ## 参考
 
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 当前版本（`5.8.0`）
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 当前版本（`5.8.1`）
 - [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt) -- 核心配置属性
 - [CoSkyConfigProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt) -- 配置 Starter 属性
 - [CoSkyDiscoveryProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt) -- 发现 Starter 属性

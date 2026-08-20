@@ -53,7 +53,7 @@ flowchart TD
 ### Gradle（Kotlin DSL）
 
 ```kotlin
-val coskyVersion = "5.8.0"
+val coskyVersion = "5.8.1"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
@@ -74,7 +74,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.8.0</cosky.version>
+        <cosky.version>5.8.1</cosky.version>
     </properties>
 
     <dependencyManagement>
@@ -140,8 +140,8 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # 解压（归档文件名包含版本号）
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
-cd cosky-rest-api-5.8.0
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
+cd cosky-rest-api-5.8.1
 
 # 使用 Redis 连接运行
 bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
@@ -229,7 +229,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
           startupProbe:
             httpGet:
               port: http
@@ -264,7 +264,7 @@ spec:
           name: volume-localtime
 ```
 
-> **注意：** 上述示例使用当前发布版本 `5.8.0`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
+> **注意：** 上述示例使用当前发布版本 `5.8.1`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
 
 源码：[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -313,7 +313,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
           startupProbe:
             httpGet:
               port: http
@@ -510,7 +510,7 @@ REST API 服务器运行后，通过以下地址访问基于 Web 的管理界面
 ## 参考
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- 根构建配置，使用 JVM 17 工具链
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 项目版本（`5.8.0`）
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 项目版本（`5.8.1`）
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- 所有模块定义
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes 部署（单机 Redis）
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes 部署（Redis 集群）
