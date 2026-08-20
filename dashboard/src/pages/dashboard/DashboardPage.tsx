@@ -95,6 +95,9 @@ export function DashboardPage() {
                                     {value.toLocaleString()}
                                     {detail && <span className="ml-1 text-sm font-normal text-muted-foreground">{detail}</span>}
                                 </p>
+                                {label === 'Healthy Services' && <Link to="/service" className="mt-1 block text-xs font-medium text-destructive hover:underline">
+                                    {Math.max(0, stat.services.total - stat.services.health)} Unhealthy
+                                </Link>}
                             </div>
                         </div>
                     ))}

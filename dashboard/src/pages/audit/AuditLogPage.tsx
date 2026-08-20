@@ -129,17 +129,23 @@ export function AuditLogPage() {
         {
             header: 'Timestamp',
             key: 'opTime',
+            className: 'max-sm:hidden',
             cell: record => dayjs(record.opTime).format('YYYY-MM-DD HH:mm:ss'),
         },
-        {header: 'Operator', accessor: 'operator', key: 'operator'},
-        {header: 'Client IP', accessor: 'ip', key: 'ip'},
+        {header: 'Operator', accessor: 'operator', key: 'operator', className: 'max-sm:hidden'},
+        {header: 'Client IP', accessor: 'ip', key: 'ip', className: 'max-sm:hidden'},
         {
             header: 'Resource',
             key: 'resource',
             className: 'max-w-80',
-            cell: record => <code className="block truncate text-xs" title={record.resource}>{record.resource}</code>,
+            cell: record => <>
+                <code className="block truncate text-xs" title={record.resource}>{record.resource}</code>
+                <span className="mt-1 block text-xs text-muted-foreground sm:hidden">
+                    {record.action} · {dayjs(record.opTime).format('MM-DD HH:mm')}
+                </span>
+            </>,
         },
-        {header: 'Action', accessor: 'action', key: 'action'},
+        {header: 'Action', accessor: 'action', key: 'action', className: 'max-sm:hidden'},
         {
             header: 'Status',
             key: 'status',
@@ -148,7 +154,7 @@ export function AuditLogPage() {
         {
             header: 'Message',
             key: 'msg',
-            className: 'max-w-56',
+            className: 'max-w-56 max-sm:hidden',
             cell: record => record.msg
                 ? <span className="block truncate" title={record.msg}>{record.msg}</span>
                 : <span className="text-muted-foreground">—</span>,
@@ -156,11 +162,11 @@ export function AuditLogPage() {
         {
             header: 'Details',
             key: 'details',
-            className: 'w-24 text-right',
-            cell: record => <Button variant="ghost" size="sm" onClick={() => openDrawer(
+            className: 'w-24 text-right max-sm:sticky max-sm:right-0 max-sm:z-10 max-sm:w-12 max-sm:bg-card max-sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]',
+            cell: record => <Button variant="ghost" size="sm" className="max-sm:size-10 max-sm:px-0" aria-label="Details" onClick={() => openDrawer(
                 <AuditLogDetails log={record}/>,
                 {title: 'Audit Event Details', width: 'min(720px, 92vw)'},
-            )}><Eye/> Details</Button>,
+            )}><Eye/> <span className="hidden sm:inline">Details</span></Button>,
         },
     ];
 
