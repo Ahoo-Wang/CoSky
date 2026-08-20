@@ -15,6 +15,8 @@ import type {Page, Route} from '@playwright/test';
 
 const now = Date.UTC(2026, 7, 18, 1, 0, 0);
 const tokenNow = Math.floor(Date.now() / 1000);
+// Realistic 64-char SHA-256 style hash, used wherever the mock serves config hashes.
+const CONFIG_HASH = '8f4a21c9e3b74d5f8a2c1e9b3d74f5a8c2e9b3d74f5a8c2e9b3d74f5a8c2e9b3';
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const token = `${encode({alg: 'none', typ: 'JWT'})}.${encode({
     sub: 'admin',
@@ -239,7 +241,7 @@ export async function installApiMock(page: Page) {
             const configId = decodeURIComponent(pathname.split('/').at(-3)!);
             await json(route, {
                 configId,
-                hash: '8f4a21c',
+                hash: CONFIG_HASH,
                 version: Number(pathname.split('/').at(-1)),
                 data: 'server:\n  port: 8080\nfeature:\n  enabled: true',
                 createTime: Math.floor(now / 1000) - 7200,
@@ -249,9 +251,10 @@ export async function installApiMock(page: Page) {
             return;
         }
         if (/\/configs\/[^/]+\/versions$/.test(pathname)) {
+            // Mirrors the real backend: the history index only contains superseded
+            // versions, never the current one (current is 3, see the config GET below).
             await json(route, [
-                {version: 3, hash: '8f4a21c', createTime: Math.floor(now / 1000) - 3600},
-                {version: 2, hash: '7d2a11b', createTime: Math.floor(now / 1000) - 7200},
+                {version: 2, hash: CONFIG_HASH, createTime: Math.floor(now / 1000) - 7200},
                 {version: 1, hash: '6c1f09a', createTime: Math.floor(now / 1000) - 10_800},
             ]);
             return;
@@ -260,7 +263,7 @@ export async function installApiMock(page: Page) {
             const configId = decodeURIComponent(pathname.split('/').at(-1)!);
             await json(route, {
                 configId,
-                hash: '8f4a21c',
+                hash: 'd3b2a1c',
                 version: 3,
                 data: 'server:\n  port: 8080\nfeature:\n  enabled: true',
                 createTime: Math.floor(now / 1000) - 3600,

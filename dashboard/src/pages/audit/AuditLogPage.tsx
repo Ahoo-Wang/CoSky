@@ -58,7 +58,7 @@ const toSuccessful = (status: AuditStatus) => status === 'all' ? undefined : sta
 
 function AuditLogDetails({log}: {log: AuditLog}) {
     return <DefinitionList items={[
-        {label: 'Timestamp', value: dayjs(log.opTime).format('YYYY-MM-DD HH:mm:ss.SSS')},
+        {label: 'Timestamp', value: dayjs(log.opTime).format('YYYY-MM-DD HH:mm:ss')},
         {label: 'Operator', value: log.operator},
         {label: 'Client IP', value: log.ip},
         {label: 'Resource', value: <code>{log.resource}</code>},
