@@ -13,7 +13,7 @@
 
 import {useEffect, useState} from 'react';
 import type {FormEvent} from 'react';
-import {Eye, EyeOff, LockKeyhole, User} from 'lucide-react';
+import {AlertCircle, Eye, EyeOff, LockKeyhole, User} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import {authenticateApiHooks} from "../../services/clients.ts";
 import {useSecurityContext} from "@ahoo-wang/fetcher-react";
@@ -35,6 +35,7 @@ interface LoginFormValues {
 
 export function LoginPage() {
     const [showPassword, setShowPassword] = useState(false);
+    const [formError, setFormError] = useState<string>();
     const {signIn, authenticated} = useSecurityContext();
     const navigate = useNavigate();
     const {loading, execute: login} = authenticateApiHooks.useLogin({
@@ -45,7 +46,9 @@ export function LoginPage() {
             signIn(result)
         }, onError: async (error: ExchangeError) => {
             const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
-            toast.error(`Login failed. ${errorResponse.msg}`);
+            const message = `Login failed. ${errorResponse.msg}`;
+            setFormError(message);
+            toast.error(message);
         }
     })
 
@@ -57,6 +60,7 @@ export function LoginPage() {
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        setFormError(undefined);
         const values = Object.fromEntries(new FormData(event.currentTarget)) as unknown as LoginFormValues;
         await login(values.username, {
             body: {
@@ -127,11 +131,14 @@ export function LoginPage() {
                     onSubmit={handleSubmit}
                     autoComplete="off"
                     className="login-form"
+                    onChange={() => formError && setFormError(undefined)}
                 >
                     <div className="login-field">
                         <Label htmlFor="username" className="sr-only">Username</Label>
                         <User/>
-                        <Input id="username" name="username" placeholder="Username" autoComplete="username" required/>
+                        <Input id="username" name="username" placeholder="Username" autoComplete="username"
+                               aria-invalid={Boolean(formError)}
+                               aria-describedby={formError ? 'login-error' : undefined} required/>
                     </div>
 
                     <div className="login-field">
@@ -143,6 +150,8 @@ export function LoginPage() {
                             type={showPassword ? 'text' : 'password'}
                             placeholder="Password"
                             autoComplete="current-password"
+                            aria-invalid={Boolean(formError)}
+                            aria-describedby={formError ? 'login-error' : undefined}
                             required
                         />
                         <Button
@@ -160,6 +169,13 @@ export function LoginPage() {
                     <Button type="submit" loading={loading} className="login-submit-button">
                         Sign In
                     </Button>
+
+                    {formError && (
+                        <p id="login-error" role="alert" className="login-form-error">
+                            <AlertCircle className="size-4 flex-none"/>
+                            <span>{formError}</span>
+                        </p>
+                    )}
                 </form>
 
                 {/* Footer */}

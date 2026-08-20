@@ -361,6 +361,34 @@
     opacity: 0.7;
 }
 
+.login-form-error {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: rgba(248, 113, 113, 0.08);
+    color: rgba(252, 165, 165, 0.95);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.login-form-error svg {
+    margin-top: 1px;
+    color: rgba(248, 113, 113, 0.9);
+}
+
+.login-form-error span {
+    flex: 1;
+}
+
+.login-form input[aria-invalid='true'] {
+    border-color: rgba(248, 113, 113, 0.6) !important;
+    box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.3) inset;
+}
+
 /* === Repository Links === */
 .login-repository-links {
     display: flex;

@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
+import React, {useCallback, useState} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "../../services/clients.ts";
 import {UploadCloud} from "lucide-react";
@@ -27,9 +27,12 @@ interface ConfigImporterProps {
     onCancel: () => void;
 }
 
+const ACCEPT = '.zip,application/zip';
+
 export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
     const [policy, setPolicy] = useState('skip');
     const [file, setFile] = useState<File>();
+    const [dragOver, setDragOver] = useState(false);
     const {loading, execute} = useExecutePromise<ImportResponse>({
         onSuccess: (result) => {
             toast.success(`Total: ${result.total}, succeeded: ${result.succeeded}.`);
@@ -38,7 +41,7 @@ export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSucc
         onError: () => {
             toast.error('Import config failed');
         },
-    })
+    });
     const handleFinish = () => {
         if (!file) {
             toast.error('Please select a ZIP file.');
@@ -51,19 +54,51 @@ export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSucc
             return configApiClient.importZip(namespace, {
                 body: formData
             })
-        })
+        });
     };
+    const onDrop = useCallback((event: React.DragEvent<HTMLLabelElement>) => {
+        event.preventDefault();
+        setDragOver(false);
+        const dropped = event.dataTransfer.files?.[0];
+        if (dropped && /\.zip$/i.test(dropped.name)) {
+            setFile(dropped);
+        } else if (dropped) {
+            toast.error('Please select a ZIP file.');
+        }
+    }, []);
     return (
         <form className="space-y-5" onSubmit={(event) => {event.preventDefault(); handleFinish();}}>
             <div className="space-y-2">
                 <Label>Import Policy</Label>
                 <ImportPolicySelector value={policy} onChange={setPolicy}/>
             </div>
-            <Label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed bg-muted/25 px-6 text-center transition-colors hover:border-primary hover:bg-primary/5">
+            <Label
+                htmlFor="import-zip-input"
+                onDragOver={event => {
+                    event.preventDefault();
+                    setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+                className={[
+                    'flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed bg-muted/25 px-6 text-center transition-colors',
+                    'hover:border-primary hover:bg-primary/5',
+                    dragOver && 'border-primary bg-primary/10',
+                ].join(' ')}
+                aria-label="Choose or drop a ZIP file"
+            >
                 <UploadCloud className="mb-3 size-9 text-primary"/>
                 <span className="font-medium">{file?.name ?? 'Choose a ZIP file'}</span>
-                <span className="mt-1 text-xs font-normal text-muted-foreground">Nacos configuration ZIP format</span>
-                <input type="file" accept=".zip,application/zip" className="sr-only" onChange={event => setFile(event.target.files?.[0])}/>
+                <span className="mt-1 text-xs font-normal text-muted-foreground">
+                    {file ? 'ZIP ready to upload' : 'Click to choose or drop a Nacos ZIP'}
+                </span>
+                <input
+                    id="import-zip-input"
+                    type="file"
+                    accept={ACCEPT}
+                    className="sr-only"
+                    onChange={event => setFile(event.target.files?.[0])}
+                />
             </Label>
             <div className="flex gap-2">
                 <Button type="submit" loading={loading}>Submit</Button>

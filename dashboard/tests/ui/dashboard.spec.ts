@@ -46,7 +46,7 @@ test('rejects invalid credentials without leaving the login screen', async ({pag
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();
 
     await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByText('Login failed. Invalid credentials')).toBeVisible();
+    await expect(page.getByText('Login failed. Invalid credentials').first()).toBeVisible();
     expect(browserErrors.get(page)).toContain('Failed to load resource: the server responded with a status of 401 (Unauthorized)');
     browserErrors.set(page, []);
 });
@@ -607,7 +607,7 @@ test('mobile layout keeps navigation and dashboard controls usable', async ({pag
     expect((await topology.boundingBox())?.height).toBeLessThanOrEqual(400);
     await page.getByRole('button', {name: 'Open navigation'}).click();
     await expect(page.getByRole('button', {name: 'Close navigation'})).toBeVisible();
-    await expect(page.getByRole('link', {name: 'Configuration'})).toBeVisible();
+    await expect(page.getByRole('link', {name: 'Configuration', exact: true})).toBeVisible();
     await page.getByRole('button', {name: 'Close navigation'}).click();
     await expect(page.getByRole('button', {name: 'Open navigation'})).toBeVisible();
 

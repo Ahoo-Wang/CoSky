@@ -60,10 +60,11 @@ export function DashboardPage() {
             detail: `/ ${stat.services.total}`,
             icon: Activity,
             tone: 'bg-emerald-50 text-emerald-600',
+            to: '/service',
         },
-        {label: 'Instances', value: stat.instances, detail: '', icon: Box, tone: 'bg-violet-50 text-violet-600'},
-        {label: 'Configurations', value: stat.configs, detail: '', icon: FileSliders, tone: 'bg-amber-50 text-amber-600'},
-        {label: 'Namespaces', value: stat.namespaces, detail: '', icon: Layers3, tone: 'bg-blue-50 text-blue-600'},
+        {label: 'Instances', value: stat.instances, detail: '', icon: Box, tone: 'bg-violet-50 text-violet-600', to: '/service'},
+        {label: 'Configurations', value: stat.configs, detail: '', icon: FileSliders, tone: 'bg-amber-50 text-amber-600', to: '/config'},
+        {label: 'Namespaces', value: stat.namespaces, detail: '', icon: Layers3, tone: 'bg-blue-50 text-blue-600', to: '/namespace'},
     ];
 
     return (
@@ -84,8 +85,10 @@ export function DashboardPage() {
 
             <Card className="py-0">
                 <CardContent className="grid grid-cols-2 p-0 xl:grid-cols-4">
-                    {metrics.map(({label, value, detail, icon: Icon, tone}) => (
-                        <div key={label} className="flex min-h-24 items-center gap-3 border-b p-4 odd:border-r [&:nth-last-child(-n+2)]:border-b-0 xl:min-h-28 xl:border-r xl:border-b-0 xl:p-6 xl:last:border-r-0">
+                    {metrics.map(({label, value, detail, icon: Icon, tone, to}) => (
+                        <Link key={label} to={to}
+                              aria-label={`${label} ${value.toLocaleString()}${detail ?? ''}`.trim()}
+                              className="flex min-h-24 items-center gap-3 border-b p-4 transition-colors hover:bg-muted/50 odd:border-r [&:nth-last-child(-n+2)]:border-b-0 xl:min-h-28 xl:border-r xl:border-b-0 xl:p-6 xl:last:border-r-0">
                             <div className={`grid size-10 flex-none place-items-center rounded-full xl:size-14 ${tone}`}>
                                 <Icon className="size-5 xl:size-6"/>
                             </div>
@@ -96,7 +99,7 @@ export function DashboardPage() {
                                     {detail && <span className="ml-1 text-sm font-normal text-muted-foreground">{detail}</span>}
                                 </p>
                             </div>
-                        </div>
+                        </Link>
                     ))}
                 </CardContent>
             </Card>
@@ -143,7 +146,9 @@ export function DashboardPage() {
                             const successful = change.status < 400;
                             const StatusIcon = successful ? CircleCheck : TriangleAlert;
                             return (
-                                <div key={`${change.operator}-${change.opTime}-${index}`} className="flex min-h-[68px] gap-3 px-4 py-4">
+                                <Link key={`${change.operator}-${change.opTime}-${index}`}
+                                      to={`/audit-log?query=${encodeURIComponent(change.resource)}`}
+                                      className="flex min-h-[68px] gap-3 px-4 py-4 transition-colors hover:bg-muted/50">
                                     <span className={`grid size-8 flex-none place-items-center rounded-full ${successful ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
                                         <StatusIcon className="size-4"/>
                                     </span>
@@ -155,7 +160,7 @@ export function DashboardPage() {
                                         </div>
                                     </div>
                                     <time className="flex-none text-xs text-muted-foreground">{dayjs(change.opTime).format('HH:mm')}</time>
-                                </div>
+                                </Link>
                             );
                         })}
                     </CardContent>
