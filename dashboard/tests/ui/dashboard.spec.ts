@@ -600,14 +600,21 @@ test('mobile layout keeps navigation and dashboard controls usable', async ({pag
     await expect(page.getByRole('button', {name: 'Open navigation'})).toBeVisible();
     await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
     await expect(page.getByText('Healthy Services')).toBeVisible();
+    await expect(page.getByRole('link', {name: '6 Unhealthy'})).toBeVisible();
     const healthyCard = await page.getByText('Healthy Services').evaluate(element => element.parentElement?.parentElement?.getBoundingClientRect().toJSON());
     const instancesCard = await page.getByText('Instances', {exact: true}).evaluate(element => element.parentElement?.parentElement?.getBoundingClientRect().toJSON());
     expect(healthyCard?.y).toBe(instancesCard?.y);
     const topology = page.locator('[data-slot="card"]').filter({hasText: 'Service Topology'}).locator('[data-slot="card-content"]');
     expect((await topology.boundingBox())?.height).toBeLessThanOrEqual(400);
     await page.getByRole('button', {name: 'Open navigation'}).click();
+    const navigation = page.getByRole('dialog', {name: 'Navigation'});
+    await expect(navigation).toBeVisible();
+    await expect(navigation).toHaveAttribute('aria-modal', 'true');
+    await expect(page.locator('[data-slot="sheet-overlay"]')).toBeVisible();
     await expect(page.getByRole('button', {name: 'Close navigation'})).toBeVisible();
     await expect(page.getByRole('link', {name: 'Configuration'})).toBeVisible();
+    for (let index = 0; index < 12; index++) await page.keyboard.press('Tab');
+    expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null)).toBe(true);
     await page.getByRole('button', {name: 'Close navigation'}).click();
     await expect(page.getByRole('button', {name: 'Open navigation'})).toBeVisible();
 
@@ -624,6 +631,19 @@ test('mobile layout keeps navigation and dashboard controls usable', async ({pag
     await expect(page.getByRole('dialog', {name: 'Add [api-gateway] Instance'})).toBeVisible();
     await expect(page.getByRole('button', {name: 'Submit', exact: true})).toBeInViewport();
     await page.getByRole('button', {name: 'Close', exact: true}).click();
+
+    await page.goto('/audit-log');
+    const failedStatus = page.getByRole('cell', {name: '500'});
+    const details = page.getByRole('button', {name: 'Details'}).first();
+    const isHorizontallyVisible = (element: Element) => {
+        const cell = element.getBoundingClientRect();
+        const table = element.closest('[data-slot="table-container"]')!.getBoundingClientRect();
+        return cell.left >= table.left && cell.right <= table.right;
+    };
+    expect(await failedStatus.evaluate(isHorizontallyVisible)).toBe(true);
+    expect(await details.evaluate(isHorizontallyVisible)).toBe(true);
+    const auditTableOverflow = await page.locator('[data-slot="table-container"]').evaluate(element => element.scrollWidth > element.clientWidth);
+    expect(auditTableOverflow).toBe(false);
 
     const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     expect(horizontalOverflow).toBe(false);

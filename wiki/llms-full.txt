@@ -257,7 +257,7 @@ graph LR
 #### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.8.0"
+val coskyVersion = "5.8.1"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
@@ -272,7 +272,7 @@ dependencies {
 
 ```xml
 <properties>
-    <cosky.version>5.8.0</cosky.version>
+    <cosky.version>5.8.1</cosky.version>
 </properties>
 <dependencyManagement>
     <dependencies>
@@ -491,7 +491,7 @@ graph TB
 
 ## References
 
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.8.0`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- current version (`5.8.1`)
 - [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt) -- core configuration properties
 - [CoSkyConfigProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt) -- config starter properties
 - [CoSkyDiscoveryProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt) -- discovery starter properties
@@ -550,7 +550,7 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.8.0"
+val coskyVersion = "5.8.1"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
@@ -571,7 +571,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.8.0</cosky.version>
+        <cosky.version>5.8.1</cosky.version>
     </properties>
 
     <dependencyManagement>
@@ -637,8 +637,8 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # Extract (the archive name includes the version)
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
-cd cosky-rest-api-5.8.0
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
+cd cosky-rest-api-5.8.1
 
 # Run with Redis connection
 bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
@@ -726,7 +726,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
           startupProbe:
             httpGet:
               port: http
@@ -761,7 +761,7 @@ spec:
           name: volume-localtime
 ```
 
-> **Note:** The example above uses the current release `5.8.0`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
+> **Note:** The example above uses the current release `5.8.1`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
 
 Source: [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -810,7 +810,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
           startupProbe:
             httpGet:
               port: http
@@ -1007,7 +1007,7 @@ Source: [README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.
 ## References
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- root build configuration with JVM 17 toolchain
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.8.0`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.8.1`)
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- all module definitions
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes deployment (standalone Redis)
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes deployment (Redis Cluster)
@@ -5133,7 +5133,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
           ports:
             - name: http
               containerPort: 8080
@@ -5177,7 +5177,7 @@ spec:
 <!-- Sources: k8s/deployment/cosky.yml:1, cosky-rest-api/src/main/resources/application.yaml:1 -->
 
 ::: tip Image tag
-The manifests below use the current release `5.8.0` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
+The manifests below use the current release `5.8.1` ([gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)). The in-repo manifests ([k8s/deployment/cosky.yml:27](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L27)) still pin the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` on Docker Hub.
 :::
 
 ## Clustered Redis Deployment
@@ -5205,7 +5205,7 @@ spec:
     spec:
       containers:
         - name: cosky
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.0
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
           env:
             - name: SPRING_DATA_REDIS_CLUSTER_NODES
               valueFrom:
@@ -5501,10 +5501,10 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # Extract
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.0.tar
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 
 # Enter the directory
-cd cosky-rest-api-5.8.0
+cd cosky-rest-api-5.8.1
 ```
 
 The distribution bundles the dashboard static files from `dashboard/dist` into `ui/`.
@@ -5512,7 +5512,7 @@ The distribution bundles the dashboard static files from `dashboard/dist` into `
 The extracted directory structure contains:
 
 ```
-cosky-rest-api-5.8.0/
+cosky-rest-api-5.8.1/
   bin/
     cosky-rest-api     # Startup script (Unix)
   config/

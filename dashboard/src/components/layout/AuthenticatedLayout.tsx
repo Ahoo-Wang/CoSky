@@ -44,6 +44,7 @@ import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import CoskyLogo from "../../assets/cosky-logo-constellation.svg";
 import {Button} from '@/components/ui/button';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
+import {Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger} from '@/components/ui/sheet';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -76,6 +77,54 @@ const searchTargets = [...primaryItems, ...securityItems];
 // <dialog> whose implicit role carries no attribute, hence the dialog[open] check.
 const isModalOpen = () =>
     Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]'));
+
+function SidebarContent({collapsed, currentPath, onCollapse, onNavigate}: {
+    collapsed: boolean;
+    currentPath: string;
+    onCollapse?: () => void;
+    onNavigate?: () => void;
+}) {
+    return <>
+        <NavLink to="/home" className="app-brand" onClick={onNavigate}>
+            <img src={CoskyLogo} alt="CoSky"/>
+            {!collapsed && <span className="app-brand-copy"><strong>CoSky</strong><small>Microservice Governance</small></span>}
+        </NavLink>
+        <nav className="app-nav" aria-label="Primary navigation">
+            {primaryItems.map(({to, label, icon: Icon}) => (
+                <NavLink key={to} to={to} title={label} onClick={onNavigate} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
+                    <Icon/>
+                    {!collapsed && <span>{label}</span>}
+                </NavLink>
+            ))}
+            {!collapsed ? (
+                <Collapsible defaultOpen={securityItems.some(item => item.to === currentPath)}>
+                    <CollapsibleTrigger asChild>
+                        <button type="button" className="app-nav-item app-nav-group" title="Security">
+                            <Shield/>
+                            <span>Security</span><ChevronDown className="app-nav-chevron"/>
+                        </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="app-nav-submenu">
+                        {securityItems.map(({to, label, icon: Icon}) => (
+                            <NavLink key={to} to={to} onClick={onNavigate} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
+                                <Icon/>
+                                <span>{label}</span>
+                            </NavLink>
+                        ))}
+                    </CollapsibleContent>
+                </Collapsible>
+            ) : securityItems.map(({to, label, icon: Icon}) => (
+                <NavLink key={to} to={to} title={label} onClick={onNavigate} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
+                    <Icon/>
+                </NavLink>
+            ))}
+        </nav>
+        {onCollapse && <Button variant="ghost" className="app-collapse" onClick={onCollapse}>
+            {collapsed ? <ChevronsRight/> : <ChevronsLeft/>}
+            {!collapsed && 'Collapse'}
+        </Button>}
+    </>;
+}
 
 export const AuthenticatedLayout = () => {
     const [collapsed, setCollapsed] = useLayoutCollapsed();
@@ -185,55 +234,18 @@ export const AuthenticatedLayout = () => {
     };
 
     return (
-        <div className={cn('app-shell', collapsed && 'app-shell-collapsed', mobileOpen && 'app-mobile-open')} onKeyDownCapture={handleLayoutKeyDown}>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <div className={cn('app-shell', collapsed && 'app-shell-collapsed')} onKeyDownCapture={handleLayoutKeyDown}>
             <aside className="app-sidebar">
-                <NavLink to="/home" className="app-brand" onClick={() => setMobileOpen(false)}>
-                    <img src={CoskyLogo} alt="CoSky"/>
-                    {!collapsed && <span className="app-brand-copy"><strong>CoSky</strong><small>Microservice Governance</small></span>}
-                </NavLink>
-                <Button variant="ghost" size="icon-sm" className="app-mobile-close" onClick={() => setMobileOpen(false)} aria-label="Close navigation"><X/></Button>
-                <nav className="app-nav" aria-label="Primary navigation">
-                    {primaryItems.map(({to, label, icon: Icon}) => (
-                        <NavLink key={to} to={to} title={label} onClick={() => setMobileOpen(false)} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
-                            <Icon/>
-                            {!collapsed && <span>{label}</span>}
-                        </NavLink>
-                    ))}
-                    {!collapsed ? (
-                        <Collapsible defaultOpen={securityItems.some(item => item.to === location.pathname)}>
-                            <CollapsibleTrigger asChild>
-                                <button type="button" className="app-nav-item app-nav-group" title="Security">
-                                    <Shield/>
-                                    <span>Security</span><ChevronDown className="app-nav-chevron"/>
-                                </button>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="app-nav-submenu">
-                                {securityItems.map(({to, label, icon: Icon}) => (
-                                    <NavLink key={to} to={to} onClick={() => setMobileOpen(false)} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
-                                        <Icon/>
-                                        <span>{label}</span>
-                                    </NavLink>
-                                ))}
-                            </CollapsibleContent>
-                        </Collapsible>
-                    ) : securityItems.map(({to, label, icon: Icon}) => (
-                        <NavLink key={to} to={to} title={label} onClick={() => setMobileOpen(false)} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
-                            <Icon/>
-                        </NavLink>
-                    ))}
-                </nav>
-                <Button variant="ghost" className="app-collapse" onClick={() => setCollapsed(!collapsed)}>
-                    {collapsed ? <ChevronsRight/> : <ChevronsLeft/>}
-                    {!collapsed && 'Collapse'}
-                </Button>
+                <SidebarContent collapsed={collapsed} currentPath={location.pathname} onCollapse={() => setCollapsed(!collapsed)}/>
             </aside>
 
             <div className="app-main">
                 <header className="app-header">
                     <div className="app-header-start">
-                        <Button variant="ghost" size="icon" className="app-mobile-menu" onClick={() => {setCollapsed(false); setMobileOpen(true);}} aria-label="Open navigation">
-                            <Menu/>
-                        </Button>
+                        <SheetTrigger asChild>
+                            <Button variant="ghost" size="icon" className="app-mobile-menu" aria-label="Open navigation"><Menu/></Button>
+                        </SheetTrigger>
                         <Button variant="ghost" size="icon-sm" className="app-desktop-menu" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
                             {collapsed ? <PanelLeftOpen/> : <PanelLeftClose/>}
                         </Button>
@@ -343,5 +355,15 @@ export const AuthenticatedLayout = () => {
                 </main>
             </div>
         </div>
+        <SheetContent side="left" showCloseButton={false} aria-modal="true" className="w-[232px] max-w-none gap-0 border-0 bg-[#111127] p-0 text-[#dadae7] sm:max-w-none">
+            <SheetTitle className="sr-only">Navigation</SheetTitle>
+            <div className="app-mobile-sidebar">
+                <SheetClose asChild>
+                    <Button variant="ghost" size="icon-sm" className="app-mobile-close" aria-label="Close navigation"><X/></Button>
+                </SheetClose>
+                <SidebarContent collapsed={false} currentPath={location.pathname} onNavigate={() => setMobileOpen(false)}/>
+            </div>
+        </SheetContent>
+        </Sheet>
     );
 };
