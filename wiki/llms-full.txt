@@ -641,7 +641,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 cd cosky-rest-api-5.8.1
 
 # Run with Redis connection
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 The distribution contains `bin/` start scripts, `lib/` dependencies, `config/` configuration files, and `ui/` with the dashboard static resources (served via `spring.web.resources.static-locations: file:./ui/`).
@@ -667,6 +667,7 @@ docker pull ahoowang/cosky:latest
 # Run as a container
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -687,6 +688,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_DATA_REDIS_URL=redis://redis:6379
+      - COSKY_SECURITY_KEY=${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
     depends_on:
       - redis
 ```
@@ -4304,7 +4306,7 @@ cosky:
 cosec:
   jwt:
     algorithm: hmac256               # JWT signing algorithm
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}    # JWT secret key
+    secret: ${cosky.security.key:}    # JWT secret key
     token-validity:
       access: 15m                    # Access token TTL
       refresh: 3H                    # Refresh token TTL
@@ -4880,6 +4882,7 @@ docker pull ahoowang/cosky:latest
 # Run CoSky
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -4948,7 +4951,7 @@ flowchart LR
 | `SERVER_PORT` | `8080` | HTTP port for the REST API and dashboard |
 | `COSKY_SECURITY_ENABLED` | `true` | Enable CoSec JWT authentication |
 | `COSKY_SUPER_INIT` | `false` | Force re-initialization of the super-user password |
-| `COSKY_SECURITY_KEY` | built-in secret | JWT signing secret for CoSec tokens |
+| `COSKY_SECURITY_KEY` | *(required when security is enabled)* | JWT signing secret for CoSec tokens; the server refuses to start without it. Use a random value of at least 32 characters |
 | `COSKY_NAMESPACE` | `cosky-{system}` | Default namespace |
 | `COSKY_AUTO_REGISTRY` | `true` | Auto-register CoSky itself as a service |
 | `LANG` | *(none)* | Set locale (e.g. `C.utf8`) |
@@ -4983,6 +4986,7 @@ services:
     environment:
       SPRING_DATA_REDIS_URL: redis://redis:6379
       COSKY_SECURITY_ENABLED: "true"
+      COSKY_SECURITY_KEY: ${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
       TZ: Asia/Shanghai
     depends_on:
       redis:
@@ -5552,7 +5556,7 @@ cosky-rest-api-5.8.1/
 Start CoSky with the required Redis connection parameter:
 
 ```bash
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 All Spring Boot properties can be passed as command-line arguments using the `--property=value` format. Alternatively, set them as environment variables or edit the configuration files directly.
@@ -5623,7 +5627,7 @@ cosky:
 cosec:
   jwt:
     algorithm: hmac256
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+    secret: ${cosky.security.key:}
     token-validity:
       access: 15m
       refresh: 3H
@@ -5775,7 +5779,7 @@ To pass JVM options through the startup script, set the `JAVA_OPTS` environment 
 
 ```bash
 export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## Service Discovery and Self-Registration

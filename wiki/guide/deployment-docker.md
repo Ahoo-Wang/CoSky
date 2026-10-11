@@ -19,6 +19,7 @@ docker pull ahoowang/cosky:latest
 # Run CoSky
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -87,7 +88,7 @@ flowchart LR
 | `SERVER_PORT` | `8080` | HTTP port for the REST API and dashboard |
 | `COSKY_SECURITY_ENABLED` | `true` | Enable CoSec JWT authentication |
 | `COSKY_SUPER_INIT` | `false` | Force re-initialization of the super-user password |
-| `COSKY_SECURITY_KEY` | built-in secret | JWT signing secret for CoSec tokens |
+| `COSKY_SECURITY_KEY` | *(required when security is enabled)* | JWT signing secret for CoSec tokens; the server refuses to start without it. Use a random value of at least 32 characters |
 | `COSKY_NAMESPACE` | `cosky-{system}` | Default namespace |
 | `COSKY_AUTO_REGISTRY` | `true` | Auto-register CoSky itself as a service |
 | `LANG` | *(none)* | Set locale (e.g. `C.utf8`) |
@@ -122,6 +123,7 @@ services:
     environment:
       SPRING_DATA_REDIS_URL: redis://redis:6379
       COSKY_SECURITY_ENABLED: "true"
+      COSKY_SECURITY_KEY: ${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
       TZ: Asia/Shanghai
     depends_on:
       redis:

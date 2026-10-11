@@ -48,7 +48,7 @@ cosky-rest-api-5.8.1/
 Start CoSky with the required Redis connection parameter:
 
 ```bash
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 All Spring Boot properties can be passed as command-line arguments using the `--property=value` format. Alternatively, set them as environment variables or edit the configuration files directly.
@@ -119,7 +119,7 @@ cosky:
 cosec:
   jwt:
     algorithm: hmac256
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+    secret: ${cosky.security.key:}
     token-validity:
       access: 15m
       refresh: 3H
@@ -271,7 +271,7 @@ To pass JVM options through the startup script, set the `JAVA_OPTS` environment 
 
 ```bash
 export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## Service Discovery and Self-Registration

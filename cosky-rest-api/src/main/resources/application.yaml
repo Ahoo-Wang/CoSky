@@ -23,7 +23,8 @@ cosky:
 cosec:
   jwt:
     algorithm: hmac256
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+    # Required when security is enabled: set cosky.security.key (env COSKY_SECURITY_KEY) to a random secret.
+    secret: ${cosky.security.key:}
     token-validity:
       access: 15m
       refresh: 3H

@@ -144,7 +144,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 cd cosky-rest-api-5.8.1
 
 # 使用 Redis 连接运行
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 发行包包含 `bin/` 启动脚本、`lib/` 依赖库、`config/` 配置文件，以及存放控制台静态资源的 `ui/` 目录（通过 `spring.web.resources.static-locations: file:./ui/` 提供访问）。
@@ -170,6 +170,7 @@ docker pull ahoowang/cosky:latest
 # 作为容器运行
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -190,6 +191,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_DATA_REDIS_URL=redis://redis:6379
+      - COSKY_SECURITY_KEY=${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
     depends_on:
       - redis
 ```

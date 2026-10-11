@@ -251,7 +251,7 @@ cosky:
 cosec:
   jwt:
     algorithm: hmac256               # JWT signing algorithm
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}    # JWT secret key
+    secret: ${cosky.security.key:}    # JWT secret key
     token-validity:
       access: 15m                    # Access token TTL
       refresh: 3H                    # Refresh token TTL

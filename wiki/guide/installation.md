@@ -144,7 +144,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 cd cosky-rest-api-5.8.1
 
 # Run with Redis connection
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 The distribution contains `bin/` start scripts, `lib/` dependencies, `config/` configuration files, and `ui/` with the dashboard static resources (served via `spring.web.resources.static-locations: file:./ui/`).
@@ -170,6 +170,7 @@ docker pull ahoowang/cosky:latest
 # Run as a container
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -190,6 +191,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_DATA_REDIS_URL=redis://redis:6379
+      - COSKY_SECURITY_KEY=${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
     depends_on:
       - redis
 ```
