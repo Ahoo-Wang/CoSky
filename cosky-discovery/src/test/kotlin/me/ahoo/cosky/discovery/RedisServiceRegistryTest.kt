@@ -72,6 +72,32 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
     }
 
     /**
+     * Setting a single metadata key, as Spring Cloud's setStatus does, must keep the other metadata.
+     */
+    @Test
+    fun setSingleMetadataKeepsOtherMetadata() {
+        val instance = randomInstance().asServiceInstance(metadata = mapOf("zone" to "a"))
+        serviceRegistry.register(namespace, instance).test().expectNext(true).verifyComplete()
+
+        serviceRegistry.setMetadata(
+            namespace,
+            instance.serviceId,
+            instance.instanceId,
+            "instance_status",
+            "OUT_OF_SERVICE"
+        )
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
+            .test()
+            .expectNextMatches { it.metadata == mapOf("zone" to "a", "instance_status" to "OUT_OF_SERVICE") }
+            .verifyComplete()
+        serviceRegistry.deregister(namespace, instance).test().expectNext(true).verifyComplete()
+    }
+
+    /**
      * Replacing metadata must also clear user keys containing a double underscore, which only the '__' prefix
      * reserves for system fields.
      */

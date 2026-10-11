@@ -25,6 +25,7 @@ import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadata
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadataKey
 import me.ahoo.cosky.discovery.ServiceRegistry
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import java.util.concurrent.ConcurrentHashMap
@@ -139,7 +140,7 @@ class RedisServiceRegistry(
         value: String
     ): Mono<Boolean> {
         val values = listOf(encodeMetadataKey(key), value)
-        return setMetadataInternal(namespace, instanceId, values)
+        return setMetadataInternal(DiscoveryRedisScripts.SCRIPT_REGISTRY_PUT_METADATA, namespace, instanceId, values)
     }
 
     override fun setMetadata(
@@ -149,17 +150,22 @@ class RedisServiceRegistry(
         metadata: Map<String, String>
     ): Mono<Boolean> {
         val values = encodeMetadata(ArrayList(metadata.size * 2), metadata)
-        return setMetadataInternal(namespace, instanceId, values)
+        return setMetadataInternal(DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA, namespace, instanceId, values)
     }
 
-    private fun setMetadataInternal(namespace: String, instanceId: String, args: List<String>): Mono<Boolean> {
+    private fun setMetadataInternal(
+        script: RedisScript<Boolean>,
+        namespace: String,
+        instanceId: String,
+        args: List<String>
+    ): Mono<Boolean> {
         requireValidNamespace(namespace)
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         log.info {
             "Set Metadata - instanceId:[$instanceId] @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA,
+            script,
             listOf(getInstanceKey(namespace, instanceId)),
             args,
         )

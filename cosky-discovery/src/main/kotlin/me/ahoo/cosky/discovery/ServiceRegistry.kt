@@ -49,6 +49,9 @@ interface ServiceRegistry {
 
     val registeredEphemeralInstances: Map<NamespacedInstanceId, ServiceInstance>
 
+    /**
+     * Sets one metadata entry, keeping the others.
+     */
     fun setMetadata(
         namespace: String,
         serviceId: String,
@@ -57,6 +60,9 @@ interface ServiceRegistry {
         value: String
     ): Mono<Boolean>
 
+    /**
+     * Replaces all metadata of the instance with [metadata].
+     */
     fun setMetadata(
         namespace: String,
         serviceId: String,
