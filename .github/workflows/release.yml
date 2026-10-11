@@ -1,0 +1,62 @@
+#
+# Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Creates the GitHub release when a version bump reaches main, then starts the publishing workflows.
+# A release or tag created with GITHUB_TOKEN does not trigger other workflows, so they are dispatched explicitly
+# (workflow_dispatch is exempt from that rule). Releases created by hand still trigger them as before.
+name: Release
+on:
+  push:
+    branches: [ main ]
+    paths: [ gradle.properties ]
+permissions:
+  contents: write
+  actions: write
+concurrency: release
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+      - name: Create release and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          version="$(sed -n 's/^version=//p' gradle.properties)"
+          tag="v${version}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Version '$version' is not a release version, nothing to do."
+            exit 0
+          fi
+          if gh release view "$tag" --repo "$REPO" > /dev/null 2>&1; then
+            echo "Release $tag already exists, nothing to do."
+            exit 0
+          fi
+
+          previous="$(gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null || true)"
+          args=(-f tag_name="$tag" -f target_commitish="$GITHUB_SHA")
+          if [[ -n "$previous" ]]; then
+            args+=(-f previous_tag_name="$previous")
+          fi
+          gh api "repos/$REPO/releases/generate-notes" "${args[@]}" -q .body > generated-notes.md
+
+          # Optional hand-written introduction, e.g. highlights and upgrade notes.
+          intro=".github/release-notes/${tag}.md"
+          { if [[ -f "$intro" ]]; then cat "$intro"; echo; fi; cat generated-notes.md; } > release-notes.md
+
+          gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" --title "$tag" --notes-file release-notes.md --latest
+          gh workflow run package-deploy.yml --repo "$REPO" --ref "$tag"
+          gh workflow run docker-deploy.yml --repo "$REPO" --ref "$tag"

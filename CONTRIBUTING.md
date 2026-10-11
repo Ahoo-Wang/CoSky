@@ -78,10 +78,12 @@ CoSky follows [Semantic Versioning](https://semver.org):
 To release:
 
 1. Open a pull request titled `Bump version to X.Y.Z` that updates `version` in `gradle.properties`,
-   `dashboard/package.json` and the version references in the wiki.
-2. After it is merged, create the GitHub release `vX.Y.Z` on its commit. Release notes are generated from the merged
-   pull requests, grouped by their labels ([.github/release.yml](.github/release.yml)).
-3. Creating the release publishes the artifacts to Maven Central and GitHub Packages, and the Docker images.
+   `dashboard/package.json` and the version references in the wiki. Optionally add
+   `.github/release-notes/vX.Y.Z.md` with highlights and upgrade notes.
+2. When it is merged, the [Release workflow](.github/workflows/release.yml) creates the GitHub release `vX.Y.Z` on
+   the merge commit: the optional introduction followed by notes generated from the merged pull requests, grouped by
+   their labels ([.github/release.yml](.github/release.yml)).
+3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, and the Docker images.
 
 ## License
 

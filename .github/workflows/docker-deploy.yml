@@ -23,6 +23,8 @@ on:
   pull_request:
     branches:
       - 'main'
+  # Dispatched by the Release workflow on the release tag.
+  workflow_dispatch:
 jobs:
   docker-deploy:
     name: Push Docker image
