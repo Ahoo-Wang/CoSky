@@ -19,19 +19,23 @@ import java.time.Duration
 /**
  * CoSky Discovery Properties.
  *
+ * A JavaBean (no-arg constructor, mutable properties) on purpose: Spring Cloud's ConfigurationPropertiesRebinder
+ * re-binds properties beans in place, which constructor-bound beans do not survive.
+ *
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyDiscoveryProperties.PREFIX)
-class CoSkyDiscoveryProperties(
-    var enabled: Boolean = true,
-    var order: Int = 0,
-    var timeout: Duration = Duration.ofSeconds(2),
+class CoSkyDiscoveryProperties {
+    companion object {
+        const val PREFIX = CoSkyProperties.PREFIX + ".discovery"
+    }
+
+    var enabled: Boolean = true
+    var order: Int = 0
+    var timeout: Duration = Duration.ofSeconds(2)
+
     /**
      * Record the current service as a consumer of the services it discovers.
      */
     var topologyEnabled: Boolean = true
-) {
-    companion object {
-        const val PREFIX = CoSkyProperties.PREFIX + ".discovery"
-    }
 }

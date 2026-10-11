@@ -19,16 +19,19 @@ import java.time.Duration
 /**
  * CoSky Config Properties.
  *
+ * A JavaBean (no-arg constructor, mutable properties) on purpose: Spring Cloud's ConfigurationPropertiesRebinder
+ * re-binds properties beans in place, which constructor-bound beans do not survive.
+ *
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyConfigProperties.PREFIX)
-class CoSkyConfigProperties(
-    var enabled: Boolean = true,
-    var configId: String? = null,
-    var fileExtension: String = "yaml",
-    var timeout: Duration = Duration.ofSeconds(2)
-) {
+class CoSkyConfigProperties {
     companion object {
         const val PREFIX = CoSkyProperties.PREFIX + ".config"
     }
+
+    var enabled: Boolean = true
+    var configId: String? = null
+    var fileExtension: String = "yaml"
+    var timeout: Duration = Duration.ofSeconds(2)
 }

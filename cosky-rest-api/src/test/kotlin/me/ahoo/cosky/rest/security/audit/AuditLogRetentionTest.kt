@@ -25,7 +25,7 @@ class AuditLogRetentionTest : AbstractReactiveRedisTest() {
     @Test
     fun keepsNewestMaxSizeEntries() {
         redisTemplate.delete(AuditLogService.AUDIT_LOG_KEY).block()
-        val properties = SecurityProperties(auditLog = SecurityProperties.AuditLog(maxSize = 3))
+        val properties = SecurityProperties().apply { auditLog.maxSize = 3 }
         val auditLogService = AuditLogService(jacksonObjectMapper(), redisTemplate, properties)
 
         Flux.range(1, 5)

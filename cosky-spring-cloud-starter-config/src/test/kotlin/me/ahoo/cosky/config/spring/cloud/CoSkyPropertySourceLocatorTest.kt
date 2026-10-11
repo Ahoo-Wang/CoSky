@@ -46,7 +46,7 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
 
     @Test
     fun locateNone() {
-        val properties = CoSkyConfigProperties(configId = "${MockIdGenerator.INSTANCE.generateAsString()}.yaml")
+        val properties = CoSkyConfigProperties().apply { configId = "${MockIdGenerator.INSTANCE.generateAsString()}.yaml" }
         val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(coSkyProperties, properties, configService)
         val propertySources = coSkyPropertySourceLocator.locate(mockk())
         propertySources.assert().isNotNull()
@@ -58,7 +58,7 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
             .test()
             .expectNextCount(1)
             .verifyComplete()
-        val properties = CoSkyConfigProperties(configId = "service.yaml")
+        val properties = CoSkyConfigProperties().apply { configId = "service.yaml" }
         val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(coSkyProperties, properties, configService)
         val propertySources = coSkyPropertySourceLocator.locate(mockk())
         propertySources.assert().isNotNull()
@@ -87,7 +87,7 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
             .verifyComplete()
         val propertySource = CoSkyPropertySourceLocator(
             coSkyProperties,
-            CoSkyConfigProperties(configId = configId),
+            CoSkyConfigProperties().also { it.configId = configId },
             configService,
         ).locate(mockk())
 

@@ -11,8 +11,10 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
 import org.springframework.boot.data.redis.autoconfigure.DataRedisReactiveAutoConfiguration
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.cloud.autoconfigure.ConfigurationPropertiesRebinderAutoConfiguration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationConfiguration
 import org.springframework.cloud.commons.util.UtilAutoConfiguration
+import org.springframework.cloud.context.properties.ConfigurationPropertiesRebinder
 import java.time.Duration
 
 internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
@@ -53,7 +55,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                         it.isEphemeral.assert().isEqualTo(true)
                         it.ttl.assert().isEqualTo(Duration.ofSeconds(60))
                         it.timeout.assert().isEqualTo(Duration.ofSeconds(2))
-                        it.metadata.assert().containsKey(StatusConstants.INSTANCE_STATUS_KEY)
+                        it.metadata.assert().isEmpty()
                         it.initialStatus.assert().isEqualTo(StatusConstants.STATUS_UP)
                         it.renew.assert().isNotNull()
                         it.renew.initialDelay.assert().isEqualTo(Duration.ofSeconds(1))
@@ -123,7 +125,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                         it.isEphemeral.assert().isFalse()
                         it.ttl.assert().isEqualTo(Duration.ofSeconds(120))
                         it.timeout.assert().isEqualTo(Duration.ofSeconds(2))
-                        it.metadata.assert().containsKey("key").containsKey(StatusConstants.INSTANCE_STATUS_KEY)
+                        it.metadata.assert().isEqualTo(mapOf("key" to "value"))
                         it.initialStatus.assert().isEqualTo("OUT_OF_SERVICE")
                         it.renew.assert().isNotNull()
                         it.renew.initialDelay.assert().isEqualTo(Duration.ofSeconds(2))
@@ -158,6 +160,37 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 assertThat(it)
                     .doesNotHaveBean(RedisServiceRegistry::class.java)
                     .doesNotHaveBean(CoSkyRegistration::class.java)
+            }
+    }
+
+    /**
+     * With Spring Cloud bootstrap, ConfigurationPropertiesRebinder rebinds every properties bean after startup:
+     * the bound values must survive it.
+     */
+    @Test
+    fun propertiesSurviveRebind() {
+        contextRunner
+            .withPropertyValues(
+                "spring.application.name=app",
+                "${CoSkyRegistryProperties.PREFIX}.weight=100",
+                "${CoSkyRegistryProperties.PREFIX}.initial-status=OUT_OF_SERVICE",
+            )
+            .withUserConfiguration(
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
+                UtilAutoConfiguration::class.java,
+                AutoServiceRegistrationConfiguration::class.java,
+                ConfigurationPropertiesRebinderAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
+                CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
+            )
+            .run {
+                it.getBean(ConfigurationPropertiesRebinder::class.java).rebind()
+                val properties = it.getBean(CoSkyRegistryProperties::class.java)
+                properties.weight.assert().isEqualTo(100)
+                properties.initialStatus.assert().isEqualTo("OUT_OF_SERVICE")
+                it.getBean(CoSkyRegistration::class.java).metadata[StatusConstants.INSTANCE_STATUS_KEY]
+                    .assert().isEqualTo("OUT_OF_SERVICE")
             }
     }
 }

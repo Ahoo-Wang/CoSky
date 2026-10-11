@@ -20,29 +20,35 @@ import me.ahoo.cosky.core.util.RedisKeys.ofKey
 import org.springframework.boot.context.properties.ConfigurationProperties
 
 /**
- * Cosky Properties.
+ * CoSky Properties.
+ *
+ * A JavaBean (no-arg constructor, mutable properties) on purpose: Spring Cloud's ConfigurationPropertiesRebinder
+ * re-binds properties beans in place, which constructor-bound beans do not survive.
  *
  * @author ahoo wang
  */
 @ConfigurationProperties(CoSkyProperties.PREFIX)
-class CoSkyProperties(
-    var enabled: Boolean = true,
-    override var namespace: String = Namespaced.DEFAULT
-) : Namespaced {
-
+class CoSkyProperties : Namespaced {
     companion object {
         private val log = KotlinLogging.logger {}
         const val PREFIX = "spring.cloud." + CoSky.COSKY
     }
 
-    init {
-        if (!hasWrap(namespace)) {
-            val clusterNamespace = ofKey(true, namespace)
-            log.warn {
-                "When Redis is in cluster mode, namespace:[$namespace-->$clusterNamespace]" +
-                    " must be wrapped by {}(hashtag)."
+    var enabled: Boolean = true
+
+    /**
+     * Always wrapped in a Redis Cluster hashtag, so that all keys of the namespace share one hash slot.
+     */
+    override var namespace: String = Namespaced.DEFAULT
+        set(value) {
+            field = if (hasWrap(value)) {
+                value
+            } else {
+                ofKey(true, value).also {
+                    log.warn {
+                        "When Redis is in cluster mode, namespace:[$value-->$it] must be wrapped by {}(hashtag)."
+                    }
+                }
             }
-            namespace = clusterNamespace
         }
-    }
 }

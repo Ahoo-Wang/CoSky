@@ -23,7 +23,10 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
         serviceDiscovery = RedisServiceDiscovery(redisTemplate)
         renewInstanceService = RenewInstanceService(RenewProperties(), serviceRegistry)
-        val coSkyRegistryProperties = CoSkyRegistryProperties(serviceId = "app", host = "app-1")
+        val coSkyRegistryProperties = CoSkyRegistryProperties().apply {
+            serviceId = "app"
+            host = "app-1"
+        }
         coSkyServiceRegistry = CoSkyServiceRegistry(serviceRegistry, renewInstanceService, coSkyRegistryProperties, NAMESPACE)
     }
 
