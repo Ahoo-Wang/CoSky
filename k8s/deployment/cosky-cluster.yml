@@ -43,7 +43,7 @@ spec:
                   key: security-key
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5
+          image: ahoowang/cosky:6.0.0
           startupProbe:
             httpGet:
               port: http

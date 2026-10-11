@@ -5,6 +5,8 @@ spring:
   cloud:
     cosky:
       discovery:
+        # Dashboard reads are administrative and must not show up as service dependencies.
+        topology-enabled: false
         registry:
           weight: 8
 
