@@ -12,24 +12,23 @@ import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.listener.PatternTopic
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 class RedisInstanceEventListenerContainer(
     delegate: ReactiveRedisMessageListenerContainer
 ) :
     InstanceEventListenerContainer, RedisEventListenerContainer<NamespacedServiceId, InstanceChangedEvent>(delegate) {
 
-    override fun receiveEvent(topic: NamespacedServiceId): Flux<InstanceChangedEvent> {
+    override fun listenEvent(topic: NamespacedServiceId): Mono<Flux<InstanceChangedEvent>> {
         val instancePattern = if (topic.serviceId.isNotBlank()) {
             DiscoveryKeyGenerator.getInstanceKeyPatternOfService(topic.namespace, topic.serviceId)
         } else {
             DiscoveryKeyGenerator.getInstanceKeyPatternOfNamespace(topic.namespace)
         }
 
-        return delegate
-            .receive(PatternTopic.of(instancePattern))
-            .map {
-                asEvent(it)
-            }
+        return delegate.receiveLater(PatternTopic.of(instancePattern)).map { messages ->
+            messages.map { asEvent(it) }
+        }
     }
 
     private fun asEvent(message: ReactiveSubscription.Message<String, String>): InstanceChangedEvent {

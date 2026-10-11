@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.EventListenerContainer
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import java.util.concurrent.CancellationException
 
 abstract class RedisEventListenerContainer<T, E : Any>(
@@ -14,20 +15,25 @@ abstract class RedisEventListenerContainer<T, E : Any>(
         private val log = KotlinLogging.logger {}
     }
 
-    override fun receive(topic: T): Flux<E> {
-        return receiveEvent(topic)
-            .onErrorResume(CancellationException::class.java) {
+    override fun listen(topic: T): Mono<Flux<E>> {
+        return listenEvent(topic)
+            .doOnSuccess {
                 log.info {
-                    "OnError $this - topic[$topic] is cancelled."
+                    "Listen $this - topic[$topic]."
                 }
-                Flux.empty()
             }
-            .doOnSubscribe {
-                log.info {
-                    "Receive $this - topic[$topic]."
+            .map { events ->
+                events.onErrorResume(CancellationException::class.java) {
+                    log.info {
+                        "OnError $this - topic[$topic] is cancelled."
+                    }
+                    Flux.empty()
                 }
             }
     }
 
-    protected abstract fun receiveEvent(topic: T): Flux<E>
+    /**
+     * @see ReactiveRedisMessageListenerContainer.receiveLater
+     */
+    protected abstract fun listenEvent(topic: T): Mono<Flux<E>>
 }

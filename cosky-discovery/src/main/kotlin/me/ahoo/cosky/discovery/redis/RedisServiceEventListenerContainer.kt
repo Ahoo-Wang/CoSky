@@ -7,6 +7,7 @@ import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 class RedisServiceEventListenerContainer(delegate: ReactiveRedisMessageListenerContainer) :
     ServiceEventListenerContainer, RedisEventListenerContainer<String, String>(delegate) {
@@ -14,10 +15,10 @@ class RedisServiceEventListenerContainer(delegate: ReactiveRedisMessageListenerC
     /**
      * @param topic namespace
      */
-    override fun receiveEvent(topic: String): Flux<String> {
+    override fun listenEvent(topic: String): Mono<Flux<String>> {
         val serviceIdxKey = DiscoveryKeyGenerator.getServiceIdxKey(topic)
-        return delegate.receive(ChannelTopic.of(serviceIdxKey)).map {
-            getNamespaceOfKey(it.channel)
+        return delegate.receiveLater(ChannelTopic.of(serviceIdxKey)).map { messages ->
+            messages.map { getNamespaceOfKey(it.channel) }
         }
     }
 }
