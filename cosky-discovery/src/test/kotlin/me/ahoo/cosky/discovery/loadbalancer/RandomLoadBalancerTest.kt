@@ -13,18 +13,15 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import me.ahoo.cosid.test.MockIdGenerator
-import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.registerRandomInstanceAndTestThenDeregister
-import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Test
-import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.kotlin.test.test
 import java.util.*
 
@@ -35,14 +32,11 @@ internal class RandomLoadBalancerTest : AbstractReactiveRedisTest() {
     private lateinit var redisServiceDiscovery: RedisServiceDiscovery
     private lateinit var redisServiceRegistry: RedisServiceRegistry
     private lateinit var randomLoadBalancer: RandomLoadBalancer
-    private lateinit var instanceEventListenerContainer: InstanceEventListenerContainer
     override fun afterInitializedRedisClient() {
         val registryProperties = RegistryProperties()
         redisServiceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
         redisServiceDiscovery = RedisServiceDiscovery(redisTemplate)
-        instanceEventListenerContainer =
-            RedisInstanceEventListenerContainer(ReactiveRedisMessageListenerContainer(connectionFactory))
-        randomLoadBalancer = RandomLoadBalancer(redisServiceDiscovery, instanceEventListenerContainer)
+        randomLoadBalancer = RandomLoadBalancer(redisServiceDiscovery)
     }
 
     @Test

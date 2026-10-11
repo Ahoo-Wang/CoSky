@@ -102,10 +102,7 @@ class CoSkyDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun coSkyLoadBalancer(
-        serviceDiscovery: ConsistencyRedisServiceDiscovery,
-        instanceEventListenerContainer: InstanceEventListenerContainer
-    ): LoadBalancer {
-        return BinaryWeightRandomLoadBalancer(serviceDiscovery, instanceEventListenerContainer)
+    fun coSkyLoadBalancer(serviceDiscovery: ConsistencyRedisServiceDiscovery): LoadBalancer {
+        return BinaryWeightRandomLoadBalancer(serviceDiscovery)
     }
 }

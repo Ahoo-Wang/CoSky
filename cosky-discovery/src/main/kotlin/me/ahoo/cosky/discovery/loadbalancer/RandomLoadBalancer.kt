@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
-import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.RandomLoadBalancer.RandomChooser
@@ -24,10 +23,9 @@ import java.util.concurrent.ThreadLocalRandom
  * @author ahoo wang
  */
 class RandomLoadBalancer(
-    serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer
+    serviceDiscovery: ServiceDiscovery
 ) :
-    AbstractLoadBalancer<RandomChooser>(serviceDiscovery, instanceEventListenerContainer) {
+    AbstractLoadBalancer<RandomChooser>(serviceDiscovery) {
     override fun createChooser(serviceInstances: List<ServiceInstance>): RandomChooser {
         return RandomChooser(serviceInstances)
     }

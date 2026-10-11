@@ -12,49 +12,26 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
-import me.ahoo.cosky.discovery.InstanceEventListenerContainer
-import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import reactor.core.publisher.Mono
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Abstract Load Balancer.
  *
+ * The chooser is derived from [serviceDiscovery] on every call instead of being cached here:
+ * a second, independently invalidated cache can not be kept consistent with the discovery cache.
+ *
  * @author ahoo wang
  */
 abstract class AbstractLoadBalancer<C : LoadBalancer.Chooser>(
-    private val serviceDiscovery: ServiceDiscovery,
-    private val instanceEventListenerContainer: InstanceEventListenerContainer
+    private val serviceDiscovery: ServiceDiscovery
 ) : LoadBalancer {
-    private val serviceMapChooser: ConcurrentHashMap<NamespacedServiceId, Mono<C>> = ConcurrentHashMap()
-
-    private fun ensureChooser(namespacedServiceId: NamespacedServiceId): Mono<C> {
-        return serviceMapChooser.computeIfAbsent(
-            namespacedServiceId,
-        ) { key: NamespacedServiceId ->
-            @Suppress("CallingSubscribeInNonBlockingScope")
-            instanceEventListenerContainer.receive(key)
-                .doOnNext {
-                    @Suppress("ReactiveStreamsUnusedPublisher")
-                    serviceMapChooser[key] = getCachedInstances(namespacedServiceId)
-                }
-                .subscribe()
-            getCachedInstances(namespacedServiceId)
-        }
-    }
-
-    private fun getCachedInstances(namespacedServiceId: NamespacedServiceId): Mono<C> {
-        return serviceDiscovery.getInstances(namespacedServiceId.namespace, namespacedServiceId.serviceId)
-            .collectList()
-            .map { createChooser(it) }
-            .cache()
-    }
 
     override fun choose(namespace: String, serviceId: String): Mono<ServiceInstance> {
-        return ensureChooser(NamespacedServiceId(namespace, serviceId))
-            .mapNotNull { it.choose() }
+        return serviceDiscovery.getInstances(namespace, serviceId)
+            .collectList()
+            .mapNotNull { createChooser(it).choose() }
     }
 
     protected abstract fun createChooser(serviceInstances: List<ServiceInstance>): C
