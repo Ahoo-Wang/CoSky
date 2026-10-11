@@ -31,6 +31,8 @@ dependencies {
 //    implementation("io.springfox:springfox-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":cosky-spring-cloud-starter-config"))
+    // bootstrap.yaml, where the CoSky config source is configured, is only loaded with the bootstrap starter.
+    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
     implementation(project(":cosky-spring-cloud-starter-discovery"))
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
