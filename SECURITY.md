@@ -11,7 +11,9 @@ Security fixes are released for the latest minor version of the current major ve
 
 ## Reporting a vulnerability
 
-Please do **not** open a public issue. Report it privately by email to ahoowang@qq.com with:
+Please do **not** open a public issue. Report it privately through
+[GitHub's private vulnerability reporting](https://github.com/Ahoo-Wang/CoSky/security/advisories/new)
+(or by email to ahoowang@qq.com) with:
 
 - the affected version and component (e.g. REST API server, Spring Cloud starter),
 - a description of the vulnerability and its impact,
