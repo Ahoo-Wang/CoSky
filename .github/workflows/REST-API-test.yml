@@ -33,6 +33,8 @@ jobs:
           - 8080:8080
         env:
           SPRING_DATA_REDIS_HOST: redis
+          # Throwaway secret for this ephemeral container: the server refuses to start without one.
+          COSKY_SECURITY_KEY: rest-api-test-only-jwt-secret-0123456789
         options: --health-cmd "curl -f http://localhost:8080/actuator/health"
           --health-interval=10s
           --health-timeout=5s

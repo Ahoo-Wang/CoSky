@@ -11,7 +11,6 @@ import me.ahoo.cosky.rest.security.rbac.Action.Companion.httpMethodAsAction
 import me.ahoo.cosky.rest.security.rbac.RbacService
 import me.ahoo.cosky.rest.security.rbac.ResourceAction
 import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 
@@ -48,10 +47,7 @@ class CoSkyAuthorization(
     }
 
     private fun checkRolePermissions(roleBind: Set<String>, requestAction: ResourceAction): Mono<Boolean> {
-        return Flux.fromIterable(roleBind)
-            .flatMap { roleName ->
-                rbacService.getRole(roleName)
-            }
+        return rbacService.getRoles(roleBind)
             .any {
                 it.check(
                     requestAction,

@@ -89,4 +89,13 @@ class RbacServiceTest : AbstractReactiveRedisTest() {
             .expectNextMatches { it.desc == "desc" && it.resourceActionBind.isEmpty() }
             .verifyComplete()
     }
+
+    @Test
+    fun missingRolesGrantNothingWithoutFailingTheOthers() {
+        save("ns1" to "r").test().verifyComplete()
+        val roles = setOf("missing-" + MockIdGenerator.INSTANCE.generateAsString(), roleName)
+
+        rbacService.getRoles(roles).map { it.roleName }.test().expectNext(roleName).verifyComplete()
+        rbacService.getRoleNamespaces(roles).test().expectNext("ns1").verifyComplete()
+    }
 }

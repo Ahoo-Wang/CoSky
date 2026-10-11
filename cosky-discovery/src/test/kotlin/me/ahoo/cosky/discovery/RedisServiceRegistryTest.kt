@@ -15,6 +15,7 @@ package me.ahoo.cosky.discovery
 import io.mockk.every
 import io.mockk.mockk
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
 import me.ahoo.cosky.discovery.TestServiceInstance.randomFixedInstance
@@ -94,6 +95,43 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNextMatches { it.metadata == mapOf("zone" to "a", "instance_status" to "OUT_OF_SERVICE") }
             .verifyComplete()
+        serviceRegistry.deregister(namespace, instance).test().expectNext(true).verifyComplete()
+    }
+
+    /**
+     * When an instance expires, e.g. during a network partition, the renewal registers it again: with the metadata
+     * set since, so that an instance taken out of service does not silently come back.
+     */
+    @Test
+    fun reRegisterAfterExpiryKeepsMetadataSetSince() {
+        val instance = randomInstance().asServiceInstance(metadata = mapOf("zone" to "a"))
+        serviceRegistry.register(namespace, instance).test().expectNext(true).verifyComplete()
+        serviceRegistry.setMetadata(
+            namespace,
+            instance.serviceId,
+            instance.instanceId,
+            "instance_status",
+            "OUT_OF_SERVICE"
+        )
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        redisTemplate.delete(getInstanceKey(namespace, instance.instanceId)).test().expectNext(1).verifyComplete()
+        val registered = serviceRegistry.registeredEphemeralInstances.values.single { it.instanceId == instance.instanceId }
+        serviceRegistry.renew(namespace, registered).test().expectNext(true).verifyComplete()
+
+        serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
+            .test()
+            .expectNextMatches { it.metadata == mapOf("zone" to "a", "instance_status" to "OUT_OF_SERVICE") }
+            .verifyComplete()
+
+        serviceRegistry.setMetadata(namespace, instance.serviceId, instance.instanceId, mapOf("zone" to "b"))
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+        serviceRegistry.registeredEphemeralInstances.values.single { it.instanceId == instance.instanceId }
+            .metadata.assert().isEqualTo(mapOf("zone" to "b"))
         serviceRegistry.deregister(namespace, instance).test().expectNext(true).verifyComplete()
     }
 

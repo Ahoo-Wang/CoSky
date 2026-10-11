@@ -22,6 +22,7 @@ import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
 import me.ahoo.cosky.discovery.NamespacedInstanceId
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withMetadata
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadata
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadataKey
 import me.ahoo.cosky.discovery.ServiceRegistry
@@ -143,6 +144,11 @@ class RedisServiceRegistry(
     ): Mono<Boolean> {
         val values = listOf(encodeMetadataKey(key), value)
         return setMetadataInternal(DiscoveryRedisScripts.SCRIPT_REGISTRY_PUT_METADATA, namespace, instanceId, values)
+            .doOnNext { updated ->
+                if (updated) {
+                    updateEphemeralInstance(namespace, instanceId) { it.withMetadata(it.metadata + (key to value)) }
+                }
+            }
     }
 
     override fun setMetadata(
@@ -153,6 +159,25 @@ class RedisServiceRegistry(
     ): Mono<Boolean> {
         val values = encodeMetadata(ArrayList(metadata.size * 2), metadata)
         return setMetadataInternal(DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA, namespace, instanceId, values)
+            .doOnNext { updated ->
+                if (updated) {
+                    updateEphemeralInstance(namespace, instanceId) { it.withMetadata(metadata.toMap()) }
+                }
+            }
+    }
+
+    /**
+     * Keeps the registered instance in line with Redis, so that registering it again after it expired restores its
+     * current metadata.
+     */
+    private fun updateEphemeralInstance(
+        namespace: String,
+        instanceId: String,
+        update: (ServiceInstance) -> ServiceInstance
+    ) {
+        registeredEphemeralInstances.computeIfPresent(NamespacedInstanceId(namespace, instanceId)) { _, instance ->
+            update(instance)
+        }
     }
 
     private fun setMetadataInternal(
