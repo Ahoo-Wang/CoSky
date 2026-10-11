@@ -48,6 +48,8 @@ class ConsistencyRedisServiceDiscovery(
          * @see RedisServiceDiscovery.getInstanceTtl
          */
         private const val TTL_INSTANCE_NOT_EXISTS = -2L
+
+        private fun nowSeconds(): Long = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
     }
 
     private val servicesCache: WatchCache<String, List<String>> = ReactiveWatchCache(
@@ -91,9 +93,7 @@ class ConsistencyRedisServiceDiscovery(
         instances: List<ServiceInstance>
     ): List<ServiceInstance> {
         val cached = liveInstances[namespacedServiceId]
-        if (cached != null && cached.snapshot === instances &&
-            (cached.validUntil == Long.MAX_VALUE || nowSeconds() <= cached.validUntil)
-        ) {
+        if (cached != null && cached.snapshot === instances && !cached.mayHaveExpired()) {
             return cached.live
         }
         val nowSeconds = nowSeconds()
@@ -107,8 +107,6 @@ class ConsistencyRedisServiceDiscovery(
         return live
     }
 
-    private fun nowSeconds(): Long = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
-
     /**
      * @see ServiceInstance.isExpired
      */
@@ -118,7 +116,9 @@ class ConsistencyRedisServiceDiscovery(
         val snapshot: List<ServiceInstance>,
         val live: List<ServiceInstance>,
         val validUntil: Long
-    )
+    ) {
+        fun mayHaveExpired(): Boolean = validUntil != Long.MAX_VALUE && nowSeconds() > validUntil
+    }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
