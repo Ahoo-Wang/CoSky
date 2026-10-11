@@ -32,6 +32,7 @@ Durations accept Spring Boot's formats (`10s`, `1m`, `PT10S`). Properties that c
 | `spring.cloud.cosky.discovery.order` | `0` | Order of CoSky's `DiscoveryClient` among several. |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | Maximum wait of a blocking `DiscoveryClient` call. |
 | `spring.cloud.cosky.discovery.topology-enabled` | `true` | Records the application as a consumer of the services it discovers. |
+| `spring.cloud.cosky.discovery.filter-only-up-instances` | `true` | Returns only instances whose `instance_status` is `UP` or absent. |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Registers the application at startup (Spring Cloud). |
 
 ### Registration
@@ -44,7 +45,7 @@ Prefix: `spring.cloud.cosky.discovery.registry`.
 | `host` | first non-loopback IP | Address other services call. |
 | `port` | web server port | Port other services call. |
 | `schema` | `http` | URI scheme. |
-| `weight` | `1` | Relative weight for CoSky's weighted load balancers. |
+| `weight` | `1` | Relative weight, used by CoSky's load balancers and Spring Cloud LoadBalancer's weighted configuration. |
 | `is-ephemeral` | `true` | `true`: expires unless renewed. `false`: fixed, never expires. |
 | `ttl` | `60s` | Lifetime of an ephemeral instance without renewal. |
 | `renew.initial-delay` | `1s` | Delay before the first renewal. |

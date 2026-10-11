@@ -35,6 +35,7 @@ CoSky 为微服务提供配置管理与服务发现，只依赖 Redis。它以 S
 | FR-D6 | 负载均衡器在存活实例中选择（随机与加权），并与发现缓存保持一致。 | `RandomLoadBalancerTest`、`ArrayChooserTest`、`BinaryChooserTest`、`TreeChooserTest`、`LoadBalancerConsistencyTest` |
 | FR-D7 | 消费者被记录为其所发现服务的依赖方（拓扑）。 | `ServiceTopologyTest`、`TopologyRecordingServiceDiscoveryTest` |
 | FR-D8 | Spring Cloud 应用通过标准 `DiscoveryClient` API 注册自身并发现其他服务。 | `CoSkyDiscoveryClientTest`、`CoSkyServiceRegistryTest`、`CoSkyAutoServiceRegistrationAutoConfigurationTest` |
+| FR-D9 | Spring Cloud 客户端只拿到状态为 `UP`（或没有状态）的实例，并能看到每个实例的权重。 | `CoSkyDiscoveryClientTest` |
 
 ### REST API 服务器与安全
 

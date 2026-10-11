@@ -32,6 +32,7 @@ description: CoSky starter 与 REST API 服务器的全部属性及默认值。
 | `spring.cloud.cosky.discovery.order` | `0` | 存在多个 `DiscoveryClient` 时 CoSky 的顺序。 |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | 阻塞式 `DiscoveryClient` 调用的最长等待时间。 |
 | `spring.cloud.cosky.discovery.topology-enabled` | `true` | 把应用记录为其所发现服务的消费者。 |
+| `spring.cloud.cosky.discovery.filter-only-up-instances` | `true` | 只返回 `instance_status` 为 `UP` 或没有状态的实例。 |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时注册应用（Spring Cloud）。 |
 
 ### 注册
@@ -44,7 +45,7 @@ description: CoSky starter 与 REST API 服务器的全部属性及默认值。
 | `host` | 第一个非回环 IP | 其他服务调用的地址。 |
 | `port` | Web 服务器端口 | 其他服务调用的端口。 |
 | `schema` | `http` | URI 协议。 |
-| `weight` | `1` | CoSky 加权负载均衡器使用的相对权重。 |
+| `weight` | `1` | 相对权重，供 CoSky 负载均衡器和 Spring Cloud LoadBalancer 的加权配置使用。 |
 | `is-ephemeral` | `true` | `true`：不续约就过期。`false`：固定实例，永不过期。 |
 | `ttl` | `60s` | 临时实例不续约时的存活时间。 |
 | `renew.initial-delay` | `1s` | 首次续约前的延迟。 |

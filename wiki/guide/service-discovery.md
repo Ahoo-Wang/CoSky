@@ -70,18 +70,17 @@ Metadata is a string map attached to an instance, e.g. a zone or a version. Set 
 
 Spring Cloud's `ServiceRegistry.setStatus` (for example through the `/actuator/serviceregistry` endpoint) stores the status as the `instance_status` metadata.
 
-::: warning Status does not remove traffic
-CoSky does not filter instances by status, and neither does Spring Cloud LoadBalancer by default. To take an instance out of rotation, deregister it, or filter on `instance_status` in a custom `ServiceInstanceListSupplier`.
-:::
+Spring Cloud discovery returns only instances whose status is `UP`, or that have no status (such as fixed instances registered through the REST API). Setting an instance to `OUT_OF_SERVICE` therefore takes it out of rotation without deregistering it, and setting it back to `UP` returns it. Set `spring.cloud.cosky.discovery.filter-only-up-instances=false` to receive every instance.
 
 ## Load balancing and weights
 
 | Client | Algorithm | Uses weights |
 |---|---|---|
 | Spring Cloud LoadBalancer (default) | Round robin | ❌ |
+| Spring Cloud LoadBalancer with `spring.cloud.loadbalancer.configurations=weighted` | Weighted | ✅ |
 | CoSky `LoadBalancer` bean (`BinaryWeightRandomLoadBalancer`) | Weighted random | ✅ |
 
-To route by weight, inject CoSky's `LoadBalancer` and call `choose(namespace, serviceId)`. The SDK also provides `RandomLoadBalancer` (ignores weights) and the `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` variants, which choose by weight like the default with different memory and lookup trade-offs.
+CoSky exposes each instance's weight as the `weight` metadata of Spring Cloud instances, which is where Spring Cloud LoadBalancer's weighted configuration reads it. Code using the CoSky API directly can inject CoSky's `LoadBalancer` and call `choose(namespace, serviceId)`. The SDK also provides `RandomLoadBalancer` (ignores weights) and the `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` variants, which choose by weight like the default with different memory and lookup trade-offs.
 
 ## Service topology
 
