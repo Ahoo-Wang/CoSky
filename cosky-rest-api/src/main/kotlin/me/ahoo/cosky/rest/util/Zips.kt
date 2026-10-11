@@ -48,41 +48,40 @@ object Zips {
         return unzip(ByteArrayInputStream(zipSource), maxUnzippedSize)
     }
 
-    @Suppress("LoopWithTooManyJumpStatements")
     @JvmStatic
     fun unzip(zipSource: InputStream, maxUnzippedSize: Long = Long.MAX_VALUE): List<ZipItem> {
         val items: MutableList<ZipItem> = ArrayList()
         var unzippedSize = 0L
         ZipInputStream(zipSource).use { zipInputStream ->
-            var entry: ZipEntry? = zipInputStream.nextEntry
-            while (entry != null) {
-                if (entry.isDirectory) {
-                    entry = zipInputStream.nextEntry
-                    continue
+            generateSequence { zipInputStream.nextEntry }
+                .filterNot { it.isDirectory || Paths.get(it.name).isHidden() }
+                .forEach { entry ->
+                    val data = ByteArrayOutputStream()
+                    unzippedSize = zipInputStream.readEntry(data, unzippedSize, maxUnzippedSize)
+                    items.add(ZipItem.of(Paths.get(entry.name).fileName.name, data.toString(StandardCharsets.UTF_8)))
                 }
-                val path = Paths.get(entry.name)
-                if (path.isHidden()) {
-                    entry = zipInputStream.nextEntry
-                    continue
-                }
-
-                ByteArrayOutputStream().use { itemOutputStream ->
-                    val buffer = ByteArray(1024)
-                    var offset: Int
-                    while (zipInputStream.read(buffer).also { offset = it } != -1) {
-                        unzippedSize += offset
-                        require(unzippedSize <= maxUnzippedSize) {
-                            "Unzipped size exceeds the limit of [$maxUnzippedSize] bytes."
-                        }
-                        itemOutputStream.write(buffer, 0, offset)
-                    }
-                    val entryName = path.fileName.name
-                    items.add(ZipItem.of(entryName, itemOutputStream.toString("UTF-8")))
-                }
-                entry = zipInputStream.nextEntry
-            }
         }
         return items
+    }
+
+    /**
+     * Copies the current entry to [out].
+     *
+     * @return the total unzipped size, which must stay within [maxUnzippedSize].
+     */
+    private fun ZipInputStream.readEntry(out: ByteArrayOutputStream, unzippedSize: Long, maxUnzippedSize: Long): Long {
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = unzippedSize
+        var read = read(buffer)
+        while (read != -1) {
+            total += read
+            require(total <= maxUnzippedSize) {
+                "Unzipped size exceeds the limit of [$maxUnzippedSize] bytes."
+            }
+            out.write(buffer, 0, read)
+            read = read(buffer)
+        }
+        return total
     }
 
     class ZipItem(val name: String, val data: String) {

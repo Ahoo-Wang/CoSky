@@ -189,6 +189,7 @@ stateDiagram-v2
 |------|-------------|
 | [Getting Started](./getting-started) | Quick start guide: set up a Spring Boot app with CoSky in 5 minutes |
 | [Installation](./installation) | All installation methods: Maven, Gradle, Docker, Kubernetes |
+| [Requirements](./requirements) | Functional and non-functional requirements, traced to their tests |
 | [Architecture](./architecture) | Detailed architecture, module structure, Redis key design, and event system |
 | [Configuration Service](./config-service) | Configuration CRUD, versioning, rollback, import/export |
 | [Config Consistency](./config-consistency) | Local caching + PubSub invalidation layer |

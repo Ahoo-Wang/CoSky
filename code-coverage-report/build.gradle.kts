@@ -23,6 +23,7 @@ dependencies {
     libraryProjects.forEach {
         jacocoAggregation(it)
     }
+    jacocoAggregation(project(":cosky-rest-api"))
 }
 
 reporting {
@@ -33,6 +34,30 @@ reporting {
     }
 }
 
+val codeCoverageReport = tasks.named<JacocoReport>("codeCoverageReport")
+
+/**
+ * Fails the build when the aggregated coverage drops below the floor, so coverage is controlled locally and in CI
+ * alike, not only reported.
+ */
+val codeCoverageVerification by tasks.registering(JacocoCoverageVerification::class) {
+    executionData.from(codeCoverageReport.map { it.executionData })
+    classDirectories.from(codeCoverageReport.map { it.classDirectories })
+    sourceDirectories.from(codeCoverageReport.map { it.sourceDirectories })
+    violationRules {
+        rule {
+            limit {
+                counter = "LINE"
+                minimum = "0.90".toBigDecimal()
+            }
+            limit {
+                counter = "BRANCH"
+                minimum = "0.70".toBigDecimal()
+            }
+        }
+    }
+}
+
 tasks.check {
-    dependsOn(tasks.named<JacocoReport>("codeCoverageReport"))
+    dependsOn(codeCoverageReport, codeCoverageVerification)
 }

@@ -40,7 +40,7 @@ class InstanceChangedEvent(
 
         @JvmStatic
         fun String.asServiceChangedEvent(): Event {
-            return EVENTS_BY_OP[lowercase()] ?: throw IllegalStateException("Unexpected value: ${lowercase()}")
+            return EVENTS_BY_OP[lowercase()] ?: error("Unexpected value: ${lowercase()}")
         }
 
         /**

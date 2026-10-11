@@ -1,0 +1,54 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [ bug ]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: A minimal configuration or code sample, and the steps that trigger the problem.
+      placeholder: |
+        1. Register an instance with …
+        2. Call …
+        3. See …
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Configuration (service or Spring Cloud starter)
+        - Discovery (registry, discovery, load balancing or Spring Cloud starter)
+        - REST API server or security
+        - Dashboard
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: cosky-version
+    attributes:
+      label: CoSky version
+      placeholder: 6.0.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Redis version and mode (standalone, sentinel, cluster), Java and Spring Boot versions.
+      placeholder: Redis 7.2 standalone, Java 21, Spring Boot 4.1
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant log output or stack traces.
+      render: text

@@ -16,10 +16,12 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.rest.dto.ErrorResponse
 import me.ahoo.cosky.rest.dto.ErrorResponse.Companion.of
 import org.springframework.http.HttpStatus
+import org.springframework.http.ResponseEntity
 import org.springframework.stereotype.Component
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.server.ResponseStatusException
 
 /**
  * Global Rest Exception Handler.
@@ -34,6 +36,16 @@ class GlobalRestExceptionHandler {
     fun handleCoSkySecurityException(ex: SecurityException): ErrorResponse {
         log.info(ex) { ex.message.orEmpty() }
         return of(ex.message.orEmpty())
+    }
+
+    /**
+     * Keeps the status Spring chose, e.g. 404 for an unknown route or 405 for an unsupported method, instead of
+     * reporting a client mistake as a server error.
+     */
+    @ExceptionHandler(ResponseStatusException::class)
+    fun handleResponseStatus(ex: ResponseStatusException): ResponseEntity<ErrorResponse> {
+        log.info { ex.message }
+        return ResponseEntity.status(ex.statusCode).body(of(ex.reason ?: ex.message))
     }
 
     @ExceptionHandler

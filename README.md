@@ -453,6 +453,10 @@ With CoSky-Mirror, you can:
 We welcome contributions from the community! Whether it's reporting bugs, suggesting features, or submitting pull
 requests, your input helps make CoSky better for everyone.
 
+Read the [contributing guide](CONTRIBUTING.md) for the development setup, conventions, review and release process,
+and [SECURITY.md](SECURITY.md) to report a vulnerability privately. Everyone taking part follows the
+[code of conduct](CODE_OF_CONDUCT.md).
+
 ## 📄 License
 
 CoSky is open-sourced software licensed under

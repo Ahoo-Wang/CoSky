@@ -71,6 +71,8 @@ class CoSkyPolicy(
     /**
      * @return the policy of [config], the bundled policy when there is no config, null when it does not parse.
      */
+    // Whatever is wrong with a stored policy, authorization must keep running on the previous one.
+    @Suppress("TooGenericExceptionCaught")
     private fun parse(config: Config?): Policy? {
         if (config == null) {
             log.info { "Policy[$policyId] is not found, using initial policy." }

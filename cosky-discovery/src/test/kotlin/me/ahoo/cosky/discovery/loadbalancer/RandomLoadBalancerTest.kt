@@ -72,7 +72,7 @@ internal class RandomLoadBalancerTest : AbstractReactiveRedisTest() {
         expectedInstance.assert().isNotNull()
         requireNotNull(expectedInstance)
         val succeeded =
-            expectedInstance.instanceId == instance1.instanceId || expectedInstance.instanceId == instance2.instanceId || expectedInstance.instanceId == instance3.instanceId
+            expectedInstance.instanceId in setOf(instance1.instanceId, instance2.instanceId, instance3.instanceId)
         Assertions.assertTrue(succeeded)
         redisServiceRegistry.deregister(namespace, instance1).block()
         redisServiceRegistry.deregister(namespace, instance2).block()

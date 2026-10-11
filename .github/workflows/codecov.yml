@@ -1,5 +1,13 @@
 name: Codecov
-on: [ push, pull_request ]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   codecov:
     name: Codecov
@@ -24,8 +32,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          server-id: github
-          settings-path: ${{ github.workspace }}
+          cache: gradle
 
       - name: Build Code Coverage Report
         run: ./gradlew codeCoverageReport --stacktrace

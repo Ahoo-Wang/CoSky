@@ -189,6 +189,7 @@ stateDiagram-v2
 |------|-------------|
 | [快速入门](./getting-started) | 快速入门指南：5 分钟内搭建使用 CoSky 的 Spring Boot 应用 |
 | [安装](./installation) | 所有安装方式：Maven、Gradle、Docker、Kubernetes |
+| [需求](./requirements) | 功能需求与非功能需求，及验证它们的测试 |
 | [架构](./architecture) | 详细架构、模块结构、Redis 键设计和事件系统 |
 | [配置服务](./config-service) | 配置 CRUD、版本管理、回滚、导入/导出 |
 | [配置一致性](./config-consistency) | 本地缓存 + PubSub 失效层 |

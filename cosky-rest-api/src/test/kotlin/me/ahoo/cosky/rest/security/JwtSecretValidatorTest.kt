@@ -41,6 +41,13 @@ class JwtSecretValidatorTest {
     }
 
     @Test
+    fun acceptShortSecretWithWarning() {
+        assertDoesNotThrow {
+            validator.validate(MockEnvironment().withProperty(JwtSecretValidator.JWT_SECRET_KEY, "short"))
+        }
+    }
+
+    @Test
     fun skipWhenSecurityIsDisabled() {
         assertDoesNotThrow {
             validator.validate(MockEnvironment().withProperty(ConditionalOnSecurityEnabled.ENABLED_KEY, "false"))

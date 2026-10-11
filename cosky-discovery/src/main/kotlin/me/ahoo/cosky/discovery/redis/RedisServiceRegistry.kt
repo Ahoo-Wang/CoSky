@@ -43,13 +43,18 @@ class RedisServiceRegistry(
 ) : ServiceRegistry {
     companion object {
         private val log = KotlinLogging.logger {}
+
+        /**
+         * ttl, serviceId, instanceId, schema, host, port and weight, followed by the metadata.
+         */
+        private const val REGISTER_FIXED_ARGS = 7
     }
 
     override val registeredEphemeralInstances: ConcurrentHashMap<NamespacedInstanceId, ServiceInstance> =
         ConcurrentHashMap()
 
     private fun registerInternal(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
-        val argVCapacity = 6 + serviceInstance.metadata.size * 2
+        val argVCapacity = REGISTER_FIXED_ARGS + serviceInstance.metadata.size * 2
 
         /**
          * ARGV
@@ -206,7 +211,8 @@ class RedisServiceRegistry(
         }
         if (!serviceInstance.isEphemeral) {
             log.warn {
-                "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace] is not ephemeral, can not renew."
+                "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace] is not ephemeral, " +
+                    "can not renew."
             }
             return false.toMono()
         }
@@ -223,7 +229,8 @@ class RedisServiceRegistry(
             .flatMap { status ->
                 if (status <= 0) {
                     log.warn {
-                        "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace] status is [$status],register again."
+                        "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace] " +
+                            "status is [$status], register again."
                     }
                     return@flatMap register(namespace, serviceInstance)
                 }

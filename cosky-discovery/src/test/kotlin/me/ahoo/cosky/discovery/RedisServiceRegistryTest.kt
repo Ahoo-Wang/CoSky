@@ -118,7 +118,8 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .verifyComplete()
 
         redisTemplate.delete(getInstanceKey(namespace, instance.instanceId)).test().expectNext(1).verifyComplete()
-        val registered = serviceRegistry.registeredEphemeralInstances.values.single { it.instanceId == instance.instanceId }
+        val registered = serviceRegistry.registeredEphemeralInstances.values
+            .single { it.instanceId == instance.instanceId }
         serviceRegistry.renew(namespace, registered).test().expectNext(true).verifyComplete()
 
         serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)

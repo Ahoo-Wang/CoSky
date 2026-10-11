@@ -14,6 +14,7 @@ package me.ahoo.cosky.discovery
 
 import me.ahoo.cosky.discovery.Instance.Companion.asInstance
 import me.ahoo.test.asserts.assert
+import me.ahoo.test.asserts.assertThrownBy
 import org.junit.jupiter.api.Test
 
 /**
@@ -34,5 +35,13 @@ class InstanceIdGeneratorTest {
         actual.schema.assert().isEqualTo("http")
         actual.host.assert().isEqualTo("127.0.0.1")
         actual.port.assert().isEqualTo(8080)
+    }
+
+    @Test
+    fun asInstanceRejectsMalformedIds() {
+        assertThrownBy<IllegalArgumentException> { "no-service-separator".asInstance() }
+            .hasMessage("Invalid instanceId: no-service-separator")
+        assertThrownBy<IllegalArgumentException> { "svc@http#127.0.0.1".asInstance() }
+            .hasMessage("Invalid instanceId: svc@http#127.0.0.1")
     }
 }

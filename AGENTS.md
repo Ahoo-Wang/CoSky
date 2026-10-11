@@ -13,8 +13,8 @@
 ./gradlew :cosky-config:test
 ./gradlew :cosky-discovery:test
 
-# Run REST API server
-./gradlew :cosky-rest-api:bootRun
+# Run REST API server (requires a JWT secret)
+COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 
 # Run benchmarks (JMH)
 ./gradlew :cosky-config:jmh
@@ -23,8 +23,8 @@
 # Publish to Maven Local
 ./gradlew publishToMavenLocal
 
-# Check code style (Detekt)
-./gradlew detekt
+# Check code style (Detekt), license headers and the coverage floor
+./gradlew check
 ```
 
 ## Testing
@@ -32,7 +32,9 @@
 - **Framework**: JUnit 5 with `me.ahoo.test:fluent-assert-core` for assertions
 - **Redis**: Integration tests require a running Redis instance (use `AbstractReactiveRedisTest` base class)
 - **Test scope**: Each module has its own `src/test/kotlin/` directory
-- **Coverage**: Jacoco plugin enabled, reports in `code-coverage-report/`
+- **Coverage**: Jacoco aggregated in `code-coverage-report/`; `check` fails below 90% line / 70% branch coverage
+- **REST API**: `RestApiIntegrationTest` drives the HTTP API end to end (JWT, RBAC, audit log)
+- **Bug fixes** come with a test that fails without the fix
 
 ## Project Structure
 
@@ -55,16 +57,19 @@
 ## Code Style
 
 - **Language**: Kotlin (JVM 17 toolchain)
-- **Style**: Detekt with auto-correct (`./gradlew detekt`)
+- **Style**: Detekt + ktlint formatting, 120 character lines; auto-corrects locally, fails CI on any violation
 - **Compiler flags**: `-Xjsr305=strict`, `-Xjvm-default=all-compatibility`
 - **Reactive**: All core APIs use Project Reactor (`Mono`/`Flux`)
 - **Redis**: All mutations via Lua scripts for atomicity; Spring `ReactiveStringRedisTemplate`
-- **Copyright header**: Apache 2.0 license header on all source files
+- **Copyright header**: Apache 2.0 license header on all source files, enforced by detekt
 
 ## Git Workflow
 
-- Main branch: `main`
-- CI: GitHub Actions (integration test, benchmark, codecov, Docker deploy)
+- Main branch: `main`; short-lived branches, squash-merged pull requests (see CONTRIBUTING.md)
+- Commits and pull request titles: Conventional Commits (`type(scope)!: summary`); the title drives labels and
+  release notes
+- CI: GitHub Actions (build & tests, REST API smoke test, CodeQL, codecov, benchmark, labeler, Docker deploy)
+- Releases: Semantic Versioning; a `Bump version to X.Y.Z` pull request, then a GitHub release
 
 ## Boundaries
 

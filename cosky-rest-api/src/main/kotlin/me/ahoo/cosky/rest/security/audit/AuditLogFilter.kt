@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.audit
 
+import org.springframework.http.HttpStatus
 import java.util.Locale
 
 data class AuditLogFilter(
@@ -28,7 +29,7 @@ data class AuditLogFilter(
     fun matches(log: AuditLog): Boolean {
         if (from != null && log.opTime < from) return false
         if (to != null && log.opTime > to) return false
-        if (successful != null && (log.status < 400) != successful) return false
+        if (successful != null && (log.status < HttpStatus.BAD_REQUEST.value()) != successful) return false
         if (normalizedQuery.isEmpty()) return true
         return sequenceOf(log.operator, log.ip, log.resource, log.action, log.status.toString(), log.msg)
             .any { it.lowercase(Locale.ROOT).contains(normalizedQuery) }

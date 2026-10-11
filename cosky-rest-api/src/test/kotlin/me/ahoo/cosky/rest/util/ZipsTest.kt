@@ -15,6 +15,9 @@ package me.ahoo.cosky.rest.util
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 class ZipsTest {
 
@@ -32,5 +35,20 @@ class ZipsTest {
         assertThrows<IllegalArgumentException> {
             Zips.unzip(zipBytes, maxUnzippedSize = 64 * 1024)
         }
+    }
+
+    @Test
+    fun unzipSkipsDirectoriesAndHiddenFiles() {
+        val bytes = ByteArrayOutputStream().use { out ->
+            ZipOutputStream(out).use { zip ->
+                zip.putNextEntry(ZipEntry("configs/"))
+                zip.putNextEntry(ZipEntry("configs/.DS_Store"))
+                zip.write(byteArrayOf(1))
+                zip.putNextEntry(ZipEntry("configs/app.yaml"))
+                zip.write("k: v".toByteArray())
+            }
+            out.toByteArray()
+        }
+        Zips.unzip(bytes).map { it.name to it.data }.assert().isEqualTo(listOf("app.yaml" to "k: v"))
     }
 }
