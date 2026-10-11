@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.registry
 
+import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewProperties
 import me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyDiscoveryProperties
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
@@ -36,7 +37,11 @@ class CoSkyRegistryProperties(
     var timeout: Duration = Duration.ofSeconds(2),
     var metadata: MutableMap<String, String> = mutableMapOf(),
     var initialStatus: String = StatusConstants.STATUS_UP,
-    var renew: RenewProperties = RenewProperties()
+    var renew: RenewProperties = RenewProperties(),
+    /**
+     * @see RegistryProperties.renewEventCarriesTtlAt
+     */
+    var renewEventCarriesTtlAt: Boolean = false
 ) {
     companion object {
         const val PREFIX = CoSkyDiscoveryProperties.PREFIX + ".registry"

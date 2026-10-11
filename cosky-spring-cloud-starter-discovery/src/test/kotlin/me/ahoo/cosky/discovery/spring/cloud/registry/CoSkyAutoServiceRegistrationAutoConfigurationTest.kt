@@ -87,6 +87,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 "${CoSkyRegistryProperties.PREFIX}.metadata.key=value",
                 "${CoSkyRegistryProperties.PREFIX}.initial-status=OUT_OF_SERVICE",
                 "${CoSkyRegistryProperties.PREFIX}.renew.initialDelay=2s",
+                "${CoSkyRegistryProperties.PREFIX}.renew-event-carries-ttl-at=true",
             )
             .withUserConfiguration(
                 DataRedisAutoConfiguration::class.java,
@@ -106,6 +107,12 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                     .hasSingleBean(CoSkyServiceRegistry::class.java)
                     .hasSingleBean(CoSkyAutoServiceRegistration::class.java)
                     .hasSingleBean(CoSkyAutoServiceRegistrationOfNoneWeb::class.java)
+                    .getBean(RegistryProperties::class.java)
+                    .extracting {
+                        it.instanceTtl.assert().isEqualTo(Duration.ofSeconds(120))
+                        it.renewEventCarriesTtlAt.assert().isTrue()
+                    }
+                assertThat(it)
                     .getBean(CoSkyRegistryProperties::class.java)
                     .extracting {
                         it.serviceId.assert().isEqualTo("CustomizeServiceId")

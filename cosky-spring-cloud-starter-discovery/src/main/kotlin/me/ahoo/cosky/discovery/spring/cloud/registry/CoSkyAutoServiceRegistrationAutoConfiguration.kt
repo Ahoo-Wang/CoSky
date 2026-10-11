@@ -53,7 +53,10 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun registryProperties(
         coSkyRegistryProperties: CoSkyRegistryProperties
     ): RegistryProperties {
-        return RegistryProperties(coSkyRegistryProperties.ttl)
+        return RegistryProperties(
+            instanceTtl = coSkyRegistryProperties.ttl,
+            renewEventCarriesTtlAt = coSkyRegistryProperties.renewEventCarriesTtlAt,
+        )
     }
 
     @Bean
