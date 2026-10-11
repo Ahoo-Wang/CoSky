@@ -25,7 +25,11 @@ import java.time.Duration
 class CoSkyDiscoveryProperties(
     var enabled: Boolean = true,
     var order: Int = 0,
-    var timeout: Duration = Duration.ofSeconds(2)
+    var timeout: Duration = Duration.ofSeconds(2),
+    /**
+     * Record the current service as a consumer of the services it discovers.
+     */
+    var topologyEnabled: Boolean = true
 ) {
     companion object {
         const val PREFIX = CoSkyProperties.PREFIX + ".discovery"

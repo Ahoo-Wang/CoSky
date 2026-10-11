@@ -8,15 +8,13 @@ import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceChangedEvent.Companion.asServiceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
-import me.ahoo.cosky.discovery.ServiceTopology
 import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.listener.PatternTopic
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
 
 class RedisInstanceEventListenerContainer(
-    delegate: ReactiveRedisMessageListenerContainer,
-    private val serviceTopology: ServiceTopology = ServiceTopology.NO_OP
+    delegate: ReactiveRedisMessageListenerContainer
 ) :
     InstanceEventListenerContainer, RedisEventListenerContainer<NamespacedServiceId, InstanceChangedEvent>(delegate) {
 
@@ -31,12 +29,6 @@ class RedisInstanceEventListenerContainer(
             .receive(PatternTopic.of(instancePattern))
             .map {
                 asEvent(it)
-            }
-            .doOnSubscribe {
-                if (topic.serviceId.isNotBlank()) {
-                    @Suppress("CallingSubscribeInNonBlockingScope")
-                    serviceTopology.addTopology(topic.namespace, topic.serviceId).subscribe()
-                }
             }
     }
 

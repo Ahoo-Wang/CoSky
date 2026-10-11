@@ -1,6 +1,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.ServiceDiscovery
+import me.ahoo.cosky.discovery.TopologyRecordingServiceDiscovery
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
@@ -55,6 +56,42 @@ internal class CoSkyDiscoveryAutoConfigurationTest {
                 assertThat(it)
                     .doesNotHaveBean(ServiceDiscovery::class.java)
                     .doesNotHaveBean(LoadBalancer::class.java)
+            }
+    }
+
+    @Test
+    fun serviceDiscoveryRecordsTopologyByDefault() {
+        contextRunner
+            .withPropertyValues("spring.cloud.cosky.namespace=contextLoads", "spring.application.name=app")
+            .withUserConfiguration(
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
+                CoSkyDiscoveryAutoConfiguration::class.java,
+            )
+            .run {
+                assertThat(it.getBean(ServiceDiscovery::class.java))
+                    .isInstanceOf(TopologyRecordingServiceDiscovery::class.java)
+            }
+    }
+
+    @Test
+    fun serviceDiscoveryWithoutTopology() {
+        contextRunner
+            .withPropertyValues(
+                "spring.cloud.cosky.namespace=contextLoads",
+                "spring.application.name=app",
+                "${CoSkyDiscoveryProperties.PREFIX}.topology-enabled=false",
+            )
+            .withUserConfiguration(
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
+                CoSkyDiscoveryAutoConfiguration::class.java,
+            )
+            .run {
+                assertThat(it.getBean(ServiceDiscovery::class.java))
+                    .isInstanceOf(ConsistencyRedisServiceDiscovery::class.java)
             }
     }
 }

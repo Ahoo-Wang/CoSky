@@ -16,6 +16,7 @@ import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceTopology
+import me.ahoo.cosky.discovery.TopologyRecordingServiceDiscovery
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
@@ -71,15 +72,13 @@ class CoSkyDiscoveryAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun redisInstanceEventListenerContainer(
-        listenerContainer: ReactiveRedisMessageListenerContainer,
-        serviceTopology: ServiceTopology
+        listenerContainer: ReactiveRedisMessageListenerContainer
     ): InstanceEventListenerContainer {
-        return RedisInstanceEventListenerContainer(listenerContainer, serviceTopology)
+        return RedisInstanceEventListenerContainer(listenerContainer)
     }
 
     @Bean
     @ConditionalOnMissingBean
-    @Primary
     fun consistencyRedisServiceDiscovery(
         redisServiceDiscovery: RedisServiceDiscovery,
         serviceEventListenerContainer: ServiceEventListenerContainer,
@@ -90,6 +89,23 @@ class CoSkyDiscoveryAutoConfiguration {
             serviceEventListenerContainer = serviceEventListenerContainer,
             instanceEventListenerContainer = instanceEventListenerContainer,
         )
+    }
+
+    /**
+     * The application-facing discovery.
+     */
+    @Bean
+    @Primary
+    @ConditionalOnMissingBean(name = ["coSkyServiceDiscovery"])
+    fun coSkyServiceDiscovery(
+        consistencyRedisServiceDiscovery: ConsistencyRedisServiceDiscovery,
+        serviceTopology: ServiceTopology,
+        coSkyDiscoveryProperties: CoSkyDiscoveryProperties
+    ): ServiceDiscovery {
+        if (!coSkyDiscoveryProperties.topologyEnabled) {
+            return consistencyRedisServiceDiscovery
+        }
+        return TopologyRecordingServiceDiscovery(consistencyRedisServiceDiscovery, serviceTopology)
     }
 
     @Bean
