@@ -3,16 +3,16 @@ coverage:
   round: down
   precision: 2
   status:
-    patch:
-      default:
-        target: 60%
-        threshold: 1%
     project:
       default:
-        target: 60%
+        # Coverage must not drop by more than the noise of a single run.
+        target: auto
+        threshold: 0.5%
+    patch:
+      default:
+        # Changed lines are held to a higher bar than the project as a whole.
+        target: 80%
         threshold: 1%
 ignore:
   - "cosky-test/.*"
   - "examples/.*"
-  - "cosky-rest-api/.*"
-  - "cosky-dashboard/.*"
