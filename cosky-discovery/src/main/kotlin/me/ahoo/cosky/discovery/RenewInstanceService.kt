@@ -15,10 +15,9 @@ package me.ahoo.cosky.discovery
 import io.github.oshai.kotlinlogging.KotlinLogging
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
@@ -29,69 +28,81 @@ private object NoOpConsumeRenewInstance : Consumer<ServiceInstance> {
 /**
  * Renew Instance Service.
  *
+ * - A failing instance never stops the others from being renewed.
+ * - A renew round still in flight causes the next tick to be skipped instead of overlapping.
+ * - [stop] only cancels the schedule, so the service can be started again; [scheduler] is owned by the caller.
+ *
  * @author ahoo wang
  */
 class RenewInstanceService(
     private val renewProperties: RenewProperties,
     private val serviceRegistry: ServiceRegistry,
-    private val scheduler: Scheduler = Schedulers.newSingle("CoSky-Renew", true),
+    private val scheduler: Scheduler = Schedulers.parallel(),
     private val hookOnRenew: Consumer<ServiceInstance> = NoOpConsumeRenewInstance
 ) {
     companion object {
         private val log = KotlinLogging.logger {}
     }
 
-    private val running = AtomicBoolean(false)
     private val renewCounter = AtomicInteger()
+
+    @Volatile
     private var scheduleDisposable: Disposable? = null
 
+    val isRunning: Boolean
+        get() = scheduleDisposable?.isDisposed == false
+
+    @Synchronized
     fun start() {
-        if (!running.compareAndSet(false, true)) {
+        if (isRunning) {
             return
         }
         log.info { "Start." }
-        scheduleDisposable = scheduler.schedulePeriodically(
-            { renew() },
-            renewProperties.initialDelay.seconds,
-            renewProperties.period.seconds,
-            TimeUnit.SECONDS,
-        )
+        scheduleDisposable = Flux.interval(renewProperties.initialDelay, renewProperties.period, scheduler)
+            .onBackpressureDrop {
+                log.warn { "Renew - previous round is still running, skip tick[$it]." }
+            }
+            .concatMap({ renew() }, 0)
+            .subscribe()
     }
 
+    @Synchronized
     fun stop() {
-        if (!running.compareAndSet(true, false)) {
+        if (!isRunning) {
             return
         }
         log.info { "Stop." }
         scheduleDisposable?.dispose()
-        scheduler.dispose()
     }
 
-    private fun renew() {
+    private fun renew(): Mono<Void> {
         val times = renewCounter.incrementAndGet()
         val instances = serviceRegistry.registeredEphemeralInstances
         log.debug {
-            "Renew - instances size:${instances.size} start - times@[$times] ."
+            "Renew - instances size:${instances.size} start - times@[$times]."
         }
         if (instances.isEmpty()) {
-            log.debug {
-                "Renew - instances size:${instances.size} end - times@[$times] ."
-            }
-            return
+            return Mono.empty()
         }
-        Flux.fromIterable(instances.entries)
-            .flatMap { (key, value) ->
-                serviceRegistry.renew(key.namespace, value)
-                    .doOnSuccess { hookOnRenew.accept(value) }
-            }
-            .doOnError {
-                log.warn {
-                    "Renew - failed."
-                }
-            }.doOnComplete {
+        return Flux.fromIterable(instances.entries)
+            .flatMap { (key, value) -> renew(key.namespace, value) }
+            .doOnComplete {
                 log.debug {
                     "Renew - instances size:${instances.size} end - times@[$times]."
                 }
-            }.subscribe()
+            }
+            .then()
+    }
+
+    private fun renew(namespace: String, instance: ServiceInstance): Mono<Boolean> {
+        return Mono.defer { serviceRegistry.renew(namespace, instance) }
+            .timeout(renewProperties.period)
+            .doOnSuccess { hookOnRenew.accept(instance) }
+            .onErrorResume {
+                log.warn(it) {
+                    "Renew - instanceId:[${instance.instanceId}] @ namespace:[$namespace] failed."
+                }
+                Mono.empty()
+            }
     }
 }
