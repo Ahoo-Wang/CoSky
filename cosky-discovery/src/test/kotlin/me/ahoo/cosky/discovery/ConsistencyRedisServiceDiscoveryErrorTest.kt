@@ -16,47 +16,61 @@ import io.mockk.every
 import io.mockk.mockk
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
+import reactor.util.retry.Retry
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 
 class ConsistencyRedisServiceDiscoveryErrorTest {
     private val instance = Instance.asInstance("svc", "http", "127.0.0.1", 8080)
         .asServiceInstance(isEphemeral = false)
 
-    private fun <T : Any> failFirst(value: T): Flux<T> {
+    private fun <T : Any> failFirst(value: T): Mono<T> {
         val times = AtomicInteger()
-        return Flux.defer {
+        return Mono.defer {
             if (times.incrementAndGet() == 1) {
-                Flux.error(IllegalStateException("transient redis failure"))
+                Mono.error(IllegalStateException("transient redis failure"))
             } else {
-                Flux.just(value)
+                Mono.just(value)
             }
         }
     }
 
     private fun createDiscovery(delegate: ServiceDiscovery) = ConsistencyRedisServiceDiscovery(
         delegate = delegate,
-        serviceEventListenerContainer = mockk { every { receive(any()) } returns Flux.never() },
-        instanceEventListenerContainer = mockk { every { receive(any()) } returns Flux.never() },
+        serviceEventListenerContainer = mockk { every { listen(any()) } returns Mono.just(Flux.never()) },
+        instanceEventListenerContainer = mockk { every { listen(any()) } returns Mono.just(Flux.never()) },
+        retry = Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(500)),
     )
+
+    private fun <T : Any> awaitValue(source: () -> Mono<T>): T {
+        return Mono.defer(source)
+            .onErrorResume { Mono.empty() }
+            .repeatWhenEmpty { it.delayElements(Duration.ofMillis(50)) }
+            .block(Duration.ofSeconds(5))!!
+    }
 
     @Test
     fun getInstancesShouldNotCacheError() {
-        val instances = failFirst(instance)
+        val instances = failFirst(listOf(instance))
         val discovery = createDiscovery(mockk { every { getInstances(any(), any()) } returns instances })
 
         discovery.getInstances("ns", "svc").test().expectError(IllegalStateException::class.java).verify()
-        discovery.getInstances("ns", "svc").test().expectNext(instance).verifyComplete()
+        awaitValue { discovery.getInstances("ns", "svc") }.assert().isEqualTo(listOf(instance))
+        discovery.close()
     }
 
     @Test
     fun getServicesShouldNotCacheError() {
-        val services = failFirst("svc")
+        val services = failFirst(listOf("svc"))
         val discovery = createDiscovery(mockk { every { getServices(any()) } returns services })
 
         discovery.getServices("ns").test().expectError(IllegalStateException::class.java).verify()
-        discovery.getServices("ns").test().expectNext("svc").verifyComplete()
+        awaitValue { discovery.getServices("ns") }.assert().isEqualTo(listOf("svc"))
+        discovery.close()
     }
 }

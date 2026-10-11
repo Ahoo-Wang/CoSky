@@ -49,13 +49,11 @@ open class RedisServiceDiscoveryBenchmark : AbstractReactiveRedisTest() {
     @Benchmark
     fun getServices(): List<String> = serviceDiscovery
         .getServices(TestData.NAMESPACE)
-        .collectList()
         .block()!!
 
     @Benchmark
     fun getInstances(): List<ServiceInstance> = serviceDiscovery
         .getInstances(TestData.NAMESPACE, testInstance.serviceId)
-        .collectList()
         .block()!!
 
     companion object {

@@ -19,7 +19,7 @@ import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import org.junit.jupiter.api.Test
-import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -33,7 +33,7 @@ class LoadBalancerConsistencyTest {
     fun chooseShouldReflectDiscoveryCacheUpdatedAfterEvent() {
         val cachedInstances = CopyOnWriteArrayList<ServiceInstance>()
         val serviceDiscovery = mockk<ServiceDiscovery> {
-            every { getInstances(any(), any()) } returns Flux.defer { Flux.fromIterable(cachedInstances) }
+            every { getInstances(any(), any()) } returns Mono.fromCallable { cachedInstances.toList() }
         }
         val loadBalancer = RandomLoadBalancer(serviceDiscovery)
 

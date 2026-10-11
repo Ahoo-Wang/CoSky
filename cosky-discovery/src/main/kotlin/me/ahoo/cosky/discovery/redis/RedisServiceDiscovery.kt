@@ -17,7 +17,6 @@ import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.decode
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
 
@@ -33,7 +32,7 @@ class RedisServiceDiscovery(
     override fun getInstances(
         namespace: String,
         serviceId: String
-    ): Flux<ServiceInstance> {
+    ): Mono<List<ServiceInstance>> {
         require(namespace.isNotBlank()) { "namespace is blank!" }
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(
@@ -41,16 +40,12 @@ class RedisServiceDiscovery(
             listOf(namespace),
             listOf(serviceId),
         )
-            .flatMapIterable { instanceGroups ->
+            .next()
+            .map { instanceGroups ->
                 @Suppress("UNCHECKED_CAST")
-                val groups = instanceGroups as List<List<String>>
-                if (instanceGroups.isEmpty()) {
-                    return@flatMapIterable emptyList<ServiceInstance>()
-                }
-                groups.map {
-                    decode(it)
-                }
+                (instanceGroups as List<List<String>>).map { decode(it) }
             }
+            .defaultIfEmpty(emptyList())
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
@@ -86,11 +81,12 @@ class RedisServiceDiscovery(
         ).next()
     }
 
-    override fun getServices(namespace: String): Flux<String> {
+    override fun getServices(namespace: String): Mono<List<String>> {
         require(namespace.isNotBlank()) { "namespace is blank!" }
         val serviceIdxKey = getServiceIdxKey(namespace)
         return redisTemplate
             .opsForSet()
             .members(serviceIdxKey)
+            .collectList()
     }
 }

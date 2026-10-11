@@ -13,7 +13,7 @@
 package me.ahoo.cosky.discovery
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -33,7 +33,7 @@ class TopologyRecordingServiceDiscovery(
 
     private val recorded: MutableSet<NamespacedServiceId> = ConcurrentHashMap.newKeySet()
 
-    override fun getInstances(namespace: String, serviceId: String): Flux<ServiceInstance> {
+    override fun getInstances(namespace: String, serviceId: String): Mono<List<ServiceInstance>> {
         recordTopology(NamespacedServiceId(namespace, serviceId))
         return delegate.getInstances(namespace, serviceId)
     }

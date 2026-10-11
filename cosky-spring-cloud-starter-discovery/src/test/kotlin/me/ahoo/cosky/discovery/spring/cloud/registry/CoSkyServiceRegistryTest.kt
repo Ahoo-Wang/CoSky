@@ -34,7 +34,7 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         coSkyServiceRegistry.register(registration)
         serviceDiscovery.getInstances(serviceId = serviceId)
             .test()
-            .expectNextCount(1)
+            .expectNextMatches { it.size == 1 }
             .verifyComplete()
     }
 
@@ -46,7 +46,7 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         coSkyServiceRegistry.deregister(registration)
         serviceDiscovery.getInstances(serviceId = serviceId)
             .test()
-            .expectNextCount(0)
+            .expectNext(emptyList())
             .verifyComplete()
     }
 

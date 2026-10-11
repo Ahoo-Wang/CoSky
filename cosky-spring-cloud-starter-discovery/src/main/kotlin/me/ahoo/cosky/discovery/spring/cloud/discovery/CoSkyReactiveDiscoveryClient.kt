@@ -31,10 +31,9 @@ class CoSkyReactiveDiscoveryClient(private val serviceDiscovery: ServiceDiscover
 
     override fun getInstances(serviceId: String): Flux<ServiceInstance> {
         return serviceDiscovery.getInstances(serviceId = serviceId)
-            .map {
-                CoSkyServiceInstance(it)
-            }
+            .flatMapIterable { it }
+            .map { CoSkyServiceInstance(it) }
     }
 
-    override fun getServices(): Flux<String> = serviceDiscovery.getServices()
+    override fun getServices(): Flux<String> = serviceDiscovery.getServices().flatMapIterable { it }
 }

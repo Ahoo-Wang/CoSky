@@ -45,7 +45,7 @@ class ServiceController(
 ) {
     @GetMapping
     fun getServices(@PathVariable namespace: String): Mono<List<String>> {
-        return discoveryService.getServices(namespace).collectList()
+        return discoveryService.getServices(namespace)
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_SERVICE)
@@ -60,7 +60,7 @@ class ServiceController(
 
     @GetMapping(RequestPathPrefix.SERVICES_INSTANCES)
     fun getInstances(@PathVariable namespace: String, @PathVariable serviceId: String): Mono<List<ServiceInstance>> {
-        return discoveryService.getInstances(namespace, serviceId).collectList()
+        return discoveryService.getInstances(namespace, serviceId)
     }
 
     @PutMapping(RequestPathPrefix.SERVICES_INSTANCES)

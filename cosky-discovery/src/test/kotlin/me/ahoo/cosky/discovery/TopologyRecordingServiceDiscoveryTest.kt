@@ -16,7 +16,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.junit.jupiter.api.Test
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
 import java.util.concurrent.atomic.AtomicInteger
@@ -26,15 +25,15 @@ class TopologyRecordingServiceDiscoveryTest {
     @Test
     fun recordOncePerService() {
         val delegate = mockk<ServiceDiscovery> {
-            every { getInstances(any(), any()) } returns Flux.empty()
+            every { getInstances(any(), any()) } returns Mono.just(emptyList())
         }
         val topology = mockk<ServiceTopology> {
             every { addTopology(any(), any()) } returns Mono.empty()
         }
         val discovery = TopologyRecordingServiceDiscovery(delegate, topology)
 
-        discovery.getInstances("ns", "svc").test().verifyComplete()
-        discovery.getInstances("ns", "svc").test().verifyComplete()
+        discovery.getInstances("ns", "svc").test().expectNext(emptyList()).verifyComplete()
+        discovery.getInstances("ns", "svc").test().expectNext(emptyList()).verifyComplete()
 
         verify(exactly = 1) { topology.addTopology("ns", "svc") }
     }
@@ -42,7 +41,7 @@ class TopologyRecordingServiceDiscoveryTest {
     @Test
     fun retryAfterRecordFailed() {
         val delegate = mockk<ServiceDiscovery> {
-            every { getInstances(any(), any()) } returns Flux.empty()
+            every { getInstances(any(), any()) } returns Mono.just(emptyList())
         }
         val times = AtomicInteger()
         val topology = mockk<ServiceTopology> {
@@ -52,8 +51,8 @@ class TopologyRecordingServiceDiscoveryTest {
         }
         val discovery = TopologyRecordingServiceDiscovery(delegate, topology)
 
-        discovery.getInstances("ns", "svc").test().verifyComplete()
-        discovery.getInstances("ns", "svc").test().verifyComplete()
+        discovery.getInstances("ns", "svc").test().expectNext(emptyList()).verifyComplete()
+        discovery.getInstances("ns", "svc").test().expectNext(emptyList()).verifyComplete()
 
         verify(exactly = 2) { topology.addTopology("ns", "svc") }
     }
