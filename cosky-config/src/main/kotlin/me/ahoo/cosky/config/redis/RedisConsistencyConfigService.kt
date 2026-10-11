@@ -20,6 +20,7 @@ import me.ahoo.cosky.config.NamespacedConfigId
 import me.ahoo.cosky.core.cache.ReactiveWatchCache
 import me.ahoo.cosky.core.cache.Snapshot
 import me.ahoo.cosky.core.cache.WatchCache
+import me.ahoo.cosky.core.requireValidNamespace
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.util.retry.Retry
@@ -55,7 +56,7 @@ class RedisConsistencyConfigService(
     }
 
     private fun namespacedConfigId(namespace: String, configId: String): NamespacedConfigId {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         require(configId.isNotBlank()) { "configId can not be blank!" }
         return NamespacedConfigId(namespace, configId)
     }

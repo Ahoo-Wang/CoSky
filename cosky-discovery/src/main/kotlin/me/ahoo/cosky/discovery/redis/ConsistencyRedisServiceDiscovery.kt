@@ -14,6 +14,7 @@ package me.ahoo.cosky.discovery.redis
 
 import me.ahoo.cosky.core.cache.ReactiveWatchCache
 import me.ahoo.cosky.core.cache.WatchCache
+import me.ahoo.cosky.core.requireValidNamespace
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
@@ -63,7 +64,7 @@ class ConsistencyRedisServiceDiscovery(
     )
 
     override fun getServices(namespace: String): Mono<List<String>> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         return servicesCache.get(namespace).defaultIfEmpty(emptyList())
     }
 
@@ -87,7 +88,7 @@ class ConsistencyRedisServiceDiscovery(
     }
 
     private fun namespacedServiceId(namespace: String, serviceId: String): NamespacedServiceId {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         return NamespacedServiceId(namespace, serviceId)
     }

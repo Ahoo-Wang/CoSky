@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import me.ahoo.cosky.core.requireValidNamespace
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
@@ -69,7 +70,7 @@ class RedisServiceStatistic(
     }
 
     private fun statServiceInternal(namespace: String, serviceId: String?): Mono<Void> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         log.debug {
             "statService  @ namespace:[$namespace]."
         }
@@ -86,7 +87,7 @@ class RedisServiceStatistic(
     }
 
     fun countService(namespace: String): Mono<Long> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         val serviceIdxStatKey = getServiceStatKey(namespace)
         return redisTemplate
             .opsForHash<Any, Any>()
@@ -94,7 +95,7 @@ class RedisServiceStatistic(
     }
 
     override fun getServiceStats(namespace: String): Flux<ServiceStat> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         val serviceIdxStatKey = getServiceStatKey(namespace)
         return redisTemplate
             .opsForHash<String, String>().entries(serviceIdxStatKey)

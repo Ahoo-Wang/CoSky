@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import me.ahoo.cosky.core.requireValidNamespace
 import me.ahoo.cosky.discovery.NamespacedInstanceId
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -64,7 +65,7 @@ class RedisServiceRegistry(
     }
 
     override fun setService(namespace: String, serviceId: String): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         log.info {
             "Set Service - serviceId:[$serviceId]  @ namespace:[$namespace]."
@@ -77,7 +78,7 @@ class RedisServiceRegistry(
     }
 
     override fun removeService(namespace: String, serviceId: String): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         log.warn {
             "Remove Service - serviceId:[$serviceId]  @ namespace:[$namespace]."
@@ -90,7 +91,7 @@ class RedisServiceRegistry(
     }
 
     override fun register(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         log.info {
             "Register - instanceId:[${serviceInstance.instanceId}]  @ namespace:[$namespace]."
         }
@@ -147,7 +148,7 @@ class RedisServiceRegistry(
     }
 
     private fun setMetadataInternal(namespace: String, instanceId: String, args: List<String>): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         log.info {
             "Set Metadata - instanceId:[$instanceId] @ namespace:[$namespace]."
@@ -161,7 +162,7 @@ class RedisServiceRegistry(
     }
 
     override fun renew(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         log.debug {
             "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace]."
         }
@@ -213,7 +214,7 @@ class RedisServiceRegistry(
     }
 
     private fun deregisterInternal(namespace: String, serviceId: String, instanceId: String): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         return redisTemplate.execute(

@@ -14,6 +14,7 @@ package me.ahoo.cosky.core.redis
 
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.core.Namespaced
+import me.ahoo.cosky.core.requireValidNamespace
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -35,7 +36,7 @@ class RedisNamespaceService(private val redisTemplate: ReactiveStringRedisTempla
 
     override fun setNamespace(namespace: String): Mono<Boolean> {
         return Mono.defer {
-            ensureNamespace(namespace)
+            requireValidNamespace(namespace)
             redisTemplate
                 .opsForSet()
                 .add(NAMESPACE_IDX_KEY, namespace)
@@ -43,13 +44,9 @@ class RedisNamespaceService(private val redisTemplate: ReactiveStringRedisTempla
         }
     }
 
-    private fun ensureNamespace(namespace: String) {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
-    }
-
     override fun removeNamespace(namespace: String): Mono<Boolean> {
         return Mono.defer {
-            ensureNamespace(namespace)
+            requireValidNamespace(namespace)
             redisTemplate
                 .opsForSet()
                 .remove(NAMESPACE_IDX_KEY, namespace)

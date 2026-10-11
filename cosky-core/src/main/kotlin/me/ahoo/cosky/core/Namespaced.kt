@@ -31,3 +31,17 @@ interface Namespaced {
         const val SYSTEM: String = "${CoSky.COSKY}-{system}"
     }
 }
+
+/**
+ * Validates [namespace]: it must not be blank and must not contain [CoSky.KEY_SEPARATOR], which delimits the
+ * namespace in every Redis key.
+ *
+ * @return [namespace]
+ */
+fun requireValidNamespace(namespace: String): String {
+    require(namespace.isNotBlank()) { "namespace must not be blank!" }
+    require(!namespace.contains(CoSky.KEY_SEPARATOR)) {
+        "namespace:[$namespace] must not contain [${CoSky.KEY_SEPARATOR}]!"
+    }
+    return namespace
+}

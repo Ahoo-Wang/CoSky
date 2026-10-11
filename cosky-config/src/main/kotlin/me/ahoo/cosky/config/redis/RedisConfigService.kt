@@ -27,6 +27,7 @@ import me.ahoo.cosky.config.ConfigKeyGenerator.getConfigVersionOfHistoryKey
 import me.ahoo.cosky.config.ConfigRollback
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.ConfigVersion
+import me.ahoo.cosky.core.requireValidNamespace
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
@@ -45,7 +46,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     }
 
     override fun getConfigs(namespace: String): Flux<String> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         log.debug {
             "GetConfigs  @ namespace:[$namespace]."
         }
@@ -68,7 +69,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
     }
 
     private fun ensureNamespacedConfigId(namespace: String, configId: String) {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         require(configId.isNotBlank()) { "configId can not be blank!" }
     }
 

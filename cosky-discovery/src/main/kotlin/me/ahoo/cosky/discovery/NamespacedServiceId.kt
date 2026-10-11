@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosky.core.Namespaced
+import me.ahoo.cosky.core.requireValidNamespace
 
 /**
  * Namespaced ServiceId.
@@ -22,4 +23,8 @@ import me.ahoo.cosky.core.Namespaced
 data class NamespacedServiceId(
     override val namespace: String,
     val serviceId: String
-) : Namespaced
+) : Namespaced {
+    init {
+        requireValidNamespace(namespace)
+    }
+}

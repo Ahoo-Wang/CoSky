@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.discovery.redis
 
+import me.ahoo.cosky.core.requireValidNamespace
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -33,7 +34,7 @@ class RedisServiceDiscovery(
         namespace: String,
         serviceId: String
     ): Mono<List<ServiceInstance>> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES,
@@ -49,7 +50,7 @@ class RedisServiceDiscovery(
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
@@ -71,7 +72,7 @@ class RedisServiceDiscovery(
     }
 
     override fun getInstanceTtl(namespace: String, serviceId: String, instanceId: String): Mono<Long> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
@@ -82,7 +83,7 @@ class RedisServiceDiscovery(
     }
 
     override fun getServices(namespace: String): Mono<List<String>> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+        requireValidNamespace(namespace)
         val serviceIdxKey = getServiceIdxKey(namespace)
         return redisTemplate
             .opsForSet()
