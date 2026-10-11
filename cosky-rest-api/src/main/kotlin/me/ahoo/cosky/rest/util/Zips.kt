@@ -44,14 +44,15 @@ object Zips {
         }
     }
 
-    fun unzip(zipSource: ByteArray): List<ZipItem> {
-        return unzip(ByteArrayInputStream(zipSource))
+    fun unzip(zipSource: ByteArray, maxUnzippedSize: Long = Long.MAX_VALUE): List<ZipItem> {
+        return unzip(ByteArrayInputStream(zipSource), maxUnzippedSize)
     }
 
     @Suppress("LoopWithTooManyJumpStatements")
     @JvmStatic
-    fun unzip(zipSource: InputStream): List<ZipItem> {
+    fun unzip(zipSource: InputStream, maxUnzippedSize: Long = Long.MAX_VALUE): List<ZipItem> {
         val items: MutableList<ZipItem> = ArrayList()
+        var unzippedSize = 0L
         ZipInputStream(zipSource).use { zipInputStream ->
             var entry: ZipEntry? = zipInputStream.nextEntry
             while (entry != null) {
@@ -69,6 +70,10 @@ object Zips {
                     val buffer = ByteArray(1024)
                     var offset: Int
                     while (zipInputStream.read(buffer).also { offset = it } != -1) {
+                        unzippedSize += offset
+                        require(unzippedSize <= maxUnzippedSize) {
+                            "Unzipped size exceeds the limit of [$maxUnzippedSize] bytes."
+                        }
                         itemOutputStream.write(buffer, 0, offset)
                     }
                     val entryName = path.fileName.name

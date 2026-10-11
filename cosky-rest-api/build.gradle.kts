@@ -91,6 +91,9 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("me.ahoo.test:fluent-assert-core")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("io.mockk:mockk") {
+        exclude(group = "org.slf4j", module = "slf4j-api")
+    }
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
