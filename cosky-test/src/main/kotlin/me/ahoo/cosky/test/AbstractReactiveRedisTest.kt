@@ -67,9 +67,11 @@ abstract class AbstractReactiveRedisTest : InitializingBean, DisposableBean {
 
     @AfterEach
     override fun destroy() {
+        beforeDestroyRedisClient()
         connectionFactory.destroy()
         afterDestroyRedisClient()
     }
 
+    protected open fun beforeDestroyRedisClient() = Unit
     protected open fun afterDestroyRedisClient() = Unit
 }

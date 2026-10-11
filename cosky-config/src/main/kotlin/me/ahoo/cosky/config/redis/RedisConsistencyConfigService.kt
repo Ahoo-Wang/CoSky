@@ -12,68 +12,56 @@
  */
 package me.ahoo.cosky.config.redis
 
-import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
-import me.ahoo.cosky.config.ConfigChangedEvent
 import me.ahoo.cosky.config.ConfigEventListenerContainer
 import me.ahoo.cosky.config.ConfigService
+import me.ahoo.cosky.config.ConfigWatcher
 import me.ahoo.cosky.config.NamespacedConfigId
+import me.ahoo.cosky.core.cache.ReactiveWatchCache
+import me.ahoo.cosky.core.cache.Snapshot
+import me.ahoo.cosky.core.cache.WatchCache
+import me.ahoo.cosky.core.requireValidNamespace
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import reactor.util.retry.Retry
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
-
-private object NoOpHookOnResetCache : (ConfigChangedEvent) -> Unit {
-    override fun invoke(p1: ConfigChangedEvent) = Unit
-}
 
 /**
  * Consistency Redis Config Service.
+ *
+ * Serves [getConfig] from a local cache kept consistent by config change events.
+ *
  * @author ahoo wang
  */
 class RedisConsistencyConfigService(
     private val delegate: ConfigService,
-    private val configEventListenerContainer: ConfigEventListenerContainer,
-    private val hookOnResetCache: (ConfigChangedEvent) -> Unit = NoOpHookOnResetCache
-) : ConfigService by delegate {
-    companion object {
-        private val log = KotlinLogging.logger {}
-        val CONFIG_CACHE_TTL: Duration = Duration.ofMinutes(1)
-    }
+    configEventListenerContainer: ConfigEventListenerContainer,
+    resyncInterval: Duration? = ReactiveWatchCache.DEFAULT_RESYNC_INTERVAL,
+    retry: Retry = ReactiveWatchCache.DEFAULT_RETRY
+) : ConfigService by delegate, ConfigWatcher, AutoCloseable {
 
-    private val configMapCache: ConcurrentHashMap<NamespacedConfigId, Mono<Config>> =
-        ConcurrentHashMap<NamespacedConfigId, Mono<Config>>()
+    private val configCache: WatchCache<NamespacedConfigId, Config> = ReactiveWatchCache(
+        listen = { configEventListenerContainer.listen(it) },
+        load = { delegate.getConfig(it.namespace, it.configId) },
+        resyncInterval = resyncInterval,
+        retry = retry,
+    )
 
     override fun getConfig(namespace: String, configId: String): Mono<Config> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
-        require(configId.isNotBlank()) { "configId can not be blank!" }
-        val namespacedConfigId = NamespacedConfigId(namespace, configId)
-        return configMapCache.computeIfAbsent(
-            namespacedConfigId,
-        ) {
-            @Suppress("CallingSubscribeInNonBlockingScope")
-            configEventListenerContainer.receive(it)
-                .doOnNext { changedEvent ->
-                    onConfigChanged(changedEvent)
-                }.doFinally { signalType ->
-                    log.info {
-                        "Listen topic[$namespacedConfigId] finally - [$signalType]."
-                    }
-                    configMapCache.remove(namespacedConfigId)
-                }
-                .subscribe()
-            delegate.getConfig(it.namespace, it.configId).cache()
-        }
+        return configCache.get(namespacedConfigId(namespace, configId))
     }
 
-    private fun onConfigChanged(configChangedEvent: ConfigChangedEvent) {
-        log.info {
-            "onConfigChanged:$configChangedEvent"
-        }
-        val namespacedConfigId: NamespacedConfigId = configChangedEvent.namespacedConfigId
-        configMapCache[namespacedConfigId] =
-            @Suppress("ReactiveStreamsUnusedPublisher")
-            delegate.getConfig(namespacedConfigId.namespace, namespacedConfigId.configId)
-                .cache(CONFIG_CACHE_TTL)
-        hookOnResetCache(configChangedEvent)
+    override fun watchConfig(namespace: String, configId: String): Flux<Snapshot<Config>> {
+        return configCache.watch(namespacedConfigId(namespace, configId))
+    }
+
+    private fun namespacedConfigId(namespace: String, configId: String): NamespacedConfigId {
+        requireValidNamespace(namespace)
+        require(configId.isNotBlank()) { "configId can not be blank!" }
+        return NamespacedConfigId(namespace, configId)
+    }
+
+    override fun close() {
+        configCache.close()
     }
 }

@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery.loadbalancer
 
-import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -22,39 +21,33 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Abstract Load Balancer.
  *
+ * Choosers are derived from the snapshots of [serviceDiscovery] and reused for as long as the snapshot is the same
+ * list instance, so the load balancer can never be staler than the discovery cache.
+ *
  * @author ahoo wang
  */
 abstract class AbstractLoadBalancer<C : LoadBalancer.Chooser>(
-    private val serviceDiscovery: ServiceDiscovery,
-    private val instanceEventListenerContainer: InstanceEventListenerContainer
+    private val serviceDiscovery: ServiceDiscovery
 ) : LoadBalancer {
-    private val serviceMapChooser: ConcurrentHashMap<NamespacedServiceId, Mono<C>> = ConcurrentHashMap()
 
-    private fun ensureChooser(namespacedServiceId: NamespacedServiceId): Mono<C> {
-        return serviceMapChooser.computeIfAbsent(
-            namespacedServiceId,
-        ) { key: NamespacedServiceId ->
-            @Suppress("CallingSubscribeInNonBlockingScope")
-            instanceEventListenerContainer.receive(key)
-                .doOnNext {
-                    @Suppress("ReactiveStreamsUnusedPublisher")
-                    serviceMapChooser[key] = getCachedInstances(namespacedServiceId)
-                }
-                .subscribe()
-            getCachedInstances(namespacedServiceId)
-        }
-    }
+    private class CachedChooser<C>(val instances: List<ServiceInstance>, val chooser: C)
 
-    private fun getCachedInstances(namespacedServiceId: NamespacedServiceId): Mono<C> {
-        return serviceDiscovery.getInstances(namespacedServiceId.namespace, namespacedServiceId.serviceId)
-            .collectList()
-            .map { createChooser(it) }
-            .cache()
-    }
+    private val choosers = ConcurrentHashMap<NamespacedServiceId, CachedChooser<C>>()
 
     override fun choose(namespace: String, serviceId: String): Mono<ServiceInstance> {
-        return ensureChooser(NamespacedServiceId(namespace, serviceId))
-            .mapNotNull { it.choose() }
+        val namespacedServiceId = NamespacedServiceId(namespace, serviceId)
+        return serviceDiscovery.getInstances(namespace, serviceId)
+            .mapNotNull { chooserOf(namespacedServiceId, it).choose() }
+    }
+
+    private fun chooserOf(namespacedServiceId: NamespacedServiceId, instances: List<ServiceInstance>): C {
+        val cached = choosers[namespacedServiceId]
+        if (cached != null && cached.instances === instances) {
+            return cached.chooser
+        }
+        return createChooser(instances).also {
+            choosers[namespacedServiceId] = CachedChooser(instances, it)
+        }
     }
 
     protected abstract fun createChooser(serviceInstances: List<ServiceInstance>): C

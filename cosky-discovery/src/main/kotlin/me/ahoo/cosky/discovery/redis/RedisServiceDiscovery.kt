@@ -12,12 +12,14 @@
  */
 package me.ahoo.cosky.discovery.redis
 
+import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.decode
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.util.*
 
@@ -33,34 +35,30 @@ class RedisServiceDiscovery(
     override fun getInstances(
         namespace: String,
         serviceId: String
-    ): Flux<ServiceInstance> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+    ): Mono<List<ServiceInstance>> {
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES,
+            listOf(getInstanceIdxKey(namespace, serviceId)),
             listOf(namespace),
-            listOf(serviceId),
         )
-            .flatMapIterable { instanceGroups ->
+            .next()
+            .map { instanceGroups ->
                 @Suppress("UNCHECKED_CAST")
-                val groups = instanceGroups as List<List<String>>
-                if (instanceGroups.isEmpty()) {
-                    return@flatMapIterable emptyList<ServiceInstance>()
-                }
-                groups.map {
-                    decode(it)
-                }
+                (instanceGroups as List<List<String>>).map { decode(it) }
             }
+            .defaultIfEmpty(emptyList())
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE,
-            listOf(namespace),
-            listOf(serviceId, instanceId),
+            instanceKeys(namespace, serviceId, instanceId),
+            listOf(instanceId),
         )
             .map {
                 @Suppress("UNCHECKED_CAST")
@@ -76,21 +74,26 @@ class RedisServiceDiscovery(
     }
 
     override fun getInstanceTtl(namespace: String, serviceId: String, instanceId: String): Mono<Long> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE_TTL,
-            listOf(namespace),
-            listOf(serviceId, instanceId),
+            instanceKeys(namespace, serviceId, instanceId),
+            listOf(instanceId),
         ).next()
     }
 
-    override fun getServices(namespace: String): Flux<String> {
-        require(namespace.isNotBlank()) { "namespace is blank!" }
+    private fun instanceKeys(namespace: String, serviceId: String, instanceId: String): List<String> {
+        return listOf(getInstanceIdxKey(namespace, serviceId), getInstanceKey(namespace, instanceId))
+    }
+
+    override fun getServices(namespace: String): Mono<List<String>> {
+        requireValidNamespace(namespace)
         val serviceIdxKey = getServiceIdxKey(namespace)
         return redisTemplate
             .opsForSet()
             .members(serviceIdxKey)
+            .collectList()
     }
 }

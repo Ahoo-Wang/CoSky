@@ -40,7 +40,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             namespace,
             redisServiceRegistry,
         ) {
-            redisServiceDiscovery.getServices(namespace).collectList()
+            redisServiceDiscovery.getServices(namespace)
                 .test()
                 .expectNextMatches { services -> services.contains(it.serviceId) }
                 .verifyComplete()
@@ -53,9 +53,10 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             namespace,
             redisServiceRegistry,
         ) {
+            val instanceId = it.instanceId
             redisServiceDiscovery.getInstances(namespace, it.serviceId)
                 .test()
-                .expectNext(it)
+                .expectNextMatches { instances -> instances.single().instanceId == instanceId }
                 .verifyComplete()
         }
     }
@@ -66,9 +67,10 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
             namespace,
             redisServiceRegistry,
         ) {
+            val instanceId = it.instanceId
             redisServiceDiscovery.getInstance(namespace, it.serviceId, it.instanceId)
                 .test()
-                .expectNext(it)
+                .expectNextMatches { instance -> instance.instanceId == instanceId && instance.ttlAt > 0 }
                 .verifyComplete()
         }
     }
@@ -136,7 +138,7 @@ class RedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         redisServiceDiscovery.getInstances(namespace, fixedInstance.serviceId)
             .test()
             .expectNextMatches {
-                it.assert().isEqualTo(fixedInstance)
+                it.single().assert().isEqualTo(fixedInstance)
                 true
             }
             .verifyComplete()

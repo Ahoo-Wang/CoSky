@@ -13,6 +13,12 @@
 package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceExpiryKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
 import me.ahoo.cosky.discovery.NamespacedInstanceId
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -20,6 +26,7 @@ import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadata
 import me.ahoo.cosky.discovery.ServiceInstanceCodec.encodeMetadataKey
 import me.ahoo.cosky.discovery.ServiceRegistry
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 import reactor.core.publisher.Mono
 import reactor.kotlin.core.publisher.toMono
 import java.util.concurrent.ConcurrentHashMap
@@ -58,39 +65,45 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REGISTER,
-            listOf(namespace),
+            listOf(
+                getServiceIdxKey(namespace),
+                getServiceStatKey(namespace),
+                getInstanceIdxKey(namespace, serviceInstance.serviceId),
+                getInstanceKey(namespace, serviceInstance.instanceId),
+                getInstanceExpiryKey(namespace),
+            ),
             values,
         ).next()
     }
 
     override fun setService(namespace: String, serviceId: String): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         log.info {
             "Set Service - serviceId:[$serviceId]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_SERVICE,
-            listOf(namespace),
+            listOf(getServiceIdxKey(namespace), getServiceStatKey(namespace)),
             listOf(serviceId),
         ).next()
     }
 
     override fun removeService(namespace: String, serviceId: String): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         log.warn {
             "Remove Service - serviceId:[$serviceId]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REMOVE_SERVICE,
-            listOf(namespace),
+            listOf(getServiceIdxKey(namespace), getServiceStatKey(namespace), getInstanceIdxKey(namespace, serviceId)),
             listOf(serviceId),
         ).next()
     }
 
     override fun register(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         log.info {
             "Register - instanceId:[${serviceInstance.instanceId}]  @ namespace:[$namespace]."
         }
@@ -128,8 +141,8 @@ class RedisServiceRegistry(
         key: String,
         value: String
     ): Mono<Boolean> {
-        val values = listOf(instanceId, encodeMetadataKey(key), value)
-        return setMetadataInternal(namespace, instanceId, values)
+        val values = listOf(encodeMetadataKey(key), value)
+        return setMetadataInternal(DiscoveryRedisScripts.SCRIPT_REGISTRY_PUT_METADATA, namespace, instanceId, values)
     }
 
     override fun setMetadata(
@@ -138,30 +151,31 @@ class RedisServiceRegistry(
         instanceId: String,
         metadata: Map<String, String>
     ): Mono<Boolean> {
-        val argVCapacity = 1 + metadata.size * 2
-        val values = buildList(argVCapacity) {
-            add(instanceId)
-            encodeMetadata(this, metadata)
-        }
-        return setMetadataInternal(namespace, instanceId, values)
+        val values = encodeMetadata(ArrayList(metadata.size * 2), metadata)
+        return setMetadataInternal(DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA, namespace, instanceId, values)
     }
 
-    private fun setMetadataInternal(namespace: String, instanceId: String, args: List<String>): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+    private fun setMetadataInternal(
+        script: RedisScript<Boolean>,
+        namespace: String,
+        instanceId: String,
+        args: List<String>
+    ): Mono<Boolean> {
+        requireValidNamespace(namespace)
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         log.info {
             "Set Metadata - instanceId:[$instanceId] @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
-            DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA,
-            listOf(namespace),
+            script,
+            listOf(getInstanceKey(namespace, instanceId)),
             args,
         )
             .next()
     }
 
     override fun renew(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         log.debug {
             "Renew - instanceId:[${serviceInstance.instanceId}] @ namespace:[$namespace]."
         }
@@ -173,8 +187,13 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
-            listOf(namespace),
-            listOf(serviceInstance.instanceId, registryProperties.instanceTtl.seconds.toString()),
+            listOf(getInstanceKey(namespace, serviceInstance.instanceId), getInstanceExpiryKey(namespace)),
+            listOf(
+                registryProperties.instanceTtl.seconds.toString(),
+                serviceInstance.serviceId,
+                serviceInstance.instanceId,
+                if (registryProperties.renewEventCarriesTtlAt) "1" else "0",
+            ),
         )
             .flatMap { status ->
                 if (status <= 0) {
@@ -213,13 +232,27 @@ class RedisServiceRegistry(
     }
 
     private fun deregisterInternal(namespace: String, serviceId: String, instanceId: String): Mono<Boolean> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
+        requireValidNamespace(namespace)
         require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_DEREGISTER,
-            listOf(namespace),
-            listOf(serviceId, instanceId),
+            listOf(
+                getInstanceIdxKey(namespace, serviceId),
+                getInstanceKey(namespace, instanceId),
+                getInstanceExpiryKey(namespace),
+            ),
+            listOf(instanceId, serviceId),
+        ).next()
+    }
+
+    override fun reapExpiredInstances(namespace: String, limit: Int): Mono<Long> {
+        requireValidNamespace(namespace)
+        require(limit > 0) { "limit must be positive!" }
+        return redisTemplate.execute(
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_REAP,
+            listOf(getInstanceExpiryKey(namespace)),
+            listOf(namespace, limit.toString()),
         ).next()
     }
 }

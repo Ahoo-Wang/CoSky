@@ -80,7 +80,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":cosky-spring-cloud-starter-config"))
     implementation(project(":cosky-spring-cloud-starter-discovery"))
-    implementation("com.google.guava:guava")
+    implementation("org.springframework.security:spring-security-crypto")
     implementation("me.ahoo.cosid:cosid-spring-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
     implementation("me.ahoo.simba:simba-spring-redis")
@@ -89,8 +89,12 @@ dependencies {
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(project(":cosky-test"))
     testImplementation("me.ahoo.test:fluent-assert-core")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("io.mockk:mockk") {
+        exclude(group = "org.slf4j", module = "slf4j-api")
+    }
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }

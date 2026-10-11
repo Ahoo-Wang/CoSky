@@ -1,47 +1,43 @@
-local namespace = KEYS[1];
+-- Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+-- Licensed under the Apache License, Version 2.0.
+-- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+-- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+
+redis.replicate_commands();
+
+local serviceIdxKey = KEYS[1];
+local serviceStatKey = KEYS[2];
+local instanceIdxKey = KEYS[3];
+local instanceKey = KEYS[4];
+local instanceExpiryKey = KEYS[5];
+-- @include cosky/discovery/discovery_lib.lua
+
 local instanceTtl = ARGV[1];
-local fixed = instanceTtl == "-1";
+local fixed = instanceTtl == '-1';
 local serviceId = ARGV[2];
 local instanceId = ARGV[3];
 local schema = ARGV[4];
 local host = ARGV[5];
 local port = ARGV[6];
 local weight = ARGV[7];
-local ephemeral;
-if fixed then
-    ephemeral = "false"
-else
-    ephemeral = "true"
-end
-local serviceIdxKey = namespace .. ":svc_idx";
-local instanceIdxKey = namespace .. ":svc_itc_idx:" .. serviceId;
-local instanceKey = namespace .. ":svc_itc:" .. instanceId;
-local serviceIdxStatKey = namespace .. ":svc_stat";
+local ephemeral = fixed and 'false' or 'true';
 
-local added = redis.call("sadd", instanceIdxKey, instanceId);
-
-if added == 1 then
-    local affected = redis.call("sadd", serviceIdxKey, serviceId);
-
-    if affected > 0 then
-        redis.call("publish", serviceIdxKey, "set");
-        redis.call("hset", serviceIdxStatKey, serviceId, 0);
-    end
+if redis.call('sadd', instanceIdxKey, instanceId) == 1 and redis.call('sadd', serviceIdxKey, serviceId) > 0 then
+    redis.call('publish', serviceIdxKey, 'set');
+    redis.call('hset', serviceStatKey, serviceId, 0);
 end
 
-local instanceKeys = redis.call("hkeys", instanceKey)
-if #instanceKeys > 0 then
-    for i, key in ipairs(instanceKeys) do
-        if string.find(key, '_', 1) == 1 and string.find(key, '__', 1) == nil then
-            redis.call("hdel", instanceKey, key);
-        end
-    end
-end
-
-redis.call("hmset", instanceKey, "instanceId", instanceId, "serviceId", serviceId, "schema", schema, "host", host, "port", port, "weight", weight, "ephemeral", ephemeral, unpack(ARGV, 8, #ARGV));
-redis.call("publish", instanceKey, "register");
+clearMetadata(instanceKey);
+redis.call('hmset', instanceKey, 'instanceId', instanceId, 'serviceId', serviceId, 'schema', schema, 'host', host,
+    'port', port, 'weight', weight, 'ephemeral', ephemeral, unpack(ARGV, 8, #ARGV));
+redis.call('publish', instanceKey, 'register');
+local expiryMember = expiryMemberOf(serviceId, instanceId);
 if not fixed then
-    return redis.call("expire", instanceKey, instanceTtl);
+    redis.call('zadd', instanceExpiryKey, redis.call('time')[1] + instanceTtl, expiryMember);
+    return redis.call('expire', instanceKey, instanceTtl);
 end
-redis.call("persist", instanceKey);
+redis.call('zrem', instanceExpiryKey, expiryMember);
+redis.call('persist', instanceKey);
 return 1;

@@ -10,15 +10,15 @@ CoSky 的配置管理子系统提供了一种集中化、版本化且可审计�
 
 | 组件 | 职责 | 关键文件 | 源码 |
 |---|---|---|---|
-| **ConfigService** | 配置操作的核心 CRUD 接口 | `ConfigService.kt` | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24) |
+| **ConfigService** | 配置操作的核心 CRUD 接口 | `ConfigService.kt` | [ConfigService.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L23) |
 | **Config / ConfigData** | 保存配置负载、哈希、版本和时间戳的数据模型 | `Config.kt` | [Config.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/Config.kt#L20) |
 | **ConfigCodec** | Redis 哈希映射与领域对象之间的序列化/反序列化 | `ConfigCodec.kt` | [ConfigCodec.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigCodec.kt#L20) |
 | **ConfigHistory** | 包含操作类型和操作时间戳的扩展配置模型 | `ConfigHistory.kt` | [ConfigHistory.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigHistory.kt#L20) |
 | **ConfigVersion** | 将 configId 与其版本号配对的轻量级接口 | `ConfigVersion.kt` | [ConfigVersion.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigVersion.kt#L20) |
-| **ConfigRollback** | 回滚到先前配置版本的接口 | `ConfigRollback.kt` | [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
+| **ConfigRollback** | 回滚到先前配置版本的接口 | `ConfigRollback.kt` | [ConfigRollback.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L23) |
 | **ConfigKeyGenerator** | 生成配置索引、历史和条目的 Redis 键模式 | `ConfigKeyGenerator.kt` | [ConfigKeyGenerator.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L22) |
-| **RedisConfigService** | 基于 Lua 脚本的 Redis 实现 ConfigService | `RedisConfigService.kt` | [RedisConfigService.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L41) |
-| **ConfigRedisScripts** | 加载并缓存用于原子配置操作的 Lua 脚本 | `ConfigRedisScripts.kt` | [ConfigRedisScripts.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L24) |
+| **RedisConfigService** | 基于 Lua 脚本的 Redis 实现 ConfigService | `RedisConfigService.kt` | [RedisConfigService.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L43) |
+| **ConfigRedisScripts** | 加载并缓存用于原子配置操作的 Lua 脚本 | `ConfigRedisScripts.kt` | [ConfigRedisScripts.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L23) |
 | **ConfigChangedEvent** | 通过 Redis PubSub 在配置变更时发出的事件 | `ConfigChangedEvent.kt` | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20) |
 
 ## ConfigService 接口
@@ -27,19 +27,19 @@ CoSky 的配置管理子系统提供了一种集中化、版本化且可审计�
 
 | 方法 | 返回类型 | 描述 | 源码 |
 |---|---|---|---|
-| `getConfigs(namespace)` | `Flux<String>` | 通过读取配置索引集合列出命名空间中的所有配置 ID | [ConfigService.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L25) |
-| `getConfig(namespace, configId)` | `Mono<Config>` | 获取单个配置条目，包含其数据、哈希、版本和时间戳 | [ConfigService.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L26) |
-| `setConfig(namespace, configId, data)` | `Mono<Boolean>` | 创建或更新配置；原子性地存储数据、递增版本、将先前版本归档为历史，并发布变更事件 | [ConfigService.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L27) |
-| `removeConfig(namespace, configId)` | `Mono<Boolean>` | 移除配置并将其归档到历史；发布移除事件 | [ConfigService.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L28) |
-| `containsConfig(namespace, configId)` | `Mono<Boolean>` | 通过 Redis `EXISTS` 检查配置条目是否存在 | [ConfigService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L29) |
+| `getConfigs(namespace)` | `Flux<String>` | 通过读取配置索引集合列出命名空间中的所有配置 ID | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24) |
+| `getConfig(namespace, configId)` | `Mono<Config>` | 获取单个配置条目，包含其数据、哈希、版本和时间戳 | [ConfigService.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L25) |
+| `setConfig(namespace, configId, data)` | `Mono<Boolean>` | 创建或更新配置；原子性地存储数据、递增版本、将先前版本归档为历史，并发布变更事件 | [ConfigService.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L26) |
+| `removeConfig(namespace, configId)` | `Mono<Boolean>` | 移除配置并将其归档到历史；发布移除事件 | [ConfigService.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L27) |
+| `containsConfig(namespace, configId)` | `Mono<Boolean>` | 通过 Redis `EXISTS` 检查配置条目是否存在 | [ConfigService.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L28) |
 
 此外，继承的 `ConfigRollback` 接口增加了：
 
 | 方法 | 返回类型 | 描述 | 源码 |
 |---|---|---|---|
-| `rollback(namespace, configId, targetVersion)` | `Mono<Boolean>` | 将配置恢复到先前版本；归档当前版本并发布回滚事件 | [ConfigRollback.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L30) |
-| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | 按时间倒序列出版本历史（查询返回最近 `HISTORY_SIZE`=10 条；底层 Redis 历史不做修剪） | [ConfigRollback.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L32) |
-| `getConfigHistory(namespace, configId, version)` | `Mono<ConfigHistory>` | 获取特定版本的已归档配置 | [ConfigRollback.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L34) |
+| `rollback(namespace, configId, targetVersion)` | `Mono<Boolean>` | 将配置恢复到先前版本；归档当前版本并发布回滚事件 | [ConfigRollback.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L29) |
+| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | 按时间倒序列出版本历史（查询返回最近 `HISTORY_SIZE`=10 条；底层 Redis 历史不做修剪） | [ConfigRollback.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L31) |
+| `getConfigHistory(namespace, configId, version)` | `Mono<ConfigHistory>` | 获取特定版本的已归档配置 | [ConfigRollback.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L33) |
 
 ## 数据模型
 
@@ -186,7 +186,7 @@ classDiagram
 | `SCRIPT_CONFIG_REMOVE` | `config_remove.lua` | 原子性地从索引中移除配置、归档到历史，并发布 `remove` 变更事件 |
 | `SCRIPT_CONFIG_ROLLBACK` | `config_rollback.lua` | 原子性地从历史中恢复配置到目标版本、创建新版本条目，并发布 `rollback` 变更事件 |
 
-Source: [ConfigRedisScripts.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L24)
+Source: [ConfigRedisScripts.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L23)
 
 ### getConfig 流程
 
@@ -307,7 +307,7 @@ Source: [README.md:111](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L
 
 CoSky 维护配置变更的版本历史。当配置被**更新**（`setConfig` 已有版本时）或**移除**时，先前的版本通过 Lua 脚本原子性地归档到历史条目。**首次** `setConfig`（创建新配置）不会归档 —— 因为没有先前的版本可保存。回滚操作通过读取已归档数据并创建新版本号来恢复目标版本。`getConfigVersions` 查询按倒序返回**最近 10 个版本** —— 受 `ConfigRollback.HISTORY_SIZE` 限制。
 
-> ⚠️ **运维提示**：`HISTORY_SIZE` 仅是**查询上限**，并非存储保留策略。Lua 脚本（`config_set.lua`、`config_remove.lua`、`config_rollback.lua`）通过 `ZADD` 归档历史，但从不执行 `ZREMRANGEBYRANK` 或设置 `EXPIRE`，因此 Redis 历史有序集合（`cfg_htr_idx`）和各版本历史哈希（`cfg_htr`）会**无限制增长**。对于写入非常频繁的配置，请监控 Redis 内存，必要时手动清理旧的历史键。
+> **历史保留**：归档一个版本时，同一个 Lua 脚本会删除最新 `historySize` 个版本之外的历史（默认 `ConfigRollback.HISTORY_SIZE` = 10），因此一个配置最多保留 10 条历史（[config_lib.lua:15](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/resources/cosky/config/config_lib.lua#L15)）。该数量是 `RedisConfigService` 的构造参数（[RedisConfigService.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L47)）。
 
 ```mermaid
 stateDiagram-v2

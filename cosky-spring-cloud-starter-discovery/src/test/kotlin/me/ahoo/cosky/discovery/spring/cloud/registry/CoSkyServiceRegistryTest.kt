@@ -23,8 +23,11 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
         serviceDiscovery = RedisServiceDiscovery(redisTemplate)
         renewInstanceService = RenewInstanceService(RenewProperties(), serviceRegistry)
-        val coSkyRegistryProperties = CoSkyRegistryProperties(serviceId = "app", host = "app-1")
-        coSkyServiceRegistry = CoSkyServiceRegistry(serviceRegistry, renewInstanceService, coSkyRegistryProperties)
+        val coSkyRegistryProperties = CoSkyRegistryProperties().apply {
+            serviceId = "app"
+            host = "app-1"
+        }
+        coSkyServiceRegistry = CoSkyServiceRegistry(serviceRegistry, renewInstanceService, coSkyRegistryProperties, NAMESPACE)
     }
 
     @Test
@@ -32,9 +35,9 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         val serviceId = "register-app-${MockIdGenerator.INSTANCE.generateAsString()}"
         val registration = CoSkyRegistration(serviceId = serviceId, scheme = "http", host = "app-1", port = 8080)
         coSkyServiceRegistry.register(registration)
-        serviceDiscovery.getInstances(serviceId = serviceId)
+        serviceDiscovery.getInstances(NAMESPACE, serviceId)
             .test()
-            .expectNextCount(1)
+            .expectNextMatches { it.size == 1 }
             .verifyComplete()
     }
 
@@ -44,9 +47,9 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         val registration = CoSkyRegistration(serviceId = serviceId, scheme = "http", host = "app-1", port = 8080)
         coSkyServiceRegistry.register(registration)
         coSkyServiceRegistry.deregister(registration)
-        serviceDiscovery.getInstances(serviceId = serviceId)
+        serviceDiscovery.getInstances(NAMESPACE, serviceId)
             .test()
-            .expectNextCount(0)
+            .expectNext(emptyList())
             .verifyComplete()
     }
 
@@ -64,5 +67,9 @@ internal class CoSkyServiceRegistryTest : AbstractReactiveRedisTest() {
         coSkyServiceRegistry.setStatus(registration, expectedStatus)
         val actualStatus = coSkyServiceRegistry.getStatus<String>(registration)
         expectedStatus.assert().isEqualTo(actualStatus)
+    }
+
+    companion object {
+        private const val NAMESPACE = "cosky-{service-registry-test}"
     }
 }

@@ -13,10 +13,16 @@
 package me.ahoo.cosky.config
 
 import me.ahoo.cosky.core.Namespaced
+import me.ahoo.cosky.core.requireValidNamespace
 
 /**
  * Namespaced Config ID.
  *
  * @author ahoo wang
  */
-data class NamespacedConfigId(override val namespace: String, val configId: String) : Namespaced
+data class NamespacedConfigId(override val namespace: String, val configId: String) : Namespaced {
+    init {
+        requireValidNamespace(namespace)
+        require(configId.isNotBlank()) { "configId must not be blank!" }
+    }
+}

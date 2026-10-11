@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.config.redis
 
-import com.google.common.hash.Hashing
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigCodec.decodeAsConfig
@@ -27,25 +26,44 @@ import me.ahoo.cosky.config.ConfigKeyGenerator.getConfigVersionOfHistoryKey
 import me.ahoo.cosky.config.ConfigRollback
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.ConfigVersion
+import me.ahoo.cosky.core.requireValidNamespace
 import org.springframework.data.domain.Range
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.HexFormat
 
 /**
  * Redis Config Service.
  *
+ * @param historySize how many versions of history are kept per config.
+ *
  * @author ahoo wang
  */
-class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate) : ConfigService {
+class RedisConfigService(
+    private val redisTemplate: ReactiveStringRedisTemplate,
+    private val historySize: Int = ConfigRollback.HISTORY_SIZE
+) : ConfigService {
+    init {
+        require(historySize > 0) { "historySize must be positive." }
+    }
+
     companion object {
         private val log = KotlinLogging.logger {}
-        private const val HISTORY_STOP = (ConfigRollback.HISTORY_SIZE - 1).toLong()
+
+        /**
+         * Lowercase hex SHA-256 of [data]: the format of the hashes already stored with every config.
+         */
+        internal fun sha256Hex(data: String): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest(data.toByteArray(StandardCharsets.UTF_8))
+            return HexFormat.of().formatHex(digest)
+        }
     }
 
     override fun getConfigs(namespace: String): Flux<String> {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         log.debug {
             "GetConfigs  @ namespace:[$namespace]."
         }
@@ -67,21 +85,32 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return getAndDecodeConfig(configKey) { it.decodeAsConfig() }
     }
 
+    /**
+     * The keys every config write script declares: config index, config, config history index.
+     */
+    private fun configKeys(namespace: String, configId: String): List<String> {
+        return listOf(
+            getConfigIdxKey(namespace),
+            getConfigKey(namespace, configId),
+            getConfigHistoryIdxKey(namespace, configId),
+        )
+    }
+
     private fun ensureNamespacedConfigId(namespace: String, configId: String) {
-        require(namespace.isNotBlank()) { "namespace can not be blank!" }
+        requireValidNamespace(namespace)
         require(configId.isNotBlank()) { "configId can not be blank!" }
     }
 
     override fun setConfig(namespace: String, configId: String, data: String): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
-        val hash = Hashing.sha256().hashString(data, StandardCharsets.UTF_8).toString()
+        val hash = sha256Hex(data)
         log.info {
             "SetConfig - configId:[$configId] - hash:[$hash]  @ namespace:[$namespace]."
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_SET,
-            listOf(namespace),
-            listOf(configId, data, hash),
+            configKeys(namespace, configId),
+            listOf(namespace, configId, data, hash, historySize.toString()),
         ).next()
     }
 
@@ -92,8 +121,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_REMOVE,
-            listOf(namespace),
-            listOf(configId),
+            configKeys(namespace, configId),
+            listOf(namespace, configId, historySize.toString()),
         ).next()
     }
 
@@ -110,8 +139,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK,
-            listOf(namespace),
-            listOf(configId, targetVersion.toString()),
+            configKeys(namespace, configId),
+            listOf(namespace, configId, targetVersion.toString(), historySize.toString()),
         ).next()
     }
 
@@ -122,7 +151,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
             .opsForZSet()
             .reverseRange(
                 configHistoryIdxKey,
-                Range.closed(0L, HISTORY_STOP),
+                Range.closed(0L, (historySize - 1).toLong()),
             )
             .map { getConfigVersionOfHistoryKey(namespace, it) }
     }

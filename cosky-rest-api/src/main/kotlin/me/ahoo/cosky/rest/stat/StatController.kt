@@ -13,7 +13,7 @@
 package me.ahoo.cosky.rest.stat
 
 import io.swagger.v3.oas.annotations.tags.Tag
-import me.ahoo.cosky.config.ConfigService
+import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.core.NamespaceService
 import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
@@ -36,7 +36,7 @@ import java.util.stream.Collectors
 @Tag(name = "Stat")
 class StatController(
     private val namespaceService: NamespaceService,
-    private val configService: ConfigService,
+    private val configService: RedisConfigService,
     private val serviceTopology: ServiceTopology,
     private val serviceStatistic: ServiceStatistic
 ) {

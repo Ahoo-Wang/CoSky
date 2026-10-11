@@ -138,7 +138,7 @@ flowchart TB
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:43, cosky-config/src/jmh/kotlin/me/ahoo/cosky/config/ConsistencyRedisConfigServiceBenchmark.kt:31 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-config/src/jmh/kotlin/me/ahoo/cosky/config/ConsistencyRedisConfigServiceBenchmark.kt:31 -->
 
 ## Consistency Layer Architecture
 
@@ -149,36 +149,36 @@ sequenceDiagram
     autonumber
     participant C as Client
     participant CRD as ConsistencyRedisServiceDiscovery
-    participant Cache as ConcurrentHashMap Cache
+    participant Cache as ReactiveWatchCache
     participant RSD as RedisServiceDiscovery
     participant Redis as Redis
     participant PubSub as Redis PubSub
 
     Note over CRD,PubSub: Cache initialization (first call)
     C->>CRD: getInstances(namespace, serviceId)
-    CRD->>Cache: computeIfAbsent(key)
-    Cache-->>CRD: cache miss
-    CRD->>PubSub: subscribe to instance changes
-    CRD->>RSD: delegate.getInstances()
-    RSD->>Redis: SMEMBERS / GET
+    CRD->>Cache: get(key)
+    Cache->>PubSub: subscribe to instance changes (wait until active)
+    Cache->>RSD: delegate.getInstances()
+    RSD->>Redis: EVAL discovery_get_instances.lua
     Redis-->>RSD: instance list
-    RSD-->>CRD: Flux<ServiceInstance>
-    CRD->>Cache: store as CopyOnWriteArraySet
-    CRD-->>C: Flux<ServiceInstance>
+    RSD-->>Cache: List of ServiceInstance
+    Note over Cache: Publish immutable snapshot
+    CRD-->>C: snapshot List
 
     Note over CRD,PubSub: Subsequent calls (cache hit)
     C->>CRD: getInstances(namespace, serviceId)
     CRD->>Cache: get(key)
-    Cache-->>CRD: cached instances
-    CRD-->>C: Flux<ServiceInstance> (no Redis call)
+    Cache-->>CRD: prebuilt Mono of the snapshot
+    CRD-->>C: same List while unchanged (no Redis call)
 
     Note over CRD,PubSub: Cache invalidation via PubSub
     Redis->>PubSub: instance change event
-    PubSub->>CRD: onInstanceChanged(event)
-    CRD->>Cache: update CopyOnWriteArraySet
+    PubSub->>Cache: InstanceChangedEvent (applied serially)
+    Cache->>RSD: read-through the changed instance
+    Note over Cache: Publish the next immutable snapshot
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:86, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:138 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:71, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:65 -->
 
 ## Cache Invalidation Events
 
@@ -194,16 +194,16 @@ stateDiagram-v2
     Cached --> Removed: DEREGISTER event
     Cached --> Removed: EXPIRED event
     Updated --> Cached: refresh from Redis
-    TTLRefreshed --> Cached: update TTL in-place
+    TTLRefreshed --> Cached: replace instance with new ttlAt
     Removed --> [*]: remove from cache
 
     state Cached {
-        [*] --> InMemory: ConcurrentHashMap
-        InMemory --> InMemory: read (no network)
+        [*] --> InMemory: immutable snapshot
+        InMemory --> InMemory: read (no network, no allocation)
     }
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:138, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:171 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:129 -->
 
 ## How to Run Benchmarks Locally
 

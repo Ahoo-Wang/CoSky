@@ -144,7 +144,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 cd cosky-rest-api-5.8.1
 
 # Run with Redis connection
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 The distribution contains `bin/` start scripts, `lib/` dependencies, `config/` configuration files, and `ui/` with the dashboard static resources (served via `spring.web.resources.static-locations: file:./ui/`).
@@ -170,6 +170,7 @@ docker pull ahoowang/cosky:latest
 # Run as a container
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -190,6 +191,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_DATA_REDIS_URL=redis://redis:6379
+      - COSKY_SECURITY_KEY=${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
     depends_on:
       - redis
 ```
@@ -419,14 +421,17 @@ Key configuration properties for CoSky:
 | `spring.data.redis.url` | _(required)_ | Redis connection URL (standalone) | [bootstrap.yaml](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml) |
 | `spring.data.redis.cluster.nodes` | _(required for cluster)_ | Redis cluster node addresses | [cosky-cluster.yml:23](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml#L23) |
 | `spring.data.redis.password` | — | Redis password | [cosky.yml:23](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L23) |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | Isolation namespace for services and configs | [CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30) |
-| `spring.cloud.cosky.config.enabled` | `true` | Enable config loading from Redis | [CoSkyConfigProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L26) |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load | [CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48) |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
-| `spring.cloud.cosky.config.timeout` | `2s` | Timeout for config loading | [CoSkyConfigProperties.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L29) |
-| `spring.cloud.cosky.discovery.enabled` | `true` | Enable service discovery | [CoSkyDiscoveryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L26) |
-| `spring.cloud.cosky.discovery.timeout` | `2s` | Timeout for discovery operations | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
+| `spring.cloud.cosky.namespace` | `cosky-{default}` | Isolation namespace for services and configs | [CoSkyProperties.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L42) |
+| `spring.cloud.cosky.config.enabled` | `true` | Enable config loading from Redis | [CoSkyConfigProperties.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L33) |
+| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load | [CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension | [CoSkyConfigProperties.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L35) |
+| `spring.cloud.cosky.config.timeout` | `2s` | Timeout for config loading | [CoSkyConfigProperties.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L36) |
+| `spring.cloud.cosky.discovery.enabled` | `true` | Enable service discovery | [CoSkyDiscoveryProperties.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L33) |
+| `spring.cloud.cosky.discovery.timeout` | `2s` | Timeout for discovery operations | [CoSkyDiscoveryProperties.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L35) |
+| `spring.cloud.cosky.discovery.topology-enabled` | `true` | Record this application as a consumer of the services it discovers | [CoSkyDiscoveryProperties.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L40) |
+| `spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at` | `false` | Publish renew events with the new ttlAt; enable only once all clients run this version or later | [CoSkyRegistryProperties.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L61) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
+| `cosky.security.audit-log.max-size` | `100000` | The audit log keeps its newest entries up to this size | [SecurityProperties.kt:35]({U}{SP}#L35) |
 | `cosky.security.enabled` | `true` | Enable security on REST API server | [application.yaml:16](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L16) |
 | `cosky.security.enforce-init-super-user` | `false` | Reinitialize super user password | [application.yaml:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L19) |
 

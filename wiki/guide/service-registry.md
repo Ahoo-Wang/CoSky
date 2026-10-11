@@ -21,12 +21,13 @@ The [`ServiceRegistry`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disco
 
 | Method | Return Type | Description | Source |
 |---|---|---|---|
-| `register` | `Mono<Boolean>` | Registers a service instance with optional TTL | [ServiceRegistry.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L33) |
-| `deregister` | `Mono<Boolean>` | Removes a service instance from the registry | [ServiceRegistry.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L43) |
-| `renew` | `Mono<Boolean>` | Renews/extends the TTL of an ephemeral instance | [ServiceRegistry.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L41) |
-| `setService` | `Mono<Boolean>` | Creates a named service entry in the namespace index | [ServiceRegistry.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L24) |
-| `removeService` | `Mono<Boolean>` | Removes a named service from the namespace index | [ServiceRegistry.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L25) |
-| `setMetadata` | `Mono<Boolean>` | Sets metadata key-value pairs on a service instance | [ServiceRegistry.kt:53](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L53) |
+| `register` | `Mono<Boolean>` | Registers a service instance with optional TTL | [ServiceRegistry.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L32) |
+| `deregister` | `Mono<Boolean>` | Removes a service instance from the registry | [ServiceRegistry.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L42) |
+| `renew` | `Mono<Boolean>` | Renews/extends the TTL of an ephemeral instance | [ServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L40) |
+| `setService` | `Mono<Boolean>` | Creates a named service entry in the namespace index | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23) |
+| `removeService` | `Mono<Boolean>` | Removes a named service from the namespace index | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23) |
+| `setMetadata` | `Mono<Boolean>` | `setMetadata(key, value)` sets one entry and keeps the others ([ServiceRegistry.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L55)); `setMetadata(map)` replaces all metadata ([ServiceRegistry.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L66)) |
+| `reapExpiredInstances` | `Mono<Long>` | Removes instances whose TTL has passed and publishes their `expired` events | [ServiceRegistry.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L78) |
 
 ## ServiceInstance Data Model
 
@@ -76,20 +77,22 @@ class RedisServiceRegistry(
 ```
 
 Key design points:
-- Ephemeral instances are tracked in a `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` for heartbeat renewal ([RedisServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L40)).
-- The `register` method adds to the ephemeral map only after the Lua script succeeds -- inside `doOnNext`, and only when the script returned `true` ([RedisServiceRegistry.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L97)).
-- If a renew fails (instance key missing), it automatically re-registers the instance ([RedisServiceRegistry.kt:184](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L184)).
+- Ephemeral instances are tracked in a `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` for heartbeat renewal ([RedisServiceRegistry.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L47)).
+- The `register` method adds to the ephemeral map only after the Lua script succeeds -- inside `doOnNext`, and only when the script returned `true` ([RedisServiceRegistry.kt:110](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L110)).
+- If a renew fails (instance key missing), it automatically re-registers the instance ([RedisServiceRegistry.kt:203](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L203)).
 
 ### DiscoveryRedisScripts
 
-[`DiscoveryRedisScripts`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) loads all registry-related Lua scripts from the classpath:
+[`DiscoveryRedisScripts`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) loads all registry-related Lua scripts from the classpath through `LuaScripts`, which resolves `-- @include` directives so the scripts share `cosky/discovery/discovery_lib.lua`. Every key known at call time is generated by `DiscoveryKeyGenerator` and passed via `KEYS`; keys only known inside the script use the shared Lua key functions, which `DiscoveryLuaKeysTest` keeps identical to the Kotlin generator:
 
 | Script | Resource File | Purpose |
 |---|---|---|
 | `SCRIPT_REGISTRY_REGISTER` | `registry_register.lua` | Atomic instance registration |
 | `SCRIPT_REGISTRY_DEREGISTER` | `registry_deregister.lua` | Atomic instance removal |
 | `SCRIPT_REGISTRY_RENEW` | `registry_renew.lua` | TTL renewal with publish throttling |
-| `SCRIPT_REGISTRY_SET_METADATA` | `registry_set_metadata.lua` | Set instance metadata fields |
+| `SCRIPT_REGISTRY_SET_METADATA` | `registry_set_metadata.lua` | Replace all instance metadata |
+| `SCRIPT_REGISTRY_PUT_METADATA` | `registry_put_metadata.lua` | Set metadata entries, keeping the others |
+| `SCRIPT_REGISTRY_REAP` | `registry_reap.lua` | Reap expired instances through the expiry index |
 | `SCRIPT_REGISTRY_SET_SERVICE` | `registry_set_service.lua` | Create service in namespace index |
 | `SCRIPT_REGISTRY_REMOVE_SERVICE` | `registry_remove_service.lua` | Remove service from namespace index |
 
@@ -103,14 +106,18 @@ Key design points:
 
 ## RenewInstanceService (Heartbeat)
 
-[`RenewInstanceService`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt) provides the keep-alive mechanism for ephemeral instances. It runs on a dedicated scheduler (`CoSky-Renew`) and periodically renews all registered ephemeral instances:
+[`RenewInstanceService`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt) provides the keep-alive mechanism for ephemeral instances. It periodically renews all registered ephemeral instances on a caller-owned scheduler (`Schedulers.parallel()` by default):
 
 | Property | Default | Description |
 |---|---|---|
 | `initialDelay` | `1 second` | Delay before first renewal cycle |
 | `period` | `10 seconds` | Interval between renewal cycles |
 
-The renewal period must be less than `RegistryProperties.instanceTtl` to prevent premature expiration. The service iterates all `registeredEphemeralInstances` and calls `renew` on each one via the `ServiceRegistry` ([RenewInstanceService.kt:70](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L70)).
+The renewal period must be less than `RegistryProperties.instanceTtl` to prevent premature expiration. The service iterates all `registeredEphemeralInstances` and calls `renew` on each one via the `ServiceRegistry` ([RenewInstanceService.kt:117](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L117)):
+
+- each renew is bounded by `period` and its failure is logged without affecting the other instances;
+- a renewal round still in flight makes the next tick be skipped instead of overlapping;
+- `stop()` only cancels the schedule, so the service can be started again.
 
 ## Sequence Diagrams
 
@@ -127,11 +134,12 @@ sequenceDiagram
 
     App->>SR: register(namespace, serviceInstance)
     SR->>SR: build ARGV (ttl, serviceId, instanceId, schema, host, port, weight, metadata)
-    SR->>Redis: EVAL registry_register.lua KEYS=[namespace] ARGV=[...]
+    SR->>Redis: EVAL registry_register.lua KEYS=[svc_idx, svc_stat, svc_itc_idx, svc_itc, svc_itc_exp] ARGV=[...]
     Redis->>Redis: SADD svc_itc_idx:{serviceId} {instanceId}
     Redis->>Redis: SADD svc_idx {serviceId}
     Redis->>Redis: HMSET svc_itc:{instanceId} {fields}
     Redis->>Sub: PUBLISH svc_itc:{instanceId} "register"
+    Redis->>Redis: ZADD svc_itc_exp {now + ttl} {instance}
     Redis->>Redis: EXPIRE svc_itc:{instanceId} {ttl}
     Redis-->>SR: Boolean (success)
     alt registered == true
@@ -140,7 +148,7 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
 
 ### Renew / Heartbeat Flow
 
@@ -155,10 +163,11 @@ sequenceDiagram
     RS->>RS: scheduler tick (every period seconds)
     RS->>RS: iterate registeredEphemeralInstances
     RS->>SR: renew(namespace, instance)
-    SR->>Redis: EVAL registry_renew.lua KEYS=[namespace] ARGV=[instanceId, ttl]
+    SR->>Redis: EVAL registry_renew.lua KEYS=[svc_itc, svc_itc_exp] ARGV=[ttl, serviceId, instanceId, publishTtlAt]
     Redis->>Redis: TTL svc_itc:{instanceId} (check exists)
     alt instance exists
         Redis->>Redis: EXPIRE svc_itc:{instanceId} {ttl}
+        Redis->>Redis: ZADD svc_itc_exp {now + ttl} {instance}
         Redis->>Redis: check publish throttle window
         alt throttle window exceeded
             Redis->>Redis: HSET __last_renew_pub_ttl_at {currentTtlAt}
@@ -171,7 +180,7 @@ sequenceDiagram
     end
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:70, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:163 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:117, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:177 -->
 
 ### Deregister Flow
 
@@ -186,7 +195,8 @@ sequenceDiagram
 
     App->>SR: deregister(namespace, instance)
     SR->>EMap: removeEphemeralInstance(namespace, instance)
-    SR->>Redis: EVAL registry_deregister.lua KEYS=[namespace] ARGV=[serviceId, instanceId]
+    SR->>Redis: EVAL registry_deregister.lua KEYS=[svc_itc_idx, svc_itc, svc_itc_exp] ARGV=[instanceId, serviceId]
+    Redis->>Redis: ZREM svc_itc_exp {instance}
     Redis->>Redis: SREM svc_itc_idx:{serviceId} {instanceId}
     alt removed == 1
         Redis->>Sub: PUBLISH svc_itc:{instanceId} "deregister"
@@ -198,7 +208,21 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:191, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:210, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+
+## Expiry Reaping
+
+An ephemeral instance expires when its key's TTL runs out. Removing it from its service index and publishing the `expired` event is the job of the **expiry reaper**:
+
+- `register` and `renew` add the instance to the namespace's expiry index `{namespace}:svc_itc_exp`, scored by its `ttlAt`; `deregister` and fixed registrations remove it.
+- `registry_reap.lua` takes the due candidates (`ZRANGEBYSCORE -inf now LIMIT 0 100`) in `O(log N + k)`. A candidate whose key is gone is removed from its index and announced as `expired`; a candidate whose key is still alive is re-scored. The index only lists candidates — the key's TTL stays authoritative, so a stale index can never drop a live instance ([RedisServiceRegistry.kt:249](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L249)).
+- `RenewInstanceService` reaps the namespaces it renews after every renewal round, so every registered client keeps its namespaces clean and `expired` events no longer depend on `cosky-rest-api` ([RenewInstanceService.kt:99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L99)).
+
+Reads (`discovery_get_instances.lua`) and the statistics job still remove dead instances lazily, which also covers instances registered by older clients that do not maintain the index.
+
+### Renew Events Carrying ttlAt
+
+Renew events can carry the new `ttlAt` (`renew:<ttlAt>`), so that consumers update their cached instance without a Redis round trip. Parsing accepts the payload ([InstanceChangedEvent.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt#L50)); publishing it is off by default (`spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at`, [RegistryProperties.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt#L32)). Enable it only once every client runs a version that parses it: older clients reject the payload.
 
 ## Redis Key Structure
 
@@ -210,10 +234,11 @@ The registry uses a structured key pattern for organizing service and instance d
 | `{namespace}:svc_stat` | HASH | Service ID to instance count statistics | `production:svc_stat` |
 | `{namespace}:svc_itc_idx:{serviceId}` | SET | Set of instance IDs for a given service | `production:svc_itc_idx:order-service` |
 | `{namespace}:svc_itc:{instanceId}` | HASH | Instance data (fields: instanceId, serviceId, schema, host, port, weight, ephemeral, metadata) | `production:svc_itc:order-service@http#10.0.1.5#8080` |
+| `{namespace}:svc_itc_exp` | ZSET | Expiry index: ephemeral instances scored by `ttlAt`, the candidates of reaping | `production:svc_itc_exp` |
 | `{namespace}:topology_idx` | HASH | Topology index: consumer name to timestamp | `production:topology_idx` |
 | `{namespace}:topology:{consumer}` | HASH | Topology deps: producer name to timestamp | `production:topology:gateway-service` |
 
-Note: `ttl_at` is **not** stored in the instance hash. It is computed at read time as `now + ttl` by the discovery scripts ([discovery_get_instances.lua:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua#L33), [discovery_get_instance.lua:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instance.lua#L30)). The renew script may additionally write the system field `__last_renew_pub_ttl_at` into the hash for publish throttling ([registry_renew.lua:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L9)).
+Note: `ttl_at` is **not** stored in the instance hash. It is computed at read time as `now + ttl` by the discovery scripts ([discovery_lib.lua:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/cosky/discovery/discovery_lib.lua#L50)). The renew script may additionally write the system field `__last_renew_pub_ttl_at` into the hash for publish throttling ([registry_renew.lua:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L20)).
 
 The instance ID format is `{serviceId}@{schema}#{host}#{port}` (e.g., `order-service@http#10.0.1.5#8080`), as defined in [`Instance.asInstanceId`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/Instance.kt#L57).
 
@@ -250,6 +275,7 @@ classDiagram
         -renewProperties: RenewProperties
         -serviceRegistry: ServiceRegistry
         -scheduler: Scheduler
+        +isRunning: Boolean
         +start()
         +stop()
         -renew()
@@ -276,7 +302,7 @@ classDiagram
     RenewInstanceService --> RenewProperties : configured by
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:32, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:23 -->
 
 ## Related Pages
 

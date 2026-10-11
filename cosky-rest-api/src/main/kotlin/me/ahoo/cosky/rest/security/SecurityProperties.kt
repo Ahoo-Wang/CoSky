@@ -19,17 +19,29 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 /**
  * Security Properties.
  *
+ * A JavaBean (no-arg constructor, mutable properties) on purpose: Spring Cloud's ConfigurationPropertiesRebinder
+ * re-binds properties beans in place, which constructor-bound beans do not survive.
+ *
  * @author ahoo wang
  */
 @ConfigurationProperties(SecurityProperties.PREFIX)
-class SecurityProperties(
-    val enabled: Boolean = true,
-    val enforceInitSuperUser: Boolean = false,
-    val auditLog: AuditLog = AuditLog()
-) {
-    data class AuditLog(
-        val action: Action = Action.WRITE
-    )
+class SecurityProperties {
+    var enabled: Boolean = true
+    var enforceInitSuperUser: Boolean = false
+    var auditLog: AuditLog = AuditLog()
+
+    class AuditLog {
+        var action: Action = Action.WRITE
+
+        /**
+         * The audit log keeps its newest max-size entries.
+         */
+        var maxSize: Long = 100_000
+            set(value) {
+                require(value > 0) { "audit-log.max-size must be positive." }
+                field = value
+            }
+    }
 
     companion object {
         const val PREFIX = CoSky.COSKY + ".security"

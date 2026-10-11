@@ -25,12 +25,13 @@ import kotlin.String
 class CoSkyServiceRegistry(
     private val serviceRegistry: ServiceRegistry,
     private val renewInstanceService: RenewInstanceService,
-    private val coSkyRegistryProperties: CoSkyRegistryProperties
+    private val coSkyRegistryProperties: CoSkyRegistryProperties,
+    private val namespace: String
 ) : org.springframework.cloud.client.serviceregistry.ServiceRegistry<CoSkyRegistration> {
     override fun register(registration: CoSkyRegistration?) {
         requireNotNull(registration) { "registration can not be null!" }
         val instance = registration.asServiceInstance()
-        val succeeded = serviceRegistry.register(serviceInstance = instance).block(coSkyRegistryProperties.timeout)
+        val succeeded = serviceRegistry.register(namespace, instance).block(coSkyRegistryProperties.timeout)
         check(succeeded == true) { "register instance failed! $instance" }
         renewInstanceService.start()
     }
@@ -38,7 +39,7 @@ class CoSkyServiceRegistry(
     override fun deregister(registration: CoSkyRegistration?) {
         requireNotNull(registration) { "registration can not be null!" }
         val instance = registration.asServiceInstance()
-        val succeeded = serviceRegistry.deregister(serviceInstance = instance).block(coSkyRegistryProperties.timeout)
+        val succeeded = serviceRegistry.deregister(namespace, instance).block(coSkyRegistryProperties.timeout)
         check(succeeded == true) { "deregister instance failed! $instance" }
     }
 
@@ -50,6 +51,7 @@ class CoSkyServiceRegistry(
         registration.metadata[StatusConstants.INSTANCE_STATUS_KEY] = status
         serviceRegistry
             .setMetadata(
+                namespace = namespace,
                 serviceId = registration.serviceId,
                 instanceId = registration.instanceId,
                 key = StatusConstants.INSTANCE_STATUS_KEY,

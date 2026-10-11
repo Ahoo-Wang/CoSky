@@ -10,19 +10,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.discovery
+package me.ahoo.cosky.core
 
-import me.ahoo.cosky.core.Namespaced
-import me.ahoo.cosky.core.NamespacedContext
+import me.ahoo.test.asserts.assert
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
-/**
- * Service Instance Context.
- *
- * @author ahoo wang
- */
-object ServiceInstanceContext : Namespaced {
-    @Volatile
-    var serviceInstance: ServiceInstance = ServiceInstance.NOT_FOUND
-    override val namespace: String
-        get() = NamespacedContext.namespace
+class NamespacedTest {
+
+    @Test
+    fun validNamespace() {
+        requireValidNamespace(Namespaced.DEFAULT).assert().isEqualTo(Namespaced.DEFAULT)
+        requireValidNamespace("dev").assert().isEqualTo("dev")
+    }
+
+    @Test
+    fun blankNamespace() {
+        assertThrows<IllegalArgumentException> { requireValidNamespace(" ") }
+    }
+
+    @Test
+    fun namespaceContainingKeySeparator() {
+        assertThrows<IllegalArgumentException> { requireValidNamespace("dev:blue") }
+    }
 }

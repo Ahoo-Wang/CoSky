@@ -13,7 +13,6 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.BinaryWeightRandomLoadBalancer.BinaryChooser
@@ -26,10 +25,9 @@ import java.util.concurrent.ThreadLocalRandom
  * @author ahoo wang
  */
 class BinaryWeightRandomLoadBalancer(
-    serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer
+    serviceDiscovery: ServiceDiscovery
 ) :
-    AbstractLoadBalancer<BinaryChooser>(serviceDiscovery, instanceEventListenerContainer) {
+    AbstractLoadBalancer<BinaryChooser>(serviceDiscovery) {
     companion object {
         private val log = KotlinLogging.logger {}
     }

@@ -4,17 +4,18 @@ title: "Consistency Layer"
 
 # Consistency Layer
 
-Every `getConfig` call to Redis involves network I/O, serialization, and round-trip latency. At scale with thousands of service instances polling for configuration, this becomes a critical bottleneck -- the raw `RedisConfigService` achieves approximately 241,787 ops/s for reads. CoSky's Consistency Layer solves this by combining a local in-process cache (`ConcurrentHashMap`) with Redis PubSub-based invalidation. When a configuration changes, the Lua script that writes the new value also publishes a notification on the config's Redis key channel. All application instances subscribed to that channel receive the invalidation event and refresh their local cache. The result: `getConfig` jumps to **256,733,987 ops/s** -- a roughly 1000x improvement -- while maintaining eventual consistency within milliseconds.
+Every `getConfig` call to Redis involves network I/O, serialization, and round-trip latency. At scale with thousands of service instances polling for configuration, this becomes a critical bottleneck -- the raw `RedisConfigService` achieves approximately 241,787 ops/s for reads. CoSky's Consistency Layer solves this by combining a local in-process cache (`ReactiveWatchCache`) with Redis PubSub change events. When a configuration changes, the Lua script that writes the new value also publishes a notification on the config's Redis key channel. All application instances subscribed to that channel receive the event and update their local snapshot. The result: `getConfig` jumps to **256,733,987 ops/s** -- a roughly 1000x improvement -- while maintaining eventual consistency within milliseconds.
 
 ## At a Glance
 
 | Component | Responsibility | Key File | Source |
 |---|---|---|---|
-| **RedisConsistencyConfigService** | Decorator around ConfigService that adds local caching with PubSub invalidation | `RedisConsistencyConfigService.kt` | [RedisConsistencyConfigService.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L33) |
+| **RedisConsistencyConfigService** | Decorator around ConfigService that serves `getConfig` from a `ReactiveWatchCache` | `RedisConsistencyConfigService.kt` | [RedisConsistencyConfigService.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L36) |
+| **ReactiveWatchCache** | Generic event-driven local cache: subscribe, then load, then apply events serially | `ReactiveWatchCache.kt` | [ReactiveWatchCache.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L47) |
+| **ConfigWatcher** | Streams a config snapshot after every change, once the local cache holds it | `ConfigWatcher.kt` | [ConfigWatcher.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt#L23) |
 | **ConfigEventListenerContainer** | Interface for subscribing to config change events | `ConfigEventListenerContainer.kt` | [ConfigEventListenerContainer.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt#L22) |
-| **RedisConfigEventListenerContainer** | Redis PubSub implementation that listens to config key channels | `RedisConfigEventListenerContainer.kt` | [RedisConfigEventListenerContainer.kt:14](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L14) |
-| **RedisConfigService** | Standard Redis-backed config service (the delegate) | `RedisConfigService.kt` | [RedisConfigService.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L41) |
-| **ConfigChangedEvent** | Event model representing a config change with operation type | `ConfigChangedEvent.kt` | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20) |
+| **RedisConfigEventListenerContainer** | Redis PubSub implementation that listens to config key channels | `RedisConfigEventListenerContainer.kt` | [RedisConfigEventListenerContainer.kt:15](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L15) |
+| **RedisConfigService** | Standard Redis-backed config service (the delegate) | `RedisConfigService.kt` | [RedisConfigService.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L43) |
 
 ## The Performance Problem
 
@@ -36,45 +37,45 @@ Source: [jmh-cosky-config.json](https://github.com/Ahoo-Wang/CoSky/blob/main/doc
 
 ## The Solution: RedisConsistencyConfigService
 
-`RedisConsistencyConfigService` is a decorator that wraps any `ConfigService` implementation (by default, `RedisConfigService`) and adds a two-layer caching strategy:
+`RedisConsistencyConfigService` is a decorator that wraps any `ConfigService` implementation (by default, `RedisConfigService`). It serves `getConfig` from a `ReactiveWatchCache<NamespacedConfigId, Config>` and forwards every other call to the delegate.
 
-1. **Local cache** -- A `ConcurrentHashMap<NamespacedConfigId, Mono<Config>>` stores the most recently fetched config as a cached `Mono`. Subsequent `getConfig` calls for the same configId return the cached value without hitting Redis.
+`ReactiveWatchCache` is the single consistency primitive behind every CoSky client-side cache (configs, services and instances). For each key it:
 
-2. **PubSub invalidation** -- When any write operation (`setConfig`, `removeConfig`, `rollback`) modifies a configuration, the underlying Lua script publishes a message on the Redis channel corresponding to that config's key. The `RedisConfigEventListenerContainer` subscribes to these channels and triggers cache invalidation in the consistency service.
+1. **Subscribes first** -- `EventListenerContainer.listen` emits the event stream only once Redis has confirmed the `SUBSCRIBE` (`ReactiveRedisMessageListenerContainer.receiveLater`).
+2. **Then loads** the initial value, so a change written between the two steps can not be missed.
+3. **Applies events one at a time** (`concatMap`), publishing an immutable, versioned `Snapshot` whenever the value changes. For configs every event simply reloads the config from Redis.
 
 ```mermaid
 flowchart TD
     subgraph app["Application Process"]
         style app fill:#161b22,stroke:#30363d,color:#e6edf3
         A["getConfig(namespace, configId)"]
-        B["ConcurrentHashMap Cache"]
-        C["Cache Hit?"]
-        D["Return cached Mono"]
+        B["Snapshot loaded?"]
+        D["Return the snapshot's prebuilt Mono"]
     end
 
-    subgraph delegate["Redis Layer"]
-        style delegate fill:#161b22,stroke:#30363d,color:#e6edf3
-        E["RedisConfigService.getConfig()"]
-        F["Redis HGETALL"]
-        G["Cache result + return"]
+    subgraph watch["ReactiveWatchCache entry (first access)"]
+        style watch fill:#161b22,stroke:#30363d,color:#e6edf3
+        E["listen(): SUBSCRIBE {ns}:cfg:{configId}"]
+        F["Subscription active"]
+        G["load(): RedisConfigService.getConfig()"]
+        H["Publish Snapshot v1"]
     end
 
-    subgraph invalidation["PubSub Invalidation"]
-        style invalidation fill:#161b22,stroke:#30363d,color:#e6edf3
-        H["Lua script: PUBLISH"]
-        I["RedisConfigEventListenerContainer"]
-        J["onConfigChanged()"]
-        K["Refresh cache from Redis"]
+    subgraph events["Change events"]
+        style events fill:#161b22,stroke:#30363d,color:#e6edf3
+        I["Lua script: PUBLISH"]
+        J["concatMap: reload from Redis"]
+        K["Publish Snapshot v+1<br>(only if the value changed)"]
     end
 
-    A --> B --> C
-    C -->|Yes| D
-    C -->|No| E --> F --> G
-    G --> B
-    H --> I --> J --> K --> B
+    A --> B
+    B -->|Yes| D
+    B -->|No| E --> F --> G --> H --> D
+    I --> J --> K
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:33, RedisConfigEventListenerContainer.kt:14, RedisConfigService.kt:41 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:43, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:120, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:142, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:156 -->
 
 ## Architecture
 
@@ -86,7 +87,7 @@ flowchart LR
         style client fill:#161b22,stroke:#30363d,color:#e6edf3
         App["Application Code"]
         RCS["RedisConsistencyConfigService"]
-        Cache["Local Cache<br>(ConcurrentHashMap)"]
+        Cache["ReactiveWatchCache<br>(Snapshot per configId)"]
     end
 
     subgraph redis["Redis"]
@@ -97,46 +98,42 @@ flowchart LR
     end
 
     App -->|"getConfig()"| RCS
-    RCS -->|cache miss| RDS
+    RCS --> Cache
+    Cache -->|"load / reload"| RDS
     RDS -->|HGETALL| Redis["Redis Storage"]
-    RDS -->|"return Config"| RCS
-    RCS -->|"store"| Cache
-    Cache -->|"return"| RCS
+    Cache -->|"current snapshot"| RCS
     RCS -->|"return Config"| App
 
     Lua -->|"PUBLISH"| PubSub
-    PubSub -->|"invalidate"| RCS
+    PubSub -->|"change event"| Cache
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:33, RedisConfigService.kt:41, config_set.lua:1 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:36, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:47, cosky-config/src/main/resources/config_set.lua:1 -->
 
 ## Cache Hit Flow
 
-When a configuration has been previously loaded, the consistency service returns the cached `Mono<Config>` directly without touching Redis.
+Once a configuration has been loaded, `getConfig` returns the snapshot's prebuilt `Mono<Config>`: a map lookup plus a volatile read, with no Redis call and no allocation.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant App as Application
     participant RCS as RedisConsistencyConfigService
-    participant Cache as ConcurrentHashMap
+    participant Cache as ReactiveWatchCache
     participant RDS as RedisConfigService
 
     App->>RCS: getConfig(namespace, configId)
     RCS->>Cache: get(NamespacedConfigId)
-    Cache-->>RCS: Mono~Config~ (cached)
-    Note over RCS: Replays the cached Mono<br>to all subscribers
+    Cache-->>RCS: Mono~Config~ of the current snapshot
     RCS-->>App: Mono~Config~
     Note over App: No Redis call made
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:50 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:50, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:65 -->
 
-The key detail is that the cache stores a `Mono<Config>` that has been `.cache()`-d by Reactor. This means the initial subscription triggers the Redis call, but all subsequent subscribers receive the same result without re-executing the reactive pipeline. When `computeIfAbsent` inserts a new entry, it also subscribes to the PubSub channel for that configId to listen for future changes.
+## Change Flow
 
-## Cache Invalidation Flow
-
-When any process modifies a configuration, the Lua script publishes a change event on the Redis PubSub channel. Every instance listening on that channel receives the invalidation and lazily refreshes its cache.
+When any process modifies a configuration, the Lua script publishes a change event on the config's Redis PubSub channel. Every instance watching that config reloads it and publishes a new snapshot.
 
 ```mermaid
 sequenceDiagram
@@ -146,34 +143,42 @@ sequenceDiagram
     participant Redis as Redis (Lua)
     participant PS as Redis PubSub
     participant Listener as RedisConfigEventListenerContainer
-    participant RCS as RedisConsistencyConfigService
-    participant Cache as ConcurrentHashMap
+    participant Cache as ReactiveWatchCache
+    participant Refresher as CoSkyConfigRefresher
 
     Producer->>RDS: setConfig(namespace, configId, newData)
     RDS->>Redis: EVAL config_set.lua
-    Note over Redis: 1. Check hash<br>2. Write new data<br>3. Archive old version<br>4. PUBLISH change
+    Note over Redis: 1. Check hash<br>2. Archive old version<br>3. Write new data<br>4. PUBLISH change
     Redis->>PS: PUBLISH {ns}:cfg:{configId} "set"
 
     PS-->>Listener: Message received
-    Listener->>Listener: Parse ConfigChangedEvent
-    Listener-->>RCS: onConfigChanged(event)
-    RCS->>Cache: Overwrite entry with a new cold<br>Mono cached with 1-minute TTL
-    Note over RCS,Cache: No Redis call happens here -- the fetch is deferred<br>until the next getConfig() subscriber arrives
-    Note over Cache: Next read re-executes the fetch<br>and returns fresh data
+    Listener-->>Cache: ConfigChangedEvent
+    Cache->>RDS: getConfig() (serialized with other events)
+    RDS-->>Cache: Config v+1
+    Note over Cache: Publish Snapshot v+1
+    Cache-->>Refresher: watchConfig() emits the new snapshot
+    Note over Refresher: RefreshEvent is published only now,<br>so the refresh reads the new config
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:68, RedisConfigEventListenerContainer.kt:18, config_set.lua:1 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:19, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:142, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:61, cosky-config/src/main/resources/config_set.lua:1 -->
 
-The invalidation path is a single overwrite: `onConfigChanged` replaces the map entry with `delegate.getConfig(...).cache(CONFIG_CACHE_TTL)` -- a cold `Mono` that is never subscribed at invalidation time (hence the `@Suppress("ReactiveStreamsUnusedPublisher")` in the source). The event type (`SET`, `REMOVE`, `ROLLBACK`) is not inspected; all three follow the identical overwrite path, and a removed config simply yields a cached *empty* `Mono`.
+The event type (`SET`, `REMOVE`, `ROLLBACK`) is not inspected: every event reloads the config, and a removed config becomes an empty snapshot. Because the reload reads the current state of Redis, applying an event is idempotent, which is what makes "subscribe, then load" safe even if an event describes a change the initial load already observed.
+
+## Watching Configs
+
+`RedisConsistencyConfigService` also implements `ConfigWatcher`. `watchConfig(namespace, configId)` emits the current snapshot followed by one snapshot per change, each emitted **after** the local cache holds it. `CoSkyConfigRefresher` uses it to publish Spring Cloud `RefreshEvent`s, skipping the first snapshot (the config the application started with).
+
+Source: [ConfigWatcher.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt#L23), [CoSkyConfigRefresher.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L61)
 
 ## Event Listener Container
 
-The `ConfigEventListenerContainer` interface abstracts the subscription to configuration change events. Its Redis implementation, `RedisConfigEventListenerContainer`, wraps a `ReactiveRedisMessageListenerContainer` and subscribes to Redis PubSub channels using the config's Redis key as the channel name.
+The `ConfigEventListenerContainer` interface abstracts the subscription to configuration change events. Its Redis implementation, `RedisConfigEventListenerContainer`, uses a `ReactiveRedisMessageListenerContainer` shared by all CoSky listeners and subscribes to the config's Redis key as the channel name.
 
 ```mermaid
 classDiagram
     class EventListenerContainer~Topic, Event~ {
         <<interface>>
+        +listen(topic: Topic) Mono~Flux~Event~~
         +receive(topic: Topic) Flux~Event~
     }
 
@@ -184,12 +189,12 @@ classDiagram
     class RedisEventListenerContainer~Topic, Event~ {
         <<abstract>>
         #delegate: ReactiveRedisMessageListenerContainer
-        +receive(topic: Topic) Flux~Event~
-        #receiveEvent(topic: Topic) Flux~Event~
+        +listen(topic: Topic) Mono~Flux~Event~~
+        #listenEvent(topic: Topic) Mono~Flux~Event~~
     }
 
     class RedisConfigEventListenerContainer {
-        +receiveEvent(topic: NamespacedConfigId) Flux~ConfigChangedEvent~
+        +listenEvent(topic: NamespacedConfigId) Mono~Flux~ConfigChangedEvent~~
         -asEvent(message) ConfigChangedEvent
     }
 
@@ -198,37 +203,36 @@ classDiagram
     RedisEventListenerContainer <|-- RedisConfigEventListenerContainer
 ```
 
-<!-- Sources: ConfigEventListenerContainer.kt:22, RedisConfigEventListenerContainer.kt:14 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt:16, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt:22, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:19 -->
 
-The channel naming convention uses the same key pattern as the configuration hash itself: `{namespace}:cfg:{configId}`. This means the PubSub channel is naturally namespaced and config-specific, so each service instance only subscribes to the configurations it actually uses.
+`listen` emits only once the subscription is active; `receive` is a convenience that flattens it. The channel naming convention uses the same key pattern as the configuration hash itself: `{namespace}:cfg:{configId}`, so each service instance only subscribes to the configurations it actually uses.
 
-Source: [RedisConfigEventListenerContainer.kt:18](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L18)
+Source: [RedisConfigEventListenerContainer.kt:21](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L21)
 
 ## Cache State Machine
 
-The local cache for each configuration entry goes through a well-defined set of states as requests and invalidation events occur.
-
 ```mermaid
 stateDiagram-v2
-    [*] --> CachedNoTTL: First getConfig() call<br>entry = getConfig().cache()
+    [*] --> Subscribing: First getConfig()
+    Subscribing --> Loading: Subscription active
+    Loading --> Loaded: Snapshot v1 published
+    Loading --> Failed: Load error before any snapshot
 
-    CachedNoTTL --> CachedNoTTL: Subsequent getConfig() (cache hit,<br>never expires on its own)
-    CachedNoTTL --> CachedTTL: Any PubSub event (set / remove /<br>rollback) overwrites the entry
+    Loaded --> Loaded: Change event or periodic resync<br>(new snapshot only if the value changed)
+    Loaded --> Recovering: Load / apply / connection error
+    Recovering --> Loaded: Re-subscribe and reload succeed
+    Failed --> Subscribing: Retry with backoff
 
-    CachedTTL --> CachedTTL: getConfig() within TTL (cache hit)
-    CachedTTL --> Refetching: Cache TTL reached (1 minute)
-    Refetching --> CachedTTL: Next getConfig() re-executes the fetch<br>and caches for another minute
-    CachedTTL --> CachedTTL: Next PubSub event (overwrite)
-
-    CachedNoTTL --> [*]: Listener terminated<br>(entry removed from map)
-    CachedTTL --> [*]: Listener terminated<br>(entry removed from map)
+    Loaded --> [*]: Event stream completed<br>(entry evicted, next access starts over)
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:57, RedisConsistencyConfigService.kt:68 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:120, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:156, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:167, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:175 -->
 
-The `CONFIG_CACHE_TTL` is set to `Duration.ofMinutes(1)`, but it applies **only to entries written by the PubSub refresh path** (`onConfigChanged` uses `.cache(CONFIG_CACHE_TTL)`). The initial cache entry, created on the first `getConfig()` call, uses plain `.cache()` with **no TTL** and never expires on its own. If the PubSub listener terminates, its `doFinally` hook removes the entry from the map, so the next `getConfig()` re-creates the entry and re-subscribes.
+- **Failed** -- readers of a key that has never loaded get the error; the error is not cached and the key is retried with backoff (1s, up to 30s).
+- **Recovering** -- the last good snapshot keeps being served while the cache re-subscribes and reloads. A client-side cache favors availability over failing every read during a Redis outage.
+- **Periodic resync** -- every key is reloaded every 5 minutes, a safety net for events lost while the PubSub connection reconnects.
 
-Source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)
+Source: [ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57)
 
 ## Performance Benchmarks
 
@@ -250,7 +254,7 @@ xychart-beta
 
 <!-- Sources: jmh-cosky-config.json:1 -->
 
-The consistency service achieves **256,733,987 ops/s** because after the first read, all subsequent `getConfig` calls resolve from the in-process `ConcurrentHashMap` without any network I/O. The only Redis traffic is the initial load and the PubSub invalidation messages (which are infrequent since configuration changes are rare relative to reads).
+The consistency service achieves **256,733,987 ops/s** because after the first read, all subsequent `getConfig` calls resolve from the in-process snapshot without any network I/O. The only Redis traffic is the initial load, the reload triggered by each change event, and the periodic resync (which are infrequent since configuration changes are rare relative to reads).
 
 Source: [jmh-cosky-config.json](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/jmh/jmh-cosky-config.json)
 
@@ -270,19 +274,19 @@ For most microservice configuration use cases (feature flags, connection pool si
 
 ### Memory Overhead
 
-Each cached configuration entry occupies memory in the JVM heap for the `ConcurrentHashMap` entry and the cached `Mono<Config>`. For services with hundreds of configurations, this is negligible. For services with tens of thousands of configurations, monitor heap usage.
+Each watched configuration holds one snapshot and one PubSub channel subscription for as long as the cache lives. For services with hundreds of configurations, this is negligible. Administrative reads in `cosky-rest-api` bypass the cache entirely, so browsing configurations in the dashboard does not grow it.
 
 ### PubSub Reliability
 
-Redis PubSub is a fire-and-forget protocol -- if an instance is temporarily disconnected (network blip, GC pause), it will miss invalidation messages. The `CONFIG_CACHE_TTL` of 1 minute bounds this staleness **only for entries that have already been refreshed by a previous invalidation event**: those entries are re-fetched from Redis at most 60 seconds after their last refresh. The initial cache entry, however, is created with plain `.cache()` (no TTL) and never expires on its own -- if the very first invalidation event for a config is missed, that entry keeps serving stale data until a later event arrives, the listener terminates (which evicts the entry), or the process restarts.
+Redis PubSub is a fire-and-forget protocol -- if an instance is temporarily disconnected, it misses the events published meanwhile, and Lettuce re-subscribes silently on reconnect. The periodic resync (every 5 minutes by default) bounds how long such a missed change can go unnoticed. Errors on the event stream itself trigger an immediate re-subscribe and reload.
 
-Source: [RedisConsistencyConfigService.kt:64-76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L64)
+Source: [ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57)
 
 ### Delegation Pattern
 
 `RedisConsistencyConfigService` uses Kotlin's `by delegate` syntax to forward all non-`getConfig` methods directly to the underlying `RedisConfigService`. This means write operations (`setConfig`, `removeConfig`, `rollback`) always go to Redis and trigger PubSub events. The consistency optimization only applies to reads.
 
-Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L37)
+Source: [RedisConsistencyConfigService.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L41)
 
 ## Related Pages
 
@@ -293,6 +297,8 @@ Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky
 ## References
 
 - [RedisConsistencyConfigService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt) -- Consistency layer implementation
+- [ReactiveWatchCache.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt) -- Event-driven local cache primitive
+- [ConfigWatcher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt) -- Config snapshot stream
 - [RedisConfigService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt) -- Standard Redis config service (delegate)
 - [ConfigEventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt) -- Event listener container interface
 - [RedisConfigEventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt) -- Redis PubSub event listener implementation

@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery
 
 import me.ahoo.cosky.core.Namespaced
+import me.ahoo.cosky.core.requireValidNamespace
 
 /**
  * Namespaced InstanceId.
@@ -22,4 +23,9 @@ import me.ahoo.cosky.core.Namespaced
 data class NamespacedInstanceId(
     override val namespace: String,
     val instanceId: String
-) : Namespaced
+) : Namespaced {
+    init {
+        requireValidNamespace(namespace)
+        require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
+    }
+}

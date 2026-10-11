@@ -99,18 +99,4 @@ private data class ServiceInstanceData(
     override val isEphemeral: Boolean = true,
     override val ttlAt: Long = TTL_AT_FOREVER,
     override val metadata: Map<String, String> = mapOf()
-) : ServiceInstance, Instance by delegate {
-
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is ServiceInstanceData) return false
-
-        if (delegate != other.delegate) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        return delegate.hashCode()
-    }
-}
+) : ServiceInstance, Instance by delegate

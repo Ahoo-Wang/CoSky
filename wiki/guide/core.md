@@ -12,12 +12,13 @@ The `cosky-core` module is the foundation of the entire CoSky platform. Every ot
 |-----------|------|---------------|----------|
 | `CoSky` | Object | Brand constants: `COSKY = "cosky"`, `KEY_SEPARATOR = ":"`, `VERSION` | [CoSky.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt) |
 | `Namespaced` | Interface | Contract for components that operate within a namespace | [Namespaced.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt) |
-| `NamespacedContext` | Object | Volatile global namespace holder (default: `"cosky"`) | [NamespacedContext.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt) |
+| `requireValidNamespace` | Function | The single namespace validation rule: not blank, no `:` | [Namespaced.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt#L35) |
 | `NamespaceService` | Interface | CRUD operations for namespaces (reactive Flux/Mono) | [NamespaceService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt) |
 | `RedisNamespaceService` | Class | Redis SET-backed implementation of `NamespaceService` | [RedisNamespaceService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt) |
 | `RedisKeys` | Object | Hash-tag wrapping and key utilities for Redis Cluster | [RedisKeys.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt) |
-| `EventListenerContainer` | Interface | Reactive event subscription contract (`receive(topic): Flux<E>`) | [EventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt) |
+| `EventListenerContainer` | Interface | Reactive event subscription contract (`listen(topic): Mono<Flux<E>>`, emitted once the subscription is active) | [EventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt) |
 | `RedisEventListenerContainer` | Abstract Class | Redis Pub/Sub base implementation with error handling and logging | [RedisEventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt) |
+| `ReactiveWatchCache` | Class | Event-driven local cache primitive behind every consistency cache | [ReactiveWatchCache.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt) |
 
 ## Namespace Model
 
@@ -30,7 +31,6 @@ The [`Namespaced`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/m
 ```kotlin
 interface Namespaced {
     val namespace: String
-        get() = DEFAULT
 
     companion object {
         const val DEFAULT: String = "${CoSky.COSKY}-{default}"   // "cosky-{default}"
@@ -39,28 +39,18 @@ interface Namespaced {
 }
 ```
 
-The `DEFAULT` namespace is the conventional namespace for general-purpose use. The `SYSTEM` namespace (`cosky-{system}`) is reserved for platform-internal data such as the namespace index itself. Implementors can override the default to provide custom namespace resolution.
+The `DEFAULT` namespace is the conventional namespace for general-purpose use. The `SYSTEM` namespace (`cosky-{system}`) is reserved for platform-internal data such as the namespace index itself. There is no implicit namespace: every component that is `Namespaced` states its namespace.
 
-### `NamespacedContext` -- Global Namespace State
+### Explicit Namespaces
 
-[`NamespacedContext`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt) is a singleton object that holds the current process-wide namespace:
+There is no process-global namespace. Every `ConfigService`, `ServiceRegistry` and `ServiceDiscovery` method takes the namespace as an explicit argument. In Spring Cloud applications, components receive it from `CoSkyProperties` (`spring.cloud.cosky.namespace`), which wraps it in a Redis Cluster hashtag when needed.
 
-```kotlin
-object NamespacedContext : Namespaced {
-    @Volatile
-    override var namespace: String = CoSky.COSKY
-}
-```
+### Namespace Validation
 
-The `@Volatile` annotation ensures visibility across threads. Spring Cloud auto-configuration sets this value at startup from `spring.cloud.cosky.namespace` in `CoSkyAutoConfiguration`:
+[`requireValidNamespace`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt#L35) is the single validation rule, applied by every Redis-backed service and by the namespaced identifiers (`NamespacedConfigId`, `NamespacedServiceId`, `NamespacedInstanceId`) on construction:
 
-```kotlin
-init {
-    NamespacedContext.namespace = coSkyProperties.namespace
-}
-```
-
-This design allows service methods throughout the codebase to use `NamespacedContext.namespace` as a default parameter, so callers rarely need to pass the namespace explicitly. For example, [`ConfigService.getConfig()`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L26) defaults to `NamespacedContext.namespace`.
+- the namespace must not be blank;
+- it must not contain the key separator `:`, which delimits the namespace in every Redis key (for example `DiscoveryKeyGenerator.getNamespaceOfKey` splits on the first `:`).
 
 ### `NamespaceService` -- Namespace CRUD
 
@@ -82,27 +72,19 @@ classDiagram
         +removeNamespace(namespace: String): Mono~Boolean~
     }
 
-    class NamespacedContext {
-        <<object>>
-        +namespace: String = "cosky"
-    }
-
     class Namespaced {
         <<interface>>
         +namespace: String
     }
 
     NamespaceService <|.. RedisNamespaceService
-    Namespaced <|.. NamespacedContext
-    NamespaceService ..> NamespacedContext : uses SYSTEM namespace for index key
 
     style NamespaceService fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style RedisNamespaceService fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style NamespacedContext fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Namespaced fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt:23-27, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:26-59, cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt:20-23, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:20-33 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt:23-27, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:27-56, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:20-41 -->
 
 `RedisNamespaceService` stores all namespace names in a Redis SET at the key `cosky-{system}:ns_idx`:
 
@@ -184,7 +166,7 @@ flowchart LR
     style CH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22-90, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt:22-82 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22-90, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt:22-82 -->
 
 | Pattern | Segment | Generator Method | Example |
 |---------|---------|-----------------|---------|
@@ -193,6 +175,9 @@ flowchart LR
 | `{ns}:svc_itc_idx:{serviceId}` | Instance index | `DiscoveryKeyGenerator.getInstanceIdxKey()` | `cosky-{default}:svc_itc_idx:order-service` |
 | `{ns}:svc_itc:{instanceId}` | Instance data | `DiscoveryKeyGenerator.getInstanceKey()` | `cosky-{default}:svc_itc:order-service@http#10.0.0.1#8080` |
 | `{ns}:svc_stat` | Service statistics | `DiscoveryKeyGenerator.getServiceStatKey()` | `cosky-{default}:svc_stat` |
+| `{ns}:svc_itc_exp` | Instance expiry index | `DiscoveryKeyGenerator.getInstanceExpiryKey()` | `cosky-{default}:svc_itc_exp` |
+| `{ns}:topology_idx` | Topology consumers | `DiscoveryKeyGenerator.getTopologyIdxKey()` | `cosky-{default}:topology_idx` |
+| `{ns}:topology:{consumer}` | Topology producers of a consumer | `DiscoveryKeyGenerator.getTopologyKey()` | `cosky-{default}:topology:gateway` |
 | `{ns}:cfg_idx` | Config index | `ConfigKeyGenerator.getConfigIdxKey()` | `cosky-{default}:cfg_idx` |
 | `{ns}:cfg:{configId}` | Config data | `ConfigKeyGenerator.getConfigKey()` | `cosky-{default}:cfg:application.yaml` |
 | `{ns}:cfg_htr_idx:{configId}` | History index | `ConfigKeyGenerator.getConfigHistoryIdxKey()` | `cosky-{default}:cfg_htr_idx:application.yaml` |
@@ -207,45 +192,47 @@ CoSky uses an event-driven architecture built on Redis Pub/Sub to propagate chan
 The [`EventListenerContainer<T, E>`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt) interface is a minimal reactive contract:
 
 ```kotlin
-interface EventListenerContainer<T, E : Any> : AutoCloseable {
-    fun receive(topic: T): Flux<E>
+interface EventListenerContainer<T, E : Any> {
+    fun listen(topic: T): Mono<Flux<E>>
+
+    fun receive(topic: T): Flux<E> = listen(topic).flatMapMany { it }
 }
 ```
 
 - `T` is the topic type (e.g., `String` for namespace-level events, `NamespacedServiceId` for instance-level events, `NamespacedConfigId` for config events)
 - `E` is the event type (e.g., `String` for service change notifications, `InstanceChangedEvent` for instance mutations, `ConfigChangedEvent` for config mutations)
-- Extends `AutoCloseable` for lifecycle management
+- `listen` emits the event stream only once the subscription is active (Redis confirmed `SUBSCRIBE`), so a read issued afterwards can not miss a change; `receive` is a convenience that flattens it
+- Containers do not own the transport: Spring provides one `ReactiveRedisMessageListenerContainer` shared by all CoSky containers and closes it with the context
 
 ### `RedisEventListenerContainer` Base Class
 
-The [`RedisEventListenerContainer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt) abstract class wraps Spring's `ReactiveRedisMessageListenerContainer` and provides error handling (specifically for `CancellationException`) and lifecycle management:
+The [`RedisEventListenerContainer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt) abstract class wraps Spring's `ReactiveRedisMessageListenerContainer`, implements `listen` on top of `receiveLater`, and handles `CancellationException`:
 
 ```mermaid
 classDiagram
     class EventListenerContainer~T, E~ {
         <<interface>>
+        +listen(topic: T): Mono~Flux~E~~
         +receive(topic: T): Flux~E~
-        +close() void
     }
 
     class RedisEventListenerContainer~T, E~ {
         <<abstract>>
         #delegate: ReactiveRedisMessageListenerContainer
-        +receive(topic: T): Flux~E~
-        #receiveEvent(topic: T): Flux~E~*
-        +close() void
+        +listen(topic: T): Mono~Flux~E~~
+        #listenEvent(topic: T): Mono~Flux~E~~*
     }
 
     class RedisInstanceEventListenerContainer {
-        +receiveEvent(topic: NamespacedServiceId): Flux~InstanceChangedEvent~
+        +listenEvent(topic: NamespacedServiceId): Mono~Flux~InstanceChangedEvent~~
     }
 
     class RedisServiceEventListenerContainer {
-        +receiveEvent(topic: String): Flux~String~
+        +listenEvent(topic: String): Mono~Flux~String~~
     }
 
     class RedisConfigEventListenerContainer {
-        +receiveEvent(topic: NamespacedConfigId): Flux~ConfigChangedEvent~
+        +listenEvent(topic: NamespacedConfigId): Mono~Flux~ConfigChangedEvent~~
     }
 
     class InstanceEventListenerContainer {
@@ -281,7 +268,7 @@ classDiagram
     style ConfigEventListenerContainer fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt:5-7, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceEventListenerContainer.kt:5, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceEventListenerContainer.kt:5, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt:22 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt:11-20, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceEventListenerContainer.kt:5, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceEventListenerContainer.kt:5, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt:22 -->
 
 ### Event Flow -- Service Instance Registration
 
@@ -306,7 +293,7 @@ sequenceDiagram
     App->>App: Update local cache or refresh
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:43-64, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:23-51, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:50-76, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:22-42, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
 
 ### Event Flow -- Config Change Propagation
 
@@ -319,6 +306,7 @@ sequenceDiagram
     participant Svc as RedisConfigService
     participant Redis as Redis
     participant Sub as RedisConfigEventListenerContainer
+    participant Cache as RedisConsistencyConfigService
     participant Refresher as CoSkyConfigRefresher
 
     Admin->>Svc: setConfig(namespace, configId, data)
@@ -327,11 +315,13 @@ sequenceDiagram
     Redis->>Redis: PUBLISH {ns}:cfg:{configId} "set"
     Redis->>Sub: Pub/Sub message delivered
     Sub->>Sub: Decode to ConfigChangedEvent<br>(NamespacedConfigId, SET)
-    Sub->>Refresher: ConfigChangedEvent received
-    Refresher->>Refresher: Trigger Spring Environment refresh
+    Sub->>Cache: ConfigChangedEvent received
+    Cache->>Redis: Reload config, publish new snapshot
+    Cache->>Refresher: watchConfig() emits the new snapshot
+    Refresher->>Refresher: Publish RefreshEvent (cache already updated)
 ```
 
-<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:75-86, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:14-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:104-114, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
 
 ### Event Types
 
@@ -343,22 +333,21 @@ sequenceDiagram
 
 ## Namespace-Scoped Operations Flow
 
-Every operation in CoSky flows through the namespace model. `CoSkyProperties` wraps the Spring Cloud client's configured namespace before storing it as the default context; explicitly supplied namespaces pass through unchanged. The following diagram illustrates how a typical service discovery request resolves keys within a namespace scope:
+Every operation in CoSky flows through the namespace model. `CoSkyProperties` wraps the Spring Cloud client's configured namespace in a hashtag, and Spring components pass it explicitly to every call; namespaces are validated but otherwise used unchanged. The following diagram illustrates how a typical service discovery request resolves keys within a namespace scope:
 
 ```mermaid
 flowchart TD
     A[Spring client configures namespace] --> B[CoSkyProperties applies RedisKeys.ofKey]
-    B --> C[NamespacedContext stores effective namespace]
-    D[Client calls getInstances] --> E{Namespace provided?}
-    E -->|No| F[Use NamespacedContext.namespace]
-    E -->|Yes| G[Use provided namespace unchanged]
-    C -.-> F
-    F --> H[DiscoveryKeyGenerator interpolates namespace unchanged]
-    G --> H
+    B --> C[Spring components receive CoSkyProperties.namespace]
+    C --> D[Component calls getInstances namespace, serviceId]
+    D --> E{requireValidNamespace}
+    E -->|Blank or contains ':'| F[IllegalArgumentException]
+    E -->|Valid| G[Use namespace unchanged]
+    G --> H[DiscoveryKeyGenerator interpolates namespace]
     H --> I[EVALSHA discovery_get_instances.lua]
     I --> J[Read instance data from svc_itc keys]
     J --> K[Decode via ServiceInstanceCodec]
-    K --> L[Return Flux of ServiceInstance]
+    K --> L[Return a snapshot List of ServiceInstance]
 
     style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style B fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -374,7 +363,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt:31-35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:42-55, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:54-58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
 
 ## Cross-References
 
@@ -386,7 +375,7 @@ flowchart TD
 
 - [CoSky.kt -- Brand constants](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt)
 - [Namespaced.kt -- Namespace contract and constants](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt)
-- [NamespacedContext.kt -- Global namespace state](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt)
+- [ReactiveWatchCache.kt -- Event-driven local cache primitive](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt)
 - [NamespaceService.kt -- Namespace CRUD interface](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt)
 - [RedisNamespaceService.kt -- Redis SET-backed namespace storage](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt)
 - [RedisKeys.kt -- Cluster hash-tag and key utilities](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)

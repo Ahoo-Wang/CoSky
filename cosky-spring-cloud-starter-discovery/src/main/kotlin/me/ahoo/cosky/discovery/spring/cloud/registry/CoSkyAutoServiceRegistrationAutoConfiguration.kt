@@ -16,6 +16,11 @@ import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewInstanceService
 import me.ahoo.cosky.discovery.ServiceRegistry
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoSkyDiscoveryEnabled
+import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
+import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
+import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -35,7 +40,10 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
  */
 @AutoConfiguration(
     before = [AutoServiceRegistrationAutoConfiguration::class],
+    after = [CoSkyAutoConfiguration::class],
 )
+@ConditionalOnCoSkyEnabled
+@ConditionalOnCoSkyDiscoveryEnabled
 @ConditionalOnAutoRegistrationEnabled
 @EnableConfigurationProperties(
     CoSkyRegistryProperties::class,
@@ -46,7 +54,10 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun registryProperties(
         coSkyRegistryProperties: CoSkyRegistryProperties
     ): RegistryProperties {
-        return RegistryProperties(coSkyRegistryProperties.ttl)
+        return RegistryProperties(
+            instanceTtl = coSkyRegistryProperties.ttl,
+            renewEventCarriesTtlAt = coSkyRegistryProperties.renewEventCarriesTtlAt,
+        )
     }
 
     @Bean
@@ -63,7 +74,7 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
         coSkyRegistryProperties: CoSkyRegistryProperties,
         redisServiceRegistry: RedisServiceRegistry
     ): RenewInstanceService {
-        return RenewInstanceService(coSkyRegistryProperties.renew, redisServiceRegistry)
+        return RenewInstanceService(coSkyRegistryProperties.renew.toRenewProperties(), redisServiceRegistry)
     }
 
     @Bean
@@ -88,7 +99,9 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
             port = properties.port,
             weight = properties.weight,
             isEphemeral = properties.isEphemeral,
-            metadata = properties.metadata,
+            metadata = properties.metadata.toMutableMap().apply {
+                this[StatusConstants.INSTANCE_STATUS_KEY] = properties.initialStatus
+            },
         )
     }
 
@@ -97,9 +110,15 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun coSkyServiceRegistry(
         serviceRegistry: ServiceRegistry,
         renewInstanceService: RenewInstanceService,
-        coSkyRegistryProperties: CoSkyRegistryProperties
+        coSkyRegistryProperties: CoSkyRegistryProperties,
+        coSkyProperties: CoSkyProperties
     ): CoSkyServiceRegistry {
-        return CoSkyServiceRegistry(serviceRegistry, renewInstanceService, coSkyRegistryProperties)
+        return CoSkyServiceRegistry(
+            serviceRegistry,
+            renewInstanceService,
+            coSkyRegistryProperties,
+            coSkyProperties.namespace,
+        )
     }
 
     @Bean

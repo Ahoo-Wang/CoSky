@@ -10,14 +10,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package me.ahoo.cosky.core
+package me.ahoo.cosky.config
+
+import me.ahoo.cosky.core.cache.Snapshot
+import reactor.core.publisher.Flux
 
 /**
- * Namespaced Context.
+ * Config Watcher.
  *
  * @author ahoo wang
  */
-object NamespacedContext : Namespaced {
-    @Volatile
-    override var namespace: String = CoSky.COSKY
+interface ConfigWatcher {
+    /**
+     * The current config snapshot followed by one snapshot per change, emitted after the local cache is updated.
+     */
+    fun watchConfig(namespace: String, configId: String): Flux<Snapshot<Config>>
 }

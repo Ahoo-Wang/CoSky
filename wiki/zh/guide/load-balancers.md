@@ -29,15 +29,15 @@ interface LoadBalancer {
 }
 ```
 
-`choose` 方法返回 `Mono<ServiceInstance>`，因为首次调用时可能需要从发现服务获取实例。同一服务的后续调用命中缓存的选择器。
+`choose` 方法返回 `Mono<ServiceInstance>`，因为首次调用时可能需要从发现服务获取实例。只要发现服务的快照未变化，同一服务的后续调用就复用缓存的选择器。
 
 ## AbstractLoadBalancer
 
-[`AbstractLoadBalancer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt) 是所有四种实现的共享基类。它管理一个 `ConcurrentHashMap<NamespacedServiceId, Mono<C>>`，将每个服务映射到缓存的选择器：
+[`AbstractLoadBalancer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt) 是所有四种实现的共享基类。它自身不订阅任何事件：选择器由 `ServiceDiscovery` 的快照派生，因此负载均衡器永远不会比发现缓存更陈旧（[AbstractLoadBalancer.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L29)）。
 
-1. **首次访问时**（`computeIfAbsent`），它订阅实例变更事件并从 `ServiceDiscovery` 获取实例 ([AbstractLoadBalancer.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L34))。
-2. **实例变更时**，选择器 `Mono` 被替换为基于更新后的实例列表构建的新选择器 ([AbstractLoadBalancer.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L40))。
-3. **调用 `choose` 时**，解析缓存的 `Mono<C>` 并在选择器实例上调用 `choose()`。
+1. **调用 `choose` 时**，向 `ServiceDiscovery.getInstances` 获取当前快照（[AbstractLoadBalancer.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L37)）。
+2. **如果快照与缓存选择器构建时用的是同一个 `List` 对象**，则复用该选择器；否则构建并缓存新的选择器（[AbstractLoadBalancer.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L43)）。一致性发现在变化之前始终返回同一个列表，所以选择器只在真正变化时才重建；不带缓存的发现则每次都重建。
+3. 在选择器实例上调用 `choose()`。
 
 子类实现 `createChooser(serviceInstances: List<ServiceInstance>): C` 来定义其选择算法。
 
@@ -79,7 +79,7 @@ Random(0..5) -> 数组索引
 Random(1..6) -> 二分查找，找到第一个累积值 >= 随机值的索引
 ```
 
-`binarySearchLowIndex` 中的关键算法 ([BinaryWeightRandomLoadBalancer.kt:86](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt#L86))：
+`binarySearchLowIndex` 中的关键算法 ([BinaryWeightRandomLoadBalancer.kt:84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt#L84))：
 
 ```
 function binarySearchLowIndex(randomValue):
@@ -130,7 +130,7 @@ flowchart LR
 
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:41 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:39 -->
 
 ## 类图
 
@@ -147,9 +147,8 @@ classDiagram
     }
     class AbstractLoadBalancer {
         <<abstract>>
-        #serviceDiscovery: ServiceDiscovery
-        #instanceEventListenerContainer
-        -serviceMapChooser: ConcurrentHashMap
+        -serviceDiscovery: ServiceDiscovery
+        -choosers: ConcurrentHashMap (快照, 选择器)
         +choose(namespace, serviceId) Mono~ServiceInstance~
         #createChooser(instances)* C
     }
@@ -202,7 +201,7 @@ classDiagram
     TreeWeightRandomLoadBalancer --> TreeChooser : 创建
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/LoadBalancer.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:27, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/RandomLoadBalancer.kt:26, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/ArrayWeightRandomLoadBalancer.kt:27, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:28 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/LoadBalancer.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/RandomLoadBalancer.kt:25, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/ArrayWeightRandomLoadBalancer.kt:26, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:27, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:27 -->
 
 ## 时序图：选择实例流程
 
@@ -211,35 +210,25 @@ sequenceDiagram
     autonumber
     participant Client as 消费者
     participant ALB as AbstractLoadBalancer
-    participant Cache as 选择器缓存 (CMap)
-    participant PubSub as InstanceEventListener
     participant SD as ServiceDiscovery
+    participant Cache as 选择器缓存
 
     Client->>ALB: choose(namespace, serviceId)
-    ALB->>Cache: computeIfAbsent(NamespacedServiceId)
+    ALB->>SD: getInstances(namespace, serviceId)
+    SD-->>ALB: 快照 List~ServiceInstance~
 
-    alt 首次调用（无缓存选择器）
-        ALB->>PubSub: 订阅实例事件
-        ALB->>SD: getInstances(namespace, serviceId)
-        SD-->>ALB: List~ServiceInstance~
-        ALB->>ALB: createChooser(instanceList)
-        ALB->>Cache: 存储缓存的 Mono~Chooser~
+    alt 与缓存选择器的 List 是同一对象
+        ALB->>Cache: 复用缓存的 Chooser
+    else 快照已变化（或首次调用）
+        ALB->>ALB: createChooser(snapshot)
+        ALB->>Cache: 缓存 (快照, Chooser)
     end
 
-    ALB->>Cache: 解析缓存的 Chooser
-    Cache-->>ALB: Chooser 实例
     ALB->>ALB: chooser.choose()
     ALB-->>Client: Mono~ServiceInstance~
-
-    Note over PubSub,Cache: 收到实例变更事件
-    PubSub->>ALB: InstanceChangedEvent
-    ALB->>SD: getInstances(namespace, serviceId)
-    SD-->>ALB: 更新后的 List~ServiceInstance~
-    ALB->>ALB: createChooser(updatedList)
-    ALB->>Cache: 替换缓存的 Mono~Chooser~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:55 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:43 -->
 
 ## 性能特征
 

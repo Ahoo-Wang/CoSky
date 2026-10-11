@@ -13,9 +13,12 @@
 package me.ahoo.cosky.config.redis
 
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.config.ConfigKeyGenerator
+import me.ahoo.cosky.config.ConfigRollback
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import reactor.core.publisher.Flux
 import reactor.kotlin.test.test
 
 /**
@@ -65,6 +68,30 @@ class RedisConfigServiceTest : ConfigServiceSpec() {
                 it.version.assert().isEqualTo(1)
                 true
             }
+            .verifyComplete()
+    }
+
+    /**
+     * History beyond the last [ConfigRollback.HISTORY_SIZE] versions is deleted, not only hidden.
+     */
+    @Test
+    fun historyIsTrimmedToHistorySize() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val configId = MockIdGenerator.INSTANCE.generateAsString()
+        Flux.range(1, 15)
+            .concatMap { configService.setConfig(namespace, configId, "version-$it") }
+            .then()
+            .test()
+            .verifyComplete()
+
+        redisTemplate.opsForZSet().size(ConfigKeyGenerator.getConfigHistoryIdxKey(namespace, configId))
+            .test()
+            .expectNext(ConfigRollback.HISTORY_SIZE.toLong())
+            .verifyComplete()
+        configService.getConfigHistory(namespace, configId, 4).test().verifyComplete()
+        configService.getConfigHistory(namespace, configId, 5)
+            .test()
+            .expectNextMatches { it.data == "version-5" }
             .verifyComplete()
     }
 }

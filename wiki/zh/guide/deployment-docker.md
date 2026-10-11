@@ -19,6 +19,7 @@ docker pull ahoowang/cosky:latest
 # 运行 CoSky
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -87,7 +88,7 @@ flowchart LR
 | `SERVER_PORT` | `8080` | REST API 和 Dashboard 的 HTTP 端口 |
 | `COSKY_SECURITY_ENABLED` | `true` | 启用 CoSec JWT 认证 |
 | `COSKY_SUPER_INIT` | `false` | 强制重新初始化超级用户密码 |
-| `COSKY_SECURITY_KEY` | 内置密钥 | CoSec 令牌的 JWT 签名密钥 |
+| `COSKY_SECURITY_KEY` | *（启用安全时必填）* | CoSec 令牌的 JWT 签名密钥；未设置时服务拒绝启动。请使用至少 32 个字符的随机值 |
 | `COSKY_NAMESPACE` | `cosky-{system}` | 默认命名空间 |
 | `COSKY_AUTO_REGISTRY` | `true` | 自动注册 CoSky 自身为服务 |
 | `LANG` | *(无)* | 设置区域（例如 `C.utf8`） |
@@ -122,6 +123,7 @@ services:
     environment:
       SPRING_DATA_REDIS_URL: redis://redis:6379
       COSKY_SECURITY_ENABLED: "true"
+      COSKY_SECURITY_KEY: ${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
       TZ: Asia/Shanghai
     depends_on:
       redis:

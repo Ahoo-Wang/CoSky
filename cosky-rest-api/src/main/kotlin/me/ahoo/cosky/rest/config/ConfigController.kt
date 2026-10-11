@@ -12,18 +12,20 @@
  */
 package me.ahoo.cosky.rest.config
 
-import com.google.common.io.Files
 import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigHistory
-import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.ConfigVersion
+import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.rest.util.Zips.ZipItem
 import me.ahoo.cosky.rest.util.Zips.ZipItem.Companion.of
 import me.ahoo.cosky.rest.util.Zips.unzip
 import me.ahoo.cosky.rest.util.Zips.zip
 import org.slf4j.LoggerFactory
+import org.springframework.core.io.buffer.DataBufferLimitException
+import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -39,19 +41,20 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RequestPart
 import org.springframework.web.bind.annotation.RestController
+import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toFlux
-import java.util.*
 
 /**
  * Config Controller.
+ *
+ * Reads go straight to Redis: administrative reads must not populate the local consistency caches.
  *
  * @author ahoo wang
  */
 @RestController
 @RequestMapping(RequestPathPrefix.CONFIGS_PREFIX)
 @Tag(name = "Config")
-class ConfigController(private val configService: ConfigService) {
+class ConfigController(private val configService: RedisConfigService) {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConfigController::class.java)
@@ -59,6 +62,8 @@ class ConfigController(private val configService: ConfigService) {
         const val IMPORT_POLICY_SKIP = "skip"
         const val IMPORT_POLICY_OVERWRITE = "overwrite"
         const val NACOS_DEFAULT_GROUP = "DEFAULT_GROUP/"
+        const val MAX_IMPORT_ZIP_SIZE = 10 * 1024 * 1024
+        const val MAX_UNZIPPED_SIZE = 64L * 1024 * 1024
     }
 
     @GetMapping
@@ -72,79 +77,49 @@ class ConfigController(private val configService: ConfigService) {
         @RequestParam(required = false) policy: String?,
         @RequestPart importZip: Mono<FilePart>
     ): Mono<ImportResponse> {
-        val importPolicy = if (policy.isNullOrEmpty()) {
-            IMPORT_POLICY_SKIP
-        } else {
-            policy
+        val importPolicy = if (policy.isNullOrEmpty()) IMPORT_POLICY_SKIP else policy
+        if (importPolicy != IMPORT_POLICY_SKIP && importPolicy != IMPORT_POLICY_OVERWRITE) {
+            return Mono.error(IllegalArgumentException("Unexpected policy[skip,overwrite] value: $importPolicy"))
         }
-
-        val importResponse = ImportResponse()
         return importZip
             .switchIfEmpty(Mono.error(IllegalArgumentException("importZip can not be empty!")))
-            .doOnNext {
-                val importFileExt = Files.getFileExtension(it.filename()).lowercase(Locale.getDefault())
+            .flatMap { filePart ->
+                val importFileExt = filePart.filename().substringAfterLast('.', "").lowercase()
                 require(IMPORT_SUPPORT_EXT == importFileExt) { "Illegal file type:[$importFileExt],expect:[zip]!" }
-            }
-            .flatMapMany { filePart ->
-                filePart
-                    .content()
-                    .flatMapIterable { dataBuffer ->
-                        val zipItems = unzip(dataBuffer.asInputStream())
-                        importResponse.total = zipItems.size
-                        zipItems
+                DataBufferUtils.join(filePart.content(), MAX_IMPORT_ZIP_SIZE)
+                    .onErrorMap(DataBufferLimitException::class.java) {
+                        IllegalArgumentException("importZip exceeds the limit of [$MAX_IMPORT_ZIP_SIZE] bytes.", it)
                     }
             }
-            .flatMap { zipItem ->
-                var zipItemName = zipItem.name
-                if (zipItemName.startsWith(NACOS_DEFAULT_GROUP)) {
-                    zipItemName = zipItemName.substring(NACOS_DEFAULT_GROUP.length)
+            .map { dataBuffer ->
+                try {
+                    dataBuffer.asInputStream().use { unzip(it, MAX_UNZIPPED_SIZE) }
+                } finally {
+                    DataBufferUtils.release(dataBuffer)
                 }
-                if (zipItemName.contains("/")) {
-                    zipItemName = zipItemName.replace("/".toRegex(), "-")
-                }
-                val configId = zipItemName
-                val configData = zipItem.data
-                when (importPolicy) {
-                    IMPORT_POLICY_OVERWRITE -> {
-                        return@flatMap configService.setConfig(namespace, configId, configData)
-                    }
+            }
+            .flatMap { zipItems ->
+                Flux.fromIterable(zipItems)
+                    .flatMap { importItem(namespace, importPolicy, it) }
+                    .filter { it }
+                    .count()
+                    .map { succeeded -> ImportResponse(total = zipItems.size, succeeded = succeeded.toInt()) }
+            }
+    }
 
-                    IMPORT_POLICY_SKIP -> {
-                        return@flatMap configService.containsConfig(namespace, configId)
-                            .filter { contained ->
-                                if (contained) {
-                                    if (log.isInfoEnabled) {
-                                        log.info("ImportZip - Skip - [{}]@[{}] has contained.", configId, namespace)
-                                    }
-                                }
-                                !contained
-                            }
-                            .flatMap {
-                                configService.setConfig(
-                                    namespace,
-                                    configId,
-                                    configData,
-                                )
-                            }
-                    }
-
-                    else -> return@flatMap IllegalStateException(
-                        "Unexpected policy[skip,overwrite] value: $importPolicy"
-                    ).toFlux()
+    private fun importItem(namespace: String, importPolicy: String, zipItem: ZipItem): Mono<Boolean> {
+        val configId = zipItem.name.removePrefix(NACOS_DEFAULT_GROUP).replace('/', '-')
+        if (importPolicy == IMPORT_POLICY_OVERWRITE) {
+            return configService.setConfig(namespace, configId, zipItem.data)
+        }
+        return configService.containsConfig(namespace, configId)
+            .flatMap { contained ->
+                if (contained) {
+                    log.info("ImportZip - Skip - [{}]@[{}] has contained.", configId, namespace)
+                    return@flatMap Mono.just(false)
                 }
+                configService.setConfig(namespace, configId, zipItem.data)
             }
-            .map { result -> if (result) 1 else 0 }
-            .reduce { a: Int, b: Int ->
-                Integer.sum(
-                    a,
-                    b,
-                )
-            }
-            .map { succeeded ->
-                importResponse.succeeded = succeeded
-                importResponse
-            }
-            .defaultIfEmpty(ImportResponse())
     }
 
     @GetMapping(RequestPathPrefix.CONFIGS_CONFIG_EXPORT)

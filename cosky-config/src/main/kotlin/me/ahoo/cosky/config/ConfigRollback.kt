@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.config
 
-import me.ahoo.cosky.core.NamespacedContext
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -27,12 +26,12 @@ interface ConfigRollback {
         const val HISTORY_SIZE = 10
     }
 
-    fun rollback(namespace: String = NamespacedContext.namespace, configId: String, targetVersion: Int): Mono<Boolean>
+    fun rollback(namespace: String, configId: String, targetVersion: Int): Mono<Boolean>
 
-    fun getConfigVersions(namespace: String = NamespacedContext.namespace, configId: String): Flux<ConfigVersion>
+    fun getConfigVersions(namespace: String, configId: String): Flux<ConfigVersion>
 
     fun getConfigHistory(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         configId: String,
         version: Int
     ): Mono<ConfigHistory>

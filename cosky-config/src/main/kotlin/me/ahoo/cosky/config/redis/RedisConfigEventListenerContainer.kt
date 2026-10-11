@@ -10,15 +10,16 @@ import org.springframework.data.redis.connection.ReactiveSubscription
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 
 class RedisConfigEventListenerContainer(delegate: ReactiveRedisMessageListenerContainer) :
     ConfigEventListenerContainer,
     RedisEventListenerContainer<NamespacedConfigId, ConfigChangedEvent>(delegate) {
 
-    override fun receiveEvent(topic: NamespacedConfigId): Flux<ConfigChangedEvent> {
+    override fun listenEvent(topic: NamespacedConfigId): Mono<Flux<ConfigChangedEvent>> {
         val topicStr: String = ConfigKeyGenerator.getConfigKey(topic.namespace, topic.configId)
-        return delegate.receive(ChannelTopic.of(topicStr)).map {
-            asEvent(it)
+        return delegate.receiveLater(ChannelTopic.of(topicStr)).map { messages ->
+            messages.map { asEvent(it) }
         }
     }
 

@@ -10,15 +10,15 @@ CoSky's Configuration Management subsystem provides a centralized, versioned, an
 
 | Component | Responsibility | Key File | Source |
 |---|---|---|---|
-| **ConfigService** | Core CRUD interface for configuration operations | `ConfigService.kt` | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24) |
+| **ConfigService** | Core CRUD interface for configuration operations | `ConfigService.kt` | [ConfigService.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L23) |
 | **Config / ConfigData** | Data model holding config payload, hash, version, timestamps | `Config.kt` | [Config.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/Config.kt#L20) |
 | **ConfigCodec** | Serialization/deserialization between Redis hash maps and domain objects | `ConfigCodec.kt` | [ConfigCodec.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigCodec.kt#L20) |
 | **ConfigHistory** | Extended config model with operation type and operation timestamp | `ConfigHistory.kt` | [ConfigHistory.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigHistory.kt#L20) |
 | **ConfigVersion** | Lightweight interface pairing a configId with its version number | `ConfigVersion.kt` | [ConfigVersion.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigVersion.kt#L20) |
-| **ConfigRollback** | Interface for rolling back to a prior config version | `ConfigRollback.kt` | [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
+| **ConfigRollback** | Interface for rolling back to a prior config version | `ConfigRollback.kt` | [ConfigRollback.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L23) |
 | **ConfigKeyGenerator** | Generates Redis key patterns for config indices, history, and entries | `ConfigKeyGenerator.kt` | [ConfigKeyGenerator.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L22) |
-| **RedisConfigService** | Redis-backed implementation of ConfigService using Lua scripts | `RedisConfigService.kt` | [RedisConfigService.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L41) |
-| **ConfigRedisScripts** | Loads and caches the Lua scripts for atomic config operations | `ConfigRedisScripts.kt` | [ConfigRedisScripts.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L24) |
+| **RedisConfigService** | Redis-backed implementation of ConfigService using Lua scripts | `RedisConfigService.kt` | [RedisConfigService.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L43) |
+| **ConfigRedisScripts** | Loads and caches the Lua scripts for atomic config operations | `ConfigRedisScripts.kt` | [ConfigRedisScripts.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L23) |
 | **ConfigChangedEvent** | Event emitted on config changes (set, remove, rollback) via Redis PubSub | `ConfigChangedEvent.kt` | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20) |
 
 ## ConfigService Interface
@@ -27,19 +27,19 @@ The `ConfigService` interface defines the complete contract for configuration CR
 
 | Method | Return Type | Description | Source |
 |---|---|---|---|
-| `getConfigs(namespace)` | `Flux<String>` | Lists all config IDs in a namespace by reading the config index set | [ConfigService.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L25) |
-| `getConfig(namespace, configId)` | `Mono<Config>` | Retrieves a single configuration entry with its data, hash, version, and timestamps | [ConfigService.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L26) |
-| `setConfig(namespace, configId, data)` | `Mono<Boolean>` | Creates or updates a configuration; atomically stores data, increments version, archives prior version as history, and publishes a change event | [ConfigService.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L27) |
-| `removeConfig(namespace, configId)` | `Mono<Boolean>` | Removes a configuration and archives it to history; publishes a remove event | [ConfigService.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L28) |
-| `containsConfig(namespace, configId)` | `Mono<Boolean>` | Checks whether a configuration entry exists via Redis `EXISTS` | [ConfigService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L29) |
+| `getConfigs(namespace)` | `Flux<String>` | Lists all config IDs in a namespace by reading the config index set | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24) |
+| `getConfig(namespace, configId)` | `Mono<Config>` | Retrieves a single configuration entry with its data, hash, version, and timestamps | [ConfigService.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L25) |
+| `setConfig(namespace, configId, data)` | `Mono<Boolean>` | Creates or updates a configuration; atomically stores data, increments version, archives prior version as history, and publishes a change event | [ConfigService.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L26) |
+| `removeConfig(namespace, configId)` | `Mono<Boolean>` | Removes a configuration and archives it to history; publishes a remove event | [ConfigService.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L27) |
+| `containsConfig(namespace, configId)` | `Mono<Boolean>` | Checks whether a configuration entry exists via Redis `EXISTS` | [ConfigService.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L28) |
 
 In addition, the inherited `ConfigRollback` interface adds:
 
 | Method | Return Type | Description | Source |
 |---|---|---|---|
-| `rollback(namespace, configId, targetVersion)` | `Mono<Boolean>` | Restores configuration to a prior version; archives current version and publishes a rollback event | [ConfigRollback.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L30) |
-| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | Lists the version history in reverse chronological order (query returns the last `HISTORY_SIZE`=10; the underlying Redis history is not trimmed) | [ConfigRollback.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L32) |
-| `getConfigHistory(namespace, configId, version)` | `Mono<ConfigHistory>` | Retrieves the archived configuration for a specific version | [ConfigRollback.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L34) |
+| `rollback(namespace, configId, targetVersion)` | `Mono<Boolean>` | Restores configuration to a prior version; archives current version and publishes a rollback event | [ConfigRollback.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L29) |
+| `getConfigVersions(namespace, configId)` | `Flux<ConfigVersion>` | Lists the version history in reverse chronological order (query returns the last `HISTORY_SIZE`=10; the underlying Redis history is not trimmed) | [ConfigRollback.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L31) |
+| `getConfigHistory(namespace, configId, version)` | `Mono<ConfigHistory>` | Retrieves the archived configuration for a specific version | [ConfigRollback.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L33) |
 
 ## Data Model
 
@@ -186,7 +186,7 @@ The `ConfigRedisScripts` object pre-loads three Lua scripts from the classpath a
 | `SCRIPT_CONFIG_REMOVE` | `config_remove.lua` | Atomically removes a config from the index, archives it to history, and publishes a `remove` change event |
 | `SCRIPT_CONFIG_ROLLBACK` | `config_rollback.lua` | Atomically restores config to a target version from history, creates a new version entry, and publishes a `rollback` change event |
 
-Source: [ConfigRedisScripts.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L24)
+Source: [ConfigRedisScripts.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L23)
 
 ### getConfig Flow
 
@@ -307,7 +307,7 @@ Source: [README.md:111](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L
 
 CoSky maintains a versioned history of configuration changes. When a configuration is **updated** (`setConfig` with an existing version) or **removed**, the prior version is atomically archived to a history entry via the Lua script. The **initial** `setConfig` (creating a new config) does not archive anything — there is no prior version to save. The rollback operation restores a target version by reading its archived data and creating a new version. The `getConfigVersions` query returns the **last 10 versions** in descending order — bounded by `ConfigRollback.HISTORY_SIZE`.
 
-> ⚠️ **Operational note**: `HISTORY_SIZE` is a **query cap only**, not a storage retention limit. The Lua scripts (`config_set.lua`, `config_remove.lua`, `config_rollback.lua`) archive history via `ZADD` but never run `ZREMRANGEBYRANK` or set `EXPIRE`, so the Redis history ZSET (`cfg_htr_idx`) and per-version history hashes (`cfg_htr`) **grow unbounded**. For configurations that are written very frequently, monitor Redis memory and prune old history keys manually if needed.
+> **History retention**: archiving a version deletes the history beyond the newest `historySize` versions (default `ConfigRollback.HISTORY_SIZE` = 10) in the same Lua script, so a config never keeps more than 10 history entries ([config_lib.lua:15](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/resources/cosky/config/config_lib.lua#L15)). The size is a `RedisConfigService` constructor parameter ([RedisConfigService.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L47)).
 
 ```mermaid
 stateDiagram-v2

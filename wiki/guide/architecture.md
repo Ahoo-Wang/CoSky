@@ -12,7 +12,7 @@ The architecture follows a layered, module-driven design inspired by Clean Archi
 
 | Module | Responsibility | Key File | Source |
 |--------|---------------|----------|--------|
-| `cosky-core` | Namespace model, Redis key utilities, event listener abstractions, brand constants | `CoSky.kt`, `Namespaced.kt`, `NamespacedContext.kt`, `RedisKeys.kt`, `EventListenerContainer.kt` | [cosky-core/src/main/kotlin/me/ahoo/cosky/core](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core) |
+| `cosky-core` | Namespace model and validation, Redis key utilities, event listener abstractions, the `ReactiveWatchCache` consistency primitive, brand constants | `CoSky.kt`, `Namespaced.kt`, `RedisKeys.kt`, `EventListenerContainer.kt`, `cache/ReactiveWatchCache.kt` | [cosky-core/src/main/kotlin/me/ahoo/cosky/core](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core) |
 | `cosky-config` | Configuration CRUD, versioning, rollback, change events | `ConfigService.kt`, `ConfigKeyGenerator.kt`, `ConfigChangedEvent.kt` | [cosky-config/src/main/kotlin/me/ahoo/cosky/config](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config) |
 | `cosky-discovery` | Service registry, discovery, instance lifecycle, topology | `ServiceRegistry.kt`, `ServiceDiscovery.kt`, `DiscoveryKeyGenerator.kt` | [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery) |
 | `cosky-spring-cloud-core` | Spring Boot auto-configuration, namespace properties, Redis template wiring | `CoSkyAutoConfiguration.kt`, `CoSkyProperties.kt` | [cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud) |
@@ -112,11 +112,12 @@ All data in CoSky is stored in Redis using a consistent key naming strategy. Key
 
 | Domain | Key Pattern | Redis Type | Purpose | Source |
 |--------|------------|------------|---------|--------|
-| Namespace index | `{cosky-system}:ns_idx` | SET | Stores all registered namespaces | [RedisNamespaceService.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L28) |
-| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L32) |
-| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L55) |
-| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:63](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L63) |
-| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L41) |
+| Namespace index | `{cosky-system}:ns_idx` | SET | Stores all registered namespaces | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
+| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L35) |
+| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L58) |
+| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L66) |
+| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L44) |
+| Instance expiry index | `{namespace}:svc_itc_exp` | ZSET | Ephemeral instances scored by ttlAt, reaped by clients | [DiscoveryKeyGenerator.kt:92](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L92) |
 | Config index | `{namespace}:cfg_idx` | SET | Stores all config IDs in a namespace | [ConfigKeyGenerator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L36) |
 | Config data | `{namespace}:cfg:{configId}` | HASH | Current config data (data, hash, version, update time) | [ConfigKeyGenerator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L60) |
 | Config history index | `{namespace}:cfg_htr_idx:{configId}` | ZSET | Ordered list of version history keys | [ConfigKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L44) |
@@ -143,7 +144,7 @@ sequenceDiagram
     C->>C: Update local cache /<br>Refresh Spring Environment
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:17-51, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:14-30 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:17-42, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30 -->
 
 ## Technology Stack
 
@@ -178,7 +179,7 @@ stateDiagram-v2
     Expired --> [*]
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:34-97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105-112, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39-117 -->
 
 ### Lua Scripts for Atomicity
 
@@ -242,7 +243,7 @@ The `ConsistencyRedisServiceDiscovery` decorator maintains an in-memory `Concurr
 
 - [CoSky.kt -- Brand constants (COSKY, KEY_SEPARATOR)](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt)
 - [Namespaced.kt -- Default and system namespace constants](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt)
-- [NamespacedContext.kt -- Thread-scoped namespace context](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt)
+- [ReactiveWatchCache.kt -- Event-driven local cache primitive](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt)
 - [NamespaceService.kt -- Namespace CRUD interface](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt)
 - [RedisNamespaceService.kt -- Redis SET-based namespace storage](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt)
 - [RedisKeys.kt -- Cluster hash-tag utility](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)

@@ -22,6 +22,8 @@ spec:
               value: redis-uri:6379
             - name: SPRING_DATA_REDIS_PASSWORD
               value: redis-pwd
+            - name: COSKY_SECURITY_KEY
+              value: change-me-to-a-random-secret-of-32-chars
             - name: TZ
               value: Asia/Shanghai
           image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5

@@ -138,7 +138,7 @@ flowchart TB
     classDef node fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:43, cosky-config/src/jmh/kotlin/me/ahoo/cosky/config/ConsistencyRedisConfigServiceBenchmark.kt:31 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-config/src/jmh/kotlin/me/ahoo/cosky/config/ConsistencyRedisConfigServiceBenchmark.kt:31 -->
 
 ## 一致性层架构
 
@@ -149,36 +149,36 @@ sequenceDiagram
     autonumber
     participant C as 客户端
     participant CRD as ConsistencyRedisServiceDiscovery
-    participant Cache as ConcurrentHashMap 缓存
+    participant Cache as ReactiveWatchCache
     participant RSD as RedisServiceDiscovery
     participant Redis as Redis
     participant PubSub as Redis PubSub
 
     Note over CRD,PubSub: 缓存初始化（首次调用）
     C->>CRD: getInstances(namespace, serviceId)
-    CRD->>Cache: computeIfAbsent(key)
-    Cache-->>CRD: 缓存未命中
-    CRD->>PubSub: 订阅实例变更
-    CRD->>RSD: delegate.getInstances()
-    RSD->>Redis: SMEMBERS / GET
+    CRD->>Cache: get(key)
+    Cache->>PubSub: 订阅实例变更（等待生效）
+    Cache->>RSD: delegate.getInstances()
+    RSD->>Redis: EVAL discovery_get_instances.lua
     Redis-->>RSD: 实例列表
-    RSD-->>CRD: Flux~ServiceInstance~
-    CRD->>Cache: 存储为 CopyOnWriteArraySet
-    CRD-->>C: Flux~ServiceInstance~
+    RSD-->>Cache: ServiceInstance 列表
+    Note over Cache: 发布不可变快照
+    CRD-->>C: 快照列表
 
     Note over CRD,PubSub: 后续调用（缓存命中）
     C->>CRD: getInstances(namespace, serviceId)
     CRD->>Cache: get(key)
-    Cache-->>CRD: 缓存的实例
-    CRD-->>C: Flux~ServiceInstance~（无 Redis 调用）
+    Cache-->>CRD: 快照预构建的 Mono
+    CRD-->>C: 未变化时返回同一个 List（无 Redis 调用）
 
     Note over CRD,PubSub: 通过 PubSub 缓存失效
     Redis->>PubSub: 实例变更事件
-    PubSub->>CRD: onInstanceChanged(event)
-    CRD->>Cache: 更新 CopyOnWriteArraySet
+    PubSub->>Cache: InstanceChangedEvent（串行应用）
+    Cache->>RSD: 读穿透变更的实例
+    Note over Cache: 发布下一个不可变快照
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:86, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:138 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:71, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:65 -->
 
 ## 缓存失效事件
 
@@ -194,16 +194,16 @@ stateDiagram-v2
     Cached --> Removed: DEREGISTER 事件
     Cached --> Removed: EXPIRED 事件
     Updated --> Cached: 从 Redis 刷新
-    TTLRefreshed --> Cached: 就地更新 TTL
+    TTLRefreshed --> Cached: 用新的 ttlAt 替换实例
     Removed --> [*]: 从缓存移除
 
     state Cached {
-        [*] --> InMemory: ConcurrentHashMap
-        InMemory --> InMemory: 读取（无网络）
+        [*] --> InMemory: 不可变快照
+        InMemory --> InMemory: 读取（无网络、无对象分配）
     }
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:138, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:171 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:129 -->
 
 ## 如何在本地运行基准测试
 

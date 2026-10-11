@@ -23,5 +23,11 @@ data class RegistryProperties(
     /**
      * instance time to live.
      */
-    val instanceTtl: Duration = Duration.ofMinutes(1)
+    val instanceTtl: Duration = Duration.ofMinutes(1),
+    /**
+     * Publish renew events as `renew:<ttlAt>` so that consumers need no Redis round trip.
+     *
+     * Enable it only once every client understands the payload (this version or later): older clients reject it.
+     */
+    val renewEventCarriesTtlAt: Boolean = false
 )

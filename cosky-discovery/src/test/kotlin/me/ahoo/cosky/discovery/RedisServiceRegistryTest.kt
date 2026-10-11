@@ -15,6 +15,7 @@ package me.ahoo.cosky.discovery
 import io.mockk.every
 import io.mockk.mockk
 import me.ahoo.cosid.test.MockIdGenerator
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
 import me.ahoo.cosky.discovery.TestServiceInstance.randomFixedInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.randomInstance
@@ -68,6 +69,53 @@ class RedisServiceRegistryTest : AbstractReactiveRedisTest() {
             .test()
             .expectNext(true)
             .verifyComplete()
+    }
+
+    /**
+     * Setting a single metadata key, as Spring Cloud's setStatus does, must keep the other metadata.
+     */
+    @Test
+    fun setSingleMetadataKeepsOtherMetadata() {
+        val instance = randomInstance().asServiceInstance(metadata = mapOf("zone" to "a"))
+        serviceRegistry.register(namespace, instance).test().expectNext(true).verifyComplete()
+
+        serviceRegistry.setMetadata(
+            namespace,
+            instance.serviceId,
+            instance.instanceId,
+            "instance_status",
+            "OUT_OF_SERVICE"
+        )
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
+            .test()
+            .expectNextMatches { it.metadata == mapOf("zone" to "a", "instance_status" to "OUT_OF_SERVICE") }
+            .verifyComplete()
+        serviceRegistry.deregister(namespace, instance).test().expectNext(true).verifyComplete()
+    }
+
+    /**
+     * Replacing metadata must also clear user keys containing a double underscore, which only the '__' prefix
+     * reserves for system fields.
+     */
+    @Test
+    fun setMetadataReplacesKeysContainingDoubleUnderscore() {
+        val instance = randomInstance().asServiceInstance(metadata = mapOf("a__b" to "1", "keep" to "x"))
+        serviceRegistry.register(namespace, instance).test().expectNext(true).verifyComplete()
+
+        serviceRegistry.setMetadata(namespace, instance.serviceId, instance.instanceId, mapOf("new" to "v"))
+            .test()
+            .expectNext(true)
+            .verifyComplete()
+
+        serviceDiscovery.getInstance(namespace, instance.serviceId, instance.instanceId)
+            .test()
+            .expectNextMatches { it.metadata == mapOf("new" to "v") }
+            .verifyComplete()
+        serviceRegistry.deregister(namespace, instance).test().expectNext(true).verifyComplete()
     }
 
     @Test

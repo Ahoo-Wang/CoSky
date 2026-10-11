@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery
 
-import me.ahoo.cosky.core.NamespacedContext
 import reactor.core.publisher.Mono
 
 /**
@@ -30,7 +29,7 @@ interface ServiceRegistry {
      * @param serviceInstance serviceInstance
      * @return If true, the registration succeeds, otherwise it fails
      */
-    fun register(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
+    fun register(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
 
     /**
      * 服务实例续期.
@@ -38,30 +37,47 @@ interface ServiceRegistry {
      * @param serviceInstance serviceInstance
      * @return If true, the renew succeeds, otherwise it fails
      */
-    fun renew(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
+    fun renew(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
 
-    fun deregister(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
+    fun deregister(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
 
     fun deregister(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String
     ): Mono<Boolean>
 
     val registeredEphemeralInstances: Map<NamespacedInstanceId, ServiceInstance>
 
+    /**
+     * Sets one metadata entry, keeping the others.
+     */
     fun setMetadata(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String,
         key: String,
         value: String
     ): Mono<Boolean>
 
+    /**
+     * Replaces all metadata of the instance with [metadata].
+     */
     fun setMetadata(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String,
         metadata: Map<String, String>
     ): Mono<Boolean>
+
+    /**
+     * Removes up to [limit] instances of [namespace] whose TTL has passed and publishes their `expired` events.
+     *
+     * @return how many instances were reaped
+     */
+    fun reapExpiredInstances(namespace: String, limit: Int = DEFAULT_REAP_LIMIT): Mono<Long>
+
+    companion object {
+        const val DEFAULT_REAP_LIMIT = 100
+    }
 }

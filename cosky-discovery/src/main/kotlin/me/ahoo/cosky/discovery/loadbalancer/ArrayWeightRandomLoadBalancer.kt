@@ -13,7 +13,6 @@
 package me.ahoo.cosky.discovery.loadbalancer
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.loadbalancer.ArrayWeightRandomLoadBalancer.ArrayChooser
@@ -25,10 +24,9 @@ import java.util.concurrent.ThreadLocalRandom
  * @author ahoo wang
  */
 class ArrayWeightRandomLoadBalancer(
-    serviceDiscovery: ServiceDiscovery,
-    instanceEventListenerContainer: InstanceEventListenerContainer
+    serviceDiscovery: ServiceDiscovery
 ) :
-    AbstractLoadBalancer<ArrayChooser>(serviceDiscovery, instanceEventListenerContainer) {
+    AbstractLoadBalancer<ArrayChooser>(serviceDiscovery) {
     companion object {
         private val log = KotlinLogging.logger {}
     }

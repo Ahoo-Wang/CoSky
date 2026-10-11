@@ -29,15 +29,15 @@ interface LoadBalancer {
 }
 ```
 
-The `choose` method returns a `Mono<ServiceInstance>` because it may need to fetch instances from discovery on the first call. Subsequent calls for the same service hit a cached chooser.
+The `choose` method returns a `Mono<ServiceInstance>` because it may need to fetch instances from discovery on the first call. Subsequent calls for the same service reuse a cached chooser for as long as the discovery snapshot is unchanged.
 
 ## AbstractLoadBalancer
 
-[`AbstractLoadBalancer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt) is the shared base class for all four implementations. It manages a `ConcurrentHashMap<NamespacedServiceId, Mono<C>>` that maps each service to a cached chooser:
+[`AbstractLoadBalancer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt) is the shared base class for all four implementations. It does not subscribe to any event itself: choosers are derived from the snapshots of `ServiceDiscovery`, so a load balancer can never be staler than the discovery cache ([AbstractLoadBalancer.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L29)).
 
-1. **On first access** (`computeIfAbsent`), it subscribes to instance change events and fetches instances from `ServiceDiscovery` ([AbstractLoadBalancer.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L34)).
-2. **On instance change**, the chooser `Mono` is replaced with a fresh one built from the updated instance list ([AbstractLoadBalancer.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L40)).
-3. **On `choose`**, the cached `Mono<C>` is resolved and `choose()` is called on the chooser instance.
+1. **On `choose`**, it asks `ServiceDiscovery.getInstances` for the current snapshot ([AbstractLoadBalancer.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L37)).
+2. **If the snapshot is the same `List` instance** as the one the cached chooser was built from, the chooser is reused; otherwise a new chooser is built and cached ([AbstractLoadBalancer.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt#L43)). The consistency discovery returns the same list until it changes, so choosers are rebuilt only on actual changes; an uncached discovery simply rebuilds every time.
+3. `choose()` is called on the chooser instance.
 
 Subclasses implement `createChooser(serviceInstances: List<ServiceInstance>): C` to define their selection algorithm.
 
@@ -79,7 +79,7 @@ Cumulative: [3, 4, 6]
 Random(1..6) -> binary search to find first index where cumulative >= random
 ```
 
-The key algorithm in `binarySearchLowIndex` ([BinaryWeightRandomLoadBalancer.kt:86](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt#L86)):
+The key algorithm in `binarySearchLowIndex` ([BinaryWeightRandomLoadBalancer.kt:84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt#L84)):
 
 ```
 function binarySearchLowIndex(randomValue):
@@ -130,7 +130,7 @@ flowchart LR
 
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:41 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:39 -->
 
 ## Class Diagram
 
@@ -147,9 +147,8 @@ classDiagram
     }
     class AbstractLoadBalancer {
         <<abstract>>
-        #serviceDiscovery: ServiceDiscovery
-        #instanceEventListenerContainer
-        -serviceMapChooser: ConcurrentHashMap
+        -serviceDiscovery: ServiceDiscovery
+        -choosers: ConcurrentHashMap (snapshot, chooser)
         +choose(namespace, serviceId) Mono~ServiceInstance~
         #createChooser(instances)* C
     }
@@ -202,7 +201,7 @@ classDiagram
     TreeWeightRandomLoadBalancer --> TreeChooser : creates
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/LoadBalancer.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:27, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/RandomLoadBalancer.kt:26, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/ArrayWeightRandomLoadBalancer.kt:27, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:28 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/LoadBalancer.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/RandomLoadBalancer.kt:25, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/ArrayWeightRandomLoadBalancer.kt:26, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/BinaryWeightRandomLoadBalancer.kt:27, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/TreeWeightRandomLoadBalancer.kt:27 -->
 
 ## Sequence Diagram: Choose Instance Flow
 
@@ -211,35 +210,25 @@ sequenceDiagram
     autonumber
     participant Client as Consumer
     participant ALB as AbstractLoadBalancer
-    participant Cache as Chooser Cache (CMap)
-    participant PubSub as InstanceEventListener
     participant SD as ServiceDiscovery
+    participant Cache as Chooser Cache
 
     Client->>ALB: choose(namespace, serviceId)
-    ALB->>Cache: computeIfAbsent(NamespacedServiceId)
+    ALB->>SD: getInstances(namespace, serviceId)
+    SD-->>ALB: snapshot List~ServiceInstance~
 
-    alt First call (no cached chooser)
-        ALB->>PubSub: subscribe to instance events
-        ALB->>SD: getInstances(namespace, serviceId)
-        SD-->>ALB: List~ServiceInstance~
-        ALB->>ALB: createChooser(instanceList)
-        ALB->>Cache: store cached Mono~Chooser~
+    alt Same List instance as the cached chooser's
+        ALB->>Cache: reuse cached Chooser
+    else Snapshot changed (or first call)
+        ALB->>ALB: createChooser(snapshot)
+        ALB->>Cache: cache (snapshot, Chooser)
     end
 
-    ALB->>Cache: resolve cached Chooser
-    Cache-->>ALB: Chooser instance
     ALB->>ALB: chooser.choose()
     ALB-->>Client: Mono~ServiceInstance~
-
-    Note over PubSub,Cache: On instance change event
-    PubSub->>ALB: InstanceChangedEvent
-    ALB->>SD: getInstances(namespace, serviceId)
-    SD-->>ALB: Updated List~ServiceInstance~
-    ALB->>ALB: createChooser(updatedList)
-    ALB->>Cache: replace cached Mono~Chooser~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:55 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/loadbalancer/AbstractLoadBalancer.kt:43 -->
 
 ## Performance Characteristics
 

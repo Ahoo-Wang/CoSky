@@ -157,7 +157,7 @@ end
 
 这防止了在保存相同配置时产生冗余写入、历史条目和 PubSub 通知。
 
-### 模式二：懒过期
+### 模式二：索引过期与懒过期
 
 `discovery_get_instances.lua` 脚本（[源码](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua)）在读取时检查 TTL：
 
@@ -169,7 +169,7 @@ if instanceTtl == -2 then
 end
 ```
 
-无效实例在读取时被懒清理，而不是由单独的后台清理进程处理。这消除了对墓碑进程的需求。
+无效实例还会被基于索引的回收器清理：每个已注册客户端在每轮续约后，通过过期 ZSET（`{namespace}:svc_itc_exp`）以 `O(log N + k)` 回收其命名空间。ZSET 只列出候选，key 的 TTL 才是权威依据，因此依然不需要墓碑进程，陈旧的索引也不会移除存活实例（参见[服务注册](./service-registry.md)）。
 
 ### 模式三：节流 PubSub
 
@@ -267,23 +267,23 @@ stateDiagram-v2
 
 Redis PubSub 是**即发即忘**的 — 如果订阅者在消息发布时断开连接，消息将丢失。CoSky 不实现消息持久化或重放。
 
-**缓解措施**：`ConcurrentHashMap` 缓存条目的 TTL 为 1 分钟（`CONFIG_CACHE_TTL`）。TTL 过期后，缓存条目被驱逐，下次读取将从 Redis 获取新鲜数据并重新订阅 PubSub。因此，丢失 PubSub 消息导致的最大陈旧时间上限约为 1 分钟。
+**缓解措施**：每个一致性缓存（`ReactiveWatchCache`）都会定期重新加载其所有键，默认每 5 分钟一次。因此，丢失 PubSub 消息导致的最大陈旧时间以重新同步间隔为上限。
 
-相关源码：[RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)。
+相关源码：[ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57)。
 
 ### Redis 故障转移
 
 如果 Redis 主节点故障并且副本提升为主节点，所有 PubSub 订阅将被丢弃。客户端必须重新订阅。
 
-**当前状态**：一致性包装器中的 `doFinally` 回调会在 PubSub 订阅终止时移除缓存条目（参见 [RedisConsistencyConfigService.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L57)）。下次读取将重新从 Redis 获取数据并重新订阅。这是一种自愈机制，但存在等于 Redis 故障转移时间的陈旧窗口。
+**当前状态**：某个键的事件流（或加载）出错时，缓存会以指数退避（1 秒起，最长 30 秒）重新订阅并重新加载，且等新订阅生效后才重新加载，因此 Redis 恢复后不会遗漏任何变更（[ReactiveWatchCache.kt:120](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L120)）。这是一种自愈机制，陈旧窗口等于 Redis 故障转移时间。
 
-**需要关注的**：Redis Sentinel 故障转移通常需要 10-30 秒。在此窗口期间，所有 CoSky 客户端使用陈旧的缓存数据运行。对于服务发现这是可接受的（实例仍然有效）。对于配置管理，这意味着故障转移期间进行的配置变更不会传播，直到故障转移完成且客户端重新订阅。
+**需要关注的**：Redis Sentinel 故障转移通常需要 10-30 秒。在此窗口期间，所有 CoSky 客户端提供最后一个正常的快照。对于服务发现这是可接受的（实例仍然有效，已过期的实例会按 `ttlAt` 过滤）。对于配置管理，这意味着故障转移期间进行的配置变更会在客户端重新订阅后传播。
 
 ### 网络分区下的缓存陈旧
 
-在写入者可以访问 Redis 但某些读取者无法访问的网络分区中，这些读取者将从本地缓存提供陈旧数据。当 PubSub 订阅断开时，`doFinally` 回调驱逐该条目，后续读取将失败（Redis 不可达）。
+在写入者可以访问 Redis 但某些读取者无法访问的网络分区中，这些读取者继续从本地缓存提供最后一个正常的快照，同时在后台重试。只有从未加载过的键会让读取失败。
 
-**这是 CP 与 AP 的权衡**：CoSky 在分区期间优先选择可用性（从缓存提供服务）而非一致性。当分区恢复后，客户端重新订阅并收敛。
+**这是 CP 与 AP 的权衡**：CoSky 在分区期间优先选择可用性（从缓存提供服务）而非一致性。当分区恢复后，客户端重新订阅、重新加载并收敛。
 
 ### Lua 脚本复杂度
 
@@ -294,15 +294,17 @@ Lua 脚本是代码库中最关键也最脆弱的部分。它们在 Redis 内部
 
 `discovery_get_instances.lua` 脚本会遍历服务的所有实例并逐一检查 TTL。对于拥有数千实例的服务，这可能成为延迟隐患。
 
+为保持脚本可维护，共享函数放在 `config_lib.lua` / `discovery_lib.lua` 中，由 `LuaScripts` 在加载时内联（`-- @include`）。调用时即可确定的 key 由 Kotlin key 生成器通过 `KEYS` 传入；`ConfigLuaKeysTest` / `DiscoveryLuaKeysTest` 保证 Lua key 函数与其一致。
+
 ## 架构原则
 
 1. **无服务端状态** — CoSky 是一个 SDK，不是服务器。每个应用进程管理自己的缓存和订阅。REST API 服务器是可选且无状态的。
 
 2. **所有写入通过 Lua 脚本** — 没有多命令事务。每次变更都是单次原子 Lua 脚本。这消除了并发客户端之间的竞态条件。
 
-3. **懒优于急** — 缓存条目在首次访问时创建（懒）。无效实例在读取时清理（懒）。PubSub 通知被节流（半懒）。
+3. **懒优于急** — 缓存条目在首次访问时创建（懒）。无效实例由已注册客户端从过期索引中回收，并在读取时清理。PubSub 通知被节流。
 
-4. **自愈订阅** — 当 PubSub 订阅中断时，缓存条目被驱逐。下次读取会自动重新获取并重新订阅。
+4. **自愈订阅** — 当 PubSub 订阅中断时，缓存会以退避策略重新订阅并重新加载，期间提供最后一个正常的快照；定期重新同步覆盖期间丢失的事件。
 
 5. **命名空间隔离** — 每个键都限定在命名空间内。命名空间映射到 Redis 哈希标签，确保在集群模式下同一命名空间内的跨键原子性。
 

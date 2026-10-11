@@ -11,14 +11,14 @@ description: Explore CoSky's architecture, features, and documentation for high-
 
 | 特性 | 说明 | 源码 |
 |---------|-------------|--------|
-| **服务发现** | 通过客户端心跳自动续约，注册、发现和管理服务实例。支持加权负载均衡和服务拓扑。 | [ServiceRegistry.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L24), [ServiceDiscovery.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L24) |
-| **配置管理** | 支持版本历史与回滚、文件导入/导出的动态配置。变更通过 Redis PubSub 即时传播。 | [ConfigService.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L24), [ConfigRollback.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L24) |
+| **服务发现** | 通过客户端心跳自动续约，注册、发现和管理服务实例。支持加权负载均衡和服务拓扑。 | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23), [ServiceDiscovery.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L22) |
+| **配置管理** | 支持版本历史与回滚、文件导入/导出的动态配置。变更通过 Redis PubSub 即时传播。 | [ConfigService.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L23), [ConfigRollback.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L23) |
 | **一致性缓存** | 通过 Redis PubSub 保持同步的本地进程缓存，相比直接读取 Redis 实现 250 倍至 800 倍的性能提升。 | [RedisConsistencyConfigService](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt), [ConsistencyRedisServiceDiscovery](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt) |
-| **Spring Cloud 集成** | 配置和发现的即用型 Starter。通过 Spring Boot `@AutoConfiguration` 自动配置。 | [CoSkyConfigAutoConfiguration.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L43), [CoSkyDiscoveryAutoConfiguration.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L47) |
-| **加权负载均衡** | 与服务发现集成的二进制权重随机负载均衡器，用于高效的实例选择。 | [CoSkyDiscoveryAutoConfiguration.kt:105](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L105) |
-| **命名空间隔离** | 支持多租户命名空间，通过 Redis hashtag 包装实现集群模式兼容。 | [CoSkyProperties.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L32), [NamespaceService.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt#L23) |
-| **REST API 与控制台** | 基于 Web 的管理 UI，支持 RBAC、审计日志和服务拓扑可视化。 | [RestApiServer.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L24) |
-| **实时事件** | 配置和实例变更事件通过 Redis PubSub 监听器即时传播。 | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20), [EventListenerContainer.kt:5](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt#L5) |
+| **Spring Cloud 集成** | 配置和发现的即用型 Starter。通过 Spring Boot `@AutoConfiguration` 自动配置。 | [CoSkyConfigAutoConfiguration.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L45), [CoSkyDiscoveryAutoConfiguration.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L57) |
+| **加权负载均衡** | 与服务发现集成的二进制权重随机负载均衡器，用于高效的实例选择。 | [CoSkyDiscoveryAutoConfiguration.kt:143](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L143) |
+| **命名空间隔离** | 支持多租户命名空间，通过 Redis hashtag 包装实现集群模式兼容。 | [CoSkyProperties.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L31), [NamespaceService.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt#L23) |
+| **REST API 与控制台** | 基于 Web 的管理 UI，支持 RBAC、审计日志和服务拓扑可视化。 | [RestApiServer.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L25) |
+| **实时事件** | 配置和实例变更事件通过 Redis PubSub 监听器即时传播。 | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20), [EventListenerContainer.kt:11](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt#L11) |
 
 ## 架构概览
 
@@ -135,7 +135,7 @@ sequenceDiagram
     Cache->>Redis: 从源刷新
 ```
 
-<!-- Sources: CoSkyServiceRegistry.kt:30, ServiceRegistry.kt:33, ServiceDiscovery.kt:26, CoSkyDiscoveryAutoConfiguration.kt:82 -->
+<!-- Sources: CoSkyServiceRegistry.kt:30, ServiceRegistry.kt:33, ServiceDiscovery.kt:33, CoSkyDiscoveryAutoConfiguration.kt:82 -->
 
 ### 数据流：配置
 

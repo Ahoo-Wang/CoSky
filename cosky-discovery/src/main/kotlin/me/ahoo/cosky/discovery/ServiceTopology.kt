@@ -20,40 +20,13 @@ import reactor.core.publisher.Mono
  * @author ahoo wang
  */
 interface ServiceTopology {
+    /**
+     * Records the local service as a consumer of [producerServiceId] in [producerNamespace].
+     */
     fun addTopology(producerNamespace: String, producerServiceId: String): Mono<Void>
+
+    /**
+     * Consumer name to the names of the producers it depends on.
+     */
     fun getTopology(namespace: String): Mono<Map<String, Set<String>>>
-
-    companion object {
-        val NO_OP: ServiceTopology = object : ServiceTopology {
-            override fun addTopology(producerNamespace: String, producerServiceId: String): Mono<Void> {
-                return Mono.empty()
-            }
-
-            override fun getTopology(namespace: String): Mono<Map<String, Set<String>>> {
-                return Mono.empty()
-            }
-        }
-
-        @JvmStatic
-        val consumerName: String
-            get() {
-                return if (ServiceInstanceContext.serviceInstance == ServiceInstance.NOT_FOUND) {
-                    DEFAULT_CONSUMER_NAME
-                } else {
-                    ServiceInstanceContext.serviceInstance.serviceId
-                }
-            }
-
-        @JvmStatic
-        fun getProducerName(producerNamespace: String, producerServiceId: String): String {
-            val consumerNamespace = ServiceInstanceContext.namespace
-            return if (producerNamespace == consumerNamespace) {
-                producerServiceId
-            } else {
-                "$producerNamespace.$producerServiceId"
-            }
-        }
-
-        const val DEFAULT_CONSUMER_NAME = "_Client_"
-    }
 }

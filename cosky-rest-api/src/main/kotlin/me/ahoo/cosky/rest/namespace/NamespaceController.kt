@@ -15,11 +15,10 @@ package me.ahoo.cosky.rest.namespace
 import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosec.webflux.ReactiveSecurityContexts.getSecurityContext
 import me.ahoo.cosky.core.NamespaceService
-import me.ahoo.cosky.core.NamespacedContext
-import me.ahoo.cosky.core.NamespacedContext.namespace
 import me.ahoo.cosky.rest.security.rbac.RbacService
 import me.ahoo.cosky.rest.security.user.AdminPrincipal.isAdmin
 import me.ahoo.cosky.rest.support.RequestPathPrefix
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -36,7 +35,11 @@ import reactor.core.publisher.Mono
 @RestController
 @RequestMapping(RequestPathPrefix.NAMESPACES_PREFIX)
 @Tag(name = "Namespace")
-class NamespaceController(private val namespaceService: NamespaceService, private val rbacService: RbacService) {
+class NamespaceController(
+    private val namespaceService: NamespaceService,
+    private val rbacService: RbacService,
+    private val coSkyProperties: CoSkyProperties
+) {
     @GetMapping
     fun getNamespaces(): Mono<List<String>> {
         return Mono.deferContextual {
@@ -50,12 +53,7 @@ class NamespaceController(private val namespaceService: NamespaceService, privat
 
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
     fun current(): String {
-        return namespace
-    }
-
-    @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
-    fun setCurrentContextNamespace(@PathVariable namespace: String) {
-        NamespacedContext.namespace = namespace
+        return coSkyProperties.namespace
     }
 
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)

@@ -23,21 +23,21 @@ import org.springframework.cloud.client.discovery.DiscoveryClient
  */
 class CoSkyDiscoveryClient(
     private val serviceDiscovery: ServiceDiscovery,
-    private val coSkyDiscoveryProperties: CoSkyDiscoveryProperties
+    private val coSkyDiscoveryProperties: CoSkyDiscoveryProperties,
+    private val namespace: String
 ) : DiscoveryClient {
     override fun description(): String {
         return "CoSky Discovery Client"
     }
 
     override fun getInstances(serviceId: String): List<ServiceInstance> {
-        return serviceDiscovery.getInstances(serviceId = serviceId)
-            .map { CoSkyServiceInstance(it) }
-            .collectList()
+        return serviceDiscovery.getInstances(namespace, serviceId)
+            .map { instances -> instances.map { CoSkyServiceInstance(it) } }
             .block(coSkyDiscoveryProperties.timeout)!!
     }
 
     override fun getServices(): List<String> {
-        return serviceDiscovery.getServices().collectList().block(coSkyDiscoveryProperties.timeout)!!
+        return serviceDiscovery.getServices(namespace).block(coSkyDiscoveryProperties.timeout)!!
     }
 
     override fun getOrder(): Int {

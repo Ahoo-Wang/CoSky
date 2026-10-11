@@ -4,7 +4,7 @@ title: Security & RBAC
 
 # 安全与 RBAC
 
-CoSky 实现了全面的三层安全模型 -- **认证**、**授权**和**审计** -- 基于 [CoSec](https://github.com/Ahoo-Wang/CoSec) 安全框架构建。用户凭据使用 SHA-256 哈希存储在 Redis 中。授权结合了策略引擎（CoSec 策略 JSON）和命名空间范围的 RBAC。操作会被审计（默认仅写操作，可配置）并持久化到 Redis List 中以供查询。
+CoSky 实现了全面的三层安全模型 -- **认证**、**授权**和**审计** -- 基于 [CoSec](https://github.com/Ahoo-Wang/CoSec) 安全框架构建。用户密码以 BCrypt 哈希存储在 Redis 中；未显式配置 JWT 密钥（`cosky.security.key`）时服务拒绝启动。授权结合了策略引擎（CoSec 策略 JSON）和命名空间范围的 RBAC。操作会被审计（默认仅写操作，可配置）并持久化到 Redis List 中以供查询。
 
 ## 一览
 
@@ -13,7 +13,7 @@ CoSky 实现了全面的三层安全模型 -- **认证**、**授权**和**审计
 | 认证 | `UserPasswordAuthentication` | 通过用户名/密码登录 | `UserPasswordAuthentication.kt` | [security/.../UserPasswordAuthentication.kt:11](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt#L11) |
 | 认证 | `RefreshTokenAuthentication` | 刷新 JWT 令牌对 | `RefreshTokenAuthentication.kt` | [security/.../RefreshTokenAuthentication.kt:14](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/RefreshTokenAuthentication.kt#L14) |
 | 授权 | `CoSkyAuthorization` | 双层授权（策略 + RBAC） | `CoSkyAuthorization.kt` | [security/.../CoSkyAuthorization.kt:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authorization/CoSkyAuthorization.kt#L19) |
-| RBAC | `RbacService` | Redis 中的角色/资源 CRUD | `RbacService.kt` | [security/.../RbacService.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt#L30) |
+| RBAC | `RbacService` | Redis 中的角色/资源 CRUD | `RbacService.kt` | [security/.../RbacService.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt#L30) |
 | 审计 | `AuditLogHandlerInterceptor` | 用于审计日志的 WebFilter | `AuditLogHandlerInterceptor.kt` | [security/.../AuditLogHandlerInterceptor.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogHandlerInterceptor.kt#L31) |
 | 用户管理 | `UserService` | 用户 CRUD、登录锁定、角色绑定 | `UserService.kt` | [security/.../UserService.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36) |
 
@@ -22,7 +22,7 @@ CoSky 实现了全面的三层安全模型 -- **认证**、**授权**和**审计
 ```mermaid
 flowchart LR
     subgraph "第 1 层：认证"
-        UserPwd["UserPasswordAuthentication<br>SHA-256 凭据"]
+        UserPwd["UserPasswordAuthentication<br>BCrypt 凭据"]
         RefreshTok["RefreshTokenAuthentication<br>JWT 刷新"]
         AuthCtrl["AuthenticateController<br>/v1/authenticate"]
     end
@@ -51,7 +51,7 @@ flowchart LR
 
 CoSky 支持两种认证方式：
 
-1. **UserPasswordAuthentication** -- 使用 SHA-256 哈希凭据（存储在 Redis 中）验证用户名/密码。成功时，`UserService.login()` 方法返回包含用户角色绑定的 `SimplePrincipal`。
+1. **UserPasswordAuthentication** -- 使用 BCrypt 哈希凭据（存储在 Redis 中）验证用户名/密码（旧版本的哈希会被校验并在登录时升级）。成功时，`UserService.login()` 方法返回包含用户角色绑定的 `SimplePrincipal`。
 2. **RefreshTokenAuthentication** -- 接受访问/刷新令牌对，并通过 CoSec 的 `TokenVerifier` 验证刷新令牌。验证通过后会调用 `UserService.ensureUnlocked()`，因此已被锁定的账户无法再刷新令牌。成功时返回新的令牌对。
 
 ### AuthenticateController 端点
@@ -73,7 +73,7 @@ CoSky 支持两种认证方式：
 - **解锁**：管理员可通过 `DELETE /v1/users/{username}/unlock` 解锁用户，该操作会删除锁定键。
 - **可见性**：`GET /v1/users` 会为每个用户返回 `locked` 属性，当账户被手动锁定或超过失败次数阈值时为 `true`。
 
-源码: [UserService.kt:138-180](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L138), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
+源码: [UserService.kt:141](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L141), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
 
 ### 登录流程
 
@@ -100,9 +100,10 @@ sequenceDiagram
     else 在限制内
         UserService->>Redis: HGET cosky-{system}:user_idx（哈希密码）
         Redis-->>UserService: storedHash
-        alt SHA-256(pwd) != storedHash
+        alt 密码与 storedHash 不匹配（BCrypt 或旧版 SHA-256）
             UserService-->>UserPasswordAuth: SecurityException（密码错误）
         else 密码匹配
+            UserService->>Redis: EVAL user_password_cas.lua<br>（仅旧版哈希：替换为 BCrypt）
             UserService->>Redis: EVAL user_state.lua (login-success)<br>DEL 锁定键
             UserService->>Redis: SMEMBERS cosky-{system}:user_role_bind:{username}
             Redis-->>UserService: roleSet
@@ -114,7 +115,7 @@ sequenceDiagram
     AuthenticateController-->>Client: 200 CompositeToken
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:139, cosky-rest-api/src/main/resources/user_state.lua:31 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:142, cosky-rest-api/src/main/resources/user_state.lua:31 -->
 
 ## 授权
 
@@ -209,7 +210,9 @@ classDiagram
     RbacService --> Role : 加载,保存
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:30 -->
+`RbacService.getRole` 在每个授权请求中为每个角色调用，因此由 `ReactiveWatchCache` 提供。`saveRole` / `removeRole` 是原子的 Lua 脚本（`rbac_save_role.lua`、`rbac_remove_role.lua`），并在角色绑定 key 上发布变更，因此通过任一服务实例做的角色变更都会立即到达所有实例的缓存（[RbacService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt))。
+
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:39 -->
 
 ### 超级用户和管理员角色
 
@@ -238,7 +241,7 @@ classDiagram
 
 ### AuditLogService
 
-`AuditLogService` 将审计日志条目以 JSON 字符串的形式持久化到 Redis List（`cosky-{system}:audit:log`）中。新条目推入头部（`leftPush`）。查询支持通过 `range` 进行偏移/限制分页，并可通过 `GET /v1/audit-log/export` 导出为 CSV。
+`AuditLogService` 将审计日志条目以 JSON 字符串的形式持久化到 Redis List（`cosky-{system}:audit:log`）中。新条目推入头部，并在同一个 Lua 脚本（`audit_log_add.lua`）中把列表裁剪为最新的 `cosky.security.audit-log.max-size` 条（默认 100,000）。查询支持通过 `range` 进行偏移/限制分页，并可通过 `GET /v1/audit-log/export` 导出为 CSV。
 
 源码: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 
@@ -248,9 +251,10 @@ classDiagram
 
 `UserService` 完全在 Redis 中管理用户：
 
-- **用户索引**：Redis Hash（`cosky-{system}:user_idx`），将用户名映射到 SHA-256 密码哈希。
+- **用户索引**：Redis Hash（`cosky-{system}:user_idx`），将用户名映射到密码哈希。
 - **角色绑定**：Redis Set（`cosky-{system}:user_role_bind:{username}`），存储分配给每个用户的角色名称。
-- **密码哈希**：使用 Guava 的 `Hashing.sha256()` 进行 UTF-8 编码。
+- **密码哈希**：BCrypt（`spring-security-crypto`），在事件循环之外计算。旧版本写入的无盐 SHA-256 哈希仍以常量时间校验，并在下一次成功登录后替换为 BCrypt 哈希；替换是 compare-and-set（`user_password_cas.lua`），不会覆盖并发的改密（[PasswordHasher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/PasswordHasher.kt)）。
+- **角色绑定**由 `user_bind_role.lua` 原子替换。
 - **登录锁定**：参见上方[登录锁定机制](#登录锁定机制)。每个锁定状态变更都由 `user_state.lua` 脚本原子执行。
 - **用户列表**：`query()` 返回每个用户的角色绑定及 `locked` 属性（手动锁定或超过失败次数阈值时为 `true`）。
 - **删除保护**：root 用户（`cosky`）既不可被删除，也不可被锁定。
@@ -288,7 +292,7 @@ classDiagram
     { "name": "dashboard",     "action": { "path": { "method": "GET", "pattern": ["/", "/index.html", ...] } } },
     { "name": "actuatorHealth","action": ["/actuator/health", "/actuator/health/*"] },
     { "name": "authenticate",  "action": ["/v1/authenticate/{username}/login", "/v1/authenticate/{username}/refresh"] },
-    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": "/v1/namespaces/**" } },
+    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": ["/v1/namespaces", "/v1/namespaces/current"] } },
                               "condition": { "authenticated": {} } },
     { "name": "admin",         "action": "*", "condition": { "inRole": { "value": "admin" } } },
     { "name": "root",          "action": "*", "condition": { "eq": { "part": "context.principal.id", "value": "cosky" } } }
@@ -299,7 +303,8 @@ classDiagram
 关键策略规则：
 
 - **未认证访问**：OPTIONS 请求、Swagger UI、静态 Dashboard 资源、Actuator 健康检查和认证端点无需登录即可访问。
-- **命名空间读取**：任何已认证用户都可以读取命名空间数据（GET `/v1/namespaces/**`）。
+- **命名空间列表**：任何已认证用户都可以列出命名空间（GET `/v1/namespaces`，只返回其角色授权的命名空间）并读取当前命名空间（GET `/v1/namespaces/current`）。读取某个命名空间的数据（配置、服务、统计、拓扑）需要拥有该命名空间读权限的角色。
+- **存储的策略**：以 `cosky-{system}` 中 `cosky-policy.json` 配置保存的策略会替代内置策略，并在配置缓存持有它后立即生效；无法解析的存储策略会保持之前的策略生效。
 - **管理员角色**：`admin` 角色成员拥有对所有 API 的不受限制访问（`action: "*"`）。
 - **Root 用户**：`cosky` 用户无论角色绑定如何，都拥有不受限制的访问权限。
 

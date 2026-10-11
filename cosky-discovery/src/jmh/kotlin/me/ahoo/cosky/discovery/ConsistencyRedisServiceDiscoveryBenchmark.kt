@@ -64,13 +64,11 @@ open class ConsistencyRedisServiceDiscoveryBenchmark : AbstractReactiveRedisTest
     @Benchmark
     fun getServices(): List<String> = serviceDiscovery
         .getServices(TestData.NAMESPACE)
-        .collectList()
         .block()!!
 
     @Benchmark
     fun getInstances(): List<ServiceInstance> = serviceDiscovery
         .getInstances(TestData.NAMESPACE, fixedInstance.serviceId)
-        .collectList()
         .block()!!
 
     companion object {

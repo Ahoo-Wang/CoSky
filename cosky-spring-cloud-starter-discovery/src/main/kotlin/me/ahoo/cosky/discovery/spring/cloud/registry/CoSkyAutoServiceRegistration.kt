@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.registry
 
-import me.ahoo.cosky.discovery.ServiceInstanceContext
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
 import org.springframework.context.ApplicationContext
@@ -49,7 +48,6 @@ class CoSkyAutoServiceRegistration(
         if (registration.port == 0) {
             registration.port = port.get()
         }
-        ServiceInstanceContext.serviceInstance = registration.asServiceInstance()
         super.register()
     }
 }

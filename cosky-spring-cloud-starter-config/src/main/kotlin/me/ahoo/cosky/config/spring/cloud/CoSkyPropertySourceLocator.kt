@@ -12,12 +12,11 @@
  */
 package me.ahoo.cosky.config.spring.cloud
 
-import com.google.common.io.Files
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.core.CoSky
-import me.ahoo.cosky.core.NamespacedContext
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.boot.env.OriginTrackedMapPropertySource
 import org.springframework.boot.env.PropertySourceLoader
 import org.springframework.cloud.bootstrap.config.PropertySourceLocator
@@ -34,12 +33,22 @@ import java.util.*
  * @author ahoo wang
  */
 class CoSkyPropertySourceLocator(
+    private val coSkyProperties: CoSkyProperties,
     private val configProperties: CoSkyConfigProperties,
     private val configService: ConfigService
 ) : PropertySourceLocator {
 
     companion object {
         private val log = KotlinLogging.logger {}
+
+        /**
+         * The extension of the last path segment of [configId], empty when it has none.
+         */
+        internal fun getFileExtension(configId: String): String {
+            val fileName = configId.substringAfterLast('/')
+            return if (fileName.contains('.')) fileName.substringAfterLast('.') else ""
+        }
+
         fun getNameOfConfigId(configId: String): String {
             return CoSky.COSKY + ":" + configId
         }
@@ -50,11 +59,8 @@ class CoSkyPropertySourceLocator(
 
     override fun locate(environment: Environment): PropertySource<*> {
         val configId = requireNotNull(configProperties.configId) { "configId must not be null." }
-        var fileExt = Files.getFileExtension(configId)
-        if (fileExt.isBlank()) {
-            fileExt = configProperties.fileExtension
-        }
-        val namespace = NamespacedContext.namespace
+        val fileExt = getFileExtension(configId).ifBlank { configProperties.fileExtension }
+        val namespace = coSkyProperties.namespace
         log.info {
             "Locate - configId:[$configId] @ namespace:[$namespace]"
         }

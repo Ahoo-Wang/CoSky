@@ -144,7 +144,7 @@ tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
 cd cosky-rest-api-5.8.1
 
 # 使用 Redis 连接运行
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 发行包包含 `bin/` 启动脚本、`lib/` 依赖库、`config/` 配置文件，以及存放控制台静态资源的 `ui/` 目录（通过 `spring.web.resources.static-locations: file:./ui/` 提供访问）。
@@ -170,6 +170,7 @@ docker pull ahoowang/cosky:latest
 # 作为容器运行
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
@@ -190,6 +191,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_DATA_REDIS_URL=redis://redis:6379
+      - COSKY_SECURITY_KEY=${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
     depends_on:
       - redis
 ```
@@ -419,14 +421,17 @@ CoSky 的关键配置属性：
 | `spring.data.redis.url` | _（必填）_ | Redis 连接 URL（单机） | [bootstrap.yaml](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml) |
 | `spring.data.redis.cluster.nodes` | _（集群必填）_ | Redis 集群节点地址 | [cosky-cluster.yml:23](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml#L23) |
 | `spring.data.redis.password` | — | Redis 密码 | [cosky.yml:23](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml#L23) |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务和配置的隔离命名空间 | [CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30) |
-| `spring.cloud.cosky.config.enabled` | `true` | 启用从 Redis 加载配置 | [CoSkyConfigProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L26) |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID | [CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48) |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | 默认文件扩展名 | [CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28) |
-| `spring.cloud.cosky.config.timeout` | `2s` | 配置加载超时时间 | [CoSkyConfigProperties.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L29) |
-| `spring.cloud.cosky.discovery.enabled` | `true` | 启用服务发现 | [CoSkyDiscoveryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L26) |
-| `spring.cloud.cosky.discovery.timeout` | `2s` | 发现操作超时时间 | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
+| `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务和配置的隔离命名空间 | [CoSkyProperties.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L42) |
+| `spring.cloud.cosky.config.enabled` | `true` | 启用从 Redis 加载配置 | [CoSkyConfigProperties.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L33) |
+| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID | [CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50) |
+| `spring.cloud.cosky.config.file-extension` | `yaml` | 默认文件扩展名 | [CoSkyConfigProperties.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L35) |
+| `spring.cloud.cosky.config.timeout` | `2s` | 配置加载超时时间 | [CoSkyConfigProperties.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L36) |
+| `spring.cloud.cosky.discovery.enabled` | `true` | 启用服务发现 | [CoSkyDiscoveryProperties.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L33) |
+| `spring.cloud.cosky.discovery.timeout` | `2s` | 发现操作超时时间 | [CoSkyDiscoveryProperties.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L35) |
+| `spring.cloud.cosky.discovery.topology-enabled` | `true` | 把本应用记录为其所发现服务的消费者 | [CoSkyDiscoveryProperties.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L40) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
+| `spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at` | `false` | 续约事件携带新的 ttlAt；仅在所有客户端都运行此版本或更高版本后开启 | [CoSkyRegistryProperties.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L61) |
+| `cosky.security.audit-log.max-size` | `100000` | 审计日志最多保留的最新条目数 | [SecurityProperties.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityProperties.kt#L39) |
 | `cosky.security.enabled` | `true` | 启用 REST API 服务器的安全功能 | [application.yaml:16](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L16) |
 | `cosky.security.enforce-init-super-user` | `false` | 重新初始化超级用户密码 | [application.yaml:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L19) |
 

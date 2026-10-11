@@ -32,7 +32,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":cosky-spring-cloud-starter-config"))
     implementation(project(":cosky-spring-cloud-starter-discovery"))
-    implementation("com.google.guava:guava")
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.cloud:spring-cloud-starter-openfeign")
     kapt("org.springframework.boot:spring-boot-configuration-processor")

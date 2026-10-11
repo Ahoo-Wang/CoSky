@@ -1,5 +1,6 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
+import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
@@ -17,6 +18,7 @@ internal class CoSkyDiscoveryClientConfigurationTest {
             .withUserConfiguration(
                 DataRedisAutoConfiguration::class.java,
                 DataRedisReactiveAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
                 CoSkyDiscoveryAutoConfiguration::class.java,
                 ReactiveCompositeDiscoveryClientAutoConfiguration::class.java,
                 CoSkyDiscoveryClientConfiguration::class.java,

@@ -23,18 +23,20 @@ import reactor.core.publisher.Flux
  * @author ahoo wang
  */
 
-class CoSkyReactiveDiscoveryClient(private val serviceDiscovery: ServiceDiscovery) : ReactiveDiscoveryClient {
+class CoSkyReactiveDiscoveryClient(
+    private val serviceDiscovery: ServiceDiscovery,
+    private val namespace: String
+) : ReactiveDiscoveryClient {
 
     override fun description(): String {
         return "CoSky Reactive Discovery Client"
     }
 
     override fun getInstances(serviceId: String): Flux<ServiceInstance> {
-        return serviceDiscovery.getInstances(serviceId = serviceId)
-            .map {
-                CoSkyServiceInstance(it)
-            }
+        return serviceDiscovery.getInstances(namespace, serviceId)
+            .flatMapIterable { it }
+            .map { CoSkyServiceInstance(it) }
     }
 
-    override fun getServices(): Flux<String> = serviceDiscovery.getServices()
+    override fun getServices(): Flux<String> = serviceDiscovery.getServices(namespace).flatMapIterable { it }
 }

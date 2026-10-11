@@ -157,7 +157,7 @@ end
 
 This prevents redundant writes, history entries, and PubSub notifications when the same config is saved again.
 
-### Pattern 2: Lazy Expiration
+### Pattern 2: Indexed and Lazy Expiration
 
 The `discovery_get_instances.lua` script ([source](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua)) checks TTL during reads:
 
@@ -169,7 +169,7 @@ if instanceTtl == -2 then
 end
 ```
 
-Dead instances are cleaned up lazily during reads, not by a separate background sweeper. This eliminates the need for a tombstone process.
+Dead instances are also cleaned up by an index-driven reaper: every registered client reaps its namespaces after each renewal round through the expiry ZSET (`{namespace}:svc_itc_exp`), in `O(log N + k)`. The ZSET only lists candidates while the key TTL stays authoritative, so there is still no tombstone process and a stale index can not drop a live instance (see [Service Registry](./service-registry.md#expiry-reaping)).
 
 ### Pattern 3: Throttled PubSub
 
@@ -267,23 +267,23 @@ stateDiagram-v2
 
 Redis PubSub is **fire-and-forget** — if a subscriber is disconnected when a message is published, the message is lost. CoSky does not implement message persistence or replay.
 
-**Mitigation**: The `ConcurrentHashMap` cache entries have a TTL of 1 minute (`CONFIG_CACHE_TTL`). After the TTL expires, the cache entry is evicted and the next read will fetch fresh data from Redis and re-subscribe to PubSub. Maximum staleness from a lost PubSub message is therefore bounded to ~1 minute.
+**Mitigation**: Every consistency cache (`ReactiveWatchCache`) reloads all of its keys periodically, every 5 minutes by default. Maximum staleness from a lost PubSub message is therefore bounded to the resync interval.
 
-Relevant source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40).
+Relevant source: [ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57).
 
 ### Redis Failover
 
 If the Redis master fails and a replica promotes, all PubSub subscriptions are dropped. Clients must re-subscribe.
 
-**Current state**: The `doFinally` callback in the consistency wrappers removes the cache entry when the PubSub subscription terminates (see [RedisConsistencyConfigService.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L57)). The next read will re-fetch from Redis and re-subscribe. This is a self-healing mechanism, but there is a staleness window equal to the Redis failover time.
+**Current state**: An error on a key's event stream (or on a load) makes the cache re-subscribe and reload with exponential backoff (1s up to 30s), waiting until the new subscription is active before reloading, so no change is missed once Redis is back ([ReactiveWatchCache.kt:120](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L120)). This is a self-healing mechanism, with a staleness window equal to the Redis failover time.
 
-**What to watch for**: Redis Sentinel failover typically takes 10-30 seconds. During this window, all CoSky clients operate on stale cached data. For service discovery this is acceptable (instances remain valid). For configuration this means config changes made during failover will not propagate until failover completes and clients re-subscribe.
+**What to watch for**: Redis Sentinel failover typically takes 10-30 seconds. During this window, all CoSky clients serve their last good snapshot. For service discovery this is acceptable (instances remain valid; expired ones are filtered by `ttlAt`). For configuration this means config changes made during failover propagate once clients have re-subscribed.
 
 ### Cache Staleness Under Partition
 
-In a network partition where Redis is reachable from the writer but not from some readers, those readers will serve stale data from their local cache. When the PubSub subscription drops, the `doFinally` callback evicts the entry, and subsequent reads will fail (Redis unreachable).
+In a network partition where Redis is reachable from the writer but not from some readers, those readers keep serving the last good snapshot from their local cache while retrying in the background. Only a key that has never been loaded fails its readers.
 
-**This is the CP vs AP trade-off**: CoSky favors availability (serve from cache) over consistency during partitions. When the partition heals, clients re-subscribe and converge.
+**This is the CP vs AP trade-off**: CoSky favors availability (serve from cache) over consistency during partitions. When the partition heals, clients re-subscribe, reload and converge.
 
 ### Lua Script Complexity
 
@@ -294,15 +294,17 @@ The Lua scripts are the most critical and brittle part of the codebase. They run
 
 The `discovery_get_instances.lua` script iterates over all instances of a service and checks TTL for each. For services with thousands of instances, this could become a latency concern.
 
+To keep the scripts maintainable, shared functions live in `config_lib.lua` / `discovery_lib.lua` and are inlined at load time by `LuaScripts` (`-- @include`). Keys known at call time are passed via `KEYS` from the Kotlin key generators; `ConfigLuaKeysTest` / `DiscoveryLuaKeysTest` keep the Lua key functions identical to them.
+
 ## Architectural Principles
 
 1. **No server-side state** — CoSky is an SDK, not a server. Each application process manages its own cache and subscriptions. The REST API server is optional and stateless.
 
 2. **Lua scripts for all writes** — No multi-command transactions. Every mutation is a single atomic Lua script. This eliminates race conditions between concurrent clients.
 
-3. **Lazy over eager** — Cache entries are created on first access (lazy). Dead instances are cleaned up on read (lazy). PubSub notifications are throttled (lazy-ish).
+3. **Lazy over eager** — Cache entries are created on first access (lazy). Dead instances are reaped from an expiry index by the registered clients and cleaned up on read. PubSub notifications are throttled.
 
-4. **Self-healing subscriptions** — When a PubSub subscription breaks, the cache entry is evicted. The next read re-fetches and re-subscribes automatically.
+4. **Self-healing subscriptions** — When a PubSub subscription breaks, the cache re-subscribes and reloads with backoff while serving the last good snapshot, and a periodic resync covers events lost meanwhile.
 
 5. **Namespace isolation** — Every key is scoped to a namespace. Namespaces map to Redis hash tags, ensuring cross-key atomicity within a namespace in cluster mode.
 

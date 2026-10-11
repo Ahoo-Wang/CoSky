@@ -48,7 +48,7 @@ cosky-rest-api-5.8.1/
 使用必需的 Redis 连接参数启动 CoSky：
 
 ```bash
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 所有 Spring Boot 属性都可以使用 `--property=value` 格式作为命令行参数传入。也可以将它们设置为环境变量或直接编辑配置文件。
@@ -119,7 +119,7 @@ cosky:
 cosec:
   jwt:
     algorithm: hmac256
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}
+    secret: ${cosky.security.key:}
     token-validity:
       access: 15m
       refresh: 3H
@@ -271,7 +271,7 @@ flowchart TD
 
 ```bash
 export JAVA_OPTS="-Xms512M -Xmx512M -XX:+UseZGC"
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ## 服务发现与自注册

@@ -4,7 +4,7 @@ title: Security & RBAC
 
 # Security & RBAC
 
-CoSky implements a comprehensive three-layer security model -- **Authentication**, **Authorization**, and **Audit** -- built on the [CoSec](https://github.com/Ahoo-Wang/CoSec) security framework. User credentials are stored in Redis with SHA-256 hashing. Authorization combines a policy engine (CoSec policy JSON) with namespace-scoped RBAC. Operations are audited (write operations by default, configurable) and persisted to a Redis List for querying.
+CoSky implements a comprehensive three-layer security model -- **Authentication**, **Authorization**, and **Audit** -- built on the [CoSec](https://github.com/Ahoo-Wang/CoSec) security framework. User passwords are stored in Redis as BCrypt hashes, and the server refuses to start without an explicit JWT secret (`cosky.security.key`). Authorization combines a policy engine (CoSec policy JSON) with namespace-scoped RBAC. Operations are audited (write operations by default, configurable) and persisted to a Redis List for querying.
 
 ## At a Glance
 
@@ -13,7 +13,7 @@ CoSky implements a comprehensive three-layer security model -- **Authentication*
 | Authentication | `UserPasswordAuthentication` | Login via username/password | `UserPasswordAuthentication.kt` | [security/.../UserPasswordAuthentication.kt:11](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt#L11) |
 | Authentication | `RefreshTokenAuthentication` | Refresh JWT token pair | `RefreshTokenAuthentication.kt` | [security/.../RefreshTokenAuthentication.kt:14](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/RefreshTokenAuthentication.kt#L14) |
 | Authorization | `CoSkyAuthorization` | Two-tier authorization (policy + RBAC) | `CoSkyAuthorization.kt` | [security/.../CoSkyAuthorization.kt:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authorization/CoSkyAuthorization.kt#L19) |
-| RBAC | `RbacService` | Role/Resource CRUD in Redis | `RbacService.kt` | [security/.../RbacService.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt#L30) |
+| RBAC | `RbacService` | Role/Resource CRUD in Redis | `RbacService.kt` | [security/.../RbacService.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt#L30) |
 | Audit | `AuditLogHandlerInterceptor` | WebFilter for audit logging | `AuditLogHandlerInterceptor.kt` | [security/.../AuditLogHandlerInterceptor.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogHandlerInterceptor.kt#L31) |
 | User Mgmt | `UserService` | User CRUD, login lockout, role binding | `UserService.kt` | [security/.../UserService.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L36) |
 
@@ -22,7 +22,7 @@ CoSky implements a comprehensive three-layer security model -- **Authentication*
 ```mermaid
 flowchart LR
     subgraph "Layer 1: Authentication"
-        UserPwd["UserPasswordAuthentication<br>SHA-256 credentials"]
+        UserPwd["UserPasswordAuthentication<br>BCrypt credentials"]
         RefreshTok["RefreshTokenAuthentication<br>JWT refresh"]
         AuthCtrl["AuthenticateController<br>/v1/authenticate"]
     end
@@ -51,7 +51,7 @@ flowchart LR
 
 CoSky supports two authentication methods:
 
-1. **UserPasswordAuthentication** -- validates username/password against SHA-256 hashed credentials stored in Redis. On success, the `UserService.login()` method returns a `SimplePrincipal` with the user's role bindings.
+1. **UserPasswordAuthentication** -- validates username/password against BCrypt hashed credentials stored in Redis (hashes of older versions are verified and upgraded on login). On success, the `UserService.login()` method returns a `SimplePrincipal` with the user's role bindings.
 2. **RefreshTokenAuthentication** -- accepts an access/refresh token pair and validates the refresh token via CoSec's `TokenVerifier`. After verification it calls `UserService.ensureUnlocked()`, so a locked account can no longer refresh its tokens. Returns a refreshed token pair on success.
 
 ### AuthenticateController Endpoints
@@ -73,7 +73,7 @@ CoSky supports two authentication methods:
 - **Unlock**: Admins can unlock a user via `DELETE /v1/users/{username}/unlock`, which deletes the lock key.
 - **Visibility**: `GET /v1/users` returns a `locked` attribute per user, `true` when the account is manually locked or over the failed-attempt limit.
 
-Sources: [UserService.kt:138-180](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L138), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
+Sources: [UserService.kt:141](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt#L141), [user_state.lua](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/user_state.lua)
 
 ### Login Flow
 
@@ -100,9 +100,10 @@ sequenceDiagram
     else within limit
         UserService->>Redis: HGET cosky-{system}:user_idx (hashed pwd)
         Redis-->>UserService: storedHash
-        alt SHA-256(pwd) != storedHash
+        alt password does not match storedHash (BCrypt, or legacy SHA-256)
             UserService-->>UserPasswordAuth: SecurityException (incorrect password)
         else password matches
+            UserService->>Redis: EVAL user_password_cas.lua<br>(only for a legacy hash: replace by BCrypt)
             UserService->>Redis: EVAL user_state.lua (login-success)<br>DEL login lock key
             UserService->>Redis: SMEMBERS cosky-{system}:user_role_bind:{username}
             Redis-->>UserService: roleSet
@@ -114,7 +115,7 @@ sequenceDiagram
     AuthenticateController-->>Client: 200 CompositeToken
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:139, cosky-rest-api/src/main/resources/user_state.lua:31 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/AuthenticateController.kt:37, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/authentication/UserPasswordAuthentication.kt:11, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/UserService.kt:142, cosky-rest-api/src/main/resources/user_state.lua:31 -->
 
 ## Authorization
 
@@ -209,7 +210,9 @@ classDiagram
     RbacService --> Role : loads,saves
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:30 -->
+`RbacService.getRole` runs for every role of every authorized request, so it is served from a `ReactiveWatchCache`. `saveRole` / `removeRole` are atomic Lua scripts (`rbac_save_role.lua`, `rbac_remove_role.lua`) that publish on the role's bindings key, so a role change made through any server instance reaches the caches of all of them immediately ([RbacService.kt]({U}{RB})).
+
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:39 -->
 
 ### Super User and Admin Role
 
@@ -238,7 +241,7 @@ Source: [AuditLogHandlerInterceptor.kt:31-76](https://github.com/Ahoo-Wang/CoSky
 
 ### AuditLogService
 
-`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
+`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head and the list is trimmed to its newest `cosky.security.audit-log.max-size` entries (default 100,000) in one Lua script (`audit_log_add.lua`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
 
 Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 
@@ -248,9 +251,10 @@ Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/
 
 `UserService` manages users entirely in Redis:
 
-- **User index**: A Redis Hash (`cosky-{system}:user_idx`) mapping usernames to SHA-256 password hashes.
+- **User index**: A Redis Hash (`cosky-{system}:user_idx`) mapping usernames to password hashes.
 - **Role bindings**: A Redis Set (`cosky-{system}:user_role_bind:{username}`) storing role names assigned to each user.
-- **Password hashing**: Uses Guava's `Hashing.sha256()` with UTF-8 encoding.
+- **Password hashing**: BCrypt (`spring-security-crypto`), computed off the event loop. Unsalted SHA-256 hashes written by older versions are still verified in constant time and replaced by a BCrypt hash after the next successful login; the replacement is a compare-and-set (`user_password_cas.lua`) so a concurrent password change is never overwritten ([PasswordHasher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/PasswordHasher.kt)).
+- **Role bindings** are replaced atomically by `user_bind_role.lua`.
 - **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above. Each lock-state transition is executed atomically by the `user_state.lua` script.
 - **User listing**: `query()` returns each user with role bindings and a `locked` attribute (`true` when manually locked or over the failed-attempt limit).
 - **Removal guard**: The root user (`cosky`) can be neither removed nor locked.
@@ -288,7 +292,7 @@ The bundled `cosky-policy.json` defines the baseline security policy. Its statem
     { "name": "dashboard",     "action": { "path": { "method": "GET", "pattern": ["/", "/index.html", ...] } } },
     { "name": "actuatorHealth","action": ["/actuator/health", "/actuator/health/*"] },
     { "name": "authenticate",  "action": ["/v1/authenticate/{username}/login", "/v1/authenticate/{username}/refresh"] },
-    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": "/v1/namespaces/**" } },
+    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": ["/v1/namespaces", "/v1/namespaces/current"] } },
                               "condition": { "authenticated": {} } },
     { "name": "admin",         "action": "*", "condition": { "inRole": { "value": "admin" } } },
     { "name": "root",          "action": "*", "condition": { "eq": { "part": "context.principal.id", "value": "cosky" } } }
@@ -299,7 +303,8 @@ The bundled `cosky-policy.json` defines the baseline security policy. Its statem
 Key policy rules:
 
 - **Unauthenticated access**: OPTIONS requests, Swagger UI, static dashboard assets, actuator health, and authentication endpoints are allowed without login.
-- **Namespace reads**: Any authenticated user can read namespace data (GET `/v1/namespaces/**`).
+- **Namespace listing**: Any authenticated user can list namespaces (GET `/v1/namespaces`, which only returns the namespaces their roles grant) and read the current namespace (GET `/v1/namespaces/current`). Reading the data of a namespace (configs, services, statistics, topology) requires a role granting read access to it.
+- **Stored policy**: A policy saved as the `cosky-policy.json` config of `cosky-{system}` replaces the bundled one and takes effect as soon as the config cache holds it; a stored policy that does not parse keeps the previous one in force.
 - **Admin role**: Members of the `admin` role have unrestricted access (`action: "*"`) to all APIs.
 - **Root user**: The `cosky` user has unrestricted access regardless of role bindings.
 

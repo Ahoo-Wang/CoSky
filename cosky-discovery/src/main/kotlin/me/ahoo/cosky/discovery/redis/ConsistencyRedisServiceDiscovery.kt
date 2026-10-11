@@ -12,7 +12,9 @@
  */
 package me.ahoo.cosky.discovery.redis
 
-import io.github.oshai.kotlinlogging.KotlinLogging
+import me.ahoo.cosky.core.cache.ReactiveWatchCache
+import me.ahoo.cosky.core.cache.WatchCache
+import me.ahoo.cosky.core.requireValidNamespace
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
@@ -20,194 +22,140 @@ import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.withTtlAt
-import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
-import reactor.kotlin.core.publisher.toMono
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CopyOnWriteArraySet
-import java.util.function.Function
-
-private object NoOpHookOnResetInstanceCache : (InstanceChangedEvent) -> Unit {
-    override fun invoke(p1: InstanceChangedEvent) = Unit
-}
-
-private object NoOpHookOnResetServiceCache : (String) -> Unit {
-    override fun invoke(p1: String) = Unit
-}
+import reactor.util.retry.Retry
+import java.time.Duration
 
 /**
  * Consistency Redis Service Discovery.
+ *
+ * Serves services and instances from local caches kept consistent by change events.
+ * Instance snapshots are immutable lists: an unchanged snapshot is the very same list instance.
  *
  * @author ahoo wang
  */
 class ConsistencyRedisServiceDiscovery(
     private val delegate: ServiceDiscovery,
-    private val serviceEventListenerContainer: ServiceEventListenerContainer,
-    private val instanceEventListenerContainer: InstanceEventListenerContainer,
-    private val hookOnResetInstanceCache: (InstanceChangedEvent) -> Unit = NoOpHookOnResetInstanceCache,
-    private val hookOnResetServiceCache: (String) -> Unit = NoOpHookOnResetServiceCache
-) : ServiceDiscovery {
+    serviceEventListenerContainer: ServiceEventListenerContainer,
+    instanceEventListenerContainer: InstanceEventListenerContainer,
+    resyncInterval: Duration? = ReactiveWatchCache.DEFAULT_RESYNC_INTERVAL,
+    retry: Retry = ReactiveWatchCache.DEFAULT_RETRY
+) : ServiceDiscovery, AutoCloseable {
     companion object {
-        private val log = KotlinLogging.logger {}
+        /**
+         * @see RedisServiceDiscovery.getInstanceTtl
+         */
+        private const val TTL_INSTANCE_NOT_EXISTS = -2L
     }
 
-    private val serviceMapInstances =
-        ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>>()
+    private val servicesCache: WatchCache<String, List<String>> = ReactiveWatchCache(
+        listen = { serviceEventListenerContainer.listen(it) },
+        load = { delegate.getServices(it) },
+        resyncInterval = resyncInterval,
+        retry = retry,
+    )
 
-    private val namespaceMapServices: ConcurrentHashMap<String, Flux<String>> = ConcurrentHashMap()
+    private val instancesCache: WatchCache<NamespacedServiceId, List<ServiceInstance>> = ReactiveWatchCache(
+        listen = { instanceEventListenerContainer.listen(it) },
+        load = { delegate.getInstances(it.namespace, it.serviceId) },
+        apply = ::applyInstanceChanged,
+        resyncInterval = resyncInterval,
+        retry = retry,
+    )
 
-    override fun getServices(namespace: String): Flux<String> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
-        return namespaceMapServices.computeIfAbsent(namespace) {
-            @Suppress("CallingSubscribeInNonBlockingScope")
-            serviceEventListenerContainer.receive(namespace)
-                .doOnNext {
-                    onServiceChanged(it)
-                }.doFinally {
-                    log.info {
-                        "Listen topic[$namespace] finally - [$it]."
-                    }
-                    namespaceMapServices.remove(namespace)
-                }
-                .subscribe()
-            delegate.getServices(namespace).cache()
-        }
+    override fun getServices(namespace: String): Mono<List<String>> {
+        requireValidNamespace(namespace)
+        return servicesCache.get(namespace).defaultIfEmpty(emptyList())
     }
 
-    private fun onServiceChanged(namespace: String) {
-        log.debug {
-            "onServiceChanged:$namespace"
-        }
-        @Suppress("ReactiveStreamsUnusedPublisher")
-        namespaceMapServices[namespace] = delegate.getServices(namespace).cache()
-        hookOnResetServiceCache(namespace)
-    }
-
-    override fun getInstances(namespace: String, serviceId: String): Flux<ServiceInstance> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
-        require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
-        return serviceMapInstances.computeIfAbsent(
-            NamespacedServiceId(namespace, serviceId),
-        ) { svcId ->
-            @Suppress("CallingSubscribeInNonBlockingScope")
-            instanceEventListenerContainer.receive(svcId)
-                .doOnNext {
-                    onInstanceChanged(it)
-                }
-                .doFinally {
-                    log.info {
-                        "Listen topic[$svcId] finally - [$it]."
-                    }
-                    serviceMapInstances.remove(svcId)
-                }.subscribe()
-            delegate.getInstances(namespace, serviceId)
-                .collectList()
-                .map {
-                    CopyOnWriteArraySet(it)
-                }
-                .cache()
-        }
-            .flatMapIterable { it }
-            .filter { instance: ServiceInstance -> !instance.isExpired }
-    }
-
-    private fun getInstanceInternal(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
-        require(namespace.isNotBlank()) { "namespace must not be blank!" }
-        require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
-        require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
-        val namespacedServiceId = NamespacedServiceId(namespace, serviceId)
-        val instancesMono = serviceMapInstances[namespacedServiceId]
-            ?: return delegate.getInstance(namespace, serviceId, instanceId)
-
-        return instancesMono
-            .flatMapIterable(Function.identity())
-            .filter { it.instanceId == instanceId }
-            .next()
-            .switchIfEmpty(delegate.getInstance(namespace, serviceId, instanceId))
+    override fun getInstances(namespace: String, serviceId: String): Mono<List<ServiceInstance>> {
+        return instancesCache.get(namespacedServiceId(namespace, serviceId))
+            .defaultIfEmpty(emptyList())
+            .map { instances ->
+                if (instances.none { it.isExpired }) instances else instances.filterNot { it.isExpired }
+            }
     }
 
     override fun getInstance(namespace: String, serviceId: String, instanceId: String): Mono<ServiceInstance> {
-        return getInstanceInternal(namespace, serviceId, instanceId)
+        require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
+        return instancesCache.get(namespacedServiceId(namespace, serviceId))
+            .mapNotNull<ServiceInstance> { instances -> instances.firstOrNull { it.instanceId == instanceId } }
+            .switchIfEmpty(Mono.defer { delegate.getInstance(namespace, serviceId, instanceId) })
     }
 
     override fun getInstanceTtl(namespace: String, serviceId: String, instanceId: String): Mono<Long> {
-        return getInstanceInternal(namespace, serviceId, instanceId)
-            .map(ServiceInstance::ttlAt)
+        return getInstance(namespace, serviceId, instanceId).map(ServiceInstance::ttlAt)
     }
 
-    private fun onInstanceChanged(instanceChangedEvent: InstanceChangedEvent) {
-        log.debug {
-            "onInstanceChanged - instance:[${instanceChangedEvent.instance}] - message:[${instanceChangedEvent.event}]"
-        }
-        val namespacedServiceId = instanceChangedEvent.namespacedServiceId
-        val instance = instanceChangedEvent.instance
-        val instanceId = instance.instanceId
-        val namespace = namespacedServiceId.namespace
-        val serviceId = namespacedServiceId.serviceId
-        val instancesMono = serviceMapInstances[namespacedServiceId]
-        if (instancesMono == null) {
-            log.debug {
-                "onInstanceChanged - instance:[$instance] - event:[${instanceChangedEvent.event}] instancesMono is null."
-            }
-            return
-        }
-        instancesMono.flatMap { cachedInstances: CopyOnWriteArraySet<ServiceInstance> ->
-            val cachedInstance =
-                cachedInstances.firstOrNull { it.instanceId == instanceId } ?: ServiceInstance.NOT_FOUND
-            if (ServiceInstance.NOT_FOUND == cachedInstance) {
-                if (InstanceChangedEvent.Event.REGISTER != instanceChangedEvent.event &&
-                    InstanceChangedEvent.Event.RENEW != instanceChangedEvent.event
-                ) {
-                    log.debug {
-                        "onInstanceChanged - instance:[$instance] - event:[${instanceChangedEvent.event}] not found cached Instance."
+    private fun namespacedServiceId(namespace: String, serviceId: String): NamespacedServiceId {
+        requireValidNamespace(namespace)
+        require(serviceId.isNotBlank()) { "serviceId must not be blank!" }
+        return NamespacedServiceId(namespace, serviceId)
+    }
+
+    /**
+     * Idempotent and read-through: every event is resolved against the current state in Redis.
+     */
+    private fun applyInstanceChanged(
+        serviceId: NamespacedServiceId,
+        current: List<ServiceInstance>?,
+        changed: InstanceChangedEvent
+    ): Mono<List<ServiceInstance>> {
+        val instances = current.orEmpty()
+        val instanceId = changed.instance.instanceId
+        return when (changed.event) {
+            InstanceChangedEvent.Event.DEREGISTER,
+            InstanceChangedEvent.Event.EXPIRED -> Mono.just(instances.without(instanceId))
+
+            InstanceChangedEvent.Event.RENEW -> {
+                val cached = instances.firstOrNull { it.instanceId == instanceId }
+                    ?: return refreshInstance(serviceId, instances, instanceId)
+                changed.ttlAt?.let { return Mono.just(instances.upsert(cached.withTtlAt(it))) }
+                delegate.getInstanceTtl(serviceId.namespace, serviceId.serviceId, instanceId)
+                    .map { ttlAt ->
+                        if (ttlAt == TTL_INSTANCE_NOT_EXISTS) {
+                            instances.without(instanceId)
+                        } else {
+                            instances.upsert(cached.withTtlAt(ttlAt))
+                        }
                     }
-                    return@flatMap Mono.empty<Any>()
-                }
-                return@flatMap delegate.getInstance(namespace, serviceId, instanceId)
-                    .doOnNext { serviceInstance: ServiceInstance ->
-                        cachedInstances.add(serviceInstance)
-                    }
             }
-            when (instanceChangedEvent.event) {
-                InstanceChangedEvent.Event.REGISTER -> {
-                    return@flatMap delegate
-                        .getInstance(namespace, serviceId, instanceId)
-                        .doOnNext { registeredInstance: ServiceInstance ->
-                            cachedInstances.remove(cachedInstance)
-                            cachedInstances.add(registeredInstance)
-                        }
-                }
 
-                InstanceChangedEvent.Event.RENEW -> {
-                    return@flatMap delegate
-                        .getInstanceTtl(namespace, serviceId, instanceId)
-                        .doOnNext { ttlAt ->
-                            // TODO remove first
-                            cachedInstances.remove(cachedInstance)
-                            cachedInstances.add(cachedInstance.withTtlAt(ttlAt = ttlAt))
-                        }
-                }
+            InstanceChangedEvent.Event.REGISTER,
+            InstanceChangedEvent.Event.SET_METADATA -> refreshInstance(serviceId, instances, instanceId)
+        }
+    }
 
-                InstanceChangedEvent.Event.SET_METADATA -> {
-                    return@flatMap delegate
-                        .getInstance(namespace, serviceId, instanceId)
-                        .doOnNext { updatedInstance ->
-                            cachedInstances.remove(cachedInstance)
-                            cachedInstances.add(updatedInstance)
-                        }
-                }
+    private fun refreshInstance(
+        serviceId: NamespacedServiceId,
+        instances: List<ServiceInstance>,
+        instanceId: String
+    ): Mono<List<ServiceInstance>> {
+        return delegate.getInstance(serviceId.namespace, serviceId.serviceId, instanceId)
+            .map { instances.upsert(it) }
+            .defaultIfEmpty(instances.without(instanceId))
+    }
 
-                InstanceChangedEvent.Event.DEREGISTER, InstanceChangedEvent.Event.EXPIRED -> {
-                    cachedInstances.remove(cachedInstance)
-                    return@flatMap Mono.empty<Any>()
-                }
+    private fun List<ServiceInstance>.without(instanceId: String): List<ServiceInstance> {
+        if (none { it.instanceId == instanceId }) {
+            return this
+        }
+        return filterNot { it.instanceId == instanceId }
+    }
 
-                else -> return@flatMap IllegalStateException(
-                    "Unexpected value: " + instanceChangedEvent.event
-                ).toMono<Any>()
-            }
-        }.doFinally {
-            hookOnResetInstanceCache(instanceChangedEvent)
-        }.subscribe()
+    private fun List<ServiceInstance>.upsert(instance: ServiceInstance): List<ServiceInstance> {
+        val index = indexOfFirst { it.instanceId == instance.instanceId }
+        if (index < 0) {
+            return this + instance
+        }
+        if (this[index] == instance) {
+            return this
+        }
+        return toMutableList().also { it[index] = instance }
+    }
+
+    override fun close() {
+        servicesCache.close()
+        instancesCache.close()
     }
 }

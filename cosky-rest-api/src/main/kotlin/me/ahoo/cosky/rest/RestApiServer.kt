@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest
 
+import me.ahoo.cosky.rest.security.JwtSecretValidator
 import org.springframework.boot.SpringApplication
 import org.springframework.boot.autoconfigure.SpringBootApplication
 
@@ -24,5 +25,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 class RestApiServer
 
 fun main(args: Array<String>) {
-    SpringApplication.run(RestApiServer::class.java, *args)
+    SpringApplication(RestApiServer::class.java).apply {
+        addListeners(JwtSecretValidator())
+    }.run(*args)
 }

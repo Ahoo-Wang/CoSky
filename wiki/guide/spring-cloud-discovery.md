@@ -10,29 +10,30 @@ The CoSky Spring Cloud Discovery Starter provides seamless integration between C
 
 | Component | Responsibility | Key File | Source |
 |---|---|---|---|
-| **CoSkyDiscoveryAutoConfiguration** | Wires core discovery beans (service discovery, topology, event listeners, load balancer) | `CoSkyDiscoveryAutoConfiguration.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyDiscoveryAutoConfiguration.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L47) |
+| **CoSkyDiscoveryAutoConfiguration** | Wires core discovery beans (service discovery, topology, event listeners, load balancer) | `CoSkyDiscoveryAutoConfiguration.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyDiscoveryAutoConfiguration.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L57) |
 | **CoSkyDiscoveryClient** | Blocking `DiscoveryClient` adapter | `CoSkyDiscoveryClient.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyDiscoveryClient.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L24) |
 | **CoSkyReactiveDiscoveryClient** | Reactive `ReactiveDiscoveryClient` adapter | `CoSkyReactiveDiscoveryClient.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyReactiveDiscoveryClient.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt#L26) |
 | **CoSkyServiceRegistry** | Registers and deregisters instances via Redis | `CoSkyServiceRegistry.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyServiceRegistry.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L25) |
 | **CoSkyRegistration** | Holds service instance metadata for registration | `CoSkyRegistration.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyRegistration.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt#L26) |
-| **CoSkyAutoServiceRegistration** | Web-app auto-registration (port from embedded server) | `CoSkyAutoServiceRegistration.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyAutoServiceRegistration.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt#L25) |
-| **CoSkyAutoServiceRegistrationOfNoneWeb** | Non-web-app auto-registration (uses PID as port) | `CoSkyAutoServiceRegistrationOfNoneWeb.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyAutoServiceRegistrationOfNoneWeb.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L31) |
+| **CoSkyAutoServiceRegistration** | Web-app auto-registration (port from embedded server) | `CoSkyAutoServiceRegistration.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyAutoServiceRegistration.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt#L24) |
+| **CoSkyAutoServiceRegistrationOfNoneWeb** | Non-web-app auto-registration (uses PID as port) | `CoSkyAutoServiceRegistrationOfNoneWeb.kt` | [cosky-spring-cloud-starter-discovery/.../CoSkyAutoServiceRegistrationOfNoneWeb.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L30) |
 
 ## Configuration Properties
 
 ### Discovery Properties
 
-Bound by [CoSkyDiscoveryProperties.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L24) under prefix `spring.cloud.cosky.discovery`.
+Bound by [CoSkyDiscoveryProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L27) under prefix `spring.cloud.cosky.discovery`.
 
 | Property | Default | Description |
 |---|---|---|
 | `spring.cloud.cosky.discovery.enabled` | `true` | Enable or disable the CoSky discovery starter. |
 | `spring.cloud.cosky.discovery.order` | `0` | Order of the discovery client in the composite chain. |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | Timeout for blocking discovery operations. |
+| `spring.cloud.cosky.discovery.topology-enabled` | `true` | Record this application as a consumer of the services it discovers ([Service Topology](./service-topology.md)). |
 
 ### Registry Properties
 
-Bound by [CoSkyRegistryProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L27) under prefix `spring.cloud.cosky.discovery.registry`.
+Bound by [CoSkyRegistryProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L30) under prefix `spring.cloud.cosky.discovery.registry`.
 
 | Property | Default | Description |
 |---|---|---|
@@ -86,7 +87,7 @@ flowchart TB
     style G fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style H fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt:47, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClientConfiguration.kt:36, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClientConfiguration.kt:35, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationAutoConfiguration.kt:43 -->
+<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt:57, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClientConfiguration.kt:39, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClientConfiguration.kt:38, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationAutoConfiguration.kt:51 -->
 
 ## Discovery Client
 
@@ -94,11 +95,11 @@ CoSky provides two discovery client implementations that adapt the CoSky `Servic
 
 ### Blocking: CoSkyDiscoveryClient
 
-The [CoSkyDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt) implements Spring's `DiscoveryClient`. It delegates to the reactive `ServiceDiscovery` and blocks with the configured timeout ([CoSkyDiscoveryClient.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L36)). Each `ServiceInstance` from CoSky is wrapped in a `CoSkyServiceInstance` adapter.
+The [CoSkyDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt) implements Spring's `DiscoveryClient`. It delegates to the reactive `ServiceDiscovery` in the namespace of `CoSkyProperties` and blocks with the configured timeout ([CoSkyDiscoveryClient.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt#L36)). Each `ServiceInstance` from CoSky is wrapped in a `CoSkyServiceInstance` adapter.
 
 ### Reactive: CoSkyReactiveDiscoveryClient
 
-The [CoSkyReactiveDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt) implements `ReactiveDiscoveryClient` and returns `Flux<ServiceInstance>` directly without blocking ([CoSkyReactiveDiscoveryClient.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt#L32)).
+The [CoSkyReactiveDiscoveryClient](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt) implements `ReactiveDiscoveryClient` and returns `Flux<ServiceInstance>` (the flattened discovery snapshot) without blocking ([CoSkyReactiveDiscoveryClient.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt#L35)).
 
 ### CoSkyServiceInstance Adapter
 
@@ -115,7 +116,7 @@ sequenceDiagram
     participant Redis as Redis
 
     App->>DC: getInstances("order-service")
-    DC->>SD: getInstances(serviceId)
+    DC->>SD: getInstances(namespace, serviceId)
     SD->>Redis: SMEMBERS + HMGET
     Redis-->>SD: instance data
     SD-->>DC: List<ServiceInstance>
@@ -129,13 +130,13 @@ sequenceDiagram
     SD-->>DC: List<String>
     DC-->>App: List<String>
 ```
-<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt:32, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt:32, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyServiceInstance.kt:23 -->
+<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt:33, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyReactiveDiscoveryClient.kt:35, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyServiceInstance.kt:23 -->
 
 ## Service Registration
 
 ### CoSkyServiceRegistry
 
-The [CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt) implements Spring's `ServiceRegistry<CoSkyRegistration>` interface. On `register()`, it delegates to the CoSky `ServiceRegistry` to persist the instance in Redis, then starts the heartbeat `RenewInstanceService` ([CoSkyServiceRegistry.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L30)). On `deregister()`, it only removes the instance via the CoSky `ServiceRegistry` -- the heartbeat keeps running ([CoSkyServiceRegistry.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L38)). The renewal service is stopped by `close()` ([CoSkyServiceRegistry.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L45)).
+The [CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt) implements Spring's `ServiceRegistry<CoSkyRegistration>` interface. On `register()`, it delegates to the CoSky `ServiceRegistry` to persist the instance in Redis, then starts the heartbeat `RenewInstanceService` ([CoSkyServiceRegistry.kt:31](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L31)). On `deregister()`, it only removes the instance via the CoSky `ServiceRegistry` -- the heartbeat keeps running ([CoSkyServiceRegistry.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L39)). The renewal service is stopped by `close()` ([CoSkyServiceRegistry.kt:46](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt#L46)).
 
 ### CoSkyRegistration
 
@@ -143,11 +144,11 @@ The [CoSkyServiceRegistry](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-sp
 
 ### Auto-Registration for Web Apps
 
-[CoSkyAutoServiceRegistration](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt) extends `AbstractAutoServiceRegistration`. When the embedded web server starts, it captures the dynamically assigned port and calls `register()` ([CoSkyAutoServiceRegistration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt#L48)). It also stores the instance in `ServiceInstanceContext` for downstream use.
+[CoSkyAutoServiceRegistration](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt) extends `AbstractAutoServiceRegistration`. When the embedded web server starts, it captures the dynamically assigned port and calls `register()` ([CoSkyAutoServiceRegistration.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt#L47)).
 
 ### Auto-Registration for Non-Web Apps
 
-[CoSkyAutoServiceRegistrationOfNoneWeb](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt) handles non-web applications (e.g. gRPC services, CLI tools). It listens for `ApplicationStartedEvent` and, if the application context is not a `WebServerApplicationContext`, registers the service using the **process ID (PID) as the port** ([CoSkyAutoServiceRegistrationOfNoneWeb.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L52)). This provides a meaningful identifier even when there is no HTTP port.
+[CoSkyAutoServiceRegistrationOfNoneWeb](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt) handles non-web applications (e.g. gRPC services, CLI tools). It listens for `ApplicationStartedEvent` and, if the application context is not a `WebServerApplicationContext`, registers the service using the **process ID (PID) as the port** ([CoSkyAutoServiceRegistrationOfNoneWeb.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt#L51)). This provides a meaningful identifier even when there is no HTTP port.
 
 ### Service Registration Flow
 
@@ -163,7 +164,6 @@ sequenceDiagram
 
     Boot->>ASR: WebServerInitializedEvent
     ASR->>Reg: getPort() - capture dynamic port
-    ASR->>ASR: ServiceInstanceContext.serviceInstance = ...
     ASR->>SR: register(registration)
     SR->>Reg: asServiceInstance()
     SR->>Redis: register instance (HMSET)
@@ -171,7 +171,7 @@ sequenceDiagram
     SR->>Renew: start() - begin heartbeat
     Renew->>Redis: periodic renew (TTL refresh)
 ```
-<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt:48, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:30, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt:36 -->
+<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt:47, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:31, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt:36 -->
 
 ### Service Deregistration Flow
 
@@ -190,20 +190,20 @@ sequenceDiagram
     SR->>Redis: deregister instance
     Redis-->>SR: true
 ```
-<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:45, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:38 -->
+<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:46, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:39 -->
 
 ## Consistency Layer
 
-The discovery starter uses `ConsistencyRedisServiceDiscovery` as the primary `ServiceDiscovery` bean ([CoSkyDiscoveryAutoConfiguration.kt:81](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L81)). This decorator wraps `RedisServiceDiscovery` with local consistency guarantees by subscribing to:
+The discovery starter uses `ConsistencyRedisServiceDiscovery` as the primary `ServiceDiscovery` bean ([CoSkyDiscoveryAutoConfiguration.kt:119](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L119)). This decorator wraps `RedisServiceDiscovery` with local consistency guarantees by subscribing to:
 
-- **ServiceEventListenerContainer** -- listens for Redis Pub/Sub events when services are added or removed ([CoSkyDiscoveryAutoConfiguration.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L62)).
-- **InstanceEventListenerContainer** -- listens for Redis Pub/Sub events when individual instances change (register, deregister, metadata update) ([CoSkyDiscoveryAutoConfiguration.kt:71](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L71)).
+- **ServiceEventListenerContainer** -- listens for Redis Pub/Sub events when services are added or removed ([CoSkyDiscoveryAutoConfiguration.kt:87](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L87)).
+- **InstanceEventListenerContainer** -- listens for Redis Pub/Sub events when individual instances change (register, deregister, metadata update) ([CoSkyDiscoveryAutoConfiguration.kt:95](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L95)).
 
 This event-driven approach ensures that local service caches are invalidated and refreshed promptly without relying on polling.
 
 ## Load Balancer Integration
 
-CoSky provides a custom `BinaryWeightRandomLoadBalancer` ([CoSkyDiscoveryAutoConfiguration.kt:109](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L109)) that respects per-instance weights. It uses a binary-search algorithm over a cumulative weight array for O(log n) instance selection. The load balancer extends `AbstractLoadBalancer` and rebuilds its chooser whenever `InstanceEventListenerContainer` reports a change in the instance list.
+CoSky provides a custom `BinaryWeightRandomLoadBalancer` ([CoSkyDiscoveryAutoConfiguration.kt:144](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L144)) that respects per-instance weights. It uses a binary-search algorithm over a cumulative weight array for O(log n) instance selection. The load balancer extends `AbstractLoadBalancer` and rebuilds its chooser whenever `InstanceEventListenerContainer` reports a change in the instance list.
 
 ## Class Diagram
 
@@ -231,18 +231,21 @@ classDiagram
         +redisServiceDiscovery() RedisServiceDiscovery
         +redisServiceTopology() RedisServiceTopology
         +consistencyRedisServiceDiscovery()
+        +coSkyServiceDiscovery() ServiceDiscovery
         +coSkyLoadBalancer()
     }
 
     class CoSkyDiscoveryClient {
         -serviceDiscovery: ServiceDiscovery
         -coSkyDiscoveryProperties: CoSkyDiscoveryProperties
+        -namespace: String
         +getInstances(serviceId) List~ServiceInstance~
         +getServices() List~String~
     }
 
     class CoSkyReactiveDiscoveryClient {
         -serviceDiscovery: ServiceDiscovery
+        -namespace: String
         +getInstances(serviceId) Flux~ServiceInstance~
         +getServices() Flux~String~
     }
@@ -304,7 +307,7 @@ classDiagram
     style CoSkyAutoServiceRegistration fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style CoSkyAutoServiceRegistrationOfNoneWeb fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt:27, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt:47, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyServiceInstance.kt:23, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:25, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt:26, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt:25, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt:31 -->
+<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt:27, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt:30, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt:57, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyServiceInstance.kt:23, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:25, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt:26, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt:30 -->
 
 ## Full YAML Configuration Example
 

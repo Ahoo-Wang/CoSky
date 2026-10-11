@@ -10,12 +10,12 @@ CoSky REST API Server 是一个 Spring Boot WebFlux 应用程序，将全部微�
 
 | 组件 | 职责 | 关键文件 | 源码 |
 |-----------|---------------|----------|--------|
-| 服务器入口 | Spring Boot 应用引导 | `RestApiServer.kt` | [cosky-rest-api/.../RestApiServer.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L23) |
-| 配置 API | 配置 CRUD、版本管理、导入/导出 | `ConfigController.kt` | [cosky-rest-api/.../ConfigController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L54) |
-| 服务 API | 服务注册、发现、负载均衡 | `ServiceController.kt` | [cosky-rest-api/.../ServiceController.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L40) |
-| 命名空间 API | 多租户命名空间管理 | `NamespaceController.kt` | [cosky-rest-api/.../NamespaceController.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L39) |
+| 服务器入口 | Spring Boot 应用引导 | `RestApiServer.kt` | [cosky-rest-api/.../RestApiServer.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L24) |
+| 配置 API | 配置 CRUD、版本管理、导入/导出 | `ConfigController.kt` | [cosky-rest-api/.../ConfigController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L57) |
+| 服务 API | 服务注册、发现、负载均衡 | `ServiceController.kt` | [cosky-rest-api/.../ServiceController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L42) |
+| 命名空间 API | 多租户命名空间管理 | `NamespaceController.kt` | [cosky-rest-api/.../NamespaceController.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L38) |
 | 统计 API | 服务统计和拓扑 | `StatController.kt` | [cosky-rest-api/.../StatController.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt#L37) |
-| 统计调度器 | 分布式定时统计聚合 | `StatServiceScheduler.kt` | [cosky-rest-api/.../StatServiceScheduler.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L33) |
+| 统计调度器 | 分布式定时统计聚合 | `StatServiceScheduler.kt` | [cosky-rest-api/.../StatServiceScheduler.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L32) |
 
 ## 服务器入口
 
@@ -30,7 +30,7 @@ fun main(args: Array<String>) {
 }
 ```
 
-源码: [cosky-rest-api/.../RestApiServer.kt:23-28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L23)
+源码: [cosky-rest-api/.../RestApiServer.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L24)
 
 ## API 端点
 
@@ -40,39 +40,38 @@ fun main(args: Array<String>) {
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/namespaces/{namespace}/configs` | 列出所有配置 ID | `getConfigs` | [ConfigController.kt:65](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L65) |
-| PUT | `/v1/namespaces/{namespace}/configs/{configId}` | 创建或更新配置 | `setConfig` | [ConfigController.kt:168](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L168) |
-| DELETE | `/v1/namespaces/{namespace}/configs/{configId}` | 删除配置 | `removeConfig` | [ConfigController.kt:177](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L177) |
-| GET | `/v1/namespaces/{namespace}/configs/{configId}` | 获取配置内容 | `getConfig` | [ConfigController.kt:182](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L182) |
-| PUT | `/v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}` | 回滚到目标版本 | `rollback` | [ConfigController.kt:187](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L187) |
-| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions` | 列出配置版本历史 | `getConfigVersions` | [ConfigController.kt:196](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L196) |
-| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions/{version}` | 获取特定版本的数据 | `getConfigHistory` | [ConfigController.kt:204](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L204) |
-| POST | `/v1/namespaces/{namespace}/configs` (multipart) | 从 ZIP 导入配置 | `importZip` | [ConfigController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L69) |
-| GET | `/v1/namespaces/{namespace}/configs/export` | 导出所有配置为 ZIP | `exportZip` | [ConfigController.kt:150](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L150) |
+| GET | `/v1/namespaces/{namespace}/configs` | 列出所有配置 ID | `getConfigs` | [ConfigController.kt:70](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L70) |
+| PUT | `/v1/namespaces/{namespace}/configs/{configId}` | 创建或更新配置 | `setConfig` | [ConfigController.kt:143](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L143) |
+| DELETE | `/v1/namespaces/{namespace}/configs/{configId}` | 删除配置 | `removeConfig` | [ConfigController.kt:152](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L152) |
+| GET | `/v1/namespaces/{namespace}/configs/{configId}` | 获取配置内容 | `getConfig` | [ConfigController.kt:157](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L157) |
+| PUT | `/v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}` | 回滚到目标版本 | `rollback` | [ConfigController.kt:162](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L162) |
+| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions` | 列出配置版本历史 | `getConfigVersions` | [ConfigController.kt:171](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L171) |
+| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions/{version}` | 获取特定版本的数据 | `getConfigHistory` | [ConfigController.kt:179](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L179) |
+| POST | `/v1/namespaces/{namespace}/configs` (multipart) | 从 ZIP 导入配置（上传不超过 10 MB，解压后不超过 64 MB） | `importZip` | [ConfigController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L74) |
+| GET | `/v1/namespaces/{namespace}/configs/export` | 导出所有配置为 ZIP | `exportZip` | [ConfigController.kt:125](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L125) |
 
 ### 服务端点
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/namespaces/{namespace}/services` | 列出所有服务 ID | `getServices` | [ServiceController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L47) |
-| PUT | `/v1/namespaces/{namespace}/services/{serviceId}` | 创建服务条目 | `setService` | [ServiceController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L52) |
-| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}` | 移除服务 | `removeService` | [ServiceController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L57) |
-| GET | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | 列出服务实例 | `getInstances` | [ServiceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L62) |
-| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | 注册服务实例 | `register` | [ServiceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L67) |
-| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}` | 注销服务实例 | `deregister` | [ServiceController.kt:76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L76) |
-| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata` | 设置实例元数据 | `setMetadata` | [ServiceController.kt:84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L84) |
-| GET | `/v1/namespaces/{namespace}/services/stats` | 获取服务统计 | `getServiceStats` | [ServiceController.kt:95](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L95) |
-| GET | `/v1/namespaces/{namespace}/services/{serviceId}/lb` | 负载均衡选择实例 | `choose` | [ServiceController.kt:100](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L100) |
+| GET | `/v1/namespaces/{namespace}/services` | 列出所有服务 ID | `getServices` | [ServiceController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L49) |
+| PUT | `/v1/namespaces/{namespace}/services/{serviceId}` | 创建服务条目 | `setService` | [ServiceController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L54) |
+| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}` | 移除服务 | `removeService` | [ServiceController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L59) |
+| GET | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | 列出服务实例 | `getInstances` | [ServiceController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L64) |
+| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | 注册服务实例 | `register` | [ServiceController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L69) |
+| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}` | 注销服务实例 | `deregister` | [ServiceController.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L78) |
+| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata` | 设置实例元数据 | `setMetadata` | [ServiceController.kt:86](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L86) |
+| GET | `/v1/namespaces/{namespace}/services/stats` | 获取服务统计 | `getServiceStats` | [ServiceController.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L97) |
+| GET | `/v1/namespaces/{namespace}/services/{serviceId}/lb` | 负载均衡选择实例 | `choose` | [ServiceController.kt:102](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L102) |
 
 ### 命名空间端点
 
 | 方法 | 路径 | 描述 | 控制器方法 | 源码 |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/namespaces` | 列出命名空间（按角色范围） | `getNamespaces` | [NamespaceController.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L41) |
-| GET | `/v1/namespaces/current` | 获取当前上下文命名空间 | `current` | [NamespaceController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L52) |
-| PUT | `/v1/namespaces/current/{namespace}` | 设置当前上下文命名空间 | `setCurrentContextNamespace` | [NamespaceController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L57) |
-| PUT | `/v1/namespaces/{namespace}` | 创建命名空间 | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
-| DELETE | `/v1/namespaces/{namespace}` | 移除命名空间 | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
+| GET | `/v1/namespaces` | 列出命名空间（按角色范围） | `getNamespaces` | [NamespaceController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L44) |
+| GET | `/v1/namespaces/current` | 获取当前上下文命名空间 | `current` | [NamespaceController.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L55) |
+| PUT | `/v1/namespaces/{namespace}` | 创建命名空间 | `setNamespace` | [NamespaceController.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L60) |
+| DELETE | `/v1/namespaces/{namespace}` | 移除命名空间 | `removeNamespace` | [NamespaceController.kt:65](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L65) |
 
 > [!IMPORTANT]
 > REST API 会把 `{namespace}` 原样传给命名空间存储和 Redis key 生成器，不会自动添加或归一化 Redis hashtag。Spring Cloud 客户端的行为不同：无论 Redis 拓扑如何，`CoSkyProperties` 都会把配置的普通命名空间（如 `dev`）转换为实际生效值 `{dev}`。即使使用 Redis Standalone，也应显式采用包含非空 hashtag 的命名空间，例如 `{dev}`、`{prod}` 或 `cosky-{dev}`。命名空间接口、配置与服务 URL、当前命名空间、RBAC 绑定及 Spring 客户端必须始终使用该实际生效的带 hashtag 值。
@@ -155,7 +154,7 @@ sequenceDiagram
     ConfigController-->>Client: 200 true
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:54, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:168 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:57, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:143 -->
 
 ### 通过 REST 进行服务注册
 
@@ -182,7 +181,7 @@ sequenceDiagram
     ServiceController-->>Client: 200 true
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:67, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:76 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:69, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:78 -->
 
 ## 架构
 
@@ -221,7 +220,7 @@ flowchart TB
     CoSecAuth --> 控制器
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:23, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:33, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:24, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:32, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
 
 ## StatServiceScheduler
 
@@ -234,7 +233,7 @@ flowchart TB
 - **命名空间遍历**：每次触发时遍历所有命名空间，调用 `ServiceStatistic.statService()` 将服务指标聚合到 Redis。
 - **当前命名空间保护**：确保当前上下文命名空间始终存在于命名空间列表中。
 
-源码: [cosky-rest-api/.../StatServiceScheduler.kt:33-84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L33)
+源码: [cosky-rest-api/.../StatServiceScheduler.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L32)
 
 ## 配置
 
@@ -246,12 +245,13 @@ cosky:
     enabled: true                    # 启用/禁用安全
     audit-log:
       action: write                  # 审计日志过滤："write"、"read" 或 "rw"
+      max-size: 100000               # 最多保留的最新条目数
     enforce-init-super-user: ${cosky.super.init:false}   # 启动时强制重新初始化超级用户
 
 cosec:
   jwt:
     algorithm: hmac256               # JWT 签名算法
-    secret: ${cosky.security.key:FyN0Igd80Gas3stTavArGKOYnS9uLWGA$}    # JWT 密钥
+    secret: ${cosky.security.key:}    # JWT 密钥
     token-validity:
       access: 15m                    # 访问令牌 TTL
       refresh: 3H                    # 刷新令牌 TTL

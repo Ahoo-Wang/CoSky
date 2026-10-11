@@ -36,6 +36,11 @@ spec:
               value: "true"
             - name: SPRING_DATA_REDIS_LETTUCE_CLUSTER_REFRESH_PERIOD
               value: 30s
+            - name: COSKY_SECURITY_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cosky-secret
+                  key: security-key
             - name: TZ
               value: Asia/Shanghai
           image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.3.5

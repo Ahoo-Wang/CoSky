@@ -1,37 +1,29 @@
--- Note: starting with Redis 5, the replication method described in this section (scripts effects replication) is the default and does not need to be explicitly enabled.
+-- Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+-- Licensed under the Apache License, Version 2.0.
+-- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+-- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+
 redis.replicate_commands();
+-- @include cosky/config/config_lib.lua
 
-local namespace = KEYS[1];
-local configId = ARGV[1];
+local configIdxKey = KEYS[1];
+local configKey = KEYS[2];
+local configHistoryIdxKey = KEYS[3];
+local namespace = ARGV[1];
+local configId = ARGV[2];
+local historySize = ARGV[3];
 local op = 'remove';
-local versionField = "version";
-local configIdxKey = namespace .. ":cfg_idx";
-local configHistoryIdxKey = namespace .. ":cfg_htr_idx:" .. configId;
-local configKey = namespace .. ":cfg:" .. configId;
-local removed = redis.call("srem", configIdxKey, configKey);
-if removed == 0 then
+
+if redis.call('srem', configIdxKey, configKey) == 0 then
     return 0;
 end
 
-local function getConfigHistoryKey(version)
-    return namespace .. ":cfg_htr:" .. configId .. ":" .. tostring(version);
-end
-
-local function addHistory(currentVersion, configKey, op)
-    local configHistoryKey = getConfigHistoryKey(currentVersion);
-    redis.call("zadd", configHistoryIdxKey, currentVersion, configHistoryKey);
-    redis.call("rename", configKey, configHistoryKey);
-    local opTime = redis.call('time')[1];
-    return redis.call("hmset", configHistoryKey, 'op', op, "opTime", opTime);
-end
-
-local currentVersion = redis.call("hget", configKey, versionField)
-if currentVersion then
-    addHistory(currentVersion, configKey, op);
-    redis.call("publish", configKey, op);
-    return 1;
-else
+local currentVersion = redis.call('hget', configKey, 'version');
+if not currentVersion then
     return 0;
 end
-
-
+archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op, historySize);
+redis.call('publish', configKey, op);
+return 1;

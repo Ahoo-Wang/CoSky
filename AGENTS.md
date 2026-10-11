@@ -38,7 +38,7 @@
 
 | Module | Purpose |
 |--------|---------|
-| `cosky-core` | Namespace management, Redis key utilities, PubSub event base |
+| `cosky-core` | Namespace model and validation, Redis key utilities, PubSub event base, `ReactiveWatchCache` (the consistency cache primitive) |
 | `cosky-config` | Configuration CRUD, versioning, rollback, consistency caching |
 | `cosky-discovery` | Service registry, discovery, load balancing, topology |
 | `cosky-spring-cloud-core` | Shared Spring Boot auto-configuration |

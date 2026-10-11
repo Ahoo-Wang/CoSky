@@ -72,7 +72,10 @@
       "action": {
         "path": {
           "method": "GET",
-          "pattern": "/v1/namespaces/**"
+          "pattern": [
+            "/v1/namespaces",
+            "/v1/namespaces/current"
+          ]
         }
       },
       "condition": {

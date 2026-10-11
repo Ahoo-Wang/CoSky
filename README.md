@@ -148,7 +148,7 @@ cd dashboard && pnpm install && pnpm build && cd ..
 # Extract and run
 tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-*.tar
 cd cosky-rest-api-*
-bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
+COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
 ```
 
 ### 🐳 Option 2: Docker Deployment
@@ -159,6 +159,7 @@ Quick deployment with Docker:
 docker pull ahoowang/cosky:latest
 docker run --name cosky -d -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
   ahoowang/cosky:latest
 ```
 
