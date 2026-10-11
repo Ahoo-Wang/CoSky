@@ -27,30 +27,45 @@ pnpm validate:mermaid
 wiki/
 ├── .vitepress/
 │   ├── config.mts          # VitePress config with i18n (en + zh)
-│   ├── theme/index.ts      # Custom theme (dark Mermaid, medium-zoom)
-│   └── styles/index.css    # Dark theme CSS overrides
-├── guide/                  # English documentation pages
-├── zh/
-│   └── guide/              # Chinese documentation pages
+│   ├── config/en.ts, zh.ts # Navigation and sidebar per language
+│   └── theme/index.ts      # Custom theme (dark Mermaid, medium-zoom)
+├── guide/                  # English pages
+├── zh/guide/               # Chinese pages, same file names
 ├── public/                 # Static assets (images, logo)
-├── scripts/
-│   └── validate-mermaid.mjs # Mermaid syntax validator & auto-fixer
-├── package.json
-└── pnpm-lock.yaml
+└── scripts/
+    ├── generate-llms-full.mjs     # llms.txt (wiki and repository root) and llms-full.txt
+    └── validate-mermaid-mmdc.mjs  # Mermaid validation with mermaid-cli
 ```
+
+## Information Architecture
+
+Pages are organized by what the reader wants to do, not by code module. Each page belongs to one sidebar section:
+
+| Section | Pages | Reader |
+|---|---|---|
+| Introduction | `index`, `getting-started` | Evaluators, newcomers |
+| Guides | `configuration`, `service-discovery`, `sdk` | Application developers |
+| Operations | `deployment`, `security`, `dashboard`, `upgrade-*` | Operators of the REST API server |
+| Reference | `properties`, `rest-api`, `requirements` | Anyone looking up a fact |
+| Concepts | `architecture`, `performance` | Engineers evaluating or operating at scale |
+| Contributing | `internals` | Contributors |
 
 ## Content Conventions
 
-- **Frontmatter**: Every page must have `title` and `description` in VitePress frontmatter
-- **Mermaid diagrams**: Use dark-mode colors (fills `#2d333b`, borders `#6d5dfc`, text `#e6edf3`). Use `<br>` not `<br/>`. Add `autonumber` to all `sequenceDiagram` blocks.
-- **Source citations**: Use format `[file_path:line_number](https://github.com/Ahoo-Wang/CoSky/blob/main/file_path#Lline_number)`
-- **Diagrams**: Follow every Mermaid diagram with `<!-- Sources: file:line, file:line -->` comment
-- **Cross-references**: Use relative Markdown links between pages
-- **i18n**: English is the default (root). Chinese pages live in `zh/guide/` with identical filenames.
+- **One fact, one place.** Properties live in `properties.md`, endpoints in `rest-api.md`, benchmark numbers in `performance.md`, the data model in `architecture.md`; other pages link to them instead of repeating them.
+- **Start with the reader**: the first paragraph says who the page is for and what it lets them do.
+- **Verify against the code**: every property, default, endpoint and behavior is checked in the source before it is written.
+- **Frontmatter**: every page has `title` and `description` (the description also feeds `llms.txt`).
+- **Source links** point to files (`https://github.com/Ahoo-Wang/CoSky/blob/main/<path>`), never to line numbers, which go stale with every change.
+- **Diagrams** only where they explain a mechanism that prose cannot. Use dark-mode colors (fills `#2d333b`, borders `#6d5dfc`, text `#e6edf3`), `<br>` not `<br/>`, and `autonumber` in every `sequenceDiagram`.
+- **Cross-references**: relative Markdown links between pages; anchors use VitePress slugs.
+- **i18n**: English is the default (root). Every page exists in `zh/guide/` with the same name and structure.
 
 ## Boundaries
 
-- ✅ Run `pnpm validate:mermaid` after editing any Mermaid diagrams
+- ✅ Run `node scripts/generate-llms-full.mjs` after adding, removing or renaming a page (and add it to the script's sections)
+- ✅ Run `node scripts/validate-mermaid-mmdc.mjs` after editing any Mermaid diagram
+- ✅ Run `pnpm build`: it fails on dead links
 - ✅ Keep English and Chinese pages in sync (same structure, same filenames)
 - ✅ Test with `pnpm dev` before committing
 - ⚠️ Ask before modifying `.vitepress/config.mts` — sidebar structure affects navigation

@@ -1,21 +1,17 @@
 [
     {
-        "jmhVersion" : "1.29",
+        "jmhVersion" : "1.37",
         "benchmark" : "me.ahoo.cosky.config.ConsistencyRedisConfigServiceBenchmark.getConfig",
         "mode" : "thrpt",
-        "threads" : 50,
+        "threads" : 8,
         "forks" : 1,
-        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvm" : "/Users/ahoo/Library/Java/JavaVirtualMachines/azul-17.0.20.1/Contents/Home/bin/java",
         "jvmArgs" : [
-            "-Dfile.encoding=UTF-8",
-            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-config/build/tmp/jmh",
-            "-Duser.country=CN",
-            "-Duser.language=zh",
-            "-Duser.variant"
+            "-Dlogback.configurationFile=/Users/ahoo/work/ahoo-git/CoSky/.claude/worktrees/architecture-quality-review-16a2ac/config/logback-jmh.xml"
         ],
-        "jdkVersion" : "11.0.11",
+        "jdkVersion" : "17.0.20.1",
         "vmName" : "OpenJDK 64-Bit Server VM",
-        "vmVersion" : "11.0.11+9-LTS",
+        "vmVersion" : "17.0.20.1+1-LTS",
         "warmupIterations" : 1,
         "warmupTime" : "10 s",
         "warmupBatchSize" : 1,
@@ -23,28 +19,28 @@
         "measurementTime" : "10 s",
         "measurementBatchSize" : 1,
         "primaryMetric" : {
-            "score" : 2.567339878265105E8,
+            "score" : 7.067272319833388E8,
             "scoreError" : "NaN",
             "scoreConfidence" : [
                 "NaN",
                 "NaN"
             ],
             "scorePercentiles" : {
-                "0.0" : 2.567339878265105E8,
-                "50.0" : 2.567339878265105E8,
-                "90.0" : 2.567339878265105E8,
-                "95.0" : 2.567339878265105E8,
-                "99.0" : 2.567339878265105E8,
-                "99.9" : 2.567339878265105E8,
-                "99.99" : 2.567339878265105E8,
-                "99.999" : 2.567339878265105E8,
-                "99.9999" : 2.567339878265105E8,
-                "100.0" : 2.567339878265105E8
+                "0.0" : 7.067272319833388E8,
+                "50.0" : 7.067272319833388E8,
+                "90.0" : 7.067272319833388E8,
+                "95.0" : 7.067272319833388E8,
+                "99.0" : 7.067272319833388E8,
+                "99.9" : 7.067272319833388E8,
+                "99.99" : 7.067272319833388E8,
+                "99.999" : 7.067272319833388E8,
+                "99.9999" : 7.067272319833388E8,
+                "100.0" : 7.067272319833388E8
             },
             "scoreUnit" : "ops/s",
             "rawData" : [
                 [
-                    2.567339878265105E8
+                    7.067272319833388E8
                 ]
             ]
         },
@@ -52,22 +48,18 @@
         }
     },
     {
-        "jmhVersion" : "1.29",
+        "jmhVersion" : "1.37",
         "benchmark" : "me.ahoo.cosky.config.RedisConfigServiceBenchmark.getConfig",
         "mode" : "thrpt",
-        "threads" : 50,
+        "threads" : 8,
         "forks" : 1,
-        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvm" : "/Users/ahoo/Library/Java/JavaVirtualMachines/azul-17.0.20.1/Contents/Home/bin/java",
         "jvmArgs" : [
-            "-Dfile.encoding=UTF-8",
-            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-config/build/tmp/jmh",
-            "-Duser.country=CN",
-            "-Duser.language=zh",
-            "-Duser.variant"
+            "-Dlogback.configurationFile=/Users/ahoo/work/ahoo-git/CoSky/.claude/worktrees/architecture-quality-review-16a2ac/config/logback-jmh.xml"
         ],
-        "jdkVersion" : "11.0.11",
+        "jdkVersion" : "17.0.20.1",
         "vmName" : "OpenJDK 64-Bit Server VM",
-        "vmVersion" : "11.0.11+9-LTS",
+        "vmVersion" : "17.0.20.1+1-LTS",
         "warmupIterations" : 1,
         "warmupTime" : "10 s",
         "warmupBatchSize" : 1,
@@ -75,28 +67,28 @@
         "measurementTime" : "10 s",
         "measurementBatchSize" : 1,
         "primaryMetric" : {
-            "score" : 241787.67908598774,
+            "score" : 58786.93513880425,
             "scoreError" : "NaN",
             "scoreConfidence" : [
                 "NaN",
                 "NaN"
             ],
             "scorePercentiles" : {
-                "0.0" : 241787.67908598774,
-                "50.0" : 241787.67908598774,
-                "90.0" : 241787.67908598774,
-                "95.0" : 241787.67908598774,
-                "99.0" : 241787.67908598774,
-                "99.9" : 241787.67908598774,
-                "99.99" : 241787.67908598774,
-                "99.999" : 241787.67908598774,
-                "99.9999" : 241787.67908598774,
-                "100.0" : 241787.67908598774
+                "0.0" : 58786.93513880425,
+                "50.0" : 58786.93513880425,
+                "90.0" : 58786.93513880425,
+                "95.0" : 58786.93513880425,
+                "99.0" : 58786.93513880425,
+                "99.9" : 58786.93513880425,
+                "99.99" : 58786.93513880425,
+                "99.999" : 58786.93513880425,
+                "99.9999" : 58786.93513880425,
+                "100.0" : 58786.93513880425
             },
             "scoreUnit" : "ops/s",
             "rawData" : [
                 [
-                    241787.67908598774
+                    58786.93513880425
                 ]
             ]
         },
@@ -104,22 +96,18 @@
         }
     },
     {
-        "jmhVersion" : "1.29",
+        "jmhVersion" : "1.37",
         "benchmark" : "me.ahoo.cosky.config.RedisConfigServiceBenchmark.setConfig",
         "mode" : "thrpt",
-        "threads" : 50,
+        "threads" : 8,
         "forks" : 1,
-        "jvm" : "/Library/Java/JavaVirtualMachines/zulu-11.jdk/Contents/Home/bin/java",
+        "jvm" : "/Users/ahoo/Library/Java/JavaVirtualMachines/azul-17.0.20.1/Contents/Home/bin/java",
         "jvmArgs" : [
-            "-Dfile.encoding=UTF-8",
-            "-Djava.io.tmpdir=/Users/ahoo/work/ahoo-git/CoSky/cosky-config/build/tmp/jmh",
-            "-Duser.country=CN",
-            "-Duser.language=zh",
-            "-Duser.variant"
+            "-Dlogback.configurationFile=/Users/ahoo/work/ahoo-git/CoSky/.claude/worktrees/architecture-quality-review-16a2ac/config/logback-jmh.xml"
         ],
-        "jdkVersion" : "11.0.11",
+        "jdkVersion" : "17.0.20.1",
         "vmName" : "OpenJDK 64-Bit Server VM",
-        "vmVersion" : "11.0.11+9-LTS",
+        "vmVersion" : "17.0.20.1+1-LTS",
         "warmupIterations" : 1,
         "warmupTime" : "10 s",
         "warmupBatchSize" : 1,
@@ -127,28 +115,28 @@
         "measurementTime" : "10 s",
         "measurementBatchSize" : 1,
         "primaryMetric" : {
-            "score" : 140461.11232942733,
+            "score" : 20498.423241967626,
             "scoreError" : "NaN",
             "scoreConfidence" : [
                 "NaN",
                 "NaN"
             ],
             "scorePercentiles" : {
-                "0.0" : 140461.11232942733,
-                "50.0" : 140461.11232942733,
-                "90.0" : 140461.11232942733,
-                "95.0" : 140461.11232942733,
-                "99.0" : 140461.11232942733,
-                "99.9" : 140461.11232942733,
-                "99.99" : 140461.11232942733,
-                "99.999" : 140461.11232942733,
-                "99.9999" : 140461.11232942733,
-                "100.0" : 140461.11232942733
+                "0.0" : 20498.423241967626,
+                "50.0" : 20498.423241967626,
+                "90.0" : 20498.423241967626,
+                "95.0" : 20498.423241967626,
+                "99.0" : 20498.423241967626,
+                "99.9" : 20498.423241967626,
+                "99.99" : 20498.423241967626,
+                "99.999" : 20498.423241967626,
+                "99.9999" : 20498.423241967626,
+                "100.0" : 20498.423241967626
             },
             "scoreUnit" : "ops/s",
             "rawData" : [
                 [
-                    140461.11232942733
+                    20498.423241967626
                 ]
             ]
         },

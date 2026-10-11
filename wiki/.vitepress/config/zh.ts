@@ -14,79 +14,53 @@ export const zh: DefaultTheme.Config = {
     sidebar: {
       '/zh/guide/': [
         {
-          text: '快速开始',
+          text: '介绍',
           items: [
             { text: '概述', link: '/zh/guide/' },
             { text: '快速开始', link: '/zh/guide/getting-started' },
-            { text: '安装', link: '/zh/guide/installation' },
+          ],
+        },
+        {
+          text: '使用指南',
+          items: [
+            { text: '配置管理', link: '/zh/guide/configuration' },
+            { text: '服务发现', link: '/zh/guide/service-discovery' },
+            { text: '使用 SDK', link: '/zh/guide/sdk' },
+          ],
+        },
+        {
+          text: '运维',
+          items: [
+            { text: '部署', link: '/zh/guide/deployment' },
+            { text: '安全', link: '/zh/guide/security' },
+            { text: '控制台', link: '/zh/guide/dashboard' },
             { text: '升级到 6.0', link: '/zh/guide/upgrade-6' },
+          ],
+        },
+        {
+          text: '参考',
+          items: [
+            { text: '配置属性', link: '/zh/guide/properties' },
+            { text: 'REST API', link: '/zh/guide/rest-api' },
             { text: '需求', link: '/zh/guide/requirements' },
           ],
         },
         {
-          text: '架构',
+          text: '原理',
           items: [
-            { text: '架构总览', link: '/zh/guide/architecture' },
-            { text: '核心模块', link: '/zh/guide/core' },
+            { text: '架构', link: '/zh/guide/architecture' },
+            { text: '性能', link: '/zh/guide/performance' },
           ],
         },
         {
-          text: '配置服务',
+          text: '贡献',
           items: [
-            { text: '配置管理', link: '/zh/guide/config-service' },
-            { text: '一致性层', link: '/zh/guide/config-consistency' },
-          ],
-        },
-        {
-          text: '服务发现',
-          items: [
-            { text: '服务注册', link: '/zh/guide/service-registry' },
-            { text: '服务发现', link: '/zh/guide/service-discovery' },
-            { text: '负载均衡', link: '/zh/guide/load-balancers' },
-            { text: '服务拓扑', link: '/zh/guide/service-topology' },
-          ],
-        },
-        {
-          text: 'Spring Cloud 集成',
-          items: [
-            { text: '配置 Starter', link: '/zh/guide/spring-cloud-config' },
-            { text: '服务发现 Starter', link: '/zh/guide/spring-cloud-discovery' },
-          ],
-        },
-        {
-          text: 'REST API 与控制台',
-          items: [
-            { text: 'REST API 服务', link: '/zh/guide/rest-api' },
-            { text: '安全与 RBAC', link: '/zh/guide/security-rbac' },
-            { text: '控制台', link: '/zh/guide/dashboard' },
-          ],
-        },
-        {
-          text: '部署',
-          items: [
-            { text: 'Docker 部署', link: '/zh/guide/deployment-docker' },
-            { text: 'Kubernetes 部署', link: '/zh/guide/deployment-kubernetes' },
-            { text: '独立部署', link: '/zh/guide/deployment-standalone' },
-          ],
-        },
-        {
-          text: '性能',
-          items: [
-            { text: '性能基准测试', link: '/zh/guide/performance' },
-          ],
-        },
-        {
-          text: '入门指南',
-          collapsed: false,
-          items: [
-            { text: '贡献者指南', link: '/zh/guide/onboarding-contributor' },
-            { text: '高级工程师指南', link: '/zh/guide/onboarding-staff-engineer' },
-            { text: '管理层指南', link: '/zh/guide/onboarding-executive' },
-            { text: '产品经理指南', link: '/zh/guide/onboarding-pm' },
+            { text: '内部实现', link: '/zh/guide/internals' },
           ],
         },
       ],
     },
+
     socialLinks: [
       { icon: 'github', link: 'https://github.com/Ahoo-Wang/CoSky' },
     ],

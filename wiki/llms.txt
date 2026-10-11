@@ -1,54 +1,36 @@
 # CoSky
 
-> High-Performance Microservice Governance Platform — Service Discovery & Configuration backed by Redis. Lightweight, zero-extra-infrastructure, 100K+ QPS standard / 70M+ QPS with consistency caching.
+> Configuration management and service discovery for Spring Cloud microservices, using only Redis as infrastructure.
 
-## Onboarding
+## Introduction
 
-- [Contributor Guide](guide/onboarding-contributor.md) — New contributor onboarding: foundations, architecture, and contributing workflow
-- [Staff Engineer Guide](guide/onboarding-staff-engineer.md) — Architectural deep-dive for staff/principal engineers
-- [Executive Guide](guide/onboarding-executive.md) — Capability map, cost model, and investment thesis for engineering leaders
-- [Product Manager Guide](guide/onboarding-pm.md) — Feature map, user journeys, and FAQ for non-engineering stakeholders
+- [Overview](guide/index.md): What CoSky is, how it works, when it fits, and where to go next.
+- [Getting Started](guide/getting-started.md): Add configuration and service discovery to a Spring Boot application, then run the dashboard.
 
-## Getting Started
+## Guides
 
-- [Overview](guide/index.md) — CoSky guide index with architecture overview and documentation map
-- [Getting Started](guide/getting-started.md) — Quick start guide for Spring Cloud applications
-- [Installation](guide/installation.md) — Installation methods: Gradle, Maven, Docker, Kubernetes
+- [Configuration](guide/configuration.md): Load configuration from CoSky into Spring, refresh it live, and manage versions, rollback, import and export.
+- [Service Discovery](guide/service-discovery.md): How applications register, stay registered, expire and discover each other, with metadata, status, load balancing and topology.
+- [Using the SDK](guide/sdk.md): Use CoSky's configuration and discovery services directly, without the Spring Cloud starters.
 
-## Architecture
+## Operations
 
-- [Architecture Overview](guide/architecture.md) — Module structure, Redis data model, event-driven design, technology stack
-- [Core Module](guide/core.md) — Namespace management, Redis key utilities, PubSub event system
+- [Deployment](guide/deployment.md): Run the CoSky REST API server and dashboard with Docker, Kubernetes or as a standalone distribution, and prepare Redis for production.
+- [Security](guide/security.md): Users, roles, the security policy, tokens and the audit log of the CoSky REST API server.
+- [Dashboard](guide/dashboard.md): A tour of the CoSky web dashboard served by the REST API server.
+- [Upgrading to 6.0](guide/upgrade-6.md): Breaking changes in CoSky 6.0 and the steps to upgrade servers and clients from 5.x.
 
-## Configuration
+## Reference
 
-- [Configuration Management](guide/config-service.md) — Config CRUD, versioning, rollback, Lua scripts
-- [Consistency Layer](guide/config-consistency.md) — Local caching + PubSub invalidation pattern (256M+ QPS)
+- [Configuration Properties](guide/properties.md): Every property of the CoSky starters and of the REST API server, with defaults.
+- [REST API](guide/rest-api.md): Endpoints of the CoSky REST API server, authentication and error format.
+- [Requirements](guide/requirements.md): The functional and non-functional requirements CoSky meets, each traced to the tests that verify it.
 
-## Service Discovery
+## Concepts
 
-- [Service Registry](guide/service-registry.md) — Instance registration, heartbeat, deregistration
-- [Service Discovery](guide/service-discovery.md) — Service lookup with consistency caching (76M+ QPS)
-- [Load Balancers](guide/load-balancers.md) — Random, ArrayWeight, BinaryWeight, TreeWeight implementations
-- [Service Topology](guide/service-topology.md) — Consumer-producer dependency tracking and visualization
+- [Architecture](guide/architecture.md): CoSky's modules, Redis data model, events and consistency model, and the trade-offs behind them.
+- [Performance](guide/performance.md): How fast CoSky reads and writes, how it was measured, and how to reproduce the benchmarks.
 
-## Spring Cloud Integration
+## Contributing
 
-- [Config Starter](guide/spring-cloud-config.md) — PropertySourceLocator, @RefreshScope auto-refresh
-- [Discovery Starter](guide/spring-cloud-discovery.md) — DiscoveryClient, auto-registration, reactive support
-
-## REST API & Dashboard
-
-- [REST API Server](guide/rest-api.md) — HTTP endpoints for all CoSky operations
-- [Security & RBAC](guide/security-rbac.md) — JWT auth, namespace-scoped RBAC, audit logging
-- [Dashboard](guide/dashboard.md) — React 19 + Radix UI + shadcn/ui web management interface
-
-## Deployment
-
-- [Docker Deployment](guide/deployment-docker.md) — Docker run and Docker Compose configurations
-- [Kubernetes Deployment](guide/deployment-kubernetes.md) — K8s deployment manifests for standalone and cluster Redis
-- [Standalone Deployment](guide/deployment-standalone.md) — JAR-based deployment with JVM options
-
-## Performance
-
-- [Benchmarks](guide/performance.md) — JMH benchmark results, comparison with alternatives
+- [Internals](guide/internals.md): A map of the codebase for contributors, the invariants it protects, and how to debug it.

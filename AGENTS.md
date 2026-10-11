@@ -76,6 +76,7 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 - ✅ Always add Apache 2.0 license headers to new source files
 - ✅ Use Lua scripts for all Redis mutations (never multi-command sequences)
 - ✅ Use `fluent-assert-core` (`import me.ahoo.test.asserts.assert`) for test assertions
+- ✅ When behavior, a property or an endpoint changes, update the wiki page that owns it (see `wiki/AGENTS.md`), in English and Chinese
 - ✅ Keep module dependencies acyclic — `cosky-core` has no dependencies on other cosky modules
 - ⚠️ Ask before modifying Lua scripts — they enforce critical invariants
 - ⚠️ Ask before changing the Redis key schema in `ConfigKeyGenerator` or `DiscoveryKeyGenerator`

@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: CoSky
-  text: 高性能微服务治理平台
-  tagline: 基于 Redis 的服务发现与配置中心 — 100K+ QPS，零额外基础设施
+  text: 基于 Redis 的配置管理与服务发现
+  tagline: 面向 Spring Cloud 微服务，除了你已经在运行的 Redis，没有任何需要运维的东西
   image:
     src: /cosky-logo.svg
     alt: CoSky
@@ -13,8 +13,8 @@ hero:
       text: 快速开始
       link: /zh/guide/getting-started
     - theme: alt
-      text: 架构概览
-      link: /zh/guide/architecture
+      text: 概述
+      link: /zh/guide/
     - theme: alt
       text: GitHub 仓库
       link: https://github.com/Ahoo-Wang/CoSky
@@ -22,13 +22,13 @@ hero:
 features:
   - title: 服务发现
     icon: 🔍
-    details: 基于 Redis 的实时服务注册与发现。支持加权负载均衡、服务拓扑可视化和自动实例续约。
+    details: 应用自行注册、续约并自动过期；消费者通过 Spring Cloud 发现存活实例，支持加权负载均衡与服务拓扑。
   - title: 配置管理
     icon: ⚙️
-    details: 动态配置管理，支持版本控制、回滚和导入/导出。配置变更通过 Redis PubSub 实时传播。
-  - title: 极致性能
+    details: 由 Redis 提供并实时刷新的 Spring 属性，支持版本、回滚，以及从 Nacos 导入导出。
+  - title: 从内存读取
     icon: 🚀
-    details: 标准操作 100K+ QPS，一致性缓存层可达 70M+ QPS。基于 Redis Lua 脚本和进程内缓存。
+    details: 每个应用持有由 Redis Pub/Sub 保持最新的本地缓存，读取配置或选择实例都不产生网络往返。
   - title: Spring Cloud 原生集成
     icon: 🌿
     details: 通过 Starter 开箱即用的 Spring Cloud 集成，同时覆盖配置中心与服务发现。
@@ -37,5 +37,5 @@ features:
     details: JWT 认证、命名空间级别的 RBAC 权限控制、审计日志和基于 CoSec 的策略授权。
   - title: 轻量级部署
     icon: 📦
-    details: 无需额外基础设施 — 使用现有的 Redis 即可。支持独立 JAR、Docker 容器或 Kubernetes Pod 部署。
+    details: 应用只需要 Redis。可选的 REST API 服务器与控制台可作为 Docker 镜像、在 Kubernetes 上或以独立发行包运行。
 ---

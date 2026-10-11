@@ -1,254 +1,140 @@
 ---
-title: "Architecture Overview"
+title: 架构
+description: CoSky 的模块划分、Redis 数据模型、事件与一致性模型，以及背后的取舍。
 ---
 
-# 架构概览
+# 架构
 
-CoSky 是一个高性能的微服务治理平台，提供基于 Redis 的服务发现和配置管理。CoSky 不需要像 ZooKeeper 或 Consul 这样的独立基础设施组件，而是利用 Redis——大多数微服务部署已经依赖的技术——作为唯一的数据源。这种设计消除了运维复杂性，同时通过 Redis 的内存数据结构提供亚毫秒级的读取性能，通过 Lua 脚本原子性保证写入操作，以及通过 Pub/Sub 实现实时变更传播。
+本页说明 CoSky 如何工作，面向评估它、大规模运维它或参与贡献的工程师。
 
-架构遵循受整洁架构原则启发的分层、模块驱动设计。核心领域抽象位于 `cosky-core` 中，领域特定逻辑分为 `cosky-config` 和 `cosky-discovery`，Spring Cloud 集成由专用 Starter 模块提供。这种分离确保团队可以仅采用所需的能力（仅配置、仅发现或两者兼用），而不会引入不必要的传递依赖。
+## 原则
 
-## 概览
+1. **Redis 是唯一的基础设施。** 客户端直接访问 Redis；应用的读写路径上没有任何 CoSky 服务器。
+2. **每次修改都是一个 Lua 脚本**，并发写入方不会看到中间状态，每次修改都会在一个 Pub/Sub 频道上发出通知。
+3. **应用从内存读取。** 本地缓存跟随变更事件，读取不产生网络往返，Redis 负载也不随读流量增长。
 
-| 模块 | 职责 | 关键文件 | 源码 |
-|--------|---------------|----------|--------|
-| `cosky-core` | 命名空间模型与校验、Redis 键工具、事件监听器抽象、`ReactiveWatchCache` 一致性原语、品牌常量 | `CoSky.kt`, `Namespaced.kt`, `RedisKeys.kt`, `EventListenerContainer.kt`, `cache/ReactiveWatchCache.kt` | [cosky-core/src/main/kotlin/me/ahoo/cosky/core](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core) |
-| `cosky-config` | 配置 CRUD、版本管理、回滚、变更事件 | `ConfigService.kt`, `ConfigKeyGenerator.kt`, `ConfigChangedEvent.kt` | [cosky-config/src/main/kotlin/me/ahoo/cosky/config](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config) |
-| `cosky-discovery` | 服务注册、发现、实例生命周期、拓扑 | `ServiceRegistry.kt`, `ServiceDiscovery.kt`, `DiscoveryKeyGenerator.kt` | [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery) |
-| `cosky-spring-cloud-core` | Spring Boot 自动配置、命名空间属性、Redis 模板装配 | `CoSkyAutoConfiguration.kt`, `CoSkyProperties.kt` | [cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud) |
-| `cosky-spring-cloud-starter-config` | Spring Cloud Config `PropertySourceLocator` 集成、配置刷新 | `CoSkyPropertySourceLocator.kt`, `CoSkyConfigRefresher.kt` | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-starter-config) |
-| `cosky-spring-cloud-starter-discovery` | Spring Cloud `DiscoveryClient` 和 `ServiceRegistry` 集成 | `CoSkyDiscoveryClient.kt`, `CoSkyServiceRegistry.kt` | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-rest-api` | RESTful 管理 API 和控制台服务器 | `RestApiServer.kt`, `ConfigController.kt`, `ServiceController.kt` | [cosky-rest-api](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-rest-api) |
-
-## 高层 C4 容器图
-
-下图展示了 Spring Boot 应用如何通过 Starter 模块与 CoSky 集成，而这些 Starter 模块依赖于以 Redis 为后端的核心库。
+## 模块
 
 ```mermaid
-C4Container
-    title CoSky - 高层容器图
-
-    Person(app, "微服务应用", "使用 CoSky 的 Spring Boot 应用")
-
-    System_Boundary(cosky, "CoSky 平台") {
-        Container(starter_config, "cosky-spring-cloud-starter-config", "Spring Cloud 配置 Starter", "PropertySource 定位器, 配置刷新")
-        Container(starter_discovery, "cosky-spring-cloud-starter-discovery", "Spring Cloud 发现 Starter", "DiscoveryClient, ServiceRegistry")
-        Container(spring_cloud_core, "cosky-spring-cloud-core", "Spring Cloud 核心", "自动配置, 命名空间属性")
-        Container(core, "cosky-core", "核心库", "命名空间模型, Redis 键, 事件")
-        Container(config, "cosky-config", "配置模块", "配置 CRUD, 版本管理, 回滚")
-        Container(discovery, "cosky-discovery", "发现模块", "服务注册, 实例生命周期")
-        Container(rest_api, "cosky-rest-api", "REST API 服务器", "管理 API + 控制台")
-    }
-
-    SystemDb(redis, "Redis", "内存数据存储, Pub/Sub")
-
-    Rel(app, starter_config, "使用配置")
-    Rel(app, starter_discovery, "使用发现")
-    Rel(starter_config, spring_cloud_core, "依赖")
-    Rel(starter_discovery, spring_cloud_core, "依赖")
-    Rel(starter_config, config, "依赖")
-    Rel(starter_discovery, discovery, "依赖")
-    Rel(spring_cloud_core, core, "依赖")
-    Rel(config, core, "依赖")
-    Rel(discovery, core, "依赖")
-    Rel(rest_api, starter_config, "依赖")
-    Rel(rest_api, starter_discovery, "依赖")
-    Rel(core, redis, "读写")
-    Rel(config, redis, "读写 Lua 脚本")
-    Rel(discovery, redis, "读写 Lua 脚本")
+%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
+graph BT
+    CORE["cosky-core"]
+    CONFIG["cosky-config"] --> CORE
+    DISCOVERY["cosky-discovery"] --> CORE
+    SCC["cosky-spring-cloud-core"] --> CORE
+    SCONFIG["cosky-spring-cloud-starter-config"] --> CONFIG
+    SCONFIG --> SCC
+    SDISC["cosky-spring-cloud-starter-discovery"] --> DISCOVERY
+    SDISC --> SCC
+    REST["cosky-rest-api"] --> SCONFIG
+    REST --> SDISC
+    style CORE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DISCOVERY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SCC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SCONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SDISC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style REST fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: settings.gradle.kts:14-28, build.gradle.kts:28-43 -->
+| 模块 | 职责 |
+|---|---|
+| `cosky-core` | 命名空间、Redis 键工具、Lua 脚本加载器、事件监听容器，以及其他一切所依赖的一致性缓存 `ReactiveWatchCache` |
+| `cosky-config` | 配置存储、版本与回滚（`RedisConfigService`），及其缓存视图（`RedisConsistencyConfigService`） |
+| `cosky-discovery` | 注册、续约与过期，服务发现及其缓存视图，负载均衡器，统计，拓扑 |
+| `cosky-spring-cloud-*` | Spring Boot 自动配置、Spring Cloud 属性源、`DiscoveryClient` 与服务注册 |
+| `cosky-rest-api` | REST API 服务器和控制台宿主：CoSec 安全、审计日志、统计任务 |
 
-## 模块依赖图
+## 数据模型
 
-Gradle 模块结构形成一个有向无环图。`cosky-core` 是基础；所有其他模块都直接或传递地依赖它。
+每个键都以命名空间开头。命名空间被包进 Redis Cluster hash tag（`{dev}`），因此一个命名空间的所有键映射到同一个槽，一个 Lua 脚本可以同时操作其中多个键。
 
-```mermaid
-flowchart TD
-    subgraph Foundation["基础层"]
-        cosky-core["cosky-core<br><i>命名空间, 键, 事件</i>"]
-    end
+| 键 | 类型 | 内容 |
+|---|---|---|
+| `{ns}:cfg:{configId}` | hash | 当前配置：`data`、`hash`、`version`、`createTime` |
+| `{ns}:cfg_idx` | set | 配置 ID |
+| `{ns}:cfg_htr:{configId}:{version}` | hash | 历史版本，以及替换它的操作 |
+| `{ns}:cfg_htr_idx:{configId}` | sorted set | 按版本排列的历史键；保留最近 10 个 |
+| `{ns}:svc_idx` | set | 服务 ID |
+| `{ns}:svc_itc_idx:{serviceId}` | set | 服务的实例 ID |
+| `{ns}:svc_itc:{instanceId}` | hash | 实例字段与元数据；临时实例靠 Redis TTL 过期 |
+| `{ns}:svc_itc_exp` | sorted set | 按过期时间排列的临时实例，用来查找过期实例而无需扫描 |
+| `{ns}:svc_stat` | hash | 每个服务的实例数 |
+| `{ns}:topology_idx`、`{ns}:topology:{consumer}` | set | 消费者，以及每个消费者使用的服务 |
+| `cosky-{system}:ns_idx` | set | 控制台中列出的命名空间 |
+| `cosky-{system}:…` | | REST API 服务器的用户、角色、登录锁定与审计日志 |
 
-    subgraph Domain["领域层"]
-        cosky-config["cosky-config<br><i>配置管理</i>"]
-        cosky-discovery["cosky-discovery<br><i>服务发现</i>"]
-    end
+实例 ID 为 `<serviceId>@<scheme>#<host>#<port>`。实例元数据的键以 `_` 前缀存储；`__` 标记内部字段。
 
-    subgraph Spring Cloud["Spring Cloud 层"]
-        cosky-spring-cloud-core["cosky-spring-cloud-core<br><i>自动配置</i>"]
-        cosky-spring-cloud-starter-config["cosky-spring-cloud-starter-config<br><i>配置 Starter</i>"]
-        cosky-spring-cloud-starter-discovery["cosky-spring-cloud-starter-discovery<br><i>发现 Starter</i>"]
-    end
+## 写入与事件
 
-    subgraph Application["应用层"]
-        cosky-rest-api["cosky-rest-api<br><i>REST API + 控制台</i>"]
-    end
+每次修改作为一个 Lua 脚本执行，并在以被修改的键命名的频道上发布消息：
 
-    cosky-config --> cosky-core
-    cosky-discovery --> cosky-core
-    cosky-spring-cloud-core --> cosky-core
-    cosky-spring-cloud-starter-config --> cosky-spring-cloud-core
-    cosky-spring-cloud-starter-config --> cosky-config
-    cosky-spring-cloud-starter-discovery --> cosky-spring-cloud-core
-    cosky-spring-cloud-starter-discovery --> cosky-discovery
-    cosky-rest-api --> cosky-spring-cloud-starter-config
-    cosky-rest-api --> cosky-spring-cloud-starter-discovery
+| 频道 | 消息 |
+|---|---|
+| `{ns}:cfg:{configId}` | `set`、`remove`、`rollback` |
+| `{ns}:svc_idx` | `set`、`remove`（服务出现或消失） |
+| `{ns}:svc_itc:{instanceId}` | `register`、`deregister`、`expired`、`set_metadata`、`renew`（或 `renew:<ttlAt>`） |
+| `cosky-{system}:role_resource_bind:{role}` | `save`、`remove` |
 
-    style cosky-core fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-config fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-discovery fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-spring-cloud-core fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-spring-cloud-starter-config fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-spring-cloud-starter-discovery fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-rest-api fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
+脚本通过加载时解析的 `-- @include` 指令共享函数，并通过 `KEYS` 接收它们操作的键，因此在 Redis Cluster 上无需改动，也不需要 Redis Functions 或模块。
 
-<!-- Sources: cosky-config/build.gradle.kts:1, cosky-discovery/build.gradle.kts:1, cosky-spring-cloud-core/build.gradle.kts:1, cosky-spring-cloud-starter-config/build.gradle.kts:1, cosky-spring-cloud-starter-discovery/build.gradle.kts:1, cosky-rest-api/build.gradle.kts:1 -->
+## 一致性模型
 
-## Redis 键设计
+每个缓存视图（配置、服务、实例、安全策略、角色）都是一个 `ReactiveWatchCache`。对每个键，它：
 
-CoSky 中的所有数据都使用一致的键命名策略存储在 Redis 中。键由命名空间前缀、领域特定段和资源标识符组成，以 `:` 字符分隔（定义为 `CoSky.KEY_SEPARATOR`）。[`RedisKeys`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt) 工具处理 Redis 集群 hashtag 包装，确保同一命名空间内的键路由到同一槽位。
-
-| 领域 | 键模式 | Redis 类型 | 用途 | 源码 |
-|--------|------------|------------|---------|--------|
-| 命名空间索引 | `{cosky-system}:ns_idx` | SET | 存储所有已注册的命名空间 | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
-| 服务索引 | `{namespace}:svc_idx` | SET | 存储命名空间中的所有服务 ID | [DiscoveryKeyGenerator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L35) |
-| 实例索引 | `{namespace}:svc_itc_idx:{serviceId}` | SET | 存储服务的实例 ID | [DiscoveryKeyGenerator.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L58) |
-| 实例数据 | `{namespace}:svc_itc:{instanceId}` | STRING（带 TTL） | 编码的实例详情，临时实例会过期 | [DiscoveryKeyGenerator.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L66) |
-| 服务统计 | `{namespace}:svc_stat` | HASH | 每个服务的实例计数统计 | [DiscoveryKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L44) |
-| 实例过期索引 | `{namespace}:svc_itc_exp` | ZSET | 按 ttlAt 打分的临时实例，由客户端回收 | [DiscoveryKeyGenerator.kt:92](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L92) |
-| 配置索引 | `{namespace}:cfg_idx` | SET | 存储命名空间中的所有配置 ID | [ConfigKeyGenerator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L36) |
-| 配置数据 | `{namespace}:cfg:{configId}` | HASH | 当前配置数据（数据、哈希、版本、更新时间） | [ConfigKeyGenerator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L60) |
-| 配置历史索引 | `{namespace}:cfg_htr_idx:{configId}` | ZSET | 版本历史键的有序列表 | [ConfigKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L44) |
-| 配置历史 | `{namespace}:cfg_htr:{configId}:{version}` | HASH | 每个版本的历史配置快照 | [ConfigKeyGenerator.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L52) |
-
-## 事件驱动架构
-
-CoSky 使用 Redis Pub/Sub 进行实时变更通知。当变更操作发生（服务注册/注销、配置设置/删除）时，执行原子操作的 Lua 脚本也会向相应通道 `PUBLISH` 消息。消费者通过 `EventListenerContainer` 实现订阅，这些实现封装了 Spring 的 `ReactiveRedisMessageListenerContainer`。
+1. **订阅**该键的频道，并等待订阅生效；
+2. 从 Redis **加载**值，这样中间不会漏掉任何变更；
+3. 按顺序逐个**应用**事件，只有值真正变化时才发布新的不可变快照。
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
 sequenceDiagram
     autonumber
-    participant P as 生产者<br>(Lua 脚本)
+    participant W as 写入方
     participant R as Redis
-    participant L as RedisEventListenerContainer
-    participant C as 消费者<br>(应用)
-
-    P->>R: EVALSHA 脚本（原子变更 + PUBLISH）
-    R-->>R: 原子执行 Lua 脚本
-    R->>R: PUBLISH 到通道<br>(例如 {ns}:svc_itc:{instanceId})
-    R->>L: 投递 Pub/Sub 消息
-    L->>L: 解码消息为<br>InstanceChangedEvent / ConfigChangedEvent
-    L->>C: Flux<InstanceChangedEvent>.next()
-    C->>C: 更新本地缓存 /<br>刷新 Spring Environment
+    participant C as 缓存（每个应用）
+    C->>R: SUBSCRIBE 频道
+    C->>R: 加载值
+    R-->>C: 值（快照 v1）
+    W->>R: EVALSHA 脚本（修改 + PUBLISH）
+    R-->>C: 事件
+    C->>R: 重新加载或应用变更
+    R-->>C: 新值（快照 v2）
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:17-42, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30 -->
+保证与限制：
 
-## 技术栈
+- **读取最终一致**，通常在写入后毫秒内更新。写入在 Redis 中立即可见，缓存随后跟上。
+- **丢失的消息会被修复。** Pub/Sub 最多投递一次；每个缓存的键还会每 5 分钟重新加载一次，限定了漏掉消息后的陈旧时间。
+- **失败不会被缓存。** 加载失败会退避重试（1 秒到 30 秒）。期间继续提供最近一次的有效快照；只有从未加载成功的键才会让读取方失败。
+- **快照被共享。** 每次变更只构建一次快照，未变化的值就是同一个对象，因此读取方可以缓存由它派生的数据；负载均衡器就是这样复用自身状态的。
+- **缓存的键会一直保留。** 一个键一旦被读取，在缓存的生命周期内一直保持订阅。
 
-| 技术 | 版本 | 用途 | 源码 |
-|-----------|---------|---------|--------|
-| Kotlin | 2.x (JVM 17 工具链) | 主要编程语言 | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
-| Spring Boot | 4.x | 应用框架 | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Cloud | 2025.x | 云原生抽象（DiscoveryClient、PropertySourceLocator） | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Data Redis | 最新 | 响应式 Redis 操作（ReactiveStringRedisTemplate） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
-| Lettuce | 最新 | Redis 客户端驱动（异步、响应式） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
-| Project Reactor | 最新 | 响应式编程模型（Flux、Mono） | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
-| Lua (Redis 脚本) | N/A | 原子多步操作 | [DiscoveryRedisScripts.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) |
-| Gradle (Kotlin DSL) | 9.x | 构建系统 | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
+## 服务发现
 
-## 设计原则
+**过期。** 临时实例的 hash 带有 Redis TTL，由客户端续约（默认每 10 秒续约一次，TTL 60 秒）。Redis 删除它时不会发出任何通知，所以每次续约还会把过期时间记录到 `{ns}:svc_itc_exp`。每轮续约之后，每个客户端会清理其命名空间中最多 100 个已过期的实例：如果键确实已经不存在，就把实例从服务中移除并发布 `expired`。读取时也会顺带做同样的清理。实例的消失不需要任何服务器。
 
-### CP + AP 灵活性
+**续约事件会被节流。** 只有在上一次发布的过期时间即将到达时才发布续约事件，因此稳定运行的实例群产生的事件很少。默认情况下消费者随后会重新读取实例的 TTL；开启 `renew-event-carries-ttl-at` 后，事件直接携带新的过期时间（所有客户端都运行 6.0 后再开启）。
 
-CoSky 同时支持**临时**（AP，最终一致性）和**持久**（CP，强一致性）服务实例。临时实例使用基于 Redis TTL 的过期机制——如果注册客户端未能续约，实例会自动过期。持久实例没有 TTL（`TTL_AT_FOREVER = -1`），必须显式注销。这体现了 Nacos 的设计理念，同时使用 Redis 作为后端存储。
+**读取时过滤过期实例**：用本地时钟比较其过期时间，所以消费者不依赖清理的延迟。请保持时钟同步（NTP）：时钟偏快的客户端可能把存活实例当作已过期。
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> Registered : register()
-    Registered --> Renewed : renew() / 重置 TTL
-    Renewed --> Renewed : renew() / 重置 TTL
-    Registered --> Deregistered : deregister()
-    Renewed --> Deregistered : deregister()
-    Registered --> Expired : TTL 超时（临时实例）
-    Renewed --> Expired : TTL 超时（临时实例）
-    Deregistered --> [*]
-    Expired --> [*]
-```
+## REST API 服务器
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105-112, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39-117 -->
+服务器是一个 Spring Boot 应用，使用与普通应用相同的 starter，此外还有：
 
-### Lua 脚本保证原子性
+- **CoSec**：JWT 认证与基于策略的授权（[安全](./security.md)）；
+- **Simba**：通过 Redis 选出唯一一个实例，每 10 秒刷新服务统计；
+- **CosId**：分布式 ID 生成。
 
-关键写入操作（注册、注销、配置设置、配置回滚）作为 Lua 脚本在 Redis 服务器上执行。这保证了原子性——例如，注册脚本原子地将实例添加到服务索引、存储实例数据、发布变更事件并更新统计信息，全部在单个 Redis 命令中完成。在发现模块（13 个）和配置模块（3 个）中共有 **16 个 Lua 脚本**。
+它自身不保存状态，可以随意增减实例。
 
-```mermaid
-flowchart LR
-    subgraph Discovery Lua Scripts["发现 Lua 脚本"]
-        A[registry_register.lua]
-        B[registry_deregister.lua]
-        C[registry_renew.lua]
-        D[registry_set_service.lua]
-        E[registry_remove_service.lua]
-        F[registry_set_metadata.lua]
-        G[discovery_get_instances.lua]
-        H[discovery_get_instance.lua]
-        I[discovery_get_instance_ttl.lua]
-        J[instance_count_stat.lua]
-        K[service_stat.lua]
-        L[service_topology_add.lua]
-        M[service_topology_get.lua]
-    end
+## 取舍
 
-    subgraph Config Lua Scripts["配置 Lua 脚本"]
-        N[config_set.lua]
-        O[config_remove.lua]
-        P[config_rollback.lua]
-    end
-
-    style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style C fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style D fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style E fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style F fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style G fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style H fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style I fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style J fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style K fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style M fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style N fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style O fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
-
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24-71, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt:24-33 -->
-
-### 本地缓存提升性能
-
-`ConsistencyRedisServiceDiscovery` 装饰器维护一个内存中的 `ConcurrentHashMap` 来存储服务实例，通过 Pub/Sub 事件订阅保持最新状态。这意味着一旦首次 `getInstances()` 调用从 Redis 获取数据，后续调用将从本地缓存提供服务，直到变更事件到达。这种模式为负载均衡器等读取密集型工作负载提供亚微秒级延迟，同时通过事件驱动失效保持一致性。
-
-## 交叉引用
-
-- [核心模块深入解析](./core) -- 命名空间模型、键生成和事件系统的详细讲解。
-- [配置模块](./config-service) -- 配置 CRUD、版本管理、回滚和 Spring Cloud PropertySource 集成。
-- [服务发现模块](./service-discovery) -- 服务注册、实例生命周期、负载均衡和拓扑。
-- [REST API](./rest-api) -- 管理 API 端点和控制台。
-
-## 参考
-
-- [CoSky.kt -- 品牌常量（COSKY, KEY_SEPARATOR）](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt)
-- [Namespaced.kt -- 默认和系统命名空间常量](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt)
-- [ReactiveWatchCache.kt -- 事件驱动的本地缓存原语](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt)
-- [NamespaceService.kt -- 命名空间 CRUD 接口](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt)
-- [RedisNamespaceService.kt -- 基于 Redis SET 的命名空间存储](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt)
-- [RedisKeys.kt -- 集群 hashtag 工具](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)
-- [EventListenerContainer.kt -- 响应式事件订阅接口](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt)
-- [RedisEventListenerContainer.kt -- Redis Pub/Sub 实现](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt)
-- [settings.gradle.kts -- 模块声明](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts)
-- [build.gradle.kts -- 根构建配置](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts)
+| 决策 | 收益 | 代价 |
+|---|---|---|
+| Redis 作为唯一存储 | 无需运维新组件；Redis 快且熟悉 | Redis 的可用性与持久化就是 CoSky 的；Redis 故障时写入停止（缓存读取继续） |
+| 客户端续约而非服务端健康检查 | 不需要服务器；随客户端扩展 | 进程卡死但仍在续约时会保持注册 |
+| 由 Pub/Sub 驱动的本地缓存 | 纳秒级读取，Redis 负载与读流量无关 | 最终一致；每个被监听的键占用一个订阅 |
+| 每次修改都用 Lua 脚本 | 无需分布式锁即可保证原子性 | 脚本是数据契约的一部分，跨客户端版本修改需谨慎 |
+| 命名空间 hash tag | 多键脚本在集群上安全 | 一个命名空间不能分布到多个集群槽 |

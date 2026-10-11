@@ -28,7 +28,7 @@ Use the same secret on every server instance. Changing it invalidates all issued
 
 ### Users need roles to read namespaces
 
-The default policy used to let every authenticated user read every namespace. It now only grants `GET /v1/namespaces` (which lists the namespaces the user's roles cover) and `GET /v1/namespaces/current`; everything else needs a role. Give each non-admin user a role with read (`r`) or read-write (`rw`) access to the namespaces they work with — see [Security & RBAC](./security-rbac.md).
+The default policy used to let every authenticated user read every namespace. It now only grants `GET /v1/namespaces` (which lists the namespaces the user's roles cover) and `GET /v1/namespaces/current`; everything else needs a role. Give each non-admin user a role with read (`r`) or read-write (`rw`) access to the namespaces they work with — see [Security](./security.md).
 
 If you stored your own policy (config `cosky-policy.json` in the `cosky-{system}` namespace), it overrides the bundled one: replace the `namespace` statement's pattern `/v1/namespaces/**` with `["/v1/namespaces", "/v1/namespaces/current"]`.
 

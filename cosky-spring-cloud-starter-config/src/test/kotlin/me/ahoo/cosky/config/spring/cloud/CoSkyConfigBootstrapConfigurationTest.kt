@@ -46,4 +46,21 @@ internal class CoSkyConfigBootstrapConfigurationTest {
                     .hasSingleBean(CoSkyPropertySourceLocator::class.java)
             }
     }
+
+    @Test
+    fun contextLoadsWhenCoSkyDisabled() {
+        contextRunner
+            .withPropertyValues("spring.cloud.cosky.enabled=false", "spring.application.name=app")
+            .withUserConfiguration(
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
+                CoSkyConfigBootstrapConfiguration::class.java,
+            )
+            .run {
+                AssertionsForInterfaceTypes.assertThat(it)
+                    .hasNotFailed()
+                    .doesNotHaveBean(CoSkyPropertySourceLocator::class.java)
+            }
+    }
 }
