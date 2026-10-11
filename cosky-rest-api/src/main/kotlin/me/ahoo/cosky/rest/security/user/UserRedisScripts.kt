@@ -12,9 +12,10 @@
  */
 package me.ahoo.cosky.rest.security.user
 
-import org.springframework.core.io.ClassPathResource
+import me.ahoo.cosky.core.redis.LuaScripts
 import org.springframework.data.redis.core.script.RedisScript
 
 internal object UserRedisScripts {
-    val SCRIPT_USER_STATE: RedisScript<Long> = RedisScript.of(ClassPathResource("user_state.lua"), Long::class.java)
+    val SCRIPT_USER_STATE: RedisScript<Long> = LuaScripts.load("user_state.lua", Long::class.java)
+    val SCRIPT_USER_PASSWORD_CAS: RedisScript<Boolean> = LuaScripts.load("user_password_cas.lua", Boolean::class.java)
 }

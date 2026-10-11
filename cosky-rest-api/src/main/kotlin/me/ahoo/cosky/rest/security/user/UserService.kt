@@ -12,9 +12,6 @@
  */
 package me.ahoo.cosky.rest.security.user
 
-import com.google.common.base.Charsets
-import com.google.common.base.Strings
-import com.google.common.hash.Hashing
 import me.ahoo.cosec.api.principal.CoSecPrincipal
 import me.ahoo.cosec.principal.SimplePrincipal
 import me.ahoo.cosky.core.Namespaced
@@ -33,7 +30,10 @@ import java.util.stream.Collectors
  * @author ahoo wang
  */
 @Service
-class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
+class UserService(
+    private val redisTemplate: ReactiveStringRedisTemplate,
+    private val passwordHasher: PasswordHasher = PasswordHasher()
+) {
 
     fun initRoot(enforce: Boolean): Mono<Boolean> {
         return Mono.from(if (enforce) removeUserInternal(CoSecPrincipal.ROOT_ID) else Mono.empty())
@@ -81,9 +81,9 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
     }
 
     fun addUser(username: String, pwd: String): Mono<Boolean> {
-        return redisTemplate
-            .opsForHash<Any, Any>()
-            .putIfAbsent(USER_IDX, username, encodePwd(pwd))
+        return passwordHasher.hash(pwd).flatMap {
+            redisTemplate.opsForHash<String, String>().putIfAbsent(USER_IDX, username, it)
+        }
     }
 
     fun removeUser(username: String): Mono<Boolean> {
@@ -123,15 +123,20 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
                     "username:[$username] not exists!",
                 ).toMono(),
             )
-            .flatMap { preEncodePwd: String ->
-                val oldEncodePwd = encodePwd(oldPwd)
-                val newEncodePwd = encodePwd(newPwd)
-                if (preEncodePwd != oldEncodePwd) {
-                    return@flatMap SecurityException(
-                        "username:[$username] - old password is incorrect!",
-                    ).toMono()
+            .flatMap { storedHash ->
+                passwordHasher.matches(oldPwd, storedHash).flatMap { matched ->
+                    if (!matched) {
+                        return@flatMap SecurityException(
+                            "username:[$username] - old password is incorrect!",
+                        ).toMono()
+                    }
+                    passwordHasher.hash(newPwd)
+                        .flatMap { replacePasswordHash(username, storedHash, it) }
+                        .filter { it }
+                        .switchIfEmpty(
+                            IllegalStateException("username:[$username] - password was changed concurrently!").toMono(),
+                        )
                 }
-                redisTemplate.opsForHash<Any, Any>().put(USER_IDX, username, newEncodePwd)
             }
     }
 
@@ -155,14 +160,16 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
                             "username:[$username] - password is incorrect.!",
                         ).toMono(),
                     )
-                    .flatMap { realEncodedPwd: String ->
-                        val encodedPwd = encodePwd(pwd)
-                        if (realEncodedPwd != encodedPwd) {
-                            return@flatMap SecurityException(
-                                "username:[$username] - password is incorrect.!",
-                            ).toMono()
+                    .flatMap { storedHash ->
+                        passwordHasher.matches(pwd, storedHash).flatMap { matched ->
+                            if (!matched) {
+                                return@flatMap SecurityException(
+                                    "username:[$username] - password is incorrect.!",
+                                ).toMono()
+                            }
+                            upgradeLegacyHash(username, pwd, storedHash)
+                                .then(executeUserState(USER_OPERATION_LOGIN_SUCCESS, username))
                         }
-                        executeUserState(USER_OPERATION_LOGIN_SUCCESS, username)
                     }
             }
             .flatMap { lockResult ->
@@ -179,12 +186,31 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
             }
     }
 
-    private fun encodePwd(pwd: String): String {
-        return Hashing.sha256().hashString(pwd, Charsets.UTF_8).toString()
+    /**
+     * Replaces a hash of an older version by a BCrypt hash, now that the password is known to be right.
+     */
+    private fun upgradeLegacyHash(username: String, password: String, storedHash: String): Mono<Void> {
+        if (!passwordHasher.needsUpgrade(storedHash)) {
+            return Mono.empty()
+        }
+        return passwordHasher.hash(password)
+            .flatMap { replacePasswordHash(username, storedHash, it) }
+            .then()
+    }
+
+    /**
+     * Compare-and-set, so that a concurrent password change is never overwritten.
+     */
+    private fun replacePasswordHash(username: String, expectedHash: String, newHash: String): Mono<Boolean> {
+        return redisTemplate.execute(
+            UserRedisScripts.SCRIPT_USER_PASSWORD_CAS,
+            listOf(USER_IDX),
+            listOf(username, expectedHash, newHash),
+        ).next()
     }
 
     fun unlock(username: String): Mono<Boolean> {
-        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
+        val loginLockKey = USER_LOGIN_LOCK.format(username)
         return redisTemplate.delete(loginLockKey)
             .map { affected: Long -> affected > 0 }
     }
@@ -221,14 +247,14 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
     }
 
     private fun getLoginLock(username: String): Mono<String> {
-        val loginLockKey = Strings.lenientFormat(USER_LOGIN_LOCK, username)
+        val loginLockKey = USER_LOGIN_LOCK.format(username)
         return redisTemplate.opsForValue()[loginLockKey]
     }
 
     private fun executeUserState(operation: String, username: String): Mono<Long> {
         return redisTemplate.execute(
             UserRedisScripts.SCRIPT_USER_STATE,
-            listOf(USER_IDX, getUserRoleBindKey(username), Strings.lenientFormat(USER_LOGIN_LOCK, username)),
+            listOf(USER_IDX, getUserRoleBindKey(username), USER_LOGIN_LOCK.format(username)),
             listOf(
                 operation,
                 username,
@@ -269,7 +295,7 @@ class UserService(private val redisTemplate: ReactiveStringRedisTemplate) {
         private const val USER_OPERATION_LOGIN_ATTEMPT = "login-attempt"
         private const val USER_OPERATION_LOGIN_SUCCESS = "login-success"
         private fun getUserRoleBindKey(username: String): String {
-            return Strings.lenientFormat(USER_ROLE_BIND, username)
+            return USER_ROLE_BIND.format(username)
         }
 
         const val MAX_LOGIN_ERROR_TIMES = 10

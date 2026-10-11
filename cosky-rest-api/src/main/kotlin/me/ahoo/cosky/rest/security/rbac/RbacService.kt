@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.rest.security.rbac
 
-import com.google.common.base.Strings
 import me.ahoo.cosky.core.Namespaced
 import me.ahoo.cosky.rest.security.rbac.Action.Companion.asAction
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
@@ -29,7 +28,7 @@ import java.util.stream.Collectors
 @Service
 class RbacService(private val redisTemplate: ReactiveStringRedisTemplate) {
     private fun getRoleResourceBindKey(roleName: String): String {
-        return Strings.lenientFormat(ROLE_RESOURCE_BIND, roleName)
+        return ROLE_RESOURCE_BIND.format(roleName)
     }
 
     fun saveRole(roleName: String, saveRoleRequest: SaveRoleRequest): Mono<Void> {

@@ -80,7 +80,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation(project(":cosky-spring-cloud-starter-config"))
     implementation(project(":cosky-spring-cloud-starter-discovery"))
-    implementation("com.google.guava:guava")
+    implementation("org.springframework.security:spring-security-crypto")
     implementation("me.ahoo.cosid:cosid-spring-redis")
     implementation("me.ahoo.cosid:cosid-spring-boot-starter")
     implementation("me.ahoo.simba:simba-spring-redis")
