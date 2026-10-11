@@ -16,6 +16,7 @@ import io.mockk.every
 import io.mockk.mockk
 import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.withIsEphemeral
+import me.ahoo.cosky.discovery.ServiceInstance.Companion.withTtlAt
 import me.ahoo.cosky.discovery.TestServiceInstance.createInstance
 import me.ahoo.cosky.discovery.TestServiceInstance.registerRandomInstanceAndTestThenDeregister
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
@@ -140,6 +141,31 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         serviceDiscovery.getInstance(namespace, serviceId, missingInstance.instanceId).test()
             .expectNext(missingInstance)
             .verifyComplete()
+        serviceDiscovery.close()
+    }
+
+    /**
+     * Filtering out expired instances must not produce a new list on every read, or load balancers would rebuild
+     * their chooser on every choice until the expired instance is reaped.
+     */
+    @Test
+    fun liveInstancesAreReusedWhileTheSnapshotIsUnchanged() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val serviceId = MockIdGenerator.INSTANCE.generateAsString()
+        val nowSeconds = System.currentTimeMillis() / 1000
+        val live = createInstance(serviceId).withTtlAt(nowSeconds + 60)
+        val expired = createInstance(serviceId).withTtlAt(nowSeconds - 60)
+        val delegate = mockk<ServiceDiscovery>()
+        every { delegate.getInstances(namespace, serviceId) } returns Mono.just(listOf(live, expired))
+        val serviceDiscovery = ConsistencyRedisServiceDiscovery(
+            delegate = delegate,
+            serviceEventListenerContainer = mockk(),
+            instanceEventListenerContainer = mockk { every { listen(any()) } returns Mono.just(Flux.never()) },
+        )
+
+        val first = serviceDiscovery.getInstances(namespace, serviceId).block()!!
+        first.assert().containsExactly(live)
+        serviceDiscovery.getInstances(namespace, serviceId).block()!!.assert().isSameAs(first)
         serviceDiscovery.close()
     }
 
