@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Ahoo-Wang/CoSky/tree/main/wiki/guide
+    about: Guides, configuration reference and the upgrade guide.
+  - name: Report a security vulnerability
+    url: https://github.com/Ahoo-Wang/CoSky/blob/main/SECURITY.md
+    about: Please report vulnerabilities privately, not in a public issue.

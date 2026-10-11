@@ -411,6 +411,8 @@ RedisServiceRegistryBenchmark.renew                     thrpt          210960.32
 
 欢迎社区贡献！无论是报告错误、提出功能建议还是提交拉取请求，您的参与都能帮助 CoSky 变得更好。
 
+开发环境、编码规范、评审与发版流程见[贡献指南](CONTRIBUTING.md)；请按 [SECURITY.md](SECURITY.md) 私下报告安全漏洞。所有参与者都应遵守[行为准则](CODE_OF_CONDUCT.md)。
+
 ## 📄 许可证
 
 CoSky 是基于 [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html) 许可的开源软件。
