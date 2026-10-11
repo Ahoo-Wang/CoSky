@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.config.spring.cloud
 
-import com.google.common.io.Files
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigService
@@ -41,6 +40,15 @@ class CoSkyPropertySourceLocator(
 
     companion object {
         private val log = KotlinLogging.logger {}
+
+        /**
+         * The extension of the last path segment of [configId], empty when it has none.
+         */
+        internal fun getFileExtension(configId: String): String {
+            val fileName = configId.substringAfterLast('/')
+            return if (fileName.contains('.')) fileName.substringAfterLast('.') else ""
+        }
+
         fun getNameOfConfigId(configId: String): String {
             return CoSky.COSKY + ":" + configId
         }
@@ -51,10 +59,7 @@ class CoSkyPropertySourceLocator(
 
     override fun locate(environment: Environment): PropertySource<*> {
         val configId = requireNotNull(configProperties.configId) { "configId must not be null." }
-        var fileExt = Files.getFileExtension(configId)
-        if (fileExt.isBlank()) {
-            fileExt = configProperties.fileExtension
-        }
+        val fileExt = getFileExtension(configId).ifBlank { configProperties.fileExtension }
         val namespace = coSkyProperties.namespace
         log.info {
             "Locate - configId:[$configId] @ namespace:[$namespace]"

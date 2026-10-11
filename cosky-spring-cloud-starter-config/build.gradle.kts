@@ -18,7 +18,6 @@ dependencies {
     kapt(platform(project(":cosky-dependencies")))
     api(project(":cosky-config"))
     api(project(":cosky-spring-cloud-core"))
-    implementation("com.google.guava:guava")
     kapt("org.springframework.boot:spring-boot-configuration-processor")
     kapt("org.springframework.boot:spring-boot-autoconfigure-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")

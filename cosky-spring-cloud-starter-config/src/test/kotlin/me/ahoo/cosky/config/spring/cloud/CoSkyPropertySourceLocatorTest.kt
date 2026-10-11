@@ -95,4 +95,11 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
         propertySource.getProperty("second.value").assert().isEqualTo("two")
         propertySource.getProperty("shared").assert().isEqualTo("second")
     }
+
+    @Test
+    fun fileExtensionOfLastPathSegment() {
+        CoSkyPropertySourceLocator.getFileExtension("app.yaml").assert().isEqualTo("yaml")
+        CoSkyPropertySourceLocator.getFileExtension("group.v1/app").assert().isEqualTo("")
+        CoSkyPropertySourceLocator.getFileExtension("app").assert().isEqualTo("")
+    }
 }

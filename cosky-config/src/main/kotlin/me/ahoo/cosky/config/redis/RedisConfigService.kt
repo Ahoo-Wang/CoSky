@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.config.redis
 
-import com.google.common.hash.Hashing
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigCodec.decodeAsConfig
@@ -33,6 +32,8 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.HexFormat
 
 /**
  * Redis Config Service.
@@ -51,6 +52,14 @@ class RedisConfigService(
 
     companion object {
         private val log = KotlinLogging.logger {}
+
+        /**
+         * Lowercase hex SHA-256 of [data]: the format of the hashes already stored with every config.
+         */
+        internal fun sha256Hex(data: String): String {
+            val digest = MessageDigest.getInstance("SHA-256").digest(data.toByteArray(StandardCharsets.UTF_8))
+            return HexFormat.of().formatHex(digest)
+        }
     }
 
     override fun getConfigs(namespace: String): Flux<String> {
@@ -94,7 +103,7 @@ class RedisConfigService(
 
     override fun setConfig(namespace: String, configId: String, data: String): Mono<Boolean> {
         ensureNamespacedConfigId(namespace, configId)
-        val hash = Hashing.sha256().hashString(data, StandardCharsets.UTF_8).toString()
+        val hash = sha256Hex(data)
         log.info {
             "SetConfig - configId:[$configId] - hash:[$hash]  @ namespace:[$namespace]."
         }
