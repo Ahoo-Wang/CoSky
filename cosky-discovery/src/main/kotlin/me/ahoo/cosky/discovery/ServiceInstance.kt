@@ -80,6 +80,15 @@ interface ServiceInstance : Instance {
             )
         }
 
+        fun ServiceInstance.withMetadata(metadata: Map<String, String>): ServiceInstance {
+            return asServiceInstance(
+                weight = weight,
+                isEphemeral = isEphemeral,
+                ttlAt = ttlAt,
+                metadata = metadata,
+            )
+        }
+
         fun ServiceInstance.withIsEphemeral(
             isEphemeral: Boolean
         ): ServiceInstance {
