@@ -131,4 +131,22 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                     }
             }
     }
+
+    @Test
+    fun contextLoadsWhenCoSkyDisabled() {
+        contextRunner
+            .withPropertyValues("spring.cloud.cosky.enabled=false", "spring.application.name=app")
+            .withUserConfiguration(
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
+                UtilAutoConfiguration::class.java,
+                AutoServiceRegistrationConfiguration::class.java,
+                CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
+            )
+            .run {
+                assertThat(it)
+                    .doesNotHaveBean(RedisServiceRegistry::class.java)
+                    .doesNotHaveBean(CoSkyRegistration::class.java)
+            }
+    }
 }

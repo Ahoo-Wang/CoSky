@@ -35,8 +35,8 @@ internal class RedisConsistencyConfigServiceTest : ConfigServiceSpec() {
         return RedisConsistencyConfigService(delegate, configEventListenerContainer)
     }
 
-    override fun afterDestroyRedisClient() {
-        configEventListenerContainer.close()
+    override fun beforeDestroyRedisClient() {
+        configEventListenerContainer.delegate.destroy()
     }
 
     @Test

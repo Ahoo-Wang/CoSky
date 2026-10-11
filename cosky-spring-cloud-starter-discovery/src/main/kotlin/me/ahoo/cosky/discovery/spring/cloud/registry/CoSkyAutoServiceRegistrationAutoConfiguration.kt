@@ -16,6 +16,8 @@ import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewInstanceService
 import me.ahoo.cosky.discovery.ServiceRegistry
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoSkyDiscoveryEnabled
+import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -36,6 +38,8 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 @AutoConfiguration(
     before = [AutoServiceRegistrationAutoConfiguration::class],
 )
+@ConditionalOnCoSkyEnabled
+@ConditionalOnCoSkyDiscoveryEnabled
 @ConditionalOnAutoRegistrationEnabled
 @EnableConfigurationProperties(
     CoSkyRegistryProperties::class,

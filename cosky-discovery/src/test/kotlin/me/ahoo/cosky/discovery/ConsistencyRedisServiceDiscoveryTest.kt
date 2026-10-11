@@ -45,10 +45,12 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
     private lateinit var registryProperties: RegistryProperties
     private lateinit var serviceEventListenerContainer: ServiceEventListenerContainer
     private lateinit var instanceEventListenerContainer: InstanceEventListenerContainer
+    private lateinit var listenerContainer: ReactiveRedisMessageListenerContainer
     override fun afterInitializedRedisClient() {
         registryProperties = RegistryProperties(Duration.ofSeconds(5))
         serviceRegistry = RedisServiceRegistry(registryProperties, redisTemplate)
         delegate = RedisServiceDiscovery(redisTemplate)
+        listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
         serviceEventListenerContainer = createServiceEventListenerContainer()
         instanceEventListenerContainer = createInstanceEventListenerContainer()
         serviceDiscovery = ConsistencyRedisServiceDiscovery(
@@ -58,20 +60,15 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         )
     }
 
-    override fun afterDestroyRedisClient() {
-        serviceEventListenerContainer.close()
-        instanceEventListenerContainer.close()
+    override fun beforeDestroyRedisClient() {
+        listenerContainer.destroy()
     }
 
     private fun createServiceEventListenerContainer(): ServiceEventListenerContainer =
-        RedisServiceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory),
-        )
+        RedisServiceEventListenerContainer(listenerContainer)
 
     private fun createInstanceEventListenerContainer(): InstanceEventListenerContainer =
-        RedisInstanceEventListenerContainer(
-            ReactiveRedisMessageListenerContainer(connectionFactory),
-        )
+        RedisInstanceEventListenerContainer(listenerContainer)
 
     @Test
     fun getServices() {

@@ -4,7 +4,6 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.EventListenerContainer
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 import reactor.core.publisher.Flux
-import reactor.core.scheduler.Schedulers
 import java.util.concurrent.CancellationException
 
 abstract class RedisEventListenerContainer<T, E : Any>(
@@ -31,11 +30,4 @@ abstract class RedisEventListenerContainer<T, E : Any>(
     }
 
     protected abstract fun receiveEvent(topic: T): Flux<E>
-
-    override fun close() {
-        log.info {
-            "Closing $this activeSubscriptions:[${delegate.activeSubscriptions.size}]"
-        }
-        delegate.destroyLater().subscribeOn(Schedulers.boundedElastic()).subscribe()
-    }
 }

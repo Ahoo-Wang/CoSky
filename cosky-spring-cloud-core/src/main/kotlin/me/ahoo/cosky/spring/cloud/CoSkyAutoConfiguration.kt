@@ -19,7 +19,9 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
+import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
 /**
  * CoSky Auto Configuration.
@@ -38,5 +40,16 @@ class CoSkyAutoConfiguration(coSkyProperties: CoSkyProperties) {
     @ConditionalOnMissingBean
     fun namespaceService(redisTemplate: ReactiveStringRedisTemplate): NamespaceService {
         return RedisNamespaceService(redisTemplate)
+    }
+
+    /**
+     * One Pub/Sub connection shared by every CoSky event listener container.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun coSkyMessageListenerContainer(
+        connectionFactory: ReactiveRedisConnectionFactory
+    ): ReactiveRedisMessageListenerContainer {
+        return ReactiveRedisMessageListenerContainer(connectionFactory)
     }
 }

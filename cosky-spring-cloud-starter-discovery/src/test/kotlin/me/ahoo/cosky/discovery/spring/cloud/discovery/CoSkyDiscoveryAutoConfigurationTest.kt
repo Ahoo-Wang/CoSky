@@ -1,5 +1,6 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
+import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
 import me.ahoo.cosky.discovery.redis.ConsistencyRedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisInstanceEventListenerContainer
@@ -7,6 +8,7 @@ import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic
 import me.ahoo.cosky.discovery.redis.RedisServiceTopology
+import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.boot.data.redis.autoconfigure.DataRedisAutoConfiguration
@@ -23,6 +25,7 @@ internal class CoSkyDiscoveryAutoConfigurationTest {
             .withUserConfiguration(
                 DataRedisAutoConfiguration::class.java,
                 DataRedisReactiveAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
                 CoSkyDiscoveryAutoConfiguration::class.java,
             )
             .run {
@@ -35,6 +38,23 @@ internal class CoSkyDiscoveryAutoConfigurationTest {
                     .hasSingleBean(ConsistencyRedisServiceDiscovery::class.java)
                     .hasSingleBean(RedisServiceStatistic::class.java)
                     .hasSingleBean(LoadBalancer::class.java)
+            }
+    }
+
+    @Test
+    fun contextLoadsWhenCoSkyDisabled() {
+        contextRunner
+            .withPropertyValues("spring.cloud.cosky.enabled=false", "spring.application.name=app")
+            .withUserConfiguration(
+                DataRedisAutoConfiguration::class.java,
+                DataRedisReactiveAutoConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
+                CoSkyDiscoveryAutoConfiguration::class.java,
+            )
+            .run {
+                assertThat(it)
+                    .doesNotHaveBean(ServiceDiscovery::class.java)
+                    .doesNotHaveBean(LoadBalancer::class.java)
             }
     }
 }

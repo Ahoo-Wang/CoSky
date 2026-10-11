@@ -19,6 +19,7 @@ import me.ahoo.cosky.config.redis.RedisConsistencyConfigService
 import me.ahoo.cosky.config.spring.cloud.refresh.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
+import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -26,7 +27,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.springframework.core.env.Environment
-import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
@@ -36,6 +36,7 @@ import org.springframework.data.redis.listener.ReactiveRedisMessageListenerConta
  * @author ahoo wang
  */
 @AutoConfiguration(after = [CoSkyAutoConfiguration::class])
+@ConditionalOnCoSkyEnabled
 @ConditionalOnCoSkyConfigEnabled
 @EnableConfigurationProperties(
     CoSkyConfigProperties::class,
@@ -54,8 +55,9 @@ class CoSkyConfigAutoConfiguration(
 
     @Bean
     @ConditionalOnMissingBean
-    fun configEventListenerContainer(connectionFactory: ReactiveRedisConnectionFactory): ConfigEventListenerContainer {
-        val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
+    fun configEventListenerContainer(
+        listenerContainer: ReactiveRedisMessageListenerContainer
+    ): ConfigEventListenerContainer {
         return RedisConfigEventListenerContainer(listenerContainer)
     }
 

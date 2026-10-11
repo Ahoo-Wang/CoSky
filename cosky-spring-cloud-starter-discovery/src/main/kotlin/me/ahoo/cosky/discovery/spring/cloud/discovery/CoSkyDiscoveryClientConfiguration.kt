@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.ServiceDiscovery
+import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.cloud.client.CommonsClientAutoConfiguration
@@ -30,6 +31,7 @@ import org.springframework.context.annotation.Bean
     before = [CommonsClientAutoConfiguration::class, SimpleDiscoveryClientAutoConfiguration::class],
     after = [CoSkyDiscoveryAutoConfiguration::class],
 )
+@ConditionalOnCoSkyEnabled
 @ConditionalOnCoSkyDiscoveryEnabled
 @ConditionalOnDiscoveryEnabled
 @ConditionalOnBlockingDiscoveryEnabled
