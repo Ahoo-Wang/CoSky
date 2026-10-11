@@ -59,11 +59,13 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 
 ## Code review
 
-- Every change to `main` goes through a pull request reviewed by a code owner ([CODEOWNERS](.github/CODEOWNERS)).
+- `main` is protected: every change goes through a pull request, and code owners
+  ([CODEOWNERS](.github/CODEOWNERS)) are requested for review automatically.
 - The pull request template lists what reviewers check: tests, documentation and compatibility.
-- All CI checks must pass before merging: build and tests, static analysis, CodeQL, coverage and the REST API smoke
-  test.
-- Review comments are resolved in the pull request, by a change or an answer, before merging.
+- The build (`Integration Test`: tests, static analysis, license headers, coverage floor) and the `REST API Test`
+  must pass before merging; CodeQL and Codecov report on every pull request too.
+- Review conversations must be resolved, by a change or an answer, before merging.
+- History stays linear: no force pushes to `main`, and pull requests are squash-merged.
 
 ## Releases and versioning
 
