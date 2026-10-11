@@ -4,7 +4,7 @@ import io.mockk.mockk
 import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.redis.RedisConfigService
-import me.ahoo.cosky.core.NamespacedContext
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -13,6 +13,7 @@ import reactor.kotlin.test.test
 
 internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
     lateinit var configService: ConfigService
+    private val coSkyProperties = CoSkyProperties()
 
     companion object {
         const val configData = """
@@ -46,19 +47,19 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
     @Test
     fun locateNone() {
         val properties = CoSkyConfigProperties(configId = "${MockIdGenerator.INSTANCE.generateAsString()}.yaml")
-        val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(properties, configService)
+        val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(coSkyProperties, properties, configService)
         val propertySources = coSkyPropertySourceLocator.locate(mockk())
         propertySources.assert().isNotNull()
     }
 
     @Test
     fun locate() {
-        configService.setConfig(NamespacedContext.namespace, "service.yaml", configData)
+        configService.setConfig(coSkyProperties.namespace, "service.yaml", configData)
             .test()
             .expectNextCount(1)
             .verifyComplete()
         val properties = CoSkyConfigProperties(configId = "service.yaml")
-        val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(properties, configService)
+        val coSkyPropertySourceLocator = CoSkyPropertySourceLocator(coSkyProperties, properties, configService)
         val propertySources = coSkyPropertySourceLocator.locate(mockk())
         propertySources.assert().isNotNull()
         propertySources.source.assert().isInstanceOf(Map::class.java)
@@ -80,11 +81,12 @@ internal class CoSkyPropertySourceLocatorTest : AbstractReactiveRedisTest() {
             second:
               value: two
         """.trimIndent()
-        configService.setConfig(NamespacedContext.namespace, configId, configData)
+        configService.setConfig(coSkyProperties.namespace, configId, configData)
             .test()
             .expectNextCount(1)
             .verifyComplete()
         val propertySource = CoSkyPropertySourceLocator(
+            coSkyProperties,
             CoSkyConfigProperties(configId = configId),
             configService,
         ).locate(mockk())

@@ -13,15 +13,14 @@
 package me.ahoo.cosky.rest.stat
 
 import me.ahoo.cosky.core.NamespaceService
-import me.ahoo.cosky.core.NamespacedContext.namespace
 import me.ahoo.cosky.discovery.ServiceStatistic
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import me.ahoo.simba.core.MutexContendServiceFactory
 import me.ahoo.simba.schedule.AbstractScheduler
 import me.ahoo.simba.schedule.ScheduleConfig
 import org.slf4j.LoggerFactory
 import org.springframework.context.SmartLifecycle
 import org.springframework.stereotype.Service
-import reactor.core.scheduler.Schedulers
 import java.time.Duration
 
 /**
@@ -33,6 +32,7 @@ import java.time.Duration
 class StatServiceScheduler(
     private val namespaceService: NamespaceService,
     private val serviceStatistic: ServiceStatistic,
+    private val coSkyProperties: CoSkyProperties,
     contendServiceFactory: MutexContendServiceFactory
 ) : AbstractScheduler(
     STAT_MUTEX,
@@ -55,21 +55,12 @@ class StatServiceScheduler(
         if (log.isDebugEnabled) {
             log.debug("work - start.")
         }
-        val currentNamespace = namespace
-        namespaceService.namespaces
-            .publishOn(Schedulers.boundedElastic())
-            .collectList()
-            .flatMapIterable {
-                if (!it.contains(currentNamespace)) {
-                    namespaceService.setNamespace(currentNamespace).subscribe()
-                }
-                it
-            }
-            .flatMap { namespace ->
-                serviceStatistic.statService(
-                    namespace,
-                )
-            }
+        // Idempotent: makes sure the server's own namespace is listed.
+        namespaceService.setNamespace(coSkyProperties.namespace)
+            .thenMany(namespaceService.namespaces)
+            .flatMap { serviceStatistic.statService(it) }
+            .doOnError { log.warn("work - failed.", it) }
+            .onErrorComplete()
             .doOnComplete {
                 if (log.isDebugEnabled) {
                     log.debug("work - end.")

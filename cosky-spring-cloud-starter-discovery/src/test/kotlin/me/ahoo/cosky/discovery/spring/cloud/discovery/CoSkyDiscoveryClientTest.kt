@@ -1,7 +1,6 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosid.test.MockIdGenerator
-import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.discovery.Instance
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
@@ -21,7 +20,7 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
     override fun afterInitializedRedisClient() {
         serviceRegistry = RedisServiceRegistry(RegistryProperties(), redisTemplate)
         serviceDiscovery = RedisServiceDiscovery(redisTemplate)
-        coSkyDiscoveryClient = CoSkyDiscoveryClient(serviceDiscovery, CoSkyDiscoveryProperties())
+        coSkyDiscoveryClient = CoSkyDiscoveryClient(serviceDiscovery, CoSkyDiscoveryProperties(), NAMESPACE)
     }
 
     @Test
@@ -37,7 +36,7 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
             "127.0.0.1",
             ThreadLocalRandom.current().nextInt(65535),
         ).asServiceInstance(metadata = mapOf("from" to "test"))
-        serviceRegistry.register(NamespacedContext.namespace, instance)
+        serviceRegistry.register(NAMESPACE, instance)
             .test()
             .expectNext(true)
             .verifyComplete()
@@ -54,5 +53,9 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
     @Test
     fun getOrder() {
         coSkyDiscoveryClient.order.assert().isZero()
+    }
+
+    companion object {
+        private const val NAMESPACE = "cosky-{discovery-client-test}"
     }
 }

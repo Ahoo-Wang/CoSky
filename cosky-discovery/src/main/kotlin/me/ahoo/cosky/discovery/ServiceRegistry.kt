@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery
 
-import me.ahoo.cosky.core.NamespacedContext
 import reactor.core.publisher.Mono
 
 /**
@@ -30,7 +29,7 @@ interface ServiceRegistry {
      * @param serviceInstance serviceInstance
      * @return If true, the registration succeeds, otherwise it fails
      */
-    fun register(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
+    fun register(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
 
     /**
      * 服务实例续期.
@@ -38,12 +37,12 @@ interface ServiceRegistry {
      * @param serviceInstance serviceInstance
      * @return If true, the renew succeeds, otherwise it fails
      */
-    fun renew(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
+    fun renew(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
 
-    fun deregister(namespace: String = NamespacedContext.namespace, serviceInstance: ServiceInstance): Mono<Boolean>
+    fun deregister(namespace: String, serviceInstance: ServiceInstance): Mono<Boolean>
 
     fun deregister(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String
     ): Mono<Boolean>
@@ -51,7 +50,7 @@ interface ServiceRegistry {
     val registeredEphemeralInstances: Map<NamespacedInstanceId, ServiceInstance>
 
     fun setMetadata(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String,
         key: String,
@@ -59,7 +58,7 @@ interface ServiceRegistry {
     ): Mono<Boolean>
 
     fun setMetadata(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String,
         metadata: Map<String, String>

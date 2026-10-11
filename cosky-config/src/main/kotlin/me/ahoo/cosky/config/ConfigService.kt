@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.config
 
-import me.ahoo.cosky.core.NamespacedContext
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
@@ -22,9 +21,9 @@ import reactor.core.publisher.Mono
  * @author ahoo wang
  */
 interface ConfigService : ConfigRollback {
-    fun getConfigs(namespace: String = NamespacedContext.namespace): Flux<String>
-    fun getConfig(namespace: String = NamespacedContext.namespace, configId: String): Mono<Config>
-    fun setConfig(namespace: String = NamespacedContext.namespace, configId: String, data: String): Mono<Boolean>
-    fun removeConfig(namespace: String = NamespacedContext.namespace, configId: String): Mono<Boolean>
-    fun containsConfig(namespace: String = NamespacedContext.namespace, configId: String): Mono<Boolean>
+    fun getConfigs(namespace: String): Flux<String>
+    fun getConfig(namespace: String, configId: String): Mono<Config>
+    fun setConfig(namespace: String, configId: String, data: String): Mono<Boolean>
+    fun removeConfig(namespace: String, configId: String): Mono<Boolean>
+    fun containsConfig(namespace: String, configId: String): Mono<Boolean>
 }

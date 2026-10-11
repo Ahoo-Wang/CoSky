@@ -12,7 +12,6 @@
  */
 package me.ahoo.cosky.discovery
 
-import me.ahoo.cosky.core.NamespacedContext
 import reactor.core.publisher.Mono
 
 /**
@@ -24,22 +23,22 @@ interface ServiceDiscovery {
     /**
      * A snapshot of the service ids in [namespace].
      */
-    fun getServices(namespace: String = NamespacedContext.namespace): Mono<List<String>>
+    fun getServices(namespace: String): Mono<List<String>>
 
     /**
      * A snapshot of the live instances of [serviceId].
      *
      * Cached implementations return the same list instance for as long as it is unchanged.
      */
-    fun getInstances(namespace: String = NamespacedContext.namespace, serviceId: String): Mono<List<ServiceInstance>>
+    fun getInstances(namespace: String, serviceId: String): Mono<List<ServiceInstance>>
     fun getInstance(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String
     ): Mono<ServiceInstance>
 
     fun getInstanceTtl(
-        namespace: String = NamespacedContext.namespace,
+        namespace: String,
         serviceId: String,
         instanceId: String
     ): Mono<Long>

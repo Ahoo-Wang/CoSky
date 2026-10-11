@@ -15,7 +15,6 @@ package me.ahoo.cosky.discovery.spring.cloud.registry
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import me.ahoo.cosky.core.util.ProcessId
-import me.ahoo.cosky.discovery.ServiceInstanceContext
 import org.springframework.beans.BeansException
 import org.springframework.boot.context.event.ApplicationStartedEvent
 import org.springframework.boot.web.server.context.WebServerApplicationContext
@@ -51,7 +50,6 @@ class CoSkyAutoServiceRegistrationOfNoneWeb(
             registration.setSchema("__")
             registration.port = ProcessId.currentProcessId.toInt()
         }
-        ServiceInstanceContext.serviceInstance = registration.asServiceInstance()
         serviceRegistry.register(registration)
     }
 

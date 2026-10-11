@@ -17,6 +17,8 @@ import me.ahoo.cosky.discovery.RenewInstanceService
 import me.ahoo.cosky.discovery.ServiceRegistry
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.discovery.spring.cloud.discovery.ConditionalOnCoSkyDiscoveryEnabled
+import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -37,6 +39,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate
  */
 @AutoConfiguration(
     before = [AutoServiceRegistrationAutoConfiguration::class],
+    after = [CoSkyAutoConfiguration::class],
 )
 @ConditionalOnCoSkyEnabled
 @ConditionalOnCoSkyDiscoveryEnabled
@@ -101,9 +104,15 @@ class CoSkyAutoServiceRegistrationAutoConfiguration {
     fun coSkyServiceRegistry(
         serviceRegistry: ServiceRegistry,
         renewInstanceService: RenewInstanceService,
-        coSkyRegistryProperties: CoSkyRegistryProperties
+        coSkyRegistryProperties: CoSkyRegistryProperties,
+        coSkyProperties: CoSkyProperties
     ): CoSkyServiceRegistry {
-        return CoSkyServiceRegistry(serviceRegistry, renewInstanceService, coSkyRegistryProperties)
+        return CoSkyServiceRegistry(
+            serviceRegistry,
+            renewInstanceService,
+            coSkyRegistryProperties,
+            coSkyProperties.namespace,
+        )
     }
 
     @Bean

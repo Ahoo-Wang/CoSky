@@ -4,6 +4,7 @@ import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.RenewInstanceService
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
 import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
+import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
 import me.ahoo.test.asserts.assert
 import org.assertj.core.api.AssertionsForInterfaceTypes.assertThat
 import org.junit.jupiter.api.Test
@@ -29,6 +30,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 DataRedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
                 CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
             )
             .run {
@@ -91,6 +93,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 DataRedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
                 CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
             )
             .run {
@@ -141,6 +144,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                 DataRedisReactiveAutoConfiguration::class.java,
                 UtilAutoConfiguration::class.java,
                 AutoServiceRegistrationConfiguration::class.java,
+                CoSkyAutoConfiguration::class.java,
                 CoSkyAutoServiceRegistrationAutoConfiguration::class.java,
             )
             .run {

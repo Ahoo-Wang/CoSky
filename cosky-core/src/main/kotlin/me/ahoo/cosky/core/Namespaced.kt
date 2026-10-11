@@ -18,13 +18,7 @@ package me.ahoo.cosky.core
  * @author ahoo wang
  */
 interface Namespaced {
-    /**
-     * 获取当前上下文的命名空间.
-     *
-     * @return current namespace
-     */
     val namespace: String
-        get() = DEFAULT
 
     companion object {
         const val DEFAULT: String = "${CoSky.COSKY}-{default}"

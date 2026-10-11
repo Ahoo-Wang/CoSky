@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.ServiceDiscovery
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -37,7 +38,10 @@ import org.springframework.context.annotation.Bean
 class CoSkyReactiveDiscoveryClientConfiguration {
     @Bean
     @ConditionalOnMissingBean
-    fun coSkyReactiveDiscoveryClient(serviceDiscovery: ServiceDiscovery): CoSkyReactiveDiscoveryClient {
-        return CoSkyReactiveDiscoveryClient(serviceDiscovery)
+    fun coSkyReactiveDiscoveryClient(
+        serviceDiscovery: ServiceDiscovery,
+        coSkyProperties: CoSkyProperties
+    ): CoSkyReactiveDiscoveryClient {
+        return CoSkyReactiveDiscoveryClient(serviceDiscovery, coSkyProperties.namespace)
     }
 }

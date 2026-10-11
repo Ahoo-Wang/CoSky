@@ -13,6 +13,7 @@
 package me.ahoo.cosky.config.spring.cloud
 
 import me.ahoo.cosky.config.ConfigService
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -34,9 +35,10 @@ class CoSkyConfigBootstrapConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun coSkyPropertySourceLocator(
+        coSkyProperties: CoSkyProperties,
         configProperties: CoSkyConfigProperties,
         configService: ConfigService
     ): CoSkyPropertySourceLocator {
-        return CoSkyPropertySourceLocator(configProperties, configService)
+        return CoSkyPropertySourceLocator(coSkyProperties, configProperties, configService)
     }
 }

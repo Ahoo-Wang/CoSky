@@ -17,7 +17,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.core.CoSky
-import me.ahoo.cosky.core.NamespacedContext
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.boot.env.OriginTrackedMapPropertySource
 import org.springframework.boot.env.PropertySourceLoader
 import org.springframework.cloud.bootstrap.config.PropertySourceLocator
@@ -34,6 +34,7 @@ import java.util.*
  * @author ahoo wang
  */
 class CoSkyPropertySourceLocator(
+    private val coSkyProperties: CoSkyProperties,
     private val configProperties: CoSkyConfigProperties,
     private val configService: ConfigService
 ) : PropertySourceLocator {
@@ -54,7 +55,7 @@ class CoSkyPropertySourceLocator(
         if (fileExt.isBlank()) {
             fileExt = configProperties.fileExtension
         }
-        val namespace = NamespacedContext.namespace
+        val namespace = coSkyProperties.namespace
         log.info {
             "Locate - configId:[$configId] @ namespace:[$namespace]"
         }

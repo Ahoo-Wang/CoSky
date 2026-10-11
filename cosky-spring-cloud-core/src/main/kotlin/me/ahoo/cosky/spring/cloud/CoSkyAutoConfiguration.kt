@@ -13,7 +13,6 @@
 package me.ahoo.cosky.spring.cloud
 
 import me.ahoo.cosky.core.NamespaceService
-import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.core.redis.RedisNamespaceService
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -31,11 +30,7 @@ import org.springframework.data.redis.listener.ReactiveRedisMessageListenerConta
 @AutoConfiguration
 @ConditionalOnCoSkyEnabled
 @EnableConfigurationProperties(CoSkyProperties::class)
-class CoSkyAutoConfiguration(coSkyProperties: CoSkyProperties) {
-    init {
-        NamespacedContext.namespace = coSkyProperties.namespace
-    }
-
+class CoSkyAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     fun namespaceService(redisTemplate: ReactiveStringRedisTemplate): NamespaceService {
