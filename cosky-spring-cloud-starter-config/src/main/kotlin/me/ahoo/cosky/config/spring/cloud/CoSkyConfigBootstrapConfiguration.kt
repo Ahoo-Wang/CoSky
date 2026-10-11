@@ -14,6 +14,7 @@ package me.ahoo.cosky.config.spring.cloud
 
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
+import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.ImportAutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Bean
  * @author ahoo wang
  */
 @AutoConfiguration
+@ConditionalOnCoSkyEnabled
 @ConditionalOnCoSkyConfigEnabled
 @ImportAutoConfiguration(
     CoSkyConfigAutoConfiguration::class

@@ -14,79 +14,53 @@ export const en: DefaultTheme.Config = {
     sidebar: {
       '/guide/': [
         {
-          text: 'Getting Started',
+          text: 'Introduction',
           items: [
             { text: 'Overview', link: '/guide/' },
             { text: 'Getting Started', link: '/guide/getting-started' },
-            { text: 'Installation', link: '/guide/installation' },
+          ],
+        },
+        {
+          text: 'Guides',
+          items: [
+            { text: 'Configuration', link: '/guide/configuration' },
+            { text: 'Service Discovery', link: '/guide/service-discovery' },
+            { text: 'Using the SDK', link: '/guide/sdk' },
+          ],
+        },
+        {
+          text: 'Operations',
+          items: [
+            { text: 'Deployment', link: '/guide/deployment' },
+            { text: 'Security', link: '/guide/security' },
+            { text: 'Dashboard', link: '/guide/dashboard' },
             { text: 'Upgrading to 6.0', link: '/guide/upgrade-6' },
+          ],
+        },
+        {
+          text: 'Reference',
+          items: [
+            { text: 'Configuration Properties', link: '/guide/properties' },
+            { text: 'REST API', link: '/guide/rest-api' },
             { text: 'Requirements', link: '/guide/requirements' },
           ],
         },
         {
-          text: 'Architecture',
+          text: 'Concepts',
           items: [
-            { text: 'Architecture Overview', link: '/guide/architecture' },
-            { text: 'Core Module', link: '/guide/core' },
+            { text: 'Architecture', link: '/guide/architecture' },
+            { text: 'Performance', link: '/guide/performance' },
           ],
         },
         {
-          text: 'Configuration Service',
+          text: 'Contributing',
           items: [
-            { text: 'Configuration Management', link: '/guide/config-service' },
-            { text: 'Consistency Layer', link: '/guide/config-consistency' },
-          ],
-        },
-        {
-          text: 'Service Discovery',
-          items: [
-            { text: 'Service Registry', link: '/guide/service-registry' },
-            { text: 'Service Discovery', link: '/guide/service-discovery' },
-            { text: 'Load Balancers', link: '/guide/load-balancers' },
-            { text: 'Service Topology', link: '/guide/service-topology' },
-          ],
-        },
-        {
-          text: 'Spring Cloud Integration',
-          items: [
-            { text: 'Config Starter', link: '/guide/spring-cloud-config' },
-            { text: 'Discovery Starter', link: '/guide/spring-cloud-discovery' },
-          ],
-        },
-        {
-          text: 'REST API & Dashboard',
-          items: [
-            { text: 'REST API Server', link: '/guide/rest-api' },
-            { text: 'Security & RBAC', link: '/guide/security-rbac' },
-            { text: 'Dashboard', link: '/guide/dashboard' },
-          ],
-        },
-        {
-          text: 'Deployment',
-          items: [
-            { text: 'Docker', link: '/guide/deployment-docker' },
-            { text: 'Kubernetes', link: '/guide/deployment-kubernetes' },
-            { text: 'Standalone', link: '/guide/deployment-standalone' },
-          ],
-        },
-        {
-          text: 'Performance',
-          items: [
-            { text: 'Benchmarks', link: '/guide/performance' },
-          ],
-        },
-        {
-          text: 'Onboarding',
-          collapsed: false,
-          items: [
-            { text: 'Contributor Guide', link: '/guide/onboarding-contributor' },
-            { text: 'Staff Engineer Guide', link: '/guide/onboarding-staff-engineer' },
-            { text: 'Executive Guide', link: '/guide/onboarding-executive' },
-            { text: 'Product Manager Guide', link: '/guide/onboarding-pm' },
+            { text: 'Internals', link: '/guide/internals' },
           ],
         },
       ],
     },
+
     socialLinks: [
       { icon: 'github', link: 'https://github.com/Ahoo-Wang/CoSky' },
     ],

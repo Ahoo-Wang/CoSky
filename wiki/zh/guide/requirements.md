@@ -56,5 +56,5 @@ CoSky 为微服务提供配置管理与服务发现，只依赖 Redis。它以 S
 | NFR-3 | **容错**：Redis 临时故障会重试且不被缓存，期间继续返回最近一次的有效值。 | `ReactiveWatchCacheTest`、`RedisConsistencyConfigServiceErrorTest`、`ConsistencyRedisServiceDiscoveryErrorTest` |
 | NFR-4 | **存储有界**：配置历史和审计日志按固定上限裁剪。 | `RedisConfigServiceTest.historyIsTrimmedToHistorySize`、`AuditLogRetentionTest` |
 | NFR-5 | **默认安全**：未设置 JWT 密钥时服务器拒绝启动；未授权的用户没有任何命名空间权限。 | `JwtSecretValidatorTest`、`RestApiIntegrationTest` |
-| NFR-6 | **兼容性**：原生 Redis，单机或集群（命名空间需带 hash tag），不需要 Redis Functions 或模块；Java 17+。 | CI 中基于 Redis 的集成测试，见[核心模块](./core.md) |
+| NFR-6 | **兼容性**：原生 Redis，单机或集群（命名空间需带 hash tag），不需要 Redis Functions 或模块；Java 17+。 | CI 中基于 Redis 的集成测试，见[架构](./architecture.md#数据模型) |
 | NFR-7 | **质量门禁**：每次变更都要通过静态分析、许可证头检查，以及至少 90% 行覆盖率 / 70% 分支覆盖率。 | CI 中的 `./gradlew check`，见 [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
