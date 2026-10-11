@@ -18,6 +18,7 @@ import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance.Companion.asServiceInstance
 import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -55,6 +56,55 @@ internal class CoSkyDiscoveryClientTest : AbstractReactiveRedisTest() {
         val instances = coSkyDiscoveryClient.getInstances(instance.serviceId)
             .map { it.instanceId }
         instances.assert().contains(instance.instanceId)
+    }
+
+    private fun registerInstances(): Triple<String, String, String> {
+        val serviceId = MockIdGenerator.INSTANCE.generateAsString()
+        fun register(port: Int, metadata: Map<String, String>): String {
+            val instance = Instance.asInstance(serviceId, "http", "127.0.0.1", port)
+                .asServiceInstance(weight = 5, metadata = metadata)
+            serviceRegistry.register(NAMESPACE, instance).test().expectNext(true).verifyComplete()
+            return instance.instanceId
+        }
+        return Triple(
+            register(8081, mapOf(StatusConstants.INSTANCE_STATUS_KEY to StatusConstants.STATUS_UP, "zone" to "a")),
+            register(8082, mapOf(StatusConstants.INSTANCE_STATUS_KEY to StatusConstants.STATUS_OUT_OF_SERVICE)),
+            register(8083, emptyMap()),
+        )
+    }
+
+    /**
+     * Only UP instances (or instances without a status, e.g. registered through the REST API) receive traffic.
+     */
+    @Test
+    fun getInstancesFiltersOnlyUpInstancesByDefault() {
+        val (up, outOfService, withoutStatus) = registerInstances()
+        val serviceId = up.substringBefore('@')
+
+        coSkyDiscoveryClient.getInstances(serviceId).map { it.instanceId }.assert()
+            .containsExactlyInAnyOrder(up, withoutStatus)
+
+        val unfiltered = CoSkyDiscoveryClient(
+            serviceDiscovery,
+            CoSkyDiscoveryProperties().apply { filterOnlyUpInstances = false },
+            NAMESPACE,
+        )
+        unfiltered.getInstances(serviceId).map { it.instanceId }.assert()
+            .containsExactlyInAnyOrder(up, outOfService, withoutStatus)
+
+        CoSkyReactiveDiscoveryClient(serviceDiscovery, CoSkyDiscoveryProperties(), NAMESPACE)
+            .getInstances(serviceId).collectList().block()!!.map { it.instanceId }.assert()
+            .containsExactlyInAnyOrder(up, withoutStatus)
+    }
+
+    /**
+     * Spring Cloud LoadBalancer's weighted configuration reads the weight from the `weight` metadata.
+     */
+    @Test
+    fun metadataCarriesTheWeight() {
+        val (up, _, _) = registerInstances()
+        val instance = coSkyDiscoveryClient.getInstances(up.substringBefore('@')).single { it.instanceId == up }
+        instance.metadata.assert().containsEntry("weight", "5").containsEntry("zone", "a")
     }
 
     @Test

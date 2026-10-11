@@ -12,6 +12,8 @@
  */
 package me.ahoo.cosky.discovery.spring.cloud.support
 
+import me.ahoo.cosky.discovery.ServiceInstance
+
 /**
  * Status Constants.
  *
@@ -21,4 +23,12 @@ object StatusConstants {
     const val INSTANCE_STATUS_KEY = "instance_status"
     const val STATUS_UP = "UP"
     const val STATUS_OUT_OF_SERVICE = "OUT_OF_SERVICE"
+
+    /**
+     * An instance without status, e.g. registered through the REST API, counts as up.
+     */
+    fun ServiceInstance.isUp(): Boolean {
+        val status = metadata[INSTANCE_STATUS_KEY] ?: return true
+        return status.equals(STATUS_UP, ignoreCase = true)
+    }
 }

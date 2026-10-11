@@ -38,4 +38,10 @@ class CoSkyDiscoveryProperties {
      * Record the current service as a consumer of the services it discovers.
      */
     var topologyEnabled: Boolean = true
+
+    /**
+     * Return only instances whose `instance_status` metadata is `UP`, or absent, so that an instance taken out of
+     * service stops receiving traffic.
+     */
+    var filterOnlyUpInstances: Boolean = true
 }
