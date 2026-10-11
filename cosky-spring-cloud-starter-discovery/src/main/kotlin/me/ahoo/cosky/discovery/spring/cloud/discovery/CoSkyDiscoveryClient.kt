@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.ServiceDiscovery
+import me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyServiceInstance.Companion.asSpringInstances
 import org.springframework.cloud.client.ServiceInstance
 import org.springframework.cloud.client.discovery.DiscoveryClient
 
@@ -32,7 +33,7 @@ class CoSkyDiscoveryClient(
 
     override fun getInstances(serviceId: String): List<ServiceInstance> {
         return serviceDiscovery.getInstances(namespace, serviceId)
-            .map { instances -> instances.map { CoSkyServiceInstance(it) } }
+            .map { instances -> instances.asSpringInstances(coSkyDiscoveryProperties) }
             .block(coSkyDiscoveryProperties.timeout)!!
     }
 

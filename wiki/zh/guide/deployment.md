@@ -96,7 +96,7 @@ COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api \
 
 ### JVM 参数
 
-启动脚本（以及 Docker 镜像）使用固定的 512 MiB 堆、ZGC，GC 日志写入 `logs/`，堆转储写入 `data/`。它还在 **5555 端口开启了无认证的 JMX**：绝不要把这个端口暴露到主机或 Pod 之外。
+启动脚本（以及 Docker 镜像）使用固定的 512 MiB 堆、ZGC，GC 日志写入 `logs/`，堆转储写入 `data/`。可以通过 `JAVA_OPTS` 添加参数，例如更大的堆（`-Xmx1g`），或在需要时开启带认证和 TLS 的远程 JMX。
 
 ## 配置服务器
 

@@ -40,8 +40,9 @@ class CoSkyReactiveDiscoveryClientConfiguration {
     @ConditionalOnMissingBean
     fun coSkyReactiveDiscoveryClient(
         serviceDiscovery: ServiceDiscovery,
+        coSkyDiscoveryProperties: CoSkyDiscoveryProperties,
         coSkyProperties: CoSkyProperties
     ): CoSkyReactiveDiscoveryClient {
-        return CoSkyReactiveDiscoveryClient(serviceDiscovery, coSkyProperties.namespace)
+        return CoSkyReactiveDiscoveryClient(serviceDiscovery, coSkyDiscoveryProperties, coSkyProperties.namespace)
     }
 }

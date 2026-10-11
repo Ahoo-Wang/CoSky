@@ -70,18 +70,17 @@ discoveryClient.getInstances("order-service")                     // 存活实�
 
 Spring Cloud 的 `ServiceRegistry.setStatus`（例如通过 `/actuator/serviceregistry` 端点）会把状态存为元数据 `instance_status`。
 
-::: warning 状态不会摘除流量
-CoSky 不按状态过滤实例，Spring Cloud LoadBalancer 默认也不会。要让实例退出轮转，请注销它，或在自定义的 `ServiceInstanceListSupplier` 中按 `instance_status` 过滤。
-:::
+Spring Cloud 服务发现只返回状态为 `UP` 或没有状态的实例（例如通过 REST API 注册的固定实例）。因此把实例设为 `OUT_OF_SERVICE` 就能让它退出轮转而不必注销，设回 `UP` 即恢复。设置 `spring.cloud.cosky.discovery.filter-only-up-instances=false` 可以拿到全部实例。
 
 ## 负载均衡与权重
 
 | 客户端 | 算法 | 是否使用权重 |
 |---|---|---|
 | Spring Cloud LoadBalancer（默认） | 轮询 | ❌ |
+| 设置了 `spring.cloud.loadbalancer.configurations=weighted` 的 Spring Cloud LoadBalancer | 加权 | ✅ |
 | CoSky `LoadBalancer` bean（`BinaryWeightRandomLoadBalancer`） | 加权随机 | ✅ |
 
-要按权重路由，注入 CoSky 的 `LoadBalancer` 并调用 `choose(namespace, serviceId)`。SDK 还提供 `RandomLoadBalancer`（忽略权重），以及 `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` 两个变体：它们和默认实现一样按权重选择，只是内存与查找开销的取舍不同。
+CoSky 把每个实例的权重作为 Spring Cloud 实例的 `weight` 元数据暴露出来，Spring Cloud LoadBalancer 的加权配置正是从这里读取权重。直接使用 CoSky API 的代码可以注入 CoSky 的 `LoadBalancer` 并调用 `choose(namespace, serviceId)`。SDK 还提供 `RandomLoadBalancer`（忽略权重），以及 `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` 两个变体：它们和默认实现一样按权重选择，只是内存与查找开销的取舍不同。
 
 ## 服务拓扑
 

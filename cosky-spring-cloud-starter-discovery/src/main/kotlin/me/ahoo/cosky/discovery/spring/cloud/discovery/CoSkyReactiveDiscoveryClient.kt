@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.ServiceDiscovery
+import me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyServiceInstance.Companion.asSpringInstances
 import org.springframework.cloud.client.ServiceInstance
 import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient
 import reactor.core.publisher.Flux
@@ -25,6 +26,7 @@ import reactor.core.publisher.Flux
 
 class CoSkyReactiveDiscoveryClient(
     private val serviceDiscovery: ServiceDiscovery,
+    private val coSkyDiscoveryProperties: CoSkyDiscoveryProperties,
     private val namespace: String
 ) : ReactiveDiscoveryClient {
 
@@ -34,8 +36,7 @@ class CoSkyReactiveDiscoveryClient(
 
     override fun getInstances(serviceId: String): Flux<ServiceInstance> {
         return serviceDiscovery.getInstances(namespace, serviceId)
-            .flatMapIterable { it }
-            .map { CoSkyServiceInstance(it) }
+            .flatMapIterable { it.asSpringInstances(coSkyDiscoveryProperties) }
     }
 
     override fun getServices(): Flux<String> = serviceDiscovery.getServices(namespace).flatMapIterable { it }

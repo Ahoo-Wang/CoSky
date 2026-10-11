@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.ServiceInstance
+import me.ahoo.cosky.discovery.spring.cloud.support.StatusConstants.isUp
 import java.net.URI
 
 /**
@@ -22,6 +23,26 @@ import java.net.URI
  */
 data class CoSkyServiceInstance(val delegate: ServiceInstance) :
     org.springframework.cloud.client.ServiceInstance {
+    companion object {
+        /**
+         * The metadata key Spring Cloud LoadBalancer's weighted configuration reads the weight from.
+         */
+        const val WEIGHT_METADATA_KEY = "weight"
+
+        /**
+         * The instances Spring Cloud clients may call, as Spring Cloud instances.
+         */
+        fun List<ServiceInstance>.asSpringInstances(
+            properties: CoSkyDiscoveryProperties
+        ): List<org.springframework.cloud.client.ServiceInstance> {
+            val candidates = if (properties.filterOnlyUpInstances) filter { it.isUp() } else this
+            return candidates.map { CoSkyServiceInstance(it) }
+        }
+    }
+
+    private val springMetadata: Map<String, String> =
+        delegate.metadata + (WEIGHT_METADATA_KEY to delegate.weight.toString())
+
     override fun getInstanceId(): String {
         return delegate.instanceId
     }
@@ -47,7 +68,7 @@ data class CoSkyServiceInstance(val delegate: ServiceInstance) :
     }
 
     override fun getMetadata(): Map<String, String> {
-        return delegate.metadata
+        return springMetadata
     }
 
     override fun getScheme(): String {

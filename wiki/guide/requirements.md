@@ -35,6 +35,7 @@ CoSky provides configuration management and service discovery for microservices,
 | FR-D6 | Load balancers choose among live instances (random and weighted), consistent with the discovery cache. | `RandomLoadBalancerTest`, `ArrayChooserTest`, `BinaryChooserTest`, `TreeChooserTest`, `LoadBalancerConsistencyTest` |
 | FR-D7 | Consumers are recorded as dependents of the services they discover (topology). | `ServiceTopologyTest`, `TopologyRecordingServiceDiscoveryTest` |
 | FR-D8 | Spring Cloud applications register themselves and discover others through the standard `DiscoveryClient` APIs. | `CoSkyDiscoveryClientTest`, `CoSkyServiceRegistryTest`, `CoSkyAutoServiceRegistrationAutoConfigurationTest` |
+| FR-D9 | Spring Cloud clients receive only instances that are `UP` (or have no status), and see each instance's weight. | `CoSkyDiscoveryClientTest` |
 
 ### REST API server and security
 

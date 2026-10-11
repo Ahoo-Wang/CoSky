@@ -96,7 +96,7 @@ Run the script from the distribution directory: it resolves `config/`, `logs/` a
 
 ### JVM options
 
-The start script (and the Docker image) runs with a fixed 512 MiB heap, ZGC, GC logging to `logs/` and heap dumps to `data/`. It also opens **JMX on port 5555 without authentication**: never expose that port outside the host or pod.
+The start script (and the Docker image) runs with a fixed 512 MiB heap, ZGC, GC logging to `logs/` and heap dumps to `data/`. Add options through `JAVA_OPTS`, for example a larger heap (`-Xmx1g`), or remote JMX with authentication and TLS when you need it.
 
 ## Configuring the server
 
