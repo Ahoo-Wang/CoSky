@@ -19,6 +19,7 @@ export const zh: DefaultTheme.Config = {
             { text: '概述', link: '/zh/guide/' },
             { text: '快速开始', link: '/zh/guide/getting-started' },
             { text: '安装', link: '/zh/guide/installation' },
+            { text: '升级到 6.0', link: '/zh/guide/upgrade-6' },
           ],
         },
         {

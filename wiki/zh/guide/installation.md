@@ -7,6 +7,8 @@ description: Install CoSky as a Spring Cloud dependency or deploy the standalone
 
 CoSky 可以通过两种方式使用：作为集成到 Spring Cloud 应用中的**库依赖**，或者作为带有 Web 控制台的**独立 REST API 服务器**进行集中管理。本页介绍所有安装方式。
 
+> **从 5.x 升级？** 6.0 包含破坏性变更（包括必须设置 JWT 密钥），参见[升级到 6.0](./upgrade-6.md)。
+
 ## 安装方式对比
 
 | 方式 | 优点 | 缺点 | 适用场景 |
@@ -53,7 +55,7 @@ flowchart TD
 ### Gradle（Kotlin DSL）
 
 ```kotlin
-val coskyVersion = "5.8.1"
+val coskyVersion = "6.0.0"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
@@ -74,7 +76,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.8.1</cosky.version>
+        <cosky.version>6.0.0</cosky.version>
     </properties>
 
     <dependencyManagement>
@@ -140,8 +142,8 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # 解压（归档文件名包含版本号）
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
-cd cosky-rest-api-5.8.1
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.0.0.tar
+cd cosky-rest-api-6.0.0
 
 # 使用 Redis 连接运行
 COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
@@ -231,7 +233,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:6.0.0
           startupProbe:
             httpGet:
               port: http
@@ -266,7 +268,7 @@ spec:
           name: volume-localtime
 ```
 
-> **注意：** 上述示例使用当前发布版本 `5.8.1`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
+> **注意：** 上述示例使用当前发布版本 `6.0.0`。仓库内置清单（[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)）仍固定为较旧的 `5.3.5` 标签——建议使用当前发布版本，或 Docker Hub 上的 `ahoowang/cosky:latest`。
 
 源码：[k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -315,7 +317,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:6.0.0
           startupProbe:
             httpGet:
               port: http
@@ -515,7 +517,7 @@ REST API 服务器运行后，通过以下地址访问基于 Web 的管理界面
 ## 参考
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- 根构建配置，使用 JVM 17 工具链
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 项目版本（`5.8.1`）
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 项目版本（`6.0.0`）
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- 所有模块定义
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes 部署（单机 Redis）
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes 部署（Redis 集群）

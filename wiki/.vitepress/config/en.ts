@@ -19,6 +19,7 @@ export const en: DefaultTheme.Config = {
             { text: 'Overview', link: '/guide/' },
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Upgrading to 6.0', link: '/guide/upgrade-6' },
           ],
         },
         {
