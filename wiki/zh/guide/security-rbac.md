@@ -238,7 +238,7 @@ classDiagram
 
 ### AuditLogService
 
-`AuditLogService` 将审计日志条目以 JSON 字符串的形式持久化到 Redis List（`cosky-{system}:audit:log`）中。新条目推入头部（`leftPush`）。查询支持通过 `range` 进行偏移/限制分页，并可通过 `GET /v1/audit-log/export` 导出为 CSV。
+`AuditLogService` 将审计日志条目以 JSON 字符串的形式持久化到 Redis List（`cosky-{system}:audit:log`）中。新条目推入头部，并在同一个 Lua 脚本（`audit_log_add.lua`）中把列表裁剪为最新的 `cosky.security.audit-log.max-size` 条（默认 100,000）。查询支持通过 `range` 进行偏移/限制分页，并可通过 `GET /v1/audit-log/export` 导出为 CSV。
 
 源码: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 

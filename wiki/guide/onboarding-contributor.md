@@ -213,6 +213,7 @@ All Redis keys are **namespace-scoped**. The namespace acts as a tenant delimite
 |---------|-------------|------------|
 | Service index | `{namespace}:svc_idx` | SET |
 | Service stats | `{namespace}:svc_stat` | HASH |
+| Instance expiry index | `{namespace}:svc_itc_exp` | ZSET |
 | Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET |
 | Instance data | `{namespace}:svc_itc:{instanceId}` | HASH |
 
@@ -233,6 +234,7 @@ Key Lua scripts:
 | `registry_deregister.lua` | cosky-discovery | Atomic deregister + delete key + publish |
 | `registry_renew.lua` | cosky-discovery | Heart beat renewal with throttled publish |
 | `discovery_get_instances.lua` | cosky-discovery | Read instances + lazy expire dead ones |
+| `registry_reap.lua` | cosky-discovery | Reap expired instances through the expiry index |
 
 Each Lua script follows the same pattern:
 1. Read current state
@@ -241,7 +243,7 @@ Each Lua script follows the same pattern:
 4. `PUBLISH` a notification to the key's channel
 5. Return a status code
 
-The throttled publish in `registry_renew.lua` is particularly interesting — it only publishes a `renew` event when the previous TTL publication is about to expire, reducing PubSub traffic by an order of magnitude. See [cosky-discovery/src/main/resources/registry_renew.lua:8](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L8).
+The throttled publish in `registry_renew.lua` is particularly interesting — it only publishes a `renew` event when the previous TTL publication is about to expire, reducing PubSub traffic by an order of magnitude. See [cosky-discovery/src/main/resources/registry_renew.lua:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L19).
 
 ### The Event Model
 
@@ -261,7 +263,7 @@ CoSky uses Redis PubSub to propagate state changes. Events are string-based op c
 |-------|---------|---------|
 | `REGISTER` | New instance registered | `"register"` |
 | `DEREGISTER` | Instance explicitly removed | `"deregister"` |
-| `EXPIRED` | Instance TTL expired (lazy cleanup) | `"expired"` |
+| `EXPIRED` | Instance TTL expired (reaper or lazy cleanup) | `"expired"` |
 | `RENEW` | Instance heartbeat renewed TTL | `"renew"` |
 | `SET_METADATA` | Instance metadata updated | `"set_metadata"` |
 

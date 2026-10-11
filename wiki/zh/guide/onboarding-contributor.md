@@ -213,6 +213,7 @@ sequenceDiagram
 |------|--------|-----------|
 | 服务索引 | `{namespace}:svc_idx` | SET |
 | 服务统计 | `{namespace}:svc_stat` | HASH |
+| 实例过期索引 | `{namespace}:svc_itc_exp` | ZSET |
 | 实例索引 | `{namespace}:svc_itc_idx:{serviceId}` | SET |
 | 实例数据 | `{namespace}:svc_itc:{instanceId}` | HASH |
 
@@ -233,6 +234,7 @@ sequenceDiagram
 | `registry_deregister.lua` | cosky-discovery | 原子注销 + 删除键 + 发布 |
 | `registry_renew.lua` | cosky-discovery | 带节流发布的心跳续约 |
 | `discovery_get_instances.lua` | cosky-discovery | 读取实例 + 懒过期清理无效实例 |
+| `registry_reap.lua` | cosky-discovery | 通过过期索引回收过期实例 |
 
 每个 Lua 脚本遵循相同的模式：
 1. 读取当前状态
@@ -241,7 +243,7 @@ sequenceDiagram
 4. 向该键对应的频道 `PUBLISH` 通知
 5. 返回状态码
 
-`registry_renew.lua` 中的节流发布机制尤其值得注意 — 它仅在上次 TTL 发布即将过期时才发布 `renew` 事件，将 PubSub 流量减少了一个数量级。参见 [cosky-discovery/src/main/resources/registry_renew.lua:8](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L8)。
+`registry_renew.lua` 中的节流发布机制尤其值得注意 — 它仅在上次 TTL 发布即将过期时才发布 `renew` 事件，将 PubSub 流量减少了一个数量级。参见 [cosky-discovery/src/main/resources/registry_renew.lua:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L19)。
 
 ### 事件模型
 
@@ -261,7 +263,7 @@ CoSky 使用 Redis PubSub 传播状态变更。事件是基于字符串的操作
 |------|---------|--------|
 | `REGISTER` | 新实例注册 | `"register"` |
 | `DEREGISTER` | 实例被显式移除 | `"deregister"` |
-| `EXPIRED` | 实例 TTL 过期（懒清理） | `"expired"` |
+| `EXPIRED` | 实例 TTL 过期（回收器或懒清理） | `"expired"` |
 | `RENEW` | 实例心跳续约 TTL | `"renew"` |
 | `SET_METADATA` | 实例元数据更新 | `"set_metadata"` |
 

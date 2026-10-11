@@ -245,6 +245,7 @@ cosky:
     enabled: true                    # Enable/disable security
     audit-log:
       action: write                  # Audit log filter: "write", "read", or "rw"
+      max-size: 100000               # Keep the newest entries up to this size
     enforce-init-super-user: ${cosky.super.init:false}   # Force re-initialize super user on startup
 
 cosec:

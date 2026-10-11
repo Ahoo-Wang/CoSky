@@ -113,10 +113,11 @@ CoSky 中的所有数据都使用一致的键命名策略存储在 Redis 中。�
 | 领域 | 键模式 | Redis 类型 | 用途 | 源码 |
 |--------|------------|------------|---------|--------|
 | 命名空间索引 | `{cosky-system}:ns_idx` | SET | 存储所有已注册的命名空间 | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
-| 服务索引 | `{namespace}:svc_idx` | SET | 存储命名空间中的所有服务 ID | [DiscoveryKeyGenerator.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L32) |
-| 实例索引 | `{namespace}:svc_itc_idx:{serviceId}` | SET | 存储服务的实例 ID | [DiscoveryKeyGenerator.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L55) |
-| 实例数据 | `{namespace}:svc_itc:{instanceId}` | STRING（带 TTL） | 编码的实例详情，临时实例会过期 | [DiscoveryKeyGenerator.kt:63](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L63) |
-| 服务统计 | `{namespace}:svc_stat` | HASH | 每个服务的实例计数统计 | [DiscoveryKeyGenerator.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L41) |
+| 服务索引 | `{namespace}:svc_idx` | SET | 存储命名空间中的所有服务 ID | [DiscoveryKeyGenerator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L35) |
+| 实例索引 | `{namespace}:svc_itc_idx:{serviceId}` | SET | 存储服务的实例 ID | [DiscoveryKeyGenerator.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L58) |
+| 实例数据 | `{namespace}:svc_itc:{instanceId}` | STRING（带 TTL） | 编码的实例详情，临时实例会过期 | [DiscoveryKeyGenerator.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L66) |
+| 服务统计 | `{namespace}:svc_stat` | HASH | 每个服务的实例计数统计 | [DiscoveryKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L44) |
+| 实例过期索引 | `{namespace}:svc_itc_exp` | ZSET | 按 ttlAt 打分的临时实例，由客户端回收 | [DiscoveryKeyGenerator.kt:92](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L92) |
 | 配置索引 | `{namespace}:cfg_idx` | SET | 存储命名空间中的所有配置 ID | [ConfigKeyGenerator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L36) |
 | 配置数据 | `{namespace}:cfg:{configId}` | HASH | 当前配置数据（数据、哈希、版本、更新时间） | [ConfigKeyGenerator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L60) |
 | 配置历史索引 | `{namespace}:cfg_htr_idx:{configId}` | ZSET | 版本历史键的有序列表 | [ConfigKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L44) |
@@ -178,7 +179,7 @@ stateDiagram-v2
     Expired --> [*]
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:93-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:37-97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105-112, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39-117 -->
 
 ### Lua 脚本保证原子性
 

@@ -37,9 +37,9 @@ Only the application-facing discovery is decorated. `cosky-rest-api` disables it
 
 ### addTopology
 
-`RedisServiceTopology` takes the local service as a `NamespacedServiceId` consumer at construction ([RedisServiceTopology.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L28)). The Spring auto-configuration derives it from `spring.cloud.cosky.discovery.registry.service-id`, falling back to `spring.application.name`, so it is known before the application registers itself ([CoSkyDiscoveryAutoConfiguration.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L78)).
+`RedisServiceTopology` takes the local service as a `NamespacedServiceId` consumer at construction ([RedisServiceTopology.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L30)). The Spring auto-configuration derives it from `spring.cloud.cosky.discovery.registry.service-id`, falling back to `spring.application.name`, so it is known before the application registers itself ([CoSkyDiscoveryAutoConfiguration.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L78)).
 
-The `addTopology` method ([RedisServiceTopology.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L36)) executes `service_topology_add.lua` in the consumer's namespace, which:
+The `addTopology` method ([RedisServiceTopology.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L38)) executes `service_topology_add.lua` in the consumer's namespace, which:
 1. Records the consumer name in the topology index: `HSETNX {namespace}:topology_idx {consumerName} {timestamp}`
 2. Records the producer dependency: `HSETNX {namespace}:topology:{consumerName} {producerName} {timestamp}`
 
@@ -47,7 +47,7 @@ Self-dependencies (consumer == producer) are skipped.
 
 ### getTopology
 
-The `getTopology` method ([RedisServiceTopology.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L59)) executes `service_topology_get.lua`, which:
+The `getTopology` method ([RedisServiceTopology.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L61)) executes `service_topology_get.lua`, which:
 1. Reads all consumer names from `{namespace}:topology_idx` via `HKEYS`
 2. For each consumer, reads their dependency set from `{namespace}:topology:{consumerName}` via `HKEYS`
 3. Returns the result as `Map<String, Set<String>>` -- mapping each consumer to its set of producers
@@ -76,7 +76,7 @@ flowchart TD
     style J fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:36, cosky-discovery/src/main/resources/service_topology_add.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:38, cosky-discovery/src/main/resources/service_topology_add.lua -->
 
 ## Sequence Diagram: Topology Query Flow
 
@@ -88,7 +88,7 @@ sequenceDiagram
     participant Redis as Redis (Lua Script)
 
     Client->>RST: getTopology("production")
-    RST->>Redis: EVAL service_topology_get.lua KEYS=["production"]
+    RST->>Redis: EVAL service_topology_get.lua KEYS=["production:topology_idx"] ARGV=["production"]
     Redis->>Redis: HKEYS production:topology_idx
     Redis-->>Redis: [gateway-svc, order-svc, user-svc]
 
@@ -102,7 +102,7 @@ sequenceDiagram
     RST-->>Client: Map of consumer -> set of producers
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:59, cosky-discovery/src/main/resources/service_topology_get.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:61, cosky-discovery/src/main/resources/service_topology_get.lua -->
 
 ## Sequence Diagram: Topology Recording Flow
 
@@ -120,7 +120,7 @@ sequenceDiagram
     Note over RST: consumer injected at construction:<br>production / gateway-svc
     RST->>RST: producerName = "order-svc"
     RST->>RST: Check self-dependency (skip if same)
-    RST->>Redis: EVAL service_topology_add.lua KEYS=["production"]
+    RST->>Redis: EVAL service_topology_add.lua KEYS=["production:topology_idx", "production:topology:gateway-svc"]
     Redis->>Redis: HSETNX production:topology_idx gateway-svc {timestamp}
     Redis->>Redis: HSETNX production:topology:gateway-svc order-svc {timestamp}
     Redis-->>RST: (void)
@@ -128,7 +128,7 @@ sequenceDiagram
     TRD-->>SvcA: instances of order-svc
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:36, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:52 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:38, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:54 -->
 
 ## Redis Key Patterns
 
@@ -166,7 +166,7 @@ flowchart TD
     style ProdNS fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:30, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:98 -->
 
 ## Dashboard Integration
 
@@ -222,7 +222,7 @@ classDiagram
     RedisServiceStatistic --> ServiceStat : produces
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceTopology.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStatistic.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceTopology.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:30, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStatistic.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:26 -->
 
 ## Related Pages
 

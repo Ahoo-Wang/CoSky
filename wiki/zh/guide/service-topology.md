@@ -37,9 +37,9 @@ CoSky 的服务拓扑模块自动构建微服务生态系统的依赖关系图�
 
 ### addTopology
 
-`RedisServiceTopology` 在构造时以 `NamespacedServiceId` 的形式接收本地服务作为消费者（[RedisServiceTopology.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L28)）。Spring 自动配置从 `spring.cloud.cosky.discovery.registry.service-id` 推导它，缺省时回退到 `spring.application.name`，因此在应用注册自身之前就已确定（[CoSkyDiscoveryAutoConfiguration.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L78)）。
+`RedisServiceTopology` 在构造时以 `NamespacedServiceId` 的形式接收本地服务作为消费者（[RedisServiceTopology.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L30)）。Spring 自动配置从 `spring.cloud.cosky.discovery.registry.service-id` 推导它，缺省时回退到 `spring.application.name`，因此在应用注册自身之前就已确定（[CoSkyDiscoveryAutoConfiguration.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L78)）。
 
-`addTopology` 方法（[RedisServiceTopology.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L36)）在消费者的命名空间中执行 `service_topology_add.lua`，该脚本：
+`addTopology` 方法（[RedisServiceTopology.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L38)）在消费者的命名空间中执行 `service_topology_add.lua`，该脚本：
 1. 将消费者名称记录到拓扑索引中：`HSETNX {namespace}:topology_idx {consumerName} {timestamp}`
 2. 记录生产者依赖：`HSETNX {namespace}:topology:{consumerName} {producerName} {timestamp}`
 
@@ -47,7 +47,7 @@ CoSky 的服务拓扑模块自动构建微服务生态系统的依赖关系图�
 
 ### getTopology
 
-`getTopology` 方法 ([RedisServiceTopology.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L59)) 执行 `service_topology_get.lua`，该脚本：
+`getTopology` 方法 ([RedisServiceTopology.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L61)) 执行 `service_topology_get.lua`，该脚本：
 1. 通过 `HKEYS` 从 `{namespace}:topology_idx` 读取所有消费者名称
 2. 对每个消费者，通过 `HKEYS` 从 `{namespace}:topology:{consumerName}` 读取其依赖集合
 3. 返回 `Map<String, Set<String>>` 结果——将每个消费者映射到其生产者集合
@@ -76,7 +76,7 @@ flowchart TD
     style J fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:36, cosky-discovery/src/main/resources/service_topology_add.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:38, cosky-discovery/src/main/resources/service_topology_add.lua -->
 
 ## 时序图：拓扑查询流程
 
@@ -88,7 +88,7 @@ sequenceDiagram
     participant Redis as Redis (Lua 脚本)
 
     Client->>RST: getTopology("production")
-    RST->>Redis: EVAL service_topology_get.lua KEYS=["production"]
+    RST->>Redis: EVAL service_topology_get.lua KEYS=["production:topology_idx"] ARGV=["production"]
     Redis->>Redis: HKEYS production:topology_idx
     Redis-->>Redis: [gateway-svc, order-svc, user-svc]
 
@@ -102,7 +102,7 @@ sequenceDiagram
     RST-->>Client: consumer 到 producer 集合的映射
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:59, cosky-discovery/src/main/resources/service_topology_get.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:61, cosky-discovery/src/main/resources/service_topology_get.lua -->
 
 ## 时序图：拓扑记录流程
 
@@ -120,7 +120,7 @@ sequenceDiagram
     Note over RST: 构造时注入的消费者：<br>production / gateway-svc
     RST->>RST: producerName = "order-svc"
     RST->>RST: 检查自依赖（相同则跳过）
-    RST->>Redis: EVAL service_topology_add.lua KEYS=["production"]
+    RST->>Redis: EVAL service_topology_add.lua KEYS=["production:topology_idx", "production:topology:gateway-svc"]
     Redis->>Redis: HSETNX production:topology_idx gateway-svc {timestamp}
     Redis->>Redis: HSETNX production:topology:gateway-svc order-svc {timestamp}
     Redis-->>RST: (void)
@@ -128,7 +128,7 @@ sequenceDiagram
     TRD-->>SvcA: order-svc 的实例
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:36, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:52 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:38, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:54 -->
 
 ## Redis 键模式
 
@@ -166,7 +166,7 @@ flowchart TD
     style ProdNS fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:30, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:98 -->
 
 ## 仪表盘集成
 
@@ -222,7 +222,7 @@ classDiagram
     RedisServiceStatistic --> ServiceStat : 生成
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceTopology.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStatistic.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceTopology.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:30, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStatistic.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:26 -->
 
 ## 相关页面
 

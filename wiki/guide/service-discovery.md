@@ -30,9 +30,9 @@ The [`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disc
 
 [`RedisServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt) is the standard implementation that reads instance data directly from Redis on every request:
 
-- `getServices` reads from the `svc_idx` SET using `SMEMBERS` ([RedisServiceDiscovery.kt:85](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L85)).
-- `getInstances` executes the `discovery_get_instances.lua` Lua script that reads all instance keys from the `svc_itc_idx:{serviceId}` SET and returns their hash data ([RedisServiceDiscovery.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L39)).
-- `getInstance` executes `discovery_get_instance.lua` to fetch a single instance's hash fields ([RedisServiceDiscovery.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L52)).
+- `getServices` reads from the `svc_idx` SET using `SMEMBERS` ([RedisServiceDiscovery.kt:91](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L91)).
+- `getInstances` executes the `discovery_get_instances.lua` Lua script that reads all instance keys from the `svc_itc_idx:{serviceId}` SET and returns their hash data ([RedisServiceDiscovery.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L41)).
+- `getInstance` executes `discovery_get_instance.lua` to fetch a single instance's hash fields ([RedisServiceDiscovery.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L54)).
 - All results are decoded using [`ServiceInstanceCodec.decode`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57).
 
 ## ConsistencyRedisServiceDiscovery
@@ -82,7 +82,7 @@ The [`ServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disc
 | `getServiceStats(namespace)` | `Flux<ServiceStat>` | Returns all service statistics (service ID + instance count) |
 | `getInstanceCount(namespace)` | `Mono<Long>` | Returns the total instance count across all services |
 
-[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) implements this by executing Lua scripts and listening to instance change events. It filters out `RENEW` events since renewals do not change instance counts ([RedisServiceStatistic.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L57)).
+[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) implements this by executing Lua scripts and listening to instance change events. It filters out `RENEW` events since renewals do not change instance counts ([RedisServiceStatistic.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L58)).
 
 Each [`ServiceStat`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt) holds:
 - `serviceId: String` -- the service identifier
@@ -101,7 +101,7 @@ sequenceDiagram
     participant Codec as ServiceInstanceCodec
 
     Client->>RSD: getInstances(namespace, serviceId)
-    RSD->>Redis: EVAL discovery_get_instances.lua KEYS=[namespace] ARGV=[serviceId]
+    RSD->>Redis: EVAL discovery_get_instances.lua KEYS=[svc_itc_idx:{serviceId}] ARGV=[namespace]
     Redis->>Redis: SMEMBERS svc_itc_idx:{serviceId}
     Redis->>Redis: HGETALL svc_itc:{instanceId} for each member
     Redis-->>RSD: List of field-value arrays
@@ -115,7 +115,7 @@ sequenceDiagram
     RSD-->>Client: Mono~List~String~~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:85, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:91, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
 
 ### Consistency Cache Update Flow
 
@@ -162,7 +162,7 @@ sequenceDiagram
     participant Data as ServiceStat Hash
 
     Event->>RSS: InstanceChangedEvent (non-RENEW)
-    RSS->>Redis: EVAL service_stat.lua KEYS=[namespace] ARGV=[serviceId]
+    RSS->>Redis: EVAL service_stat.lua KEYS=[svc_idx, svc_stat] ARGV=[namespace, serviceId]
     Redis->>Redis: compute instance count from svc_itc_idx:{serviceId}
     Redis->>Redis: HSET svc_stat {serviceId} {count}
     Redis-->>RSS: Boolean
@@ -173,7 +173,7 @@ sequenceDiagram
     RSS-->>Event: Flux~ServiceStat~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:53, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97, cosky-discovery/src/main/resources/service_stat.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:54, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:98, cosky-discovery/src/main/resources/service_stat.lua -->
 
 ## Architecture Diagram
 
@@ -217,7 +217,7 @@ flowchart TB
     style Redis fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:31, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
 
 ## Related Pages
 

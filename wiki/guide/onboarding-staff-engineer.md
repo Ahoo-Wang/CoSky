@@ -157,7 +157,7 @@ end
 
 This prevents redundant writes, history entries, and PubSub notifications when the same config is saved again.
 
-### Pattern 2: Lazy Expiration
+### Pattern 2: Indexed and Lazy Expiration
 
 The `discovery_get_instances.lua` script ([source](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua)) checks TTL during reads:
 
@@ -169,7 +169,7 @@ if instanceTtl == -2 then
 end
 ```
 
-Dead instances are cleaned up lazily during reads, not by a separate background sweeper. This eliminates the need for a tombstone process.
+Dead instances are also cleaned up by an index-driven reaper: every registered client reaps its namespaces after each renewal round through the expiry ZSET (`{namespace}:svc_itc_exp`), in `O(log N + k)`. The ZSET only lists candidates while the key TTL stays authoritative, so there is still no tombstone process and a stale index can not drop a live instance (see [Service Registry](./service-registry.md#expiry-reaping)).
 
 ### Pattern 3: Throttled PubSub
 
@@ -294,15 +294,17 @@ The Lua scripts are the most critical and brittle part of the codebase. They run
 
 The `discovery_get_instances.lua` script iterates over all instances of a service and checks TTL for each. For services with thousands of instances, this could become a latency concern.
 
+To keep the scripts maintainable, shared functions live in `config_lib.lua` / `discovery_lib.lua` and are inlined at load time by `LuaScripts` (`-- @include`). Keys known at call time are passed via `KEYS` from the Kotlin key generators; `ConfigLuaKeysTest` / `DiscoveryLuaKeysTest` keep the Lua key functions identical to them.
+
 ## Architectural Principles
 
 1. **No server-side state** — CoSky is an SDK, not a server. Each application process manages its own cache and subscriptions. The REST API server is optional and stateless.
 
 2. **Lua scripts for all writes** — No multi-command transactions. Every mutation is a single atomic Lua script. This eliminates race conditions between concurrent clients.
 
-3. **Lazy over eager** — Cache entries are created on first access (lazy). Dead instances are cleaned up on read (lazy). PubSub notifications are throttled (lazy-ish).
+3. **Lazy over eager** — Cache entries are created on first access (lazy). Dead instances are reaped from an expiry index by the registered clients and cleaned up on read. PubSub notifications are throttled.
 
-4. **Self-healing subscriptions** — When a PubSub subscription breaks, the cache entry is evicted. The next read re-fetches and re-subscribes automatically.
+4. **Self-healing subscriptions** — When a PubSub subscription breaks, the cache re-subscribes and reloads with backoff while serving the last good snapshot, and a periodic resync covers events lost meanwhile.
 
 5. **Namespace isolation** — Every key is scoped to a namespace. Namespaces map to Redis hash tags, ensuring cross-key atomicity within a namespace in cluster mode.
 

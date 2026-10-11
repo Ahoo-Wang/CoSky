@@ -428,6 +428,8 @@ CoSky 的关键配置属性：
 | `spring.cloud.cosky.discovery.timeout` | `2s` | 发现操作超时时间 | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
 | `spring.cloud.cosky.discovery.topology-enabled` | `true` | 把本应用记录为其所发现服务的消费者 | [CoSkyDiscoveryProperties.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L32) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
+| `spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at` | `false` | 续约事件携带新的 ttlAt；仅在所有客户端都运行此版本或更高版本后开启 | [CoSkyRegistryProperties.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L44) |
+| `cosky.security.audit-log.max-size` | `100000` | 审计日志最多保留的最新条目数 | [SecurityProperties.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/SecurityProperties.kt#L35) |
 | `cosky.security.enabled` | `true` | 启用 REST API 服务器的安全功能 | [application.yaml:16](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L16) |
 | `cosky.security.enforce-init-super-user` | `false` | 重新初始化超级用户密码 | [application.yaml:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L19) |
 

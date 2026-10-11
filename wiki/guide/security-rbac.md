@@ -238,7 +238,7 @@ Source: [AuditLogHandlerInterceptor.kt:31-76](https://github.com/Ahoo-Wang/CoSky
 
 ### AuditLogService
 
-`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
+`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head and the list is trimmed to its newest `cosky.security.audit-log.max-size` entries (default 100,000) in one Lua script (`audit_log_add.lua`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
 
 Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 

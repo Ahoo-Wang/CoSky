@@ -245,6 +245,7 @@ cosky:
     enabled: true                    # 启用/禁用安全
     audit-log:
       action: write                  # 审计日志过滤："write"、"read" 或 "rw"
+      max-size: 100000               # 最多保留的最新条目数
     enforce-init-super-user: ${cosky.super.init:false}   # 启动时强制重新初始化超级用户
 
 cosec:

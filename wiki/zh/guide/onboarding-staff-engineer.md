@@ -157,7 +157,7 @@ end
 
 这防止了在保存相同配置时产生冗余写入、历史条目和 PubSub 通知。
 
-### 模式二：懒过期
+### 模式二：索引过期与懒过期
 
 `discovery_get_instances.lua` 脚本（[源码](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua)）在读取时检查 TTL：
 
@@ -169,7 +169,7 @@ if instanceTtl == -2 then
 end
 ```
 
-无效实例在读取时被懒清理，而不是由单独的后台清理进程处理。这消除了对墓碑进程的需求。
+无效实例还会被基于索引的回收器清理：每个已注册客户端在每轮续约后，通过过期 ZSET（`{namespace}:svc_itc_exp`）以 `O(log N + k)` 回收其命名空间。ZSET 只列出候选，key 的 TTL 才是权威依据，因此依然不需要墓碑进程，陈旧的索引也不会移除存活实例（参见[服务注册](./service-registry.md)）。
 
 ### 模式三：节流 PubSub
 
@@ -294,15 +294,17 @@ Lua 脚本是代码库中最关键也最脆弱的部分。它们在 Redis 内部
 
 `discovery_get_instances.lua` 脚本会遍历服务的所有实例并逐一检查 TTL。对于拥有数千实例的服务，这可能成为延迟隐患。
 
+为保持脚本可维护，共享函数放在 `config_lib.lua` / `discovery_lib.lua` 中，由 `LuaScripts` 在加载时内联（`-- @include`）。调用时即可确定的 key 由 Kotlin key 生成器通过 `KEYS` 传入；`ConfigLuaKeysTest` / `DiscoveryLuaKeysTest` 保证 Lua key 函数与其一致。
+
 ## 架构原则
 
 1. **无服务端状态** — CoSky 是一个 SDK，不是服务器。每个应用进程管理自己的缓存和订阅。REST API 服务器是可选且无状态的。
 
 2. **所有写入通过 Lua 脚本** — 没有多命令事务。每次变更都是单次原子 Lua 脚本。这消除了并发客户端之间的竞态条件。
 
-3. **懒优于急** — 缓存条目在首次访问时创建（懒）。无效实例在读取时清理（懒）。PubSub 通知被节流（半懒）。
+3. **懒优于急** — 缓存条目在首次访问时创建（懒）。无效实例由已注册客户端从过期索引中回收，并在读取时清理。PubSub 通知被节流。
 
-4. **自愈订阅** — 当 PubSub 订阅中断时，缓存条目被驱逐。下次读取会自动重新获取并重新订阅。
+4. **自愈订阅** — 当 PubSub 订阅中断时，缓存会以退避策略重新订阅并重新加载，期间提供最后一个正常的快照；定期重新同步覆盖期间丢失的事件。
 
 5. **命名空间隔离** — 每个键都限定在命名空间内。命名空间映射到 Redis 哈希标签，确保在集群模式下同一命名空间内的跨键原子性。
 

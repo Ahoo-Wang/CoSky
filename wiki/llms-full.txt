@@ -924,7 +924,9 @@ Key configuration properties for CoSky:
 | `spring.cloud.cosky.discovery.enabled` | `true` | Enable service discovery | [CoSkyDiscoveryProperties.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L26) |
 | `spring.cloud.cosky.discovery.timeout` | `2s` | Timeout for discovery operations | [CoSkyDiscoveryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L28) |
 | `spring.cloud.cosky.discovery.topology-enabled` | `true` | Record this application as a consumer of the services it discovers | [CoSkyDiscoveryProperties.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt#L32) |
+| `spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at` | `false` | Publish renew events with the new ttlAt; enable only once all clients run this version or later | [CoSkyRegistryProperties.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L44) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup | [bootstrap.yaml:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/bootstrap.yaml#L9) |
+| `cosky.security.audit-log.max-size` | `100000` | The audit log keeps its newest entries up to this size | [SecurityProperties.kt:35]({U}{SP}#L35) |
 | `cosky.security.enabled` | `true` | Enable security on REST API server | [application.yaml:16](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L16) |
 | `cosky.security.enforce-init-super-user` | `false` | Reinitialize super user password | [application.yaml:19](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/dist/config/application.yaml#L19) |
 
@@ -1129,10 +1131,11 @@ All data in CoSky is stored in Redis using a consistent key naming strategy. Key
 | Domain | Key Pattern | Redis Type | Purpose | Source |
 |--------|------------|------------|---------|--------|
 | Namespace index | `{cosky-system}:ns_idx` | SET | Stores all registered namespaces | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
-| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L32) |
-| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L55) |
-| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:63](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L63) |
-| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L41) |
+| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L35) |
+| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L58) |
+| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L66) |
+| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L44) |
+| Instance expiry index | `{namespace}:svc_itc_exp` | ZSET | Ephemeral instances scored by ttlAt, reaped by clients | [DiscoveryKeyGenerator.kt:92](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L92) |
 | Config index | `{namespace}:cfg_idx` | SET | Stores all config IDs in a namespace | [ConfigKeyGenerator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L36) |
 | Config data | `{namespace}:cfg:{configId}` | HASH | Current config data (data, hash, version, update time) | [ConfigKeyGenerator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L60) |
 | Config history index | `{namespace}:cfg_htr_idx:{configId}` | ZSET | Ordered list of version history keys | [ConfigKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L44) |
@@ -1194,7 +1197,7 @@ stateDiagram-v2
     Expired --> [*]
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:93-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:37-97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105-112, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39-117 -->
 
 ### Lua Scripts for Atomicity
 
@@ -1442,6 +1445,9 @@ flowchart LR
 | `{ns}:svc_itc_idx:{serviceId}` | Instance index | `DiscoveryKeyGenerator.getInstanceIdxKey()` | `cosky-{default}:svc_itc_idx:order-service` |
 | `{ns}:svc_itc:{instanceId}` | Instance data | `DiscoveryKeyGenerator.getInstanceKey()` | `cosky-{default}:svc_itc:order-service@http#10.0.0.1#8080` |
 | `{ns}:svc_stat` | Service statistics | `DiscoveryKeyGenerator.getServiceStatKey()` | `cosky-{default}:svc_stat` |
+| `{ns}:svc_itc_exp` | Instance expiry index | `DiscoveryKeyGenerator.getInstanceExpiryKey()` | `cosky-{default}:svc_itc_exp` |
+| `{ns}:topology_idx` | Topology consumers | `DiscoveryKeyGenerator.getTopologyIdxKey()` | `cosky-{default}:topology_idx` |
+| `{ns}:topology:{consumer}` | Topology producers of a consumer | `DiscoveryKeyGenerator.getTopologyKey()` | `cosky-{default}:topology:gateway` |
 | `{ns}:cfg_idx` | Config index | `ConfigKeyGenerator.getConfigIdxKey()` | `cosky-{default}:cfg_idx` |
 | `{ns}:cfg:{configId}` | Config data | `ConfigKeyGenerator.getConfigKey()` | `cosky-{default}:cfg:application.yaml` |
 | `{ns}:cfg_htr_idx:{configId}` | History index | `ConfigKeyGenerator.getConfigHistoryIdxKey()` | `cosky-{default}:cfg_htr_idx:application.yaml` |
@@ -1557,7 +1563,7 @@ sequenceDiagram
     App->>App: Update local cache or refresh
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:44-64, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:22-42, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:50-76, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:22-42, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
 
 ### Event Flow -- Config Change Propagation
 
@@ -1585,7 +1591,7 @@ sequenceDiagram
     Refresher->>Refresher: Publish RefreshEvent (cache already updated)
 ```
 
-<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:76-86, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:95-105, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
 
 ### Event Types
 
@@ -1627,7 +1633,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:54-58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
 
 ## Cross-References
 
@@ -1668,7 +1674,7 @@ CoSky's Configuration Management subsystem provides a centralized, versioned, an
 | **ConfigRollback** | Interface for rolling back to a prior config version | `ConfigRollback.kt` | [ConfigRollback.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigRollback.kt#L23) |
 | **ConfigKeyGenerator** | Generates Redis key patterns for config indices, history, and entries | `ConfigKeyGenerator.kt` | [ConfigKeyGenerator.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L22) |
 | **RedisConfigService** | Redis-backed implementation of ConfigService using Lua scripts | `RedisConfigService.kt` | [RedisConfigService.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L42) |
-| **ConfigRedisScripts** | Loads and caches the Lua scripts for atomic config operations | `ConfigRedisScripts.kt` | [ConfigRedisScripts.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L24) |
+| **ConfigRedisScripts** | Loads and caches the Lua scripts for atomic config operations | `ConfigRedisScripts.kt` | [ConfigRedisScripts.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L23) |
 | **ConfigChangedEvent** | Event emitted on config changes (set, remove, rollback) via Redis PubSub | `ConfigChangedEvent.kt` | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20) |
 
 ## ConfigService Interface
@@ -1836,7 +1842,7 @@ The `ConfigRedisScripts` object pre-loads three Lua scripts from the classpath a
 | `SCRIPT_CONFIG_REMOVE` | `config_remove.lua` | Atomically removes a config from the index, archives it to history, and publishes a `remove` change event |
 | `SCRIPT_CONFIG_ROLLBACK` | `config_rollback.lua` | Atomically restores config to a target version from history, creates a new version entry, and publishes a `rollback` change event |
 
-Source: [ConfigRedisScripts.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L24)
+Source: [ConfigRedisScripts.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt#L23)
 
 ### getConfig Flow
 
@@ -1957,7 +1963,7 @@ Source: [README.md:111](https://github.com/Ahoo-Wang/CoSky/blob/main/README.md#L
 
 CoSky maintains a versioned history of configuration changes. When a configuration is **updated** (`setConfig` with an existing version) or **removed**, the prior version is atomically archived to a history entry via the Lua script. The **initial** `setConfig` (creating a new config) does not archive anything — there is no prior version to save. The rollback operation restores a target version by reading its archived data and creating a new version. The `getConfigVersions` query returns the **last 10 versions** in descending order — bounded by `ConfigRollback.HISTORY_SIZE`.
 
-> ⚠️ **Operational note**: `HISTORY_SIZE` is a **query cap only**, not a storage retention limit. The Lua scripts (`config_set.lua`, `config_remove.lua`, `config_rollback.lua`) archive history via `ZADD` but never run `ZREMRANGEBYRANK` or set `EXPIRE`, so the Redis history ZSET (`cfg_htr_idx`) and per-version history hashes (`cfg_htr`) **grow unbounded**. For configurations that are written very frequently, monitor Redis memory and prune old history keys manually if needed.
+> **History retention**: archiving a version deletes the history beyond the newest `historySize` versions (default `ConfigRollback.HISTORY_SIZE` = 10) in the same Lua script, so a config never keeps more than 10 history entries ([config_lib.lua:15](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/resources/cosky/config/config_lib.lua#L15)). The size is a `RedisConfigService` constructor parameter ([RedisConfigService.kt:46](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L46)).
 
 ```mermaid
 stateDiagram-v2
@@ -2395,7 +2401,8 @@ The [`ServiceRegistry`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disco
 | `renew` | `Mono<Boolean>` | Renews/extends the TTL of an ephemeral instance | [ServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L40) |
 | `setService` | `Mono<Boolean>` | Creates a named service entry in the namespace index | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23) |
 | `removeService` | `Mono<Boolean>` | Removes a named service from the namespace index | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23) |
-| `setMetadata` | `Mono<Boolean>` | Sets metadata key-value pairs on a service instance | [ServiceRegistry.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L52) |
+| `setMetadata` | `Mono<Boolean>` | `setMetadata(key, value)` sets one entry and keeps the others ([ServiceRegistry.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L55)); `setMetadata(map)` replaces all metadata ([ServiceRegistry.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L66)) |
+| `reapExpiredInstances` | `Mono<Long>` | Removes instances whose TTL has passed and publishes their `expired` events | [ServiceRegistry.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L78) |
 
 ## ServiceInstance Data Model
 
@@ -2445,20 +2452,22 @@ class RedisServiceRegistry(
 ```
 
 Key design points:
-- Ephemeral instances are tracked in a `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` for heartbeat renewal ([RedisServiceRegistry.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L41)).
-- The `register` method adds to the ephemeral map only after the Lua script succeeds -- inside `doOnNext`, and only when the script returned `true` ([RedisServiceRegistry.kt:98](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L98)).
-- If a renew fails (instance key missing), it automatically re-registers the instance ([RedisServiceRegistry.kt:185](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L185)).
+- Ephemeral instances are tracked in a `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` for heartbeat renewal ([RedisServiceRegistry.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L47)).
+- The `register` method adds to the ephemeral map only after the Lua script succeeds -- inside `doOnNext`, and only when the script returned `true` ([RedisServiceRegistry.kt:110](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L110)).
+- If a renew fails (instance key missing), it automatically re-registers the instance ([RedisServiceRegistry.kt:203](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L203)).
 
 ### DiscoveryRedisScripts
 
-[`DiscoveryRedisScripts`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) loads all registry-related Lua scripts from the classpath:
+[`DiscoveryRedisScripts`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) loads all registry-related Lua scripts from the classpath through `LuaScripts`, which resolves `-- @include` directives so the scripts share `cosky/discovery/discovery_lib.lua`. Every key known at call time is generated by `DiscoveryKeyGenerator` and passed via `KEYS`; keys only known inside the script use the shared Lua key functions, which `DiscoveryLuaKeysTest` keeps identical to the Kotlin generator:
 
 | Script | Resource File | Purpose |
 |---|---|---|
 | `SCRIPT_REGISTRY_REGISTER` | `registry_register.lua` | Atomic instance registration |
 | `SCRIPT_REGISTRY_DEREGISTER` | `registry_deregister.lua` | Atomic instance removal |
 | `SCRIPT_REGISTRY_RENEW` | `registry_renew.lua` | TTL renewal with publish throttling |
-| `SCRIPT_REGISTRY_SET_METADATA` | `registry_set_metadata.lua` | Set instance metadata fields |
+| `SCRIPT_REGISTRY_SET_METADATA` | `registry_set_metadata.lua` | Replace all instance metadata |
+| `SCRIPT_REGISTRY_PUT_METADATA` | `registry_put_metadata.lua` | Set metadata entries, keeping the others |
+| `SCRIPT_REGISTRY_REAP` | `registry_reap.lua` | Reap expired instances through the expiry index |
 | `SCRIPT_REGISTRY_SET_SERVICE` | `registry_set_service.lua` | Create service in namespace index |
 | `SCRIPT_REGISTRY_REMOVE_SERVICE` | `registry_remove_service.lua` | Remove service from namespace index |
 
@@ -2479,7 +2488,7 @@ Key design points:
 | `initialDelay` | `1 second` | Delay before first renewal cycle |
 | `period` | `10 seconds` | Interval between renewal cycles |
 
-The renewal period must be less than `RegistryProperties.instanceTtl` to prevent premature expiration. The service iterates all `registeredEphemeralInstances` and calls `renew` on each one via the `ServiceRegistry` ([RenewInstanceService.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L97)):
+The renewal period must be less than `RegistryProperties.instanceTtl` to prevent premature expiration. The service iterates all `registeredEphemeralInstances` and calls `renew` on each one via the `ServiceRegistry` ([RenewInstanceService.kt:117](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L117)):
 
 - each renew is bounded by `period` and its failure is logged without affecting the other instances;
 - a renewal round still in flight makes the next tick be skipped instead of overlapping;
@@ -2500,11 +2509,12 @@ sequenceDiagram
 
     App->>SR: register(namespace, serviceInstance)
     SR->>SR: build ARGV (ttl, serviceId, instanceId, schema, host, port, weight, metadata)
-    SR->>Redis: EVAL registry_register.lua KEYS=[namespace] ARGV=[...]
+    SR->>Redis: EVAL registry_register.lua KEYS=[svc_idx, svc_stat, svc_itc_idx, svc_itc, svc_itc_exp] ARGV=[...]
     Redis->>Redis: SADD svc_itc_idx:{serviceId} {instanceId}
     Redis->>Redis: SADD svc_idx {serviceId}
     Redis->>Redis: HMSET svc_itc:{instanceId} {fields}
     Redis->>Sub: PUBLISH svc_itc:{instanceId} "register"
+    Redis->>Redis: ZADD svc_itc_exp {now + ttl} {instance}
     Redis->>Redis: EXPIRE svc_itc:{instanceId} {ttl}
     Redis-->>SR: Boolean (success)
     alt registered == true
@@ -2513,7 +2523,7 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:93, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
 
 ### Renew / Heartbeat Flow
 
@@ -2528,10 +2538,11 @@ sequenceDiagram
     RS->>RS: scheduler tick (every period seconds)
     RS->>RS: iterate registeredEphemeralInstances
     RS->>SR: renew(namespace, instance)
-    SR->>Redis: EVAL registry_renew.lua KEYS=[namespace] ARGV=[instanceId, ttl]
+    SR->>Redis: EVAL registry_renew.lua KEYS=[svc_itc, svc_itc_exp] ARGV=[ttl, serviceId, instanceId, publishTtlAt]
     Redis->>Redis: TTL svc_itc:{instanceId} (check exists)
     alt instance exists
         Redis->>Redis: EXPIRE svc_itc:{instanceId} {ttl}
+        Redis->>Redis: ZADD svc_itc_exp {now + ttl} {instance}
         Redis->>Redis: check publish throttle window
         alt throttle window exceeded
             Redis->>Redis: HSET __last_renew_pub_ttl_at {currentTtlAt}
@@ -2544,7 +2555,7 @@ sequenceDiagram
     end
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:97, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:164 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:117, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:177 -->
 
 ### Deregister Flow
 
@@ -2559,7 +2570,8 @@ sequenceDiagram
 
     App->>SR: deregister(namespace, instance)
     SR->>EMap: removeEphemeralInstance(namespace, instance)
-    SR->>Redis: EVAL registry_deregister.lua KEYS=[namespace] ARGV=[serviceId, instanceId]
+    SR->>Redis: EVAL registry_deregister.lua KEYS=[svc_itc_idx, svc_itc, svc_itc_exp] ARGV=[instanceId, serviceId]
+    Redis->>Redis: ZREM svc_itc_exp {instance}
     Redis->>Redis: SREM svc_itc_idx:{serviceId} {instanceId}
     alt removed == 1
         Redis->>Sub: PUBLISH svc_itc:{instanceId} "deregister"
@@ -2571,7 +2583,21 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:192, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:210, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+
+## Expiry Reaping
+
+An ephemeral instance expires when its key's TTL runs out. Removing it from its service index and publishing the `expired` event is the job of the **expiry reaper**:
+
+- `register` and `renew` add the instance to the namespace's expiry index `{namespace}:svc_itc_exp`, scored by its `ttlAt`; `deregister` and fixed registrations remove it.
+- `registry_reap.lua` takes the due candidates (`ZRANGEBYSCORE -inf now LIMIT 0 100`) in `O(log N + k)`. A candidate whose key is gone is removed from its index and announced as `expired`; a candidate whose key is still alive is re-scored. The index only lists candidates — the key's TTL stays authoritative, so a stale index can never drop a live instance ([RedisServiceRegistry.kt:249](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L249)).
+- `RenewInstanceService` reaps the namespaces it renews after every renewal round, so every registered client keeps its namespaces clean and `expired` events no longer depend on `cosky-rest-api` ([RenewInstanceService.kt:99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L99)).
+
+Reads (`discovery_get_instances.lua`) and the statistics job still remove dead instances lazily, which also covers instances registered by older clients that do not maintain the index.
+
+### Renew Events Carrying ttlAt
+
+Renew events can carry the new `ttlAt` (`renew:<ttlAt>`), so that consumers update their cached instance without a Redis round trip. Parsing accepts the payload ([InstanceChangedEvent.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt#L50)); publishing it is off by default (`spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at`, [RegistryProperties.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt#L32)). Enable it only once every client runs a version that parses it: older clients reject the payload.
 
 ## Redis Key Structure
 
@@ -2583,10 +2609,11 @@ The registry uses a structured key pattern for organizing service and instance d
 | `{namespace}:svc_stat` | HASH | Service ID to instance count statistics | `production:svc_stat` |
 | `{namespace}:svc_itc_idx:{serviceId}` | SET | Set of instance IDs for a given service | `production:svc_itc_idx:order-service` |
 | `{namespace}:svc_itc:{instanceId}` | HASH | Instance data (fields: instanceId, serviceId, schema, host, port, weight, ephemeral, metadata) | `production:svc_itc:order-service@http#10.0.1.5#8080` |
+| `{namespace}:svc_itc_exp` | ZSET | Expiry index: ephemeral instances scored by `ttlAt`, the candidates of reaping | `production:svc_itc_exp` |
 | `{namespace}:topology_idx` | HASH | Topology index: consumer name to timestamp | `production:topology_idx` |
 | `{namespace}:topology:{consumer}` | HASH | Topology deps: producer name to timestamp | `production:topology:gateway-service` |
 
-Note: `ttl_at` is **not** stored in the instance hash. It is computed at read time as `now + ttl` by the discovery scripts ([discovery_get_instances.lua:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instances.lua#L33), [discovery_get_instance.lua:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/discovery_get_instance.lua#L30)). The renew script may additionally write the system field `__last_renew_pub_ttl_at` into the hash for publish throttling ([registry_renew.lua:9](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L9)).
+Note: `ttl_at` is **not** stored in the instance hash. It is computed at read time as `now + ttl` by the discovery scripts ([discovery_lib.lua:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/cosky/discovery/discovery_lib.lua#L50)). The renew script may additionally write the system field `__last_renew_pub_ttl_at` into the hash for publish throttling ([registry_renew.lua:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/resources/registry_renew.lua#L20)).
 
 The instance ID format is `{serviceId}@{schema}#{host}#{port}` (e.g., `order-service@http#10.0.1.5#8080`), as defined in [`Instance.asInstanceId`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/Instance.kt#L57).
 
@@ -2650,7 +2677,7 @@ classDiagram
     RenewInstanceService --> RenewProperties : configured by
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:23 -->
 
 ## Related Pages
 
@@ -2704,9 +2731,9 @@ The [`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disc
 
 [`RedisServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt) is the standard implementation that reads instance data directly from Redis on every request:
 
-- `getServices` reads from the `svc_idx` SET using `SMEMBERS` ([RedisServiceDiscovery.kt:85](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L85)).
-- `getInstances` executes the `discovery_get_instances.lua` Lua script that reads all instance keys from the `svc_itc_idx:{serviceId}` SET and returns their hash data ([RedisServiceDiscovery.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L39)).
-- `getInstance` executes `discovery_get_instance.lua` to fetch a single instance's hash fields ([RedisServiceDiscovery.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L52)).
+- `getServices` reads from the `svc_idx` SET using `SMEMBERS` ([RedisServiceDiscovery.kt:91](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L91)).
+- `getInstances` executes the `discovery_get_instances.lua` Lua script that reads all instance keys from the `svc_itc_idx:{serviceId}` SET and returns their hash data ([RedisServiceDiscovery.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L41)).
+- `getInstance` executes `discovery_get_instance.lua` to fetch a single instance's hash fields ([RedisServiceDiscovery.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L54)).
 - All results are decoded using [`ServiceInstanceCodec.decode`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57).
 
 ## ConsistencyRedisServiceDiscovery
@@ -2756,7 +2783,7 @@ The [`ServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disc
 | `getServiceStats(namespace)` | `Flux<ServiceStat>` | Returns all service statistics (service ID + instance count) |
 | `getInstanceCount(namespace)` | `Mono<Long>` | Returns the total instance count across all services |
 
-[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) implements this by executing Lua scripts and listening to instance change events. It filters out `RENEW` events since renewals do not change instance counts ([RedisServiceStatistic.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L57)).
+[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) implements this by executing Lua scripts and listening to instance change events. It filters out `RENEW` events since renewals do not change instance counts ([RedisServiceStatistic.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L58)).
 
 Each [`ServiceStat`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt) holds:
 - `serviceId: String` -- the service identifier
@@ -2775,7 +2802,7 @@ sequenceDiagram
     participant Codec as ServiceInstanceCodec
 
     Client->>RSD: getInstances(namespace, serviceId)
-    RSD->>Redis: EVAL discovery_get_instances.lua KEYS=[namespace] ARGV=[serviceId]
+    RSD->>Redis: EVAL discovery_get_instances.lua KEYS=[svc_itc_idx:{serviceId}] ARGV=[namespace]
     Redis->>Redis: SMEMBERS svc_itc_idx:{serviceId}
     Redis->>Redis: HGETALL svc_itc:{instanceId} for each member
     Redis-->>RSD: List of field-value arrays
@@ -2789,7 +2816,7 @@ sequenceDiagram
     RSD-->>Client: Mono~List~String~~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:85, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:91, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
 
 ### Consistency Cache Update Flow
 
@@ -2836,7 +2863,7 @@ sequenceDiagram
     participant Data as ServiceStat Hash
 
     Event->>RSS: InstanceChangedEvent (non-RENEW)
-    RSS->>Redis: EVAL service_stat.lua KEYS=[namespace] ARGV=[serviceId]
+    RSS->>Redis: EVAL service_stat.lua KEYS=[svc_idx, svc_stat] ARGV=[namespace, serviceId]
     Redis->>Redis: compute instance count from svc_itc_idx:{serviceId}
     Redis->>Redis: HSET svc_stat {serviceId} {count}
     Redis-->>RSS: Boolean
@@ -2847,7 +2874,7 @@ sequenceDiagram
     RSS-->>Event: Flux~ServiceStat~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:53, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97, cosky-discovery/src/main/resources/service_stat.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:54, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:98, cosky-discovery/src/main/resources/service_stat.lua -->
 
 ## Architecture Diagram
 
@@ -2891,7 +2918,7 @@ flowchart TB
     style Redis fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:31, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
 
 ## Related Pages
 
@@ -3231,9 +3258,9 @@ Only the application-facing discovery is decorated. `cosky-rest-api` disables it
 
 ### addTopology
 
-`RedisServiceTopology` takes the local service as a `NamespacedServiceId` consumer at construction ([RedisServiceTopology.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L28)). The Spring auto-configuration derives it from `spring.cloud.cosky.discovery.registry.service-id`, falling back to `spring.application.name`, so it is known before the application registers itself ([CoSkyDiscoveryAutoConfiguration.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L78)).
+`RedisServiceTopology` takes the local service as a `NamespacedServiceId` consumer at construction ([RedisServiceTopology.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L30)). The Spring auto-configuration derives it from `spring.cloud.cosky.discovery.registry.service-id`, falling back to `spring.application.name`, so it is known before the application registers itself ([CoSkyDiscoveryAutoConfiguration.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L78)).
 
-The `addTopology` method ([RedisServiceTopology.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L36)) executes `service_topology_add.lua` in the consumer's namespace, which:
+The `addTopology` method ([RedisServiceTopology.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L38)) executes `service_topology_add.lua` in the consumer's namespace, which:
 1. Records the consumer name in the topology index: `HSETNX {namespace}:topology_idx {consumerName} {timestamp}`
 2. Records the producer dependency: `HSETNX {namespace}:topology:{consumerName} {producerName} {timestamp}`
 
@@ -3241,7 +3268,7 @@ Self-dependencies (consumer == producer) are skipped.
 
 ### getTopology
 
-The `getTopology` method ([RedisServiceTopology.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L59)) executes `service_topology_get.lua`, which:
+The `getTopology` method ([RedisServiceTopology.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt#L61)) executes `service_topology_get.lua`, which:
 1. Reads all consumer names from `{namespace}:topology_idx` via `HKEYS`
 2. For each consumer, reads their dependency set from `{namespace}:topology:{consumerName}` via `HKEYS`
 3. Returns the result as `Map<String, Set<String>>` -- mapping each consumer to its set of producers
@@ -3270,7 +3297,7 @@ flowchart TD
     style J fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:36, cosky-discovery/src/main/resources/service_topology_add.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:38, cosky-discovery/src/main/resources/service_topology_add.lua -->
 
 ## Sequence Diagram: Topology Query Flow
 
@@ -3282,7 +3309,7 @@ sequenceDiagram
     participant Redis as Redis (Lua Script)
 
     Client->>RST: getTopology("production")
-    RST->>Redis: EVAL service_topology_get.lua KEYS=["production"]
+    RST->>Redis: EVAL service_topology_get.lua KEYS=["production:topology_idx"] ARGV=["production"]
     Redis->>Redis: HKEYS production:topology_idx
     Redis-->>Redis: [gateway-svc, order-svc, user-svc]
 
@@ -3296,7 +3323,7 @@ sequenceDiagram
     RST-->>Client: Map of consumer -> set of producers
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:59, cosky-discovery/src/main/resources/service_topology_get.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:61, cosky-discovery/src/main/resources/service_topology_get.lua -->
 
 ## Sequence Diagram: Topology Recording Flow
 
@@ -3314,7 +3341,7 @@ sequenceDiagram
     Note over RST: consumer injected at construction:<br>production / gateway-svc
     RST->>RST: producerName = "order-svc"
     RST->>RST: Check self-dependency (skip if same)
-    RST->>Redis: EVAL service_topology_add.lua KEYS=["production"]
+    RST->>Redis: EVAL service_topology_add.lua KEYS=["production:topology_idx", "production:topology:gateway-svc"]
     Redis->>Redis: HSETNX production:topology_idx gateway-svc {timestamp}
     Redis->>Redis: HSETNX production:topology:gateway-svc order-svc {timestamp}
     Redis-->>RST: (void)
@@ -3322,7 +3349,7 @@ sequenceDiagram
     TRD-->>SvcA: instances of order-svc
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:36, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:52 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:38, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:54 -->
 
 ## Redis Key Patterns
 
@@ -3360,7 +3387,7 @@ flowchart TD
     style ProdNS fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:30, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:98 -->
 
 ## Dashboard Integration
 
@@ -3416,7 +3443,7 @@ classDiagram
     RedisServiceStatistic --> ServiceStat : produces
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceTopology.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStatistic.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceTopology.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceTopology.kt:30, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt:20, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStatistic.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/TopologyRecordingServiceDiscovery.kt:26 -->
 
 ## Related Pages
 
@@ -3692,7 +3719,7 @@ Bound by [CoSkyDiscoveryProperties.kt:24](https://github.com/Ahoo-Wang/CoSky/blo
 
 ### Registry Properties
 
-Bound by [CoSkyRegistryProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L27) under prefix `spring.cloud.cosky.discovery.registry`.
+Bound by [CoSkyRegistryProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt#L28) under prefix `spring.cloud.cosky.discovery.registry`.
 
 | Property | Default | Description |
 |---|---|---|
@@ -3966,7 +3993,7 @@ classDiagram
     style CoSkyAutoServiceRegistration fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style CoSkyAutoServiceRegistrationOfNoneWeb fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt:27, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt:57, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyServiceInstance.kt:23, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:25, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt:26, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt:30 -->
+<!-- Sources: cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistryProperties.kt:28, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt:57, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryClient.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyServiceInstance.kt:23, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyServiceRegistry.kt:25, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyRegistration.kt:26, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistration.kt:24, cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/registry/CoSkyAutoServiceRegistrationOfNoneWeb.kt:30 -->
 
 ## Full YAML Configuration Example
 
@@ -4271,6 +4298,7 @@ cosky:
     enabled: true                    # Enable/disable security
     audit-log:
       action: write                  # Audit log filter: "write", "read", or "rw"
+      max-size: 100000               # Keep the newest entries up to this size
     enforce-init-super-user: ${cosky.super.init:false}   # Force re-initialize super user on startup
 
 cosec:
@@ -4551,7 +4579,7 @@ Source: [AuditLogHandlerInterceptor.kt:31-76](https://github.com/Ahoo-Wang/CoSky
 
 ### AuditLogService
 
-`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head (`leftPush`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
+`AuditLogService` persists audit log entries as JSON strings in a Redis List (`cosky-{system}:audit:log`). New entries are pushed to the head and the list is trimmed to its newest `cosky.security.audit-log.max-size` entries (default 100,000) in one Lua script (`audit_log_add.lua`). Queries support offset/limit pagination via `range`, and the log can be exported as CSV via `GET /v1/audit-log/export`.
 
 Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/audit/AuditLogService.kt#L28)
 
@@ -6012,7 +6040,7 @@ stateDiagram-v2
     }
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:128 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:129 -->
 
 ## How to Run Benchmarks Locally
 

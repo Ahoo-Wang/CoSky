@@ -175,6 +175,9 @@ flowchart LR
 | `{ns}:svc_itc_idx:{serviceId}` | Instance index | `DiscoveryKeyGenerator.getInstanceIdxKey()` | `cosky-{default}:svc_itc_idx:order-service` |
 | `{ns}:svc_itc:{instanceId}` | Instance data | `DiscoveryKeyGenerator.getInstanceKey()` | `cosky-{default}:svc_itc:order-service@http#10.0.0.1#8080` |
 | `{ns}:svc_stat` | Service statistics | `DiscoveryKeyGenerator.getServiceStatKey()` | `cosky-{default}:svc_stat` |
+| `{ns}:svc_itc_exp` | Instance expiry index | `DiscoveryKeyGenerator.getInstanceExpiryKey()` | `cosky-{default}:svc_itc_exp` |
+| `{ns}:topology_idx` | Topology consumers | `DiscoveryKeyGenerator.getTopologyIdxKey()` | `cosky-{default}:topology_idx` |
+| `{ns}:topology:{consumer}` | Topology producers of a consumer | `DiscoveryKeyGenerator.getTopologyKey()` | `cosky-{default}:topology:gateway` |
 | `{ns}:cfg_idx` | Config index | `ConfigKeyGenerator.getConfigIdxKey()` | `cosky-{default}:cfg_idx` |
 | `{ns}:cfg:{configId}` | Config data | `ConfigKeyGenerator.getConfigKey()` | `cosky-{default}:cfg:application.yaml` |
 | `{ns}:cfg_htr_idx:{configId}` | History index | `ConfigKeyGenerator.getConfigHistoryIdxKey()` | `cosky-{default}:cfg_htr_idx:application.yaml` |
@@ -290,7 +293,7 @@ sequenceDiagram
     App->>App: Update local cache or refresh
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:44-64, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:22-42, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:50-76, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:22-42, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
 
 ### Event Flow -- Config Change Propagation
 
@@ -318,7 +321,7 @@ sequenceDiagram
     Refresher->>Refresher: Publish RefreshEvent (cache already updated)
 ```
 
-<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:76-86, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:95-105, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
 
 ### Event Types
 
@@ -360,7 +363,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:54-58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
 
 ## Cross-References
 

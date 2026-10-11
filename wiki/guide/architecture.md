@@ -113,10 +113,11 @@ All data in CoSky is stored in Redis using a consistent key naming strategy. Key
 | Domain | Key Pattern | Redis Type | Purpose | Source |
 |--------|------------|------------|---------|--------|
 | Namespace index | `{cosky-system}:ns_idx` | SET | Stores all registered namespaces | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
-| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L32) |
-| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L55) |
-| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:63](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L63) |
-| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L41) |
+| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L35) |
+| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L58) |
+| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L66) |
+| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L44) |
+| Instance expiry index | `{namespace}:svc_itc_exp` | ZSET | Ephemeral instances scored by ttlAt, reaped by clients | [DiscoveryKeyGenerator.kt:92](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L92) |
 | Config index | `{namespace}:cfg_idx` | SET | Stores all config IDs in a namespace | [ConfigKeyGenerator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L36) |
 | Config data | `{namespace}:cfg:{configId}` | HASH | Current config data (data, hash, version, update time) | [ConfigKeyGenerator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L60) |
 | Config history index | `{namespace}:cfg_htr_idx:{configId}` | ZSET | Ordered list of version history keys | [ConfigKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L44) |
@@ -178,7 +179,7 @@ stateDiagram-v2
     Expired --> [*]
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:93-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:37-97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105-112, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39-117 -->
 
 ### Lua Scripts for Atomicity
 
