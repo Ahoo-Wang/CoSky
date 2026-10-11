@@ -15,6 +15,7 @@ local namespace = ARGV[1];
 local configId = ARGV[2];
 local data = ARGV[3];
 local hash = ARGV[4];
+local historySize = ARGV[5];
 local op = 'set';
 
 if redis.call('hget', configKey, 'hash') == hash then
@@ -22,6 +23,6 @@ if redis.call('hget', configKey, 'hash') == hash then
 end
 
 redis.call('sadd', configIdxKey, configKey);
-local nextVersion = archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op);
+local nextVersion = archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op, historySize);
 writeConfig(configKey, configId, data, hash, nextVersion, op);
 return 1;

@@ -11,19 +11,29 @@ local function configHistoryKeyOf(namespace, configId, version)
     return namespace .. ':cfg_htr:' .. configId .. ':' .. tostring(version);
 end
 
--- Moves the current config to the history of its version.
-local function archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op)
+-- Deletes the history beyond the newest historySize versions. The members of the history index are history keys.
+local function trimHistory(configHistoryIdxKey, historySize)
+    local staleStop = -(tonumber(historySize) + 1);
+    for _, staleHistoryKey in ipairs(redis.call('zrange', configHistoryIdxKey, 0, staleStop)) do
+        redis.call('del', staleHistoryKey);
+    end
+    redis.call('zremrangebyrank', configHistoryIdxKey, 0, staleStop);
+end
+
+-- Moves the current config to the history of its version, keeping the newest historySize versions.
+local function archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op, historySize)
     local configHistoryKey = configHistoryKeyOf(namespace, configId, currentVersion);
     redis.call('zadd', configHistoryIdxKey, currentVersion, configHistoryKey);
     redis.call('rename', configKey, configHistoryKey);
     redis.call('hmset', configHistoryKey, 'op', op, 'opTime', redis.call('time')[1]);
+    trimHistory(configHistoryIdxKey, historySize);
 end
 
 -- Archives the current config, if any, and returns the version the next config takes.
-local function archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op)
+local function archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op, historySize)
     local currentVersion = redis.call('hget', configKey, 'version');
     if currentVersion then
-        archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op);
+        archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op, historySize);
         return currentVersion + 1;
     end
     local lastHistoryVersion = redis.call('zrevrange', configHistoryIdxKey, 0, 0, 'WITHSCORES');

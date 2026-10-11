@@ -13,6 +13,7 @@ local configKey = KEYS[2];
 local configHistoryIdxKey = KEYS[3];
 local namespace = ARGV[1];
 local configId = ARGV[2];
+local historySize = ARGV[3];
 local op = 'remove';
 
 if redis.call('srem', configIdxKey, configKey) == 0 then
@@ -23,6 +24,6 @@ local currentVersion = redis.call('hget', configKey, 'version');
 if not currentVersion then
     return 0;
 end
-archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op);
+archiveConfig(namespace, configId, configKey, configHistoryIdxKey, currentVersion, op, historySize);
 redis.call('publish', configKey, op);
 return 1;

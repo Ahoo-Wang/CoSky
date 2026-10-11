@@ -14,6 +14,7 @@ local configHistoryIdxKey = KEYS[3];
 local namespace = ARGV[1];
 local configId = ARGV[2];
 local targetVersion = ARGV[3];
+local historySize = ARGV[4];
 local op = 'rollback';
 
 local targetConfigHistoryKey = configHistoryKeyOf(namespace, configId, targetVersion);
@@ -28,7 +29,7 @@ if redis.call('hget', configKey, 'hash') == targetHash then
     return 0;
 end
 
-local nextVersion = archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op);
+local nextVersion = archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op, historySize);
 redis.call('sadd', configIdxKey, configKey);
 writeConfig(configKey, configId, targetData, targetHash, nextVersion, op);
 return 1;

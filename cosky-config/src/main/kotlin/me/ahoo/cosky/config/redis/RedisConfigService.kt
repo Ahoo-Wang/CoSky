@@ -37,12 +37,20 @@ import java.nio.charset.StandardCharsets
 /**
  * Redis Config Service.
  *
+ * @param historySize how many versions of history are kept per config.
+ *
  * @author ahoo wang
  */
-class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate) : ConfigService {
+class RedisConfigService(
+    private val redisTemplate: ReactiveStringRedisTemplate,
+    private val historySize: Int = ConfigRollback.HISTORY_SIZE
+) : ConfigService {
+    init {
+        require(historySize > 0) { "historySize must be positive." }
+    }
+
     companion object {
         private val log = KotlinLogging.logger {}
-        private const val HISTORY_STOP = (ConfigRollback.HISTORY_SIZE - 1).toLong()
     }
 
     override fun getConfigs(namespace: String): Flux<String> {
@@ -93,7 +101,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_SET,
             configKeys(namespace, configId),
-            listOf(namespace, configId, data, hash),
+            listOf(namespace, configId, data, hash, historySize.toString()),
         ).next()
     }
 
@@ -105,7 +113,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_REMOVE,
             configKeys(namespace, configId),
-            listOf(namespace, configId),
+            listOf(namespace, configId, historySize.toString()),
         ).next()
     }
 
@@ -123,7 +131,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK,
             configKeys(namespace, configId),
-            listOf(namespace, configId, targetVersion.toString()),
+            listOf(namespace, configId, targetVersion.toString(), historySize.toString()),
         ).next()
     }
 
@@ -134,7 +142,7 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
             .opsForZSet()
             .reverseRange(
                 configHistoryIdxKey,
-                Range.closed(0L, HISTORY_STOP),
+                Range.closed(0L, (historySize - 1).toLong()),
             )
             .map { getConfigVersionOfHistoryKey(namespace, it) }
     }

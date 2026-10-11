@@ -28,8 +28,16 @@ class SecurityProperties(
     val auditLog: AuditLog = AuditLog()
 ) {
     data class AuditLog(
-        val action: Action = Action.WRITE
-    )
+        val action: Action = Action.WRITE,
+        /**
+         * The audit log keeps its newest max-size entries.
+         */
+        val maxSize: Long = 100_000
+    ) {
+        init {
+            require(maxSize > 0) { "audit-log.max-size must be positive." }
+        }
+    }
 
     companion object {
         const val PREFIX = CoSky.COSKY + ".security"

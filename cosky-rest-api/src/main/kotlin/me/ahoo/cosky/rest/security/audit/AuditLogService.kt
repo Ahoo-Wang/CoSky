@@ -13,7 +13,10 @@
 package me.ahoo.cosky.rest.security.audit
 
 import me.ahoo.cosky.core.Namespaced
+import me.ahoo.cosky.core.redis.LuaScripts
+import me.ahoo.cosky.rest.security.SecurityProperties
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
+import org.springframework.data.redis.core.script.RedisScript
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
@@ -25,11 +28,23 @@ import tools.jackson.databind.ObjectMapper
  * @author ahoo wang
  */
 @Service
-class AuditLogService(private val objectMapper: ObjectMapper, private val redisTemplate: ReactiveStringRedisTemplate) {
+class AuditLogService(
+    private val objectMapper: ObjectMapper,
+    private val redisTemplate: ReactiveStringRedisTemplate,
+    private val securityProperties: SecurityProperties = SecurityProperties()
+) {
+    /**
+     * Prepends [log], keeping the newest `cosky.security.audit-log.max-size` entries.
+     *
+     * @return the size of the audit log
+     */
     fun addLog(log: AuditLog): Mono<Long> {
         val logStr = objectMapper.writeValueAsString(log)
-        return redisTemplate.opsForList()
-            .leftPush(AUDIT_LOG_KEY, logStr)
+        return redisTemplate.execute(
+            SCRIPT_AUDIT_LOG_ADD,
+            listOf(AUDIT_LOG_KEY),
+            listOf(logStr, securityProperties.auditLog.maxSize.toString()),
+        ).next()
     }
 
     fun queryLog(offset: Long, limit: Long, filter: AuditLogFilter): Mono<QueryLogResponse> {
@@ -93,6 +108,7 @@ class AuditLogService(private val objectMapper: ObjectMapper, private val redisT
 
     companion object {
         const val AUDIT_LOG_KEY = Namespaced.SYSTEM + ":audit:log"
+        private val SCRIPT_AUDIT_LOG_ADD: RedisScript<Long> = LuaScripts.load("audit_log_add.lua", Long::class.java)
         private const val READ_BATCH_SIZE = 500
         private const val MAX_PAGE_SIZE = 1000L
     }
