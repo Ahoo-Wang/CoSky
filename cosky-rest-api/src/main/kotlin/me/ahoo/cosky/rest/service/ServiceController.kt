@@ -13,12 +13,12 @@
 package me.ahoo.cosky.rest.service
 
 import io.swagger.v3.oas.annotations.tags.Tag
-import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
 import me.ahoo.cosky.discovery.ServiceRegistry
 import me.ahoo.cosky.discovery.ServiceStat
 import me.ahoo.cosky.discovery.ServiceStatistic
 import me.ahoo.cosky.discovery.loadbalancer.LoadBalancer
+import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
@@ -32,6 +32,8 @@ import reactor.core.publisher.Mono
 /**
  * Service Controller.
  *
+ * Reads go straight to Redis: administrative reads must not populate the local consistency caches.
+ *
  * @author ahoo wang
  */
 @RestController
@@ -39,7 +41,7 @@ import reactor.core.publisher.Mono
 @Tag(name = "Service")
 class ServiceController(
     private val serviceRegistry: ServiceRegistry,
-    private val discoveryService: ServiceDiscovery,
+    private val discoveryService: RedisServiceDiscovery,
     private val serviceStatistic: ServiceStatistic,
     private val loadBalancer: LoadBalancer
 ) {

@@ -15,8 +15,8 @@ package me.ahoo.cosky.rest.config
 import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosky.config.Config
 import me.ahoo.cosky.config.ConfigHistory
-import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.ConfigVersion
+import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.core.CoSky
 import me.ahoo.cosky.rest.support.RequestPathPrefix
 import me.ahoo.cosky.rest.util.Zips.ZipItem
@@ -47,12 +47,14 @@ import reactor.core.publisher.Mono
 /**
  * Config Controller.
  *
+ * Reads go straight to Redis: administrative reads must not populate the local consistency caches.
+ *
  * @author ahoo wang
  */
 @RestController
 @RequestMapping(RequestPathPrefix.CONFIGS_PREFIX)
 @Tag(name = "Config")
-class ConfigController(private val configService: ConfigService) {
+class ConfigController(private val configService: RedisConfigService) {
 
     companion object {
         private val log = LoggerFactory.getLogger(ConfigController::class.java)

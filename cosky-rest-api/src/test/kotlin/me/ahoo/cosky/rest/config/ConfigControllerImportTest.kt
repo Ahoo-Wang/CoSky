@@ -14,7 +14,7 @@ package me.ahoo.cosky.rest.config
 
 import io.mockk.every
 import io.mockk.mockk
-import me.ahoo.cosky.config.ConfigService
+import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.rest.util.Zips
 import org.junit.jupiter.api.Test
 import org.springframework.core.io.buffer.DataBuffer
@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
 
 class ConfigControllerImportTest {
-    private val configService = mockk<ConfigService> {
+    private val configService = mockk<RedisConfigService> {
         every { setConfig(any(), any(), any()) } returns Mono.just(true)
     }
     private val controller = ConfigController(configService)
