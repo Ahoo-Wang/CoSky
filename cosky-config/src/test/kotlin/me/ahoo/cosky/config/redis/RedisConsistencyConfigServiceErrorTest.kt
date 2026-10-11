@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.kotlin.test.test
+import reactor.util.retry.Retry
+import java.time.Duration
 import java.util.concurrent.atomic.AtomicInteger
 
 class RedisConsistencyConfigServiceErrorTest {
@@ -40,14 +42,23 @@ class RedisConsistencyConfigServiceErrorTest {
             }
         }
         val listenerContainer = mockk<ConfigEventListenerContainer> {
-            every { receive(any()) } returns Flux.never()
+            every { listen(any()) } returns Mono.just(Flux.never())
         }
-        val configService = RedisConsistencyConfigService(delegate, listenerContainer)
+        val configService = RedisConsistencyConfigService(
+            delegate,
+            listenerContainer,
+            retry = Retry.fixedDelay(Long.MAX_VALUE, Duration.ofMillis(500)),
+        )
 
         configService.getConfig("ns", "configId")
             .test()
             .expectError(IllegalStateException::class.java)
             .verify()
+        configService.watchConfig("ns", "configId")
+            .next()
+            .test()
+            .expectNextMatches { it.value == config }
+            .verifyComplete()
         configService.getConfig("ns", "configId")
             .test()
             .expectNext(config)

@@ -13,6 +13,7 @@
 package me.ahoo.cosky.config.spring.cloud
 
 import me.ahoo.cosky.config.ConfigEventListenerContainer
+import me.ahoo.cosky.config.ConfigWatcher
 import me.ahoo.cosky.config.redis.RedisConfigEventListenerContainer
 import me.ahoo.cosky.config.redis.RedisConfigService
 import me.ahoo.cosky.config.redis.RedisConsistencyConfigService
@@ -82,8 +83,8 @@ class CoSkyConfigAutoConfiguration(
     fun coSkyConfigRefresher(
         coSkyProperties: CoSkyProperties,
         configProperties: CoSkyConfigProperties,
-        configEventListenerContainer: ConfigEventListenerContainer
+        configWatcher: ConfigWatcher
     ): CoSkyConfigRefresher {
-        return CoSkyConfigRefresher(coSkyProperties, configProperties, configEventListenerContainer)
+        return CoSkyConfigRefresher(coSkyProperties, configProperties, configWatcher)
     }
 }

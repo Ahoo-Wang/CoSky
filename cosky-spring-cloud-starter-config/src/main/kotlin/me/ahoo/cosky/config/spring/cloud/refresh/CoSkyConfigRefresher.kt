@@ -13,56 +13,63 @@
 package me.ahoo.cosky.config.spring.cloud.refresh
 
 import io.github.oshai.kotlinlogging.KotlinLogging
-import me.ahoo.cosky.config.ConfigEventListenerContainer
-import me.ahoo.cosky.config.NamespacedConfigId
+import me.ahoo.cosky.config.ConfigWatcher
 import me.ahoo.cosky.config.spring.cloud.CoSkyConfigProperties
 import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import org.springframework.beans.BeansException
+import org.springframework.beans.factory.DisposableBean
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationContextAware
 import org.springframework.context.ApplicationListener
-import java.util.concurrent.atomic.AtomicBoolean
+import reactor.core.Disposable
 
 /**
  * CoSky Config Refresher.
+ *
+ * Publishes a [RefreshEvent] for every config change, only after the local config cache holds the new value, so
+ * that the refresh can not read the stale one.
  *
  * @author ahoo wang
  */
 class CoSkyConfigRefresher(
     private val coSkyProperties: CoSkyProperties,
     private val configProperties: CoSkyConfigProperties,
-    private val configEventListenerContainer: ConfigEventListenerContainer
-) : ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware {
+    private val configWatcher: ConfigWatcher
+) : ApplicationListener<ApplicationReadyEvent>, ApplicationContextAware, DisposableBean {
+    companion object {
+        private val log = KotlinLogging.logger {}
+    }
+
     private lateinit var applicationContext: ApplicationContext
-    private val ready = AtomicBoolean(false)
+
+    @Volatile
+    private var watching: Disposable? = null
 
     @Throws(BeansException::class)
     override fun setApplicationContext(applicationContext: ApplicationContext) {
         this.applicationContext = applicationContext
     }
 
+    @Synchronized
     override fun onApplicationEvent(event: ApplicationReadyEvent) {
-        if (!ready.compareAndSet(false, true)) {
+        if (watching != null) {
             return
         }
-        configEventListenerContainer.receive(
-            NamespacedConfigId(
-                coSkyProperties.namespace,
-                requireNotNull(configProperties.configId) { "configId must not be null." },
-            ),
-        ).doOnNext {
-            log.info {
-                "Refresh - CoSky - configId:[${configProperties.configId}] - [${it.event}]"
+        val configId = requireNotNull(configProperties.configId) { "configId must not be null." }
+        watching = configWatcher.watchConfig(coSkyProperties.namespace, configId)
+            // The first snapshot is the config the application has just started with.
+            .skip(1)
+            .subscribe {
+                log.info {
+                    "Refresh - CoSky - configId:[$configId] - version:[${it.value?.version}]."
+                }
+                applicationContext.publishEvent(RefreshEvent(this, it, "Refresh CoSky config"))
             }
-            applicationContext.publishEvent(
-                RefreshEvent(this, it.event, "Refresh CoSky config"),
-            )
-        }.subscribe()
     }
 
-    companion object {
-        private val log = KotlinLogging.logger {}
+    override fun destroy() {
+        watching?.dispose()
     }
 }
