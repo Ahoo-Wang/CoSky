@@ -10,12 +10,13 @@
     "validate:mermaid": "node scripts/validate-mermaid.mjs"
   },
   "devDependencies": {
-    "@mermaid-js/mermaid-cli": "^11.14.0",
+    "@mermaid-js/mermaid-cli": "^11.17.0",
     "medium-zoom": "^1.1.0",
+    "puppeteer": "~25.12.0",
     "vitepress": "2.0.0-alpha.18",
     "vitepress-mermaid-renderer": "^1.1.27"
   },
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.12.0"
   }
 }
