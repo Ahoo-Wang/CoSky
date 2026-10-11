@@ -14,6 +14,7 @@ package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
@@ -75,13 +76,13 @@ class RedisServiceStatistic(
             "statService  @ namespace:[$namespace]."
         }
         val values: List<String> = if (!serviceId.isNullOrEmpty()) {
-            listOf(serviceId)
+            listOf(namespace, serviceId)
         } else {
-            listOf()
+            listOf(namespace)
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_SERVICE_STAT,
-            listOf(namespace),
+            listOf(getServiceIdxKey(namespace), getServiceStatKey(namespace)),
             values,
         ).then()
     }
@@ -107,6 +108,7 @@ class RedisServiceStatistic(
     override fun getInstanceCount(namespace: String): Mono<Long> {
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_INSTANCE_COUNT_STAT,
+            listOf(getServiceIdxKey(namespace)),
             listOf(namespace),
         ).next()
     }

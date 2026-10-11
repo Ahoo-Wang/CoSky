@@ -12,8 +12,7 @@
  */
 package me.ahoo.cosky.discovery.redis
 
-import org.springframework.core.io.ClassPathResource
-import org.springframework.core.io.Resource
+import me.ahoo.cosky.core.redis.LuaScripts
 import org.springframework.data.redis.core.script.RedisScript
 
 /**
@@ -22,50 +21,30 @@ import org.springframework.data.redis.core.script.RedisScript
  * @author ahoo wang
  */
 object DiscoveryRedisScripts {
-    private val RESOURCE_REGISTRY_REGISTER: Resource = ClassPathResource("registry_register.lua")
-    val SCRIPT_REGISTRY_REGISTER: RedisScript<Boolean> = RedisScript.of(RESOURCE_REGISTRY_REGISTER, Boolean::class.java)
-
-    private val RESOURCE_REGISTRY_DEREGISTER: Resource = ClassPathResource("registry_deregister.lua")
+    val SCRIPT_REGISTRY_REGISTER: RedisScript<Boolean> =
+        LuaScripts.load("registry_register.lua", Boolean::class.java)
     val SCRIPT_REGISTRY_DEREGISTER: RedisScript<Boolean> =
-        RedisScript.of(RESOURCE_REGISTRY_DEREGISTER, Boolean::class.java)
-
-    private val RESOURCE_REGISTRY_RENEW: Resource = ClassPathResource("registry_renew.lua")
-    val SCRIPT_REGISTRY_RENEW: RedisScript<Long> = RedisScript.of(RESOURCE_REGISTRY_RENEW, Long::class.java)
-
-    private val RESOURCE_REGISTRY_SET_METADATA: Resource = ClassPathResource("registry_set_metadata.lua")
+        LuaScripts.load("registry_deregister.lua", Boolean::class.java)
+    val SCRIPT_REGISTRY_RENEW: RedisScript<Long> =
+        LuaScripts.load("registry_renew.lua", Long::class.java)
     val SCRIPT_REGISTRY_SET_METADATA: RedisScript<Boolean> =
-        RedisScript.of(RESOURCE_REGISTRY_SET_METADATA, Boolean::class.java)
-
-    private val RESOURCE_REGISTRY_SET_SERVICE: Resource = ClassPathResource("registry_set_service.lua")
+        LuaScripts.load("registry_set_metadata.lua", Boolean::class.java)
     val SCRIPT_REGISTRY_SET_SERVICE: RedisScript<Boolean> =
-        RedisScript.of(RESOURCE_REGISTRY_SET_SERVICE, Boolean::class.java)
-
-    private val RESOURCE_REGISTRY_REMOVE_SERVICE: Resource = ClassPathResource("registry_remove_service.lua")
+        LuaScripts.load("registry_set_service.lua", Boolean::class.java)
     val SCRIPT_REGISTRY_REMOVE_SERVICE: RedisScript<Boolean> =
-        RedisScript.of(RESOURCE_REGISTRY_REMOVE_SERVICE, Boolean::class.java)
-
-    private val RESOURCE_REGISTRY_GET_INSTANCES: Resource = ClassPathResource("discovery_get_instances.lua")
+        LuaScripts.load("registry_remove_service.lua", Boolean::class.java)
     val SCRIPT_REGISTRY_GET_INSTANCES: RedisScript<List<*>> =
-        RedisScript.of(RESOURCE_REGISTRY_GET_INSTANCES, List::class.java)
-
-    private val RESOURCE_REGISTRY_GET_INSTANCE: Resource = ClassPathResource("discovery_get_instance.lua")
+        LuaScripts.load("discovery_get_instances.lua", List::class.java)
     val SCRIPT_REGISTRY_GET_INSTANCE: RedisScript<List<*>> =
-        RedisScript.of(RESOURCE_REGISTRY_GET_INSTANCE, List::class.java)
-
-    private val RESOURCE_REGISTRY_GET_INSTANCE_TTL: Resource = ClassPathResource("discovery_get_instance_ttl.lua")
+        LuaScripts.load("discovery_get_instance.lua", List::class.java)
     val SCRIPT_REGISTRY_GET_INSTANCE_TTL: RedisScript<Long> =
-        RedisScript.of(RESOURCE_REGISTRY_GET_INSTANCE_TTL, Long::class.java)
-
-    private val RESOURCE_INSTANCE_COUNT_STAT: Resource = ClassPathResource("instance_count_stat.lua")
-    val SCRIPT_INSTANCE_COUNT_STAT: RedisScript<Long> = RedisScript.of(RESOURCE_INSTANCE_COUNT_STAT, Long::class.java)
-
-    private val RESOURCE_SERVICE_STAT: Resource = ClassPathResource("service_stat.lua")
-    val SCRIPT_SERVICE_STAT: RedisScript<Boolean> = RedisScript.of(RESOURCE_SERVICE_STAT, Boolean::class.java)
-
-    private val RESOURCE_TOPOLOGY_ADD: Resource = ClassPathResource("service_topology_add.lua")
-    val SCRIPT_TOPOLOGY_ADD: RedisScript<Boolean> = RedisScript.of(RESOURCE_TOPOLOGY_ADD, Boolean::class.java)
-
-    private val RESOURCE_SERVICE_TOPOLOGY_GET: Resource = ClassPathResource("service_topology_get.lua")
+        LuaScripts.load("discovery_get_instance_ttl.lua", Long::class.java)
+    val SCRIPT_INSTANCE_COUNT_STAT: RedisScript<Long> =
+        LuaScripts.load("instance_count_stat.lua", Long::class.java)
+    val SCRIPT_SERVICE_STAT: RedisScript<Boolean> =
+        LuaScripts.load("service_stat.lua", Boolean::class.java)
+    val SCRIPT_TOPOLOGY_ADD: RedisScript<Boolean> =
+        LuaScripts.load("service_topology_add.lua", Boolean::class.java)
     val SCRIPT_SERVICE_TOPOLOGY_GET: RedisScript<List<*>> =
-        RedisScript.of(RESOURCE_SERVICE_TOPOLOGY_GET, List::class.java)
+        LuaScripts.load("service_topology_get.lua", List::class.java)
 }

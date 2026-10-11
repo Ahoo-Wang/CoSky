@@ -13,6 +13,8 @@
 package me.ahoo.cosky.discovery.redis
 
 import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getTopologyIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getTopologyKey
 import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceTopology
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
@@ -41,7 +43,7 @@ class RedisServiceTopology(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_TOPOLOGY_ADD,
-            listOf(consumer.namespace),
+            listOf(getTopologyIdxKey(consumer.namespace), getTopologyKey(consumer.namespace, consumer.serviceId)),
             listOf(consumer.serviceId, producerName),
         ).then()
     }
@@ -60,6 +62,7 @@ class RedisServiceTopology(
         requireValidNamespace(namespace)
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_SERVICE_TOPOLOGY_GET,
+            listOf(getTopologyIdxKey(namespace)),
             listOf(namespace),
         )
             .next()

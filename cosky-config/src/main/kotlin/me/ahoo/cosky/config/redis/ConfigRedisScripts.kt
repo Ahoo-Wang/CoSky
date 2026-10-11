@@ -12,8 +12,7 @@
  */
 package me.ahoo.cosky.config.redis
 
-import org.springframework.core.io.ClassPathResource
-import org.springframework.core.io.Resource
+import me.ahoo.cosky.core.redis.LuaScripts
 import org.springframework.data.redis.core.script.RedisScript
 
 /**
@@ -22,12 +21,7 @@ import org.springframework.data.redis.core.script.RedisScript
  * @author ahoo wang
  */
 object ConfigRedisScripts {
-    private val RESOURCE_CONFIG_SET: Resource = ClassPathResource("config_set.lua")
-    val SCRIPT_CONFIG_SET: RedisScript<Boolean> = RedisScript.of(RESOURCE_CONFIG_SET, Boolean::class.java)
-
-    private val RESOURCE_CONFIG_REMOVE: Resource = ClassPathResource("config_remove.lua")
-    val SCRIPT_CONFIG_REMOVE: RedisScript<Boolean> = RedisScript.of(RESOURCE_CONFIG_REMOVE, Boolean::class.java)
-
-    private val RESOURCE_CONFIG_ROLLBACK: Resource = ClassPathResource("config_rollback.lua")
-    val SCRIPT_CONFIG_ROLLBACK: RedisScript<Boolean> = RedisScript.of(RESOURCE_CONFIG_ROLLBACK, Boolean::class.java)
+    val SCRIPT_CONFIG_SET: RedisScript<Boolean> = LuaScripts.load("config_set.lua", Boolean::class.java)
+    val SCRIPT_CONFIG_REMOVE: RedisScript<Boolean> = LuaScripts.load("config_remove.lua", Boolean::class.java)
+    val SCRIPT_CONFIG_ROLLBACK: RedisScript<Boolean> = LuaScripts.load("config_rollback.lua", Boolean::class.java)
 }

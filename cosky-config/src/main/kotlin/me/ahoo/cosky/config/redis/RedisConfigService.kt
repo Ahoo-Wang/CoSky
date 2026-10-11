@@ -68,6 +68,17 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         return getAndDecodeConfig(configKey) { it.decodeAsConfig() }
     }
 
+    /**
+     * The keys every config write script declares: config index, config, config history index.
+     */
+    private fun configKeys(namespace: String, configId: String): List<String> {
+        return listOf(
+            getConfigIdxKey(namespace),
+            getConfigKey(namespace, configId),
+            getConfigHistoryIdxKey(namespace, configId),
+        )
+    }
+
     private fun ensureNamespacedConfigId(namespace: String, configId: String) {
         requireValidNamespace(namespace)
         require(configId.isNotBlank()) { "configId can not be blank!" }
@@ -81,8 +92,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_SET,
-            listOf(namespace),
-            listOf(configId, data, hash),
+            configKeys(namespace, configId),
+            listOf(namespace, configId, data, hash),
         ).next()
     }
 
@@ -93,8 +104,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_REMOVE,
-            listOf(namespace),
-            listOf(configId),
+            configKeys(namespace, configId),
+            listOf(namespace, configId),
         ).next()
     }
 
@@ -111,8 +122,8 @@ class RedisConfigService(private val redisTemplate: ReactiveStringRedisTemplate)
         }
         return redisTemplate.execute(
             ConfigRedisScripts.SCRIPT_CONFIG_ROLLBACK,
-            listOf(namespace),
-            listOf(configId, targetVersion.toString()),
+            configKeys(namespace, configId),
+            listOf(namespace, configId, targetVersion.toString()),
         ).next()
     }
 

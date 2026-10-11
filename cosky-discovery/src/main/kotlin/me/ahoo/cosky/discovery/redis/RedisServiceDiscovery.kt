@@ -13,6 +13,8 @@
 package me.ahoo.cosky.discovery.redis
 
 import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -38,8 +40,8 @@ class RedisServiceDiscovery(
         require(serviceId.isNotBlank()) { "serviceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCES,
+            listOf(getInstanceIdxKey(namespace, serviceId)),
             listOf(namespace),
-            listOf(serviceId),
         )
             .next()
             .map { instanceGroups ->
@@ -55,8 +57,8 @@ class RedisServiceDiscovery(
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE,
-            listOf(namespace),
-            listOf(serviceId, instanceId),
+            instanceKeys(namespace, serviceId, instanceId),
+            listOf(instanceId),
         )
             .map {
                 @Suppress("UNCHECKED_CAST")
@@ -77,9 +79,13 @@ class RedisServiceDiscovery(
         require(instanceId.isNotBlank()) { "instanceId is blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_GET_INSTANCE_TTL,
-            listOf(namespace),
-            listOf(serviceId, instanceId),
+            instanceKeys(namespace, serviceId, instanceId),
+            listOf(instanceId),
         ).next()
+    }
+
+    private fun instanceKeys(namespace: String, serviceId: String, instanceId: String): List<String> {
+        return listOf(getInstanceIdxKey(namespace, serviceId), getInstanceKey(namespace, instanceId))
     }
 
     override fun getServices(namespace: String): Mono<List<String>> {

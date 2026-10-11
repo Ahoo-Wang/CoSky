@@ -14,6 +14,10 @@ package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceStatKey
 import me.ahoo.cosky.discovery.NamespacedInstanceId
 import me.ahoo.cosky.discovery.RegistryProperties
 import me.ahoo.cosky.discovery.ServiceInstance
@@ -59,7 +63,12 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REGISTER,
-            listOf(namespace),
+            listOf(
+                getServiceIdxKey(namespace),
+                getServiceStatKey(namespace),
+                getInstanceIdxKey(namespace, serviceInstance.serviceId),
+                getInstanceKey(namespace, serviceInstance.instanceId),
+            ),
             values,
         ).next()
     }
@@ -72,7 +81,7 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_SERVICE,
-            listOf(namespace),
+            listOf(getServiceIdxKey(namespace), getServiceStatKey(namespace)),
             listOf(serviceId),
         ).next()
     }
@@ -85,7 +94,7 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_REMOVE_SERVICE,
-            listOf(namespace),
+            listOf(getServiceIdxKey(namespace), getServiceStatKey(namespace), getInstanceIdxKey(namespace, serviceId)),
             listOf(serviceId),
         ).next()
     }
@@ -129,7 +138,7 @@ class RedisServiceRegistry(
         key: String,
         value: String
     ): Mono<Boolean> {
-        val values = listOf(instanceId, encodeMetadataKey(key), value)
+        val values = listOf(encodeMetadataKey(key), value)
         return setMetadataInternal(namespace, instanceId, values)
     }
 
@@ -139,11 +148,7 @@ class RedisServiceRegistry(
         instanceId: String,
         metadata: Map<String, String>
     ): Mono<Boolean> {
-        val argVCapacity = 1 + metadata.size * 2
-        val values = buildList(argVCapacity) {
-            add(instanceId)
-            encodeMetadata(this, metadata)
-        }
+        val values = encodeMetadata(ArrayList(metadata.size * 2), metadata)
         return setMetadataInternal(namespace, instanceId, values)
     }
 
@@ -155,7 +160,7 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_SET_METADATA,
-            listOf(namespace),
+            listOf(getInstanceKey(namespace, instanceId)),
             args,
         )
             .next()
@@ -174,8 +179,8 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
-            listOf(namespace),
-            listOf(serviceInstance.instanceId, registryProperties.instanceTtl.seconds.toString()),
+            listOf(getInstanceKey(namespace, serviceInstance.instanceId)),
+            listOf(registryProperties.instanceTtl.seconds.toString()),
         )
             .flatMap { status ->
                 if (status <= 0) {
@@ -219,8 +224,8 @@ class RedisServiceRegistry(
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_DEREGISTER,
-            listOf(namespace),
-            listOf(serviceId, instanceId),
+            listOf(getInstanceIdxKey(namespace, serviceId), getInstanceKey(namespace, instanceId)),
+            listOf(instanceId),
         ).next()
     }
 }

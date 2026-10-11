@@ -1,65 +1,34 @@
--- Note: starting with Redis 5, the replication method described in this section (scripts effects replication) is the default and does not need to be explicitly enabled.
+-- Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+-- Licensed under the Apache License, Version 2.0.
+-- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+-- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+
 redis.replicate_commands();
+-- @include cosky/config/config_lib.lua
 
-local namespace = KEYS[1];
-local configId = ARGV[1];
-local targetVersion = ARGV[2];
+local configIdxKey = KEYS[1];
+local configKey = KEYS[2];
+local configHistoryIdxKey = KEYS[3];
+local namespace = ARGV[1];
+local configId = ARGV[2];
+local targetVersion = ARGV[3];
 local op = 'rollback';
-local versionField = "version";
-local hashField = "hash";
-local configIdxKey = namespace .. ":cfg_idx";
-local configHistoryIdxKey = namespace .. ":cfg_htr_idx:" .. configId;
-local configKey = namespace .. ":cfg:" .. configId;
 
-local function getConfigHistoryKey(version)
-    return namespace .. ":cfg_htr:" .. configId .. ":" .. tostring(version);
-end
-
-local targetConfigHistoryKey = getConfigHistoryKey(targetVersion);
-local targetHistoryConfigArray = redis.call("hgetall", targetConfigHistoryKey)
-if #targetHistoryConfigArray == 0 then
+local targetConfigHistoryKey = configHistoryKeyOf(namespace, configId, targetVersion);
+local target = redis.call('hmget', targetConfigHistoryKey, 'data', 'hash');
+local targetData = target[1];
+local targetHash = target[2];
+if not targetData then
     return 0;
 end
 
-local function arrayToDictionary(arrayTable)
-    local dicTable = {};
-    for idx, val in ipairs(arrayTable) do
-        if idx % 2 == 1 then
-            dicTable[val] = arrayTable[idx + 1]
-        end
-    end
-    return dicTable;
-end
-
-local function addHistory(currentVersion, configKey, op)
-    local configHistoryKey = getConfigHistoryKey(currentVersion);
-    redis.call("zadd", configHistoryIdxKey, currentVersion, configHistoryKey);
-    redis.call("rename", configKey, configHistoryKey);
-    local opTime = redis.call('time')[1];
-    return redis.call("hmset", configHistoryKey, 'op', op, "opTime", opTime);
-end
-
-local targetHistoryConfig = arrayToDictionary(targetHistoryConfigArray);
-
-local targetHash = targetHistoryConfig[hashField];
-
-local currentHash = redis.call("hget", configKey, hashField)
-if (currentHash ~= nil) and (currentHash == targetHash) then
+if redis.call('hget', configKey, 'hash') == targetHash then
     return 0;
 end
-local currentVersion = redis.call("hget", configKey, versionField)
-local nextVersion;
-if currentVersion then
-    nextVersion = currentVersion + 1;
-    addHistory(currentVersion, configKey, op)
-else
-    local lastHistoryVersion = redis.call('zrevrange', configHistoryIdxKey, 0, 0, 'WITHSCORES')
-    nextVersion = lastHistoryVersion[2] + 1;
-end
-redis.call("sadd", configIdxKey, configKey)
-local data = targetHistoryConfig["data"];
-local createTime = redis.call('time')[1];
 
-redis.call("hmset", configKey, "configId", configId, "data", data, hashField, targetHash, versionField, nextVersion, "createTime", createTime);
-redis.call("publish", configKey, op);
+local nextVersion = archiveAndNextVersion(namespace, configId, configKey, configHistoryIdxKey, op);
+redis.call('sadd', configIdxKey, configKey);
+writeConfig(configKey, configId, targetData, targetHash, nextVersion, op);
 return 1;

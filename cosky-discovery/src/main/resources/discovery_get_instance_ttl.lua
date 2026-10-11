@@ -1,36 +1,22 @@
--- Note: starting with Redis 5, the replication method described in this section (scripts effects replication) is the default and does not need to be explicitly enabled.
+-- Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+-- Licensed under the Apache License, Version 2.0.
+-- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+-- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+
 redis.replicate_commands();
 
-local namespace = KEYS[1];
-local serviceId = ARGV[1];
-local instanceId = ARGV[2];
-local instanceIdxKey = namespace .. ':svc_itc_idx:' .. serviceId;
+local instanceIdxKey = KEYS[1];
+local instanceKey = KEYS[2];
+local instanceId = ARGV[1];
+-- @include cosky/discovery/discovery_lib.lua
 
-if redis.call("sismember", instanceIdxKey, instanceId) == 0 then
+if redis.call('sismember', instanceIdxKey, instanceId) == 0 then
     return -2;
 end
-
-local function getInstanceKey(instanceId)
-    return namespace .. ":svc_itc:" .. instanceId;
-end
-
-local function ensureNotExpired(instanceIdxKey, instanceId)
-    local instanceKey = getInstanceKey(instanceId);
-    local instanceTtl = redis.call("ttl", instanceKey);
-    -- -2: The key doesn't exist | -1: The key is fixed | >0: ttl(second)
-    if instanceTtl == -2 then
-        local removed = redis.call("srem", instanceIdxKey, instanceId);
-        if removed > 0 then
-            redis.call("publish", instanceKey, "expired");
-        end
-    end
+local instanceTtl = ensureNotExpired(instanceIdxKey, instanceId, instanceKey);
+if instanceTtl < 0 then
     return instanceTtl;
 end
-
-local instanceTtl = ensureNotExpired(instanceIdxKey, instanceId);
-if instanceTtl == -1 or instanceTtl == -2 then
-    return instanceTtl;
-end
-local nowTime = redis.call('time')[1];
-local ttlAt = nowTime + instanceTtl;
-return ttlAt;
+return redis.call('time')[1] + instanceTtl;

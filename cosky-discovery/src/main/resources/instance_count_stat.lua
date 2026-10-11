@@ -1,33 +1,21 @@
-local namespace = KEYS[1];
-local serviceIdxKey = namespace .. ":svc_idx";
+-- Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+-- Licensed under the Apache License, Version 2.0.
+-- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+-- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+
+local serviceIdxKey = KEYS[1];
+local namespace = ARGV[1];
+-- @include cosky/discovery/discovery_lib.lua
 
 local instanceCount = 0;
-
-local function getInstanceIdxKey(serviceId)
-    return namespace .. ":svc_itc_idx:" .. serviceId;
-end
-
-local function getInstanceKey(instanceId)
-    return namespace .. ":svc_itc:" .. instanceId;
-end
-
-local function statInstance(serviceId)
-    local instanceIdxKey = getInstanceIdxKey(serviceId);
-    local instanceIds = redis.call("smembers", instanceIdxKey);
-    for index, instanceId in ipairs(instanceIds) do
-        local instanceKey = getInstanceKey(instanceId);
-        if redis.call("exists", instanceKey) == 1 then
+for _, serviceId in ipairs(redis.call('smembers', serviceIdxKey)) do
+    local instanceIdxKey = instanceIdxKeyOf(namespace, serviceId);
+    for _, instanceId in ipairs(redis.call('smembers', instanceIdxKey)) do
+        if ensureNotExpired(instanceIdxKey, instanceId, instanceKeyOf(namespace, instanceId)) ~= -2 then
             instanceCount = instanceCount + 1;
-        elseif redis.call("srem", instanceIdxKey, instanceId) > 0 then
-            redis.call("publish", instanceKey, "expired");
         end
     end
 end
-
-local serviceIds = redis.call("smembers", serviceIdxKey);
-
-for index, serviceId in ipairs(serviceIds) do
-    statInstance(serviceId)
-end
-
 return instanceCount;

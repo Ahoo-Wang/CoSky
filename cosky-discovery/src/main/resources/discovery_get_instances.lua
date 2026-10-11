@@ -1,46 +1,22 @@
--- Note: starting with Redis 5, the replication method described in this section (scripts effects replication) is the default and does not need to be explicitly enabled.
+-- Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+-- Licensed under the Apache License, Version 2.0.
+-- You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.
+-- Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an
+-- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+-- specific language governing permissions and limitations under the License.
+
 redis.replicate_commands();
 
-local namespace = KEYS[1];
-local serviceId = ARGV[1];
-local instanceIdxKey = namespace .. ':svc_itc_idx:' .. serviceId;
-local instanceIds = redis.call('smembers', instanceIdxKey);
+local instanceIdxKey = KEYS[1];
+local namespace = ARGV[1];
+-- @include cosky/discovery/discovery_lib.lua
+
 local instances = {};
-local instancesIdx = 0;
-
-local function getInstanceKey(instanceId)
-    return namespace .. ":svc_itc:" .. instanceId;
-end
-
-local function ensureNotExpired(instanceIdxKey, instanceId)
-    local instanceKey = getInstanceKey(instanceId);
-    local instanceTtl = redis.call("ttl", instanceKey);
-    -- -2: The key doesn't exist | -1: The key is fixed | >0: ttl(second)
-    if instanceTtl == -2 then
-        local removed = redis.call("srem", instanceIdxKey, instanceId);
-        if removed > 0 then
-            redis.call("publish", instanceKey, "expired");
-        end
-    end
-    return instanceTtl;
-end
-
-for index, instanceId in ipairs(instanceIds) do
-    local instanceTtl = ensureNotExpired(instanceIdxKey, instanceId);
+for _, instanceId in ipairs(redis.call('smembers', instanceIdxKey)) do
+    local instanceKey = instanceKeyOf(namespace, instanceId);
+    local instanceTtl = ensureNotExpired(instanceIdxKey, instanceId, instanceKey);
     if instanceTtl ~= -2 then
-        local instanceKey = getInstanceKey(instanceId);
-        local instanceData = redis.call('hgetall', instanceKey);
-        if instanceTtl > 0 then
-            instanceData[#instanceData + 1] = "ttl_at";
-            local nowTime = redis.call('time')[1];
-            local ttlAt = nowTime + instanceTtl;
-            instanceData[#instanceData + 1] = tostring(ttlAt);
-        end
-        instancesIdx = instancesIdx + 1;
-        instances[instancesIdx] = instanceData;
+        instances[#instances + 1] = readInstance(instanceKey, instanceTtl);
     end
 end
 return instances;
-
-
-
