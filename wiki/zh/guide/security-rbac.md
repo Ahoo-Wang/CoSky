@@ -210,7 +210,7 @@ classDiagram
     RbacService --> Role : 加载,保存
 ```
 
-`RbacService.getRole` 在每个授权请求中为每个角色调用，因此由 `ReactiveWatchCache` 提供。`saveRole` / `removeRole` 是原子的 Lua 脚本（`rbac_save_role.lua`、`rbac_remove_role.lua`），并在角色绑定 key 上发布变更，因此通过任一服务实例做的角色变更都会立即到达所有实例的缓存（[RbacService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt))。
+`RbacService.getRole` 在每个授权请求中为每个角色调用，因此由 `ReactiveWatchCache` 提供。`saveRole` / `removeRole` 是原子的 Lua 脚本（`rbac_save_role.lua`、`rbac_remove_role.lua`），并在角色绑定 key 上发布变更，因此通过任一服务实例做的角色变更都会立即到达所有实例的缓存（[RbacService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt)）。已不存在的角色不授予任何权限，但不会影响用户的其他角色：删除角色既不会解除用户绑定，也不会让携带该角色的令牌失效。
 
 <!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:39 -->
 
@@ -253,7 +253,7 @@ classDiagram
 
 - **用户索引**：Redis Hash（`cosky-{system}:user_idx`），将用户名映射到密码哈希。
 - **角色绑定**：Redis Set（`cosky-{system}:user_role_bind:{username}`），存储分配给每个用户的角色名称。
-- **密码哈希**：BCrypt（`spring-security-crypto`），在事件循环之外计算。旧版本写入的无盐 SHA-256 哈希仍以常量时间校验，并在下一次成功登录后替换为 BCrypt 哈希；替换是 compare-and-set（`user_password_cas.lua`），不会覆盖并发的改密（[PasswordHasher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/PasswordHasher.kt)）。
+- **密码哈希**：BCrypt（`spring-security-crypto`），在事件循环之外计算。旧版本写入的无盐 SHA-256 哈希仍以常量时间校验，并在下一次成功登录后替换为 BCrypt 哈希；替换是 compare-and-set（`user_password_cas.lua`），不会覆盖并发的改密。BCrypt 最多接受 72 字节：更长的新密码会被拒绝，更长密码的旧版哈希会保留（仍可校验），直到修改密码（[PasswordHasher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/PasswordHasher.kt)）。
 - **角色绑定**由 `user_bind_role.lua` 原子替换。
 - **登录锁定**：参见上方[登录锁定机制](#登录锁定机制)。每个锁定状态变更都由 `user_state.lua` 脚本原子执行。
 - **用户列表**：`query()` 返回每个用户的角色绑定及 `locked` 属性（手动锁定或超过失败次数阈值时为 `true`）。

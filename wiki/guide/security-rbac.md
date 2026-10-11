@@ -210,7 +210,7 @@ classDiagram
     RbacService --> Role : loads,saves
 ```
 
-`RbacService.getRole` runs for every role of every authorized request, so it is served from a `ReactiveWatchCache`. `saveRole` / `removeRole` are atomic Lua scripts (`rbac_save_role.lua`, `rbac_remove_role.lua`) that publish on the role's bindings key, so a role change made through any server instance reaches the caches of all of them immediately ([RbacService.kt]({U}{RB})).
+`RbacService.getRole` runs for every role of every authorized request, so it is served from a `ReactiveWatchCache`. `saveRole` / `removeRole` are atomic Lua scripts (`rbac_save_role.lua`, `rbac_remove_role.lua`) that publish on the role's bindings key, so a role change made through any server instance reaches the caches of all of them immediately ([RbacService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt)). A role that no longer exists grants nothing without failing the user's other roles: removing a role neither unbinds its users nor revokes the tokens that carry it.
 
 <!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Role.kt:20, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/ResourceAction.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/Action.kt:22, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/rbac/RbacService.kt:39 -->
 
@@ -253,7 +253,7 @@ Source: [AuditLogService.kt:28-99](https://github.com/Ahoo-Wang/CoSky/blob/main/
 
 - **User index**: A Redis Hash (`cosky-{system}:user_idx`) mapping usernames to password hashes.
 - **Role bindings**: A Redis Set (`cosky-{system}:user_role_bind:{username}`) storing role names assigned to each user.
-- **Password hashing**: BCrypt (`spring-security-crypto`), computed off the event loop. Unsalted SHA-256 hashes written by older versions are still verified in constant time and replaced by a BCrypt hash after the next successful login; the replacement is a compare-and-set (`user_password_cas.lua`) so a concurrent password change is never overwritten ([PasswordHasher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/PasswordHasher.kt)).
+- **Password hashing**: BCrypt (`spring-security-crypto`), computed off the event loop. Unsalted SHA-256 hashes written by older versions are still verified in constant time and replaced by a BCrypt hash after the next successful login; the replacement is a compare-and-set (`user_password_cas.lua`) so a concurrent password change is never overwritten. BCrypt accepts at most 72 bytes: longer new passwords are rejected, and a legacy hash of a longer password is kept (and still verified) until the password is changed ([PasswordHasher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/security/user/PasswordHasher.kt)).
 - **Role bindings** are replaced atomically by `user_bind_role.lua`.
 - **Login lockout**: See [Login Lockout Mechanism](#login-lockout-mechanism) above. Each lock-state transition is executed atomically by the `user_state.lua` script.
 - **User listing**: `query()` returns each user with role bindings and a `locked` attribute (`true` when manually locked or over the failed-attempt limit).
