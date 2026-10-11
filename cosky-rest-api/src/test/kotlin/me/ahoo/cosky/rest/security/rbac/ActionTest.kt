@@ -1,0 +1,44 @@
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package me.ahoo.cosky.rest.security.rbac
+
+import me.ahoo.cosky.rest.security.rbac.Action.Companion.asAction
+import me.ahoo.test.asserts.assert
+import me.ahoo.test.asserts.assertThrownBy
+import org.junit.jupiter.api.Test
+import org.springframework.http.HttpMethod
+
+class ActionTest {
+    @Test
+    fun parseStoredActions() {
+        "r".asAction().assert().isEqualTo(Action.READ)
+        "w".asAction().assert().isEqualTo(Action.WRITE)
+        "rw".asAction().assert().isEqualTo(Action.READ_WRITE)
+        assertThrownBy<IllegalStateException> { "x".asAction() }.hasMessage("Unexpected value: x")
+    }
+
+    @Test
+    fun mapHttpMethods() {
+        HttpMethod.GET.asAction().assert().isEqualTo(Action.READ)
+        HttpMethod.DELETE.asAction().assert().isEqualTo(Action.WRITE)
+        assertThrownBy<IllegalStateException> { HttpMethod.valueOf("PROPFIND").asAction() }
+            .hasMessage("Unexpected value: PROPFIND")
+    }
+
+    @Test
+    fun readWriteGrantsBoth() {
+        Action.READ_WRITE.check(Action.READ).assert().isTrue()
+        Action.READ_WRITE.check(Action.WRITE).assert().isTrue()
+        Action.READ.check(Action.WRITE).assert().isFalse()
+    }
+}

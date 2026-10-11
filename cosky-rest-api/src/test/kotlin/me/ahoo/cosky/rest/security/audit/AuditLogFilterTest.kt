@@ -39,6 +39,7 @@ class AuditLogFilterTest {
         AuditLogFilter(from = 1000, to = 3000, successful = false).matches(log).assert().isTrue()
         AuditLogFilter(from = 2001).matches(log).assert().isFalse()
         AuditLogFilter(successful = true).matches(log).assert().isFalse()
+        AuditLogFilter(successful = true).matches(log.copy(status = 200)).assert().isTrue()
     }
 
     @Test
