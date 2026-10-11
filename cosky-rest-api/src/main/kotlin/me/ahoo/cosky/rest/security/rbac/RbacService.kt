@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.rbac
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.Namespaced
 import me.ahoo.cosky.core.cache.ReactiveWatchCache
 import me.ahoo.cosky.core.cache.WatchCache
@@ -118,13 +119,31 @@ class RbacService(
             }
     }
 
+    /**
+     * The existing roles among [roleNames].
+     *
+     * A missing role grants nothing but never fails the others: removing a role neither unbinds its users nor
+     * revokes the tokens that carry it.
+     */
+    fun getRoles(roleNames: Set<String>): Flux<Role> {
+        return Flux.fromIterable(roleNames)
+            .flatMap { roleName ->
+                getRole(roleName).onErrorResume(NotFoundRoleException::class.java) {
+                    log.debug { "Role[$roleName] is not found, granting nothing." }
+                    Mono.empty()
+                }
+            }
+    }
+
     fun getRoleNamespaces(roles: Set<String>): Flux<String> {
-        return Flux.fromIterable(roles)
-            .flatMap { roleName -> getRole(roleName) }
+        return getRoles(roles)
             .flatMapIterable { (_, _, resourceActionBind) -> resourceActionBind.keys }
+            .distinct()
     }
 
     companion object {
+        private val log = KotlinLogging.logger {}
+
         /**
          * set.
          */
