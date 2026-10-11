@@ -138,7 +138,7 @@ logging:
 |----------|---------|-------------|
 | `spring.data.redis.url` | _（必填）_ | Redis 连接 URL |
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务/配置隔离的命名空间（[CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)） |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID（[CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48)） |
+| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID（[CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50)） |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 |
 | `spring.cloud.cosky.config.file-extension` | `yaml` | 配置查找的默认文件扩展名（[CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)） |
 
@@ -162,9 +162,9 @@ fun main(args: Array<String>) {
 
 就是这样。CoSky 的自动配置会处理其余一切。当应用启动时：
 
-1. **CoSkyAutoConfiguration** 从您的配置属性设置命名空间上下文（[CoSkyAutoConfiguration.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt#L33)）
-2. **CoSkyConfigBootstrapConfiguration** 从 Redis 加载您的配置到 Spring Environment（[CoSkyConfigBootstrapConfiguration.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L28)）
-3. **CoSkyDiscoveryAutoConfiguration** 自动注册您的服务实例（[CoSkyDiscoveryAutoConfiguration.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L42)）
+1. **CoSkyAutoConfiguration** 绑定 `CoSkyProperties`（包括每个组件使用的命名空间），并提供所有 CoSky 缓存共享的 Pub/Sub 监听容器（[CoSkyAutoConfiguration.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt#L33)）
+2. **CoSkyConfigBootstrapConfiguration** 从 Redis 加载您的配置到 Spring Environment（[CoSkyConfigBootstrapConfiguration.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L29)）
+3. **CoSkyDiscoveryAutoConfiguration** 自动注册您的服务实例（[CoSkyDiscoveryAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L50)）
 
 ## 启动流程
 
@@ -182,7 +182,7 @@ sequenceDiagram
 
     Note over Boot,Renew: Bootstrap 阶段
     Boot->>Auto: 加载 CoSkyAutoConfiguration
-    Auto->>Auto: 在 NamespacedContext 上设置命名空间
+    Auto->>Auto: 绑定 CoSkyProperties（命名空间）
 
     Boot->>PSL: locate(environment)
     PSL->>CS: getConfig(namespace, configId)

@@ -12,7 +12,7 @@ CoSky 是一个高性能的微服务治理平台，提供基于 Redis 的服务�
 
 | 模块 | 职责 | 关键文件 | 源码 |
 |--------|---------------|----------|--------|
-| `cosky-core` | 命名空间模型、Redis 键工具、事件监听器抽象、品牌常量 | `CoSky.kt`, `Namespaced.kt`, `NamespacedContext.kt`, `RedisKeys.kt`, `EventListenerContainer.kt` | [cosky-core/src/main/kotlin/me/ahoo/cosky/core](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core) |
+| `cosky-core` | 命名空间模型与校验、Redis 键工具、事件监听器抽象、`ReactiveWatchCache` 一致性原语、品牌常量 | `CoSky.kt`, `Namespaced.kt`, `RedisKeys.kt`, `EventListenerContainer.kt`, `cache/ReactiveWatchCache.kt` | [cosky-core/src/main/kotlin/me/ahoo/cosky/core](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core) |
 | `cosky-config` | 配置 CRUD、版本管理、回滚、变更事件 | `ConfigService.kt`, `ConfigKeyGenerator.kt`, `ConfigChangedEvent.kt` | [cosky-config/src/main/kotlin/me/ahoo/cosky/config](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config) |
 | `cosky-discovery` | 服务注册、发现、实例生命周期、拓扑 | `ServiceRegistry.kt`, `ServiceDiscovery.kt`, `DiscoveryKeyGenerator.kt` | [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery) |
 | `cosky-spring-cloud-core` | Spring Boot 自动配置、命名空间属性、Redis 模板装配 | `CoSkyAutoConfiguration.kt`, `CoSkyProperties.kt` | [cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud) |
@@ -112,7 +112,7 @@ CoSky 中的所有数据都使用一致的键命名策略存储在 Redis 中。�
 
 | 领域 | 键模式 | Redis 类型 | 用途 | 源码 |
 |--------|------------|------------|---------|--------|
-| 命名空间索引 | `{cosky-system}:ns_idx` | SET | 存储所有已注册的命名空间 | [RedisNamespaceService.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L28) |
+| 命名空间索引 | `{cosky-system}:ns_idx` | SET | 存储所有已注册的命名空间 | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
 | 服务索引 | `{namespace}:svc_idx` | SET | 存储命名空间中的所有服务 ID | [DiscoveryKeyGenerator.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L32) |
 | 实例索引 | `{namespace}:svc_itc_idx:{serviceId}` | SET | 存储服务的实例 ID | [DiscoveryKeyGenerator.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L55) |
 | 实例数据 | `{namespace}:svc_itc:{instanceId}` | STRING（带 TTL） | 编码的实例详情，临时实例会过期 | [DiscoveryKeyGenerator.kt:63](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L63) |
@@ -143,7 +143,7 @@ sequenceDiagram
     C->>C: 更新本地缓存 /<br>刷新 Spring Environment
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:17-51, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:14-30 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:17-42, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30 -->
 
 ## 技术栈
 
@@ -178,7 +178,7 @@ stateDiagram-v2
     Expired --> [*]
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:34-97 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:93-100, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:37-97 -->
 
 ### Lua 脚本保证原子性
 
@@ -243,7 +243,7 @@ flowchart LR
 
 - [CoSky.kt -- 品牌常量（COSKY, KEY_SEPARATOR）](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt)
 - [Namespaced.kt -- 默认和系统命名空间常量](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt)
-- [NamespacedContext.kt -- 线程作用域的命名空间上下文](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt)
+- [ReactiveWatchCache.kt -- 事件驱动的本地缓存原语](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt)
 - [NamespaceService.kt -- 命名空间 CRUD 接口](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt)
 - [RedisNamespaceService.kt -- 基于 Redis SET 的命名空间存储](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt)
 - [RedisKeys.kt -- 集群 hashtag 工具](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)

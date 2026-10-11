@@ -11,10 +11,10 @@ CoSky's Spring Cloud Config Starter bridges the gap between CoSky's Redis-backed
 | Component | Responsibility | Key File | Source |
 |---|---|---|---|
 | **CoSkyConfigProperties** | Binds `spring.cloud.cosky.config.*` properties | `CoSkyConfigProperties.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigProperties.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L25) |
-| **CoSkyConfigBootstrapConfiguration** | Bootstrap entry point; creates `PropertySourceLocator` | `CoSkyConfigBootstrapConfiguration.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigBootstrapConfiguration.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L27) |
-| **CoSkyConfigAutoConfiguration** | Wires `ConfigService`, event listener, and refresher beans | `CoSkyConfigAutoConfiguration.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigAutoConfiguration.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L43) |
-| **CoSkyPropertySourceLocator** | Loads config from Redis into Spring `Environment` | `CoSkyPropertySourceLocator.kt` | [cosky-spring-cloud-starter-config/.../CoSkyPropertySourceLocator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L35) |
-| **CoSkyConfigRefresher** | Listens for config changes and triggers Spring `RefreshEvent` | `CoSkyConfigRefresher.kt` | [cosky-spring-cloud-starter-config/.../refresh/CoSkyConfigRefresher.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L33) |
+| **CoSkyConfigBootstrapConfiguration** | Bootstrap entry point; creates `PropertySourceLocator` | `CoSkyConfigBootstrapConfiguration.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigBootstrapConfiguration.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L28) |
+| **CoSkyConfigAutoConfiguration** | Wires `ConfigService`, event listener, and refresher beans | `CoSkyConfigAutoConfiguration.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigAutoConfiguration.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L45) |
+| **CoSkyPropertySourceLocator** | Loads config from Redis into Spring `Environment` | `CoSkyPropertySourceLocator.kt` | [cosky-spring-cloud-starter-config/.../CoSkyPropertySourceLocator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L36) |
+| **CoSkyConfigRefresher** | Watches the cached config and triggers Spring `RefreshEvent` after the cache is updated | `CoSkyConfigRefresher.kt` | [cosky-spring-cloud-starter-config/.../refresh/CoSkyConfigRefresher.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L36) |
 | **ConditionalOnCoSkyConfigEnabled** | Conditional activation based on `enabled` property | `ConditionalOnCoSkyConfigEnabled.kt` | [cosky-spring-cloud-starter-config/.../ConditionalOnCoSkyConfigEnabled.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/ConditionalOnCoSkyConfigEnabled.kt#L29) |
 
 ## Configuration Properties
@@ -69,14 +69,14 @@ flowchart TB
     style H fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style I fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt:27, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:43 -->
+<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt:28, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:45 -->
 
 ## Config Loading Flow
 
-The `CoSkyPropertySourceLocator` implements Spring Cloud's `PropertySourceLocator` interface ([CoSkyPropertySourceLocator.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L38)). During the bootstrap phase, Spring calls `locate(Environment)` on every registered locator. The locator:
+The `CoSkyPropertySourceLocator` implements Spring Cloud's `PropertySourceLocator` interface ([CoSkyPropertySourceLocator.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L39)). During the bootstrap phase, Spring calls `locate(Environment)` on every registered locator. The locator:
 
-1. Resolves the **config ID** -- if `configId` is blank, it defaults to `{appName}.{fileExtension}` as computed in [CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48).
-2. Fetches the config data from Redis via `ConfigService.getConfig(namespace, configId)` ([CoSkyPropertySourceLocator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L60)).
+1. Resolves the **config ID** -- if `configId` is blank, it defaults to `{appName}.{fileExtension}` as computed in [CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50).
+2. Fetches the config data via `ConfigService.getConfig(namespace, configId)`, in the namespace of `CoSkyProperties` ([CoSkyPropertySourceLocator.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L62)).
 3. Selects the appropriate `PropertySourceLoader` based on the file extension (e.g. `YamlPropertySourceLoader` for `.yaml`).
 4. Parses the raw config data into a `PropertySource` and adds it to the Spring `Environment`.
 
@@ -99,11 +99,11 @@ sequenceDiagram
     Locator->>Locator: parse YAML into PropertySource
     Locator-->>Bootstrap: OriginTrackedMapPropertySource
 ```
-<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:50, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:48 -->
+<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:52, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:50 -->
 
 ## Config Refresh Mechanism
 
-Once the application is running, config changes made in Redis are automatically propagated to the application. The `CoSkyConfigRefresher` ([CoSkyConfigRefresher.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L33)) subscribes to the `ConfigEventListenerContainer` after the `ApplicationReadyEvent` fires. When a config change event arrives, it publishes a Spring `RefreshEvent` which triggers the re-initialization of all `@RefreshScope` beans.
+Once the application is running, config changes made in Redis are automatically propagated to the application. The `CoSkyConfigRefresher` ([CoSkyConfigRefresher.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L36)) watches the application's config through `ConfigWatcher.watchConfig` after the `ApplicationReadyEvent` fires. Each new snapshot is emitted only once the local consistency cache holds it, so the `RefreshEvent` it publishes re-initializes `@RefreshScope` beans with the new values, never the stale ones. The first snapshot (the config the application started with) is skipped.
 
 ```mermaid
 sequenceDiagram
@@ -111,21 +111,23 @@ sequenceDiagram
     participant User as Admin / API
     participant Redis as Redis
     participant Listener as ConfigEventListenerContainer
+    participant Cache as RedisConsistencyConfigService
     participant Refresher as CoSkyConfigRefresher
     participant Context as ApplicationContext
     participant Beans as @RefreshScope Beans
 
     User->>Redis: update config (SET)
     Redis-->>Listener: config change event
-    Listener-->>Refresher: ConfigEvent
-    Refresher->>Refresher: log change event
+    Listener-->>Cache: ConfigChangedEvent
+    Cache->>Redis: reload config, publish snapshot
+    Cache-->>Refresher: watchConfig() emits the new snapshot
     Refresher->>Context: publishEvent(RefreshEvent)
     Context->>Beans: destroy & re-initialize
     Beans-->>Context: refreshed with new values
 ```
-<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:46, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:84 -->
+<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:56, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:87 -->
 
-The refresher is wired as a bean in [CoSkyConfigAutoConfiguration.kt:84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L84). It uses an `AtomicBoolean` guard ([CoSkyConfigRefresher.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L39)) to ensure the subscription is only established once, even if multiple `ApplicationReadyEvent` instances are fired.
+The refresher is wired as a bean in [CoSkyConfigAutoConfiguration.kt:87](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L87). It establishes the watch only once even if multiple `ApplicationReadyEvent` instances are fired, and disposes it when the context closes ([CoSkyConfigRefresher.kt:56](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L56)).
 
 ## Class Diagram
 
@@ -159,8 +161,9 @@ classDiagram
     class CoSkyConfigRefresher {
         -coSkyProperties: CoSkyProperties
         -configProperties: CoSkyConfigProperties
-        -configEventListenerContainer: ConfigEventListenerContainer
+        -configWatcher: ConfigWatcher
         +onApplicationEvent(ApplicationReadyEvent)
+        +destroy()
     }
 
     class ConditionalOnCoSkyConfigEnabled {
@@ -173,7 +176,7 @@ classDiagram
     CoSkyPropertySourceLocator --> CoSkyConfigProperties : reads
     CoSkyPropertySourceLocator --> ConfigService : fetches config
     CoSkyConfigAutoConfiguration --> CoSkyConfigRefresher : creates
-    CoSkyConfigRefresher --> ConfigEventListenerContainer : subscribes
+    CoSkyConfigRefresher --> ConfigWatcher : watches
 
     style CoSkyConfigProperties fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style CoSkyConfigAutoConfiguration fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -182,7 +185,7 @@ classDiagram
     style CoSkyConfigRefresher fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style ConditionalOnCoSkyConfigEnabled fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt:25, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:43, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt:27, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:35, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:33, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/ConditionalOnCoSkyConfigEnabled.kt:29 -->
+<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt:25, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:45, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt:28, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:36, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:36, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/ConditionalOnCoSkyConfigEnabled.kt:29 -->
 
 ## YAML Configuration Example
 

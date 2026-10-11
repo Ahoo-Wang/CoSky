@@ -12,27 +12,27 @@ CoSky 的服务发现层使消费者能够在运行时定位可用的服务实�
 | **标准实现** | `RedisServiceDiscovery` |
 | **一致性层** | `ConsistencyRedisServiceDiscovery` |
 | **统计** | `RedisServiceStatistic` |
-| **一致性机制** | 本地缓存 + Redis PubSub 事件驱动更新 |
-| **并发模型** | 响应式（`Flux<ServiceInstance>`、`Mono<ServiceInstance>`） |
+| **一致性机制** | `ReactiveWatchCache` 快照 + Redis PubSub 事件驱动更新 |
+| **并发模型** | 响应式快照（`Mono<List<ServiceInstance>>`、`Mono<ServiceInstance>`） |
 
 ## ServiceDiscovery 接口
 
-[`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt) 接口定义了四个用于定位服务和实例的核心操作。
+[`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt) 接口定义了四个用于定位服务和实例的核心操作。每个方法都显式接收命名空间，不存在进程级的默认命名空间。
 
 | 方法 | 返回类型 | 描述 | 源码 |
 |---|---|---|---|
-| `getServices` | `Flux<String>` | 列出命名空间中所有已注册的服务 ID | [ServiceDiscovery.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L25) |
-| `getInstances` | `Flux<ServiceInstance>` | 列出指定服务 ID 的所有实例 | [ServiceDiscovery.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L26) |
-| `getInstance` | `Mono<ServiceInstance>` | 通过服务 ID 和实例 ID 获取特定实例 | [ServiceDiscovery.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L27) |
-| `getInstanceTtl` | `Mono<Long>` | 返回特定实例的 TTL 过期时间戳 | [ServiceDiscovery.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L33) |
+| `getServices` | `Mono<List<String>>` | 命名空间中服务 ID 的快照 | [ServiceDiscovery.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L26) |
+| `getInstances` | `Mono<List<ServiceInstance>>` | 服务存活实例的快照。带缓存的实现在快照未变化时返回同一个列表对象 | [ServiceDiscovery.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L33) |
+| `getInstance` | `Mono<ServiceInstance>` | 通过服务 ID 和实例 ID 获取特定实例 | [ServiceDiscovery.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L34) |
+| `getInstanceTtl` | `Mono<Long>` | 返回特定实例的 TTL 过期时间戳 | [ServiceDiscovery.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L40) |
 
 ## RedisServiceDiscovery
 
 [`RedisServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt) 是标准实现，每次请求都直接从 Redis 读取实例数据：
 
-- `getServices` 使用 `SMEMBERS` 从 `svc_idx` SET 读取 ([RedisServiceDiscovery.kt:89](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L89))。
+- `getServices` 使用 `SMEMBERS` 从 `svc_idx` SET 读取 ([RedisServiceDiscovery.kt:85](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L85))。
 - `getInstances` 执行 `discovery_get_instances.lua` Lua 脚本，从 `svc_itc_idx:{serviceId}` SET 读取所有实例键并返回其哈希数据 ([RedisServiceDiscovery.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L39))。
-- `getInstance` 执行 `discovery_get_instance.lua` 获取单个实例的哈希字段 ([RedisServiceDiscovery.kt:56](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L56))。
+- `getInstance` 执行 `discovery_get_instance.lua` 获取单个实例的哈希字段 ([RedisServiceDiscovery.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L52))。
 - 所有结果使用 [`ServiceInstanceCodec.decode`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57) 解码。
 
 ## ConsistencyRedisServiceDiscovery
@@ -41,23 +41,25 @@ CoSky 的服务发现层使消费者能够在运行时定位可用的服务实�
 
 ### 架构
 
-一致性层维护两个 `ConcurrentHashMap` 缓存：
-- `namespaceMapServices`：按命名空间缓存服务列表，通过服务变更事件失效 ([ConsistencyRedisServiceDiscovery.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L57))。
-- `serviceMapInstances`：按 `NamespacedServiceId` 缓存实例，通过实例变更事件增量更新 ([ConsistencyRedisServiceDiscovery.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L54))。
+一致性层持有两个 [`ReactiveWatchCache`](./config-consistency.md)（[ConsistencyRedisServiceDiscovery.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L51)，[ConsistencyRedisServiceDiscovery.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L58)）：
+- **服务**：按命名空间缓存，每个服务变更事件触发重新加载。
+- **实例**：按 `NamespacedServiceId` 缓存为**不可变列表**，由实例变更事件增量更新。
+
+每个缓存先订阅变更通道，订阅生效后才加载初始快照，因此首次读取后紧接着的注册不会丢失。事件逐个应用；快照未变化时就是同一个 `List` 对象——[负载均衡器](./load-balancers.md)依赖这一点复用选择器。`getInstances` 会过滤掉 `ttlAt` 已过期的实例（[ConsistencyRedisServiceDiscovery.kt:71](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L71)）。
 
 ### 事件驱动缓存更新
 
-当实例发生变更（注册、注销、续约、设置元数据、过期）时，[`InstanceChangedEvent`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt) 处理器将变更应用到本地缓存：
+当实例发生变更（注册、注销、续约、设置元数据、过期）时，[`InstanceChangedEvent`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt) 会对照 Redis 的当前状态解析，生成下一个快照：
 
-| 事件 | 缓存操作 |
+| 事件 | 快照变化 |
 |---|---|
-| `REGISTER` | 从委托者获取完整实例，添加到缓存集合 |
-| `RENEW` | 从委托者获取 TTL，更新缓存实例的 `ttlAt` |
-| `SET_METADATA` | 从委托者获取完整实例，替换缓存集合中的条目 |
-| `DEREGISTER` | 从缓存集合中移除 |
-| `EXPIRED` | 从缓存集合中移除 |
+| `REGISTER` | 从委托者获取实例并插入或替换（实例已不存在则移除） |
+| `RENEW` | 获取 TTL，用新的 `ttlAt` 替换实例（实例键已不存在则移除） |
+| `SET_METADATA` | 从委托者获取实例并替换 |
+| `DEREGISTER` | 移除实例 |
+| `EXPIRED` | 移除实例 |
 
-这种增量方式避免了每次变更时的全量缓存重建 ([ConsistencyRedisServiceDiscovery.kt:138](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L138))。
+每次变更都是幂等且读穿透的，因此即使应用的事件已被初始加载观察到也无害（[ConsistencyRedisServiceDiscovery.kt:99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L99)）。变更后快照不变时不会发布任何内容。
 
 ### 性能
 
@@ -80,7 +82,7 @@ CoSky 的服务发现层使消费者能够在运行时定位可用的服务实�
 | `getServiceStats(namespace)` | `Flux<ServiceStat>` | 返回所有服务统计（服务 ID + 实例数） |
 | `getInstanceCount(namespace)` | `Mono<Long>` | 返回所有服务的实例总数 |
 
-[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) 通过执行 Lua 脚本并监听实例变更事件来实现。它过滤掉 `RENEW` 事件，因为续约不会改变实例数 ([RedisServiceStatistic.kt:56](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L56))。
+[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) 通过执行 Lua 脚本并监听实例变更事件来实现。它过滤掉 `RENEW` 事件，因为续约不会改变实例数 ([RedisServiceStatistic.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L57))。
 
 每个 [`ServiceStat`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt) 包含：
 - `serviceId: String` -- 服务标识符
@@ -105,15 +107,15 @@ sequenceDiagram
     Redis-->>RSD: 字段-值数组列表
     RSD->>Codec: 对每个实例执行 decode(instanceData)
     Codec-->>RSD: ServiceInstance
-    RSD-->>Client: Flux~ServiceInstance~
+    RSD-->>Client: Mono~List~ServiceInstance~~
 
     Client->>RSD: getServices(namespace)
     RSD->>Redis: SMEMBERS {namespace}:svc_idx
     Redis-->>RSD: 服务 ID 集合
-    RSD-->>Client: Flux~String~
+    RSD-->>Client: Mono~List~String~~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:89, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:85, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
 
 ### 一致性缓存更新流程
 
@@ -122,33 +124,32 @@ sequenceDiagram
     autonumber
     participant Client as 消费者
     participant CRSD as ConsistencyRedisServiceDiscovery
-    participant Cache as 本地缓存 (CMap)
+    participant Cache as ReactiveWatchCache
     participant PubSub as Redis PubSub
     participant Delegate as RedisServiceDiscovery
 
     Note over Client,Delegate: 初始加载
     Client->>CRSD: getInstances(namespace, serviceId)
-    CRSD->>Cache: computeIfAbsent(NamespacedServiceId)
-    CRSD->>PubSub: 订阅实例变更事件
-    CRSD->>Delegate: getInstances(namespace, serviceId)
-    Delegate-->>CRSD: ServiceInstance 列表
-    CRSD->>Cache: 存储为 CopyOnWriteArraySet（缓存 Mono）
-    CRSD-->>Client: Flux~ServiceInstance~
+    CRSD->>Cache: get(NamespacedServiceId)
+    Cache->>PubSub: PSUBSCRIBE 实例通道（等待生效）
+    Cache->>Delegate: getInstances(namespace, serviceId)
+    Delegate-->>Cache: ServiceInstance 列表
+    Note over Cache: 发布 Snapshot v1（不可变列表）
+    CRSD-->>Client: Mono~List~ServiceInstance~~
 
-    Note over Client,Delegate: 事件驱动缓存更新
-    PubSub->>CRSD: InstanceChangedEvent (REGISTER)
-    CRSD->>Cache: 查找服务的缓存实例
-    CRSD->>Delegate: getInstance(namespace, serviceId, instanceId)
-    Delegate-->>CRSD: ServiceInstance
-    CRSD->>Cache: 在 CopyOnWriteArraySet 中添加/替换实例
+    Note over Client,Delegate: 事件驱动更新（串行）
+    PubSub->>Cache: InstanceChangedEvent (REGISTER)
+    Cache->>Delegate: getInstance(namespace, serviceId, instanceId)
+    Delegate-->>Cache: ServiceInstance
+    Note over Cache: 发布 Snapshot v2 = v1 + 实例
 
     Note over Client,Delegate: 后续读取（缓存命中）
     Client->>CRSD: getInstances(namespace, serviceId)
-    CRSD->>Cache: 获取缓存的 CopyOnWriteArraySet
-    CRSD-->>Client: Flux~ServiceInstance~（来自缓存，过滤 !isExpired）
+    CRSD->>Cache: 当前快照
+    CRSD-->>Client: 未变化时返回同一个 List（过滤已过期实例）
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:86, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:138, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:54 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:71, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:142 -->
 
 ### 统计收集流程
 
@@ -172,7 +173,7 @@ sequenceDiagram
     RSS-->>Event: Flux~ServiceStat~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:52, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:96, cosky-discovery/src/main/resources/service_stat.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:53, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97, cosky-discovery/src/main/resources/service_stat.lua -->
 
 ## 架构图
 
@@ -184,8 +185,8 @@ flowchart TB
     end
 
     subgraph ConsistencyRedisServiceDiscovery
-        CS["服务缓存<br>ConcurrentHashMap"]
-        CI["实例缓存<br>CopyOnWriteArraySet"]
+        CS["服务缓存<br>ReactiveWatchCache"]
+        CI["实例缓存<br>ReactiveWatchCache<br>不可变快照"]
     end
 
     subgraph RedisServiceDiscovery
@@ -216,7 +217,7 @@ flowchart TB
     style Redis fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:43, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
 
 ## 相关页面
 

@@ -11,11 +11,11 @@ The CoSky REST API Server is a Spring Boot WebFlux application that exposes the 
 | Component | Responsibility | Key File | Source |
 |-----------|---------------|----------|--------|
 | Server entry point | Spring Boot application bootstrap | `RestApiServer.kt` | [cosky-rest-api/.../RestApiServer.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L23) |
-| Config API | Configuration CRUD, versioning, import/export | `ConfigController.kt` | [cosky-rest-api/.../ConfigController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L54) |
-| Service API | Service registry, discovery, load balancing | `ServiceController.kt` | [cosky-rest-api/.../ServiceController.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L40) |
-| Namespace API | Multi-tenant namespace management | `NamespaceController.kt` | [cosky-rest-api/.../NamespaceController.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L39) |
+| Config API | Configuration CRUD, versioning, import/export | `ConfigController.kt` | [cosky-rest-api/.../ConfigController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L57) |
+| Service API | Service registry, discovery, load balancing | `ServiceController.kt` | [cosky-rest-api/.../ServiceController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L42) |
+| Namespace API | Multi-tenant namespace management | `NamespaceController.kt` | [cosky-rest-api/.../NamespaceController.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L38) |
 | Stat API | Service statistics and topology | `StatController.kt` | [cosky-rest-api/.../StatController.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt#L37) |
-| Stat Scheduler | Distributed scheduled statistics aggregation | `StatServiceScheduler.kt` | [cosky-rest-api/.../StatServiceScheduler.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L33) |
+| Stat Scheduler | Distributed scheduled statistics aggregation | `StatServiceScheduler.kt` | [cosky-rest-api/.../StatServiceScheduler.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L32) |
 
 ## Server Entry Point
 
@@ -40,38 +40,38 @@ All endpoints share the `/v1` prefix. The following tables group them by domain.
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/namespaces/{namespace}/configs` | List all config IDs | `getConfigs` | [ConfigController.kt:65](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L65) |
-| PUT | `/v1/namespaces/{namespace}/configs/{configId}` | Create or update a config | `setConfig` | [ConfigController.kt:168](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L168) |
-| DELETE | `/v1/namespaces/{namespace}/configs/{configId}` | Delete a config | `removeConfig` | [ConfigController.kt:177](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L177) |
-| GET | `/v1/namespaces/{namespace}/configs/{configId}` | Get config content | `getConfig` | [ConfigController.kt:182](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L182) |
-| PUT | `/v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}` | Rollback to a target version | `rollback` | [ConfigController.kt:187](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L187) |
-| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions` | List config version history | `getConfigVersions` | [ConfigController.kt:196](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L196) |
-| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions/{version}` | Get a specific version's data | `getConfigHistory` | [ConfigController.kt:204](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L204) |
-| POST | `/v1/namespaces/{namespace}/configs` (multipart) | Import configs from ZIP | `importZip` | [ConfigController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L69) |
-| GET | `/v1/namespaces/{namespace}/configs/export` | Export all configs as ZIP | `exportZip` | [ConfigController.kt:150](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L150) |
+| GET | `/v1/namespaces/{namespace}/configs` | List all config IDs | `getConfigs` | [ConfigController.kt:70](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L70) |
+| PUT | `/v1/namespaces/{namespace}/configs/{configId}` | Create or update a config | `setConfig` | [ConfigController.kt:143](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L143) |
+| DELETE | `/v1/namespaces/{namespace}/configs/{configId}` | Delete a config | `removeConfig` | [ConfigController.kt:152](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L152) |
+| GET | `/v1/namespaces/{namespace}/configs/{configId}` | Get config content | `getConfig` | [ConfigController.kt:157](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L157) |
+| PUT | `/v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}` | Rollback to a target version | `rollback` | [ConfigController.kt:162](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L162) |
+| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions` | List config version history | `getConfigVersions` | [ConfigController.kt:171](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L171) |
+| GET | `/v1/namespaces/{namespace}/configs/{configId}/versions/{version}` | Get a specific version's data | `getConfigHistory` | [ConfigController.kt:179](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L179) |
+| POST | `/v1/namespaces/{namespace}/configs` (multipart) | Import configs from ZIP (upload up to 10 MB, unzipped up to 64 MB) | `importZip` | [ConfigController.kt:74](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L74) |
+| GET | `/v1/namespaces/{namespace}/configs/export` | Export all configs as ZIP | `exportZip` | [ConfigController.kt:125](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L125) |
 
 ### Service Endpoints
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/namespaces/{namespace}/services` | List all service IDs | `getServices` | [ServiceController.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L47) |
-| PUT | `/v1/namespaces/{namespace}/services/{serviceId}` | Create a service entry | `setService` | [ServiceController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L52) |
-| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}` | Remove a service | `removeService` | [ServiceController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L57) |
-| GET | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | List instances of a service | `getInstances` | [ServiceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L62) |
-| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | Register a service instance | `register` | [ServiceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L67) |
-| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}` | Deregister a service instance | `deregister` | [ServiceController.kt:76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L76) |
-| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata` | Set instance metadata | `setMetadata` | [ServiceController.kt:84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L84) |
-| GET | `/v1/namespaces/{namespace}/services/stats` | Get service statistics | `getServiceStats` | [ServiceController.kt:95](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L95) |
-| GET | `/v1/namespaces/{namespace}/services/{serviceId}/lb` | Load-balancer choose instance | `choose` | [ServiceController.kt:100](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L100) |
+| GET | `/v1/namespaces/{namespace}/services` | List all service IDs | `getServices` | [ServiceController.kt:49](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L49) |
+| PUT | `/v1/namespaces/{namespace}/services/{serviceId}` | Create a service entry | `setService` | [ServiceController.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L54) |
+| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}` | Remove a service | `removeService` | [ServiceController.kt:59](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L59) |
+| GET | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | List instances of a service | `getInstances` | [ServiceController.kt:64](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L64) |
+| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances` | Register a service instance | `register` | [ServiceController.kt:69](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L69) |
+| DELETE | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}` | Deregister a service instance | `deregister` | [ServiceController.kt:78](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L78) |
+| PUT | `/v1/namespaces/{namespace}/services/{serviceId}/instances/{instanceId}/metadata` | Set instance metadata | `setMetadata` | [ServiceController.kt:86](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L86) |
+| GET | `/v1/namespaces/{namespace}/services/stats` | Get service statistics | `getServiceStats` | [ServiceController.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L97) |
+| GET | `/v1/namespaces/{namespace}/services/{serviceId}/lb` | Load-balancer choose instance | `choose` | [ServiceController.kt:102](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L102) |
 
 ### Namespace Endpoints
 
 | Method | Path | Description | Controller Method | Source |
 |--------|------|-------------|-------------------|--------|
-| GET | `/v1/namespaces` | List namespaces (role-scoped) | `getNamespaces` | [NamespaceController.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L41) |
-| GET | `/v1/namespaces/current` | Get current context namespace | `current` | [NamespaceController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L52) |
-| PUT | `/v1/namespaces/{namespace}` | Create a namespace | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
-| DELETE | `/v1/namespaces/{namespace}` | Remove a namespace | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
+| GET | `/v1/namespaces` | List namespaces (role-scoped) | `getNamespaces` | [NamespaceController.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L44) |
+| GET | `/v1/namespaces/current` | Get current context namespace | `current` | [NamespaceController.kt:55](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L55) |
+| PUT | `/v1/namespaces/{namespace}` | Create a namespace | `setNamespace` | [NamespaceController.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L60) |
+| DELETE | `/v1/namespaces/{namespace}` | Remove a namespace | `removeNamespace` | [NamespaceController.kt:65](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L65) |
 
 > [!IMPORTANT]
 > The REST API passes `{namespace}` to namespace storage and Redis key generators exactly as supplied; it does not add or normalize Redis hash tags. Spring Cloud clients behave differently: `CoSkyProperties` always converts a configured plain namespace such as `dev` to the effective value `{dev}`, regardless of Redis topology. Use an explicit namespace with a non-empty hash tag—even with standalone Redis—such as `{dev}`, `{prod}`, or `cosky-{dev}`. Use that effective tagged value consistently in namespace endpoints, config and service URLs, current-namespace selection, RBAC bindings, and Spring clients.
@@ -154,7 +154,7 @@ sequenceDiagram
     ConfigController-->>Client: 200 true
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:54, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:168 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:57, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt:143 -->
 
 ### Service Registration via REST
 
@@ -181,7 +181,7 @@ sequenceDiagram
     ServiceController-->>Client: 200 true
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:67, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:76 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:69, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt:78 -->
 
 ## Architecture
 
@@ -220,7 +220,7 @@ flowchart TB
     CoSecAuth --> c
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:23, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:33, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:23, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:32, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
 
 ## StatServiceScheduler
 
@@ -233,7 +233,7 @@ Key behaviors:
 - **Namespace iteration**: On each tick it iterates all namespaces and calls `ServiceStatistic.statService()` to aggregate service metrics into Redis.
 - **Current namespace guard**: Ensures the current context namespace is always present in the namespace list.
 
-Source: [cosky-rest-api/.../StatServiceScheduler.kt:33-84](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L33)
+Source: [cosky-rest-api/.../StatServiceScheduler.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt#L32)
 
 ## Configuration
 

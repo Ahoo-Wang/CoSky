@@ -138,7 +138,7 @@ The example relies on Spring Boot's default Redis connection (`localhost:6379`);
 |----------|---------|-------------|
 | `spring.data.redis.url` | _(required)_ | Redis connection URL |
 | `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace for service/config isolation ([CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)) |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load ([CoSkyConfigAutoConfiguration.kt:48](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L48)) |
+| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load ([CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50)) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup |
 | `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension for config lookup ([CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)) |
 
@@ -162,9 +162,9 @@ fun main(args: Array<String>) {
 
 That's it. CoSky's auto-configuration handles everything else. When the application starts:
 
-1. **CoSkyAutoConfiguration** sets the namespace context from your properties ([CoSkyAutoConfiguration.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt#L33))
-2. **CoSkyConfigBootstrapConfiguration** loads your config from Redis into the Spring Environment ([CoSkyConfigBootstrapConfiguration.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L28))
-3. **CoSkyDiscoveryAutoConfiguration** auto-registers your service instance ([CoSkyDiscoveryAutoConfiguration.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L42))
+1. **CoSkyAutoConfiguration** binds `CoSkyProperties` (including the namespace every component uses) and provides the Pub/Sub listener container shared by all CoSky caches ([CoSkyAutoConfiguration.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt#L33))
+2. **CoSkyConfigBootstrapConfiguration** loads your config from Redis into the Spring Environment ([CoSkyConfigBootstrapConfiguration.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L29))
+3. **CoSkyDiscoveryAutoConfiguration** auto-registers your service instance ([CoSkyDiscoveryAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L50))
 
 ## Startup Flow
 
@@ -182,7 +182,7 @@ sequenceDiagram
 
     Note over Boot,Renew: Bootstrap Phase
     Boot->>Auto: load CoSkyAutoConfiguration
-    Auto->>Auto: set namespace on NamespacedContext
+    Auto->>Auto: bind CoSkyProperties (namespace)
 
     Boot->>PSL: locate(environment)
     PSL->>CS: getConfig(namespace, configId)

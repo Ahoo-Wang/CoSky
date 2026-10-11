@@ -21,12 +21,12 @@ CoSky 的服务注册管理微服务集群中服务实例的生命周期。基�
 
 | 方法 | 返回类型 | 描述 | 源码 |
 |---|---|---|---|
-| `register` | `Mono<Boolean>` | 注册服务实例，可选 TTL | [ServiceRegistry.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L33) |
-| `deregister` | `Mono<Boolean>` | 从注册中心移除服务实例 | [ServiceRegistry.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L43) |
-| `renew` | `Mono<Boolean>` | 续约/延长临时实例的 TTL | [ServiceRegistry.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L41) |
-| `setService` | `Mono<Boolean>` | 在命名空间索引中创建命名服务条目 | [ServiceRegistry.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L24) |
-| `removeService` | `Mono<Boolean>` | 从命名空间索引中移除命名服务 | [ServiceRegistry.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L25) |
-| `setMetadata` | `Mono<Boolean>` | 设置服务实例的元数据键值对 | [ServiceRegistry.kt:53](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L53) |
+| `register` | `Mono<Boolean>` | 注册服务实例，可选 TTL | [ServiceRegistry.kt:32](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L32) |
+| `deregister` | `Mono<Boolean>` | 从注册中心移除服务实例 | [ServiceRegistry.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L42) |
+| `renew` | `Mono<Boolean>` | 续约/延长临时实例的 TTL | [ServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L40) |
+| `setService` | `Mono<Boolean>` | 在命名空间索引中创建命名服务条目 | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23) |
+| `removeService` | `Mono<Boolean>` | 从命名空间索引中移除命名服务 | [ServiceRegistry.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L23) |
+| `setMetadata` | `Mono<Boolean>` | 设置服务实例的元数据键值对 | [ServiceRegistry.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt#L52) |
 
 ## ServiceInstance 数据模型
 
@@ -76,9 +76,9 @@ class RedisServiceRegistry(
 ```
 
 关键设计要点：
-- 临时实例被跟踪在 `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` 中，用于心跳续约 ([RedisServiceRegistry.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L40))。
-- `register` 方法只在 Lua 脚本执行成功后才将实例添加到临时映射——在 `doOnNext` 中，且仅当脚本返回 `true` 时 ([RedisServiceRegistry.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L97))。
-- 如果续约失败（实例键不存在），会自动重新注册实例 ([RedisServiceRegistry.kt:184](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L184))。
+- 临时实例被跟踪在 `ConcurrentHashMap<NamespacedInstanceId, ServiceInstance>` 中，用于心跳续约 ([RedisServiceRegistry.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L41))。
+- `register` 方法只在 Lua 脚本执行成功后才将实例添加到临时映射——在 `doOnNext` 中，且仅当脚本返回 `true` 时 ([RedisServiceRegistry.kt:98](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L98))。
+- 如果续约失败（实例键不存在），会自动重新注册实例 ([RedisServiceRegistry.kt:185](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt#L185))。
 
 ### DiscoveryRedisScripts
 
@@ -103,14 +103,18 @@ class RedisServiceRegistry(
 
 ## RenewInstanceService（心跳）
 
-[`RenewInstanceService`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt) 为临时实例提供保活机制。它在专用调度器（`CoSky-Renew`）上运行，定期续约所有已注册的临时实例：
+[`RenewInstanceService`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt) 为临时实例提供保活机制。它在调用方持有的调度器（默认 `Schedulers.parallel()`）上定期续约所有已注册的临时实例：
 
 | 属性 | 默认值 | 描述 |
 |---|---|---|
 | `initialDelay` | `1 second` | 首次续约周期前的延迟 |
 | `period` | `10 seconds` | 续约周期间隔 |
 
-续约周期必须小于 `RegistryProperties.instanceTtl`，以防止过早过期。该服务遍历所有 `registeredEphemeralInstances` 并通过 `ServiceRegistry` 对每个实例调用 `renew` ([RenewInstanceService.kt:70](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L70))。
+续约周期必须小于 `RegistryProperties.instanceTtl`，以防止过早过期。该服务遍历所有 `registeredEphemeralInstances` 并通过 `ServiceRegistry` 对每个实例调用 `renew`（[RenewInstanceService.kt:97](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt#L97)）：
+
+- 每次续约以 `period` 为超时上限，失败只记录日志，不影响其他实例；
+- 上一轮续约仍在进行时，下一次调度会被跳过而不是重叠执行；
+- `stop()` 只取消调度，服务可以再次启动。
 
 ## 时序图
 
@@ -140,7 +144,7 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:92, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_register.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:93, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:26 -->
 
 ### 续约 / 心跳流程
 
@@ -171,7 +175,7 @@ sequenceDiagram
     end
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:70, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:163 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_renew.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:97, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:164 -->
 
 ### 注销流程
 
@@ -198,7 +202,7 @@ sequenceDiagram
     SR-->>App: Mono<Boolean>
 ```
 
-<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:191, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
+<!-- Sources: cosky-discovery/src/main/resources/registry_deregister.lua, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:192, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:29 -->
 
 ## Redis 键结构
 
@@ -250,6 +254,7 @@ classDiagram
         -renewProperties: RenewProperties
         -serviceRegistry: ServiceRegistry
         -scheduler: Scheduler
+        +isRunning: Boolean
         +start()
         +stop()
         -renew()
@@ -276,7 +281,7 @@ classDiagram
     RenewInstanceService --> RenewProperties : 配置
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt:23, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:32, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:34, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceRegistry.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RegistryProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewProperties.kt:22, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24 -->
 
 ## 相关页面
 

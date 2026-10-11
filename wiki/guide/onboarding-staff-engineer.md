@@ -267,23 +267,23 @@ stateDiagram-v2
 
 Redis PubSub is **fire-and-forget** — if a subscriber is disconnected when a message is published, the message is lost. CoSky does not implement message persistence or replay.
 
-**Mitigation**: The `ConcurrentHashMap` cache entries have a TTL of 1 minute (`CONFIG_CACHE_TTL`). After the TTL expires, the cache entry is evicted and the next read will fetch fresh data from Redis and re-subscribe to PubSub. Maximum staleness from a lost PubSub message is therefore bounded to ~1 minute.
+**Mitigation**: Every consistency cache (`ReactiveWatchCache`) reloads all of its keys periodically, every 5 minutes by default. Maximum staleness from a lost PubSub message is therefore bounded to the resync interval.
 
-Relevant source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40).
+Relevant source: [ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57).
 
 ### Redis Failover
 
 If the Redis master fails and a replica promotes, all PubSub subscriptions are dropped. Clients must re-subscribe.
 
-**Current state**: The `doFinally` callback in the consistency wrappers removes the cache entry when the PubSub subscription terminates (see [RedisConsistencyConfigService.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L57)). The next read will re-fetch from Redis and re-subscribe. This is a self-healing mechanism, but there is a staleness window equal to the Redis failover time.
+**Current state**: An error on a key's event stream (or on a load) makes the cache re-subscribe and reload with exponential backoff (1s up to 30s), waiting until the new subscription is active before reloading, so no change is missed once Redis is back ([ReactiveWatchCache.kt:120](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L120)). This is a self-healing mechanism, with a staleness window equal to the Redis failover time.
 
-**What to watch for**: Redis Sentinel failover typically takes 10-30 seconds. During this window, all CoSky clients operate on stale cached data. For service discovery this is acceptable (instances remain valid). For configuration this means config changes made during failover will not propagate until failover completes and clients re-subscribe.
+**What to watch for**: Redis Sentinel failover typically takes 10-30 seconds. During this window, all CoSky clients serve their last good snapshot. For service discovery this is acceptable (instances remain valid; expired ones are filtered by `ttlAt`). For configuration this means config changes made during failover propagate once clients have re-subscribed.
 
 ### Cache Staleness Under Partition
 
-In a network partition where Redis is reachable from the writer but not from some readers, those readers will serve stale data from their local cache. When the PubSub subscription drops, the `doFinally` callback evicts the entry, and subsequent reads will fail (Redis unreachable).
+In a network partition where Redis is reachable from the writer but not from some readers, those readers keep serving the last good snapshot from their local cache while retrying in the background. Only a key that has never been loaded fails its readers.
 
-**This is the CP vs AP trade-off**: CoSky favors availability (serve from cache) over consistency during partitions. When the partition heals, clients re-subscribe and converge.
+**This is the CP vs AP trade-off**: CoSky favors availability (serve from cache) over consistency during partitions. When the partition heals, clients re-subscribe, reload and converge.
 
 ### Lua Script Complexity
 

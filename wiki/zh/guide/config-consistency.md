@@ -4,17 +4,18 @@ title: "Consistency Layer"
 
 # 一致性层
 
-每次调用 `getConfig` 访问 Redis 都涉及网络 I/O、序列化和往返延迟。在数千个服务实例轮询配置的大规模场景下，这成为关键瓶颈——原始 `RedisConfigService` 的读操作吞吐量约为 241,787 ops/s。CoSky 的一致性层通过结合本地进程内缓存（`ConcurrentHashMap`）和基于 Redis PubSub 的失效机制来解决这个问题。当配置发生变更时，写入新值的 Lua 脚本同时在配置的 Redis 键通道上发布通知。所有订阅该通道的应用实例收到失效事件并刷新本地缓存。结果：`getConfig` 的吞吐量跃升至 **256,733,987 ops/s**——约 1000 倍的提升——同时在毫秒级内保持最终一致性。
+每次调用 `getConfig` 访问 Redis 都涉及网络 I/O、序列化和往返延迟。在数千个服务实例轮询配置的大规模场景下，这成为关键瓶颈——原始 `RedisConfigService` 的读操作吞吐量约为 241,787 ops/s。CoSky 的一致性层通过结合本地进程内缓存（`ReactiveWatchCache`）和 Redis PubSub 变更事件来解决这个问题。当配置发生变更时，写入新值的 Lua 脚本同时在配置的 Redis 键通道上发布通知。所有订阅该通道的应用实例收到事件并更新本地快照。结果：`getConfig` 的吞吐量跃升至 **256,733,987 ops/s**——约 1000 倍的提升——同时在毫秒级内保持最终一致性。
 
 ## 概览
 
 | 组件 | 职责 | 关键文件 | 源码 |
 |---|---|---|---|
-| **RedisConsistencyConfigService** | ConfigService 的装饰器，添加基于 PubSub 失效的本地缓存 | `RedisConsistencyConfigService.kt` | [RedisConsistencyConfigService.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L33) |
+| **RedisConsistencyConfigService** | ConfigService 的装饰器，从 `ReactiveWatchCache` 提供 `getConfig` | `RedisConsistencyConfigService.kt` | [RedisConsistencyConfigService.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L36) |
+| **ReactiveWatchCache** | 通用的事件驱动本地缓存：先订阅，再加载，再串行应用事件 | `ReactiveWatchCache.kt` | [ReactiveWatchCache.kt:47](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L47) |
+| **ConfigWatcher** | 每次变更后、在本地缓存已持有新值时推送配置快照 | `ConfigWatcher.kt` | [ConfigWatcher.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt#L23) |
 | **ConfigEventListenerContainer** | 订阅配置变更事件的接口 | `ConfigEventListenerContainer.kt` | [ConfigEventListenerContainer.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt#L22) |
-| **RedisConfigEventListenerContainer** | 监听配置键通道的 Redis PubSub 实现 | `RedisConfigEventListenerContainer.kt` | [RedisConfigEventListenerContainer.kt:14](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L14) |
-| **RedisConfigService** | 标准 Redis 配置服务（被委托者） | `RedisConfigService.kt` | [RedisConfigService.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L41) |
-| **ConfigChangedEvent** | 表示配置变更及操作类型的事件模型 | `ConfigChangedEvent.kt` | [ConfigChangedEvent.kt:20](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt#L20) |
+| **RedisConfigEventListenerContainer** | 监听配置键通道的 Redis PubSub 实现 | `RedisConfigEventListenerContainer.kt` | [RedisConfigEventListenerContainer.kt:15](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L15) |
+| **RedisConfigService** | 标准的 Redis 配置服务（被委托方） | `RedisConfigService.kt` | [RedisConfigService.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L42) |
 
 ## 性能问题
 
@@ -36,49 +37,49 @@ Source: [jmh-cosky-config.json](https://github.com/Ahoo-Wang/CoSky/blob/main/doc
 
 ## 解决方案：RedisConsistencyConfigService
 
-`RedisConsistencyConfigService` 是一个装饰器，包装任意 `ConfigService` 实现（默认为 `RedisConfigService`），并添加两层缓存策略：
+`RedisConsistencyConfigService` 是一个装饰器，可包装任意 `ConfigService` 实现（默认是 `RedisConfigService`）。它从 `ReactiveWatchCache<NamespacedConfigId, Config>` 提供 `getConfig`，其余调用全部转发给被委托方。
 
-1. **本地缓存** -- `ConcurrentHashMap<NamespacedConfigId, Mono<Config>>` 将最近获取的配置存储为缓存的 `Mono`。对同一 configId 的后续 `getConfig` 调用直接返回缓存值，无需访问 Redis。
+`ReactiveWatchCache` 是 CoSky 所有客户端缓存（配置、服务和实例）共用的唯一一致性原语。对每个键，它：
 
-2. **PubSub 失效** -- 当任何写操作（`setConfig`、`removeConfig`、`rollback`）修改配置时，底层 Lua 脚本在配置键对应的 Redis 通道上发布消息。`RedisConfigEventListenerContainer` 订阅这些通道并在一致性服务中触发缓存失效。
+1. **先订阅** -- `EventListenerContainer.listen` 只在 Redis 确认 `SUBSCRIBE` 之后才发出事件流（`ReactiveRedisMessageListenerContainer.receiveLater`）。
+2. **再加载**初始值，因此两步之间写入的变更不会丢失。
+3. **逐个应用事件**（`concatMap`），只在值发生变化时发布一个不可变、带版本号的 `Snapshot`。对配置而言，每个事件都直接从 Redis 重新加载配置。
 
 ```mermaid
 flowchart TD
     subgraph app["应用进程"]
         style app fill:#161b22,stroke:#30363d,color:#e6edf3
         A["getConfig(namespace, configId)"]
-        B["ConcurrentHashMap 缓存"]
-        C["缓存命中？"]
-        D["返回缓存的 Mono"]
+        B["快照已加载？"]
+        D["返回快照预构建的 Mono"]
     end
 
-    subgraph delegate["Redis 层"]
-        style delegate fill:#161b22,stroke:#30363d,color:#e6edf3
-        E["RedisConfigService.getConfig()"]
-        F["Redis HGETALL"]
-        G["缓存结果 + 返回"]
+    subgraph watch["ReactiveWatchCache 条目（首次访问）"]
+        style watch fill:#161b22,stroke:#30363d,color:#e6edf3
+        E["listen(): SUBSCRIBE {ns}:cfg:{configId}"]
+        F["订阅已生效"]
+        G["load(): RedisConfigService.getConfig()"]
+        H["发布 Snapshot v1"]
     end
 
-    subgraph invalidation["PubSub 失效"]
-        style invalidation fill:#161b22,stroke:#30363d,color:#e6edf3
-        H["Lua 脚本: PUBLISH"]
-        I["RedisConfigEventListenerContainer"]
-        J["onConfigChanged()"]
-        K["从 Redis 刷新缓存"]
+    subgraph events["变更事件"]
+        style events fill:#161b22,stroke:#30363d,color:#e6edf3
+        I["Lua 脚本：PUBLISH"]
+        J["concatMap：从 Redis 重新加载"]
+        K["发布 Snapshot v+1<br>（仅当值变化时）"]
     end
 
-    A --> B --> C
-    C -->|是| D
-    C -->|否| E --> F --> G
-    G --> B
-    H --> I --> J --> K --> B
+    A --> B
+    B -->|是| D
+    B -->|否| E --> F --> G --> H --> D
+    I --> J --> K
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:33, RedisConfigEventListenerContainer.kt:14, RedisConfigService.kt:41 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:43, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:120, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:142, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:156 -->
 
 ## 架构
 
-一致性层位于应用代码和原始 Redis 操作之间，拦截读取操作并订阅变更通知。
+一致性层位于应用代码与原始 Redis 操作之间，拦截读取并订阅变更通知。
 
 ```mermaid
 flowchart LR
@@ -86,57 +87,53 @@ flowchart LR
         style client fill:#161b22,stroke:#30363d,color:#e6edf3
         App["应用代码"]
         RCS["RedisConsistencyConfigService"]
-        Cache["本地缓存<br>(ConcurrentHashMap)"]
+        Cache["ReactiveWatchCache<br>（每个 configId 一个快照）"]
     end
 
     subgraph redis["Redis"]
         style redis fill:#161b22,stroke:#30363d,color:#e6edf3
-        RDS["RedisConfigService<br>(委托者)"]
+        RDS["RedisConfigService<br>（被委托方）"]
         Lua["Lua 脚本<br>config_set.lua"]
         PubSub["PubSub 通道"]
     end
 
     App -->|"getConfig()"| RCS
-    RCS -->|缓存未命中| RDS
+    RCS --> Cache
+    Cache -->|"加载 / 重新加载"| RDS
     RDS -->|HGETALL| Redis["Redis 存储"]
-    RDS -->|"返回 Config"| RCS
-    RCS -->|"存储"| Cache
-    Cache -->|"返回"| RCS
+    Cache -->|"当前快照"| RCS
     RCS -->|"返回 Config"| App
 
     Lua -->|"PUBLISH"| PubSub
-    PubSub -->|"失效"| RCS
+    PubSub -->|"变更事件"| Cache
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:33, RedisConfigService.kt:41, config_set.lua:1 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:36, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:47, cosky-config/src/main/resources/config_set.lua:1 -->
 
 ## 缓存命中流程
 
-当配置已被先前加载时，一致性服务直接返回缓存的 `Mono<Config>`，无需访问 Redis。
+配置加载后，`getConfig` 直接返回快照预构建的 `Mono<Config>`：一次 Map 查找加一次 volatile 读，不访问 Redis，也不分配对象。
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant App as 应用程序
+    participant App as 应用
     participant RCS as RedisConsistencyConfigService
-    participant Cache as ConcurrentHashMap
+    participant Cache as ReactiveWatchCache
     participant RDS as RedisConfigService
 
     App->>RCS: getConfig(namespace, configId)
     RCS->>Cache: get(NamespacedConfigId)
-    Cache-->>RCS: Mono~Config~ (已缓存)
-    Note over RCS: 向所有订阅者重放缓存的 Mono
+    Cache-->>RCS: 当前快照的 Mono~Config~
     RCS-->>App: Mono~Config~
     Note over App: 未发起 Redis 调用
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:50 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:50, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:65 -->
 
-关键细节在于缓存存储了一个已被 Reactor `.cache()` 的 `Mono<Config>`。这意味着初始订阅会触发 Redis 调用，但所有后续订阅者将获得相同的结果，而不会重新执行响应式管道。当 `computeIfAbsent` 插入新条目时，它还会订阅该 configId 的 PubSub 通道以监听后续变更。
+## 变更流程
 
-## 缓存失效流程
-
-当任何进程修改配置时，Lua 脚本在 Redis PubSub 通道上发布变更事件。监听该通道的每个实例收到失效通知并惰性刷新缓存。
+任何进程修改配置时，Lua 脚本都会在该配置的 Redis PubSub 通道上发布变更事件。所有监听该配置的实例重新加载配置并发布新快照。
 
 ```mermaid
 sequenceDiagram
@@ -146,34 +143,42 @@ sequenceDiagram
     participant Redis as Redis (Lua)
     participant PS as Redis PubSub
     participant Listener as RedisConfigEventListenerContainer
-    participant RCS as RedisConsistencyConfigService
-    participant Cache as ConcurrentHashMap
+    participant Cache as ReactiveWatchCache
+    participant Refresher as CoSkyConfigRefresher
 
     Producer->>RDS: setConfig(namespace, configId, newData)
     RDS->>Redis: EVAL config_set.lua
-    Note over Redis: 1. 检查哈希<br>2. 写入新数据<br>3. 归档旧版本<br>4. PUBLISH 变更
+    Note over Redis: 1. 校验哈希<br>2. 归档旧版本<br>3. 写入新数据<br>4. PUBLISH 变更
     Redis->>PS: PUBLISH {ns}:cfg:{configId} "set"
 
     PS-->>Listener: 收到消息
-    Listener->>Listener: 解析 ConfigChangedEvent
-    Listener-->>RCS: onConfigChanged(event)
-    RCS->>Cache: 用新的冷 Mono 覆盖条目<br>（缓存 TTL 为 1 分钟）
-    Note over RCS,Cache: 此处不会发起 Redis 调用——获取被推迟到<br>下一个 getConfig() 订阅者到来时
-    Note over Cache: 下次读取会重新执行获取<br>并返回最新数据
+    Listener-->>Cache: ConfigChangedEvent
+    Cache->>RDS: getConfig()（与其他事件串行）
+    RDS-->>Cache: Config v+1
+    Note over Cache: 发布 Snapshot v+1
+    Cache-->>Refresher: watchConfig() 推送新快照
+    Note over Refresher: 此时才发布 RefreshEvent，<br>刷新读到的是新配置
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:68, RedisConfigEventListenerContainer.kt:18, config_set.lua:1 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:19, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:142, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:61, cosky-config/src/main/resources/config_set.lua:1 -->
 
-失效路径是一次性覆盖：`onConfigChanged` 用 `delegate.getConfig(...).cache(CONFIG_CACHE_TTL)` 替换映射表中的条目——这是一个冷 `Mono`，在失效时不会被订阅（源码中因此标注了 `@Suppress("ReactiveStreamsUnusedPublisher")`）。事件类型（`SET`、`REMOVE`、`ROLLBACK`）不会被区分处理；三者走完全相同的覆盖路径，被删除的配置只是得到一个缓存的*空* `Mono`。
+事件类型（`SET`、`REMOVE`、`ROLLBACK`）不会被区分：每个事件都会重新加载配置，被删除的配置变成空快照。由于重新加载读取的是 Redis 的当前状态，应用事件是幂等的——正因如此，即使某个事件描述的变更已被初始加载观察到，"先订阅、再加载"也是安全的。
+
+## 监听配置
+
+`RedisConsistencyConfigService` 同时实现了 `ConfigWatcher`。`watchConfig(namespace, configId)` 先推送当前快照，随后每次变更推送一个快照，且每个快照都在本地缓存持有它**之后**才推送。`CoSkyConfigRefresher` 用它发布 Spring Cloud `RefreshEvent`，并跳过第一个快照（应用启动时使用的配置）。
+
+源码：[ConfigWatcher.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt#L23)，[CoSkyConfigRefresher.kt:61](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L61)
 
 ## 事件监听器容器
 
-`ConfigEventListenerContainer` 接口抽象了对配置变更事件的订阅。其 Redis 实现 `RedisConfigEventListenerContainer` 封装了一个 `ReactiveRedisMessageListenerContainer`，使用配置的 Redis 键作为通道名订阅 Redis PubSub 通道。
+`ConfigEventListenerContainer` 接口抽象了对配置变更事件的订阅。其 Redis 实现 `RedisConfigEventListenerContainer` 使用所有 CoSky 监听器共享的 `ReactiveRedisMessageListenerContainer`，以配置的 Redis 键作为通道名进行订阅。
 
 ```mermaid
 classDiagram
     class EventListenerContainer~Topic, Event~ {
         <<interface>>
+        +listen(topic: Topic) Mono~Flux~Event~~
         +receive(topic: Topic) Flux~Event~
     }
 
@@ -184,12 +189,12 @@ classDiagram
     class RedisEventListenerContainer~Topic, Event~ {
         <<abstract>>
         #delegate: ReactiveRedisMessageListenerContainer
-        +receive(topic: Topic) Flux~Event~
-        #receiveEvent(topic: Topic) Flux~Event~
+        +listen(topic: Topic) Mono~Flux~Event~~
+        #listenEvent(topic: Topic) Mono~Flux~Event~~
     }
 
     class RedisConfigEventListenerContainer {
-        +receiveEvent(topic: NamespacedConfigId) Flux~ConfigChangedEvent~
+        +listenEvent(topic: NamespacedConfigId) Mono~Flux~ConfigChangedEvent~~
         -asEvent(message) ConfigChangedEvent
     }
 
@@ -198,37 +203,36 @@ classDiagram
     RedisEventListenerContainer <|-- RedisConfigEventListenerContainer
 ```
 
-<!-- Sources: ConfigEventListenerContainer.kt:22, RedisConfigEventListenerContainer.kt:14 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt:16, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt:22, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:19 -->
 
-通道命名约定使用与配置哈希本身相同的键模式：`{namespace}:cfg:{configId}`。这意味着 PubSub 通道天然具有命名空间隔离和配置级别粒度，每个服务实例只订阅它实际使用的配置。
+`listen` 只在订阅生效后才发出；`receive` 是将其展平的便捷方法。通道命名沿用配置哈希本身的键模式：`{namespace}:cfg:{configId}`，因此每个服务实例只订阅它实际使用的配置。
 
-Source: [RedisConfigEventListenerContainer.kt:18](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L18)
+源码：[RedisConfigEventListenerContainer.kt:21](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L21)
 
 ## 缓存状态机
 
-每个配置条目的本地缓存随着请求和失效事件的发生，经历一组明确定义的状态。
-
 ```mermaid
 stateDiagram-v2
-    [*] --> CachedNoTTL: 首次 getConfig() 调用<br>条目 = getConfig().cache()
+    [*] --> Subscribing: 首次 getConfig()
+    Subscribing --> Loading: 订阅已生效
+    Loading --> Loaded: 发布 Snapshot v1
+    Loading --> Failed: 尚无快照时加载出错
 
-    CachedNoTTL --> CachedNoTTL: 后续 getConfig()（缓存命中，<br>自身永不过期）
-    CachedNoTTL --> CachedTTL: 任意 PubSub 事件（set / remove /<br>rollback）覆盖该条目
+    Loaded --> Loaded: 变更事件或定期重新同步<br>（仅当值变化时发布新快照）
+    Loaded --> Recovering: 加载 / 应用 / 连接出错
+    Recovering --> Loaded: 重新订阅并重新加载成功
+    Failed --> Subscribing: 按退避策略重试
 
-    CachedTTL --> CachedTTL: TTL 内的 getConfig()（缓存命中）
-    CachedTTL --> Refetching: 缓存 TTL 到达（1 分钟）
-    Refetching --> CachedTTL: 下次 getConfig() 重新执行获取<br>并再缓存一分钟
-    CachedTTL --> CachedTTL: 下一个 PubSub 事件（覆盖）
-
-    CachedNoTTL --> [*]: 监听器终止<br>（条目从映射表移除）
-    CachedTTL --> [*]: 监听器终止<br>（条目从映射表移除）
+    Loaded --> [*]: 事件流结束<br>（条目被淘汰，下次访问重新开始）
 ```
 
-<!-- Sources: RedisConsistencyConfigService.kt:40, RedisConsistencyConfigService.kt:46, RedisConsistencyConfigService.kt:57, RedisConsistencyConfigService.kt:68 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:120, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:156, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:167, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:175 -->
 
-`CONFIG_CACHE_TTL` 设置为 `Duration.ofMinutes(1)`，但它**仅作用于 PubSub 刷新路径写入的条目**（`onConfigChanged` 使用 `.cache(CONFIG_CACHE_TTL)`）。首次 `getConfig()` 调用创建的初始缓存条目使用不带 TTL 的 `.cache()`，**自身永不过期**。如果 PubSub 监听器终止，其 `doFinally` 钩子会将条目从映射表中移除，因此下一次 `getConfig()` 会重新创建条目并重新订阅。
+- **Failed** -- 从未加载成功的键，读取方会收到错误；错误不会被缓存，该键按退避策略重试（1 秒起，最长 30 秒）。
+- **Recovering** -- 缓存重新订阅并重新加载期间，继续提供最后一个正常的快照。客户端缓存在 Redis 故障期间优先保证可用性，而不是让每次读取都失败。
+- **定期重新同步** -- 每 5 分钟重新加载所有键，作为 PubSub 连接重连期间丢失事件的兜底。
 
-Source: [RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)
+源码：[ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57)
 
 ## 性能基准测试
 
@@ -250,7 +254,7 @@ xychart-beta
 
 <!-- Sources: jmh-cosky-config.json:1 -->
 
-一致性服务达到 **256,733,987 ops/s**，因为首次读取后，所有后续的 `getConfig` 调用都从进程内 `ConcurrentHashMap` 解析，无需任何网络 I/O。唯一的 Redis 流量是初始加载和 PubSub 失效消息（由于配置变更相对于读取来说很少发生，这些消息频率很低）。
+一致性服务达到 **256,733,987 ops/s**，因为首次读取后，所有后续的 `getConfig` 调用都从进程内快照解析，无需任何网络 I/O。唯一的 Redis 流量是初始加载、每个变更事件触发的重新加载，以及定期重新同步。
 
 Source: [jmh-cosky-config.json](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/jmh/jmh-cosky-config.json)
 
@@ -270,19 +274,19 @@ Lua 脚本 PUBLISH -> Redis PubSub 通道 -> 订阅者回调 -> 缓存刷新
 
 ### 内存开销
 
-每个缓存配置条目在 JVM 堆中占用 `ConcurrentHashMap` 条目和缓存 `Mono<Config>` 的内存。对于有数百个配置的服务来说，这可以忽略不计。对于有数万个配置的服务，需要监控堆内存使用情况。
+每个被监听的配置在缓存存活期间持有一个快照和一个 PubSub 通道订阅。对于有数百个配置的服务来说，这可以忽略不计。`cosky-rest-api` 中的管理读取完全绕过缓存，因此在控制台浏览配置不会让缓存增长。
 
 ### PubSub 可靠性
 
-Redis PubSub 是一种即发即忘协议——如果实例暂时断开连接（网络抖动、GC 暂停），它将错过失效消息。`CONFIG_CACHE_TTL`（1 分钟）**只对已被之前的失效事件刷新过的条目**限制过期时长：这些条目距上次刷新最多 60 秒后会从 Redis 重新获取。然而，初始缓存条目使用不带 TTL 的 `.cache()` 创建，自身永不过期——如果某个配置的第一个失效事件被错过，该条目会持续提供过期数据，直到有后续事件到达、监听器终止（条目被驱逐）或进程重启。
+Redis PubSub 是一种即发即忘协议——如果实例暂时断开连接，它会错过期间发布的事件，而 Lettuce 在重连时会静默地重新订阅。定期重新同步（默认每 5 分钟）限定了这类遗漏的变更最长多久会被发现。事件流本身出错时会立即重新订阅并重新加载。
 
-Source: [RedisConsistencyConfigService.kt:64-76](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L64)
+源码：[ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57)
 
 ### 委托模式
 
-`RedisConsistencyConfigService` 使用 Kotlin 的 `by delegate` 语法将所有非 `getConfig` 方法直接转发到底层的 `RedisConfigService`。这意味着写操作（`setConfig`、`removeConfig`、`rollback`）始终访问 Redis 并触发 PubSub 事件。一致性优化仅适用于读操作。
+`RedisConsistencyConfigService` 使用 Kotlin 的 `by delegate` 语法将除 `getConfig` 之外的所有方法直接转发给底层的 `RedisConfigService`。这意味着写操作（`setConfig`、`removeConfig`、`rollback`）总是到达 Redis 并触发 PubSub 事件。一致性优化只作用于读取。
 
-Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L37)
+源码：[RedisConsistencyConfigService.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L41)
 
 ## 相关页面
 
@@ -293,6 +297,8 @@ Source: [RedisConsistencyConfigService.kt:37](https://github.com/Ahoo-Wang/CoSky
 ## 参考文献
 
 - [RedisConsistencyConfigService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt) -- 一致性层实现
+- [ReactiveWatchCache.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt) -- 事件驱动的本地缓存原语
+- [ConfigWatcher.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt) -- 配置快照流
 - [RedisConfigService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt) -- 标准 Redis 配置服务（委托者）
 - [ConfigEventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt) -- 事件监听器容器接口
 - [RedisConfigEventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt) -- Redis PubSub 事件监听器实现

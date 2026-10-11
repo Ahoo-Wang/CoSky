@@ -267,23 +267,23 @@ stateDiagram-v2
 
 Redis PubSub 是**即发即忘**的 — 如果订阅者在消息发布时断开连接，消息将丢失。CoSky 不实现消息持久化或重放。
 
-**缓解措施**：`ConcurrentHashMap` 缓存条目的 TTL 为 1 分钟（`CONFIG_CACHE_TTL`）。TTL 过期后，缓存条目被驱逐，下次读取将从 Redis 获取新鲜数据并重新订阅 PubSub。因此，丢失 PubSub 消息导致的最大陈旧时间上限约为 1 分钟。
+**缓解措施**：每个一致性缓存（`ReactiveWatchCache`）都会定期重新加载其所有键，默认每 5 分钟一次。因此，丢失 PubSub 消息导致的最大陈旧时间以重新同步间隔为上限。
 
-相关源码：[RedisConsistencyConfigService.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L40)。
+相关源码：[ReactiveWatchCache.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L57)。
 
 ### Redis 故障转移
 
 如果 Redis 主节点故障并且副本提升为主节点，所有 PubSub 订阅将被丢弃。客户端必须重新订阅。
 
-**当前状态**：一致性包装器中的 `doFinally` 回调会在 PubSub 订阅终止时移除缓存条目（参见 [RedisConsistencyConfigService.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L57)）。下次读取将重新从 Redis 获取数据并重新订阅。这是一种自愈机制，但存在等于 Redis 故障转移时间的陈旧窗口。
+**当前状态**：某个键的事件流（或加载）出错时，缓存会以指数退避（1 秒起，最长 30 秒）重新订阅并重新加载，且等新订阅生效后才重新加载，因此 Redis 恢复后不会遗漏任何变更（[ReactiveWatchCache.kt:120](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt#L120)）。这是一种自愈机制，陈旧窗口等于 Redis 故障转移时间。
 
-**需要关注的**：Redis Sentinel 故障转移通常需要 10-30 秒。在此窗口期间，所有 CoSky 客户端使用陈旧的缓存数据运行。对于服务发现这是可接受的（实例仍然有效）。对于配置管理，这意味着故障转移期间进行的配置变更不会传播，直到故障转移完成且客户端重新订阅。
+**需要关注的**：Redis Sentinel 故障转移通常需要 10-30 秒。在此窗口期间，所有 CoSky 客户端提供最后一个正常的快照。对于服务发现这是可接受的（实例仍然有效，已过期的实例会按 `ttlAt` 过滤）。对于配置管理，这意味着故障转移期间进行的配置变更会在客户端重新订阅后传播。
 
 ### 网络分区下的缓存陈旧
 
-在写入者可以访问 Redis 但某些读取者无法访问的网络分区中，这些读取者将从本地缓存提供陈旧数据。当 PubSub 订阅断开时，`doFinally` 回调驱逐该条目，后续读取将失败（Redis 不可达）。
+在写入者可以访问 Redis 但某些读取者无法访问的网络分区中，这些读取者继续从本地缓存提供最后一个正常的快照，同时在后台重试。只有从未加载过的键会让读取失败。
 
-**这是 CP 与 AP 的权衡**：CoSky 在分区期间优先选择可用性（从缓存提供服务）而非一致性。当分区恢复后，客户端重新订阅并收敛。
+**这是 CP 与 AP 的权衡**：CoSky 在分区期间优先选择可用性（从缓存提供服务）而非一致性。当分区恢复后，客户端重新订阅、重新加载并收敛。
 
 ### Lua 脚本复杂度
 

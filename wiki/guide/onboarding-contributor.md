@@ -183,8 +183,8 @@ sequenceDiagram
 ```
 
 The consistency wrappers are:
-- **Config**: `RedisConsistencyConfigService` wraps `RedisConfigService` — cited at [cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L33)
-- **Discovery**: `ConsistencyRedisServiceDiscovery` wraps `RedisServiceDiscovery` — cited at [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L43)
+- **Config**: `RedisConsistencyConfigService` wraps `RedisConfigService` — cited at [cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L36)
+- **Discovery**: `ConsistencyRedisServiceDiscovery` wraps `RedisServiceDiscovery` — cited at [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L37)
 
 The performance gain is dramatic:
 

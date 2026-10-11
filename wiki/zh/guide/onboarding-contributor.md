@@ -183,8 +183,8 @@ sequenceDiagram
 ```
 
 一致性包装器包括：
-- **配置**：`RedisConsistencyConfigService` 包装 `RedisConfigService` — 参见 [cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L33)
-- **发现**：`ConsistencyRedisServiceDiscovery` 包装 `RedisServiceDiscovery` — 参见 [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L43)
+- **配置**：`RedisConsistencyConfigService` 包装 `RedisConfigService` — 参见 [cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConsistencyConfigService.kt#L36)
+- **发现**：`ConsistencyRedisServiceDiscovery` 包装 `RedisServiceDiscovery` — 参见 [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L37)
 
 性能提升非常显著：
 

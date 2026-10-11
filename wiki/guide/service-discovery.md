@@ -12,27 +12,27 @@ CoSky's Service Discovery layer enables consumers to locate available service in
 | **Standard Implementation** | `RedisServiceDiscovery` |
 | **Consistency Layer** | `ConsistencyRedisServiceDiscovery` |
 | **Statistics** | `RedisServiceStatistic` |
-| **Consistency Mechanism** | Local cache + Redis PubSub event-driven updates |
-| **Concurrency Model** | Reactive (`Flux<ServiceInstance>`, `Mono<ServiceInstance>`) |
+| **Consistency Mechanism** | `ReactiveWatchCache` snapshots + Redis PubSub event-driven updates |
+| **Concurrency Model** | Reactive snapshots (`Mono<List<ServiceInstance>>`, `Mono<ServiceInstance>`) |
 
 ## ServiceDiscovery Interface
 
-The [`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt) interface defines four core operations for locating services and instances.
+The [`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt) interface defines four core operations for locating services and instances. Every method takes the namespace explicitly; there is no process-global default namespace.
 
 | Method | Return Type | Description | Source |
 |---|---|---|---|
-| `getServices` | `Flux<String>` | Lists all registered service IDs in a namespace | [ServiceDiscovery.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L25) |
-| `getInstances` | `Flux<ServiceInstance>` | Lists all instances for a given service ID | [ServiceDiscovery.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L26) |
-| `getInstance` | `Mono<ServiceInstance>` | Retrieves a specific instance by service ID and instance ID | [ServiceDiscovery.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L27) |
-| `getInstanceTtl` | `Mono<Long>` | Returns the TTL expiry timestamp for a specific instance | [ServiceDiscovery.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L33) |
+| `getServices` | `Mono<List<String>>` | A snapshot of the service IDs in a namespace | [ServiceDiscovery.kt:26](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L26) |
+| `getInstances` | `Mono<List<ServiceInstance>>` | A snapshot of the live instances of a service. Cached implementations return the same list instance while it is unchanged | [ServiceDiscovery.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L40) |
+| `getInstance` | `Mono<ServiceInstance>` | Retrieves a specific instance by service ID and instance ID | [ServiceDiscovery.kt:34](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L34) |
+| `getInstanceTtl` | `Mono<Long>` | Returns the TTL expiry timestamp for a specific instance | [ServiceDiscovery.kt:40](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceDiscovery.kt#L40) |
 
 ## RedisServiceDiscovery
 
 [`RedisServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt) is the standard implementation that reads instance data directly from Redis on every request:
 
-- `getServices` reads from the `svc_idx` SET using `SMEMBERS` ([RedisServiceDiscovery.kt:89](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L89)).
+- `getServices` reads from the `svc_idx` SET using `SMEMBERS` ([RedisServiceDiscovery.kt:85](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L85)).
 - `getInstances` executes the `discovery_get_instances.lua` Lua script that reads all instance keys from the `svc_itc_idx:{serviceId}` SET and returns their hash data ([RedisServiceDiscovery.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L39)).
-- `getInstance` executes `discovery_get_instance.lua` to fetch a single instance's hash fields ([RedisServiceDiscovery.kt:56](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L56)).
+- `getInstance` executes `discovery_get_instance.lua` to fetch a single instance's hash fields ([RedisServiceDiscovery.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt#L52)).
 - All results are decoded using [`ServiceInstanceCodec.decode`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstanceCodec.kt#L57).
 
 ## ConsistencyRedisServiceDiscovery
@@ -41,23 +41,25 @@ The [`ServiceDiscovery`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disc
 
 ### Architecture
 
-The consistency layer maintains two `ConcurrentHashMap` caches:
-- `namespaceMapServices`: caches the service list per namespace, invalidated by service change events ([ConsistencyRedisServiceDiscovery.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L57)).
-- `serviceMapInstances`: caches instances per `NamespacedServiceId`, updated incrementally by instance change events ([ConsistencyRedisServiceDiscovery.kt:54](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L54)).
+The consistency layer keeps two [`ReactiveWatchCache`](./config-consistency.md#the-solution-redisconsistencyconfigservice)s ([ConsistencyRedisServiceDiscovery.kt:51](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L51), [ConsistencyRedisServiceDiscovery.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L58)):
+- **Services** per namespace, reloaded on every service change event.
+- **Instances** per `NamespacedServiceId`, held as an **immutable list** and updated incrementally by instance change events.
+
+Each cache subscribes to the change channel first and only then loads the initial snapshot, so a registration right after the first read is never missed. Events are applied one at a time, and an unchanged snapshot is the very same `List` instance -- the [load balancers](./load-balancers.md) rely on that to reuse their chooser. `getInstances` filters out instances whose `ttlAt` has passed ([ConsistencyRedisServiceDiscovery.kt:71](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L71)).
 
 ### Event-Driven Cache Updates
 
-When an instance change occurs (register, deregister, renew, set_metadata, expired), the [`InstanceChangedEvent`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt) handler applies the change to the local cache:
+When an instance change occurs (register, deregister, renew, set_metadata, expired), the [`InstanceChangedEvent`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt) is resolved against the current state in Redis and produces the next snapshot:
 
-| Event | Cache Action |
+| Event | Snapshot Change |
 |---|---|
-| `REGISTER` | Fetch full instance from delegate, add to cache set |
-| `RENEW` | Fetch TTL from delegate, update `ttlAt` in cached instance |
-| `SET_METADATA` | Fetch full instance from delegate, replace in cache set |
-| `DEREGISTER` | Remove from cache set |
-| `EXPIRED` | Remove from cache set |
+| `REGISTER` | Fetch the instance from the delegate and insert or replace it (remove it if it no longer exists) |
+| `RENEW` | Fetch the TTL and replace the instance with the new `ttlAt` (remove it if its key is gone) |
+| `SET_METADATA` | Fetch the instance from the delegate and replace it |
+| `DEREGISTER` | Remove the instance |
+| `EXPIRED` | Remove the instance |
 
-This incremental approach avoids full cache rebuilds on every change ([ConsistencyRedisServiceDiscovery.kt:138](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L138)).
+Every change is idempotent and read-through, which is what makes applying an event that the initial load already observed harmless ([ConsistencyRedisServiceDiscovery.kt:99](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt#L99)). A change that leaves the snapshot equal publishes nothing.
 
 ### Performance
 
@@ -80,7 +82,7 @@ The [`ServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-disc
 | `getServiceStats(namespace)` | `Flux<ServiceStat>` | Returns all service statistics (service ID + instance count) |
 | `getInstanceCount(namespace)` | `Mono<Long>` | Returns the total instance count across all services |
 
-[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) implements this by executing Lua scripts and listening to instance change events. It filters out `RENEW` events since renewals do not change instance counts ([RedisServiceStatistic.kt:56](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L56)).
+[`RedisServiceStatistic`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt) implements this by executing Lua scripts and listening to instance change events. It filters out `RENEW` events since renewals do not change instance counts ([RedisServiceStatistic.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt#L57)).
 
 Each [`ServiceStat`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceStat.kt) holds:
 - `serviceId: String` -- the service identifier
@@ -105,15 +107,15 @@ sequenceDiagram
     Redis-->>RSD: List of field-value arrays
     RSD->>Codec: decode(instanceData) for each instance
     Codec-->>RSD: ServiceInstance
-    RSD-->>Client: Flux~ServiceInstance~
+    RSD-->>Client: Mono~List~ServiceInstance~~
 
     Client->>RSD: getServices(namespace)
     RSD->>Redis: SMEMBERS {namespace}:svc_idx
     Redis-->>RSD: Set of service IDs
-    RSD-->>Client: Flux~String~
+    RSD-->>Client: Mono~List~String~~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:89, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:85, cosky-discovery/src/main/resources/discovery_get_instances.lua -->
 
 ### Consistency Cache Update Flow
 
@@ -122,33 +124,32 @@ sequenceDiagram
     autonumber
     participant Client as Consumer
     participant CRSD as ConsistencyRedisServiceDiscovery
-    participant Cache as Local Cache (CMap)
+    participant Cache as ReactiveWatchCache
     participant PubSub as Redis PubSub
     participant Delegate as RedisServiceDiscovery
 
     Note over Client,Delegate: Initial Load
     Client->>CRSD: getInstances(namespace, serviceId)
-    CRSD->>Cache: computeIfAbsent(NamespacedServiceId)
-    CRSD->>PubSub: subscribe to instance change events
-    CRSD->>Delegate: getInstances(namespace, serviceId)
-    Delegate-->>CRSD: List of ServiceInstance
-    CRSD->>Cache: store as CopyOnWriteArraySet (cached Mono)
-    CRSD-->>Client: Flux~ServiceInstance~
+    CRSD->>Cache: get(NamespacedServiceId)
+    Cache->>PubSub: PSUBSCRIBE instance channels (wait until active)
+    Cache->>Delegate: getInstances(namespace, serviceId)
+    Delegate-->>Cache: List of ServiceInstance
+    Note over Cache: Publish Snapshot v1 (immutable list)
+    CRSD-->>Client: Mono~List~ServiceInstance~~
 
-    Note over Client,Delegate: Event-Driven Cache Update
-    PubSub->>CRSD: InstanceChangedEvent (REGISTER)
-    CRSD->>Cache: find cached instances for service
-    CRSD->>Delegate: getInstance(namespace, serviceId, instanceId)
-    Delegate-->>CRSD: ServiceInstance
-    CRSD->>Cache: add/replace instance in CopyOnWriteArraySet
+    Note over Client,Delegate: Event-Driven Update (serialized)
+    PubSub->>Cache: InstanceChangedEvent (REGISTER)
+    Cache->>Delegate: getInstance(namespace, serviceId, instanceId)
+    Delegate-->>Cache: ServiceInstance
+    Note over Cache: Publish Snapshot v2 = v1 + instance
 
     Note over Client,Delegate: Subsequent Read (cache hit)
     Client->>CRSD: getInstances(namespace, serviceId)
-    CRSD->>Cache: retrieve cached CopyOnWriteArraySet
-    CRSD-->>Client: Flux~ServiceInstance~ (from cache, filtered by !isExpired)
+    CRSD->>Cache: current snapshot
+    CRSD-->>Client: same List while unchanged (expired instances filtered out)
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:86, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:138, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:54 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:71, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:99, cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt:142 -->
 
 ### Statistics Collection Flow
 
@@ -172,7 +173,7 @@ sequenceDiagram
     RSS-->>Event: Flux~ServiceStat~
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:52, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:96, cosky-discovery/src/main/resources/service_stat.lua -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:53, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceStatistic.kt:97, cosky-discovery/src/main/resources/service_stat.lua -->
 
 ## Architecture Diagram
 
@@ -184,8 +185,8 @@ flowchart TB
     end
 
     subgraph ConsistencyRedisServiceDiscovery
-        CS[Service Cache<br>ConcurrentHashMap]
-        CI[Instance Cache<br>CopyOnWriteArraySet]
+        CS[Service Cache<br>ReactiveWatchCache]
+        CI[Instance Cache<br>ReactiveWatchCache<br>immutable snapshots]
     end
 
     subgraph RedisServiceDiscovery
@@ -216,7 +217,7 @@ flowchart TB
     style Redis fill:#161b22,stroke:#30363d,color:#e6edf3
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:43, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/ConsistencyRedisServiceDiscovery.kt:37, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22 -->
 
 ## Related Pages
 

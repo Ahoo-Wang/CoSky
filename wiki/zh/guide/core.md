@@ -12,12 +12,13 @@ title: "Core Module"
 |-----------|------|---------------|----------|
 | `CoSky` | Object | 品牌常量：`COSKY = "cosky"`、`KEY_SEPARATOR = ":"`、`VERSION` | [CoSky.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt) |
 | `Namespaced` | Interface | 在命名空间内操作的组件契约 | [Namespaced.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt) |
-| `NamespacedContext` | Object | 易失性全局命名空间持有者（默认：`"cosky"`） | [NamespacedContext.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt) |
+| `requireValidNamespace` | Function | 唯一的命名空间校验规则：非空、不含 `:` | [Namespaced.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt#L35) |
 | `NamespaceService` | Interface | 命名空间的 CRUD 操作（响应式 Flux/Mono） | [NamespaceService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt) |
 | `RedisNamespaceService` | Class | 基于 Redis SET 的 `NamespaceService` 实现 | [RedisNamespaceService.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt) |
 | `RedisKeys` | Object | Hashtag 包装和 Redis 集群键工具 | [RedisKeys.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt) |
-| `EventListenerContainer` | Interface | 响应式事件订阅契约（`receive(topic): Flux<E>`） | [EventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt) |
+| `EventListenerContainer` | Interface | 响应式事件订阅契约（`listen(topic): Mono<Flux<E>>`，订阅生效后才发出） | [EventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt) |
 | `RedisEventListenerContainer` | Abstract Class | 带错误处理和日志的 Redis Pub/Sub 基础实现 | [RedisEventListenerContainer.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt) |
+| `ReactiveWatchCache` | Class | 所有一致性缓存背后的事件驱动本地缓存原语 | [ReactiveWatchCache.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt) |
 
 ## 命名空间模型
 
@@ -30,7 +31,6 @@ CoSky 中的每个资源——服务实例、配置、统计信息——都作�
 ```kotlin
 interface Namespaced {
     val namespace: String
-        get() = DEFAULT
 
     companion object {
         const val DEFAULT: String = "${CoSky.COSKY}-{default}"   // "cosky-{default}"
@@ -39,28 +39,18 @@ interface Namespaced {
 }
 ```
 
-`DEFAULT` 命名空间是常规用途的默认命名空间。`SYSTEM` 命名空间（`cosky-{system}`）保留给平台内部数据，如命名空间索引本身。实现者可以覆盖默认值以提供自定义命名空间解析。
+`DEFAULT` 命名空间是常规用途的默认命名空间。`SYSTEM` 命名空间（`cosky-{system}`）保留给平台内部数据，如命名空间索引本身。不存在隐式命名空间：每个 `Namespaced` 组件都明确声明自己的命名空间。
 
-### `NamespacedContext` -- 全局命名空间状态
+### 显式命名空间
 
-[`NamespacedContext`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt) 是一个单例对象，持有当前进程范围的命名空间：
+不存在进程级的全局命名空间。`ConfigService`、`ServiceRegistry` 和 `ServiceDiscovery` 的每个方法都把命名空间作为显式参数。在 Spring Cloud 应用中，组件从 `CoSkyProperties`（`spring.cloud.cosky.namespace`）获取命名空间，必要时它会被包装为 Redis Cluster 的 hashtag。
 
-```kotlin
-object NamespacedContext : Namespaced {
-    @Volatile
-    override var namespace: String = CoSky.COSKY
-}
-```
+### 命名空间校验
 
-`@Volatile` 注解确保跨线程的可见性。Spring Cloud 自动配置在启动时从 `spring.cloud.cosky.namespace` 设置此值，在 `CoSkyAutoConfiguration` 中：
+[`requireValidNamespace`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt#L35) 是唯一的校验规则，所有基于 Redis 的服务以及带命名空间的标识符（`NamespacedConfigId`、`NamespacedServiceId`、`NamespacedInstanceId`）在构造时都会应用它：
 
-```kotlin
-init {
-    NamespacedContext.namespace = coSkyProperties.namespace
-}
-```
-
-这种设计允许代码库中的服务方法将 `NamespacedContext.namespace` 作为默认参数使用，因此调用者很少需要显式传递命名空间。例如，[`ConfigService.getConfig()`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigService.kt#L26) 默认使用 `NamespacedContext.namespace`。
+- 命名空间不能为空；
+- 不能包含键分隔符 `:`，它在每个 Redis 键中用于分隔命名空间（例如 `DiscoveryKeyGenerator.getNamespaceOfKey` 按第一个 `:` 切分）。
 
 ### `NamespaceService` -- 命名空间 CRUD
 
@@ -82,27 +72,19 @@ classDiagram
         +removeNamespace(namespace: String): Mono~Boolean~
     }
 
-    class NamespacedContext {
-        <<object>>
-        +namespace: String = "cosky"
-    }
-
     class Namespaced {
         <<interface>>
         +namespace: String
     }
 
     NamespaceService <|.. RedisNamespaceService
-    Namespaced <|.. NamespacedContext
-    NamespaceService ..> NamespacedContext : 使用 SYSTEM 命名空间作为索引键
 
     style NamespaceService fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style RedisNamespaceService fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style NamespacedContext fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style Namespaced fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt:23-27, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:26-59, cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt:20-23, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:20-33 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt:23-27, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:27-56, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:20-41 -->
 
 `RedisNamespaceService` 将所有命名空间名称存储在键为 `cosky-{system}:ns_idx` 的 Redis SET 中：
 
@@ -184,7 +166,7 @@ flowchart LR
     style CH fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:28, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22-90, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt:22-82 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt:29, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:22-90, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt:22-82 -->
 
 | 模式 | 段 | 生成方法 | 示例 |
 |---------|---------|-----------------|---------|
@@ -207,45 +189,47 @@ CoSky 使用基于 Redis Pub/Sub 的事件驱动架构来实时传播变更。�
 [`EventListenerContainer<T, E>`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt) 接口是一个最小的响应式契约：
 
 ```kotlin
-interface EventListenerContainer<T, E : Any> : AutoCloseable {
-    fun receive(topic: T): Flux<E>
+interface EventListenerContainer<T, E : Any> {
+    fun listen(topic: T): Mono<Flux<E>>
+
+    fun receive(topic: T): Flux<E> = listen(topic).flatMapMany { it }
 }
 ```
 
 - `T` 是主题类型（例如，命名空间级事件用 `String`，实例级事件用 `NamespacedServiceId`，配置事件用 `NamespacedConfigId`）
 - `E` 是事件类型（例如，服务变更通知用 `String`，实例变更用 `InstanceChangedEvent`，配置变更用 `ConfigChangedEvent`）
-- 继承 `AutoCloseable` 用于生命周期管理
+- `listen` 只在订阅生效（Redis 确认 `SUBSCRIBE`）后才发出事件流，因此之后发起的读取不会错过变更；`receive` 是将其展平的便捷方法
+- 容器不拥有底层传输：Spring 提供一个所有 CoSky 容器共享的 `ReactiveRedisMessageListenerContainer`，并随上下文一起关闭它
 
 ### `RedisEventListenerContainer` 基类
 
-[`RedisEventListenerContainer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt) 抽象类封装了 Spring 的 `ReactiveRedisMessageListenerContainer`，并提供错误处理（特别是针对 `CancellationException`）和生命周期管理：
+[`RedisEventListenerContainer`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt) 抽象类封装了 Spring 的 `ReactiveRedisMessageListenerContainer`，基于 `receiveLater` 实现 `listen`，并处理 `CancellationException`：
 
 ```mermaid
 classDiagram
     class EventListenerContainer~T, E~ {
         <<interface>>
+        +listen(topic: T): Mono~Flux~E~~
         +receive(topic: T): Flux~E~
-        +close() void
     }
 
     class RedisEventListenerContainer~T, E~ {
         <<abstract>>
         #delegate: ReactiveRedisMessageListenerContainer
-        +receive(topic: T): Flux~E~
-        #receiveEvent(topic: T): Flux~E~*
-        +close() void
+        +listen(topic: T): Mono~Flux~E~~
+        #listenEvent(topic: T): Mono~Flux~E~~*
     }
 
     class RedisInstanceEventListenerContainer {
-        +receiveEvent(topic: NamespacedServiceId): Flux~InstanceChangedEvent~
+        +listenEvent(topic: NamespacedServiceId): Mono~Flux~InstanceChangedEvent~~
     }
 
     class RedisServiceEventListenerContainer {
-        +receiveEvent(topic: String): Flux~String~
+        +listenEvent(topic: String): Mono~Flux~String~~
     }
 
     class RedisConfigEventListenerContainer {
-        +receiveEvent(topic: NamespacedConfigId): Flux~ConfigChangedEvent~
+        +listenEvent(topic: NamespacedConfigId): Mono~Flux~ConfigChangedEvent~~
     }
 
     class InstanceEventListenerContainer {
@@ -281,7 +265,7 @@ classDiagram
     style ConfigEventListenerContainer fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt:5-7, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceEventListenerContainer.kt:5, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceEventListenerContainer.kt:5, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt:22 -->
+<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt:11-20, cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceEventListenerContainer.kt:5, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceEventListenerContainer.kt:5, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt:22 -->
 
 ### 事件流 -- 服务实例注册
 
@@ -306,7 +290,7 @@ sequenceDiagram
     App->>App: 更新本地缓存或刷新
 ```
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:43-64, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:23-51, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
+<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:44-64, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:22-42, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/InstanceChangedEvent.kt:20-47 -->
 
 ### 事件流 -- 配置变更传播
 
@@ -319,6 +303,7 @@ sequenceDiagram
     participant Svc as RedisConfigService
     participant Redis as Redis
     participant Sub as RedisConfigEventListenerContainer
+    participant Cache as RedisConsistencyConfigService
     participant Refresher as CoSkyConfigRefresher
 
     Admin->>Svc: setConfig(namespace, configId, data)
@@ -327,11 +312,13 @@ sequenceDiagram
     Redis->>Redis: PUBLISH {ns}:cfg:{configId} "set"
     Redis->>Sub: 投递 Pub/Sub 消息
     Sub->>Sub: 解码为 ConfigChangedEvent<br>(NamespacedConfigId, SET)
-    Sub->>Refresher: 收到 ConfigChangedEvent
-    Refresher->>Refresher: 触发 Spring Environment 刷新
+    Sub->>Cache: 收到 ConfigChangedEvent
+    Cache->>Redis: 重新加载配置，发布新快照
+    Cache->>Refresher: watchConfig() 推送新快照
+    Refresher->>Refresher: 发布 RefreshEvent（缓存已更新）
 ```
 
-<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:75-86, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:14-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:76-86, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
 
 ### 事件类型
 
@@ -343,22 +330,21 @@ sequenceDiagram
 
 ## 命名空间作用域操作流程
 
-CoSky 中的每个操作都流经命名空间模型。`CoSkyProperties` 会先包装 Spring Cloud 客户端配置的 namespace，再把它存入默认上下文；显式传入的 namespace 则保持原样。下图说明了典型的服务发现请求如何在命名空间作用域内解析键：
+CoSky 中的每个操作都流经命名空间模型。`CoSkyProperties` 会把 Spring Cloud 客户端配置的 namespace 包装为 hashtag，Spring 组件在每次调用时显式传入它；命名空间经过校验，除此之外原样使用。下图说明了典型的服务发现请求如何在命名空间作用域内解析键：
 
 ```mermaid
 flowchart TD
     A[Spring 客户端配置 namespace] --> B[CoSkyProperties 调用 RedisKeys.ofKey]
-    B --> C[NamespacedContext 存储实际生效的 namespace]
-    D[客户端调用 getInstances] --> E{提供了命名空间？}
-    E -->|否| F[使用 NamespacedContext.namespace]
-    E -->|是| G[原样使用显式传入的 namespace]
-    C -.-> F
-    F --> H[DiscoveryKeyGenerator 原样拼接 namespace]
-    G --> H
+    B --> C[Spring 组件获取 CoSkyProperties.namespace]
+    C --> D[组件调用 getInstances namespace, serviceId]
+    D --> E{requireValidNamespace}
+    E -->|为空或包含 ':'| F[IllegalArgumentException]
+    E -->|合法| G[原样使用 namespace]
+    G --> H[DiscoveryKeyGenerator 拼接 namespace]
     H --> I[EVALSHA discovery_get_instances.lua]
     I --> J[从 svc_itc 键读取实例数据]
     J --> K[通过 ServiceInstanceCodec 解码]
-    K --> L[返回 Flux of ServiceInstance]
+    K --> L[返回 ServiceInstance 快照列表]
 
     style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style B fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
@@ -374,7 +360,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt:31-35, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-54 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:51-55, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
 
 ## 交叉引用
 
@@ -386,7 +372,7 @@ flowchart TD
 
 - [CoSky.kt -- 品牌常量](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt)
 - [Namespaced.kt -- 命名空间契约和常量](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt)
-- [NamespacedContext.kt -- 全局命名空间状态](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespacedContext.kt)
+- [ReactiveWatchCache.kt -- 事件驱动的本地缓存原语](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt)
 - [NamespaceService.kt -- 命名空间 CRUD 接口](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt)
 - [RedisNamespaceService.kt -- 基于 Redis SET 的命名空间存储](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt)
 - [RedisKeys.kt -- 集群 hashtag 和键工具](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)
