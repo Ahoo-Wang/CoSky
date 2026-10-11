@@ -70,7 +70,6 @@ fun main(args: Array<String>) {
 |--------|------|-------------|-------------------|--------|
 | GET | `/v1/namespaces` | 列出命名空间（按角色范围） | `getNamespaces` | [NamespaceController.kt:41](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L41) |
 | GET | `/v1/namespaces/current` | 获取当前上下文命名空间 | `current` | [NamespaceController.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L52) |
-| PUT | `/v1/namespaces/current/{namespace}` | 设置当前上下文命名空间 | `setCurrentContextNamespace` | [NamespaceController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L57) |
 | PUT | `/v1/namespaces/{namespace}` | 创建命名空间 | `setNamespace` | [NamespaceController.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L62) |
 | DELETE | `/v1/namespaces/{namespace}` | 移除命名空间 | `removeNamespace` | [NamespaceController.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L67) |
 

@@ -15,7 +15,6 @@ package me.ahoo.cosky.rest.namespace
 import io.swagger.v3.oas.annotations.tags.Tag
 import me.ahoo.cosec.webflux.ReactiveSecurityContexts.getSecurityContext
 import me.ahoo.cosky.core.NamespaceService
-import me.ahoo.cosky.core.NamespacedContext
 import me.ahoo.cosky.core.NamespacedContext.namespace
 import me.ahoo.cosky.rest.security.rbac.RbacService
 import me.ahoo.cosky.rest.security.user.AdminPrincipal.isAdmin
@@ -51,11 +50,6 @@ class NamespaceController(private val namespaceService: NamespaceService, privat
     @GetMapping(RequestPathPrefix.NAMESPACES_CURRENT)
     fun current(): String {
         return namespace
-    }
-
-    @PutMapping(RequestPathPrefix.NAMESPACES_CURRENT_NAMESPACE)
-    fun setCurrentContextNamespace(@PathVariable namespace: String) {
-        NamespacedContext.namespace = namespace
     }
 
     @PutMapping(RequestPathPrefix.NAMESPACES_NAMESPACE)

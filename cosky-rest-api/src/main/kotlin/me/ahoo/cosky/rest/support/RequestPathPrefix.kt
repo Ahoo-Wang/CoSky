@@ -81,10 +81,6 @@ object RequestPathPrefix {
      */
     const val NAMESPACES_CURRENT = "/current"
 
-    /**
-     * /v1/namespaces/current/{namespace} .
-     */
-    const val NAMESPACES_CURRENT_NAMESPACE = "$NAMESPACES_CURRENT/{namespace}"
     //endregion
     /**
      * /v1/namespaces/{namespace} .
