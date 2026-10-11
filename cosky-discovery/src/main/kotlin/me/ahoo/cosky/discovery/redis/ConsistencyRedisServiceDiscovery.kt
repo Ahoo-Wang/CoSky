@@ -82,16 +82,21 @@ class ConsistencyRedisServiceDiscovery(
     /**
      * The non-expired [instances], reused for as long as the snapshot is unchanged and none of them expires, so that
      * an expired instance awaiting its reaping does not produce a new list on every read.
+     *
+     * The clock is read only when an ephemeral instance can expire: under concurrent reads it costs far more than the
+     * rest of this hot path.
      */
     private fun liveInstancesOf(
         namespacedServiceId: NamespacedServiceId,
         instances: List<ServiceInstance>
     ): List<ServiceInstance> {
-        val nowSeconds = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
         val cached = liveInstances[namespacedServiceId]
-        if (cached != null && cached.snapshot === instances && nowSeconds <= cached.validUntil) {
+        if (cached != null && cached.snapshot === instances &&
+            (cached.validUntil == Long.MAX_VALUE || nowSeconds() <= cached.validUntil)
+        ) {
             return cached.live
         }
+        val nowSeconds = nowSeconds()
         val live = if (instances.none { it.isExpiredAt(nowSeconds) }) {
             instances
         } else {
@@ -101,6 +106,8 @@ class ConsistencyRedisServiceDiscovery(
         liveInstances[namespacedServiceId] = LiveInstances(instances, live, validUntil)
         return live
     }
+
+    private fun nowSeconds(): Long = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
 
     /**
      * @see ServiceInstance.isExpired
