@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
+import me.ahoo.cosky.core.util.cacheExceptError
 import me.ahoo.cosky.discovery.InstanceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
@@ -54,7 +55,7 @@ class ConsistencyRedisServiceDiscovery(
     private val serviceMapInstances =
         ConcurrentHashMap<NamespacedServiceId, Mono<CopyOnWriteArraySet<ServiceInstance>>>()
 
-    private val namespaceMapServices: ConcurrentHashMap<String, Flux<String>> = ConcurrentHashMap()
+    private val namespaceMapServices: ConcurrentHashMap<String, Mono<List<String>>> = ConcurrentHashMap()
 
     override fun getServices(namespace: String): Flux<String> {
         require(namespace.isNotBlank()) { "namespace must not be blank!" }
@@ -70,8 +71,8 @@ class ConsistencyRedisServiceDiscovery(
                     namespaceMapServices.remove(namespace)
                 }
                 .subscribe()
-            delegate.getServices(namespace).cache()
-        }
+            loadServices(namespace)
+        }.flatMapIterable { it }
     }
 
     private fun onServiceChanged(namespace: String) {
@@ -79,8 +80,12 @@ class ConsistencyRedisServiceDiscovery(
             "onServiceChanged:$namespace"
         }
         @Suppress("ReactiveStreamsUnusedPublisher")
-        namespaceMapServices[namespace] = delegate.getServices(namespace).cache()
+        namespaceMapServices[namespace] = loadServices(namespace)
         hookOnResetServiceCache(namespace)
+    }
+
+    private fun loadServices(namespace: String): Mono<List<String>> {
+        return delegate.getServices(namespace).collectList().cacheExceptError()
     }
 
     override fun getInstances(namespace: String, serviceId: String): Flux<ServiceInstance> {
@@ -105,7 +110,7 @@ class ConsistencyRedisServiceDiscovery(
                 .map {
                     CopyOnWriteArraySet(it)
                 }
-                .cache()
+                .cacheExceptError()
         }
             .flatMapIterable { it }
             .filter { instance: ServiceInstance -> !instance.isExpired }

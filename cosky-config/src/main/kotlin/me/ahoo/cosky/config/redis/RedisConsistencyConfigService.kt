@@ -18,6 +18,7 @@ import me.ahoo.cosky.config.ConfigChangedEvent
 import me.ahoo.cosky.config.ConfigEventListenerContainer
 import me.ahoo.cosky.config.ConfigService
 import me.ahoo.cosky.config.NamespacedConfigId
+import me.ahoo.cosky.core.util.cacheExceptError
 import reactor.core.publisher.Mono
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
@@ -61,7 +62,7 @@ class RedisConsistencyConfigService(
                     configMapCache.remove(namespacedConfigId)
                 }
                 .subscribe()
-            delegate.getConfig(it.namespace, it.configId).cache()
+            delegate.getConfig(it.namespace, it.configId).cacheExceptError()
         }
     }
 
@@ -73,7 +74,7 @@ class RedisConsistencyConfigService(
         configMapCache[namespacedConfigId] =
             @Suppress("ReactiveStreamsUnusedPublisher")
             delegate.getConfig(namespacedConfigId.namespace, namespacedConfigId.configId)
-                .cache(CONFIG_CACHE_TTL)
+                .cacheExceptError(CONFIG_CACHE_TTL)
         hookOnResetCache(configChangedEvent)
     }
 }
