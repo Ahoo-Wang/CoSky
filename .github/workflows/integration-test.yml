@@ -11,8 +11,18 @@
 # limitations under the License.
 #
 
+# Builds and verifies every module: compilation, unit and integration tests against Redis, static analysis,
+# license headers and the coverage floor.
 name: Integration Test
-on: [ pull_request ]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   integration-test:
     name: Integration Test
@@ -36,8 +46,7 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          server-id: github
-          settings-path: ${{ github.workspace }}
+          cache: gradle
 
       - name: Integration Test
         run: ./gradlew clean check
