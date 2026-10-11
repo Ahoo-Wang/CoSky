@@ -4635,7 +4635,7 @@ The bundled `cosky-policy.json` defines the baseline security policy. Its statem
     { "name": "dashboard",     "action": { "path": { "method": "GET", "pattern": ["/", "/index.html", ...] } } },
     { "name": "actuatorHealth","action": ["/actuator/health", "/actuator/health/*"] },
     { "name": "authenticate",  "action": ["/v1/authenticate/{username}/login", "/v1/authenticate/{username}/refresh"] },
-    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": "/v1/namespaces/**" } },
+    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": ["/v1/namespaces", "/v1/namespaces/current"] } },
                               "condition": { "authenticated": {} } },
     { "name": "admin",         "action": "*", "condition": { "inRole": { "value": "admin" } } },
     { "name": "root",          "action": "*", "condition": { "eq": { "part": "context.principal.id", "value": "cosky" } } }
@@ -4646,7 +4646,8 @@ The bundled `cosky-policy.json` defines the baseline security policy. Its statem
 Key policy rules:
 
 - **Unauthenticated access**: OPTIONS requests, Swagger UI, static dashboard assets, actuator health, and authentication endpoints are allowed without login.
-- **Namespace reads**: Any authenticated user can read namespace data (GET `/v1/namespaces/**`).
+- **Namespace listing**: Any authenticated user can list namespaces (GET `/v1/namespaces`, which only returns the namespaces their roles grant) and read the current namespace (GET `/v1/namespaces/current`). Reading the data of a namespace (configs, services, statistics, topology) requires a role granting read access to it.
+- **Stored policy**: A policy saved as the `cosky-policy.json` config of `cosky-{system}` replaces the bundled one and takes effect as soon as the config cache holds it; a stored policy that does not parse keeps the previous one in force.
 - **Admin role**: Members of the `admin` role have unrestricted access (`action: "*"`) to all APIs.
 - **Root user**: The `cosky` user has unrestricted access regardless of role bindings.
 

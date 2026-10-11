@@ -292,7 +292,7 @@ classDiagram
     { "name": "dashboard",     "action": { "path": { "method": "GET", "pattern": ["/", "/index.html", ...] } } },
     { "name": "actuatorHealth","action": ["/actuator/health", "/actuator/health/*"] },
     { "name": "authenticate",  "action": ["/v1/authenticate/{username}/login", "/v1/authenticate/{username}/refresh"] },
-    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": "/v1/namespaces/**" } },
+    { "name": "namespace",     "action": { "path": { "method": "GET", "pattern": ["/v1/namespaces", "/v1/namespaces/current"] } },
                               "condition": { "authenticated": {} } },
     { "name": "admin",         "action": "*", "condition": { "inRole": { "value": "admin" } } },
     { "name": "root",          "action": "*", "condition": { "eq": { "part": "context.principal.id", "value": "cosky" } } }
@@ -303,7 +303,8 @@ classDiagram
 关键策略规则：
 
 - **未认证访问**：OPTIONS 请求、Swagger UI、静态 Dashboard 资源、Actuator 健康检查和认证端点无需登录即可访问。
-- **命名空间读取**：任何已认证用户都可以读取命名空间数据（GET `/v1/namespaces/**`）。
+- **命名空间列表**：任何已认证用户都可以列出命名空间（GET `/v1/namespaces`，只返回其角色授权的命名空间）并读取当前命名空间（GET `/v1/namespaces/current`）。读取某个命名空间的数据（配置、服务、统计、拓扑）需要拥有该命名空间读权限的角色。
+- **存储的策略**：以 `cosky-{system}` 中 `cosky-policy.json` 配置保存的策略会替代内置策略，并在配置缓存持有它后立即生效；无法解析的存储策略会保持之前的策略生效。
 - **管理员角色**：`admin` 角色成员拥有对所有 API 的不受限制访问（`action: "*"`）。
 - **Root 用户**：`cosky` 用户无论角色绑定如何，都拥有不受限制的访问权限。
 
