@@ -13,6 +13,7 @@
 package me.ahoo.cosky.discovery.spring.cloud.discovery
 
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
+import me.ahoo.cosky.discovery.NamespacedServiceId
 import me.ahoo.cosky.discovery.ServiceDiscovery
 import me.ahoo.cosky.discovery.ServiceEventListenerContainer
 import me.ahoo.cosky.discovery.ServiceTopology
@@ -25,14 +26,19 @@ import me.ahoo.cosky.discovery.redis.RedisServiceDiscovery
 import me.ahoo.cosky.discovery.redis.RedisServiceEventListenerContainer
 import me.ahoo.cosky.discovery.redis.RedisServiceStatistic
 import me.ahoo.cosky.discovery.redis.RedisServiceTopology
+import me.ahoo.cosky.discovery.spring.cloud.registry.CoSkyRegistryProperties
 import me.ahoo.cosky.spring.cloud.CoSkyAutoConfiguration
+import me.ahoo.cosky.spring.cloud.CoSkyProperties
 import me.ahoo.cosky.spring.cloud.ConditionalOnCoSkyEnabled
+import me.ahoo.cosky.spring.cloud.support.AppSupport
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.context.properties.bind.Binder
 import org.springframework.cloud.client.ConditionalOnDiscoveryEnabled
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
+import org.springframework.core.env.Environment
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate
 import org.springframework.data.redis.listener.ReactiveRedisMessageListenerContainer
 
@@ -57,8 +63,23 @@ class CoSkyDiscoveryAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    fun redisServiceTopology(redisTemplate: ReactiveStringRedisTemplate): RedisServiceTopology {
-        return RedisServiceTopology(redisTemplate)
+    fun redisServiceTopology(
+        redisTemplate: ReactiveStringRedisTemplate,
+        coSkyProperties: CoSkyProperties,
+        environment: Environment
+    ): RedisServiceTopology {
+        val consumer = NamespacedServiceId(coSkyProperties.namespace, localServiceId(environment))
+        return RedisServiceTopology(redisTemplate, consumer)
+    }
+
+    /**
+     * The service id this application registers as, known before it actually registers.
+     */
+    private fun localServiceId(environment: Environment): String {
+        val registeredServiceId = Binder.get(environment)
+            .bind(CoSkyRegistryProperties.PREFIX + ".service-id", String::class.java)
+            .orElse(null)
+        return registeredServiceId?.takeIf { it.isNotBlank() } ?: AppSupport.getAppName(environment)
     }
 
     @Bean

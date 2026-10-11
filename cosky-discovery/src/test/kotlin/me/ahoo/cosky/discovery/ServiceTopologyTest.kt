@@ -12,61 +12,51 @@
  */
 package me.ahoo.cosky.discovery
 
-import me.ahoo.cosky.core.NamespaceService
-import me.ahoo.cosky.core.NamespacedContext
-import me.ahoo.cosky.core.redis.RedisNamespaceService
-import me.ahoo.cosky.discovery.redis.RedisServiceRegistry
+import me.ahoo.cosid.test.MockIdGenerator
 import me.ahoo.cosky.discovery.redis.RedisServiceTopology
 import me.ahoo.cosky.test.AbstractReactiveRedisTest
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import reactor.kotlin.test.test
-import java.util.concurrent.ThreadLocalRandom
 
 /**
  * @author ahoo wang
  */
 class ServiceTopologyTest : AbstractReactiveRedisTest() {
-    private lateinit var serviceTopology: ServiceTopology
-    private lateinit var serviceRegistry: ServiceRegistry
-    private lateinit var redisNamespaceService: NamespaceService
-    override fun afterInitializedRedisClient() {
-        serviceRegistry = RedisServiceRegistry(RegistryProperties(), redisTemplate)
-        serviceTopology = RedisServiceTopology(redisTemplate)
-        redisNamespaceService = RedisNamespaceService(redisTemplate)
+
+    private fun topologyOf(namespace: String, consumer: String): ServiceTopology {
+        return RedisServiceTopology(redisTemplate, NamespacedServiceId(namespace, consumer))
     }
 
     @Test
-    fun buildTopologyData() {
-        redisNamespaceService.setNamespace(namespace)
+    fun addAndGetTopology() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val otherNamespace = MockIdGenerator.INSTANCE.generateAsString()
+        val order = topologyOf(namespace, "order")
+        order.addTopology(namespace, "user").test().verifyComplete()
+        order.addTopology(otherNamespace, "payment").test().verifyComplete()
+        topologyOf(namespace, "user").addTopology(namespace, "account").test().verifyComplete()
+
+        order.getTopology(namespace)
             .test()
-            .expectNextCount(1)
-            .verifyComplete()
-        NamespacedContext.namespace = namespace
-        val serviceSize = 50
-        for (i in 0 until serviceSize) {
-            ServiceInstanceContext.serviceInstance = TestServiceInstance.createInstance("service-$i")
-            repeat(5) {
-                val depServiceId = ThreadLocalRandom.current().nextInt(0, serviceSize)
-                if (depServiceId == i) {
-                    return@repeat
-                }
-                val serviceId = "service-$depServiceId"
-                serviceRegistry.setService(namespace, serviceId)
-                    .test()
-                    .expectNextCount(1)
-                    .verifyComplete()
-                serviceTopology.addTopology(namespace, serviceId)
-                    .test()
-                    .verifyComplete()
+            .expectNextMatches {
+                it.assert().isEqualTo(
+                    mapOf(
+                        "order" to setOf("user", "$otherNamespace.payment"),
+                        "user" to setOf("account"),
+                    ),
+                )
+                true
             }
-        }
-        serviceTopology.getTopology(namespace)
-            .test()
-            .expectNextCount(1)
             .verifyComplete()
     }
 
-    companion object {
-        private const val namespace = "topology"
+    @Test
+    fun selfDependencyIsIgnored() {
+        val namespace = MockIdGenerator.INSTANCE.generateAsString()
+        val order = topologyOf(namespace, "order")
+        order.addTopology(namespace, "order").test().verifyComplete()
+
+        order.getTopology(namespace).test().expectNext(emptyMap()).verifyComplete()
     }
 }
