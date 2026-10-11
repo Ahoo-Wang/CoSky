@@ -23,12 +23,14 @@ import java.util.HexFormat
  * Hashes passwords with BCrypt and still verifies the unsalted SHA-256 hashes of older versions, which
  * [needsUpgrade] reports so that they can be replaced after a successful login.
  *
- * BCrypt is deliberately slow, so hashing runs off the event loop.
+ * BCrypt is deliberately slow, so hashing runs off the event loop. It only accepts passwords of up to
+ * [MAX_PASSWORD_BYTES] bytes, which [hash] enforces with an explicit message.
  *
  * @author ahoo wang
  */
 class PasswordHasher(private val encoder: BCryptPasswordEncoder = BCryptPasswordEncoder()) {
     companion object {
+        const val MAX_PASSWORD_BYTES = 72
         private val BCRYPT_PREFIX = Regex("^\\$2[aby]?\\$")
         private fun legacyHash(password: String): String {
             val digest = MessageDigest.getInstance("SHA-256").digest(password.toByteArray(StandardCharsets.UTF_8))
@@ -36,7 +38,12 @@ class PasswordHasher(private val encoder: BCryptPasswordEncoder = BCryptPassword
         }
     }
 
+    fun canHash(password: String): Boolean = password.toByteArray(StandardCharsets.UTF_8).size <= MAX_PASSWORD_BYTES
+
     fun hash(password: String): Mono<String> {
+        if (!canHash(password)) {
+            return Mono.error(IllegalArgumentException("Password must not be longer than $MAX_PASSWORD_BYTES bytes."))
+        }
         return Mono.fromCallable { encoder.encode(password)!! }.subscribeOn(Schedulers.boundedElastic())
     }
 

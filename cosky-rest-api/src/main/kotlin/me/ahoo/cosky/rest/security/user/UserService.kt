@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.rest.security.user
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosec.api.principal.CoSecPrincipal
 import me.ahoo.cosec.principal.SimplePrincipal
 import me.ahoo.cosky.core.Namespaced
@@ -186,9 +187,18 @@ class UserService(
 
     /**
      * Replaces a hash of an older version by a BCrypt hash, now that the password is known to be right.
+     *
+     * A password too long for BCrypt keeps its legacy hash, rather than locking its user out.
      */
     private fun upgradeLegacyHash(username: String, password: String, storedHash: String): Mono<Void> {
         if (!passwordHasher.needsUpgrade(storedHash)) {
+            return Mono.empty()
+        }
+        if (!passwordHasher.canHash(password)) {
+            log.warn {
+                "username:[$username] - password is longer than ${PasswordHasher.MAX_PASSWORD_BYTES} bytes, " +
+                    "keeping its legacy hash until it is changed."
+            }
             return Mono.empty()
         }
         return passwordHasher.hash(password)
@@ -282,6 +292,7 @@ class UserService(
     fun logout() = Unit
 
     companion object {
+        private val log = KotlinLogging.logger {}
         const val USER_IDX = Namespaced.SYSTEM + ":user_idx"
         const val USER_ROLE_BIND = Namespaced.SYSTEM + ":user_role_bind:%s"
         const val USER_LOGIN_LOCK = Namespaced.SYSTEM + ":login_lock:%s"

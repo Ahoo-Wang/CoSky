@@ -72,4 +72,27 @@ class UserPasswordTest : AbstractReactiveRedisTest() {
         storedHash().startsWith("$2").assert().isTrue()
         userService.login(username, "new").test().expectNextCount(1).verifyComplete()
     }
+
+    @Test
+    fun legacyUserWithPasswordBCryptCanNotHashStillLogsIn() {
+        val longPassword = "p".repeat(PasswordHasher.MAX_PASSWORD_BYTES + 1)
+        redisTemplate.opsForHash<String, String>().put(UserService.USER_IDX, username, legacyHash(longPassword)).block()
+
+        userService.login(username, longPassword).test().expectNextCount(1).verifyComplete()
+        storedHash().assert().isEqualTo(legacyHash(longPassword))
+    }
+
+    @Test
+    fun rejectPasswordsLongerThanBCryptSupports() {
+        val longPassword = "p".repeat(PasswordHasher.MAX_PASSWORD_BYTES + 1)
+        userService.addUser(username, longPassword).test().expectErrorSatisfies {
+            it.assert().isInstanceOf(IllegalArgumentException::class.java)
+            it.message.assert().contains("${PasswordHasher.MAX_PASSWORD_BYTES} bytes")
+        }.verify()
+
+        userService.addUser(username, "old").test().expectNext(true).verifyComplete()
+        userService.changePwd(username, "old", longPassword).test()
+            .expectError(IllegalArgumentException::class.java).verify()
+        userService.login(username, "old").test().expectNextCount(1).verifyComplete()
+    }
 }
