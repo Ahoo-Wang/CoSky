@@ -63,6 +63,8 @@ class ReactiveWatchCache<K : Any, V : Any, E : Any>(
     private val closed = AtomicBoolean(false)
 
     override fun get(key: K): Mono<V> {
+        // Hot path: a loaded key is served without allocating.
+        entries[key]?.currentValue?.let { return it }
         return entryOf(key).flatMap { it.current() }
     }
 
@@ -104,6 +106,13 @@ class ReactiveWatchCache<K : Any, V : Any, E : Any>(
          */
         @Volatile
         private var snapshot: Snapshot<V>? = null
+
+        /**
+         * The value of [snapshot], prebuilt so that reading it does not allocate.
+         */
+        @Volatile
+        var currentValue: Mono<V>? = null
+            private set
 
         @Volatile
         private var disposable: Disposable? = null
@@ -151,6 +160,7 @@ class ReactiveWatchCache<K : Any, V : Any, E : Any>(
             }
             val next = Snapshot((current?.version ?: 0) + 1, value)
             snapshot = next
+            currentValue = Mono.justOrEmpty(value)
             states.emitNext(State.Loaded(next), Sinks.EmitFailureHandler.busyLooping(Duration.ofSeconds(1)))
         }
 
