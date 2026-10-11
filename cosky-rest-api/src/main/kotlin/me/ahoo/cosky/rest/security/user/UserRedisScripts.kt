@@ -17,5 +17,6 @@ import org.springframework.data.redis.core.script.RedisScript
 
 internal object UserRedisScripts {
     val SCRIPT_USER_STATE: RedisScript<Long> = LuaScripts.load("user_state.lua", Long::class.java)
+    val SCRIPT_USER_BIND_ROLE: RedisScript<Boolean> = LuaScripts.load("user_bind_role.lua", Boolean::class.java)
     val SCRIPT_USER_PASSWORD_CAS: RedisScript<Boolean> = LuaScripts.load("user_password_cas.lua", Boolean::class.java)
 }

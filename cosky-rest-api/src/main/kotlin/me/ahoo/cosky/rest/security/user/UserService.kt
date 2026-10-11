@@ -99,13 +99,11 @@ class UserService(
     }
 
     fun bindRole(username: String, roleBind: Set<String>): Mono<Void> {
-        val userRoleBindKey = getUserRoleBindKey(username)
-        return redisTemplate
-            .opsForSet()
-            .delete(userRoleBindKey)
-            .thenMany(Flux.fromIterable(roleBind))
-            .flatMap { role -> redisTemplate.opsForSet().add(userRoleBindKey, role) }
-            .then()
+        return redisTemplate.execute(
+            UserRedisScripts.SCRIPT_USER_BIND_ROLE,
+            listOf(getUserRoleBindKey(username)),
+            roleBind.toList(),
+        ).then()
     }
 
     fun getRoleBind(username: String): Flux<String> {
