@@ -1,0 +1,67 @@
+#
+# Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Labels pull requests so that reviewers see the affected areas and release notes group changes by type:
+# - area labels from the changed files (.github/labeler.yml),
+# - type labels from the Conventional Commits title, matching the categories of .github/release.yml.
+name: Pull Request Labeler
+on:
+  # Runs with the base repository's token so pull requests from forks get labeled too. Safe because no code from
+  # the pull request is checked out or executed.
+  pull_request_target:
+    types: [ opened, edited, synchronize, reopened ]
+permissions:
+  contents: read
+  pull-requests: write
+jobs:
+  area:
+    name: Area Labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/labeler@bf12e9b00b37c5c0ca2b87b79b2daf7891dbda13 # v7.0.0
+  type:
+    name: Type Labels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            // The title is read from the event payload, never interpolated into the script.
+            const title = context.payload.pull_request.title;
+            const match = /^(\w+)(\([^)]*\))?(!)?:/.exec(title);
+            if (!match) {
+              core.info(`Title is not a Conventional Commit: ${title}`);
+              return;
+            }
+            const typeLabels = {
+              feat: 'enhancement',
+              fix: 'bug',
+              perf: 'performance',
+              docs: 'documentation',
+              build: 'maintenance',
+              chore: 'maintenance',
+              ci: 'maintenance',
+              refactor: 'maintenance',
+              style: 'maintenance',
+              test: 'maintenance',
+            };
+            const labels = [];
+            const typeLabel = typeLabels[match[1].toLowerCase()];
+            if (typeLabel) labels.push(typeLabel);
+            if (match[3]) labels.push('breaking-change');
+            if (labels.length === 0) return;
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: context.payload.pull_request.number,
+              labels,
+            });

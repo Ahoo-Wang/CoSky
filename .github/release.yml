@@ -1,9 +1,14 @@
+# Release notes group pull requests by label; a pull request goes into the first category it matches, so the most
+# significant categories come first. Labels are applied by .github/workflows/labeler.yml.
 changelog:
   exclude:
     labels:
       - ignore-for-release
 
   categories:
+    - title: 🔧 Breaking Changes
+      labels:
+        - breaking-change
     - title: 🎉 New Features
       labels:
         - enhancement
@@ -13,19 +18,16 @@ changelog:
     - title: ⚡ Performance Improvements
       labels:
         - performance
-    - title: 🔧 Breaking Changes
-      labels:
-        - breaking-change
-    - title: 📚 Documentation Updates
-      labels:
-        - documentation
-    - title: 🔨 Maintenance
-      labels:
-        - maintenance
     - title: 🤖 Dependency Updates
       labels:
         - dependency
         - dependencies
+    - title: 🔨 Maintenance
+      labels:
+        - maintenance
+    - title: 📚 Documentation Updates
+      labels:
+        - documentation
     - title: Other Changes
       labels:
         - '*'
