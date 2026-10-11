@@ -7,6 +7,7 @@ const pages = [
   { title: "Overview", path: "guide/index.md" },
   { title: "Getting Started", path: "guide/getting-started.md" },
   { title: "Installation", path: "guide/installation.md" },
+  { title: "Upgrading to 6.0", path: "guide/upgrade-6.md" },
   { title: "Architecture Overview", path: "guide/architecture.md" },
   { title: "Core Module", path: "guide/core.md" },
   { title: "Configuration Management", path: "guide/config-service.md" },

@@ -7,6 +7,7 @@
 - [Overview](wiki/guide/index.md)
 - [Getting Started](wiki/guide/getting-started.md)
 - [Installation](wiki/guide/installation.md)
+- [Upgrading to 6.0](wiki/guide/upgrade-6.md)
 
 ## Architecture
 

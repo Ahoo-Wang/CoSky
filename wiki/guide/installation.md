@@ -7,6 +7,8 @@ description: Install CoSky as a Spring Cloud dependency or deploy the standalone
 
 CoSky can be used in two ways: as a **library dependency** integrated into your Spring Cloud application, or as a **standalone REST API server** for centralized management with a web dashboard. This page covers all installation methods.
 
+> **Upgrading from 5.x?** 6.0 has breaking changes, including a required JWT secret: see [Upgrading to 6.0](./upgrade-6.md).
+
 ## Installation Methods Comparison
 
 | Method | Pros | Cons | Best For |
@@ -53,7 +55,7 @@ Add CoSky starters to your Spring Cloud application. These are published to Mave
 ### Gradle (Kotlin DSL)
 
 ```kotlin
-val coskyVersion = "5.8.1"
+val coskyVersion = "6.0.0"
 
 dependencies {
     implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
@@ -74,7 +76,7 @@ dependencies {
     <modelVersion>4.0.0</modelVersion>
     <artifactId>demo</artifactId>
     <properties>
-        <cosky.version>5.8.1</cosky.version>
+        <cosky.version>6.0.0</cosky.version>
     </properties>
 
     <dependencyManagement>
@@ -140,8 +142,8 @@ cd dashboard && pnpm install && pnpm build && cd ..
 ./gradlew :cosky-rest-api:distTar
 
 # Extract (the archive name includes the version)
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-5.8.1.tar
-cd cosky-rest-api-5.8.1
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.0.0.tar
+cd cosky-rest-api-6.0.0
 
 # Run with Redis connection
 COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
@@ -231,7 +233,7 @@ spec:
               value: redis-pwd
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:6.0.0
           startupProbe:
             httpGet:
               port: http
@@ -266,7 +268,7 @@ spec:
           name: volume-localtime
 ```
 
-> **Note:** The example above uses the current release `5.8.1`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
+> **Note:** The example above uses the current release `6.0.0`. The in-repo manifest ([k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)) still pins the older `5.3.5` tag — prefer the current release, or `ahoowang/cosky:latest` from Docker Hub.
 
 Source: [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml)
 
@@ -315,7 +317,7 @@ spec:
               value: 30s
             - name: TZ
               value: Asia/Shanghai
-          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:5.8.1
+          image: registry.cn-shanghai.aliyuncs.com/ahoo/cosky:6.0.0
           startupProbe:
             httpGet:
               port: http
@@ -515,7 +517,7 @@ Source: [README.md:238-246](https://github.com/Ahoo-Wang/CoSky/blob/main/README.
 ## References
 
 - [build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts) -- root build configuration with JVM 17 toolchain
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`5.8.1`)
+- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- project version (`6.0.0`)
 - [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) -- all module definitions
 - [k8s/deployment/cosky.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky.yml) -- Kubernetes deployment (standalone Redis)
 - [k8s/deployment/cosky-cluster.yml](https://github.com/Ahoo-Wang/CoSky/blob/main/k8s/deployment/cosky-cluster.yml) -- Kubernetes deployment (Redis Cluster)
