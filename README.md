@@ -1,4 +1,4 @@
-# [CoSky](https://github.com/Ahoo-Wang/CoSky) - High-Performance Microservice Governance Platform
+# [CoSky](https://github.com/Ahoo-Wang/CoSky): Configuration and Service Discovery on Redis
 
 <p align="center">
      <img src="./docs/cosky-logo.svg" alt="CoSky Logo" width="200"/>
@@ -12,452 +12,82 @@
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Ahoo-Wang/CoSky)
 
-> [中文文档](https://cosky.ahoo.me/zh/) | [English Document](https://cosky.ahoo.me/)
+> **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
-*[CoSky](https://github.com/Ahoo-Wang/CoSky)* is a lightweight, low-cost service registration, service discovery, and
-configuration service SDK. By leveraging Redis in your existing infrastructure (which you've likely already deployed),
-CoSky eliminates additional operational costs and deployment burdens. Powered by Redis's high performance, CoSky
-delivers exceptional TPS&QPS (100,000+/s [JMH Benchmark](#jmh-benchmark)). Through its combination of local process
-caching strategies and *Redis PubSub*, CoSky achieves real-time cache refreshing with outstanding QPS performance (
-70,000,000+/s [JMH Benchmark](#jmh-benchmark)) and maintains real-time consistency between process cache and Redis.
+CoSky provides **configuration management** and **service discovery** for Spring Cloud microservices, using only **Redis** as infrastructure. There is no registry cluster to operate: applications talk to the Redis you already run, and an optional REST API server adds a web dashboard, users and permissions.
 
-## Service Discovery
+- **Reads from memory.** Each application keeps a local cache that Redis Pub/Sub keeps current: reading a config or choosing an instance costs no network round trip ([benchmarks](https://cosky.ahoo.me/guide/performance)).
+- **Atomic writes.** Every change is a single Lua script, announced to every subscriber.
+- **Spring Cloud native.** A property source with live refresh, a `DiscoveryClient` and a service registry.
 
 <p align="center">
-     <img src="./docs/CoSky-Discovery.png" alt="CoSky-Discovery"/>
+     <img src="./docs/CoSky-Discovery.png" alt="CoSky service discovery"/>
 </p>
 
-## Configuration
+## Features
 
-<p align="center">
-     <img src="./docs/CoSky-Configuration.png" alt="CoSky-Configuration"/>
-</p>
+| Area | What you get |
+|---|---|
+| Configuration | Live refresh, YAML / properties, versions with rollback, import and export (Nacos-compatible) |
+| Service discovery | Ephemeral instances with automatic expiry, metadata and status, weighted load balancing, topology |
+| Operations | REST API and dashboard, JWT authentication, namespace-scoped roles, audit log |
+| Isolation | Namespaces separate environments or tenants in one Redis |
 
-## Examples
+## Quick start
 
-[Service Consumer --RPC--> Service Provider Examples](https://github.com/Ahoo-Wang/CoSky/tree/main/examples)
+Add the starters (`spring-cloud-starter-bootstrap` makes Spring Cloud read `bootstrap.yaml`):
 
-## Installation
-
-### Gradle
-
-> Kotlin DSL
-
-``` kotlin
-    val coskyVersion = "lastVersion";
-    // cosky-bom: manages CoSky module versions
-    // cosky-dependencies: manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions
-    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+```kotlin
+dependencies {
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.0.0"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
+    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+}
 ```
 
-### Maven
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-
-    <modelVersion>4.0.0</modelVersion>
-    <artifactId>demo</artifactId>
-    <properties>
-        <cosky.version>lastVersion</cosky.version>
-    </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <!-- cosky-bom: manages CoSky module versions -->
-            <dependency>
-                <groupId>me.ahoo.cosky</groupId>
-                <artifactId>cosky-bom</artifactId>
-                <version>${cosky.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <!-- cosky-dependencies: manages Spring Boot / Spring Cloud / CosID / Simba / CoSec versions -->
-            <dependency>
-                <groupId>me.ahoo.cosky</groupId>
-                <artifactId>cosky-dependencies</artifactId>
-                <version>${cosky.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
-    <dependencies>
-        <dependency>
-            <groupId>me.ahoo.cosky</groupId>
-            <artifactId>cosky-spring-cloud-starter-config</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>me.ahoo.cosky</groupId>
-            <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.cloud</groupId>
-            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-        </dependency>
-    </dependencies>
-
-</project>
-```
-
-### bootstrap.yaml (Spring-Cloud-Config)
+Point them at Redis in `bootstrap.yaml`:
 
 ```yaml
 spring:
   application:
-    name: ${service.name:cosky}
+    name: order-service          # loads config order-service.yaml, registers as order-service
   data:
     redis:
       url: redis://localhost:6379
   cloud:
     cosky:
-      namespace: ${cosky.namespace:cosky-{default}}
-      config:
-        config-id: ${spring.application.name}.yaml
-    service-registry:
-      auto-registration:
-        enabled: ${cosky.auto-registry:true}
-logging:
-  file:
-    name: logs/${spring.application.name}.log
+      namespace: dev
 ```
 
-## 🌐 REST-API Server (Optional)
+Run the dashboard to manage configs and services:
 
-Choose from three deployment options based on your environment:
-
-### 🖥️ Option 1: Standalone Executable
-
-Build the distribution from source and run directly:
-
-```shell
-# Build the dashboard first (dashboard/dist is gitignored; without this the archive has no web UI)
-cd dashboard && pnpm install && pnpm build && cd ..
-
-# Build the distribution (outputs to cosky-rest-api/build/distributions/)
-./gradlew :cosky-rest-api:distTar
-
-# Extract and run
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-*.tar
-cd cosky-rest-api-*
-COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api --server.port=8080 --spring.data.redis.url=redis://localhost:6379
-```
-
-### 🐳 Option 2: Docker Deployment
-
-Quick deployment with Docker:
-
-```shell
-docker pull ahoowang/cosky:latest
-docker run --name cosky -d -p 8080:8080 \
-  -e SPRING_DATA_REDIS_URL=redis://your-redis-host:6379 \
+```bash
+docker run -d --name cosky -p 8080:8080 \
+  -e SPRING_DATA_REDIS_URL=redis://host.docker.internal:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:latest
+  ahoowang/cosky:6.0.0
+docker logs cosky | grep "init super user"    # password of the super user "cosky"
 ```
 
-### ☸️ Option 3: Kubernetes Deployment
+The [Getting Started](https://cosky.ahoo.me/guide/getting-started) guide walks through the whole setup; the [examples](examples) contain a provider and a Feign consumer.
 
-Deploy in your Kubernetes cluster:
+## Documentation
 
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: cosky
-  labels:
-    app: cosky
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: cosky
-  template:
-    metadata:
-      labels:
-        app: cosky
-    spec:
-      containers:
-        - name: cosky
-          image: ahoowang/cosky:latest
-          ports:
-            - containerPort: 8080
-              protocol: TCP
-          env:
-            - name: SPRING_DATA_REDIS_URL
-              value: redis://your-redis-host:6379
-          resources:
-            requests:
-              cpu: 250m
-              memory: 1024Mi
-            limits:
-              cpu: "1"
-              memory: 1280Mi
-          volumeMounts:
-            - name: volume-localtime
-              mountPath: /etc/localtime
-      volumes:
-        - name: volume-localtime
-          hostPath:
-            path: /etc/localtime
-            type: ""
+| | |
+|---|---|
+| [Overview](https://cosky.ahoo.me/guide/) | What CoSky is, when it fits, how it compares |
+| [Configuration](https://cosky.ahoo.me/guide/configuration) · [Service Discovery](https://cosky.ahoo.me/guide/service-discovery) · [SDK](https://cosky.ahoo.me/guide/sdk) | Using CoSky in applications |
+| [Deployment](https://cosky.ahoo.me/guide/deployment) · [Security](https://cosky.ahoo.me/guide/security) · [Upgrading to 6.0](https://cosky.ahoo.me/guide/upgrade-6) | Running the REST API server |
+| [Properties](https://cosky.ahoo.me/guide/properties) · [REST API](https://cosky.ahoo.me/guide/rest-api) | Reference |
+| [Architecture](https://cosky.ahoo.me/guide/architecture) · [Performance](https://cosky.ahoo.me/guide/performance) | How it works |
 
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: cosky
-  labels:
-    app: cosky
-spec:
-  selector:
-    app: cosky
-  ports:
-    - name: rest
-      port: 80
-      protocol: TCP
-      targetPort: 8080
-```
+## Contributing
 
-### 🎨 Dashboard
+Read the [contributing guide](CONTRIBUTING.md) for the development setup, conventions, review and release process, and [SECURITY.md](SECURITY.md) to report a vulnerability privately. Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
-Access the web-based management interface at:
-> [http://localhost:8080](http://localhost:8080)
+## License
 
-<p align="center">
-     <img src="./docs/dashboard-dashboard.png" alt="CoSky-Dashboard"/>
-</p>
-
-The CoSky Dashboard provides:
-
-- Real-time service monitoring and management
-- Configuration management with version control
-- Namespace isolation and management
-- Role-based access control (RBAC)
-- Audit logging for compliance
-- Service topology visualization
-- Easy import/export functionality
-
-### Login
-
-<p align="center">
-      <img src="./docs/dashboard-login.png" alt="CoSky-Dashboard-login"/>
-</p>
-
-### Service dependent topology
-
-<p align="center">
-     <img src="./docs/dashboard-topology.png" alt="CoSky-Dashboard-topology"/>
-</p>
-
-### Role-based access control(RBAC)
-
-- cosky: Reserved username, super user, with the highest authority. When the application is launched for the first time,
-  the super user (cosky) password will be initialized and printed on the console. Don't worry if you forget your
-  password, you can configure `enforce-init-super-user: true`, *CoSky* will help you reinitialize the password and print
-  it on the console.
-
-```log
----------------- ****** CoSky -  init super user:[cosky] password:[6TrmOux4Oj] ****** ----------------
-```
-
-- admin: Reserved roles, super administrator roles, have all permissions, a user can be bound to multiple roles, and a
-  role can be bound to multiple resource operation permissions.
-- Permission control granularity is namespace, read and write operations
-
-#### Role Permissions
-
-<p align="center">
-     <img src="./docs/dashboard-role.png" alt="CoSky-Dashboard-role"/>
-</p>
-
-##### Add Role
-
-<p align="center">
-     <img src="./docs/dashboard-role-add.png" alt="CoSky-Dashboard-role-add"/>
-</p>
-
-#### User Management
-
-<p align="center">
-     <img src="./docs/dashboard-user.png" alt="CoSky-Dashboard-user"/>
-</p>
-
-##### Add User
-
-<p align="center">
-     <img src="./docs/dashboard-user-add.png" alt="CoSky-Dashboard-user-add"/>
-</p>
-
-#### Audit Log
-
-<p align="center">
-     <img src="./docs/dashboard-audit-log.png" alt="CoSky-Dashboard-audit-log"/>
-</p>
-
-#### Namespace
-
-<p align="center">
-     <img src="./docs/dashboard-namespace.png" alt="CoSky-Dashboard-namespace"/>
-</p>
-
-#### Config
-
-<p align="center">
-     <img src="./docs/dashboard-config.png" alt="CoSky-Dashboard-config"/>
-</p>
-
-##### Edit configuration
-
-<p align="center">
-     <img src="./docs/dashboard-config-edit.png" alt="CoSky-Dashboard-config-edit"/>
-</p>
-
-##### Rollback configuration
-
-<p align="center">
-     <img src="./docs/dashboard-config-rollback.png" alt="CoSky-Dashboard-config-rollback"/>
-</p>
-
-##### Import configuration from Nacos
-
-<p align="center">
-     <img src="./docs/dashboard-config-import.png" alt="CoSky-Dashboard-config-rollback"/>
-</p>
-
-#### Service
-
-<p align="center">
-     <img src="./docs/dashboard-service.png" alt="CoSky-Dashboard-service"/>
-</p>
-
-##### Edit Service Instance
-
-<p align="center">
-     <img src="./docs/dashboard-service-edit.png" alt="CoSky-Dashboard-service-edit"/>
-</p>
-
-### REST-API
-
-> https://ahoo-cosky.apifox.cn/
-
-## 🚀 Performance Benchmarks
-
-<p align="center">
-  <strong>CoSky delivers exceptional performance, outperforming alternatives by orders of magnitude</strong>
-</p>
-
-### Test Environment
-
-- **Hardware**: MacBook Pro (M1)
-- **Redis**: Deployed locally on the same machine
-- **Methodology**: All benchmarks conducted using JMH (Java Microbenchmark Harness)
-
-### Config Service Performance
-
-```shell
-gradle cosky-config:jmh
-# or
-java -jar cosky-config/build/libs/cosky-config-lastVersion-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
-```
-
-#### Results
-
-```
-Benchmark                                          Mode  Cnt          Score   Error  Units
-ConsistencyRedisConfigServiceBenchmark.getConfig  thrpt       256733987.827          ops/s
-RedisConfigServiceBenchmark.getConfig             thrpt          241787.679          ops/s
-RedisConfigServiceBenchmark.setConfig             thrpt          140461.112          ops/s
-```
-
-### Service Discovery Performance
-
-```shell
-gradle cosky-discovery:jmh
-# or
-java -jar cosky-discovery/build/libs/cosky-discovery-lastVersion-jmh.jar -bm thrpt -t 25 -wi 1 -rf json -f 1
-```
-
-#### Results
-
-```
-Benchmark                                                Mode  Cnt          Score   Error  Units
-ConsistencyRedisServiceDiscoveryBenchmark.getInstances  thrpt        76621729.048          ops/s
-ConsistencyRedisServiceDiscoveryBenchmark.getServices   thrpt       455760632.346          ops/s
-RedisServiceDiscoveryBenchmark.getInstances             thrpt          226909.985          ops/s
-RedisServiceDiscoveryBenchmark.getServices              thrpt          304979.150          ops/s
-RedisServiceRegistryBenchmark.deregister                thrpt          255305.648          ops/s
-RedisServiceRegistryBenchmark.register                  thrpt          110664.160          ops/s
-RedisServiceRegistryBenchmark.renew                     thrpt          210960.325          ops/s
-```
-
-> 🔥 **Key Insight**: CoSky's consistency layer provides over 800x performance improvement for configuration retrieval
-> and over 250x for service discovery compared to standard Redis operations.
-
-## 🔁 CoSky-Mirror (Real-time synchronization of service instance change status)
-
-> CoSky-Mirror acts as a bridge between Nacos and CoSky, creating a unified service discovery platform that enables
-> seamless integration.
-
-<p align="center">
-     <img src="./docs/CoSky-Mirror.png" alt="CoSky-Mirror"/>
-</p>
-
-<p align="center">
-     <img src="./docs/CoSky-Mirror-Unified.png" alt="CoSky-Mirror-Unified"/>
-</p>
-
-With CoSky-Mirror, you can:
-
-- Synchronize service instances between Nacos and CoSky in real-time
-- Maintain consistency across different service registries
-- Migrate from Nacos to CoSky with zero downtime
-- Build a hybrid service discovery architecture
-
-## 📊 Feature Comparison
-
-| Feature                     | CoSky           | Eureka      | Consul            | CoreDNS    | Zookeeper  | Nacos                      | Apollo      |
-|-----------------------------|-----------------|-------------|-------------------|------------|------------|----------------------------|-------------|
-| **CAP**                     | CP+AP           | AP          | CP                | CP         | CP         | CP+AP                      | CP+AP       |
-| **Health Check**            | Client Beat     | Client Beat | TCP/HTTP/gRPC/Cmd | Keep Alive | Keep Alive | TCP/HTTP/Client Beat       | Client Beat |
-| **Load Balancing**          | Weight/Selector | Ribbon      | Fabio             | RoundRobin | RoundRobin | Weight/metadata/RoundRobin | RoundRobin  |
-| **Avalanche Protection**    | ❌               | ✅           | ❌                 | ❌          | ❌          | ✅                          | ❌           |
-| **Auto Logoff Instance**    | ✅               | ✅           | ❌                 | ❌          | ✅          | ✅                          | ✅           |
-| **Access Protocol**         | HTTP/Redis      | HTTP        | HTTP/DNS          | DNS        | TCP        | HTTP/DNS                   | HTTP        |
-| **Listening Support**       | ✅               | ✅           | ✅                 | ❌          | ✅          | ✅                          | ✅           |
-| **Multi-data Center**       | ✅               | ✅           | ✅                 | ❌          | ❌          | ✅                          | ✅           |
-| **Cross Registry Sync**     | ✅               | ❌           | ✅                 | ❌          | ❌          | ✅                          | ❌           |
-| **SpringCloud Integration** | ✅               | ✅           | ✅                 | ❌          | ❌          | ✅                          | ✅           |
-| **Dubbo Integration**       | ✅               | ❌           | ❌                 | ❌          | ✅          | ✅                          | ✅           |
-| **K8S Integration**         | ✅               | ❌           | ✅                 | ✅          | ❌          | ✅                          | ❌           |
-| **Persistence**             | Redis           | -           | -                 | -          | -          | MySql                      | MySql       |
-
-> ✅ **Key Advantages of CoSky**:
-> - **Hybrid CP+AP model** for both consistency and availability
-> - **Ultra-high performance** with Redis backend (100K+ QPS)
-> - **Cross registry synchronization** capability
-> - **Lightweight deployment** with minimal operational overhead
-> - **Comprehensive ecosystem integration** (Spring Cloud, Dubbo, K8S)
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Whether it's reporting bugs, suggesting features, or submitting pull
-requests, your input helps make CoSky better for everyone.
-
-Read the [contributing guide](CONTRIBUTING.md) for the development setup, conventions, review and release process,
-and [SECURITY.md](SECURITY.md) to report a vulnerability privately. Everyone taking part follows the
-[code of conduct](CODE_OF_CONDUCT.md).
-
-## 📄 License
-
-CoSky is open-sourced software licensed under
-the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
+CoSky is licensed under the [Apache License 2.0](LICENSE).
