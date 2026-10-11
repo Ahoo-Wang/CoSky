@@ -137,7 +137,7 @@ logging:
 | 属性 | 默认值 | 说明 |
 |----------|---------|-------------|
 | `spring.data.redis.url` | _（必填）_ | Redis 连接 URL |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务/配置隔离的命名空间（[CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)） |
+| `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务/配置隔离的命名空间（[CoSkyProperties.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L42)） |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID（[CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50)） |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 |
 | `spring.cloud.cosky.config.file-extension` | `yaml` | 配置查找的默认文件扩展名（[CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)） |

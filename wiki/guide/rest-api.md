@@ -10,7 +10,7 @@ The CoSky REST API Server is a Spring Boot WebFlux application that exposes the 
 
 | Component | Responsibility | Key File | Source |
 |-----------|---------------|----------|--------|
-| Server entry point | Spring Boot application bootstrap | `RestApiServer.kt` | [cosky-rest-api/.../RestApiServer.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L23) |
+| Server entry point | Spring Boot application bootstrap | `RestApiServer.kt` | [cosky-rest-api/.../RestApiServer.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L24) |
 | Config API | Configuration CRUD, versioning, import/export | `ConfigController.kt` | [cosky-rest-api/.../ConfigController.kt:57](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/config/ConfigController.kt#L57) |
 | Service API | Service registry, discovery, load balancing | `ServiceController.kt` | [cosky-rest-api/.../ServiceController.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/service/ServiceController.kt#L42) |
 | Namespace API | Multi-tenant namespace management | `NamespaceController.kt` | [cosky-rest-api/.../NamespaceController.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/namespace/NamespaceController.kt#L38) |
@@ -30,7 +30,7 @@ fun main(args: Array<String>) {
 }
 ```
 
-Source: [cosky-rest-api/.../RestApiServer.kt:23-28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L23)
+Source: [cosky-rest-api/.../RestApiServer.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt#L24)
 
 ## API Endpoints
 
@@ -220,7 +220,7 @@ flowchart TB
     CoSecAuth --> c
 ```
 
-<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:23, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:32, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
+<!-- Sources: cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/RestApiServer.kt:24, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatServiceScheduler.kt:32, cosky-rest-api/src/main/kotlin/me/ahoo/cosky/rest/stat/StatController.kt:37 -->
 
 ## StatServiceScheduler
 

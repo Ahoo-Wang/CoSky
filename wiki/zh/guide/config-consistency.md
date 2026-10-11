@@ -15,7 +15,7 @@ title: "Consistency Layer"
 | **ConfigWatcher** | 每次变更后、在本地缓存已持有新值时推送配置快照 | `ConfigWatcher.kt` | [ConfigWatcher.kt:23](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigWatcher.kt#L23) |
 | **ConfigEventListenerContainer** | 订阅配置变更事件的接口 | `ConfigEventListenerContainer.kt` | [ConfigEventListenerContainer.kt:22](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigEventListenerContainer.kt#L22) |
 | **RedisConfigEventListenerContainer** | 监听配置键通道的 Redis PubSub 实现 | `RedisConfigEventListenerContainer.kt` | [RedisConfigEventListenerContainer.kt:15](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt#L15) |
-| **RedisConfigService** | 标准的 Redis 配置服务（被委托方） | `RedisConfigService.kt` | [RedisConfigService.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L42) |
+| **RedisConfigService** | 标准的 Redis 配置服务（被委托方） | `RedisConfigService.kt` | [RedisConfigService.kt:43](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt#L43) |
 
 ## 性能问题
 

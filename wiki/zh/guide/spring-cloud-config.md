@@ -13,13 +13,13 @@ CoSky 的 Spring Cloud Config Starter 桥接了 CoSky 基于 Redis 的配置中�
 | **CoSkyConfigProperties** | 绑定 `spring.cloud.cosky.config.*` 属性 | `CoSkyConfigProperties.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigProperties.kt:25](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L25) |
 | **CoSkyConfigBootstrapConfiguration** | 引导入口；创建 `PropertySourceLocator` | `CoSkyConfigBootstrapConfiguration.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigBootstrapConfiguration.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L28) |
 | **CoSkyConfigAutoConfiguration** | 装配 `ConfigService`、事件监听器和刷新器 Bean | `CoSkyConfigAutoConfiguration.kt` | [cosky-spring-cloud-starter-config/.../CoSkyConfigAutoConfiguration.kt:45](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L45) |
-| **CoSkyPropertySourceLocator** | 从 Redis 加载配置到 Spring `Environment` | `CoSkyPropertySourceLocator.kt` | [cosky-spring-cloud-starter-config/.../CoSkyPropertySourceLocator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L36) |
+| **CoSkyPropertySourceLocator** | 从 Redis 加载配置到 Spring `Environment` | `CoSkyPropertySourceLocator.kt` | [cosky-spring-cloud-starter-config/.../CoSkyPropertySourceLocator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L35) |
 | **CoSkyConfigRefresher** | 监听缓存中的配置，在缓存更新后触发 Spring `RefreshEvent` | `CoSkyConfigRefresher.kt` | [cosky-spring-cloud-starter-config/.../refresh/CoSkyConfigRefresher.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt#L36) |
 | **ConditionalOnCoSkyConfigEnabled** | 基于 `enabled` 属性的条件激活 | `ConditionalOnCoSkyConfigEnabled.kt` | [cosky-spring-cloud-starter-config/.../ConditionalOnCoSkyConfigEnabled.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/ConditionalOnCoSkyConfigEnabled.kt#L29) |
 
 ## 配置属性
 
-所有属性都在 `spring.cloud.cosky.config` 前缀下，由 [CoSkyConfigProperties.kt:24](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L24) 绑定。
+所有属性都在 `spring.cloud.cosky.config` 前缀下，由 [CoSkyConfigProperties.kt:27](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L27) 绑定。
 
 | 属性 | 默认值 | 描述 |
 |---|---|---|
@@ -73,10 +73,10 @@ flowchart TB
 
 ## 配置加载流程
 
-`CoSkyPropertySourceLocator` 实现了 Spring Cloud 的 `PropertySourceLocator` 接口（[CoSkyPropertySourceLocator.kt:39](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L39)）。在引导阶段，Spring 会对每个已注册的定位器调用 `locate(Environment)`。该定位器：
+`CoSkyPropertySourceLocator` 实现了 Spring Cloud 的 `PropertySourceLocator` 接口（[CoSkyPropertySourceLocator.kt:38](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L38)）。在引导阶段，Spring 会对每个已注册的定位器调用 `locate(Environment)`。该定位器：
 
 1. 解析**配置 ID** -- 如果 `configId` 为空，则默认为 `{appName}.{fileExtension}`，如 [CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50) 所计算。
-2. 在 `CoSkyProperties` 的命名空间中通过 `ConfigService.getConfig(namespace, configId)` 获取配置数据（[CoSkyPropertySourceLocator.kt:62](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L62)）。
+2. 在 `CoSkyProperties` 的命名空间中通过 `ConfigService.getConfig(namespace, configId)` 获取配置数据（[CoSkyPropertySourceLocator.kt:67](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt#L67)）。
 3. 根据文件扩展名选择合适的 `PropertySourceLoader`（例如 `.yaml` 对应 `YamlPropertySourceLoader`）。
 4. 将原始配置数据解析为 `PropertySource` 并添加到 Spring `Environment` 中。
 
@@ -99,7 +99,7 @@ sequenceDiagram
     Locator->>Locator: 将 YAML 解析为 PropertySource
     Locator-->>Bootstrap: OriginTrackedMapPropertySource
 ```
-<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:52, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:50 -->
+<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:60, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:50 -->
 
 ## 配置刷新机制
 
@@ -185,7 +185,7 @@ classDiagram
     style CoSkyConfigRefresher fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
     style ConditionalOnCoSkyConfigEnabled fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
-<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt:25, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:45, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt:28, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:36, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:36, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/ConditionalOnCoSkyConfigEnabled.kt:29 -->
+<!-- Sources: cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt:25, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt:45, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt:28, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyPropertySourceLocator.kt:35, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/refresh/CoSkyConfigRefresher.kt:36, cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/ConditionalOnCoSkyConfigEnabled.kt:29 -->
 
 ## YAML 配置示例
 

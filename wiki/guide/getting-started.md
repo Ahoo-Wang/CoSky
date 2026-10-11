@@ -137,7 +137,7 @@ The example relies on Spring Boot's default Redis connection (`localhost:6379`);
 | Property | Default | Description |
 |----------|---------|-------------|
 | `spring.data.redis.url` | _(required)_ | Redis connection URL |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace for service/config isolation ([CoSkyProperties.kt:30](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L30)) |
+| `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace for service/config isolation ([CoSkyProperties.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L42)) |
 | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | Config file ID to load ([CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50)) |
 | `spring.cloud.service-registry.auto-registration.enabled` | `true` | Auto-register service on startup |
 | `spring.cloud.cosky.config.file-extension` | `yaml` | Default file extension for config lookup ([CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)) |

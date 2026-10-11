@@ -321,7 +321,7 @@ sequenceDiagram
     Refresher->>Refresher: 发布 RefreshEvent（缓存已更新）
 ```
 
-<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:95-105, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
+<!-- Sources: cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigService.kt:104-114, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30, cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigChangedEvent.kt:20-36 -->
 
 ### 事件类型
 
@@ -363,7 +363,7 @@ flowchart TD
     style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:38-46, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:54-58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
+<!-- Sources: cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt:42-55, cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt:35-41, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt:54-58, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceDiscovery.kt:33-50 -->
 
 ## 交叉引用
 
