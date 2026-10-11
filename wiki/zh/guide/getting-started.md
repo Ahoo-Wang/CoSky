@@ -1,94 +1,63 @@
 ---
-title: Getting Started
-description: Set up CoSky in your Spring Cloud application in minutes with service discovery and configuration management.
+title: 快速开始
+description: 为 Spring Boot 应用接入配置管理与服务发现，并运行控制台。
 ---
 
-# 快速入门
+# 快速开始
 
-本指南将引导您为 Spring Cloud 应用添加 CoSky 服务发现和配置管理功能。完成后，您的应用将注册到基于 Redis 的服务发现系统，从 CoSky 加载配置，并为生产流量做好准备。
+大约十分钟后，你将得到一个从 CoSky 加载配置、注册自身并能发现其他服务的 Spring Boot 应用，以及用来管理它们的控制台。
 
-## 概览
+**准备：** Java 17+、Docker（运行 Redis 和控制台），以及一个用 Gradle 或 Maven 构建的 Spring Boot 4 应用。
 
-您将构建一个 Spring Boot 微服务，它能够：
+## 1. 启动 Redis 与控制台
 
-- 通过 CoSky 配置 Starter 从 Redis 加载配置
-- 启动时自动注册为服务实例
-- 通过周期性心跳续约注册
-- 通过 CoSky 发现客户端发现其他服务
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-graph LR
-    subgraph YourApp["您的 Spring Boot 应用"]
-        style YourApp fill:#161b22,stroke:#30363d,color:#e6edf3
-        MAIN["main()"] --> BOOT["@SpringBootApplication"]
-        BOOT --> CONFIG["配置 Starter<br>从 Redis 加载"]
-        BOOT --> DISC["发现 Starter<br>注册到 Redis"]
-    end
-
-    subgraph Infra["基础设施"]
-        style Infra fill:#161b22,stroke:#30363d,color:#e6edf3
-        REDIS[("Redis")]
-    end
-
-    CONFIG --> REDIS
-    DISC --> REDIS
-
-    style MAIN fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style BOOT fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DISC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REDIS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+```bash
+docker network create cosky
+docker run -d --name redis --network cosky -p 6379:6379 redis:7
+docker run -d --name cosky --network cosky -p 8080:8080 \
+  -e SPRING_DATA_REDIS_URL=redis://redis:6379 \
+  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
+  ahoowang/cosky:6.0.0
 ```
 
-<!-- Sources: ProviderServer.kt:24, CoSkyAutoConfiguration.kt:32 -->
+服务器首次启动时会创建超级用户 `cosky`，并生成随机密码：
 
-## 前置条件
+```bash
+docker logs cosky | grep "init super user"
+```
 
-| 要求 | 版本 | 用途 | 备注 |
-|-------------|---------|---------|-------|
-| **Java** | 17+ | JVM 运行时 | CoSky 使用 JVM 17 工具链（[build.gradle.kts:93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L93)） |
-| **Redis** | 5.0+ | 服务和配置的后端存储 | 支持单机或集群模式 |
-| **Gradle** 或 **Maven** | 任意 | 构建工具 | Gradle 示例使用 Kotlin DSL |
-| **Spring Boot** | 4.x | 应用框架 | 兼容 Spring Cloud |
+打开 <http://localhost:8080>，以 `cosky` 登录。
 
-## 快速开始
+## 2. 添加依赖
 
-### 第 1 步：添加依赖
+::: code-group
 
-#### Gradle（Kotlin DSL）
-
-```kotlin
-val coskyVersion = "6.0.0"
-
+```kotlin [Gradle (Kotlin DSL)]
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:${coskyVersion}"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:${coskyVersion}"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.0.0"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
+    // 加载 bootstrap.yaml，CoSky 配置源在其中配置。
+    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
     implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
 }
 ```
 
-#### Maven
-
-```xml
-<properties>
-    <cosky.version>6.0.0</cosky.version>
-</properties>
+```xml [Maven]
 <dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-bom</artifactId>
-            <version>${cosky.version}</version>
+            <version>6.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-dependencies</artifactId>
-            <version>${cosky.version}</version>
+            <version>6.0.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -105,197 +74,72 @@ dependencies {
     </dependency>
     <dependency>
         <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-starter-bootstrap</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-starter-loadbalancer</artifactId>
     </dependency>
 </dependencies>
 ```
 
-当前版本定义于 [gradle.properties:14](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties#L14)。
+:::
 
-### 第 2 步：配置 Bootstrap
+`cosky-bom` 管理 CoSky 各模块的版本，`cosky-dependencies` 管理 Spring Boot、Spring Cloud 以及 CoSky 测试所用其他库的版本。没有 `spring-cloud-starter-bootstrap`（或 `spring.cloud.bootstrap.enabled=true`）时，`bootstrap.yaml` 会被忽略，也就不会从 CoSky 加载任何配置。
 
-创建 `src/main/resources/bootstrap.yaml`。下面是内置示例提供者（example provider）使用的配置：
+## 3. 配置应用
+
+`src/main/resources/bootstrap.yaml`：
 
 ```yaml
-server:
-  port: 8099
 spring:
   application:
-    name: ${service.name:example-provider}
+    name: order-service
+  data:
+    redis:
+      url: redis://localhost:6379
   cloud:
     cosky:
-      namespace: ${cosky.namespace:dev}
-      config:
-        config-id: ${spring.application.name}.yaml
-logging:
-  file:
-    name: logs/${spring.application.name}.log
+      namespace: dev
 ```
 
-该示例依赖 Spring Boot 默认的 Redis 连接（`localhost:6379`）；如果您的 Redis 实例在其他地址运行，请显式设置 `spring.data.redis.url`。服务自动注册默认启用（`spring.cloud.service-registry.auto-registration.enabled`）。
+- 加载的配置是 `dev` 命名空间中的 `order-service.yaml`（应用名加 `.yaml`）。
+- 应用以服务 `order-service` 注册，端口为其 Web 服务器端口。
 
-| 属性 | 默认值 | 说明 |
-|----------|---------|-------------|
-| `spring.data.redis.url` | _（必填）_ | Redis 连接 URL |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | 服务/配置隔离的命名空间（[CoSkyProperties.kt:42](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt#L42)） |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.yaml` | 要加载的配置文件 ID（[CoSkyConfigAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigAutoConfiguration.kt#L50)） |
-| `spring.cloud.service-registry.auto-registration.enabled` | `true` | 启动时自动注册服务 |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | 配置查找的默认文件扩展名（[CoSkyConfigProperties.kt:28](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt#L28)） |
+## 4. 创建配置
 
-源码：[examples/cosky-service-provider/src/main/resources/bootstrap.yaml](https://github.com/Ahoo-Wang/CoSky/blob/main/examples/cosky-service-provider/src/main/resources/bootstrap.yaml)
+在控制台中：
 
-### 第 3 步：创建主类
+1. 打开 **Namespace**，添加 `{dev}`。CoSky 会把每个命名空间包进 Redis Cluster hash tag，所以应用里的 `dev` 在 Redis 中是 `{dev}`；应用不会自己把命名空间加入这个列表。
+2. 打开 **Config**，选择 `{dev}`，创建 `order-service.yaml`：
+
+```yaml
+greeting: Hello from CoSky
+```
+
+像读取任何 Spring 属性一样读取它：
 
 ```kotlin
-package com.example.myservice
-
-import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.runApplication
-
-@SpringBootApplication
-class MyServiceApplication
-
-fun main(args: Array<String>) {
-    runApplication<MyServiceApplication>(*args)
+@RestController
+@RefreshScope
+class GreetingController(@Value("\${greeting}") private val greeting: String) {
+    @GetMapping("/greeting")
+    fun greeting() = greeting
 }
 ```
 
-就是这样。CoSky 的自动配置会处理其余一切。当应用启动时：
+## 5. 运行并验证
 
-1. **CoSkyAutoConfiguration** 绑定 `CoSkyProperties`（包括每个组件使用的命名空间），并提供所有 CoSky 缓存共享的 Pub/Sub 监听容器（[CoSkyAutoConfiguration.kt:33](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyAutoConfiguration.kt#L33)）
-2. **CoSkyConfigBootstrapConfiguration** 从 Redis 加载您的配置到 Spring Environment（[CoSkyConfigBootstrapConfiguration.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigBootstrapConfiguration.kt#L29)）
-3. **CoSkyDiscoveryAutoConfiguration** 自动注册您的服务实例（[CoSkyDiscoveryAutoConfiguration.kt:50](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryAutoConfiguration.kt#L50)）
+启动应用，然后：
 
-## 启动流程
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-sequenceDiagram
-    autonumber
-    participant Boot as Spring Boot
-    participant Auto as CoSkyAutoConfiguration
-    participant PSL as CoSkyPropertySourceLocator
-    participant CS as ConfigService
-    participant Redis as Redis
-    participant Reg as CoSkyServiceRegistry
-    participant Renew as RenewInstanceService
-
-    Note over Boot,Renew: Bootstrap 阶段
-    Boot->>Auto: 加载 CoSkyAutoConfiguration
-    Auto->>Auto: 绑定 CoSkyProperties（命名空间）
-
-    Boot->>PSL: locate(environment)
-    PSL->>CS: getConfig(namespace, configId)
-    CS->>Redis: GET 配置数据
-    Redis-->>CS: 配置 JSON
-    CS-->>PSL: Config 对象
-    PSL-->>Boot: 将 PropertySource 注入 Environment
-
-    Note over Boot,Renew: 应用上下文刷新
-    Boot->>Boot: 初始化所有 Bean
-
-    Note over Boot,Renew: 服务注册
-    Boot->>Reg: ApplicationStartedEvent -> register()
-    Reg->>Redis: Lua 脚本: 注册实例
-    Redis-->>Reg: OK
-    Reg->>Renew: 启动心跳调度器
-    Renew->>Redis: 每 10 秒周期性 renew()
-```
-
-<!-- Sources: CoSkyAutoConfiguration.kt:32, CoSkyPropertySourceLocator.kt:50, CoSkyServiceRegistry.kt:30, RenewProperties.kt:28 -->
-
-## Starter 架构
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-graph TB
-    subgraph ConfigStarter["配置 Starter"]
-        style ConfigStarter fill:#161b22,stroke:#30363d,color:#e6edf3
-        CB["CoSkyConfigBootstrapConfiguration"] --> CA["CoSkyConfigAutoConfiguration"]
-        CA --> RCS["RedisConfigService"]
-        CA --> CRCS["RedisConsistencyConfigService<br>(缓存, 256M+ ops/s)"]
-        CA --> CR["CoSkyConfigRefresher<br>(通过 PubSub 实时刷新)"]
-        CB --> PSL["CoSkyPropertySourceLocator"]
-    end
-
-    subgraph DiscoveryStarter["发现 Starter"]
-        style DiscoveryStarter fill:#161b22,stroke:#30363d,color:#e6edf3
-        DA["CoSkyDiscoveryAutoConfiguration"] --> RSD["RedisServiceDiscovery"]
-        DA --> CRSD["ConsistencyRedisServiceDiscovery<br>(缓存, 76M+ ops/s)"]
-        DA --> LB["BinaryWeightRandomLoadBalancer"]
-        DA --> SS["RedisServiceStatistic"]
-    end
-
-    subgraph Shared["共享模块 (cosky-spring-cloud-core)"]
-        style Shared fill:#161b22,stroke:#30363d,color:#e6edf3
-        PROPS["CoSkyProperties<br>(namespace, enabled)"]
-        AUTO["CoSkyAutoConfiguration"]
-    end
-
-    AUTO --> CB
-    AUTO --> DA
-    PROPS --> AUTO
-
-    RCS --> REDIS[("Redis")]
-    RSD --> REDIS
-    CRCS --> REDIS
-    CRSD --> REDIS
-
-    style CB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CA fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style RCS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CRCS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CR fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PSL fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DA fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style RSD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CRSD fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style LB fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style PROPS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style AUTO fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REDIS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
-
-<!-- Sources: CoSkyConfigAutoConfiguration.kt:43, CoSkyConfigBootstrapConfiguration.kt:28, CoSkyDiscoveryAutoConfiguration.kt:47, CoSkyAutoConfiguration.kt:32 -->
-
-## 验证是否工作
-
-1. 本地启动 Redis：
-
-   ```bash
-   docker run -d -p 6379:6379 redis:7
-   ```
-
-2. 运行您的 Spring Boot 应用：
-
-   ```bash
-   ./gradlew bootRun
-   ```
-
-3. 在 Redis 中检查已注册的服务：
-
-   ```bash
-   redis-cli SMEMBERS "cosky-{default}:svc_idx"
-   ```
-
-4. 您应该能在输出中看到您的服务名称，确认注册成功。
+- `curl localhost:<端口>/greeting` 返回 `Hello from CoSky`。
+- 在控制台中修改这个配置：下一次请求返回新值，无需重启。
+- 控制台的 **Service** 页面列出 `order-service` 及其一个实例。
+- 其他应用通过 Spring Cloud LoadBalancer 访问它，例如用 `@LoadBalanced` 的 `WebClient` 或 OpenFeign 请求 `http://order-service/greeting`。
 
 ## 下一步
 
-| 主题 | 说明 | 链接 |
-|-------|-------------|------|
-| 安装详情 | Maven、Gradle、Docker、K8s 配置 | [安装](./installation) |
-| 架构深入 | 模块结构、Redis 键设计、事件系统 | [架构](./architecture) |
-| 配置管理 | 配置 CRUD、版本管理、回滚、导入/导出 | [配置服务](./config-service) |
-| 服务发现 | 注册、心跳、发现、负载均衡 | [服务注册](./service-registry) |
-| REST API 服务器 | HTTP 端点、控制台、RBAC | [REST API](./rest-api) |
-
-## 参考
-
-- [gradle.properties](https://github.com/Ahoo-Wang/CoSky/blob/main/gradle.properties) -- 当前版本（`6.0.0`）
-- [CoSkyProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud/CoSkyProperties.kt) -- 核心配置属性
-- [CoSkyConfigProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-config/src/main/kotlin/me/ahoo/cosky/config/spring/cloud/CoSkyConfigProperties.kt) -- 配置 Starter 属性
-- [CoSkyDiscoveryProperties.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-starter-discovery/src/main/kotlin/me/ahoo/cosky/discovery/spring/cloud/discovery/CoSkyDiscoveryProperties.kt) -- 发现 Starter 属性
-- [示例提供者](https://github.com/Ahoo-Wang/CoSky/blob/main/examples/cosky-service-provider/src/main/kotlin/me/ahoo/cosky/examples/service/provider/ProviderServer.kt) -- 完整的可运行示例
-- [示例消费者](https://github.com/Ahoo-Wang/CoSky/blob/main/examples/cosky-service-consumer/src/main/kotlin/me/ahoo/cosky/examples/service/consumer/ConsumerServer.kt) -- 基于 Feign 的服务消费者
+- [配置管理](./configuration.md)：格式、刷新、版本与回滚。
+- [服务发现](./service-discovery.md)：元数据、状态、过期与负载均衡。
+- [部署](./deployment.md)：在生产环境运行服务器。
+- [示例](https://github.com/Ahoo-Wang/CoSky/tree/main/examples)包含一个服务提供者和一个 Feign 消费者。

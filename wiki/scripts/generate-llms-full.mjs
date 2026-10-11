@@ -1,57 +1,64 @@
+// Generates the LLM-oriented indexes from one list of pages, so they never diverge:
+// - wiki/llms-full.txt: every page's content,
+// - wiki/llms.txt and the repository's llms.txt: the page index (llmstxt.org format).
 import fs from "node:fs";
 import path from "node:path";
 
 const WIKI_ROOT = path.resolve(import.meta.dirname, "..");
+const REPO_ROOT = path.resolve(WIKI_ROOT, "..");
 
-const pages = [
-  { title: "Overview", path: "guide/index.md" },
-  { title: "Getting Started", path: "guide/getting-started.md" },
-  { title: "Installation", path: "guide/installation.md" },
-  { title: "Upgrading to 6.0", path: "guide/upgrade-6.md" },
-  { title: "Requirements", path: "guide/requirements.md" },
-  { title: "Architecture Overview", path: "guide/architecture.md" },
-  { title: "Core Module", path: "guide/core.md" },
-  { title: "Configuration Management", path: "guide/config-service.md" },
-  { title: "Consistency Layer", path: "guide/config-consistency.md" },
-  { title: "Service Registry", path: "guide/service-registry.md" },
-  { title: "Service Discovery", path: "guide/service-discovery.md" },
-  { title: "Load Balancers", path: "guide/load-balancers.md" },
-  { title: "Service Topology", path: "guide/service-topology.md" },
-  { title: "Spring Cloud Config Starter", path: "guide/spring-cloud-config.md" },
-  { title: "Spring Cloud Discovery Starter", path: "guide/spring-cloud-discovery.md" },
-  { title: "REST API Server", path: "guide/rest-api.md" },
-  { title: "Security & RBAC", path: "guide/security-rbac.md" },
-  { title: "Dashboard", path: "guide/dashboard.md" },
-  { title: "Docker Deployment", path: "guide/deployment-docker.md" },
-  { title: "Kubernetes Deployment", path: "guide/deployment-kubernetes.md" },
-  { title: "Standalone Deployment", path: "guide/deployment-standalone.md" },
-  { title: "Performance Benchmarks", path: "guide/performance.md" },
+const sections = [
+  { title: "Introduction", pages: ["guide/index.md", "guide/getting-started.md"] },
+  { title: "Guides", pages: ["guide/configuration.md", "guide/service-discovery.md", "guide/sdk.md"] },
+  {
+    title: "Operations",
+    pages: ["guide/deployment.md", "guide/security.md", "guide/dashboard.md", "guide/upgrade-6.md"],
+  },
+  { title: "Reference", pages: ["guide/properties.md", "guide/rest-api.md", "guide/requirements.md"] },
+  { title: "Concepts", pages: ["guide/architecture.md", "guide/performance.md"] },
+  { title: "Contributing", pages: ["guide/internals.md"] },
 ];
 
-function stripFrontmatter(content) {
-  const match = content.match(/^---\n[\s\S]*?\n---\n?/);
-  if (match) {
-    return content.substring(match[0].length);
-  }
-  return content;
+const SUMMARY =
+  "Configuration management and service discovery for Spring Cloud microservices, using only Redis as infrastructure.";
+
+function parse(relativePath) {
+  const raw = fs.readFileSync(path.join(WIKI_ROOT, relativePath), "utf-8");
+  const match = raw.match(/^---\n([\s\S]*?)\n---\n?/);
+  const frontmatter = match ? match[1] : "";
+  const field = (name) => frontmatter.match(new RegExp(`^${name}:\\s*"?(.*?)"?\\s*$`, "m"))?.[1] ?? "";
+  return {
+    path: relativePath,
+    title: field("title"),
+    description: field("description"),
+    content: (match ? raw.substring(match[0].length) : raw).trim(),
+  };
 }
 
-let output = "";
+const parsed = sections.map((section) => ({ ...section, pages: section.pages.map(parse) }));
 
-for (const page of pages) {
-  const filePath = path.join(WIKI_ROOT, page.path);
-  if (!fs.existsSync(filePath)) {
-    console.warn(`  Skipping missing: ${page.path}`);
-    continue;
+function index(linkPrefix) {
+  let out = `# CoSky\n\n> ${SUMMARY}\n`;
+  for (const section of parsed) {
+    out += `\n## ${section.title}\n\n`;
+    for (const page of section.pages) {
+      out += `- [${page.title}](${linkPrefix}${page.path}): ${page.description}\n`;
+    }
   }
-  const raw = fs.readFileSync(filePath, "utf-8");
-  const content = stripFrontmatter(raw);
-
-  output += `<doc title="${page.title}" path="${page.path}">\n`;
-  output += content.trim();
-  output += `\n</doc>\n\n`;
+  return out;
 }
 
-const outPath = path.join(WIKI_ROOT, "llms-full.txt");
-fs.writeFileSync(outPath, output.trim(), "utf-8");
-console.log(`Generated ${outPath} (${(output.length / 1024).toFixed(1)} KB)`);
+let full = "";
+for (const page of parsed.flatMap((section) => section.pages)) {
+  full += `<doc title="${page.title}" path="${page.path}">\n${page.content}\n</doc>\n\n`;
+}
+
+const outputs = {
+  [path.join(WIKI_ROOT, "llms-full.txt")]: full.trim() + "\n",
+  [path.join(WIKI_ROOT, "llms.txt")]: index(""),
+  [path.join(REPO_ROOT, "llms.txt")]: index("wiki/"),
+};
+for (const [file, content] of Object.entries(outputs)) {
+  fs.writeFileSync(file, content, "utf-8");
+  console.log(`Generated ${path.relative(REPO_ROOT, file)} (${(content.length / 1024).toFixed(1)} KB)`);
+}

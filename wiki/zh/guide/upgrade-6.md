@@ -28,7 +28,7 @@ export COSKY_SECURITY_KEY="$(openssl rand -base64 32)"
 
 ### 用户需要角色才能读取命名空间
 
-默认策略以前允许所有已登录用户读取所有命名空间，现在只放行 `GET /v1/namespaces`（列出用户角色覆盖的命名空间）和 `GET /v1/namespaces/current`，其余接口都需要角色授权。请为每个非管理员用户授予对应命名空间的只读（`r`）或读写（`rw`）角色，参见[安全与 RBAC](./security-rbac.md)。
+默认策略以前允许所有已登录用户读取所有命名空间，现在只放行 `GET /v1/namespaces`（列出用户角色覆盖的命名空间）和 `GET /v1/namespaces/current`，其余接口都需要角色授权。请为每个非管理员用户授予对应命名空间的只读（`r`）或读写（`rw`）角色，参见[安全](./security.md)。
 
 如果存储过自定义策略（`cosky-{system}` 命名空间中的配置 `cosky-policy.json`），它会覆盖内置策略：把其中 `namespace` 语句的 pattern `/v1/namespaces/**` 改为 `["/v1/namespaces", "/v1/namespaces/current"]`。
 

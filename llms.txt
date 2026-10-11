@@ -1,56 +1,36 @@
 # CoSky
 
-> High-Performance Microservice Governance Platform — Service Discovery & Configuration backed by Redis. Lightweight, zero-extra-infrastructure, 100K+ QPS standard / 70M+ QPS with consistency caching.
+> Configuration management and service discovery for Spring Cloud microservices, using only Redis as infrastructure.
 
-## Getting Started
+## Introduction
 
-- [Overview](wiki/guide/index.md)
-- [Getting Started](wiki/guide/getting-started.md)
-- [Installation](wiki/guide/installation.md)
-- [Upgrading to 6.0](wiki/guide/upgrade-6.md)
-- [Requirements](wiki/guide/requirements.md)
+- [Overview](wiki/guide/index.md): What CoSky is, how it works, when it fits, and where to go next.
+- [Getting Started](wiki/guide/getting-started.md): Add configuration and service discovery to a Spring Boot application, then run the dashboard.
 
-## Architecture
+## Guides
 
-- [Architecture Overview](wiki/guide/architecture.md)
-- [Core Module](wiki/guide/core.md)
+- [Configuration](wiki/guide/configuration.md): Load configuration from CoSky into Spring, refresh it live, and manage versions, rollback, import and export.
+- [Service Discovery](wiki/guide/service-discovery.md): How applications register, stay registered, expire and discover each other, with metadata, status, load balancing and topology.
+- [Using the SDK](wiki/guide/sdk.md): Use CoSky's configuration and discovery services directly, without the Spring Cloud starters.
 
-## Configuration Service
+## Operations
 
-- [Configuration Management](wiki/guide/config-service.md)
-- [Consistency Layer](wiki/guide/config-consistency.md)
+- [Deployment](wiki/guide/deployment.md): Run the CoSky REST API server and dashboard with Docker, Kubernetes or as a standalone distribution, and prepare Redis for production.
+- [Security](wiki/guide/security.md): Users, roles, the security policy, tokens and the audit log of the CoSky REST API server.
+- [Dashboard](wiki/guide/dashboard.md): A tour of the CoSky web dashboard served by the REST API server.
+- [Upgrading to 6.0](wiki/guide/upgrade-6.md): Breaking changes in CoSky 6.0 and the steps to upgrade servers and clients from 5.x.
 
-## Service Discovery
+## Reference
 
-- [Service Registry](wiki/guide/service-registry.md)
-- [Service Discovery](wiki/guide/service-discovery.md)
-- [Load Balancers](wiki/guide/load-balancers.md)
-- [Service Topology](wiki/guide/service-topology.md)
+- [Configuration Properties](wiki/guide/properties.md): Every property of the CoSky starters and of the REST API server, with defaults.
+- [REST API](wiki/guide/rest-api.md): Endpoints of the CoSky REST API server, authentication and error format.
+- [Requirements](wiki/guide/requirements.md): The functional and non-functional requirements CoSky meets, each traced to the tests that verify it.
 
-## Spring Cloud Integration
+## Concepts
 
-- [Config Starter](wiki/guide/spring-cloud-config.md)
-- [Discovery Starter](wiki/guide/spring-cloud-discovery.md)
+- [Architecture](wiki/guide/architecture.md): CoSky's modules, Redis data model, events and consistency model, and the trade-offs behind them.
+- [Performance](wiki/guide/performance.md): How fast CoSky reads and writes, how it was measured, and how to reproduce the benchmarks.
 
-## REST API & Dashboard
+## Contributing
 
-- [REST API Server](wiki/guide/rest-api.md)
-- [Security & RBAC](wiki/guide/security-rbac.md)
-- [Dashboard](wiki/guide/dashboard.md)
-
-## Deployment
-
-- [Docker Deployment](wiki/guide/deployment-docker.md)
-- [Kubernetes Deployment](wiki/guide/deployment-kubernetes.md)
-- [Standalone Deployment](wiki/guide/deployment-standalone.md)
-
-## Performance
-
-- [Benchmarks](wiki/guide/performance.md)
-
-## Optional
-
-- [Onboarding: Contributor](wiki/guide/onboarding-contributor.md)
-- [Onboarding: Staff Engineer](wiki/guide/onboarding-staff-engineer.md)
-- [Onboarding: Executive](wiki/guide/onboarding-executive.md)
-- [Onboarding: Product Manager](wiki/guide/onboarding-pm.md)
+- [Internals](wiki/guide/internals.md): A map of the codebase for contributors, the invariants it protects, and how to debug it.

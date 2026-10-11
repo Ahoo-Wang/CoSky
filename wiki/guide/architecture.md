@@ -1,253 +1,140 @@
 ---
-title: "Architecture Overview"
+title: Architecture
+description: CoSky's modules, Redis data model, events and consistency model, and the trade-offs behind them.
 ---
 
-# Architecture Overview
+# Architecture
 
-CoSky is a high-performance microservice governance platform that provides service discovery and configuration management backed by Redis. Rather than requiring separate infrastructure components like ZooKeeper or Consul, CoSky leverages Redis -- a technology most microservice deployments already depend on -- as the single source of truth. This design eliminates operational complexity while delivering sub-millisecond reads through Redis's in-memory data structures, Lua-script atomicity guarantees for writes, and Pub/Sub for real-time change propagation.
+This page explains how CoSky works, for engineers evaluating it, operating it at scale, or contributing to it.
 
-The architecture follows a layered, module-driven design inspired by Clean Architecture principles. Core domain abstractions live in `cosky-core`, domain-specific logic splits into `cosky-config` and `cosky-discovery`, and Spring Cloud integration is provided by dedicated starter modules. This separation ensures that teams can adopt only the capability they need (configuration alone, discovery alone, or both) without pulling in unnecessary transitive dependencies.
+## Principles
 
-## At a Glance
+1. **Redis is the only infrastructure.** Clients talk to Redis directly; no CoSky server sits on the read or write path of applications.
+2. **Every mutation is one Lua script**, so concurrent writers never see partial state, and every mutation announces itself on a Pub/Sub channel.
+3. **Applications read from memory.** A local cache follows the change events, so reads cost no round trip and Redis load does not grow with read traffic.
 
-| Module | Responsibility | Key File | Source |
-|--------|---------------|----------|--------|
-| `cosky-core` | Namespace model and validation, Redis key utilities, event listener abstractions, the `ReactiveWatchCache` consistency primitive, brand constants | `CoSky.kt`, `Namespaced.kt`, `RedisKeys.kt`, `EventListenerContainer.kt`, `cache/ReactiveWatchCache.kt` | [cosky-core/src/main/kotlin/me/ahoo/cosky/core](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core) |
-| `cosky-config` | Configuration CRUD, versioning, rollback, change events | `ConfigService.kt`, `ConfigKeyGenerator.kt`, `ConfigChangedEvent.kt` | [cosky-config/src/main/kotlin/me/ahoo/cosky/config](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config) |
-| `cosky-discovery` | Service registry, discovery, instance lifecycle, topology | `ServiceRegistry.kt`, `ServiceDiscovery.kt`, `DiscoveryKeyGenerator.kt` | [cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery) |
-| `cosky-spring-cloud-core` | Spring Boot auto-configuration, namespace properties, Redis template wiring | `CoSkyAutoConfiguration.kt`, `CoSkyProperties.kt` | [cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-core/src/main/kotlin/me/ahoo/cosky/spring/cloud) |
-| `cosky-spring-cloud-starter-config` | Spring Cloud Config `PropertySourceLocator` integration, config refresh | `CoSkyPropertySourceLocator.kt`, `CoSkyConfigRefresher.kt` | [cosky-spring-cloud-starter-config](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-starter-config) |
-| `cosky-spring-cloud-starter-discovery` | Spring Cloud `DiscoveryClient` and `ServiceRegistry` integration | `CoSkyDiscoveryClient.kt`, `CoSkyServiceRegistry.kt` | [cosky-spring-cloud-starter-discovery](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-spring-cloud-starter-discovery) |
-| `cosky-rest-api` | RESTful management API and dashboard server | `RestApiServer.kt`, `ConfigController.kt`, `ServiceController.kt` | [cosky-rest-api](https://github.com/Ahoo-Wang/CoSky/tree/main/cosky-rest-api) |
-
-## High-Level C4 Container Diagram
-
-The following diagram shows how a Spring Boot application integrates with CoSky through the starter modules, which in turn depend on the core libraries backed by Redis.
+## Modules
 
 ```mermaid
-C4Container
-    title CoSky - High-Level Container Diagram
-
-    Person(app, "Microservice Application", "Spring Boot app using CoSky")
-
-    System_Boundary(cosky, "CoSky Platform") {
-        Container(starter_config, "cosky-spring-cloud-starter-config", "Spring Cloud Config Starter", "PropertySource locator, config refresh")
-        Container(starter_discovery, "cosky-spring-cloud-starter-discovery", "Spring Cloud Discovery Starter", "DiscoveryClient, ServiceRegistry")
-        Container(spring_cloud_core, "cosky-spring-cloud-core", "Spring Cloud Core", "Auto-configuration, namespace properties")
-        Container(core, "cosky-core", "Core Library", "Namespace model, Redis keys, events")
-        Container(config, "cosky-config", "Config Module", "Config CRUD, versioning, rollback")
-        Container(discovery, "cosky-discovery", "Discovery Module", "Service registry, instance lifecycle")
-        Container(rest_api, "cosky-rest-api", "REST API Server", "Management API + Dashboard")
-    }
-
-    SystemDb(redis, "Redis", "In-memory data store, Pub/Sub")
-
-    Rel(app, starter_config, "uses config")
-    Rel(app, starter_discovery, "uses discovery")
-    Rel(starter_config, spring_cloud_core, "depends on")
-    Rel(starter_discovery, spring_cloud_core, "depends on")
-    Rel(starter_config, config, "depends on")
-    Rel(starter_discovery, discovery, "depends on")
-    Rel(spring_cloud_core, core, "depends on")
-    Rel(config, core, "depends on")
-    Rel(discovery, core, "depends on")
-    Rel(rest_api, starter_config, "depends on")
-    Rel(rest_api, starter_discovery, "depends on")
-    Rel(core, redis, "reads/writes")
-    Rel(config, redis, "reads/writes Lua scripts")
-    Rel(discovery, redis, "reads/writes Lua scripts")
+%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
+graph BT
+    CORE["cosky-core"]
+    CONFIG["cosky-config"] --> CORE
+    DISCOVERY["cosky-discovery"] --> CORE
+    SCC["cosky-spring-cloud-core"] --> CORE
+    SCONFIG["cosky-spring-cloud-starter-config"] --> CONFIG
+    SCONFIG --> SCC
+    SDISC["cosky-spring-cloud-starter-discovery"] --> DISCOVERY
+    SDISC --> SCC
+    REST["cosky-rest-api"] --> SCONFIG
+    REST --> SDISC
+    style CORE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style CONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style DISCOVERY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SCC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SCONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style SDISC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+    style REST fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-<!-- Sources: settings.gradle.kts:14-28, build.gradle.kts:28-43 -->
+| Module | Responsibility |
+|---|---|
+| `cosky-core` | Namespaces, Redis key helpers, the Lua script loader, event listener containers, and `ReactiveWatchCache`, the consistency cache everything else builds on |
+| `cosky-config` | Config storage, versions and rollback (`RedisConfigService`), and its cached view (`RedisConsistencyConfigService`) |
+| `cosky-discovery` | Registry, renewal and expiry, discovery and its cached view, load balancers, statistics, topology |
+| `cosky-spring-cloud-*` | Spring Boot auto-configuration, Spring Cloud property source, `DiscoveryClient` and service registry |
+| `cosky-rest-api` | REST API server and dashboard host: CoSec security, audit log, statistics job |
 
-## Module Dependency Graph
+## Data model
 
-The Gradle module structure forms a directed acyclic graph. `cosky-core` is the foundation; every other module depends on it either directly or transitively.
+Every key starts with its namespace. Namespaces are wrapped in a Redis Cluster hash tag (`{dev}`), so all keys of a namespace map to one slot and a Lua script can touch several of them.
 
-```mermaid
-flowchart TD
-    subgraph Foundation
-        cosky-core["cosky-core<br><i>Namespace, Keys, Events</i>"]
-    end
+| Key | Type | Content |
+|---|---|---|
+| `{ns}:cfg:{configId}` | hash | Current config: `data`, `hash`, `version`, `createTime` |
+| `{ns}:cfg_idx` | set | Config ids |
+| `{ns}:cfg_htr:{configId}:{version}` | hash | A previous version, with the operation that replaced it |
+| `{ns}:cfg_htr_idx:{configId}` | sorted set | History keys by version; the latest 10 are kept |
+| `{ns}:svc_idx` | set | Service ids |
+| `{ns}:svc_itc_idx:{serviceId}` | set | Instance ids of a service |
+| `{ns}:svc_itc:{instanceId}` | hash | Instance fields and metadata; a Redis TTL makes ephemeral instances expire |
+| `{ns}:svc_itc_exp` | sorted set | Ephemeral instances by expiry time, to find expired ones without scanning |
+| `{ns}:svc_stat` | hash | Instance count per service |
+| `{ns}:topology_idx`, `{ns}:topology:{consumer}` | sets | Consumers, and the services each consumes |
+| `cosky-{system}:ns_idx` | set | Namespaces listed in the dashboard |
+| `cosky-{system}:…` | | Users, roles, login locks and the audit log of the REST API server |
 
-    subgraph Domain
-        cosky-config["cosky-config<br><i>Configuration management</i>"]
-        cosky-discovery["cosky-discovery<br><i>Service discovery</i>"]
-    end
+Instance ids are `<serviceId>@<scheme>#<host>#<port>`. Instance metadata keys are stored with a `_` prefix; `__` marks internal fields.
 
-    subgraph Spring Cloud
-        cosky-spring-cloud-core["cosky-spring-cloud-core<br><i>Auto-configuration</i>"]
-        cosky-spring-cloud-starter-config["cosky-spring-cloud-starter-config<br><i>Config Starter</i>"]
-        cosky-spring-cloud-starter-discovery["cosky-spring-cloud-starter-discovery<br><i>Discovery Starter</i>"]
-    end
+## Writes and events
 
-    subgraph Application
-        cosky-rest-api["cosky-rest-api<br><i>REST API + Dashboard</i>"]
-    end
+Each mutation runs as one Lua script and publishes on the channel named after the key it changed:
 
-    cosky-config --> cosky-core
-    cosky-discovery --> cosky-core
-    cosky-spring-cloud-core --> cosky-core
-    cosky-spring-cloud-starter-config --> cosky-spring-cloud-core
-    cosky-spring-cloud-starter-config --> cosky-config
-    cosky-spring-cloud-starter-discovery --> cosky-spring-cloud-core
-    cosky-spring-cloud-starter-discovery --> cosky-discovery
-    cosky-rest-api --> cosky-spring-cloud-starter-config
-    cosky-rest-api --> cosky-spring-cloud-starter-discovery
+| Channel | Messages |
+|---|---|
+| `{ns}:cfg:{configId}` | `set`, `remove`, `rollback` |
+| `{ns}:svc_idx` | `set`, `remove` (a service appeared or disappeared) |
+| `{ns}:svc_itc:{instanceId}` | `register`, `deregister`, `expired`, `set_metadata`, `renew` (or `renew:<ttlAt>`) |
+| `cosky-{system}:role_resource_bind:{role}` | `save`, `remove` |
 
-    style cosky-core fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-config fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-discovery fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-spring-cloud-core fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-spring-cloud-starter-config fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-spring-cloud-starter-discovery fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style cosky-rest-api fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
+Scripts share functions through `-- @include` directives resolved when they are loaded, and receive the keys they touch through `KEYS`, so they work unchanged on Redis Cluster and need no Redis Functions or modules.
 
-<!-- Sources: cosky-config/build.gradle.kts:1, cosky-discovery/build.gradle.kts:1, cosky-spring-cloud-core/build.gradle.kts:1, cosky-spring-cloud-starter-config/build.gradle.kts:1, cosky-spring-cloud-starter-discovery/build.gradle.kts:1, cosky-rest-api/build.gradle.kts:1 -->
+## Consistency model
 
-## Redis Key Design
+Every cached view (configs, services, instances, the security policy, roles) is a `ReactiveWatchCache`. For each key it:
 
-All data in CoSky is stored in Redis using a consistent key naming strategy. Keys are composed of a namespace prefix, a domain-specific segment, and a resource identifier, separated by the `:` character (defined as `CoSky.KEY_SEPARATOR`). The [`RedisKeys`](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt) utility handles Redis Cluster hash-tag wrapping to ensure keys within the same namespace route to the same slot.
-
-| Domain | Key Pattern | Redis Type | Purpose | Source |
-|--------|------------|------------|---------|--------|
-| Namespace index | `{cosky-system}:ns_idx` | SET | Stores all registered namespaces | [RedisNamespaceService.kt:29](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt#L29) |
-| Service index | `{namespace}:svc_idx` | SET | Stores all service IDs in a namespace | [DiscoveryKeyGenerator.kt:35](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L35) |
-| Instance index | `{namespace}:svc_itc_idx:{serviceId}` | SET | Stores instance IDs for a service | [DiscoveryKeyGenerator.kt:58](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L58) |
-| Instance data | `{namespace}:svc_itc:{instanceId}` | STRING (with TTL) | Encoded instance details, expires for ephemeral instances | [DiscoveryKeyGenerator.kt:66](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L66) |
-| Service stats | `{namespace}:svc_stat` | HASH | Instance count statistics per service | [DiscoveryKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L44) |
-| Instance expiry index | `{namespace}:svc_itc_exp` | ZSET | Ephemeral instances scored by ttlAt, reaped by clients | [DiscoveryKeyGenerator.kt:92](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/DiscoveryKeyGenerator.kt#L92) |
-| Config index | `{namespace}:cfg_idx` | SET | Stores all config IDs in a namespace | [ConfigKeyGenerator.kt:36](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L36) |
-| Config data | `{namespace}:cfg:{configId}` | HASH | Current config data (data, hash, version, update time) | [ConfigKeyGenerator.kt:60](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L60) |
-| Config history index | `{namespace}:cfg_htr_idx:{configId}` | ZSET | Ordered list of version history keys | [ConfigKeyGenerator.kt:44](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L44) |
-| Config history | `{namespace}:cfg_htr:{configId}:{version}` | HASH | Historical config snapshot per version | [ConfigKeyGenerator.kt:52](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-config/src/main/kotlin/me/ahoo/cosky/config/ConfigKeyGenerator.kt#L52) |
-
-## Event-Driven Architecture
-
-CoSky uses Redis Pub/Sub for real-time change notification. When mutations occur (service register/deregister, config set/remove), the Lua scripts that perform the atomic operations also `PUBLISH` a message to the relevant channel. Consumers subscribe via `EventListenerContainer` implementations that wrap Spring's `ReactiveRedisMessageListenerContainer`.
+1. **subscribes** to the key's channel and waits until the subscription is active,
+2. **loads** the value from Redis, so no change can slip in between,
+3. **applies** events one at a time, in order, publishing a new immutable snapshot only when the value actually changes.
 
 ```mermaid
+%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
 sequenceDiagram
     autonumber
-    participant P as Producer<br>(Lua Script)
+    participant W as Writer
     participant R as Redis
-    participant L as RedisEventListenerContainer
-    participant C as Consumer<br>(Application)
-
-    P->>R: EVALSHA script (atomic mutation + PUBLISH)
-    R-->>R: Execute Lua script atomically
-    R->>R: PUBLISH to channel<br>(e.g., {ns}:svc_itc:{instanceId})
-    R->>L: Deliver Pub/Sub message
-    L->>L: Decode message into<br>InstanceChangedEvent / ConfigChangedEvent
-    L->>C: Flux<InstanceChangedEvent>.next()
-    C->>C: Update local cache /<br>Refresh Spring Environment
+    participant C as Cache (each application)
+    C->>R: SUBSCRIBE channel
+    C->>R: load value
+    R-->>C: value (snapshot v1)
+    W->>R: EVALSHA script (mutation + PUBLISH)
+    R-->>C: event
+    C->>R: reload or apply the change
+    R-->>C: new value (snapshot v2)
 ```
 
-<!-- Sources: cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt:10-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisInstanceEventListenerContainer.kt:17-42, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/RedisConfigEventListenerContainer.kt:15-30 -->
+Guarantees and limits:
 
-## Technology Stack
+- **Reads are eventually consistent**, typically within milliseconds of a write. A write is visible in Redis immediately; caches follow.
+- **Lost messages heal.** Pub/Sub delivers at most once; every cached key is also reloaded every 5 minutes, which bounds the staleness after a missed message.
+- **Failures are not cached.** A failed load is retried with backoff (1 s up to 30 s). Meanwhile the last good snapshot keeps being served; only a key that never loaded fails its readers.
+- **Snapshots are shared.** A snapshot is prepared once per change and an unchanged value is the very same object, so readers can cache what they derive from it; load balancers reuse their state this way.
+- **Cached keys stay.** A key, once read, keeps its subscription for the lifetime of the cache.
 
-| Technology | Version | Purpose | Source |
-|-----------|---------|---------|--------|
-| Kotlin | 2.x (JVM 17 toolchain) | Primary language | [build.gradle.kts:92-93](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts#L92-L93) |
-| Spring Boot | 4.x | Application framework | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Cloud | 2025.x | Cloud-native abstractions (DiscoveryClient, PropertySourceLocator) | [cosky-spring-cloud-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-spring-cloud-core/build.gradle.kts) |
-| Spring Data Redis | latest | Reactive Redis operations (ReactiveStringRedisTemplate) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
-| Lettuce | latest | Redis client driver (async, reactive) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
-| Project Reactor | latest | Reactive programming model (Flux, Mono) | [cosky-core/build.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/build.gradle.kts) |
-| Lua (Redis scripting) | N/A | Atomic multi-step operations | [DiscoveryRedisScripts.kt](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt) |
-| Gradle (Kotlin DSL) | 9.x | Build system | [settings.gradle.kts](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts) |
+## Service discovery
 
-## Design Principles
+**Expiry.** An ephemeral instance's hash has a Redis TTL, renewed by its client (every 10 s for a 60 s TTL by default). When Redis drops it, nothing would be announced, so each renewal also records the expiry time in `{ns}:svc_itc_exp`. After every renewal round, each client reaps up to 100 instances of its namespaces whose expiry time has passed: if the key is really gone, it removes the instance from its service and publishes `expired`. Reads perform the same cleanup lazily. No server is needed for instances to disappear.
 
-### CP + AP Flexibility
+**Renewal events are throttled.** A renewal is published only when the previously published expiry time is about to pass, so a stable fleet produces few events. By default consumers then re-read the instance's TTL; with `renew-event-carries-ttl-at`, the event carries the new expiry time instead (enable it only once every client runs 6.0).
 
-CoSky supports both **ephemeral** (AP, eventually consistent) and **persistent** (CP, strongly consistent) service instances. Ephemeral instances use Redis TTL-based expiry -- if the registering client fails to renew, the instance automatically expires. Persistent instances have no TTL (`TTL_AT_FOREVER = -1`) and must be explicitly deregistered. This mirrors the design philosophy of Nacos while using Redis as the backing store.
+**Expired instances are filtered on read** by comparing their expiry time with the local clock, so consumers do not depend on reaping latency. Keep clocks synchronized (NTP): a client whose clock runs ahead may treat live instances as expired.
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> Registered : register()
-    Registered --> Renewed : renew() / reset TTL
-    Renewed --> Renewed : renew() / reset TTL
-    Registered --> Deregistered : deregister()
-    Renewed --> Deregistered : deregister()
-    Registered --> Expired : TTL elapsed (ephemeral)
-    Renewed --> Expired : TTL elapsed (ephemeral)
-    Deregistered --> [*]
-    Expired --> [*]
-```
+## REST API server
 
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/ServiceInstance.kt:29-39, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/RedisServiceRegistry.kt:105-112, cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/RenewInstanceService.kt:39-117 -->
+The server is a Spring Boot application using the same starters as any application, plus:
 
-### Lua Scripts for Atomicity
+- **CoSec** for JWT authentication and policy-based authorization ([Security](./security.md)),
+- **Simba** to elect, through Redis, the one instance that refreshes service statistics every 10 seconds,
+- **CosId** for distributed id generation.
 
-Critical write operations (register, deregister, config set, config rollback) are executed as Lua scripts on the Redis server. This guarantees atomicity -- for example, the register script atomically adds the instance to the service index, stores instance data, publishes a change event, and updates statistics, all in a single Redis command. There are **16 Lua scripts** across the discovery (13) and config (3) modules.
+It keeps no state of its own, so instances can be added and removed freely.
 
-```mermaid
-flowchart LR
-    subgraph Discovery Lua Scripts
-        A[registry_register.lua]
-        B[registry_deregister.lua]
-        C[registry_renew.lua]
-        D[registry_set_service.lua]
-        E[registry_remove_service.lua]
-        F[registry_set_metadata.lua]
-        G[discovery_get_instances.lua]
-        H[discovery_get_instance.lua]
-        I[discovery_get_instance_ttl.lua]
-        J[instance_count_stat.lua]
-        K[service_stat.lua]
-        L[service_topology_add.lua]
-        M[service_topology_get.lua]
-    end
+## Trade-offs
 
-    subgraph Config Lua Scripts
-        N[config_set.lua]
-        O[config_remove.lua]
-        P[config_rollback.lua]
-    end
-
-    style A fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style B fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style C fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style D fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style E fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style F fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style G fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style H fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style I fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style J fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style K fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style L fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style M fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style N fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style O fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style P fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-```
-<!-- Sources: cosky-discovery/src/main/kotlin/me/ahoo/cosky/discovery/redis/DiscoveryRedisScripts.kt:24-71, cosky-config/src/main/kotlin/me/ahoo/cosky/config/redis/ConfigRedisScripts.kt:24-33 -->
-
-### Local Caching for Performance
-
-The `ConsistencyRedisServiceDiscovery` decorator maintains an in-memory `ConcurrentHashMap` of service instances, kept up-to-date via Pub/Sub event subscriptions. This means that once the first `getInstances()` call fetches data from Redis, subsequent calls serve from local cache until a change event arrives. This pattern delivers sub-microsecond latency for read-heavy workloads like load balancers while maintaining consistency through event-driven invalidation.
-
-## Cross-References
-
-- [Core Module Deep Dive](./core) -- Detailed walkthrough of the namespace model, key generation, and event system.
-- [Configuration Module](./config-service) -- Config CRUD, versioning, rollback, and Spring Cloud PropertySource integration.
-- [Service Discovery Module](./service-discovery) -- Service registry, instance lifecycle, load balancing, and topology.
-- [REST API](./rest-api) -- Management API endpoints and dashboard.
-
-## References
-
-- [CoSky.kt -- Brand constants (COSKY, KEY_SEPARATOR)](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/CoSky.kt)
-- [Namespaced.kt -- Default and system namespace constants](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/Namespaced.kt)
-- [ReactiveWatchCache.kt -- Event-driven local cache primitive](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/cache/ReactiveWatchCache.kt)
-- [NamespaceService.kt -- Namespace CRUD interface](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/NamespaceService.kt)
-- [RedisNamespaceService.kt -- Redis SET-based namespace storage](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisNamespaceService.kt)
-- [RedisKeys.kt -- Cluster hash-tag utility](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/util/RedisKeys.kt)
-- [EventListenerContainer.kt -- Reactive event subscription interface](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/EventListenerContainer.kt)
-- [RedisEventListenerContainer.kt -- Redis Pub/Sub implementation](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-core/src/main/kotlin/me/ahoo/cosky/core/redis/RedisEventListenerContainer.kt)
-- [settings.gradle.kts -- Module declarations](https://github.com/Ahoo-Wang/CoSky/blob/main/settings.gradle.kts)
-- [build.gradle.kts -- Root build configuration](https://github.com/Ahoo-Wang/CoSky/blob/main/build.gradle.kts)
+| Decision | Benefit | Cost |
+|---|---|---|
+| Redis as the only store | Nothing new to operate; Redis is fast and familiar | Redis availability and persistence become CoSky's; a Redis outage stops writes (cached reads continue) |
+| Client renewal instead of server health checks | No server needed; scales with clients | A hung process that keeps renewing stays registered |
+| Local caches fed by Pub/Sub | Reads in nanoseconds, Redis load independent of reads | Eventual consistency; one subscription per watched key |
+| Lua scripts for every mutation | Atomicity without distributed locks | Scripts are part of the data contract; changing them needs care across client versions |
+| Namespace hash tags | Cluster-safe multi-key scripts | A namespace cannot be spread over several cluster slots |
