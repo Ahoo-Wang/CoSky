@@ -13,16 +13,34 @@
 
 package me.ahoo.cosky.rest;
 
+import me.ahoo.cosky.spring.cloud.CoSkyProperties;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * @author ahoo wang
  */
-@SpringBootTest("spring.cloud.bootstrap.enabled=true")
+@SpringBootTest({
+    "spring.cloud.bootstrap.enabled=true",
+    "cosky.security.key=test-only-jwt-secret-0123456789abcdef"
+})
 class RestApiServerTest {
+    @Autowired
+    private CoSkyProperties coSkyProperties;
+
     @Test
     void contextLoads() {
+    }
+
+    /**
+     * The namespace configured in bootstrap.yaml must survive Spring Cloud's properties rebinding.
+     */
+    @Test
+    void namespaceFromBootstrapConfiguration() {
+        assertEquals("cosky-{system}", coSkyProperties.getNamespace());
     }
 
 }
