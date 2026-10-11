@@ -45,7 +45,7 @@ enum class Action(val value: String) {
                     READ_WRITE
                 }
 
-                else -> throw IllegalStateException("Unexpected value: $this")
+                else -> error("Unexpected value: $this")
             }
         }
 
@@ -53,7 +53,7 @@ enum class Action(val value: String) {
             return when (this) {
                 HttpMethod.GET, HttpMethod.OPTIONS, HttpMethod.TRACE, HttpMethod.HEAD -> READ
                 HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE, HttpMethod.PATCH -> WRITE
-                else -> throw IllegalStateException("Unexpected value: $this")
+                else -> error("Unexpected value: $this")
             }
         }
 

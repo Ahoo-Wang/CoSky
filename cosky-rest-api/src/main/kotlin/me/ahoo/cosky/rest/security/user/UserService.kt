@@ -40,7 +40,7 @@ class UserService(
         return Mono.from(if (enforce) removeUserInternal(CoSecPrincipal.ROOT_ID) else Mono.empty())
             .then(
                 Mono.defer {
-                    val coskyPwd = randomPwd(10)
+                    val coskyPwd = randomPwd(ROOT_PASSWORD_LENGTH)
                     addUser(CoSecPrincipal.ROOT_ID, coskyPwd)
                         .map { result: Boolean ->
                             if (result) {
@@ -54,7 +54,8 @@ class UserService(
 
     private fun printSuperUserPwd(coskyPwd: String) {
         println(
-            "---------------- ****** CoSky -  init super user:[${CoSecPrincipal.ROOT_ID}] password:[$coskyPwd] ****** ----------------",
+            "---------------- ****** CoSky -  init super user:[${CoSecPrincipal.ROOT_ID}] " +
+                "password:[$coskyPwd] ****** ----------------",
         )
     }
 
@@ -238,7 +239,9 @@ class UserService(
 
     internal fun isLocked(username: String): Mono<Boolean> {
         return getLoginLock(username)
-            .map { lock -> lock == MANUAL_LOCK_MARKER || lock.toLongOrNull()?.let { it > MAX_LOGIN_ERROR_TIMES } == true }
+            .map { lock ->
+                lock == MANUAL_LOCK_MARKER || lock.toLongOrNull()?.let { it > MAX_LOGIN_ERROR_TIMES } == true
+            }
             .defaultIfEmpty(false)
     }
 
@@ -308,6 +311,7 @@ class UserService(
         }
 
         const val MAX_LOGIN_ERROR_TIMES = 10
+        private const val ROOT_PASSWORD_LENGTH = 10
         val LOGIN_LOCK_EXPIRE = Duration.ofMinutes(15).toMillis()
         val MAX_LOGIN_LOCK_EXPIRE = Duration.ofDays(3).toMillis()
         private const val CANDIDATE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvxyz"

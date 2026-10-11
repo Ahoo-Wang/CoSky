@@ -34,6 +34,8 @@ interface Instance {
         private val secureSchemas: Set<String> = setOf("https", "wss")
         private const val SERVICE_ID_DELIMITER = "@"
         private const val HOST_DELIMITER = "#"
+        private const val SERVICE_ID_PARTS = 2
+        private const val ADDRESS_PARTS = 3
 
         /**
          * Creates a URI from the given Instance's host:port.
@@ -78,14 +80,14 @@ interface Instance {
                 .split(SERVICE_ID_DELIMITER)
                 .dropWhile { it.isEmpty() }
                 .toTypedArray()
-            require(serviceSpits.size == 2) { "Invalid instanceId: $instanceId" }
+            require(serviceSpits.size == SERVICE_ID_PARTS) { "Invalid instanceId: $instanceId" }
             val serviceId = serviceSpits[0]
             val instanceSpits =
                 serviceSpits[1]
                     .split(HOST_DELIMITER)
                     .dropWhile { it.isEmpty() }
                     .toTypedArray()
-            require(instanceSpits.size == 3) { "Invalid instanceId: $instanceId" }
+            require(instanceSpits.size == ADDRESS_PARTS) { "Invalid instanceId: $instanceId" }
             val schema = instanceSpits[0]
             val host = instanceSpits[1]
             val port = instanceSpits[2].toInt()

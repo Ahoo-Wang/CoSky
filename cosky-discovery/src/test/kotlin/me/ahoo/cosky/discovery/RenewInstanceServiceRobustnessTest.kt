@@ -55,7 +55,9 @@ class RenewInstanceServiceRobustnessTest {
     @Test
     fun restartAfterStop() {
         val serviceRegistry = mockk<ServiceRegistry> {
-            every { registeredEphemeralInstances } returns mapOf(NamespacedInstanceId("ns", healthy.instanceId) to healthy)
+            every {
+                registeredEphemeralInstances
+            } returns mapOf(NamespacedInstanceId("ns", healthy.instanceId) to healthy)
             every { renew("ns", healthy) } returns Mono.just(true)
             every { reapExpiredInstances(any(), any()) } returns Mono.just(0)
         }
@@ -78,7 +80,9 @@ class RenewInstanceServiceRobustnessTest {
     fun reapRenewedNamespacesAfterEachRound() {
         val reaped = Semaphore(0)
         val serviceRegistry = mockk<ServiceRegistry> {
-            every { registeredEphemeralInstances } returns mapOf(NamespacedInstanceId("ns", healthy.instanceId) to healthy)
+            every {
+                registeredEphemeralInstances
+            } returns mapOf(NamespacedInstanceId("ns", healthy.instanceId) to healthy)
             every { renew("ns", healthy) } returns Mono.just(true)
             every { reapExpiredInstances("ns", any()) } answers {
                 reaped.release()

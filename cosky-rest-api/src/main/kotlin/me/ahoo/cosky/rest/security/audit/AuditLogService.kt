@@ -79,7 +79,8 @@ class AuditLogService(
                     Flux.empty()
                 } else {
                     readBatch(snapshotSize, 0)
-                        // ponytail: filtering remains O(n); batches bound memory until indexed audit storage is justified.
+                        // ponytail: filtering remains O(n); batches bound memory until indexed audit storage
+                        // is justified.
                         .expand { batch ->
                             if (batch.nextOffset >= snapshotSize) {
                                 Mono.empty()

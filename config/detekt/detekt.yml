@@ -1,53 +1,37 @@
-# TODO Compliance
+# Builds upon the default detekt configuration: only deviations are listed, each with its reason.
 complexity:
   LongParameterList:
-    active: false
-  NestedBlockDepth:
+    # Reactive pipelines and REST query endpoints take their options as parameters with defaults.
     active: false
   TooManyFunctions:
-    active: false
-  LongMethod:
-    active: false
-  CyclomaticComplexMethod:
+    # Services implement wide but cohesive interfaces (e.g. ServiceRegistry, ConfigService).
     active: false
 style:
   MaxLineLength:
-    maxLineLength: 300
+    maxLineLength: 120
   ReturnCount:
-    active: false
-  UseCheckOrError:
-    active: false
-  UnusedPrivateMember:
-    active: false
-  ProtectedMemberInFinalClass:
+    # Guard clauses with early returns are preferred over nested conditionals.
     active: false
   MagicNumber:
-    active: false
-  UnnecessaryAbstractClass:
-    active: false
+    ignorePropertyDeclaration: true
   WildcardImport:
     excludeImports:
       - java.util.*
       - org.hamcrest.Matchers.*
 naming:
   MemberNameEqualsClassName:
-    active: false
-  MatchingDeclarationName:
-    active: false
-exceptions:
-  SwallowedException:
-    active: false
-  ThrowingExceptionsWithoutMessageOrCause:
-    active: false
-  TooGenericExceptionCaught:
+    # CoSky.COSKY is a published constant.
     active: false
 performance:
   SpreadOperator:
+    # Only used to forward main(args) to Spring, once at startup.
     active: false
 formatting:
   NoWildcardImports:
     packagesToUseImportOnDemandProperty: "java.util.*,org.hamcrest.Matchers.*"
   MaximumLineLength:
-    active: false
-  Filename:
-    active: false
+    maxLineLength: 120
+comments:
+  AbsentOrWrongFileLicense:
+    active: true
+    licenseTemplateFile: 'license.template'

@@ -128,7 +128,9 @@ class ConsistencyRedisServiceDiscoveryTest : AbstractReactiveRedisTest() {
         val missingInstance = createInstance(serviceId).withIsEphemeral(false)
         val delegate = mockk<ServiceDiscovery>()
         every { delegate.getInstances(namespace, serviceId) } returns Mono.just(listOf(cachedInstance))
-        every { delegate.getInstance(namespace, serviceId, missingInstance.instanceId) } returns Mono.just(missingInstance)
+        every {
+            delegate.getInstance(namespace, serviceId, missingInstance.instanceId)
+        } returns Mono.just(missingInstance)
         val serviceDiscovery = ConsistencyRedisServiceDiscovery(
             delegate = delegate,
             serviceEventListenerContainer = mockk(),

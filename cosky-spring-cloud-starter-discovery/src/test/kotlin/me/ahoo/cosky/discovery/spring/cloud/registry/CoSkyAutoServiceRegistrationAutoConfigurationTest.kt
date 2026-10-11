@@ -1,3 +1,15 @@
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package me.ahoo.cosky.discovery.spring.cloud.registry
 
 import me.ahoo.cosky.discovery.RegistryProperties
@@ -114,23 +126,7 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                         it.instanceTtl.assert().isEqualTo(Duration.ofSeconds(120))
                         it.renewEventCarriesTtlAt.assert().isTrue()
                     }
-                assertThat(it)
-                    .getBean(CoSkyRegistryProperties::class.java)
-                    .extracting {
-                        it.serviceId.assert().isEqualTo("CustomizeServiceId")
-                        it.schema.assert().isEqualTo("https")
-                        it.host.assert().isEqualTo("host")
-                        it.port.assert().isEqualTo(1024)
-                        it.weight.assert().isEqualTo(100)
-                        it.isEphemeral.assert().isFalse()
-                        it.ttl.assert().isEqualTo(Duration.ofSeconds(120))
-                        it.timeout.assert().isEqualTo(Duration.ofSeconds(2))
-                        it.metadata.assert().isEqualTo(mapOf("key" to "value"))
-                        it.initialStatus.assert().isEqualTo("OUT_OF_SERVICE")
-                        it.renew.assert().isNotNull()
-                        it.renew.initialDelay.assert().isEqualTo(Duration.ofSeconds(2))
-                        it.renew.period.assert().isEqualTo(Duration.ofSeconds(10))
-                    }
+                assertCustomized(it.getBean(CoSkyRegistryProperties::class.java))
                 assertThat(it)
                     .getBean(CoSkyRegistration::class.java)
                     .extracting {
@@ -142,6 +138,22 @@ internal class CoSkyAutoServiceRegistrationAutoConfigurationTest {
                         it.isEphemeral.assert().isFalse()
                     }
             }
+    }
+
+    private fun assertCustomized(properties: CoSkyRegistryProperties) {
+        properties.serviceId.assert().isEqualTo("CustomizeServiceId")
+        properties.schema.assert().isEqualTo("https")
+        properties.host.assert().isEqualTo("host")
+        properties.port.assert().isEqualTo(1024)
+        properties.weight.assert().isEqualTo(100)
+        properties.isEphemeral.assert().isFalse()
+        properties.ttl.assert().isEqualTo(Duration.ofSeconds(120))
+        properties.timeout.assert().isEqualTo(Duration.ofSeconds(2))
+        properties.metadata.assert().isEqualTo(mapOf("key" to "value"))
+        properties.initialStatus.assert().isEqualTo("OUT_OF_SERVICE")
+        properties.renew.assert().isNotNull()
+        properties.renew.initialDelay.assert().isEqualTo(Duration.ofSeconds(2))
+        properties.renew.period.assert().isEqualTo(Duration.ofSeconds(10))
     }
 
     @Test

@@ -56,7 +56,8 @@ allprojects {
     configure<DetektExtension> {
         config.setFrom(files("${rootProject.rootDir}/config/detekt/detekt.yml"))
         buildUponDefaultConfig = true
-        autoCorrect = true
+        // Fix formatting locally, but fail CI on any violation instead of silently rewriting the checkout.
+        autoCorrect = System.getenv("CI") == null
     }
     dependencies {
         detektPlugins(dependenciesProject)

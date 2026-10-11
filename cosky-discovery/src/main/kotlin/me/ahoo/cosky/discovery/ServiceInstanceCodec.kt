@@ -56,70 +56,23 @@ object ServiceInstanceCodec {
         return preArgs
     }
 
-    @Suppress("CyclomaticComplexMethod")
     fun decode(instanceData: List<String>): ServiceInstance {
-        var instanceId: String? = null
-        var serviceId: String? = null
-        var schema: String? = null
-        var host: String? = null
-        var port: Int? = null
-        var weight: Int? = null
-        var isEphemeral: Boolean? = null
-        var ttlAt: Long? = null
+        val fields = HashMap<String, String>(instanceData.size)
         val metadata = mutableMapOf<String, String>()
-        var i = 0
-        while (i < instanceData.size) {
+        for (i in instanceData.indices step 2) {
             val key = instanceData[i]
             val value = instanceData[i + 1]
-            when (key) {
-                INSTANCE_ID -> {
-                    instanceId = value
-                }
-
-                SERVICE_ID -> {
-                    serviceId = value
-                }
-
-                SCHEMA -> {
-                    schema = value
-                }
-
-                HOST -> {
-                    host = value
-                }
-
-                PORT -> {
-                    port = value.toInt()
-                }
-
-                WEIGHT -> {
-                    weight = value.toInt()
-                }
-
-                EPHEMERAL -> {
-                    isEphemeral = value.toBoolean()
-                }
-
-                TTL_AT -> {
-                    ttlAt = value.toLong()
-                }
-
-                else -> {
-                    if (key.startsWith(METADATA_PREFIX) &&
-                        !key.startsWith(SYSTEM_METADATA_PREFIX)
-                    ) {
-                        val metadataKey = decodeMetadataKey(key)
-                        metadata[metadataKey] = value
-                    }
-                }
+            if (!key.startsWith(METADATA_PREFIX)) {
+                fields[key] = value
+            } else if (!key.startsWith(SYSTEM_METADATA_PREFIX)) {
+                metadata[decodeMetadataKey(key)] = value
             }
-            i += 2
         }
-        requireNotNull(serviceId) { "serviceId is null" }
-        requireNotNull(schema) { "schema is null" }
-        requireNotNull(host) { "host is null" }
-        requireNotNull(port) { "port is null" }
-        requireNotNull(instanceId) { "instanceId is null" }
+        val serviceId = requireNotNull(fields[SERVICE_ID]) { "serviceId is null" }
+        val schema = requireNotNull(fields[SCHEMA]) { "schema is null" }
+        val host = requireNotNull(fields[HOST]) { "host is null" }
+        val port = requireNotNull(fields[PORT]) { "port is null" }.toInt()
+        val instanceId = requireNotNull(fields[INSTANCE_ID]) { "instanceId is null" }
 
         val instance = Instance.asInstance(
             serviceId = serviceId,
@@ -128,8 +81,9 @@ object ServiceInstanceCodec {
             port = port,
             instanceId = instanceId,
         )
-        requireNotNull(weight) { "weight is null" }
-        requireNotNull(isEphemeral) { "isEphemeral is null" }
+        val weight = requireNotNull(fields[WEIGHT]) { "weight is null" }.toInt()
+        val isEphemeral = requireNotNull(fields[EPHEMERAL]) { "isEphemeral is null" }.toBoolean()
+        val ttlAt = fields[TTL_AT]?.toLong()
         if (isEphemeral) {
             requireNotNull(ttlAt) { "ttlAt is null" }
         }

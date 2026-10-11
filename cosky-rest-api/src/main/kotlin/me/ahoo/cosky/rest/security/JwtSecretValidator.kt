@@ -52,7 +52,8 @@ class JwtSecretValidator : ApplicationListener<ApplicationEnvironmentPreparedEve
         }
         if (secret.length < RECOMMENDED_MIN_LENGTH) {
             log.warn {
-                "The JWT secret is shorter than $RECOMMENDED_MIN_LENGTH characters, which weakens HMAC-SHA256 token signatures."
+                "The JWT secret is shorter than $RECOMMENDED_MIN_LENGTH characters, " +
+                    "which weakens HMAC-SHA256 token signatures."
             }
         }
     }

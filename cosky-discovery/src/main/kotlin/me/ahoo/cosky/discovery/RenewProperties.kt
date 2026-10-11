@@ -20,10 +20,15 @@ import java.time.Duration
  * @author ahoo wang
  */
 data class RenewProperties(
-    val initialDelay: Duration = Duration.ofSeconds(1),
+    val initialDelay: Duration = DEFAULT_INITIAL_DELAY,
     /**
      * renew period.
      * [period] must Less than [RegistryProperties.instanceTtl]
      */
-    val period: Duration = Duration.ofSeconds(10)
-)
+    val period: Duration = DEFAULT_PERIOD
+) {
+    companion object {
+        val DEFAULT_INITIAL_DELAY: Duration = Duration.ofSeconds(1)
+        val DEFAULT_PERIOD: Duration = Duration.ofSeconds(10)
+    }
+}
