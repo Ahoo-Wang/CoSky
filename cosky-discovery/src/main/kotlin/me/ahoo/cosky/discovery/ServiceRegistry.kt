@@ -69,4 +69,15 @@ interface ServiceRegistry {
         instanceId: String,
         metadata: Map<String, String>
     ): Mono<Boolean>
+
+    /**
+     * Removes up to [limit] instances of [namespace] whose TTL has passed and publishes their `expired` events.
+     *
+     * @return how many instances were reaped
+     */
+    fun reapExpiredInstances(namespace: String, limit: Int = DEFAULT_REAP_LIMIT): Mono<Long>
+
+    companion object {
+        const val DEFAULT_REAP_LIMIT = 100
+    }
 }

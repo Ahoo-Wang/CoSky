@@ -5,10 +5,13 @@
 -- "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
 -- specific language governing permissions and limitations under the License.
 
+redis.replicate_commands();
+
 local serviceIdxKey = KEYS[1];
 local serviceStatKey = KEYS[2];
 local instanceIdxKey = KEYS[3];
 local instanceKey = KEYS[4];
+local instanceExpiryKey = KEYS[5];
 -- @include cosky/discovery/discovery_lib.lua
 
 local instanceTtl = ARGV[1];
@@ -30,8 +33,11 @@ clearMetadata(instanceKey);
 redis.call('hmset', instanceKey, 'instanceId', instanceId, 'serviceId', serviceId, 'schema', schema, 'host', host,
     'port', port, 'weight', weight, 'ephemeral', ephemeral, unpack(ARGV, 8, #ARGV));
 redis.call('publish', instanceKey, 'register');
+local expiryMember = expiryMemberOf(serviceId, instanceId);
 if not fixed then
+    redis.call('zadd', instanceExpiryKey, redis.call('time')[1] + instanceTtl, expiryMember);
     return redis.call('expire', instanceKey, instanceTtl);
 end
+redis.call('zrem', instanceExpiryKey, expiryMember);
 redis.call('persist', instanceKey);
 return 1;

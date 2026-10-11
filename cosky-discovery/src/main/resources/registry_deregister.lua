@@ -7,7 +7,12 @@
 
 local instanceIdxKey = KEYS[1];
 local instanceKey = KEYS[2];
+local instanceExpiryKey = KEYS[3];
 local instanceId = ARGV[1];
+local serviceId = ARGV[2];
+-- @include cosky/discovery/discovery_lib.lua
+
+redis.call('zrem', instanceExpiryKey, expiryMemberOf(serviceId, instanceId));
 
 if redis.call('srem', instanceIdxKey, instanceId) == 1 then
     redis.call('publish', instanceKey, 'deregister');

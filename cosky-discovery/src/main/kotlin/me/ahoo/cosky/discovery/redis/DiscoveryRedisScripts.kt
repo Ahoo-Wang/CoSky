@@ -31,6 +31,8 @@ object DiscoveryRedisScripts {
         LuaScripts.load("registry_set_metadata.lua", Boolean::class.java)
     val SCRIPT_REGISTRY_PUT_METADATA: RedisScript<Boolean> =
         LuaScripts.load("registry_put_metadata.lua", Boolean::class.java)
+    val SCRIPT_REGISTRY_REAP: RedisScript<Long> =
+        LuaScripts.load("registry_reap.lua", Long::class.java)
     val SCRIPT_REGISTRY_SET_SERVICE: RedisScript<Boolean> =
         LuaScripts.load("registry_set_service.lua", Boolean::class.java)
     val SCRIPT_REGISTRY_REMOVE_SERVICE: RedisScript<Boolean> =

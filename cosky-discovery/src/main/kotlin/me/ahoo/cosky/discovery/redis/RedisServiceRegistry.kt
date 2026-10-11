@@ -14,6 +14,7 @@ package me.ahoo.cosky.discovery.redis
 
 import io.github.oshai.kotlinlogging.KotlinLogging
 import me.ahoo.cosky.core.requireValidNamespace
+import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceExpiryKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceIdxKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getInstanceKey
 import me.ahoo.cosky.discovery.DiscoveryKeyGenerator.getServiceIdxKey
@@ -69,6 +70,7 @@ class RedisServiceRegistry(
                 getServiceStatKey(namespace),
                 getInstanceIdxKey(namespace, serviceInstance.serviceId),
                 getInstanceKey(namespace, serviceInstance.instanceId),
+                getInstanceExpiryKey(namespace),
             ),
             values,
         ).next()
@@ -185,8 +187,13 @@ class RedisServiceRegistry(
         }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_RENEW,
-            listOf(getInstanceKey(namespace, serviceInstance.instanceId)),
-            listOf(registryProperties.instanceTtl.seconds.toString()),
+            listOf(getInstanceKey(namespace, serviceInstance.instanceId), getInstanceExpiryKey(namespace)),
+            listOf(
+                registryProperties.instanceTtl.seconds.toString(),
+                serviceInstance.serviceId,
+                serviceInstance.instanceId,
+                if (registryProperties.renewEventCarriesTtlAt) "1" else "0",
+            ),
         )
             .flatMap { status ->
                 if (status <= 0) {
@@ -230,8 +237,22 @@ class RedisServiceRegistry(
         require(instanceId.isNotBlank()) { "instanceId must not be blank!" }
         return redisTemplate.execute(
             DiscoveryRedisScripts.SCRIPT_REGISTRY_DEREGISTER,
-            listOf(getInstanceIdxKey(namespace, serviceId), getInstanceKey(namespace, instanceId)),
-            listOf(instanceId),
+            listOf(
+                getInstanceIdxKey(namespace, serviceId),
+                getInstanceKey(namespace, instanceId),
+                getInstanceExpiryKey(namespace),
+            ),
+            listOf(instanceId, serviceId),
+        ).next()
+    }
+
+    override fun reapExpiredInstances(namespace: String, limit: Int): Mono<Long> {
+        requireValidNamespace(namespace)
+        require(limit > 0) { "limit must be positive!" }
+        return redisTemplate.execute(
+            DiscoveryRedisScripts.SCRIPT_REGISTRY_REAP,
+            listOf(getInstanceExpiryKey(namespace)),
+            listOf(namespace, limit.toString()),
         ).next()
     }
 }

@@ -36,6 +36,7 @@ class RenewInstanceServiceRobustnessTest {
             )
             every { renew("ns", failing) } returns Mono.error(IllegalStateException("renew failed"))
             every { renew("ns", healthy) } returns Mono.just(true)
+            every { reapExpiredInstances(any(), any()) } returns Mono.just(0)
         }
         val renewed = Semaphore(0)
         val renewService = RenewInstanceService(renewProperties, serviceRegistry, hookOnRenew = {
@@ -56,6 +57,7 @@ class RenewInstanceServiceRobustnessTest {
         val serviceRegistry = mockk<ServiceRegistry> {
             every { registeredEphemeralInstances } returns mapOf(NamespacedInstanceId("ns", healthy.instanceId) to healthy)
             every { renew("ns", healthy) } returns Mono.just(true)
+            every { reapExpiredInstances(any(), any()) } returns Mono.just(0)
         }
         val renewed = Semaphore(0)
         val renewService = RenewInstanceService(renewProperties, serviceRegistry, hookOnRenew = { renewed.release() })
@@ -67,6 +69,26 @@ class RenewInstanceServiceRobustnessTest {
         renewService.start()
         try {
             renewed.tryAcquire(2, TimeUnit.SECONDS).assert().isTrue()
+        } finally {
+            renewService.stop()
+        }
+    }
+
+    @Test
+    fun reapRenewedNamespacesAfterEachRound() {
+        val reaped = Semaphore(0)
+        val serviceRegistry = mockk<ServiceRegistry> {
+            every { registeredEphemeralInstances } returns mapOf(NamespacedInstanceId("ns", healthy.instanceId) to healthy)
+            every { renew("ns", healthy) } returns Mono.just(true)
+            every { reapExpiredInstances("ns", any()) } answers {
+                reaped.release()
+                Mono.just(1)
+            }
+        }
+        val renewService = RenewInstanceService(renewProperties, serviceRegistry)
+        renewService.start()
+        try {
+            reaped.tryAcquire(2, TimeUnit.SECONDS).assert().isTrue()
         } finally {
             renewService.stop()
         }

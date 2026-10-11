@@ -20,6 +20,19 @@ local function topologyKeyOf(namespace, consumerName)
     return namespace .. ':topology:' .. consumerName;
 end
 
+-- Members of the expiry index identify an instance by service and instance id, length-prefixed so that no
+-- separator character has to be reserved: '<#serviceId>:<serviceId><instanceId>'.
+local function expiryMemberOf(serviceId, instanceId)
+    return #serviceId .. ':' .. serviceId .. instanceId;
+end
+
+local function parseExpiryMember(member)
+    local separator = string.find(member, ':', 1, true);
+    local serviceIdLength = tonumber(string.sub(member, 1, separator - 1));
+    local serviceId = string.sub(member, separator + 1, separator + serviceIdLength);
+    return serviceId, string.sub(member, separator + serviceIdLength + 1);
+end
+
 -- Returns the TTL of the instance (-2: gone, -1: fixed, >0: seconds left). A gone instance is removed from its
 -- index and announced as expired.
 local function ensureNotExpired(instanceIdxKey, instanceId, instanceKey)

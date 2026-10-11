@@ -8,7 +8,13 @@
 redis.replicate_commands();
 
 local instanceKey = KEYS[1];
+local instanceExpiryKey = KEYS[2];
 local instanceTtl = ARGV[1];
+local serviceId = ARGV[2];
+local instanceId = ARGV[3];
+local publishTtlAt = ARGV[4] == '1';
+-- @include cosky/discovery/discovery_lib.lua
+
 -- A renew is only published when the last published ttlAt is about to expire, which throttles renew events.
 local pubTolerance = 5;
 local lastRenewPublishTtlAtField = '__last_renew_pub_ttl_at';
@@ -22,13 +28,15 @@ if redis.call('expire', instanceKey, instanceTtl) == 0 then
 end
 
 local nowTime = redis.call('time')[1];
+local ttlAt = nowTime + tonumber(instanceTtl);
+redis.call('zadd', instanceExpiryKey, ttlAt, expiryMemberOf(serviceId, instanceId));
 local lastRenewPublishTtlAt = redis.call('hget', instanceKey, lastRenewPublishTtlAtField);
 if not lastRenewPublishTtlAt then
     lastRenewPublishTtlAt = preTtl + nowTime;
     redis.call('hset', instanceKey, lastRenewPublishTtlAtField, lastRenewPublishTtlAt);
 end
 if (lastRenewPublishTtlAt - nowTime - pubTolerance) < 0 then
-    redis.call('hset', instanceKey, lastRenewPublishTtlAtField, nowTime + tonumber(instanceTtl));
-    redis.call('publish', instanceKey, 'renew');
+    redis.call('hset', instanceKey, lastRenewPublishTtlAtField, ttlAt);
+    redis.call('publish', instanceKey, publishTtlAt and ('renew:' .. ttlAt) or 'renew');
 end
 return 1;

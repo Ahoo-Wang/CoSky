@@ -31,6 +31,8 @@ private object NoOpConsumeRenewInstance : Consumer<ServiceInstance> {
  * - A failing instance never stops the others from being renewed.
  * - A renew round still in flight causes the next tick to be skipped instead of overlapping.
  * - [stop] only cancels the schedule, so the service can be started again; [scheduler] is owned by the caller.
+ * - After each round, expired instances of the renewed namespaces are reaped, so that `expired` events do not depend on
+ *   any other component.
  *
  * @author ahoo wang
  */
@@ -90,6 +92,24 @@ class RenewInstanceService(
                 log.debug {
                     "Renew - instances size:${instances.size} end - times@[$times]."
                 }
+            }
+            .then(reapExpiredInstances(instances.keys.mapTo(mutableSetOf()) { it.namespace }))
+    }
+
+    private fun reapExpiredInstances(namespaces: Set<String>): Mono<Void> {
+        return Flux.fromIterable(namespaces)
+            .flatMap { namespace ->
+                Mono.defer { serviceRegistry.reapExpiredInstances(namespace) }
+                    .timeout(renewProperties.period)
+                    .doOnNext { reaped ->
+                        if (reaped > 0) {
+                            log.info { "Reap - [$reaped] expired instances @ namespace:[$namespace]." }
+                        }
+                    }
+                    .onErrorResume {
+                        log.warn(it) { "Reap - expired instances @ namespace:[$namespace] failed." }
+                        Mono.empty()
+                    }
             }
             .then()
     }

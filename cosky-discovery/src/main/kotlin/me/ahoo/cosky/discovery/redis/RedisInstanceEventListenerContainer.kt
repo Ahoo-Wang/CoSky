@@ -5,7 +5,6 @@ import me.ahoo.cosky.discovery.DiscoveryKeyGenerator
 import me.ahoo.cosky.discovery.Instance
 import me.ahoo.cosky.discovery.Instance.Companion.asInstance
 import me.ahoo.cosky.discovery.InstanceChangedEvent
-import me.ahoo.cosky.discovery.InstanceChangedEvent.Companion.asServiceChangedEvent
 import me.ahoo.cosky.discovery.InstanceEventListenerContainer
 import me.ahoo.cosky.discovery.NamespacedServiceId
 import org.springframework.data.redis.connection.ReactiveSubscription
@@ -37,6 +36,7 @@ class RedisInstanceEventListenerContainer(
         val instance: Instance = instanceId.asInstance()
         val serviceId = instance.serviceId
         val namespacedServiceId = NamespacedServiceId(namespace, serviceId)
-        return InstanceChangedEvent(namespacedServiceId, message.message.asServiceChangedEvent(), instance)
+        val (event, ttlAt) = InstanceChangedEvent.parseMessage(message.message)
+        return InstanceChangedEvent(namespacedServiceId, event, instance, ttlAt)
     }
 }

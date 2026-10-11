@@ -24,6 +24,7 @@ object DiscoveryKeyGenerator {
     private const val SERVICE_STAT = "svc_stat"
     private const val SERVICE_INSTANCE_IDX = "svc_itc_idx"
     private const val SERVICE_INSTANCE = "svc_itc"
+    private const val SERVICE_INSTANCE_EXPIRY = "svc_itc_exp"
     private const val TOPOLOGY_IDX = "topology_idx"
     private const val TOPOLOGY = "topology"
 
@@ -84,6 +85,14 @@ object DiscoveryKeyGenerator {
     /**
      * [namespace]:[SERVICE_INSTANCE]: .
      */
+    /**
+     * ZSET of ephemeral instances scored by their ttlAt: the candidates of expiry reaping.
+     */
+    @JvmStatic
+    fun getInstanceExpiryKey(namespace: String): String {
+        return "$namespace:$SERVICE_INSTANCE_EXPIRY"
+    }
+
     @JvmStatic
     fun getTopologyIdxKey(namespace: String): String {
         return "$namespace:$TOPOLOGY_IDX"

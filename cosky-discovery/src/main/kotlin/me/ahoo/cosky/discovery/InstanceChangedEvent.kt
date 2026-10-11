@@ -15,12 +15,15 @@ package me.ahoo.cosky.discovery
 /**
  * Service Changed Event.
  *
+ * @param ttlAt the new ttlAt carried by a renew event, when its publisher sends it.
+ *
  * @author ahoo wang
  */
 class InstanceChangedEvent(
     val namespacedServiceId: NamespacedServiceId,
     val event: Event,
-    val instance: Instance
+    val instance: Instance,
+    val ttlAt: Long? = null
 ) {
 
     enum class Event(val op: String) {
@@ -32,16 +35,25 @@ class InstanceChangedEvent(
     }
 
     companion object {
+        private const val PAYLOAD_SEPARATOR = ':'
+        private val EVENTS_BY_OP = Event.entries.associateBy { it.op }
+
         @JvmStatic
         fun String.asServiceChangedEvent(): Event {
-            return when (this.lowercase()) {
-                Event.REGISTER.op -> Event.REGISTER
-                Event.DEREGISTER.op -> Event.DEREGISTER
-                Event.EXPIRED.op -> Event.EXPIRED
-                Event.RENEW.op -> Event.RENEW
-                Event.SET_METADATA.op -> Event.SET_METADATA
-                else -> throw IllegalStateException("Unexpected value: " + this.lowercase())
+            return EVENTS_BY_OP[lowercase()] ?: throw IllegalStateException("Unexpected value: ${lowercase()}")
+        }
+
+        /**
+         * Parses an event message: `op` or `op:<ttlAt>`. An unreadable payload is ignored.
+         */
+        @JvmStatic
+        fun parseMessage(message: String): Pair<Event, Long?> {
+            val separator = message.indexOf(PAYLOAD_SEPARATOR)
+            if (separator < 0) {
+                return message.asServiceChangedEvent() to null
             }
+            val event = message.substring(0, separator).asServiceChangedEvent()
+            return event to message.substring(separator + 1).toLongOrNull()
         }
     }
 }

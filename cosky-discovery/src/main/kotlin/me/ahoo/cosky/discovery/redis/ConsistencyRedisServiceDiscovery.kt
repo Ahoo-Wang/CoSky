@@ -110,6 +110,7 @@ class ConsistencyRedisServiceDiscovery(
             InstanceChangedEvent.Event.RENEW -> {
                 val cached = instances.firstOrNull { it.instanceId == instanceId }
                     ?: return refreshInstance(serviceId, instances, instanceId)
+                changed.ttlAt?.let { return Mono.just(instances.upsert(cached.withTtlAt(it))) }
                 delegate.getInstanceTtl(serviceId.namespace, serviceId.serviceId, instanceId)
                     .map { ttlAt ->
                         if (ttlAt == TTL_INSTANCE_NOT_EXISTS) {
