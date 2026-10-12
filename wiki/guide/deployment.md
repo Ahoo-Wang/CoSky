@@ -19,13 +19,13 @@ The server is stateless; all state lives in Redis. Run as many instances as you 
 
 ## Docker
 
-Images are published for `linux/amd64` and `linux/arm64` to `ahoowang/cosky`, `ghcr.io/ahoo-wang/cosky` and `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`, tagged `6.0.0` and `6.0`.
+Images are published for `linux/amd64` and `linux/arm64` to `ahoowang/cosky`, `ghcr.io/ahoo-wang/cosky` and `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`, tagged `6.1.0` and `6.1`.
 
 ```bash
 docker run -d --name cosky -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://redis.example.com:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.0.0
+  ahoowang/cosky:6.1.0
 ```
 
 A Compose file starting Redis with persistence and CoSky:
@@ -40,7 +40,7 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
   cosky:
-    image: ahoowang/cosky:6.0.0
+    image: ahoowang/cosky:6.1.0
     ports:
       - "8080:8080"
     environment:
@@ -78,8 +78,8 @@ Build the distribution from source (JDK 17+, and Node.js 22.12+ with pnpm for th
 ```bash
 cd dashboard && pnpm install && pnpm build && cd ..   # without this, the server has no web UI
 ./gradlew :cosky-rest-api:distTar
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.0.0.tar
-cd cosky-rest-api-6.0.0
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.1.0.tar
+cd cosky-rest-api-6.1.0
 COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api \
   --spring.data.redis.url=redis://localhost:6379
 ```
