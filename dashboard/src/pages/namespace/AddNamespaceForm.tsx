@@ -13,7 +13,7 @@
 
 import {useState} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {namespaceApiClient} from "../../services/clients.ts";
+import {namespaceApiClient} from "@/services/clients";
 import {Plus} from "lucide-react";
 import {toast} from "sonner";
 import {Button} from "@/components/ui/button";

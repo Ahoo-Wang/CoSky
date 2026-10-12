@@ -13,10 +13,10 @@
 
 import React, {useState} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "../../services/clients.ts";
+import {configApiClient} from "@/services/clients";
 import {UploadCloud} from "lucide-react";
-import {ImportPolicySelector} from "./ImportPolicySelector.tsx";
-import type {ImportResponse} from "../../generated";
+import {ImportPolicySelector} from "@/pages/config/ImportPolicySelector";
+import type {ImportResponse} from "@/generated";
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';

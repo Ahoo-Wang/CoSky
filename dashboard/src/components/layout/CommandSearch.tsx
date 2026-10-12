@@ -19,8 +19,8 @@ import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {cn} from '@/lib/utils';
-import {navigationItems} from './navigation';
-import type {NavigationItem} from './navigation';
+import {navigationItems} from '@/components/layout/navigation';
+import type {NavigationItem} from '@/components/layout/navigation';
 
 // Base UI dialogs and sheets expose explicit roles; the topology fullscreen uses a native
 // <dialog> whose implicit role carries no attribute, hence the dialog[open] check.

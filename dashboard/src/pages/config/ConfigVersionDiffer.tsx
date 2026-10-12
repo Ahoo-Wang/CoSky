@@ -1,8 +1,8 @@
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "../../services/clients.ts";
-import type {Config, ConfigHistory} from "../../generated";
+import {configApiClient} from "@/services/clients";
+import type {Config, ConfigHistory} from "@/generated";
 import {DiffEditor} from "@monaco-editor/react";
-import {getFileNameWithExt} from "./fileNames.ts";
+import {getFileNameWithExt} from "@/pages/config/fileNames";
 import dayjs from "dayjs";
 import {toast} from 'sonner';
 import {ConfirmButton} from '@/components/ui/confirm-button';

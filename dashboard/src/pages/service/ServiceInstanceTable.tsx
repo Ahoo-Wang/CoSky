@@ -1,18 +1,18 @@
 import {useEffect} from 'react';
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {serviceApiClient} from "../../services/clients.ts";
-import type {ServiceInstance} from "../../generated";
+import {serviceApiClient} from "@/services/clients";
+import type {ServiceInstance} from "@/generated";
 import {Pencil, Trash2} from "lucide-react";
 import dayjs from "dayjs";
-import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {ServiceInstanceEditor} from "@/pages/service/ServiceInstanceEditor";
+import {useDrawer} from "@/contexts/DrawerContext";
 import {toast} from 'sonner';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
-import {getInstanceHealth} from './serviceHealth.ts';
+import {getInstanceHealth} from '@/pages/service/serviceHealth';
 import {failureMessage} from '@/lib/actions';
 
 export interface ServiceInstanceTableProps {

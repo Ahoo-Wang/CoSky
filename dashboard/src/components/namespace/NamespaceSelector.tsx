@@ -1,4 +1,4 @@
-import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
+import {useNamespacesContext} from "@/contexts/namespace/NamespacesContext";
 import {OptionsSelect} from "@/components/ui/options-select";
 import type {OptionsSelectProps} from "@/components/ui/options-select";
 

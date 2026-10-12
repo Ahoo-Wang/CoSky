@@ -1,6 +1,6 @@
-import {useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
+import {useCurrentNamespaceContext} from "@/contexts/namespace/CurrentNamespaceContext";
 import {useQuery} from "@ahoo-wang/fetcher-react";
-import {statApiClient} from "../../services/clients.ts";
+import {statApiClient} from "@/services/clients";
 import {useMemo, useState, useCallback} from "react";
 import {
     toReactFlowTopology,
@@ -9,7 +9,7 @@ import {
     DIM_OPACITY,
     getConnectedNodeIds,
     isServiceNodeData,
-} from "./topologies.ts";
+} from "@/components/topology/topologies";
 import type {Node, Edge, NodeMouseHandler, OnNodesChange} from "@xyflow/react";
 import {
     Background,
@@ -18,7 +18,7 @@ import {
     ReactFlow,
     applyNodeChanges,
 } from "@xyflow/react";
-import {ServiceNode} from "./ServiceNode.tsx";
+import {ServiceNode} from "@/components/topology/ServiceNode";
 import {Network, Search} from "lucide-react";
 import {Input} from "@/components/ui/input";
 import {Skeleton} from "@/components/ui/skeleton";

@@ -20,7 +20,7 @@ import CoskyMark from '@/assets/cosky-logo-constellation-icon.svg';
 import {Button} from '@/components/ui/button';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {cn} from '@/lib/utils';
-import {primaryItems, securityItems} from './navigation';
+import {primaryItems, securityItems} from '@/components/layout/navigation';
 
 /**
  * The dark panel the sidebar is drawn on, with the constellation mark as a watermark.

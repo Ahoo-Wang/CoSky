@@ -1,7 +1,7 @@
 import {IGNORE_REFRESH_TOKEN_ATTRIBUTE_KEY, TokenStorage} from '@ahoo-wang/fetcher-cosec';
 import type {TokenRefresher} from '@ahoo-wang/fetcher-cosec';
-import type {CompositeToken} from "../generated";
-import {authenticateApiClient} from "../services/clients.ts";
+import type {CompositeToken} from "@/generated";
+import {authenticateApiClient} from "@/services/clients";
 
 const tokenStorage = new TokenStorage({
     earlyPeriod: 8,

@@ -1,4 +1,4 @@
-import {CONFIG_FORMAT_SELECTOR_OPTIONS} from "./ConfigFormatSelectorOptions.ts";
+import {CONFIG_FORMAT_SELECTOR_OPTIONS} from "@/pages/config/ConfigFormatSelectorOptions";
 import {OptionsSelect} from "@/components/ui/options-select";
 import type {OptionsSelectProps} from "@/components/ui/options-select";
 

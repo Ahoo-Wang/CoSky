@@ -13,17 +13,17 @@
 
 import {useEffect} from 'react';
 import {Plus, Trash2} from 'lucide-react';
-import '../../monacoConfig';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
+import '@/monacoConfig';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {serviceApiClient} from "../../services/clients.ts";
-import type {ServiceStat} from "../../generated";
-import {ServiceInstanceTable} from "./ServiceInstanceTable.tsx";
-import {AddServiceForm} from "./AddServiceForm.tsx";
-import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {PageHeader} from "../../components/layout/PageHeader.tsx";
-import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
+import {serviceApiClient} from "@/services/clients";
+import type {ServiceStat} from "@/generated";
+import {ServiceInstanceTable} from "@/pages/service/ServiceInstanceTable";
+import {AddServiceForm} from "@/pages/service/AddServiceForm";
+import {ServiceInstanceEditor} from "@/pages/service/ServiceInstanceEditor";
+import {useDrawer} from "@/contexts/DrawerContext";
+import {PageHeader} from "@/components/layout/PageHeader";
+import {DataTableWrapper} from "@/components/layout/DataTableWrapper";
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';

@@ -14,7 +14,7 @@
 import {useState} from 'react';
 import type {FormEvent} from 'react';
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {userApiClient} from "../../services/clients.ts";
+import {userApiClient} from "@/services/clients";
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';

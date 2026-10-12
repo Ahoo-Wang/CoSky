@@ -20,10 +20,10 @@ import {Button} from '@/components/ui/button';
 import {Sheet, SheetClose, SheetContent, SheetTitle} from '@/components/ui/sheet';
 import {useLayoutCollapsed} from '@/hooks/useLayoutCollapsed';
 import {cn} from '@/lib/utils';
-import {AccountMenu} from './AccountMenu';
-import {CommandSearch} from './CommandSearch';
-import {CurrentNamespaceSelector} from './CurrentNamespaceSelector';
-import {ShellPanel, SidebarContent} from './Sidebar';
+import {AccountMenu} from '@/components/layout/AccountMenu';
+import {CommandSearch} from '@/components/layout/CommandSearch';
+import {CurrentNamespaceSelector} from '@/components/layout/CurrentNamespaceSelector';
+import {ShellPanel, SidebarContent} from '@/components/layout/Sidebar';
 
 const iconLinkClass = 'grid size-[34px] place-items-center rounded-[8px] text-shell-foreground hover:bg-shell-overlay hover:text-white max-[960px]:hidden [&_svg]:w-[18px]';
 

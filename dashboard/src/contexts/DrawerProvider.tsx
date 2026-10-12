@@ -1,6 +1,6 @@
 import React, {type ReactNode, useState} from "react";
-import {DrawerContext} from "./DrawerContext.tsx";
-import type {DrawerOptions} from "./DrawerContext.tsx";
+import {DrawerContext} from "@/contexts/DrawerContext";
+import type {DrawerOptions} from "@/contexts/DrawerContext";
 import {Sheet, SheetContent, SheetHeader, SheetTitle} from "@/components/ui/sheet";
 
 export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) => {

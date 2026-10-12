@@ -1,6 +1,6 @@
 import type {ReactNode} from "react";
-import {useNamespaces} from "../../hooks/useNamespaces.ts";
-import {NamespacesContext} from "./NamespacesContext.tsx";
+import {useNamespaces} from "@/hooks/useNamespaces";
+import {NamespacesContext} from "@/contexts/namespace/NamespacesContext";
 
 export function NamespacesProvider({children}: { children: ReactNode }) {
     const namespacesReturn = useNamespaces();

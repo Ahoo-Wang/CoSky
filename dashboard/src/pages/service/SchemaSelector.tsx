@@ -1,4 +1,4 @@
-import {SCHEMA_SELECTOR_OPTIONS} from "./SchemaSelectorOptions.ts";
+import {SCHEMA_SELECTOR_OPTIONS} from "@/pages/service/SchemaSelectorOptions";
 import {OptionsSelect} from "@/components/ui/options-select";
 import type {OptionsSelectProps} from "@/components/ui/options-select";
 

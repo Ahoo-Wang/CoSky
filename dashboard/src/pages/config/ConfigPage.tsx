@@ -12,18 +12,18 @@
  */
 
 import {Download, Pencil, Plus, Trash2, Upload} from 'lucide-react';
-import '../../monacoConfig';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
+import '@/monacoConfig';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
-import {configApiClient} from "../../services/clients.ts";
-import {ConfigEditor} from "./ConfigEditor.tsx";
-import {ConfigVersionTable} from "./ConfigVersionTable.tsx";
-import {ConfigImporter} from "./ConfigImporter.tsx";
+import {configApiClient} from "@/services/clients";
+import {ConfigEditor} from "@/pages/config/ConfigEditor";
+import {ConfigVersionTable} from "@/pages/config/ConfigVersionTable";
+import {ConfigImporter} from "@/pages/config/ConfigImporter";
 import {saveAs} from 'file-saver';
 import dayjs from "dayjs";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {PageHeader} from "../../components/layout/PageHeader.tsx";
-import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
+import {useDrawer} from "@/contexts/DrawerContext";
+import {PageHeader} from "@/components/layout/PageHeader";
+import {DataTableWrapper} from "@/components/layout/DataTableWrapper";
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';

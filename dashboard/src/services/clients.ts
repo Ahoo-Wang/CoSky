@@ -6,7 +6,7 @@ import {
     ServiceApiClient,
     StatApiClient,
     UserApiClient
-} from "../generated";
+} from "@/generated";
 import {createExecuteApiHooks} from "@ahoo-wang/fetcher-react";
 import type {ExchangeError} from "@ahoo-wang/fetcher";
 

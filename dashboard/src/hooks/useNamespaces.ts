@@ -1,5 +1,5 @@
 import {useQuery} from "@ahoo-wang/fetcher-react";
-import {namespaceApiClient} from "../services/clients.ts";
+import {namespaceApiClient} from "@/services/clients";
 
 export interface UseNamespacesReturn {
     namespaces: string[],
