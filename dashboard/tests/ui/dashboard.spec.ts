@@ -145,6 +145,35 @@ test('configuration workflow covers search, history, editor, and import', async 
     await expect(page.getByText('Total: 4, succeeded: 4.')).toBeVisible();
 });
 
+test('configuration editor highlights every format and validates JSON', async ({page}) => {
+    await login(page);
+    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
+    await page.getByRole('button', {name: 'Add', exact: true}).click();
+    const dialog = page.getByRole('dialog', {name: 'Add Config'});
+    const editor = dialog.locator('.monaco-editor').first();
+    const samples = [
+        {format: 'YAML', text: 'server:\n  port: 8080'},
+        {format: 'YML', text: 'server:\n  port: 8080'},
+        {format: 'Properties', text: '# comment\nserver.port=8080'},
+        {format: 'XML', text: '<server port="8080"/>'},
+        {format: 'JSON', text: '{"port": 8080}'},
+    ];
+    const tokenStyles = () => editor.locator('.view-lines span[class^="mtk"]').evaluateAll(spans => new Set(spans.map(span => span.className)).size);
+
+    for (const {format, text} of samples) {
+        await dialog.getByRole('combobox').click();
+        await page.getByRole('option', {name: format, exact: true}).click();
+        await editor.click();
+        await page.keyboard.press('ControlOrMeta+A');
+        await page.keyboard.press('Delete');
+        await page.keyboard.insertText(text);
+        await expect.poll(tokenStyles, {message: `${format} is highlighted`}).toBeGreaterThan(1);
+    }
+
+    await page.keyboard.insertText(',');
+    await expect(editor.locator('.squiggly-error').first(), 'the JSON language service reports errors').toBeAttached();
+});
+
 test('service workflow expands instances and registers a new instance', async ({page}) => {
     await login(page);
     await page.getByRole('link', {name: 'Service', exact: true}).click();
