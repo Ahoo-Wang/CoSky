@@ -129,7 +129,7 @@ export function DashboardPage() {
                     <CardHeader className="border-b">
                         <CardTitle>Recent Changes</CardTitle>
                         <CardAction>
-                            <Button asChild variant="link" size="sm"><Link to="/audit-log">View all</Link></Button>
+                            <Button variant="link" size="sm" nativeButton={false} render={<Link to="/audit-log"/>}>View all</Button>
                         </CardAction>
                     </CardHeader>
                     <CardContent className="divide-y px-0">
@@ -173,7 +173,7 @@ export function DashboardPage() {
                     <div className="flex items-center justify-between border-b px-5 py-4">
                         <h2 id="topology-dialog-title" className="text-base font-semibold">Service Topology</h2>
                         <form method="dialog">
-                            <Button variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen">
+                            <Button type="submit" variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen">
                                 <Minimize2/>
                             </Button>
                         </form>

@@ -44,11 +44,12 @@ import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import CoskyLogo from "../../assets/cosky-logo-constellation.svg";
 import {Button} from '@/components/ui/button';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
-import {Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger} from '@/components/ui/sheet';
+import {Sheet, SheetClose, SheetContent, SheetTitle} from '@/components/ui/sheet';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuGroup,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
@@ -84,6 +85,14 @@ function SidebarContent({collapsed, currentPath, onCollapse, onNavigate}: {
     onCollapse?: () => void;
     onNavigate?: () => void;
 }) {
+    const inSecurity = securityItems.some(item => item.to === currentPath);
+    const [securityOpen, setSecurityOpen] = useState(inSecurity);
+    const [openedFor, setOpenedFor] = useState(currentPath);
+    // Opening a security page expands its group; otherwise the group keeps the state the user chose.
+    if (openedFor !== currentPath) {
+        setOpenedFor(currentPath);
+        if (inSecurity) setSecurityOpen(true);
+    }
     return <>
         <NavLink to="/home" className="app-brand" onClick={onNavigate}>
             <img src={CoskyLogo} alt="CoSky"/>
@@ -97,12 +106,10 @@ function SidebarContent({collapsed, currentPath, onCollapse, onNavigate}: {
                 </NavLink>
             ))}
             {!collapsed ? (
-                <Collapsible defaultOpen={securityItems.some(item => item.to === currentPath)}>
-                    <CollapsibleTrigger asChild>
-                        <button type="button" className="app-nav-item app-nav-group" title="Security">
-                            <Shield/>
-                            <span>Security</span><ChevronDown className="app-nav-chevron"/>
-                        </button>
+                <Collapsible open={securityOpen} onOpenChange={setSecurityOpen}>
+                    <CollapsibleTrigger className="app-nav-item app-nav-group" title="Security">
+                        <Shield/>
+                        <span>Security</span><ChevronDown className="app-nav-chevron"/>
                     </CollapsibleTrigger>
                     <CollapsibleContent className="app-nav-submenu">
                         {securityItems.map(({to, label, icon: Icon}) => (
@@ -132,6 +139,7 @@ export const AuthenticatedLayout = () => {
     const [searchOpen, setSearchOpen] = useState(false);
     const [activeSearchIndex, setActiveSearchIndex] = useState(0);
     const [mobileOpen, setMobileOpen] = useState(false);
+    const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
     const {currentUser, signOut} = useSecurityContext();
     const navigate = useNavigate();
@@ -234,7 +242,7 @@ export const AuthenticatedLayout = () => {
     };
 
     return (
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <>
         <div className={cn('app-shell', collapsed && 'app-shell-collapsed')} onKeyDownCapture={handleLayoutKeyDown}>
             <aside className="app-sidebar">
                 <SidebarContent collapsed={collapsed} currentPath={location.pathname} onCollapse={() => setCollapsed(!collapsed)}/>
@@ -243,9 +251,11 @@ export const AuthenticatedLayout = () => {
             <div className="app-main">
                 <header className="app-header">
                     <div className="app-header-start">
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon" className="app-mobile-menu" aria-label="Open navigation"><Menu/></Button>
-                        </SheetTrigger>
+                        <Button ref={mobileMenuButtonRef} variant="ghost" size="icon" className="app-mobile-menu"
+                                aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={mobileOpen}
+                                onClick={() => setMobileOpen(true)}>
+                            <Menu/>
+                        </Button>
                         <Button variant="ghost" size="icon-sm" className="app-desktop-menu" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
                             {collapsed ? <PanelLeftOpen/> : <PanelLeftClose/>}
                         </Button>
@@ -328,22 +338,22 @@ export const AuthenticatedLayout = () => {
                             <GiteeIcon/>
                         </a>
                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="app-user-button">
-                                    <span className="app-avatar">{currentUser.sub.slice(0, 1).toUpperCase()}</span>
-                                    <span className="app-user-name">{currentUser.sub}</span>
-                                    <ChevronDown/>
-                                </Button>
+                            <DropdownMenuTrigger render={<Button variant="ghost" className="app-user-button"/>}>
+                                <span className="app-avatar">{currentUser.sub.slice(0, 1).toUpperCase()}</span>
+                                <span className="app-user-name">{currentUser.sub}</span>
+                                <ChevronDown/>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuLabel>Account</DropdownMenuLabel>
-                                <DropdownMenuSeparator/>
-                                <DropdownMenuItem onSelect={handleChangePwd}>
-                                    <Settings/> Change password
-                                </DropdownMenuItem>
-                                <DropdownMenuItem variant="destructive" onSelect={signOut}>
-                                    <LogOut/> Sign out
-                                </DropdownMenuItem>
+                                <DropdownMenuGroup>
+                                    <DropdownMenuLabel>Account</DropdownMenuLabel>
+                                    <DropdownMenuSeparator/>
+                                    <DropdownMenuItem onClick={handleChangePwd}>
+                                        <Settings/> Change password
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem variant="destructive" onClick={signOut}>
+                                        <LogOut/> Sign out
+                                    </DropdownMenuItem>
+                                </DropdownMenuGroup>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -355,15 +365,18 @@ export const AuthenticatedLayout = () => {
                 </main>
             </div>
         </div>
-        <SheetContent side="left" showCloseButton={false} aria-modal="true" className="w-[232px] max-w-none gap-0 border-0 bg-[#111127] p-0 text-[#dadae7] sm:max-w-none">
+        {/* A sibling of the layout, not its parent: dialogs opened from pages must not count as nested in it. */}
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent side="left" showCloseButton={false} aria-modal="true" finalFocus={mobileMenuButtonRef} className="w-[232px] max-w-none gap-0 border-0 bg-[#111127] p-0 text-[#dadae7] sm:max-w-none">
             <SheetTitle className="sr-only">Navigation</SheetTitle>
             <div className="app-mobile-sidebar">
-                <SheetClose asChild>
-                    <Button variant="ghost" size="icon-sm" className="app-mobile-close" aria-label="Close navigation"><X/></Button>
+                <SheetClose render={<Button variant="ghost" size="icon-sm" className="app-mobile-close" aria-label="Close navigation"/>}>
+                    <X/>
                 </SheetClose>
                 <SidebarContent collapsed={false} currentPath={location.pathname} onNavigate={() => setMobileOpen(false)}/>
             </div>
         </SheetContent>
         </Sheet>
+        </>
     );
 };
