@@ -1,6 +1,6 @@
 # CoSky Dashboard
 
-React 19 dashboard for CoSky microservice governance. The UI is built with Radix UI and shadcn/ui, with Monaco for configuration editing and React Flow for service topology.
+React 19 dashboard for CoSky microservice governance. The UI is built with shadcn/ui on Base UI and Tailwind CSS 4, with Monaco for configuration editing and React Flow for service topology.
 
 ## Development
 
