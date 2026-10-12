@@ -2,7 +2,7 @@ import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "@/services/clients";
 import type {Config, ConfigHistory} from "@/generated";
 import {DiffEditor} from "@monaco-editor/react";
-import {getFileNameWithExt} from "@/pages/config/fileNames";
+import {getEditorLanguage, getFileNameWithExt} from "@/pages/config/fileNames";
 import dayjs from "dayjs";
 import {toast} from 'sonner';
 import {ConfirmButton} from '@/components/ui/confirm-button';
@@ -67,7 +67,7 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
                 key={`diff-${namespace}-${configId}-${version}`}
                 height="60vh"
                 theme="vs-dark"
-                language={fileNameWithExt.ext}
+                language={getEditorLanguage(fileNameWithExt.ext)}
                 original={versionConfig?.data || ''}
                 modified={currentConfig?.data || ''}
                 keepCurrentOriginalModel

@@ -20,3 +20,14 @@ export function getFileNameWithExt(fileName: string): FileNameWithExt {
 export function getFullFileName(name: string, ext: string): string {
     return `${name}.${ext}`;
 }
+const EDITOR_LANGUAGES: Record<string, string> = {
+    yml: 'yaml',
+    properties: 'ini',
+};
+
+/**
+ * The Monaco language for a configuration's extension; unknown extensions show as plain text.
+ */
+export function getEditorLanguage(ext: string): string {
+    return EDITOR_LANGUAGES[ext] ?? ext;
+}

@@ -16,7 +16,7 @@ import Editor from '@monaco-editor/react';
 import {ConfigFormatSelector} from "@/pages/config/ConfigFormatSelector";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
 import {configApiClient} from "@/services/clients";
-import {getFileNameWithExt, getFullFileName} from "@/pages/config/fileNames";
+import {getEditorLanguage, getFileNameWithExt, getFullFileName} from "@/pages/config/fileNames";
 import dayjs from "dayjs";
 import type {Config} from "@/generated";
 import {toast} from 'sonner';
@@ -125,7 +125,7 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             <Editor
                 height="60vh"
                 theme="vs-dark"
-                language={fileExt}
+                language={getEditorLanguage(fileExt)}
                 value={configData}
                 onChange={value => setConfigData(value ?? '')}
                 options={{

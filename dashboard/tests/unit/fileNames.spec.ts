@@ -12,7 +12,7 @@
  */
 
 import {expect, test} from '@playwright/test';
-import {getFileNameWithExt, getFullFileName} from '../../src/pages/config/fileNames.ts';
+import {getEditorLanguage, getFileNameWithExt, getFullFileName} from '../../src/pages/config/fileNames.ts';
 
 test('splits the final extension from configuration names', () => {
     expect(getFileNameWithExt('application.prod.yaml')).toEqual({name: 'application.prod', ext: 'yaml'});
@@ -23,4 +23,12 @@ test('splits the final extension from configuration names', () => {
 
 test('joins configuration name and extension', () => {
     expect(getFullFileName('application', 'yaml')).toBe('application.yaml');
+});
+
+test('maps configuration extensions to editor languages', () => {
+    expect(getEditorLanguage('yaml')).toBe('yaml');
+    expect(getEditorLanguage('yml')).toBe('yaml');
+    expect(getEditorLanguage('properties')).toBe('ini');
+    expect(getEditorLanguage('json')).toBe('json');
+    expect(getEditorLanguage('txt')).toBe('txt');
 });
