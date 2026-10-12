@@ -39,8 +39,8 @@ CoSky 为 Spring Cloud 微服务提供**配置管理**与**服务发现**，基�
 
 ```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.0.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.1.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.1.0"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
@@ -68,7 +68,7 @@ spring:
 docker run -d --name cosky -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://host.docker.internal:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.0.0
+  ahoowang/cosky:6.1.0
 docker logs cosky | grep "init super user"    # 超级用户 "cosky" 的密码
 ```
 

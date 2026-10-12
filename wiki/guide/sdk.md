@@ -13,8 +13,8 @@ All APIs are reactive (Project Reactor `Mono` / `Flux`) and take the namespace e
 
 ```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.0.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.1.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.1.0"))
     implementation("me.ahoo.cosky:cosky-config")     // configuration
     implementation("me.ahoo.cosky:cosky-discovery")  // service discovery
 }

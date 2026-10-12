@@ -13,8 +13,8 @@ Spring Cloud starter 会替你装配好一切。以下情况可以直接使用 S
 
 ```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.0.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.1.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.1.0"))
     implementation("me.ahoo.cosky:cosky-config")     // 配置
     implementation("me.ahoo.cosky:cosky-discovery")  // 服务发现
 }
