@@ -90,7 +90,7 @@ docker run -d --name redis --network cosky -p 6379:6379 redis:7
 docker run -d --name cosky --network cosky -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://redis:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.1.0
+  ahoowang/cosky:6.2.0
 ```
 
 The server creates the super user `cosky` with a random password on first start:
@@ -107,8 +107,8 @@ Open <http://localhost:8080> and sign in as `cosky`.
 
 ```kotlin [Gradle (Kotlin DSL)]
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.1.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.1.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     // Loads bootstrap.yaml, where the CoSky config source is configured.
@@ -123,14 +123,14 @@ dependencies {
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-bom</artifactId>
-            <version>6.1.0</version>
+            <version>6.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-dependencies</artifactId>
-            <version>6.1.0</version>
+            <version>6.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -388,8 +388,8 @@ All APIs are reactive (Project Reactor `Mono` / `Flux`) and take the namespace e
 
 ```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.1.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.1.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
     implementation("me.ahoo.cosky:cosky-config")     // configuration
     implementation("me.ahoo.cosky:cosky-discovery")  // service discovery
 }
@@ -494,13 +494,13 @@ The server is stateless; all state lives in Redis. Run as many instances as you 
 
 ## Docker
 
-Images are published for `linux/amd64` and `linux/arm64` to `ahoowang/cosky`, `ghcr.io/ahoo-wang/cosky` and `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`, tagged `6.1.0` and `6.1`.
+Images are published for `linux/amd64` and `linux/arm64` to `ahoowang/cosky`, `ghcr.io/ahoo-wang/cosky` and `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`, tagged `6.2.0` and `6.2`.
 
 ```bash
 docker run -d --name cosky -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://redis.example.com:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.1.0
+  ahoowang/cosky:6.2.0
 ```
 
 A Compose file starting Redis with persistence and CoSky:
@@ -515,7 +515,7 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
   cosky:
-    image: ahoowang/cosky:6.1.0
+    image: ahoowang/cosky:6.2.0
     ports:
       - "8080:8080"
     environment:
@@ -553,8 +553,8 @@ Build the distribution from source (JDK 17+, and Node.js 22.12+ with pnpm for th
 ```bash
 cd dashboard && pnpm install && pnpm build && cd ..   # without this, the server has no web UI
 ./gradlew :cosky-rest-api:distTar
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.1.0.tar
-cd cosky-rest-api-6.1.0
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.2.0.tar
+cd cosky-rest-api-6.2.0
 COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api \
   --spring.data.redis.url=redis://localhost:6379
 ```

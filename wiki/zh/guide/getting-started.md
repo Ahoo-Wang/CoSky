@@ -17,7 +17,7 @@ docker run -d --name redis --network cosky -p 6379:6379 redis:7
 docker run -d --name cosky --network cosky -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://redis:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.1.0
+  ahoowang/cosky:6.2.0
 ```
 
 服务器首次启动时会创建超级用户 `cosky`，并生成随机密码：
@@ -34,8 +34,8 @@ docker logs cosky | grep "init super user"
 
 ```kotlin [Gradle (Kotlin DSL)]
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.1.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.1.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
+    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
     implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
     // 加载 bootstrap.yaml，CoSky 配置源在其中配置。
@@ -50,14 +50,14 @@ dependencies {
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-bom</artifactId>
-            <version>6.1.0</version>
+            <version>6.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
         <dependency>
             <groupId>me.ahoo.cosky</groupId>
             <artifactId>cosky-dependencies</artifactId>
-            <version>6.1.0</version>
+            <version>6.2.0</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>

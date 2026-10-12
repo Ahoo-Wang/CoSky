@@ -37,7 +37,7 @@ body:
     id: cosky-version
     attributes:
       label: CoSky version
-      placeholder: 6.1.0
+      placeholder: 6.2.0
     validations:
       required: true
   - type: input
