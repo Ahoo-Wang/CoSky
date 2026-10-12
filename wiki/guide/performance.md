@@ -9,18 +9,18 @@ Applications read configs and instances from a **local cache**, so a read costs 
 
 ## Results
 
-JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.0.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh).
+JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.1.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh).
 
 | Operation | Through | Throughput |
 |---|---|---|
-| Read a config | local cache (`RedisConsistencyConfigService`) | **706,727,232 ops/s** |
-| Read a config | Redis (`RedisConfigService`) | 58,787 ops/s |
-| Save a config | Redis | 20,498 ops/s |
-| List services | local cache (`ConsistencyRedisServiceDiscovery`) | **771,907,860 ops/s** |
-| List instances of a service | local cache | **64,012,445 ops/s** |
-| List services | Redis (`RedisServiceDiscovery`) | 71,555 ops/s |
-| List instances of a service | Redis | 9,818 ops/s |
-| Register / renew / deregister an instance | Redis | 43,796 / 45,653 / 55,646 ops/s |
+| Read a config | local cache (`RedisConsistencyConfigService`) | **750,901,545 ops/s** |
+| Read a config | Redis (`RedisConfigService`) | 48,160 ops/s |
+| Save a config | Redis | 35,479 ops/s |
+| List services | local cache (`ConsistencyRedisServiceDiscovery`) | **1,791,707,975 ops/s** |
+| List instances of a service | local cache | **232,887,361 ops/s** |
+| List services | Redis (`RedisServiceDiscovery`) | 49,117 ops/s |
+| List instances of a service | Redis | 38,013 ops/s |
+| Register / renew / deregister an instance | Redis | 36,691 / 40,740 / 44,275 ops/s |
 
 How to read these numbers:
 

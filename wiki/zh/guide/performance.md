@@ -9,18 +9,18 @@ description: CoSky 的读写速度、测量方法，以及如何复现基准测�
 
 ## 结果
 
-JMH 吞吐量，8 线程，Redis 与测试同机（Apple M4 Pro、JDK 17.0.20、Redis 8.10、JMH 1.37），测试对象为 CoSky 6.0.0。原始结果：[`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh)。
+JMH 吞吐量，8 线程，Redis 与测试同机（Apple M4 Pro、JDK 17.0.20、Redis 8.10、JMH 1.37），测试对象为 CoSky 6.1.0。原始结果：[`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh)。
 
 | 操作 | 途径 | 吞吐量 |
 |---|---|---|
-| 读取配置 | 本地缓存（`RedisConsistencyConfigService`） | **706,727,232 ops/s** |
-| 读取配置 | Redis（`RedisConfigService`） | 58,787 ops/s |
-| 保存配置 | Redis | 20,498 ops/s |
-| 列出服务 | 本地缓存（`ConsistencyRedisServiceDiscovery`） | **771,907,860 ops/s** |
-| 列出服务的实例 | 本地缓存 | **64,012,445 ops/s** |
-| 列出服务 | Redis（`RedisServiceDiscovery`） | 71,555 ops/s |
-| 列出服务的实例 | Redis | 9,818 ops/s |
-| 注册 / 续约 / 注销实例 | Redis | 43,796 / 45,653 / 55,646 ops/s |
+| 读取配置 | 本地缓存（`RedisConsistencyConfigService`） | **750,901,545 ops/s** |
+| 读取配置 | Redis（`RedisConfigService`） | 48,160 ops/s |
+| 保存配置 | Redis | 35,479 ops/s |
+| 列出服务 | 本地缓存（`ConsistencyRedisServiceDiscovery`） | **1,791,707,975 ops/s** |
+| 列出服务的实例 | 本地缓存 | **232,887,361 ops/s** |
+| 列出服务 | Redis（`RedisServiceDiscovery`） | 49,117 ops/s |
+| 列出服务的实例 | Redis | 38,013 ops/s |
+| 注册 / 续约 / 注销实例 | Redis | 36,691 / 40,740 / 44,275 ops/s |
 
 如何解读这些数字：
 
