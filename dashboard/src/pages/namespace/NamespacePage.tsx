@@ -19,22 +19,18 @@ import { useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNames
 import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
 import {PageHeader} from "../../components/layout/PageHeader.tsx";
 import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
-import {toast} from "sonner";
 import {ConfirmButton} from "@/components/ui/confirm-button";
 import {DataTable} from "@/components/ui/data-table";
 import type {DataTableColumn} from "@/components/ui/data-table";
+import {runAction} from '@/lib/actions';
 
 export function NamespacePage() {
     const {currentNamespace} = useCurrentNamespaceContext()
     const {namespaces, loading, error, refresh} = useNamespacesContext();
 
     const handleDelete = async (namespace: string) => {
-        try {
-            await namespaceApiClient.removeNamespace(namespace);
-            toast.success('Namespace deleted successfully');
+        if (await runAction(() => namespaceApiClient.removeNamespace(namespace), {success: 'Namespace deleted successfully', failure: 'Failed to delete namespace'})) {
             refresh();
-        } catch {
-            toast.error('Failed to delete namespace');
         }
     };
 

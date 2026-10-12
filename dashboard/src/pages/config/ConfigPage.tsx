@@ -29,6 +29,7 @@ import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
+import {failureMessage} from '@/lib/actions';
 
 type ListConfig = { configId: string }
 
@@ -50,8 +51,8 @@ export function ConfigPage() {
         onSuccess: () => {
             toast.success('Export config success');
         },
-        onError: () => {
-            toast.error('Export config failed');
+        onError: async (error) => {
+            toast.error(await failureMessage('Export config failed', error));
         }
     })
 
@@ -88,8 +89,8 @@ export function ConfigPage() {
             toast.success('Delete config success');
             loadConfigs();
         },
-        onError: () => {
-            toast.error('Delete config failed');
+        onError: async (error) => {
+            toast.error(await failureMessage('Delete config failed', error));
         }
     })
     const handleDelete = async (configId: string) => {

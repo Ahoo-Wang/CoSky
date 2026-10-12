@@ -13,6 +13,7 @@ import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {getInstanceHealth} from './serviceHealth.ts';
+import {failureMessage} from '@/lib/actions';
 
 export interface ServiceInstanceTableProps {
     namespace: string
@@ -37,8 +38,8 @@ export function ServiceInstanceTable({namespace, serviceId}: ServiceInstanceTabl
             toast.success('Delete instance success!');
             refreshInstances();
         },
-        onError: () => {
-            toast.error('Delete instance failed!');
+        onError: async (error) => {
+            toast.error(await failureMessage('Delete instance failed!', error));
         }
     })
     const {openDrawer, closeDrawer} = useDrawer();

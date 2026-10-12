@@ -26,6 +26,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
+import {failureMessage} from '@/lib/actions';
 
 interface ConfigEditFormProps {
     namespace: string;
@@ -55,8 +56,8 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             toast.success('Config saved successfully');
             onSuccess();
         },
-        onError: () => {
-            toast.error('Config save failed');
+        onError: async (error) => {
+            toast.error(await failureMessage('Config save failed', error));
         }
     })
 

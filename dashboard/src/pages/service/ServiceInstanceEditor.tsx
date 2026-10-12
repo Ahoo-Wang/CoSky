@@ -24,6 +24,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
 import {Switch} from '@/components/ui/switch';
+import {failureMessage} from '@/lib/actions';
 
 interface ServiceInstanceFormProps {
     namespace: string;
@@ -48,8 +49,8 @@ export function ServiceInstanceEditor({
             toast.success('Save instance success!');
             onSuccess();
         },
-        onError: () => {
-            toast.error('Failed to save instance');
+        onError: async (error) => {
+            toast.error(await failureMessage('Failed to save instance', error));
         }
     })
 

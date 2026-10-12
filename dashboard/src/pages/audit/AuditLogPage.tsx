@@ -31,6 +31,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {OptionsSelect} from '@/components/ui/options-select';
 import {toast} from 'sonner';
+import {runAction} from '@/lib/actions';
 
 type AuditStatus = 'all' | 'successful' | 'failed';
 
@@ -109,7 +110,7 @@ export function AuditLogPage() {
 
     const exportLogs = async () => {
         setExporting(true);
-        try {
+        await runAction(async () => {
             const blob = await auditLogApiClient.exportLog(
                 filters.query.trim() || undefined,
                 toTimestamp(filters.from),
@@ -117,12 +118,8 @@ export function AuditLogPage() {
                 toSuccessful(filters.status),
             );
             saveAs(blob, `cosky_audit_log_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
-            toast.success('Audit log exported');
-        } catch {
-            toast.error('Failed to export audit log');
-        } finally {
-            setExporting(false);
-        }
+        }, {success: 'Audit log exported', failure: 'Failed to export audit log'});
+        setExporting(false);
     };
 
     const columns: DataTableColumn<AuditLog>[] = [

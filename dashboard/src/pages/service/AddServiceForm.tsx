@@ -5,6 +5,7 @@ import {serviceApiClient} from "../../services/clients.ts";
 import {toast} from "sonner";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
+import {failureMessage} from '@/lib/actions';
 
 export interface AddServiceFormProps {
     namespace: string;
@@ -19,8 +20,8 @@ export function AddServiceForm({namespace, onSuccess}: AddServiceFormProps) {
             onSuccess();
             setServiceId('');
         },
-        onError: () => {
-            toast.error('Add service failed!');
+        onError: async (error) => {
+            toast.error(await failureMessage('Add service failed!', error));
         }
     });
     const handleFinish = async () => {

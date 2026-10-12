@@ -18,6 +18,7 @@ import {Plus} from "lucide-react";
 import {toast} from "sonner";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
+import {failureMessage} from '@/lib/actions';
 
 interface NamespaceFormProps {
     onSuccess: () => void;
@@ -31,8 +32,8 @@ export function AddNamespaceForm({onSuccess}: NamespaceFormProps) {
             onSuccess();
             setNamespace('');
         },
-        onError: () => {
-            toast.error('Failed to add namespace');
+        onError: async (error) => {
+            toast.error(await failureMessage('Failed to add namespace', error));
         }
     })
     const handleFinish = async () => {

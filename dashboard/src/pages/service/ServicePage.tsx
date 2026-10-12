@@ -24,12 +24,12 @@ import {ServiceInstanceEditor} from "./ServiceInstanceEditor.tsx";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {PageHeader} from "../../components/layout/PageHeader.tsx";
 import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
-import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {Badge} from '@/components/ui/badge';
+import {runAction} from '@/lib/actions';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
@@ -48,12 +48,8 @@ export function ServicePage() {
     const {openDrawer, closeDrawer} = useDrawer();
 
     const handleDeleteService = async (serviceId: string) => {
-        try {
-            await serviceApiClient.removeService(currentNamespace, serviceId);
-            toast.success('Service deleted successfully');
+        if (await runAction(() => serviceApiClient.removeService(currentNamespace, serviceId), {success: 'Service deleted successfully', failure: 'Failed to delete service'})) {
             loadServices();
-        } catch {
-            toast.error('Failed to delete service');
         }
     };
 

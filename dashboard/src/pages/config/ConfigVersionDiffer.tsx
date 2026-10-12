@@ -9,6 +9,7 @@ import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DefinitionList} from '@/components/ui/definition-list';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
+import {failureMessage} from '@/lib/actions';
 
 export interface ConfigVersionDifferProps {
     namespace: string;
@@ -35,8 +36,8 @@ export function ConfigVersionDiffer({namespace, configId, version, onSuccess}: C
             toast.success('Rollback success');
             onSuccess()
         },
-        onError: () => {
-            toast.error('Rollback failed');
+        onError: async (error) => {
+            toast.error(await failureMessage('Rollback failed', error));
         }
     })
 

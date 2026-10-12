@@ -20,13 +20,13 @@ import {useRoles} from "../../hooks/useRoles.ts";
 import {useDrawer} from "../../contexts/DrawerContext.tsx";
 import {PageHeader} from '../../components/layout/PageHeader.tsx';
 import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
-import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {Badge} from '@/components/ui/badge';
 import {useQuery} from '@ahoo-wang/fetcher-react';
+import {runAction} from '@/lib/actions';
 
 const ACTION_LABELS: Record<string, string> = {r: 'Read', w: 'Write', rw: 'Read & write'};
 
@@ -88,12 +88,8 @@ export function RolePage() {
     };
 
     const handleDelete = async (roleName: string) => {
-        try {
-            await roleApiClient.removeRole(roleName);
-            toast.success('Role deleted successfully');
+        if (await runAction(() => roleApiClient.removeRole(roleName), {success: 'Role deleted successfully', failure: 'Failed to delete role'})) {
             load();
-        } catch {
-            toast.error('Failed to delete role');
         }
     };
 
