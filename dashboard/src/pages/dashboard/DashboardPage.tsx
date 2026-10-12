@@ -167,13 +167,17 @@ export function DashboardPage() {
 
             <dialog ref={topologyDialogRef}
                     aria-labelledby="topology-dialog-title"
+                    // Unmount the fullscreen graph as the dialog closes, not on the later, asynchronous close event,
+                    // so that the page never holds two copies of the topology.
+                    onCancel={() => setTopologyDialogOpen(false)}
                     onClose={() => setTopologyDialogOpen(false)}
                     className="fixed inset-4 m-0 h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none rounded-xl border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/35">
                 <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b px-5 py-4">
                         <h2 id="topology-dialog-title" className="text-base font-semibold">Service Topology</h2>
                         <form method="dialog">
-                            <Button type="submit" variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen">
+                            <Button type="submit" variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen"
+                                    onClick={() => setTopologyDialogOpen(false)}>
                                 <Minimize2/>
                             </Button>
                         </form>
