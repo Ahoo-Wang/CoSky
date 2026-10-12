@@ -1,4 +1,4 @@
-import {RESOURCE_ACTION_OPTIONS} from "./ResourceActionSelectorOptions.ts";
+import {RESOURCE_ACTION_OPTIONS} from "@/pages/role/ResourceActionSelectorOptions";
 import {OptionsSelect} from "@/components/ui/options-select";
 import type {OptionsSelectProps} from "@/components/ui/options-select";
 

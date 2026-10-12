@@ -14,20 +14,21 @@
 import {useState} from 'react';
 import {Lock, Plus, Trash2, Unlock} from 'lucide-react';
 import {useQuery, useSecurityContext} from '@ahoo-wang/fetcher-react';
-import {AddUserEditor} from './AddUserEditor.tsx';
-import {useRoles} from "../../hooks/useRoles.ts";
-import {userApiClient} from "../../services/clients.ts";
-import type {CoSecPrincipal} from "../../generated";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import {PageHeader} from '../../components/layout/PageHeader.tsx';
-import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
-import {toast} from 'sonner';
+import {AddUserEditor} from '@/pages/user/AddUserEditor';
+import {useRoles} from "@/hooks/useRoles";
+import {userApiClient} from "@/services/clients";
+import type {CoSecPrincipal} from "@/generated";
+import {useDrawer} from "@/contexts/DrawerContext";
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {MultiSelect} from '@/components/ui/multi-select';
 import {Badge} from '@/components/ui/badge';
+import {runAction} from '@/lib/actions';
+import type {ActionMessages} from '@/lib/actions';
 
 interface UserRoleSelectProps {
     user: CoSecPrincipal;
@@ -96,46 +97,25 @@ export function UserPage() {
         loadUsers();
     };
 
-    const handleChangeRole = async (username: string, roles: string[]): Promise<boolean> => {
-        try {
-            await userApiClient.bindRole(username, {body: roles});
-            toast.success('Role bind successfully');
-            loadUsers();
-            return true;
-        } catch {
-            toast.error('Failed to bind role');
-            return false;
-        }
+    const act = async (operation: () => Promise<unknown>, messages: ActionMessages) => {
+        const succeeded = await runAction(operation, messages);
+        if (succeeded) loadUsers();
+        return succeeded;
     };
 
+    const handleChangeRole = (username: string, roles: string[]) =>
+        act(() => userApiClient.bindRole(username, {body: roles}), {success: 'Role bind successfully', failure: 'Failed to bind role'});
+
     const handleDelete = async (username: string) => {
-        try {
-            await userApiClient.removeUser(username);
-            toast.success('User deleted successfully');
-            loadUsers();
-        } catch {
-            toast.error('Failed to delete user');
-        }
+        await act(() => userApiClient.removeUser(username), {success: 'User deleted successfully', failure: 'Failed to delete user'});
     };
 
     const handleUnlock = async (username: string) => {
-        try {
-            await userApiClient.unlock(username);
-            toast.success('User unlocked successfully');
-            loadUsers();
-        } catch {
-            toast.error('Failed to unlock user');
-        }
+        await act(() => userApiClient.unlock(username), {success: 'User unlocked successfully', failure: 'Failed to unlock user'});
     };
 
     const handleLock = async (username: string) => {
-        try {
-            await userApiClient.lock(username);
-            toast.success('User locked successfully');
-            loadUsers();
-        } catch {
-            toast.error('Failed to lock user');
-        }
+        await act(() => userApiClient.lock(username), {success: 'User locked successfully', failure: 'Failed to lock user'});
     };
 
     const columns: DataTableColumn<CoSecPrincipal>[] = [

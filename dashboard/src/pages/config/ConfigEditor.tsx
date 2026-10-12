@@ -13,12 +13,12 @@
 
 import React, {useRef, useState} from 'react';
 import Editor from '@monaco-editor/react';
-import {ConfigFormatSelector} from "./ConfigFormatSelector.tsx";
+import {ConfigFormatSelector} from "@/pages/config/ConfigFormatSelector";
 import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "../../services/clients.ts";
-import {getFileNameWithExt, getFullFileName} from "./fileNames.ts";
+import {configApiClient} from "@/services/clients";
+import {getFileNameWithExt, getFullFileName} from "@/pages/config/fileNames";
 import dayjs from "dayjs";
-import type {Config} from "../../generated";
+import type {Config} from "@/generated";
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {DefinitionList} from '@/components/ui/definition-list';
@@ -26,6 +26,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
+import {failureMessage} from '@/lib/actions';
 
 interface ConfigEditFormProps {
     namespace: string;
@@ -55,8 +56,8 @@ export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId
             toast.success('Config saved successfully');
             onSuccess();
         },
-        onError: () => {
-            toast.error('Config save failed');
+        onError: async (error) => {
+            toast.error(await failureMessage('Config save failed', error));
         }
     })
 

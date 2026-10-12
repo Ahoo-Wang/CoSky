@@ -42,9 +42,7 @@ export function ConfirmButton({
 }: ConfirmButtonProps) {
     return (
         <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button {...buttonProps}>{children}</Button>
-            </AlertDialogTrigger>
+            <AlertDialogTrigger render={<Button {...buttonProps}/>}>{children}</AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>{title}</AlertDialogTitle>

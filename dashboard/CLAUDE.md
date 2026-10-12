@@ -1,81 +1,55 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with the CoSky dashboard frontend.
+Guidance for working on the CoSky dashboard, the React frontend served by `cosky-rest-api`.
 
 ## Commands
 
 ```bash
 cd dashboard
-
-# Install dependencies
 pnpm install
-
-# Run dev server (http://localhost:5173)
-pnpm dev
-
-# Build for production
-pnpm build
-
-# Lint and auto-fix
-pnpm lint
-
-# Run end-to-end UI tests
-pnpm test:ui
-
-# Generate API clients from OpenAPI spec
-pnpm generate
+pnpm dev            # http://localhost:5173
+pnpm lint           # eslint --fix
+pnpm build          # tsc -b && vite build
+pnpm test:unit      # Playwright unit tests (tests/unit)
+pnpm test:ui        # Playwright end-to-end tests against the mock API (tests/ui/mock-api.ts)
+pnpm test:coverage  # enforces 80% statements/functions/lines, 75% branches
+pnpm generate       # regenerate src/generated from a REST API on :8080
 ```
 
-## Environment Variables
+Run `lint`, `build`, `test:unit` and `test:ui` before committing.
 
-- `VITE_API_BASE_URL` - Backend API base URL (default: `http://cosky.dev.svc.cluster.local/`)
+## Environment
 
-## Architecture
+- `VITE_API_BASE_URL`: REST API base URL (`.env.development`: the dev cluster; `.env.production`: `/`, same origin).
+- `VITE_ENVIRONMENT_NAME`: optional environment name shown in the header; defaults to the API host.
 
-### Tech Stack
-- **Framework**: React 19 with TypeScript
-- **Build**: Vite with React Compiler (babel-plugin-react-compiler)
-- **UI**: Ant Design 6.x
-- **Routing**: React Router v7
-- **Topology**: @xyflow/react for service topology visualization
-- **Config Editor**: Monaco Editor
-- **API Client**: @ahoo-wang/fetcher with auto-generated clients
+## Stack
 
-### API Layer (`src/generated/`)
-Auto-generated API clients from the REST API OpenAPI spec:
-- `ConfigApiClient` - Configuration CRUD and version management
-- `ServiceApiClient` - Service registry and discovery
-- `NamespaceApiClient` - Namespace management
-- `UserApiClient`, `RoleApiClient` - RBAC user/role management
-- `AuditLogApiClient` - Audit log queries
-- `StatApiClient` - Service statistics
-- `AuthenticateApiClient` - Authentication
+- React 19 + TypeScript, Vite with the React Compiler, React Router 7.
+- UI: shadcn/ui components (`base-nova` style) on **Base UI** (`@base-ui/react`), styled with **Tailwind CSS 4**.
+- Monaco for configuration editing, `@xyflow/react` for the service topology, sonner for toasts, lucide icons.
+- API: `@ahoo-wang/fetcher` with clients generated from the OpenAPI spec, CoSec token refresh.
 
-### Client Setup (`src/services/`)
-- `fetcher.ts` - Fetcher configuration with CoSec security, token refresh, and 2-minute timeout
-- `clients.ts` - API client instances and React hooks created via `createExecuteApiHooks`
+## Layout
 
-### State Management (`src/contexts/`)
-- `NamespacesProvider/NamespacesContext` - Manages available namespaces list
-- `CurrentNamespaceProvider/CurrentNamespaceContext` - Current selected namespace
-- `DrawerProvider/DrawerContext` - Ant Design drawer for detail panels
+| Path | Contents |
+|---|---|
+| `src/generated/` | Generated API clients and types. Never edit by hand; run `pnpm generate`. |
+| `src/services/` | `fetcher.ts` (base URL, CoSec, timeout) and `clients.ts` (client instances). |
+| `src/security/`, `src/components/security/` | Token storage, `ProtectedRoute`, change password. |
+| `src/contexts/` | Namespaces, current namespace, and the detail drawer (`useDrawer`). |
+| `src/components/ui/` | shadcn/ui primitives plus shared controls (`confirm-button`, `multi-select`, `options-select`, `data-table`). |
+| `src/components/layout/` | Application shell: `AuthenticatedLayout` composes `Sidebar`, `CommandSearch`, `AccountMenu`, `CurrentNamespaceSelector`; menu entries live in `navigation.ts`. |
+| `src/lib/actions.ts` | `runAction` and `failureMessage`: toast outcomes with the server's reason. |
+| `src/pages/<area>/` | One folder per route, lazy-loaded from `AppRoutes.tsx`. |
 
-### Pages (`src/pages/`)
-Lazy-loaded routes: `dashboard`, `config`, `service`, `namespace`, `user`, `role`, `audit`
+`AppRoutes.tsx` wraps signed-in routes in `NamespacesProvider` → `DrawerProvider` → `CurrentNamespaceProvider` → `ProtectedRoute` → `AuthenticatedLayout`.
 
-### Routing (`AppRoutes.tsx`)
-Protected routes wrapped in `NamespacesProvider` → `DrawerProvider` → `CurrentNamespaceProvider` → `ProtectedRoute` → `AuthenticatedLayout`
+## Conventions
 
-### Security
-- Token storage via `src/security/tokenStorage.ts`
-- `SecurityProvider` from `@ahoo-wang/fetcher-react` handles auth state
-- `ProtectedRoute` checks authentication before rendering
-
-## Code Style
-
-ESLint configuration in `eslint.config.js`:
-- TypeScript recommended rules
-- React Hooks rules
-- React Refresh rules
-- React Compiler rules
-- `typescript-eslint/consistent-type-imports` with `prefer: "type-imports"`
+- **Imports**: use the `@/` alias, without file extensions; use `import type` for types.
+- **Styling**: Tailwind utilities only, no stylesheets per component. Colors come from theme tokens in `src/index.css` (`bg-shell`, `text-shell-muted`, `bg-canvas`, …); add a token there instead of a hard-coded color. Shared visual effects go in `index.css` as `@utility`. Merge class names with `cn()`.
+- **Base UI**: compose with the `render` prop (not `asChild`); set `nativeButton={false}` when a `Button` renders a link. Menu items use `onClick`; a `DropdownMenuLabel` must sit inside a `DropdownMenuGroup`. Pass `items` to `Select` so the trigger shows labels.
+- **Adding components**: `npx shadcn add <name>`, then restore the license header, drop `"use client"`, and import `cn` from `@/lib/utils`.
+- **Operations**: wrap a mutation in `runAction(operation, {success, failure})`; in a form's `onError` use `toast.error(await failureMessage('…', error))`. Don't hand-roll try/catch toasts.
+- **Tests**: select elements by role, label, or `data-slot`, not by class name. New pages need an end-to-end test in `tests/ui` and a mock in `mock-api.ts`.

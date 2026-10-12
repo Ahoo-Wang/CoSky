@@ -12,11 +12,10 @@
  */
 
 import {BrowserRouter} from 'react-router-dom';
-import './services/fetcher';
-import {AppRoutes} from "./AppRoutes.tsx";
-import {ErrorBoundary} from "./components/error/ErrorBoundary.tsx";
+import '@/services/fetcher';
+import {AppRoutes} from "@/AppRoutes";
+import {ErrorBoundary} from "@/components/error/ErrorBoundary";
 import {Toaster} from "@/components/ui/sonner";
-import './App.css';
 
 function App() {
     return (

@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import type {ServiceInstance} from '../../generated';
+import type {ServiceInstance} from '@/generated';
 
 export type InstanceHealth = 'Healthy' | 'Expiring soon' | 'Expired' | 'Unhealthy';
 

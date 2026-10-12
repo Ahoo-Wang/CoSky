@@ -11,11 +11,9 @@
  * limitations under the License.
  */
 
-import * as React from "react"
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
 import { LoaderCircle } from "lucide-react"
-
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
@@ -59,28 +57,26 @@ function Button({
   className,
   variant = "default",
   size = "default",
-  asChild = false,
   loading = false,
+  disabled,
   children,
   ...props
-}: React.ComponentProps<"button"> &
+}: ButtonPrimitive.Props &
   VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
     loading?: boolean
   }) {
-  const Comp = asChild ? Slot.Root : "button"
-
   return (
-    <Comp
+    <ButtonPrimitive
       data-slot="button"
       data-variant={variant}
       data-size={size}
       className={cn(buttonVariants({ variant, size, className }))}
+      disabled={loading || disabled}
       {...props}
-      disabled={loading || props.disabled}
     >
-      {asChild ? children : <>{loading && <LoaderCircle className="animate-spin" />}{children}</>}
-    </Comp>
+      {loading && <LoaderCircle className="animate-spin" />}
+      {children}
+    </ButtonPrimitive>
   )
 }
 

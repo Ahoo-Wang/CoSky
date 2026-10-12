@@ -1,7 +1,7 @@
 import type {FormEvent} from "react";
 import {useExecutePromise, useSecurityContext} from "@ahoo-wang/fetcher-react";
-import type {ChangePwdRequest, ErrorResponse} from "../../generated";
-import {userApiClient} from "../../services/clients.ts";
+import type {ChangePwdRequest, ErrorResponse} from "@/generated";
+import {userApiClient} from "@/services/clients";
 import type {ExchangeError} from "@ahoo-wang/fetcher";
 import {toast} from "sonner";
 import {Button} from "@/components/ui/button";

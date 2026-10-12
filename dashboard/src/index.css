@@ -36,12 +36,47 @@ code {
 #root {
   width: 100%;
   min-height: 100vh;
-  background: #f7f8fc;
+  background: var(--canvas);
 }
 /*
  ---break---
  */
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-shell: var(--shell);
+  --color-shell-raised: var(--shell-raised);
+  --color-shell-foreground: var(--shell-foreground);
+  --color-shell-strong: var(--shell-strong);
+  --color-shell-muted: var(--shell-muted);
+  --color-shell-caption: var(--shell-caption);
+  --color-shell-subtle: var(--shell-subtle);
+  --color-shell-faint: var(--shell-faint);
+  --color-shell-key: var(--shell-key);
+  --color-shell-pill: var(--shell-pill);
+  --color-shell-overlay: var(--shell-overlay);
+  --color-shell-overlay-subtle: var(--shell-overlay-subtle);
+  --color-shell-overlay-strong: var(--shell-overlay-strong);
+  --color-shell-accent: var(--shell-accent);
+  --color-shell-accent-strong: var(--shell-accent-strong);
+  --color-shell-accent-text: var(--shell-accent-text);
+  --color-shell-accent-line: var(--shell-accent-line);
+  --color-shell-accent-wash: var(--shell-accent-wash);
+  --color-shell-nav-active: var(--shell-nav-active);
+  --color-shell-selected: var(--shell-selected);
+  --color-shell-focus: var(--shell-focus);
+  --color-shell-focus-ring: var(--shell-focus-ring);
+  --color-brand-gitee: var(--brand-gitee);
+  --color-login-indigo: var(--login-indigo);
+  --color-login-violet: var(--login-violet);
+  --color-login-icon: var(--login-icon);
+  --color-login-online: var(--login-online);
+  --animate-login-enter: login-enter 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-login-pulse: login-pulse 2s ease-in-out infinite;
+  --animate-login-pulse-slow: login-pulse 3s ease-in-out infinite;
+  --animate-login-glow: login-glow 3s ease-in-out infinite;
+  --animate-login-float: login-float 4s ease-in-out infinite;
+  --animate-login-blink: login-blink 2s ease-in-out infinite;
+  --animate-login-blink-fast: login-blink 1.5s ease-in-out infinite;
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -87,6 +122,37 @@ code {
  ---break---
  */
 :root {
+  /* Page background behind cards. */
+  --canvas: #f7f8fc;
+  /* The dark application shell: sidebar, header and command search. */
+  --shell: #111127;
+  --shell-raised: #191930;
+  --shell-foreground: #dadae7;
+  --shell-strong: #f2f2f8;
+  --shell-muted: #aaaabd;
+  --shell-caption: #9a9aad;
+  --shell-subtle: #9292a6;
+  --shell-faint: #77778d;
+  --shell-key: #c7c7d4;
+  --shell-pill: #b7b7c8;
+  --shell-overlay: rgba(255, 255, 255, 0.08);
+  --shell-overlay-subtle: rgba(255, 255, 255, 0.06);
+  --shell-overlay-strong: rgba(255, 255, 255, 0.12);
+  --shell-accent: #6d5ce8;
+  --shell-accent-strong: #8b7aff;
+  --shell-accent-text: #9c8df8;
+  --shell-accent-line: rgba(139, 124, 246, 0.2);
+  --shell-accent-wash: rgba(124, 102, 238, 0.1);
+  --shell-nav-active: rgba(112, 84, 236, 0.2);
+  --shell-selected: rgba(124, 102, 238, 0.18);
+  --shell-focus: rgba(139, 124, 246, 0.7);
+  --shell-focus-ring: rgba(124, 102, 238, 0.2);
+  --brand-gitee: #c71d23;
+  /* The sign-in page's own palette. */
+  --login-indigo: #667eea;
+  --login-violet: #764ba2;
+  --login-icon: rgba(126, 145, 255, 0.9);
+  --login-online: #4ade80;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -173,3 +239,151 @@ code {
     @apply font-sans;
   }
 }
+
+/*
+ * Sign-in page: keyframes and the compound decorative effects, which are too intricate for inline utilities.
+ * Infinite decorations stop for users who prefer reduced motion.
+ */
+@keyframes login-enter {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes login-grid-flow {
+  from { transform: perspective(500px) rotateX(60deg) translateY(0); }
+  to { transform: perspective(500px) rotateX(60deg) translateY(50px); }
+}
+
+@keyframes login-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 0.4; }
+}
+
+@keyframes login-scanline {
+  from { top: -100%; }
+  to { top: 100%; }
+}
+
+@keyframes login-glow {
+  0%, 100% { text-shadow: 0 0 20px rgba(102, 126, 234, 0.8), 0 0 40px rgba(102, 126, 234, 0.4); }
+  50% { text-shadow: 0 0 30px rgba(102, 126, 234, 1), 0 0 60px rgba(102, 126, 234, 0.6); }
+}
+
+@keyframes login-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes login-blink {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.3; }
+}
+
+@keyframes login-circuit-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* Night-sky background with a receding grid floor and a slow scanline. */
+@utility login-backdrop {
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3a 50%, #0d0d2b 100%);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background-image:
+      linear-gradient(rgba(102, 126, 234, 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(102, 126, 234, 0.5) 1px, transparent 1px);
+    background-size: 60px 60px;
+    transform: perspective(500px) rotateX(60deg);
+    transform-origin: center center;
+    animation: login-grid-flow 3s linear infinite;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 40%, transparent 100%);
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    z-index: 1;
+    height: 100%;
+    background: linear-gradient(to bottom, transparent 0%, rgba(102, 126, 234, 0.05) 50%, transparent 100%);
+    animation: login-scanline 8s linear infinite;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before, &::after { animation: none; }
+  }
+}
+
+/* Two faint horizontal circuit lines across the background. */
+@utility login-circuit {
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    left: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--login-indigo), transparent);
+    animation: login-circuit-pulse 4s ease-in-out infinite;
+  }
+
+  &::before { top: 20%; }
+  &::after { bottom: 30%; animation-delay: 2s; }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before, &::after { animation: none; }
+  }
+}
+
+/* The card's pulsing gradient halo and inner frame. */
+@utility login-card-glow {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    z-index: -1;
+    border-radius: 18px;
+    background: linear-gradient(45deg, var(--login-indigo), var(--login-violet), var(--login-indigo));
+    opacity: 0.7;
+    filter: blur(8px);
+    animation: login-pulse 3s ease-in-out infinite;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 12px;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::before { animation: none; }
+  }
+}
+
+/* A light sweep across the button on hover. */
+@utility login-shimmer {
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: left 0.5s ease;
+  }
+
+  &:hover::before { left: 100%; }
+}
+

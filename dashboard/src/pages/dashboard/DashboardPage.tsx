@@ -16,10 +16,10 @@ import {Link} from 'react-router-dom';
 import {Activity, Box, CircleCheck, FileSliders, Layers3, Maximize2, Minimize2, TriangleAlert} from 'lucide-react';
 import dayjs from 'dayjs';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
-import type {GetStatResponse, QueryLogResponse} from '../../generated';
-import {auditLogApiClient, statApiClient} from '../../services/clients.ts';
-import {Topology} from '../../components/topology/Topology.tsx';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import type {GetStatResponse, QueryLogResponse} from '@/generated';
+import {auditLogApiClient, statApiClient} from '@/services/clients';
+import {Topology} from '@/components/topology/Topology';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Card, CardAction, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
@@ -129,7 +129,7 @@ export function DashboardPage() {
                     <CardHeader className="border-b">
                         <CardTitle>Recent Changes</CardTitle>
                         <CardAction>
-                            <Button asChild variant="link" size="sm"><Link to="/audit-log">View all</Link></Button>
+                            <Button variant="link" size="sm" nativeButton={false} render={<Link to="/audit-log"/>}>View all</Button>
                         </CardAction>
                     </CardHeader>
                     <CardContent className="divide-y px-0">
@@ -167,13 +167,17 @@ export function DashboardPage() {
 
             <dialog ref={topologyDialogRef}
                     aria-labelledby="topology-dialog-title"
+                    // Unmount the fullscreen graph as the dialog closes, not on the later, asynchronous close event,
+                    // so that the page never holds two copies of the topology.
+                    onCancel={() => setTopologyDialogOpen(false)}
                     onClose={() => setTopologyDialogOpen(false)}
                     className="fixed inset-4 m-0 h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-none rounded-xl border bg-background p-0 text-foreground shadow-2xl backdrop:bg-black/35">
                 <div className="flex h-full flex-col">
                     <div className="flex items-center justify-between border-b px-5 py-4">
                         <h2 id="topology-dialog-title" className="text-base font-semibold">Service Topology</h2>
                         <form method="dialog">
-                            <Button variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen">
+                            <Button type="submit" variant="outline" size="icon-sm" aria-label="Close topology fullscreen" title="Close fullscreen"
+                                    onClick={() => setTopologyDialogOpen(false)}>
                                 <Minimize2/>
                             </Button>
                         </form>

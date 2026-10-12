@@ -1,8 +1,8 @@
 import { memo } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
-import type {ServiceNodeData} from './topologies.ts';
-import {NODE_TYPE_COLORS} from './topologies.ts';
+import type {ServiceNodeData} from '@/components/topology/topologies';
+import {NODE_TYPE_COLORS} from '@/components/topology/topologies';
 import {Circle, Database, Play, Zap} from 'lucide-react';
 
 export const ServiceNode = memo(({ data, selected }: NodeProps) => {

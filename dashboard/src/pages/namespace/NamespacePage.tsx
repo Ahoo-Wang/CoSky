@@ -12,29 +12,25 @@
  */
 
 import {Trash2} from 'lucide-react';
-import {isSystemNamespace} from "./namespaces.ts";
-import {namespaceApiClient} from "../../services/clients.ts";
-import {AddNamespaceForm} from "./AddNamespaceForm.tsx";
-import { useCurrentNamespaceContext} from "../../contexts/namespace/CurrentNamespaceContext.tsx";
-import {useNamespacesContext} from "../../contexts/namespace/NamespacesContext.tsx";
-import {PageHeader} from "../../components/layout/PageHeader.tsx";
-import {DataTableWrapper} from "../../components/layout/DataTableWrapper.tsx";
-import {toast} from "sonner";
+import {isSystemNamespace} from "@/pages/namespace/namespaces";
+import {namespaceApiClient} from "@/services/clients";
+import {AddNamespaceForm} from "@/pages/namespace/AddNamespaceForm";
+import { useCurrentNamespaceContext} from "@/contexts/namespace/CurrentNamespaceContext";
+import {useNamespacesContext} from "@/contexts/namespace/NamespacesContext";
+import {PageHeader} from "@/components/layout/PageHeader";
+import {DataTableWrapper} from "@/components/layout/DataTableWrapper";
 import {ConfirmButton} from "@/components/ui/confirm-button";
 import {DataTable} from "@/components/ui/data-table";
 import type {DataTableColumn} from "@/components/ui/data-table";
+import {runAction} from '@/lib/actions';
 
 export function NamespacePage() {
     const {currentNamespace} = useCurrentNamespaceContext()
     const {namespaces, loading, error, refresh} = useNamespacesContext();
 
     const handleDelete = async (namespace: string) => {
-        try {
-            await namespaceApiClient.removeNamespace(namespace);
-            toast.success('Namespace deleted successfully');
+        if (await runAction(() => namespaceApiClient.removeNamespace(namespace), {success: 'Namespace deleted successfully', failure: 'Failed to delete namespace'})) {
             refresh();
-        } catch {
-            toast.error('Failed to delete namespace');
         }
     };
 

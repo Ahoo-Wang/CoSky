@@ -13,15 +13,15 @@
 
 import type {FormEvent} from 'react';
 import {useState} from 'react';
-import type {AuditLog, QueryLogResponse} from '../../generated';
+import type {AuditLog, QueryLogResponse} from '@/generated';
 import dayjs from 'dayjs';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {Download, Eye, RotateCcw, Search} from 'lucide-react';
 import {saveAs} from 'file-saver';
-import {auditLogApiClient} from '../../services/clients.ts';
-import {PageHeader} from '../../components/layout/PageHeader.tsx';
-import {DataTableWrapper} from '../../components/layout/DataTableWrapper.tsx';
-import {useDrawer} from '../../contexts/DrawerContext.tsx';
+import {auditLogApiClient} from '@/services/clients';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {useDrawer} from '@/contexts/DrawerContext';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {DataTable} from '@/components/ui/data-table';
@@ -31,6 +31,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {OptionsSelect} from '@/components/ui/options-select';
 import {toast} from 'sonner';
+import {runAction} from '@/lib/actions';
 
 type AuditStatus = 'all' | 'successful' | 'failed';
 
@@ -109,7 +110,7 @@ export function AuditLogPage() {
 
     const exportLogs = async () => {
         setExporting(true);
-        try {
+        await runAction(async () => {
             const blob = await auditLogApiClient.exportLog(
                 filters.query.trim() || undefined,
                 toTimestamp(filters.from),
@@ -117,12 +118,8 @@ export function AuditLogPage() {
                 toSuccessful(filters.status),
             );
             saveAs(blob, `cosky_audit_log_${dayjs().format('YYYYMMDD_HHmmss')}.csv`);
-            toast.success('Audit log exported');
-        } catch {
-            toast.error('Failed to export audit log');
-        } finally {
-            setExporting(false);
-        }
+        }, {success: 'Audit log exported', failure: 'Failed to export audit log'});
+        setExporting(false);
     };
 
     const columns: DataTableColumn<AuditLog>[] = [

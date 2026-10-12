@@ -55,16 +55,19 @@ export function OptionsSelect({
     return (
         <div className={cn('min-w-36', className)}>
             <Select
+                items={options}
                 value={value}
                 defaultValue={defaultValue}
-                onValueChange={onChange}
+                onValueChange={next => {
+                    if (next !== null) onChange?.(next);
+                }}
                 disabled={disabled}
             >
                 <SelectTrigger className={cn('w-full', triggerClassName)} aria-label={ariaLabel ?? placeholder}
                                aria-invalid={ariaInvalid} aria-describedby={ariaDescribedBy}>
                     <SelectValue placeholder={placeholder}/>
                 </SelectTrigger>
-                <SelectContent position="popper">
+                <SelectContent alignItemWithTrigger={false}>
                     {options.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
                             {option.label}

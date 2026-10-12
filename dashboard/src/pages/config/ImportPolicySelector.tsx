@@ -1,4 +1,4 @@
-import {IMPORT_POLICY_OPTIONS} from "./ImportPolicySelectorOptions.ts";
+import {IMPORT_POLICY_OPTIONS} from "@/pages/config/ImportPolicySelectorOptions";
 import {OptionsSelect} from "@/components/ui/options-select";
 import type {OptionsSelectProps} from "@/components/ui/options-select";
 

@@ -14,7 +14,7 @@
 import React from 'react';
 import {Navigate} from 'react-router-dom';
 import {RefreshableRouteGuard} from "@ahoo-wang/fetcher-react";
-import {coSecConfigurer} from "../../services/fetcher.ts";
+import {coSecConfigurer} from "@/services/fetcher";
 import {Skeleton} from "@/components/ui/skeleton";
 
 interface ProtectedRouteProps {

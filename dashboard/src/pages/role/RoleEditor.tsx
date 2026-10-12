@@ -16,15 +16,16 @@ import type {FormEvent} from 'react';
 import {Plus, Trash2} from 'lucide-react';
 import {toast} from 'sonner';
 import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
-import type {ResourceActionDto, RoleDto, SaveRoleRequest} from '../../generated';
-import {roleApiClient} from '../../services/clients.ts';
-import {NamespaceSelector} from '../../components/namespace/NamespaceSelector.tsx';
-import {ResourceActionSelector} from './ResourceActionSelector.tsx';
+import type {ResourceActionDto, RoleDto, SaveRoleRequest} from '@/generated';
+import {roleApiClient} from '@/services/clients';
+import {NamespaceSelector} from '@/components/namespace/NamespaceSelector';
+import {ResourceActionSelector} from '@/pages/role/ResourceActionSelector';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
+import {failureMessage} from '@/lib/actions';
 
 interface RoleEditorProps {
     initialValues?: RoleDto;
@@ -49,8 +50,8 @@ export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps
             toast.success('Save role success!');
             onSuccess();
         },
-        onError: () => {
-            toast.error('Failed to save role');
+        onError: async (error) => {
+            toast.error(await failureMessage('Failed to save role', error));
         },
     });
     const bindingsResult = result ?? EMPTY_RESOURCE_ACTIONS;

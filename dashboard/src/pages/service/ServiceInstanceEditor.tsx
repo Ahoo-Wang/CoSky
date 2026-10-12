@@ -12,18 +12,19 @@
  */
 
 import type {FormEvent} from 'react';
-import type {InstanceDto, ServiceInstance} from "../../generated";
+import type {InstanceDto, ServiceInstance} from "@/generated";
 import {useExecutePromise} from "@ahoo-wang/fetcher-react";
 import {useState} from "react";
-import {serviceApiClient} from "../../services/clients.ts";
+import {serviceApiClient} from "@/services/clients";
 import Editor from "@monaco-editor/react";
-import {SchemaSelector} from "./SchemaSelector.tsx";
+import {SchemaSelector} from "@/pages/service/SchemaSelector";
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
 import {Switch} from '@/components/ui/switch';
+import {failureMessage} from '@/lib/actions';
 
 interface ServiceInstanceFormProps {
     namespace: string;
@@ -48,8 +49,8 @@ export function ServiceInstanceEditor({
             toast.success('Save instance success!');
             onSuccess();
         },
-        onError: () => {
-            toast.error('Failed to save instance');
+        onError: async (error) => {
+            toast.error(await failureMessage('Failed to save instance', error));
         }
     })
 

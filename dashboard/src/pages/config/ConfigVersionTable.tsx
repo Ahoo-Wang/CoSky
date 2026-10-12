@@ -12,11 +12,11 @@
  */
 
 import {useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "../../services/clients.ts";
-import type {ConfigHistory} from "../../generated";
-import {ConfigVersionDiffer} from "./ConfigVersionDiffer.tsx";
+import {configApiClient} from "@/services/clients";
+import type {ConfigHistory} from "@/generated";
+import {ConfigVersionDiffer} from "@/pages/config/ConfigVersionDiffer";
 import {History} from "lucide-react";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
+import {useDrawer} from "@/contexts/DrawerContext";
 import {Button} from '@/components/ui/button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';

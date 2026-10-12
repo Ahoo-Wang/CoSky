@@ -11,359 +11,104 @@
  * limitations under the License.
  */
 
-import {useEffect, useRef, useState} from 'react';
-import type {FocusEvent, FormEvent, KeyboardEvent} from 'react';
-import {
-    ArrowRight,
-    ChevronDown,
-    ChevronsLeft,
-    ChevronsRight,
-    Cloud,
-    FileText,
-    History,
-    LayoutDashboard,
-    LogOut,
-    Menu,
-    Network,
-    PanelLeftClose,
-    PanelLeftOpen,
-    Search,
-    Settings,
-    Shield,
-    ShieldCheck,
-    User,
-    X,
-} from 'lucide-react';
-import {Outlet, useNavigate, useLocation, NavLink} from 'react-router-dom';
-import {CurrentNamespaceSelector} from './CurrentNamespaceSelector.tsx';
-import {useSecurityContext} from "@ahoo-wang/fetcher-react";
-import {ChangePwd} from "../security/ChangePwd.tsx";
-import {ErrorBoundary} from "../error/ErrorBoundary.tsx";
-import {useLayoutCollapsed} from "../../hooks/useLayoutCollapsed.ts";
-import {useDrawer} from "../../contexts/DrawerContext.tsx";
-import CoskyLogo from "../../assets/cosky-logo-constellation.svg";
-import {Button} from '@/components/ui/button';
-import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
-import {Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger} from '@/components/ui/sheet';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {Input} from '@/components/ui/input';
-import {cn} from '@/lib/utils';
-import {toast} from 'sonner';
+import {useRef, useState} from 'react';
+import {Menu, PanelLeftClose, PanelLeftOpen, X} from 'lucide-react';
+import {Outlet, useLocation} from 'react-router-dom';
 import {GiteeIcon, GitHubIcon} from '@/components/icons/repository-icons';
+import {ErrorBoundary} from '@/components/error/ErrorBoundary';
+import {Button} from '@/components/ui/button';
+import {Sheet, SheetClose, SheetContent, SheetTitle} from '@/components/ui/sheet';
+import {useLayoutCollapsed} from '@/hooks/useLayoutCollapsed';
+import {cn} from '@/lib/utils';
+import {AccountMenu} from '@/components/layout/AccountMenu';
+import {CommandSearch} from '@/components/layout/CommandSearch';
+import {CurrentNamespaceSelector} from '@/components/layout/CurrentNamespaceSelector';
+import {ShellPanel, SidebarContent} from '@/components/layout/Sidebar';
 
-const primaryItems = [
-    {to: '/home', label: 'Dashboard', description: 'System health and topology', icon: LayoutDashboard},
-    {to: '/config', label: 'Configuration', description: 'Manage configuration files', icon: FileText},
-    {to: '/service', label: 'Service', description: 'Services and instances', icon: Cloud},
-    {to: '/namespace', label: 'Namespace', description: 'Isolation boundaries', icon: Network},
-];
+const iconLinkClass = 'grid size-[34px] place-items-center rounded-[8px] text-shell-foreground hover:bg-shell-overlay hover:text-white max-[960px]:hidden [&_svg]:w-[18px]';
 
-const securityItems = [
-    {to: '/user', label: 'User', description: 'Accounts and role assignments', icon: User},
-    {to: '/role', label: 'Role', description: 'Access policies', icon: ShieldCheck},
-    {to: '/audit-log', label: 'Audit Log', description: 'Security and operation history', icon: History},
-];
-
-const searchTargets = [...primaryItems, ...securityItems];
-
-// Radix sheets/dialogs expose explicit roles; the topology fullscreen uses a native
-// <dialog> whose implicit role carries no attribute, hence the dialog[open] check.
-const isModalOpen = () =>
-    Boolean(document.querySelector('[role="dialog"], [role="alertdialog"], dialog[open]'));
-
-function SidebarContent({collapsed, currentPath, onCollapse, onNavigate}: {
-    collapsed: boolean;
-    currentPath: string;
-    onCollapse?: () => void;
-    onNavigate?: () => void;
-}) {
-    return <>
-        <NavLink to="/home" className="app-brand" onClick={onNavigate}>
-            <img src={CoskyLogo} alt="CoSky"/>
-            {!collapsed && <span className="app-brand-copy"><strong>CoSky</strong><small>Microservice Governance</small></span>}
-        </NavLink>
-        <nav className="app-nav" aria-label="Primary navigation">
-            {primaryItems.map(({to, label, icon: Icon}) => (
-                <NavLink key={to} to={to} title={label} onClick={onNavigate} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
-                    <Icon/>
-                    {!collapsed && <span>{label}</span>}
-                </NavLink>
-            ))}
-            {!collapsed ? (
-                <Collapsible defaultOpen={securityItems.some(item => item.to === currentPath)}>
-                    <CollapsibleTrigger asChild>
-                        <button type="button" className="app-nav-item app-nav-group" title="Security">
-                            <Shield/>
-                            <span>Security</span><ChevronDown className="app-nav-chevron"/>
-                        </button>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="app-nav-submenu">
-                        {securityItems.map(({to, label, icon: Icon}) => (
-                            <NavLink key={to} to={to} onClick={onNavigate} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
-                                <Icon/>
-                                <span>{label}</span>
-                            </NavLink>
-                        ))}
-                    </CollapsibleContent>
-                </Collapsible>
-            ) : securityItems.map(({to, label, icon: Icon}) => (
-                <NavLink key={to} to={to} title={label} onClick={onNavigate} className={({isActive}) => cn('app-nav-item', isActive && 'active')}>
-                    <Icon/>
-                </NavLink>
-            ))}
-        </nav>
-        {onCollapse && <Button variant="ghost" className="app-collapse" onClick={onCollapse}>
-            {collapsed ? <ChevronsRight/> : <ChevronsLeft/>}
-            {!collapsed && 'Collapse'}
-        </Button>}
-    </>;
-}
-
-export const AuthenticatedLayout = () => {
+/**
+ * The application frame around every signed-in page: sidebar, header and content.
+ * Below 720px the sidebar becomes a navigation sheet.
+ */
+export function AuthenticatedLayout() {
     const [collapsed, setCollapsed] = useLayoutCollapsed();
-    const [searchValue, setSearchValue] = useState('');
-    const [searchOpen, setSearchOpen] = useState(false);
-    const [activeSearchIndex, setActiveSearchIndex] = useState(0);
     const [mobileOpen, setMobileOpen] = useState(false);
-    const searchInputRef = useRef<HTMLInputElement>(null);
-    const {currentUser, signOut} = useSecurityContext();
-    const navigate = useNavigate();
+    const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const location = useLocation();
-    const {openDrawer, closeDrawer} = useDrawer();
     const apiOrigin = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin, window.location.origin).origin;
     const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || new URL(apiOrigin).host;
-    const searchQuery = searchValue.trim().toLowerCase();
-    const filteredSearchTargets = searchTargets.filter(item =>
-        `${item.label} ${item.description}`.toLowerCase().includes(searchQuery)
-    );
-    const commandShortcut = '/';
-
-    useEffect(() => {
-        const focusSearch = (event: globalThis.KeyboardEvent) => {
-            const isCommandK = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
-            if (!isCommandK && event.key !== '/') return;
-            // The search control is display:none below 720px — leave the shortcuts alone there.
-            if (searchInputRef.current?.checkVisibility() !== true) return;
-            // Never hijack keys while a modal surface (sheet, dialog, alert dialog) is open.
-            if (isModalOpen()) return;
-            // '/' stays out of the way of typing; Ctrl/Cmd+K intentionally works from anywhere.
-            if (!isCommandK && event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
-            event.preventDefault();
-            searchInputRef.current?.focus();
-            setSearchOpen(true);
-        };
-        window.addEventListener('keydown', focusSearch);
-        return () => window.removeEventListener('keydown', focusSearch);
-    }, []);
-
-    const handleChangePwd = () => {
-        openDrawer(
-            <ChangePwd onSubmit={closeDrawer} onCancel={closeDrawer}/>,
-            {
-                title: 'Change Password',
-                width: 'min(480px, 92vw)',
-            }
-        );
-    };
-
-    const navigateToSearchTarget = (target: (typeof searchTargets)[number]) => {
-        navigate(target.to);
-        setSearchValue('');
-        setSearchOpen(false);
-        searchInputRef.current?.blur();
-    };
-
-    const handleSearch = (event: FormEvent) => {
-        event.preventDefault();
-        const target = filteredSearchTargets[activeSearchIndex];
-        if (target) {
-            navigateToSearchTarget(target);
-            return;
-        }
-        toast.error(`No page matches “${searchValue.trim()}”.`);
-    };
-
-    const handleSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            event.currentTarget.form?.requestSubmit();
-            return;
-        }
-        if (event.key === 'Escape') {
-            setSearchValue('');
-            setSearchOpen(false);
-            event.currentTarget.blur();
-            return;
-        }
-        if (!['ArrowDown', 'ArrowUp'].includes(event.key) || filteredSearchTargets.length === 0) return;
-        event.preventDefault();
-        setSearchOpen(true);
-        setActiveSearchIndex(index =>
-            event.key === 'ArrowDown'
-                ? (index + 1) % filteredSearchTargets.length
-                : (index - 1 + filteredSearchTargets.length) % filteredSearchTargets.length
-        );
-    };
-
-    const handleSearchFocus = () => {
-        const nextIndex = filteredSearchTargets.findIndex(item => item.to !== location.pathname);
-        setActiveSearchIndex(nextIndex >= 0 ? nextIndex : 0);
-        setSearchOpen(true);
-    };
-
-    const handleLayoutKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-        if (event.key !== '/') return;
-        if (searchInputRef.current?.checkVisibility() !== true) return;
-        if (isModalOpen()) return;
-        if (event.target instanceof HTMLElement && event.target !== searchInputRef.current && event.target.matches('input, textarea, select, [contenteditable="true"]')) return;
-        event.preventDefault();
-        event.stopPropagation();
-        searchInputRef.current?.focus();
-        setSearchOpen(true);
-    };
-
-    const handleSearchBlur = (event: FocusEvent<HTMLFormElement>) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setSearchOpen(false);
-    };
 
     return (
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <div className={cn('app-shell', collapsed && 'app-shell-collapsed')} onKeyDownCapture={handleLayoutKeyDown}>
-            <aside className="app-sidebar">
-                <SidebarContent collapsed={collapsed} currentPath={location.pathname} onCollapse={() => setCollapsed(!collapsed)}/>
-            </aside>
+        <>
+            <div className={cn(
+                'grid min-h-screen bg-canvas transition-[grid-template-columns] duration-[180ms] ease-[ease] max-[720px]:block',
+                collapsed ? 'grid-cols-[72px_minmax(0,1fr)]' : 'grid-cols-[232px_minmax(0,1fr)]',
+            )}>
+                <ShellPanel as="aside" className="sticky top-0 z-30 max-[720px]:hidden">
+                    <SidebarContent collapsed={collapsed} currentPath={location.pathname} onCollapse={() => setCollapsed(!collapsed)}/>
+                </ShellPanel>
 
-            <div className="app-main">
-                <header className="app-header">
-                    <div className="app-header-start">
-                        <SheetTrigger asChild>
-                            <Button variant="ghost" size="icon" className="app-mobile-menu" aria-label="Open navigation"><Menu/></Button>
-                        </SheetTrigger>
-                        <Button variant="ghost" size="icon-sm" className="app-desktop-menu" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}>
-                            {collapsed ? <PanelLeftOpen/> : <PanelLeftClose/>}
-                        </Button>
-                        <CurrentNamespaceSelector/>
-                    </div>
-                    <form className="app-command-search" role="search" onSubmit={handleSearch} onBlur={handleSearchBlur}>
-                        <Search/>
-                        <Input
-                            ref={searchInputRef}
-                            type="text"
-                            role="combobox"
-                            value={searchValue}
-                            onChange={event => {
-                                setSearchValue(event.target.value);
-                                setActiveSearchIndex(0);
-                                setSearchOpen(true);
-                            }}
-                            onFocus={handleSearchFocus}
-                            onKeyDown={handleSearchKeyDown}
-                            placeholder="Search pages..."
-                            aria-label="Search navigation"
-                            aria-expanded={searchOpen}
-                            aria-controls="navigation-search-results"
-                            aria-autocomplete="list"
-                            aria-activedescendant={searchOpen && filteredSearchTargets.length > 0 ? `navigation-search-result-${activeSearchIndex}` : undefined}
-                        />
-                        {searchValue ? (
-                            <Button type="submit" variant="ghost" size="icon-sm" className="app-command-search-submit" aria-label="Open selected page">
-                                <ArrowRight/>
+                <div className="flex min-h-screen min-w-0 flex-col">
+                    <header className={cn(
+                        'sticky top-0 z-20 grid min-h-[76px] items-center gap-6 border-b border-shell-overlay bg-shell px-7 text-white',
+                        'grid-cols-[minmax(200px,auto)_minmax(280px,640px)_minmax(180px,auto)]',
+                        'max-[960px]:grid-cols-[auto_minmax(220px,1fr)_auto] max-[960px]:px-[18px]',
+                        'max-[720px]:grid-cols-[auto_1fr_auto] max-[720px]:gap-[10px]',
+                    )}>
+                        <div className="flex items-center gap-3 max-[720px]:col-[1/3]">
+                            <Button ref={mobileMenuButtonRef} variant="ghost" size="icon" className="hidden max-[720px]:inline-flex"
+                                    aria-label="Open navigation" aria-haspopup="dialog" aria-expanded={mobileOpen}
+                                    onClick={() => setMobileOpen(true)}>
+                                <Menu/>
                             </Button>
-                        ) : <kbd className="app-command-shortcut">{commandShortcut}</kbd>}
-                        {searchOpen && (
-                            <div id="navigation-search-results" className="app-command-results" role="listbox" aria-label="Navigation results">
-                                <div className="app-command-results-header">
-                                    <span>{searchQuery ? 'Matching pages' : 'Quick navigation'}</span>
-                                    <small>{filteredSearchTargets.length} result{filteredSearchTargets.length === 1 ? '' : 's'}</small>
-                                </div>
-                                {filteredSearchTargets.map((item, index) => {
-                                    const Icon = item.icon;
-                                    const isCurrent = location.pathname === item.to;
-                                    return <button
-                                        key={item.to}
-                                        id={`navigation-search-result-${index}`}
-                                        type="button"
-                                        role="option"
-                                        aria-selected={index === activeSearchIndex}
-                                        className="app-command-result"
-                                        onMouseEnter={() => setActiveSearchIndex(index)}
-                                        onClick={() => navigateToSearchTarget(item)}
-                                    >
-                                        <span className="app-command-result-icon"><Icon/></span>
-                                        <span className="app-command-result-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
-                                        {isCurrent ? <span className="app-command-result-current">Current</span> : <ArrowRight/>}
-                                    </button>;
-                                })}
-                                {filteredSearchTargets.length === 0 && (
-                                    <div className="app-command-empty" role="status">
-                                        <Search/>
-                                        <strong>No pages found</strong>
-                                        <span>Try “service”, “user”, or “audit”.</span>
-                                    </div>
-                                )}
-                                <div className="app-command-results-footer">
-                                    <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span>
-                                    <span><kbd>Enter</kbd> Open</span>
-                                    <span><kbd>Esc</kbd> Close</span>
-                                </div>
-                            </div>
-                        )}
-                    </form>
-                    <div className="app-header-actions">
-                        <span className="app-environment" title={`Connected to ${apiOrigin}`}>
-                            <span>Environment</span>
-                            <strong>{environmentName}</strong>
-                        </span>
-                        <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank" rel="noopener noreferrer" className="app-icon-link" aria-label="CoSky on GitHub">
-                            <GitHubIcon/>
-                        </a>
-                        <a href="https://gitee.com/AhooWang/CoSky" target="_blank" rel="noopener noreferrer" className="app-icon-link app-icon-link--gitee" aria-label="CoSky on Gitee">
-                            <GiteeIcon/>
-                        </a>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="app-user-button">
-                                    <span className="app-avatar">{currentUser.sub.slice(0, 1).toUpperCase()}</span>
-                                    <span className="app-user-name">{currentUser.sub}</span>
-                                    <ChevronDown/>
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuLabel>Account</DropdownMenuLabel>
-                                <DropdownMenuSeparator/>
-                                <DropdownMenuItem onSelect={handleChangePwd}>
-                                    <Settings/> Change password
-                                </DropdownMenuItem>
-                                <DropdownMenuItem variant="destructive" onSelect={signOut}>
-                                    <LogOut/> Sign out
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </header>
-                <main className="app-content">
-                    <ErrorBoundary>
-                        <Outlet/>
-                    </ErrorBoundary>
-                </main>
+                            <Button variant="ghost" size="icon-sm" onClick={() => setCollapsed(!collapsed)}
+                                    aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'}
+                                    className="text-shell-foreground hover:bg-shell-overlay hover:text-white max-[720px]:hidden">
+                                {collapsed ? <PanelLeftOpen/> : <PanelLeftClose/>}
+                            </Button>
+                            <CurrentNamespaceSelector/>
+                        </div>
+                        <CommandSearch/>
+                        <div className="flex items-center justify-end gap-3 max-[720px]:col-start-3">
+                            <span className="grid max-w-[180px] leading-[1.15] max-[960px]:hidden" title={`Connected to ${apiOrigin}`}>
+                                <span className="text-[10px] tracking-[0.06em] text-shell-caption uppercase">Environment</span>
+                                <strong className="overflow-hidden text-[12px] font-semibold text-ellipsis whitespace-nowrap text-shell-strong">{environmentName}</strong>
+                            </span>
+                            <a href="https://github.com/Ahoo-Wang/CoSky" target="_blank" rel="noopener noreferrer" className={iconLinkClass} aria-label="CoSky on GitHub">
+                                <GitHubIcon/>
+                            </a>
+                            <a href="https://gitee.com/AhooWang/CoSky" target="_blank" rel="noopener noreferrer" className={cn(iconLinkClass, 'hover:text-brand-gitee')} aria-label="CoSky on Gitee">
+                                <GiteeIcon/>
+                            </a>
+                            <AccountMenu/>
+                        </div>
+                    </header>
+                    <main className="min-w-0 flex-1 px-9 pt-[34px] pb-7 max-[960px]:px-5 max-[960px]:py-6">
+                        <ErrorBoundary>
+                            <Outlet/>
+                        </ErrorBoundary>
+                    </main>
+                </div>
             </div>
-        </div>
-        <SheetContent side="left" showCloseButton={false} aria-modal="true" className="w-[232px] max-w-none gap-0 border-0 bg-[#111127] p-0 text-[#dadae7] sm:max-w-none">
-            <SheetTitle className="sr-only">Navigation</SheetTitle>
-            <div className="app-mobile-sidebar">
-                <SheetClose asChild>
-                    <Button variant="ghost" size="icon-sm" className="app-mobile-close" aria-label="Close navigation"><X/></Button>
-                </SheetClose>
-                <SidebarContent collapsed={false} currentPath={location.pathname} onNavigate={() => setMobileOpen(false)}/>
-            </div>
-        </SheetContent>
-        </Sheet>
+            {/* A sibling of the layout, not its parent: dialogs opened from pages must not count as nested in it. */}
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+                <SheetContent side="left" showCloseButton={false} aria-modal="true" finalFocus={mobileMenuButtonRef}
+                              className="w-[232px] max-w-none gap-0 border-0 bg-shell p-0 text-shell-foreground sm:max-w-none">
+                    <SheetTitle className="sr-only">Navigation</SheetTitle>
+                    <ShellPanel>
+                        <SheetClose
+                            render={
+                                <Button variant="ghost" size="icon-sm" aria-label="Close navigation"
+                                        className="absolute top-[23px] right-3 z-3 text-shell-foreground"/>
+                            }
+                        >
+                            <X/>
+                        </SheetClose>
+                        <SidebarContent collapsed={false} currentPath={location.pathname} onNavigate={() => setMobileOpen(false)}/>
+                    </ShellPanel>
+                </SheetContent>
+            </Sheet>
+        </>
     );
-};
+}

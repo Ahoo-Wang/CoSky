@@ -254,7 +254,7 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     const api = apiMocks.get(page)!;
     await login(page);
 
-    const accountButton = page.locator('.app-user-button');
+    const accountButton = page.locator('[data-slot="account-menu-trigger"]');
     await accountButton.click();
     await expect(accountButton).toHaveCSS('color', 'rgb(255, 255, 255)');
     await expect(accountButton).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.08)');
@@ -450,7 +450,7 @@ test('tables expose loading, empty, sorting, pagination, and server-error states
     const configRow = page.getByRole('row').filter({hasText: 'application.yaml'}).first();
     await configRow.getByRole('button', {name: 'Delete'}).click();
     await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Delete config failed')).toBeVisible();
+    await expect(page.getByText('Delete config failed: Expected test failure')).toBeVisible();
     expect(browserErrors.get(page)?.some(error => error.includes('500'))).toBe(true);
     browserErrors.set(page, []);
 

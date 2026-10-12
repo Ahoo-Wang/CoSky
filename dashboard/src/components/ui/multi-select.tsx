@@ -17,6 +17,7 @@ import {
     DropdownMenu,
     DropdownMenuCheckboxItem,
     DropdownMenuContent,
+    DropdownMenuGroup,
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
@@ -56,35 +57,39 @@ export function MultiSelect({
 
     return (
         <DropdownMenu onOpenChange={onOpenChange}>
-            <DropdownMenuTrigger asChild>
-                <Button
-                    id={id}
-                    type="button"
-                    variant="outline"
-                    disabled={disabled}
-                    aria-label={ariaLabel ?? placeholder}
-                    className={cn('h-auto min-h-9 w-full justify-between px-3 font-normal', className)}
-                >
-                    <span className={cn('truncate', selectedLabels.length === 0 && 'text-muted-foreground')}>
-                        {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
-                    </span>
-                    <ChevronDown className="text-muted-foreground"/>
-                </Button>
+            <DropdownMenuTrigger
+                render={
+                    <Button
+                        id={id}
+                        type="button"
+                        variant="outline"
+                        disabled={disabled}
+                        aria-label={ariaLabel ?? placeholder}
+                        className={cn('h-auto min-h-9 w-full justify-between px-3 font-normal', className)}
+                    />
+                }
+            >
+                <span className={cn('truncate', selectedLabels.length === 0 && 'text-muted-foreground')}>
+                    {selectedLabels.length > 0 ? selectedLabels.join(', ') : placeholder}
+                </span>
+                <ChevronDown className="text-muted-foreground"/>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-52">
-                <DropdownMenuLabel>{placeholder}</DropdownMenuLabel>
-                <DropdownMenuSeparator/>
-                {options.length === 0 && <div className="px-2 py-5 text-center text-xs text-muted-foreground">No options available.</div>}
-                {options.map(option => (
-                    <DropdownMenuCheckboxItem
-                        key={option.value}
-                        checked={value.includes(option.value)}
-                        onCheckedChange={() => toggle(option.value)}
-                        onSelect={event => event.preventDefault()}
-                    >
-                        {option.label}
-                    </DropdownMenuCheckboxItem>
-                ))}
+                <DropdownMenuGroup>
+                    <DropdownMenuLabel>{placeholder}</DropdownMenuLabel>
+                    <DropdownMenuSeparator/>
+                    {options.length === 0 && <div className="px-2 py-5 text-center text-xs text-muted-foreground">No options available.</div>}
+                    {options.map(option => (
+                        <DropdownMenuCheckboxItem
+                            key={option.value}
+                            checked={value.includes(option.value)}
+                            onCheckedChange={() => toggle(option.value)}
+                            closeOnClick={false}
+                        >
+                            {option.label}
+                        </DropdownMenuCheckboxItem>
+                    ))}
+                </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>
     );
