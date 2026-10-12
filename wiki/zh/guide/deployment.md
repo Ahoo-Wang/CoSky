@@ -19,13 +19,13 @@ description: 用 Docker、Kubernetes 或独立发行包运行 CoSky REST API 服
 
 ## Docker
 
-镜像发布到 `ahoowang/cosky`、`ghcr.io/ahoo-wang/cosky` 和 `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`，支持 `linux/amd64` 与 `linux/arm64`，标签为 `6.1.0` 和 `6.1`。
+镜像发布到 `ahoowang/cosky`、`ghcr.io/ahoo-wang/cosky` 和 `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`，支持 `linux/amd64` 与 `linux/arm64`，标签为 `6.2.0` 和 `6.2`。
 
 ```bash
 docker run -d --name cosky -p 8080:8080 \
   -e SPRING_DATA_REDIS_URL=redis://redis.example.com:6379 \
   -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.1.0
+  ahoowang/cosky:6.2.0
 ```
 
 同时启动开启持久化的 Redis 和 CoSky 的 Compose 文件：
@@ -40,7 +40,7 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
   cosky:
-    image: ahoowang/cosky:6.1.0
+    image: ahoowang/cosky:6.2.0
     ports:
       - "8080:8080"
     environment:
@@ -78,8 +78,8 @@ kubectl apply -f k8s/deployment/cosky.yml -f k8s/deployment/cosky-service.yaml
 ```bash
 cd dashboard && pnpm install && pnpm build && cd ..   # 不执行这一步，服务器就没有 Web 界面
 ./gradlew :cosky-rest-api:distTar
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.1.0.tar
-cd cosky-rest-api-6.1.0
+tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.2.0.tar
+cd cosky-rest-api-6.2.0
 COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api \
   --spring.data.redis.url=redis://localhost:6379
 ```
