@@ -16,7 +16,6 @@ import './services/fetcher';
 import {AppRoutes} from "./AppRoutes.tsx";
 import {ErrorBoundary} from "./components/error/ErrorBoundary.tsx";
 import {Toaster} from "@/components/ui/sonner";
-import './App.css';
 
 function App() {
     return (

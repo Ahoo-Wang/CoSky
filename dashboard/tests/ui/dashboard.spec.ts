@@ -254,7 +254,7 @@ test('remaining mutations cover edit, export, rollback, delete, password, and si
     const api = apiMocks.get(page)!;
     await login(page);
 
-    const accountButton = page.locator('.app-user-button');
+    const accountButton = page.locator('[data-slot="account-menu-trigger"]');
     await accountButton.click();
     await expect(accountButton).toHaveCSS('color', 'rgb(255, 255, 255)');
     await expect(accountButton).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.08)');

@@ -36,12 +36,36 @@ code {
 #root {
   width: 100%;
   min-height: 100vh;
-  background: #f7f8fc;
+  background: var(--canvas);
 }
 /*
  ---break---
  */
 @theme inline {
+  --color-canvas: var(--canvas);
+  --color-shell: var(--shell);
+  --color-shell-raised: var(--shell-raised);
+  --color-shell-foreground: var(--shell-foreground);
+  --color-shell-strong: var(--shell-strong);
+  --color-shell-muted: var(--shell-muted);
+  --color-shell-caption: var(--shell-caption);
+  --color-shell-subtle: var(--shell-subtle);
+  --color-shell-faint: var(--shell-faint);
+  --color-shell-key: var(--shell-key);
+  --color-shell-pill: var(--shell-pill);
+  --color-shell-overlay: var(--shell-overlay);
+  --color-shell-overlay-subtle: var(--shell-overlay-subtle);
+  --color-shell-overlay-strong: var(--shell-overlay-strong);
+  --color-shell-accent: var(--shell-accent);
+  --color-shell-accent-strong: var(--shell-accent-strong);
+  --color-shell-accent-text: var(--shell-accent-text);
+  --color-shell-accent-line: var(--shell-accent-line);
+  --color-shell-accent-wash: var(--shell-accent-wash);
+  --color-shell-nav-active: var(--shell-nav-active);
+  --color-shell-selected: var(--shell-selected);
+  --color-shell-focus: var(--shell-focus);
+  --color-shell-focus-ring: var(--shell-focus-ring);
+  --color-brand-gitee: var(--brand-gitee);
   --font-heading: var(--font-sans);
   --font-sans: 'Geist Variable', sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
@@ -87,6 +111,32 @@ code {
  ---break---
  */
 :root {
+  /* Page background behind cards. */
+  --canvas: #f7f8fc;
+  /* The dark application shell: sidebar, header and command search. */
+  --shell: #111127;
+  --shell-raised: #191930;
+  --shell-foreground: #dadae7;
+  --shell-strong: #f2f2f8;
+  --shell-muted: #aaaabd;
+  --shell-caption: #9a9aad;
+  --shell-subtle: #9292a6;
+  --shell-faint: #77778d;
+  --shell-key: #c7c7d4;
+  --shell-pill: #b7b7c8;
+  --shell-overlay: rgba(255, 255, 255, 0.08);
+  --shell-overlay-subtle: rgba(255, 255, 255, 0.06);
+  --shell-overlay-strong: rgba(255, 255, 255, 0.12);
+  --shell-accent: #6d5ce8;
+  --shell-accent-strong: #8b7aff;
+  --shell-accent-text: #9c8df8;
+  --shell-accent-line: rgba(139, 124, 246, 0.2);
+  --shell-accent-wash: rgba(124, 102, 238, 0.1);
+  --shell-nav-active: rgba(112, 84, 236, 0.2);
+  --shell-selected: rgba(124, 102, 238, 0.18);
+  --shell-focus: rgba(139, 124, 246, 0.7);
+  --shell-focus-ring: rgba(124, 102, 238, 0.2);
+  --brand-gitee: #c71d23;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

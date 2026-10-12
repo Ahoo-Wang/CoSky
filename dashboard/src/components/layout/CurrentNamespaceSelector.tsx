@@ -11,18 +11,21 @@
  * limitations under the License.
  */
 
-import React from 'react';
-import {useCurrentNamespaceContext} from '../../contexts/namespace/CurrentNamespaceContext.tsx';
-import {NamespaceSelector} from "../namespace/NamespaceSelector.tsx";
-import {Layers3} from "lucide-react";
+import {Layers3} from 'lucide-react';
+import {NamespaceSelector} from '@/components/namespace/NamespaceSelector';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 
-export const CurrentNamespaceSelector: React.FC = () => {
+/**
+ * The namespace every page works on, switchable from the header.
+ */
+export function CurrentNamespaceSelector() {
     const {currentNamespace, setCurrent} = useCurrentNamespaceContext();
-    
+
     return (
-        <div className="app-namespace">
+        <div className="flex items-center gap-[10px] [&>svg]:w-[18px] [&>svg]:text-shell-accent">
             <Layers3/>
-            <div>
+            {/* The caption style also applies to the selected value, which is shown small under its label. */}
+            <div className="grid [&_span]:text-[11px] [&_span]:leading-[1.1] [&_span]:text-shell-caption">
                 <span>Namespace</span>
                 <NamespaceSelector
                     value={currentNamespace}
@@ -32,4 +35,4 @@ export const CurrentNamespaceSelector: React.FC = () => {
             </div>
         </div>
     );
-};
+}
