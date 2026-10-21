@@ -61,7 +61,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.59.2",
-    "vite": "^8.0.16"
+    "vite": "^8.1.6"
   },
   "engines": {
     "node": "^20.19.0 || >=22.12.0"
