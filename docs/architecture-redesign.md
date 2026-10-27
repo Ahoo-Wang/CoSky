@@ -55,6 +55,8 @@ Redis (只有 server 可访问)
 | D14 | Java 门面 | **推迟到 7.1** | Spring 用户经 starter 使用,7.0 聚焦核心 |
 | D15 | server gRPC 接入 | **Spring gRPC** | 与 Spring Boot 生命周期、配置、可观测性统一(§7.4) |
 | D16 | 性能目标 | **采纳 §7.10** | 作为 W4a 验收标准 |
+| D17 | proto 命名 | **遵循 buf STANDARD**(枚举值前缀、服务 `Service` 后缀),仅豁免 `Get` 直接返回资源 | proto 枚举值在包内共享命名空间,无前缀易冲突;Get 返回资源符合 AIP-131(§4.2) |
+| D18 | OpenAPI | **混合生成**:schemas 由 proto 生成,paths 手写,构建时合并 | REST 路由无法由 RPC 自动推导,但 schema 必须与 proto 同步(§4.5) |
 
 ---
 
@@ -198,22 +200,22 @@ message Resource {
 
 enum Kind {
   KIND_UNSPECIFIED = 0;
-  NAMESPACE = 1;
-  CONFIG = 2;
-  INSTANCE = 3;
-  SERVICE_ACCOUNT = 4;
-  ROLE = 5;
-  ROLE_BINDING = 6;
+  KIND_NAMESPACE = 1;
+  KIND_CONFIG = 2;
+  KIND_INSTANCE = 3;
+  KIND_SERVICE_ACCOUNT = 4;
+  KIND_ROLE = 5;
+  KIND_ROLE_BINDING = 6;
 }
 
 message NamespaceSpec { string description = 1; }
 
 enum ConfigFormat {
   CONFIG_FORMAT_UNSPECIFIED = 0;
-  YAML = 1;
-  PROPERTIES = 2;
-  JSON = 3;
-  TEXT = 4;
+  CONFIG_FORMAT_YAML = 1;
+  CONFIG_FORMAT_PROPERTIES = 2;
+  CONFIG_FORMAT_JSON = 3;
+  CONFIG_FORMAT_TEXT = 4;
 }
 
 message ConfigSpec {
@@ -231,7 +233,7 @@ message Endpoint {
 message InstanceSpec {
   string service = 1;
   Endpoint endpoint = 2;
-  int32 weight = 3;                           // 默认 1,0 = 摘流量但保留注册
+  optional int32 weight = 3;                  // 未设置 = 1(由 server 填充);0 = 摘流量但保留注册
   map<string, string> metadata = 4;           // 用户数据,与系统字段物理隔离;≤ 64 项
 }
 
@@ -247,10 +249,10 @@ message TokenRef {
 
 enum Verb {
   VERB_UNSPECIFIED = 0;
-  GET = 1;                                    // 含 List
-  WATCH = 2;
-  PUT = 3;
-  DELETE = 4;
+  VERB_GET = 1;                               // 含 List
+  VERB_WATCH = 2;
+  VERB_PUT = 3;
+  VERB_DELETE = 4;
 }
 message Rule {
   repeated Kind kinds = 1;
@@ -260,7 +262,7 @@ message Rule {
 message RoleSpec { string description = 1; repeated Rule rules = 2; }
 
 message Subject {
-  enum Type { TYPE_UNSPECIFIED = 0; SERVICE_ACCOUNT = 1; USER = 2; GROUP = 3; }
+  enum Type { TYPE_UNSPECIFIED = 0; TYPE_SERVICE_ACCOUNT = 1; TYPE_USER = 2; TYPE_GROUP = 3; }
   Type type = 1;
   string name = 2;                            // USER/GROUP 来自 OIDC claim
 }
@@ -272,14 +274,21 @@ message RoleBindingSpec { string role = 1; repeated Subject subjects = 2; }
 | 对象 | 规则 | 说明 |
 |---|---|---|
 | namespace | `^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$` | 不含 `{ } :`,哈希标签安全;`_system` 为保留名 |
-| Config name | `^[A-Za-z0-9._/-]{1,253}$` | 允许路径式命名 |
+| Config name | `^[A-Za-z0-9._/-]{1,253}$`,且按 `/` 切分后**不得有空段、`.` 或 `..`**(即不得以 `/` 开头或结尾、不得含 `//`) | 允许路径式命名;REST 路径中的 `/` 须编码为 `%2F`(§4.5) |
 | service | `^[a-z0-9]([-a-z0-9.]{0,61}[a-z0-9])?$` | DNS 风格 |
-| Instance name | `^[A-Za-z0-9._-]{1,253}$` | 默认 `<service>-<host>-<port>`(非法字符替换为 `-`),客户端可自定义 |
+| Instance name | `^[A-Za-z0-9._-]{1,253}$`,且不得为 `.` 或 `..` | 默认 `<service>-<host>-<port>`(非法字符替换为 `-`),客户端可自定义 |
+| ServiceAccount / Role / RoleBinding name | 同 service:`^[a-z0-9]([-a-z0-9.]{0,61}[a-z0-9])?$` | DNS 风格,≤ 63 |
+| label / metadata key | `^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$` | 长度见 §7.1 |
+| Endpoint host | 合法 RFC 1123 主机名、IPv4 或 IPv6 字面量 | IPv6 不带方括号 |
+| description(各 Spec) | ≤ 1024 字符 | |
+
+proto 命名遵循 buf `STANDARD` 规则:枚举值带类型前缀(`KIND_CONFIG`、`VERB_GET`),服务名带 `Service` 后缀。
+唯一例外是 `RPC_RESPONSE_STANDARD_NAME`:`ResourceService.Get` 直接返回 `Resource`(Google AIP-131)。
 
 ### 4.3 gRPC 服务
 
 ```protobuf
-service Resources {
+service ResourceService {
   rpc Get(GetRequest) returns (Resource);
   rpc List(ListRequest) returns (ListResponse);
   rpc Put(PutRequest) returns (PutResponse);
@@ -310,10 +319,10 @@ message PutResponse {
 message DeleteRequest  { ResourceKey key = 1; int64 expected_revision = 2; }
 message DeleteResponse { int64 revision = 1; bool deleted = 2; }
 
-message HistoryRequest  { ResourceKey key = 1; int32 limit = 2; }
+message HistoryRequest  { ResourceKey key = 1; int32 limit = 2; }   // 0 或超过 history-size 时按 history-size 截断
 message HistoryResponse { repeated Resource revisions = 1; }       // 新 → 旧
 
-service Watch {
+service WatchService {
   rpc Watch(stream WatchRequest) returns (stream WatchResponse);   // 一条流复用多个 watch
 }
 
@@ -344,13 +353,13 @@ message WatchResponse {
   message Snapshot { repeated Resource items = 1; int64 revision = 2; }
   message Events { int64 revision = 1; repeated Event events = 2; }
   message Event {
-    enum Type { TYPE_UNSPECIFIED = 0; PUT = 1; DELETE = 2; }
+    enum Type { TYPE_UNSPECIFIED = 0; TYPE_PUT = 1; TYPE_DELETE = 2; }
     Type type = 1;
     Resource resource = 2;              // DELETE 时为删除前的最后状态
   }
 }
 
-service Leases {
+service LeaseService {
   rpc Grant(GrantRequest) returns (GrantResponse);
   rpc KeepAlive(stream KeepAliveRequest) returns (stream KeepAliveResponse);
   rpc Revoke(RevokeRequest) returns (RevokeResponse);
@@ -363,7 +372,7 @@ message KeepAliveResponse { int64 lease = 1; int32 ttl_seconds = 2; }    // ttl_
 message RevokeRequest  { string namespace = 1; int64 lease = 2; }
 message RevokeResponse {}
 
-service Views {                                                     // 派生只读视图,不落库
+service ViewService {                                                 // 派生只读视图,不落库
   rpc Services(ServicesRequest) returns (ServicesResponse);        // 服务列表 + 实例数
   rpc Topology(TopologyRequest) returns (TopologyResponse);        // consumer → producer 边
   rpc Stats(StatsRequest) returns (StatsResponse);
@@ -377,10 +386,14 @@ service Views {                                                     // 派生只
 | 不存在 | `NOT_FOUND` | 404 |
 | revision 不匹配 | `ABORTED`(detail `REVISION_CONFLICT`,带当前 revision) | 409 |
 | 租约不存在/已过期 | `FAILED_PRECONDITION`(detail `LEASE_NOT_FOUND`) | 412 |
+| 删除非空 namespace | `FAILED_PRECONDITION`(detail `NAMESPACE_NOT_EMPTY`) | 409 |
+| 单条流 watch 数超限 | `RESOURCE_EXHAUSTED`(detail `WATCH_QUOTA_EXCEEDED`) | 429 |
 | 未认证 / 无权限 | `UNAUTHENTICATED` / `PERMISSION_DENIED` | 401 / 403 |
 | 参数非法 | `INVALID_ARGUMENT` | 400 |
 | `min_revision` 等待超时 | `DEADLINE_EXCEEDED` | 504 |
 | 存储不可用 / revision 回退 | `UNAVAILABLE` | 503 |
+
+HTTP 状态按**错误原因**映射,而不是按 gRPC code 一刀切;未带 CoSky 原因的 gRPC code 按 `google.rpc.Code` 的标准映射。
 
 ### 4.5 REST 映射
 
@@ -398,7 +411,12 @@ service Views {                                                     // 派生只
 | GET | `/v1/me` | 当前身份与有效权限 |
 
 `{kind}` 取 `configs` / `instances`;全局对象走 `/v1/{namespaces|serviceaccounts|roles|rolebindings}/{name}`。
-REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射,OpenAPI 由 proto 生成。
+REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射。
+路径中的 `{name}` 是单个路径段:Config 名中的 `/` 必须编码为 `%2F`(WebFlux 的 `PathPattern` 按段匹配后再解码)。
+
+**OpenAPI**(`api/` 构建产物 `cosky.yaml`)采用混合生成:`components.schemas` 由 proto 描述符按 proto3 JSON 映射自动生成,
+保证与 proto 同步;`paths` 在 `api/src/main/openapi/paths.yaml` 中手写(本节路由无法从 RPC 自动推导:
+`{kind}` 复数段、`If-Match` 头、SSE、`:rollback`、导入导出、token 端点);构建时合并并校验引用完整。
 
 ---
 
@@ -603,7 +621,9 @@ registration.close()                                                            
 |---|---|
 | Config 内容 | ≤ 1 MiB |
 | Instance metadata | ≤ 64 项;key ≤ 63 字符,value ≤ 1024 字符 |
-| labels | ≤ 32 项;key ≤ 63,value ≤ 253 |
+| labels | ≤ 32 项;key ≤ 63,value ≤ 253;key 字符集见 §4.2 |
+| description | ≤ 1024 字符 |
+| History `limit` | 0 或超过 `history-size` 时按 `history-size` 截断,负数非法 |
 | 一次批写(apply)的操作数 | ≤ 100 |
 | 单 namespace 对象数 | 软上限 100,000(超过告警,不拒绝) |
 | Config 历史 | 每个 Config 最近 20 个 revision |
@@ -612,7 +632,7 @@ registration.close()                                                            
 
 - `_system` 在 server 首次启动时自动创建;`default` namespace 在 bootstrap 时创建。
 - 向不存在的 namespace 写入返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。
-- **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION`,防止误删整片数据。
+- **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。
   删除成功后 server 调用 `Store.dropNamespace` 清理全部键,该 namespace 上的所有 watcher 以 `NOT_FOUND` 结束。
 - 删除后重建的 namespace revision 从 1 重新开始;客户端携带的 `from_revision` **大于** server 当前 revision 时一律返回 `gone`
   (同一规则也覆盖 Redis 丢写导致的 revision 回退)。
@@ -627,7 +647,7 @@ registration.close()                                                            
   不阻塞其他 watcher,也不让 server 内存无界增长。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
 - **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的以 `PERMISSION_DENIED` 结束。
-- **配额**:单条流最多 1,000 个 watch。
+- **配额**:单条流最多 1,000 个 watch,超出时该 Create 以 `RESOURCE_EXHAUSTED`(`WATCH_QUOTA_EXCEEDED`)拒绝,流本身不中断。
 
 ### 7.4 Server 内部结构
 

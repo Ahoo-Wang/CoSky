@@ -46,7 +46,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   - 版本目录加入 protobuf、grpc-java、grpc-kotlin、kotlinx-coroutines、kotlinx-collections-immutable、Testcontainers。
   - Detekt `ForbiddenImport` 禁止 `reactor.*`(允许清单见 §3.2)。
   - 删除旧模块:`cosky-core`、`cosky-config`、`cosky-discovery`、`cosky-spring-cloud-*`、`cosky-rest-api`、`examples/`;`cosky-bom`、`cosky-dependencies`、`cosky-test` 改为 `bom/`、`dependencies/`、`test/`;`code-coverage-report` 指向新模块。
-  - `api/`:§4.1、§4.3 的 proto,protobuf + grpc-kotlin 代码生成;§4.2、§7.1 的命名与大小校验;§4.4 错误码与 status detail 定义;OpenAPI 生成(供 Dashboard)。
+  - `api/`:§4.1、§4.3 的 proto,protobuf + grpc-kotlin 代码生成;§4.2、§7.1 的命名与大小校验;§4.4 错误码与 status detail 定义;OpenAPI 混合生成(D18,供 Dashboard);项目版本改为 `7.0.0-SNAPSHOT`。
 - **不在范围**:任何 server / client / store 逻辑;`dashboard/`、`wiki/` 不动。
 - **验收**:`./gradlew build` 通过;校验规则有完整的边界测试;proto 通过 `buf lint`(或等价检查)。
 
@@ -133,7 +133,7 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 
 | 风险 | 影响 | 应对 |
 |---|---|---|
-| W3a server 体量最大,成为关键路径 | M3 延期 | W3a 内部再拆:先 Resources + Watch,后 Leases + 鉴权 + Views |
+| W3a server 体量最大,成为关键路径 | M3 延期 | W3a 内部再拆:先 ResourceService + WatchService,后 LeaseService + 鉴权 + ViewService |
 | Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W1 先做最小可运行验证 |
 | Redis Cluster 下 Stream 与脚本的行为差异 | W3b 返工 | conformance 同时跑 Standalone 与 Cluster |
 | 7.0 不兼容导致用户迁移成本高 | 采用受阻 | W4c 迁移工具 + 迁移指南;6.x 维护期 |
