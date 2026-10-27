@@ -9,6 +9,7 @@
 
 - 交付 **CoSky 8.0.0**:按目标架构完整重写,不兼容 6.x 的 API、Redis 键结构和客户端。
 - 6.x 进入维护期:只修安全问题和严重缺陷,不再加功能。
+- 版本序列:`8.0.0-alpha.N`(开发预览,API 可变)→ `8.0.0-beta.N`(API 冻结)→ `8.0.0-rc.N` → `8.0.0`。起始版本为 `8.0.0-alpha.1`。
 - 8.0 的范围就是设计文档 §3–§7;明确不做的事见设计文档 D7。
 
 ## 2. 里程碑
@@ -46,7 +47,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   - 版本目录加入 protobuf、grpc-java、grpc-kotlin、kotlinx-coroutines、kotlinx-collections-immutable、Testcontainers。
   - Detekt `ForbiddenImport` 禁止 `reactor.*`(允许清单见 §3.2)。
   - 删除旧模块:`cosky-core`、`cosky-config`、`cosky-discovery`、`cosky-spring-cloud-*`、`cosky-rest-api`、`examples/`;`cosky-bom`、`cosky-dependencies`、`cosky-test` 改为 `bom/`、`dependencies/`、`test/`;`code-coverage-report` 指向新模块。
-  - `api/`:§4.1、§4.3 的 proto,protobuf + grpc-kotlin 代码生成;§4.2、§7.1 的命名与大小校验;§4.4 错误码与 status detail 定义;OpenAPI 混合生成(D18,供 Dashboard);项目版本改为 `8.0.0-SNAPSHOT`。
+  - `api/`:§4.1、§4.3 的 proto,protobuf + grpc-kotlin 代码生成;§4.2、§7.1 的命名与大小校验;§4.4 错误码与 status detail 定义;OpenAPI 混合生成(D18,供 Dashboard);项目版本改为 `8.0.0-alpha.1`。
 - **不在范围**:任何 server / client / store 逻辑;`dashboard/`、`wiki/` 不动。
 - **验收**:`./gradlew build` 通过;校验规则有完整的边界测试;proto 通过 `buf lint`(或等价检查)。
 
