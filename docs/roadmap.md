@@ -1,4 +1,4 @@
-# CoSky 7.0 重构路线图
+# CoSky 8.0 重构路线图
 
 > 设计依据:[architecture-redesign.md](architecture-redesign.md)(下文 §x 均指该文档章节)。
 > 本文档跟踪**怎么做、做到哪**;设计本身的变更只改设计文档,并在这里记录影响。
@@ -7,9 +7,9 @@
 
 ## 1. 目标与范围
 
-- 交付 **CoSky 7.0.0**:按目标架构完整重写,不兼容 6.x 的 API、Redis 键结构和客户端。
+- 交付 **CoSky 8.0.0**:按目标架构完整重写,不兼容 6.x 的 API、Redis 键结构和客户端。
 - 6.x 进入维护期:只修安全问题和严重缺陷,不再加功能。
-- 7.0 的范围就是设计文档 §3–§7;明确不做的事见设计文档 D7。
+- 8.0 的范围就是设计文档 §3–§7;明确不做的事见设计文档 D7。
 
 ## 2. 里程碑
 
@@ -20,7 +20,7 @@
 | **M2 语义** | Store SPI + 内存实现 + conformance 套件;client 在假服务上跑通 | W2 全部合并 |
 | **M3 组件完成** | server、store-redis 完成并通过 conformance;client 对接真实 server | W3 全部合并 |
 | **M4 可发布** | 端到端与故障注入通过、Dashboard 切换、迁移工具、文档、性能目标(§7.10)达成 | W4 全部合并 |
-| **7.0.0 GA** | RC 在至少一个真实环境试运行两周无 P0/P1 问题 | GitHub Release |
+| **8.0.0 GA** | RC 在至少一个真实环境试运行两周无 P0/P1 问题 | GitHub Release |
 
 ## 3. 任务波次
 
@@ -46,7 +46,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   - 版本目录加入 protobuf、grpc-java、grpc-kotlin、kotlinx-coroutines、kotlinx-collections-immutable、Testcontainers。
   - Detekt `ForbiddenImport` 禁止 `reactor.*`(允许清单见 §3.2)。
   - 删除旧模块:`cosky-core`、`cosky-config`、`cosky-discovery`、`cosky-spring-cloud-*`、`cosky-rest-api`、`examples/`;`cosky-bom`、`cosky-dependencies`、`cosky-test` 改为 `bom/`、`dependencies/`、`test/`;`code-coverage-report` 指向新模块。
-  - `api/`:§4.1、§4.3 的 proto,protobuf + grpc-kotlin 代码生成;§4.2、§7.1 的命名与大小校验;§4.4 错误码与 status detail 定义;OpenAPI 混合生成(D18,供 Dashboard);项目版本改为 `7.0.0-SNAPSHOT`。
+  - `api/`:§4.1、§4.3 的 proto,protobuf + grpc-kotlin 代码生成;§4.2、§7.1 的命名与大小校验;§4.4 错误码与 status detail 定义;OpenAPI 混合生成(D18,供 Dashboard);项目版本改为 `8.0.0-SNAPSHOT`。
 - **不在范围**:任何 server / client / store 逻辑;`dashboard/`、`wiki/` 不动。
 - **验收**:`./gradlew build` 通过;校验规则有完整的边界测试;proto 通过 `buf lint`(或等价检查)。
 
@@ -59,7 +59,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 
 ### W2b `client/` + `spring-boot-starter/`
 
-- **范围**:§6.5、§7.5 客户端全部行为;§7.7 starter 全部集成点;Java `CompletableFuture` 门面推迟到 7.1(见 §6 Q5)。
+- **范围**:§6.5、§7.5 客户端全部行为;§7.7 starter 全部集成点;Java `CompletableFuture` 门面推迟到 8.1(见 §6 Q5)。
 - **测试**:以测试内的 gRPC 假服务(grpc-kotlin in-process)模拟 server,覆盖断线续传、`gone` 重新 List、租约丢失重注册、快照启动。
 - **验收**:不依赖 Spring 的 `client` 模块无 `reactor` 依赖;starter 有 Spring Boot 集成测试(ConfigData 加载、刷新、注册、发现)。
 
@@ -84,12 +84,12 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 
 ### W4c 迁移工具
 
-- 读取 6.x Redis 键结构中的 Config(含当前版本,可选历史),通过 7.0 REST API 导入;实例不迁移(重新注册)。
+- 读取 6.x Redis 键结构中的 Config(含当前版本,可选历史),通过 8.0 REST API 导入;实例不迁移(重新注册)。
   用户与角色不迁移(身份模型已变),输出一份对照报告供手工重建。
 
 ### W4d 文档
 
-- wiki 中英文按新架构重写;README;`AGENTS.md`;6.x → 7.0 迁移指南。
+- wiki 中英文按新架构重写;README;`AGENTS.md`;6.x → 8.0 迁移指南。
 
 ## 4. 协作方式
 
@@ -125,7 +125,7 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 | Q2 | Dashboard 部署 | server 托管,也支持独立部署(D11) |
 | Q3 | 审计 | 结构化日志(D12) |
 | Q4 | 删除 namespace | 只允许删除空的(D13) |
-| Q5 | Java 门面 | 推迟到 7.1(D14) |
+| Q5 | Java 门面 | 推迟到 8.1(D14) |
 | Q6 | server gRPC 接入 | Spring gRPC(D15) |
 | Q7 | 性能目标 | 采纳设计文档 §7.10(D16) |
 
@@ -136,4 +136,4 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 | W3a server 体量最大,成为关键路径 | M3 延期 | W3a 内部再拆:先 ResourceService + WatchService,后 LeaseService + 鉴权 + ViewService |
 | Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W1 先做最小可运行验证 |
 | Redis Cluster 下 Stream 与脚本的行为差异 | W3b 返工 | conformance 同时跑 Standalone 与 Cluster |
-| 7.0 不兼容导致用户迁移成本高 | 采用受阻 | W4c 迁移工具 + 迁移指南;6.x 维护期 |
+| 8.0 不兼容导致用户迁移成本高 | 采用受阻 | W4c 迁移工具 + 迁移指南;6.x 维护期 |

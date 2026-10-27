@@ -52,7 +52,7 @@ Redis (只有 server 可访问)
 | D11 | Dashboard 部署 | **server 托管静态资源(单镜像)**,同时支持独立部署 | 部署最简;Dashboard 只依赖公开 REST API |
 | D12 | 审计 | **结构化审计日志**,server 不存储审计数据 | 交给运维日志系统;变更追溯由 `updated_by` + Config 历史提供(§7.8) |
 | D13 | 删除 namespace | **只允许删除空 namespace** | 防止误删整片数据(§7.2) |
-| D14 | Java 门面 | **推迟到 7.1** | Spring 用户经 starter 使用,7.0 聚焦核心 |
+| D14 | Java 门面 | **推迟到 8.1** | Spring 用户经 starter 使用,8.0 聚焦核心 |
 | D15 | server gRPC 接入 | **Spring gRPC** | 与 Spring Boot 生命周期、配置、可观测性统一(§7.4) |
 | D16 | 性能目标 | **采纳 §7.10** | 作为 W4a 验收标准 |
 | D17 | proto 命名 | **遵循 buf STANDARD**(枚举值前缀、服务 `Service` 后缀),仅豁免 `Get` 直接返回资源 | proto 枚举值在包内共享命名空间,无前缀易冲突;Get 返回资源符合 AIP-131(§4.2) |
