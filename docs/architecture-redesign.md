@@ -349,7 +349,10 @@ message WatchResponse {
     Events events = 3;                  // 同一 revision 的事件成批到达
     int64 progress = 4;                 // 进度书签:当前已追到的 revision,空闲时周期发送
     int64 gone = 5;                     // from_revision 已超出窗口;值为最早可续传 revision,客户端需重新 List
+    Canceled canceled = 6;              // server 结束单个 watch,流与其他 watch 不受影响
   }
+  // Create 被拒(WATCH_QUOTA_EXCEEDED)、namespace 被删除(NAMESPACE_NOT_FOUND)或失去权限(PERMISSION_DENIED),§7.2 / §7.3
+  message Canceled { string message = 1; ErrorDetail detail = 2; }
   message Snapshot { repeated Resource items = 1; int64 revision = 2; }
   message Events { int64 revision = 1; repeated Event events = 2; }
   message Event {
@@ -633,7 +636,7 @@ registration.close()                                                            
 - `_system` 在 server 首次启动时自动创建;`default` namespace 在 bootstrap 时创建。
 - 向不存在的 namespace 写入返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。
 - **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。
-  删除成功后 server 调用 `Store.dropNamespace` 清理全部键,该 namespace 上的所有 watcher 以 `NOT_FOUND` 结束。
+  删除成功后 server 调用 `Store.dropNamespace` 清理全部键,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - 删除后重建的 namespace revision 从 1 重新开始;客户端携带的 `from_revision` **大于** server 当前 revision 时一律返回 `gone`
   (同一规则也覆盖 Redis 丢写导致的 revision 回退)。
 
@@ -646,8 +649,8 @@ registration.close()                                                            
 - **慢消费者**:每个 watcher 一个有界缓冲(默认 1,000 批),溢出时以 `gone` 结束该 watch,客户端重新 List,
   不阻塞其他 watcher,也不让 server 内存无界增长。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
-- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的以 `PERMISSION_DENIED` 结束。
-- **配额**:单条流最多 1,000 个 watch,超出时该 Create 以 `RESOURCE_EXHAUSTED`(`WATCH_QUOTA_EXCEEDED`)拒绝,流本身不中断。
+- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`)。
+- **配额**:单条流最多 1,000 个 watch,超出时该 Create 收到 `canceled`(`WATCH_QUOTA_EXCEEDED`;REST 侧为 429),流本身不中断。
 
 ### 7.4 Server 内部结构
 
