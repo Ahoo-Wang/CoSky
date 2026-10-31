@@ -141,11 +141,12 @@ class CoSkyExceptionTest {
     }
 
     @Test
-    fun `store unavailable keeps its cause`() {
+    fun `store unavailable keeps its cause when it has one`() {
         val cause = IllegalStateException("connection refused")
         val error = CoSkyException.storeUnavailable("The store is unavailable.", cause)
         error.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
         error.cause.assert().isSameAs(cause)
+        CoSkyException.storeUnavailable("The store is unavailable.").cause.assert().isNull()
     }
 
     private fun statusWith(detail: Any) = StatusProto.toStatusRuntimeException(
