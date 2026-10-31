@@ -5,6 +5,10 @@ description: Run a CoSky server, serve a Config to a Spring Boot application, an
 
 # Getting Started
 
+::: warning 8.0 has not been released yet
+The image and artifacts on this page are not published yet, and `ahoowang/cosky` is still 6.x. The documentation for 6.x is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+:::
+
 This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
 
 ## 1. Start a server
