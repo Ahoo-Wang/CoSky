@@ -1,7 +1,7 @@
 {
   "name": "cosky-dashboard",
   "private": true,
-  "version": "6.2.0",
+  "version": "8.0.0-alpha.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "test:unit": "playwright test --config playwright.unit.config.ts",
     "test:ui": "playwright test",
     "test:coverage": "COSKY_COVERAGE=1 playwright test tests/ui/dashboard.spec.ts",
-    "test:ui:real": "playwright test tests/ui/real-backend.spec.ts --workers=1",
+    "test:ui:real": "playwright test --config playwright.real.config.ts",
     "preview": "vite preview",
     "generate": "fetcher-generator generate -i ../api/build/openapi/cosky.yaml -o src/generated"
   },

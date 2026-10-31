@@ -69,11 +69,8 @@ jobs:
         working-directory: dashboard
         run: pnpm exec playwright install --with-deps chromium
 
-      # The Playwright suite is flaky, on main as well. It reports without failing the job until the Dashboard moves to
-      # the 8.0 API (roadmap W4b).
       - name: Test Dashboard-UI with coverage
         working-directory: dashboard
-        continue-on-error: true
         run: pnpm test:coverage
 
       - name: Check the Kubernetes manifests
@@ -109,6 +106,27 @@ jobs:
           # 143 is the JVM's exit on SIGTERM: anything else means it had to be killed.
           status="$(docker inspect cosky --format '{{.State.ExitCode}}')"
           test "$status" = 143 -o "$status" = 0
+
+      - name: Test the Dashboard the image hosts, against the image
+        working-directory: dashboard
+        run: |
+          token="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
+          docker run -d --name cosky-secured -p 8080:8080 -e COSKY_BOOTSTRAP_TOKEN="$token" cosky-server:test \
+            --cosky.store.type=memory
+          for _ in $(seq 1 60); do
+            curl -sf http://localhost:8080/actuator/health/readiness && break
+            sleep 2
+          done
+          COSKY_REAL_URL=http://localhost:8080 COSKY_REAL_TOKEN="$token" pnpm test:ui:real
+          docker stop cosky-secured
+
+      - name: Keep what the Dashboard tests saw
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dashboard-test-results
+          path: dashboard/test-results
+          retention-days: 7
 
       - name: Set up QEMU
         if: startsWith(github.ref, 'refs/tags/v')

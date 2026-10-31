@@ -16,6 +16,9 @@ import {watchClient} from '@/services/clients';
 
 const MIN_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;
+// The server sends a bookmark while idle, every 10 seconds by default: silence for longer means the stream is dead,
+// which a proxy can do without closing it. Opening it again costs little, should a server send them less often.
+const SILENCE_MS = 30_000;
 
 export interface FollowOptions {
     namespace: string;
@@ -34,6 +37,21 @@ const delay = (milliseconds: number, signal: AbortSignal) => new Promise<void>(r
 });
 
 /**
+ * @return undefined when nothing arrived for too long.
+ */
+async function readOrSilence<T>(reader: ReadableStreamDefaultReader<T>): Promise<ReadableStreamReadResult<T> | undefined> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const silence = new Promise<undefined>(resolve => {
+        timer = setTimeout(() => resolve(undefined), SILENCE_MS);
+    });
+    try {
+        return await Promise.race([reader.read(), silence]);
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/**
  * Calls back whenever the objects may have changed, for as long as the signal lasts, so that a page can read them
  * again (design §4.5). A stream that breaks is opened anew, and its snapshot covers whatever was missed meanwhile.
  */
@@ -48,7 +66,7 @@ export async function followChanges({namespace, kind, service, signal, onChange}
                 abortController,
             });
             const reader = stream.getReader();
-            for (let next = await reader.read(); !next.done; next = await reader.read()) {
+            for (let next = await readOrSilence(reader); next && !next.done; next = await readOrSilence(reader)) {
                 retry = MIN_RETRY_MS;
                 const message = next.value.data as Partial<WatchResponse>;
                 // Nothing more will come: the namespace is gone, or this subject may not watch it.
@@ -59,6 +77,7 @@ export async function followChanges({namespace, kind, service, signal, onChange}
                     onChange();
                 }
             }
+            await reader.cancel();
         } catch {
             // Told apart by the loop: an abort ends it, and anything else opens the stream again.
         }

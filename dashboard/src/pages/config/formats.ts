@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {ConfigFormat} from '@/services/resources';
+import {ConfigFormat} from '@/generated/types';
 
 export const CONFIG_FORMAT_OPTIONS = [
     {label: 'YAML', value: ConfigFormat.CONFIG_FORMAT_YAML},

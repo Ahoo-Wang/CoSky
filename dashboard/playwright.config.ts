@@ -14,10 +14,10 @@
 import {defineConfig} from '@playwright/test';
 
 const baseURL = 'http://127.0.0.1:4175';
-const apiBaseURL = process.env.COSKY_REAL_API_URL ?? `${baseURL}/`;
 
 export default defineConfig({
     testDir: './tests/ui',
+    testIgnore: 'real-backend.spec.ts',
     fullyParallel: true,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 1 : 0,
@@ -42,8 +42,5 @@ export default defineConfig({
         url: baseURL,
         reuseExistingServer: false,
         timeout: 120_000,
-        env: {
-            VITE_API_BASE_URL: apiBaseURL,
-        },
     },
 });
