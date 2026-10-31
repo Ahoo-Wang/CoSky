@@ -88,7 +88,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   - 真实主从切换丢写,revision 回退并涨回后,watcher 收到 `gone` 并收敛。
   - Redis 或 server 不可用超过 TTL 后恢复,存活实例不被删除。
   - Spring Boot 4 + Spring gRPC + grpc-kotlin 在 JDK 25 上最小可运行。
-  - 粗测 §7.10 的扇出与内存目标,把结果和偏差写回设计文档;默认值(§7.6)按结果调整。
+  - 粗测 §7.10 的扇出与内存目标,比较扇出路径上虚拟线程与 `Dispatchers.Default` 的开销(D28),把结果和偏差写回设计文档;默认值(§7.6)按结果调整。
 
 ### W3a `server/`
 

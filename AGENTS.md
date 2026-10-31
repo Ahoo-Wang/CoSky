@@ -58,6 +58,8 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 ## Code Style
 
 - **Language**: Kotlin (JVM 21 toolchain; the server runs on JDK 25 but compiles to Java 21 like everything else)
+- **Virtual threads**: coroutines run on a virtual thread dispatcher in `server` and `client`; never `Dispatchers.IO`
+  or a platform thread pool. In `client`, which may run on JDK 21–23, do not block inside `synchronized`
 - **Async**: Kotlin coroutines (`suspend` / `Flow` / `StateFlow`) everywhere. Reactor is allowed only in
   `store-redis`, `spring-boot-starter` and `server` `..adapter..` packages — Detekt `ForbiddenImport` enforces it
 - **Style**: Detekt + ktlint formatting, 120 character lines; auto-corrects locally, fails CI on any violation
