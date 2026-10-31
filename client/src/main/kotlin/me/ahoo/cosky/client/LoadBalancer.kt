@@ -31,7 +31,7 @@ fun interface LoadBalancer {
 /**
  * Weight 0 drains an instance: it stays registered and takes no traffic. An unset weight means 1.
  */
-private val Resource.effectiveWeight: Int
+val Resource.effectiveWeight: Int
     get() = if (instance.hasWeight()) instance.weight else 1
 
 /**

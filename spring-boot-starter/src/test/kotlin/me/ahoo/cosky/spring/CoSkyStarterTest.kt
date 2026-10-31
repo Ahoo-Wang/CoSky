@@ -254,6 +254,9 @@ class CoSkyStarterTest {
         eventually { seen.any { it == listOf("order-1") } }
         server.put(TestCoSkyServer.instance("order-2", "order"))
         eventually { seen.any { it == listOf("order-1", "order-2") } }
+        // Drained: it stays registered, and takes no traffic.
+        server.put(TestCoSkyServer.instance("order-1", "order", weight = 0))
+        eventually { seen.last() == listOf("order-2") }
         subscription.dispose()
     }
 
