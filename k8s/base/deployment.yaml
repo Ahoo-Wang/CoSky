@@ -1,10 +1,4 @@
 # The CoSky server (design 7.4), which keeps its data in Redis and nothing on disk, so replicas come and go freely.
-#
-# It expects two Secrets:
-#   kubectl create secret generic cosky-redis --from-literal=uri=redis://:<password>@<host>:6379
-#   kubectl create secret generic cosky-auth --from-literal=bootstrap-token=cosky_<id>_<secret>
-#
-# Redis must run with maxmemory-policy noeviction, version 7.0 or later, or the server refuses to start (design D31).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -44,16 +38,14 @@ spec:
         runAsUser: 999
       containers:
         - name: cosky
-          image: ahoowang/cosky:8.0.0-beta.1
+          # The tag comes from kustomization.yaml.
+          image: ahoowang/cosky
           env:
             - name: COSKY_STORE_REDIS_URI
               valueFrom:
                 secretKeyRef:
                   name: cosky-redis
                   key: uri
-            # Uncomment on a Redis Cluster.
-            # - name: COSKY_STORE_REDIS_CLUSTER
-            #   value: "true"
             # Only read on the first start, while no RoleBinding exists; it may be removed afterwards.
             - name: COSKY_BOOTSTRAP_TOKEN
               valueFrom:
@@ -94,13 +86,3 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
----
-apiVersion: policy/v1
-kind: PodDisruptionBudget
-metadata:
-  name: cosky
-spec:
-  maxUnavailable: 1
-  selector:
-    matchLabels:
-      app: cosky
