@@ -49,6 +49,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | ✅ |
 | `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | ✅ |
 | `store-redis` | Redis Store (the only module with Lua) | ✅ |
+| `migration` | `cosky-migrate`: imports 6.x Configs for a whole cutover, the only module that knows 6.x keys (D33) | ✅ |
 | `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
 | `examples` | A provider and a consumer on the starter; `e2e` runs them with the server as separate processes | ✅ |
 | `test` | Shared test utilities | ✅ |

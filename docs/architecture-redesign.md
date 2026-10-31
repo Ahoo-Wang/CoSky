@@ -72,6 +72,7 @@ Redis (只有 server 可访问)
 | D30 | 拓扑 | **边作为软状态写入 Redis**:每个副本每 30 秒写一次,不经过 `rev` 和日志,不产生 Watch 事件,90 秒未刷新即失效;consumer 优先取客户端名,其次取认证主体 | 每个副本只见到自己的 watcher。向各副本扇出查询需要成员发现,只显示本副本数据会误导,推迟到 8.1 又比 6.x 少一项功能;多个应用共用 token 时,只靠主体分不开它们(§5.1、§6.3) |
 | D31 | Redis 前提 | **启动时检查,不满足则拒绝启动**:淘汰策略必须是 `noeviction`,版本不低于 7.0;**不使用 `WAIT`**,改为建议 `min-replicas-to-write`;`KeepAliveResponse.attached_count` 让客户端发现丢失的注册并重新 Put | 淘汰会悄悄删数据。`WAIT` 在 Cluster 下要路由到键所在节点,也消除不了丢写。租约还在而实例已丢时续期一直成功,客户端需要一个信号;相比每个实例 Watch 自己(2 万注册就多 2 万 watcher),这个计数不增加扇出负担(§5.3、§6.2) |
 | D32 | 回收时机 | **租约到期后再等 TTL 的三分之一才回收**;到期数不变,用于判断大比例到期 | 客户端每 TTL/3 续期一次,同一次分区切断的租约会在这段时间内陆续到期。若到期即回收,比例永远到不了门槛,D20 的暂停在真实分区时不起作用(W4a 故障注入发现)。等这一段,回收器在删除任何实例之前就能看到全部到期的租约。代价是死实例晚一点摘除:默认从 30 秒变成 40 秒(§6.2) |
+| D33 | 6.x 迁移 | **整体切换,不做共存**:停止 6.x 写入,用 `cosky-migrate` 导入 Config,应用一起升级到 8.0 并重新注册;不提供桥接。server、client、starter 里没有 6.x 的任何痕迹,6.x 的键结构只有 `migration/` 模块知道 | 两代客户端互相看不见(6.x 直连 Redis,8.0 走 gRPC),分批升级只能靠同步进程。它要维护、要防回环、要翻译租约和权限的语义差异,换来的只是一段过渡期。代价是一次切换,由升级方承担;架构和代码保持干净 |
 
 ---
 
@@ -135,6 +136,7 @@ Redis (只有 server 可访问)
 | `store/` | `cosky-store` | Store SPI + 内存实现(测试与 `--dev` 模式) | `api` |
 | `store-redis/` | `cosky-store-redis` | Redis 实现,**唯一含 Lua 的模块** | `store` |
 | `conformance-test/` | `cosky-conformance-test` | Store SPI 与协议一致性测试套件 | `store`、`client` |
+| `migration/` | `cosky-migration` | 把 6.x Redis 中的 Config 导入 8.0,并报告需要手工重建的内容(D33);命令行工具 `cosky-migrate` | `api` |
 | `bom/`、`dependencies/`、`test/` | `cosky-bom` … | 同现状,去前缀 | — |
 | `dashboard/`、`examples/`、`wiki/` | — | Dashboard 只调用 server 公开 REST API,客户端由 OpenAPI 生成 | — |
 
