@@ -1007,7 +1007,7 @@ cosky:
 | `cosky_auth_failures_total{reason}` | Counter | |
 
 - 就绪探针:全部 namespace 完成初始加载后才就绪。
-- 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,随 W4a 的部署清单一起接入。
+- 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。
 - 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
 - 客户端暴露连接状态、watch 延迟、快照年龄、低频重建发现差异的指标。
 
