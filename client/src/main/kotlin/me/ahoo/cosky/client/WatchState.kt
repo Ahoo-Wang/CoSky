@@ -33,6 +33,14 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     private var pendingEvents = mutableListOf<WatchResponse.Event>()
     private var resyncEpoch = ""
     private var resyncRevision = -1L
+    private val knownState = MutableStateFlow(snapshot != null)
+
+    /**
+     * Whether the view reflects a server, now or as saved in a snapshot. Until then an empty view only means not
+     * knowing yet, rather than nothing being there.
+     */
+    val known: StateFlow<Boolean>
+        get() = knownState
 
     @Volatile
     var epoch: String = snapshot?.epoch.orEmpty()
@@ -97,6 +105,7 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         objects.value = fresh
         epoch = snapshot.epoch
         revision = snapshot.revision
+        knownState.value = true
         return true
     }
 

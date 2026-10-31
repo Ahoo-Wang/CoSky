@@ -901,22 +901,31 @@ cosky:
   endpoints: cosky.internal:9090
   token: ${COSKY_TOKEN}
   namespace: prod
+  snapshot:
+    enabled: true          # 默认 true;目录默认 ~/.cosky
+    include-config: true
   registry:
     enabled: true          # 默认 true;service = spring.application.name
     weight: 1
     metadata: { zone: az1 }
-  discovery.enabled: true
-  config.refresh.enabled: true
+  discovery:
+    enabled: true
+    load-timeout: 5s       # 首次读取一个 service 时等待视图可用的上限
+  config:
+    refresh.enabled: true
+    load-timeout: 5s       # 导入一个 Config 时等待视图可用的上限
 ```
 
 | 集成点 | 实现 |
 |---|---|
-| 配置加载 | `ConfigDataLocationResolver` + `ConfigDataLoader`,前缀 `cosky:`;按 `ConfigSpec.format` 选择解析器 |
-| 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效) |
-| 服务发现 | `DiscoveryClient` 读 `StateFlow.value`;`ReactiveDiscoveryClient` 用 `asFlux()` |
+| 配置加载 | `ConfigDataLocationResolver` + `ConfigDataLoader`,前缀 `cosky:`;按 `ConfigSpec.format` 选择解析器:YAML 和 JSON 用 YAML 解析器,PROPERTIES 用 properties 解析器,TEXT 整体成为一个以配置名命名的属性。Config 不存在,或超过 `config.load-timeout` 仍无法确定时,没有 `optional:` 的导入使启动失败 |
+| 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效)。以加载时看到的 revision 为基准,所以加载后、开始监听前的变化不会漏;启动时不存在的 `optional:` Config 出现后同样触发。刷新失败(如内容无法解析)只记日志,旧值不变,下次变化继续刷新 |
+| 服务发现 | `DiscoveryClient` 和 `ReactiveDiscoveryClient` 读本地视图;首次读取一个 service 时最多等待 `discovery.load-timeout`,避免把未知当成空。`getServices` 会 watch 整个 namespace 的 Instance,只在确实需要全量列表时才有这个开销 |
 | 负载均衡 | 提供 Spring Cloud LoadBalancer 的 `ServiceInstanceListSupplier`,LB 算法交给 Spring Cloud |
-| 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke |
-| 健康检查 | `HealthIndicator` 映射 `ConnectionState` |
+| 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |
+| 健康检查 | `HealthIndicator` 映射 `ConnectionState`:只有 `CLOSED` 为 DOWN,`DEGRADED` 仍为 UP(应用靠本地视图继续工作,重启无益);状态写入 `connection` 明细 |
+
+刷新事件在专用的平台线程上发布,这是 D28 的例外:`ContextRefresher.refresh` 是 `synchronized` 的,导入又在其中阻塞,JDK 21–23 上放在虚拟线程会占住 client 自己也需要的载体线程。
 
 ### 7.8 鉴权细则
 

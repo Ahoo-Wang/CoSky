@@ -1,0 +1,49 @@
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package me.ahoo.cosky.spring
+
+import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.client.CoSkyClient
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Configuration loads before the context exists and runs again on every refresh, while the context needs the same
+ * client afterwards. So the client is shared here by its settings, and closed once with the context.
+ */
+internal object CoSkyClients {
+    private val clients = ConcurrentHashMap<CoSkyProperties, CoSkyClient>()
+    private val imported = ConcurrentHashMap<CoSkyProperties, MutableMap<String, Long>>()
+
+    fun shared(properties: CoSkyProperties): CoSkyClient =
+        clients.computeIfAbsent(properties) { CoSkyClient(it.toOptions()) }
+
+    /**
+     * Remembers a Config this application loaded and the revision it saw, so that a change to it can trigger a refresh.
+     */
+    fun markImported(properties: CoSkyProperties, config: String, revision: Long) {
+        imported.computeIfAbsent(properties) { ConcurrentHashMap() }[config] = revision
+    }
+
+    fun importedBy(properties: CoSkyProperties): Map<String, Long> = imported[properties].orEmpty()
+
+    fun close(properties: CoSkyProperties) {
+        imported.remove(properties)
+        clients.remove(properties)?.close()
+    }
+}
+
+/**
+ * The revision of a Config, 0 when there is none.
+ */
+internal fun Resource?.revisionOrZero(): Long = this?.meta?.revision ?: 0
