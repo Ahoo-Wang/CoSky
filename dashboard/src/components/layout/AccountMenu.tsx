@@ -11,9 +11,8 @@
  * limitations under the License.
  */
 
-import {ChevronDown, LogOut, Settings} from 'lucide-react';
-import {useSecurityContext} from '@ahoo-wang/fetcher-react';
-import {ChangePwd} from '@/components/security/ChangePwd';
+import {useSyncExternalStore} from 'react';
+import {ChevronDown, LogOut} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -24,21 +23,16 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {useDrawer} from '@/contexts/DrawerContext';
+import {useMe} from '@/contexts/MeContext';
+import {session} from '@/security/session';
 
 /**
- * The signed-in user's menu: change password and sign out.
+ * Who is signed in. A server without auth lets everyone in, so there is nothing to sign out of.
  */
 export function AccountMenu() {
-    const {currentUser, signOut} = useSecurityContext();
-    const {openDrawer, closeDrawer} = useDrawer();
-
-    const changePassword = () => {
-        openDrawer(
-            <ChangePwd onSubmit={closeDrawer} onCancel={closeDrawer}/>,
-            {title: 'Change Password', width: 'min(480px, 92vw)'},
-        );
-    };
+    const me = useMe();
+    const token = useSyncExternalStore(session.subscribe, session.token);
+    const name = me.subject?.name || 'anonymous';
 
     return (
         <DropdownMenu>
@@ -47,26 +41,27 @@ export function AccountMenu() {
                 render={
                     <Button
                         variant="ghost"
-                        className="h-10 text-white hover:bg-shell-overlay hover:text-white aria-expanded:bg-shell-overlay aria-expanded:text-white"
+                        className="h-10 text-white hover:bg-shell-overlay hover:text-white aria-expanded:bg-shell-overlay"
                     />
                 }
             >
-                <span className="grid size-7 place-items-center rounded-full bg-shell-accent text-[12px] font-bold text-white">
-                    {currentUser.sub.slice(0, 1).toUpperCase()}
+                <span className="grid size-7 place-items-center rounded-full bg-shell-accent text-[12px] font-semibold text-white">
+                    {name.slice(0, 1).toUpperCase()}
                 </span>
-                <span className="max-[960px]:hidden">{currentUser.sub}</span>
+                <span className="max-[960px]:hidden">{name}</span>
                 <ChevronDown/>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52">
                 <DropdownMenuGroup>
                     <DropdownMenuLabel>Account</DropdownMenuLabel>
-                    <DropdownMenuSeparator/>
-                    <DropdownMenuItem onClick={changePassword}>
-                        <Settings/> Change password
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant="destructive" onClick={signOut}>
-                        <LogOut/> Sign out
-                    </DropdownMenuItem>
+                    {token && (
+                        <>
+                            <DropdownMenuSeparator/>
+                            <DropdownMenuItem variant="destructive" onClick={() => session.signOut()}>
+                                <LogOut/> Sign out
+                            </DropdownMenuItem>
+                        </>
+                    )}
                 </DropdownMenuGroup>
             </DropdownMenuContent>
         </DropdownMenu>

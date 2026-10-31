@@ -16,13 +16,13 @@ import {toast} from 'sonner';
 import type {ErrorResponse} from '@/generated';
 
 /**
- * The reason the REST API gave for a failed request (`{"code", "msg"}`), when there is one.
+ * The reason the REST API gave for a failed request, when there is one.
  */
 export async function errorReason(error: unknown): Promise<string | undefined> {
-    if (!(error instanceof ExchangeError)) return undefined;
+    if (!(error instanceof ExchangeError)) return error instanceof Error ? error.message : undefined;
     try {
-        const response = await error.exchange.requiredResponse.json<ErrorResponse>();
-        return response.msg || undefined;
+        const response = await error.exchange.requiredResponse.clone().json() as Partial<ErrorResponse>;
+        return response.message || undefined;
     } catch {
         return undefined;
     }

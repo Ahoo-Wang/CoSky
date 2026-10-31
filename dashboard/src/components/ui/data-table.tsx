@@ -89,11 +89,8 @@ export function DataTable<T>({
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [localPage, setLocalPage] = useState(1);
     const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
-    const [previousData, setPreviousData] = useState(data);
-    if (pagination !== false && pagination.page === undefined && previousData !== data) {
-        setPreviousData(data);
-        setLocalPage(1);
-    }
+    // Reading again keeps what is on screen, since pages follow live changes.
+    const firstLoad = Boolean(loading) && data.length === 0;
     const page = pagination === false ? 1 : (pagination.page ?? localPage);
     const pageSize = pagination === false ? Math.max(data.length, 1) : (pagination.pageSize ?? 10);
 
@@ -193,7 +190,7 @@ export function DataTable<T>({
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {loading && Array.from({length: 5}).map((_, index) => (
+                            {firstLoad && Array.from({length: 5}).map((_, index) => (
                                 <TableRow key={index}>
                                     {expandable && <TableCell><Skeleton className="size-6"/></TableCell>}
                                     {columns.map(column => (
@@ -213,7 +210,7 @@ export function DataTable<T>({
                                     </TableCell>
                                 </TableRow>
                             )}
-                            {!loading && rows.map(row => {
+                            {!firstLoad && rows.map(row => {
                                 const key = getRowKey(row);
                                 const canExpand = expandable && (expandable.canExpand?.(row) ?? true);
                                 const isExpanded = expandedRows.has(key);

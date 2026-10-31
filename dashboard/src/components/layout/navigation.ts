@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {Cloud, FileText, History, LayoutDashboard, Network, ShieldCheck, User} from 'lucide-react';
+import {Cloud, FileText, KeyRound, LayoutDashboard, Link2, Network, ShieldCheck} from 'lucide-react';
 import type {LucideIcon} from 'lucide-react';
 
 export interface NavigationItem {
@@ -22,16 +22,16 @@ export interface NavigationItem {
 }
 
 export const primaryItems: NavigationItem[] = [
-    {to: '/home', label: 'Dashboard', description: 'System health and topology', icon: LayoutDashboard},
+    {to: '/home', label: 'Dashboard', description: 'Counts and topology', icon: LayoutDashboard},
     {to: '/config', label: 'Configuration', description: 'Manage configuration files', icon: FileText},
     {to: '/service', label: 'Service', description: 'Services and instances', icon: Cloud},
     {to: '/namespace', label: 'Namespace', description: 'Isolation boundaries', icon: Network},
 ];
 
 export const securityItems: NavigationItem[] = [
-    {to: '/user', label: 'User', description: 'Accounts and role assignments', icon: User},
-    {to: '/role', label: 'Role', description: 'Access policies', icon: ShieldCheck},
-    {to: '/audit-log', label: 'Audit Log', description: 'Security and operation history', icon: History},
+    {to: '/service-account', label: 'Service Account', description: 'Programs and their tokens', icon: KeyRound},
+    {to: '/role', label: 'Role', description: 'What may be done', icon: ShieldCheck},
+    {to: '/role-binding', label: 'Role Binding', description: 'Who holds which role, and where', icon: Link2},
 ];
 
 export const navigationItems: NavigationItem[] = [...primaryItems, ...securityItems];

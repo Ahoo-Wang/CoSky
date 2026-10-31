@@ -11,117 +11,126 @@
  * limitations under the License.
  */
 
+import {useState} from 'react';
 import type {FormEvent} from 'react';
-import type {InstanceDto, ServiceInstance} from "@/generated";
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {useState} from "react";
-import {serviceApiClient} from "@/services/clients";
-import Editor from "@monaco-editor/react";
-import {SchemaSelector} from "@/pages/service/SchemaSelector";
+import Editor from '@monaco-editor/react';
 import {toast} from 'sonner';
+import {instances} from '@/services/resources';
+import type {InstanceResource} from '@/services/resources';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
-import {Switch} from '@/components/ui/switch';
-import {failureMessage} from '@/lib/actions';
+import {runAction} from '@/lib/actions';
 
-interface ServiceInstanceFormProps {
+const ILLEGAL_NAME_CHARACTER = /[^A-Za-z0-9._-]/g;
+
+interface ServiceInstanceEditorProps {
     namespace: string;
-    serviceId: string;
-    initialValues?: ServiceInstance;
+    /** The service it belongs to, when that is already decided. */
+    service?: string;
+    existing?: InstanceResource;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-export function ServiceInstanceEditor({
-                                          namespace,
-                                          serviceId,
-                                          initialValues,
-                                          onSuccess,
-                                          onCancel
-                                      }: ServiceInstanceFormProps) {
-    const [metadata, setMetadata] = useState(JSON.stringify(initialValues?.metadata || {}, null, 2));
-    const [schema, setSchema] = useState(initialValues?.schema ?? 'http');
-    const [isEphemeral, setIsEphemeral] = useState(initialValues?.isEphemeral ?? true);
-    const {loading, execute} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Save instance success!');
-            onSuccess();
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Failed to save instance', error));
-        }
-    })
+function parseMetadata(text: string): Record<string, string> | undefined {
+    try {
+        const parsed = JSON.parse(text) as unknown;
+        const isObject = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed);
+        return isObject && Object.values(parsed).every(value => typeof value === 'string')
+            ? parsed as Record<string, string>
+            : undefined;
+    } catch {
+        return undefined;
+    }
+}
 
-    const handleFinish = async (event: FormEvent<HTMLFormElement>) => {
+/**
+ * An instance added here has no lease, so it stays until someone deletes it. Applications register their own.
+ */
+export function ServiceInstanceEditor({namespace, service, existing, onSuccess, onCancel}: ServiceInstanceEditorProps) {
+    const initialMetadata = JSON.stringify(existing?.metadata ?? {}, null, 2);
+    const [metadata, setMetadata] = useState(initialMetadata);
+    const [saving, setSaving] = useState(false);
+
+    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const values = Object.fromEntries(new FormData(event.currentTarget));
-        let parsedMetadata: Record<string, string>;
-        try {
-            const parsed = JSON.parse(metadata) as unknown;
-            if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object' || Object.values(parsed).some(value => typeof value !== 'string')) {
-                throw new Error();
-            }
-            parsedMetadata = parsed as Record<string, string>;
-        } catch {
-            toast.error('Metadata must be a valid JSON object.');
+        const values = Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
+        const parsedMetadata = parseMetadata(metadata);
+        if (!parsedMetadata) {
+            toast.error('Metadata must be a JSON object of strings.');
             return;
         }
-        return await execute(() => {
-            return serviceApiClient.register(namespace, serviceId, {
-                body: {
-                    schema,
-                    host: initialValues?.host ?? String(values.host),
-                    port: initialValues?.port ?? Number(values.port),
-                    weight: initialValues?.weight ?? Number(values.weight || 0),
-                    isEphemeral,
-                    metadata: parsedMetadata,
-                } as InstanceDto
-            })
-        })
+        const name = existing?.name ?? (values.name.trim()
+            || `${values.host}-${values.port}`.replace(ILLEGAL_NAME_CHARACTER, '-'));
+        setSaving(true);
+        const saved = await runAction(
+            () => instances.put(namespace, name, {
+                service: service ?? values.service,
+                scheme: values.scheme,
+                host: values.host,
+                port: Number(values.port),
+                weight: Number(values.weight),
+                metadata: parsedMetadata,
+            }, existing),
+            {success: 'Instance saved', failure: 'Failed to save instance'},
+        );
+        setSaving(false);
+        if (saved) {
+            onSuccess();
+        }
     };
+
     return (
-        <form className="space-y-5" onSubmit={handleFinish}>
+        <form className="space-y-5" onSubmit={handleSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
+                {!service && (
+                    <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="instance-service">Service</Label>
+                        <Input id="instance-service" name="service" placeholder="order" required/>
+                    </div>
+                )}
+                {!existing && (
+                    <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="instance-name">Name</Label>
+                        <Input id="instance-name" name="name" placeholder="Defaults to host and port"/>
+                    </div>
+                )}
                 <div className="space-y-2">
-                    <Label>Scheme</Label>
-                    <SchemaSelector value={schema} onChange={setSchema} disabled={!!initialValues} ariaLabel="Scheme"/>
+                    <Label htmlFor="instance-scheme">Scheme</Label>
+                    <Input id="instance-scheme" name="scheme" required defaultValue={existing?.scheme ?? 'http'}/>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="instance-host">Host</Label>
-                    <Input id="instance-host" name="host" placeholder="192.168.0.10 or api.internal" defaultValue={initialValues?.host} disabled={!!initialValues} required/>
+                    <Input id="instance-host" name="host" required placeholder="192.168.0.10 or api.internal"
+                           defaultValue={existing?.host}/>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="instance-port">Port</Label>
-                    <Input id="instance-port" name="port" type="number" min={1} max={65535} placeholder="8080" defaultValue={initialValues?.port} disabled={!!initialValues} required/>
+                    <Input id="instance-port" name="port" type="number" min={1} max={65535} required placeholder="8080"
+                           defaultValue={existing?.port}/>
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="instance-weight">Weight</Label>
-                    <Input id="instance-weight" name="weight" type="number" min={0} defaultValue={initialValues?.weight ?? 1} disabled={!!initialValues}/>
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-lg border px-3 py-2.5 sm:col-span-2">
-                    <Label htmlFor="instance-ephemeral">Ephemeral instance</Label>
-                    <Switch id="instance-ephemeral" checked={isEphemeral} onCheckedChange={setIsEphemeral}/>
+                    <Input id="instance-weight" name="weight" type="number" min={0} required
+                           defaultValue={existing?.weight ?? 1}/>
                 </div>
             </div>
-            <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Metadata</span><Separator className="flex-1"/></div>
+            <Separator/>
             <div className="h-[30vh] min-h-52 sm:h-[38vh] sm:max-h-96">
                 <Editor
                     height="100%"
                     theme="vs-dark"
                     defaultLanguage="json"
-                    defaultValue={JSON.stringify(initialValues?.metadata || {}, null, 2)}
-                    onChange={(value) => setMetadata(value || '{}')}
-                    options={{
-                        ariaLabel: 'Instance metadata editor',
-                        minimap: {enabled: false},
-                    }}
+                    defaultValue={initialMetadata}
+                    onChange={value => setMetadata(value || '{}')}
+                    options={{ariaLabel: 'Instance metadata editor', minimap: {enabled: false}}}
                 />
             </div>
             <Separator/>
             <div className="flex gap-2">
-                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="submit" loading={saving}>Submit</Button>
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
             </div>
         </form>

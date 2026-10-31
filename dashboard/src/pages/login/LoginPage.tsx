@@ -13,20 +13,22 @@
 
 import {useEffect, useState} from 'react';
 import type {FormEvent} from 'react';
-import {Eye, EyeOff, LockKeyhole, User} from 'lucide-react';
+import {Eye, EyeOff, KeyRound} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
-import {authenticateApiHooks} from "@/services/clients";
-import {useSecurityContext} from "@ahoo-wang/fetcher-react";
-import CoskyLogo from "@/assets/cosky-logo-constellation.svg";
-import type {ErrorResponse} from "@/generated";
-import type {ExchangeError} from "@ahoo-wang/fetcher";
+import {useQuery} from '@ahoo-wang/fetcher-react';
 import {toast} from 'sonner';
+import CoskyLogo from "@/assets/cosky-logo-constellation.svg";
+import type {AuthConfigResponse} from "@/generated";
+import {GiteeIcon, GitHubIcon} from '@/components/icons/repository-icons';
 import {Button} from '@/components/ui/button';
 import {Card, CardContent} from '@/components/ui/card';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
-import {GiteeIcon, GitHubIcon} from '@/components/icons/repository-icons';
+import {failureMessage} from '@/lib/actions';
 import {cn} from '@/lib/utils';
+import {beginSignIn, completeSignIn} from '@/security/oidc';
+import {session} from '@/security/session';
+import {identityClient} from '@/services/clients';
 
 const particles = [
     {position: 'top-[20%] left-[10%]', delay: ''},
@@ -51,43 +53,60 @@ const fieldInputClass = cn(
     'focus-visible:border-login-indigo focus-visible:bg-login-indigo/10 focus-visible:shadow-[0_0_20px_rgba(102,126,234,0.5)] focus-visible:ring-0',
 );
 
+const submitClass = cn(
+    'login-shimmer relative h-12 w-full overflow-hidden rounded-[8px] border-0 text-[16px] font-semibold tracking-[1px] text-white',
+    'bg-[linear-gradient(135deg,var(--login-indigo)_0%,var(--login-violet)_100%)] shadow-[0_4px_20px_rgba(102,126,234,0.4)]',
+    'transition-all duration-300 ease-[ease] hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(102,126,234,0.6)] active:translate-y-0',
+    'disabled:opacity-70',
+);
+
 const repositoryLinkClass = 'inline-flex items-center justify-center text-white/50 transition-all duration-300 ease-[ease] hover:scale-120 [&_svg]:size-6';
 
-interface LoginFormValues {
-    username: string;
-    password: string;
-}
-
 export function LoginPage() {
-    const [showPassword, setShowPassword] = useState(false);
-    const {signIn, authenticated} = useSecurityContext();
+    const [showToken, setShowToken] = useState(false);
+    const [signingIn, setSigningIn] = useState(false);
     const navigate = useNavigate();
-    const {loading, execute: login} = authenticateApiHooks.useLogin({
-        onBeforeExecute: (abortController, args) => {
-            args[1].abortController = abortController
-        },
-        onSuccess: (result) => {
-            signIn(result)
-        }, onError: async (error: ExchangeError) => {
-            const errorResponse = await error.exchange.requiredResponse.json<ErrorResponse>()
-            toast.error(`Login failed. ${errorResponse.msg}`);
-        }
-    })
+    const {result: config} = useQuery<null, AuthConfigResponse>({
+        initialQuery: null,
+        execute: (_, __, abortController) => identityClient.getAuthConfig({abortController}),
+    });
+    const oidc = config?.oidc;
 
+    // The provider sends the browser back here.
     useEffect(() => {
-        if (authenticated) {
-            navigate('/home');
-        }
-    }, [authenticated, navigate]);
-
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        const values = Object.fromEntries(new FormData(event.currentTarget)) as unknown as LoginFormValues;
-        await login(values.username, {
-            body: {
-                password: values.password
+        completeSignIn().then(idToken => {
+            if (idToken) {
+                session.signIn(idToken);
+                navigate('/home');
             }
-        })
+        }).catch(async error => {
+            toast.error(await failureMessage('Sign-in failed', error));
+        });
+    }, [navigate]);
+
+    const handleToken = async (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const token = String(new FormData(event.currentTarget).get('token')).trim();
+        setSigningIn(true);
+        session.signIn(token);
+        try {
+            await identityClient.getMe();
+            navigate('/home');
+        } catch (error) {
+            session.signOut();
+            toast.error(await failureMessage('Sign-in failed', error));
+        } finally {
+            setSigningIn(false);
+        }
+    };
+
+    const handleOidc = async () => {
+        if (!oidc) return;
+        try {
+            await beginSignIn(oidc);
+        } catch (error) {
+            toast.error(await failureMessage('Cannot reach the identity provider', error));
+        }
     };
 
     return (
@@ -137,23 +156,22 @@ export function LoginPage() {
                         <p className="text-[14px] text-white/60">Microservice Governance Platform</p>
                     </div>
 
-                    <form onSubmit={handleSubmit} autoComplete="off" className="grid gap-6">
-                        <div className="relative">
-                            <Label htmlFor="username" className="sr-only">Username</Label>
-                            <User className={fieldIconClass}/>
-                            <Input id="username" name="username" placeholder="Username" autoComplete="username" required
-                                   className={fieldInputClass}/>
-                        </div>
+                    {oidc && (
+                        <Button type="button" onClick={handleOidc} className={cn(submitClass, 'mb-6')}>
+                            Sign in with {new URL(oidc.issuer).host}
+                        </Button>
+                    )}
 
+                    <form onSubmit={handleToken} autoComplete="off" className="grid gap-6">
                         <div className="relative">
-                            <Label htmlFor="password" className="sr-only">Password</Label>
-                            <LockKeyhole className={fieldIconClass}/>
+                            <Label htmlFor="token" className="sr-only">Token</Label>
+                            <KeyRound className={fieldIconClass}/>
                             <Input
-                                id="password"
-                                name="password"
-                                type={showPassword ? 'text' : 'password'}
-                                placeholder="Password"
-                                autoComplete="current-password"
+                                id="token"
+                                name="token"
+                                type={showToken ? 'text' : 'password'}
+                                placeholder="Service account token"
+                                autoComplete="off"
                                 required
                                 className={fieldInputClass}
                             />
@@ -161,24 +179,15 @@ export function LoginPage() {
                                 type="button"
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={() => setShowPassword(value => !value)}
+                                onClick={() => setShowToken(value => !value)}
                                 className="absolute top-1/2 right-[7px] z-2 -translate-y-1/2 text-[rgba(126,145,255,0.85)]"
-                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                                aria-label={showToken ? 'Hide token' : 'Show token'}
                             >
-                                {showPassword ? <EyeOff/> : <Eye/>}
+                                {showToken ? <EyeOff/> : <Eye/>}
                             </Button>
                         </div>
 
-                        <Button
-                            type="submit"
-                            loading={loading}
-                            className={cn(
-                                'login-shimmer relative h-12 w-full overflow-hidden rounded-[8px] border-0 text-[16px] font-semibold tracking-[1px] text-white',
-                                'bg-[linear-gradient(135deg,var(--login-indigo)_0%,var(--login-violet)_100%)] shadow-[0_4px_20px_rgba(102,126,234,0.4)]',
-                                'transition-all duration-300 ease-[ease] hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(102,126,234,0.6)] active:translate-y-0',
-                                'disabled:opacity-70',
-                            )}
-                        >
+                        <Button type="submit" loading={signingIn} className={submitClass}>
                             Sign In
                         </Button>
                     </form>

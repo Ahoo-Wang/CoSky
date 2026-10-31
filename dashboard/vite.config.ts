@@ -22,6 +22,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  // The server has no CORS (design D34): in development, as behind a reverse proxy, the API shares the page's origin.
+  server: {
+    proxy: {
+      '/v1': process.env.COSKY_API_URL ?? 'http://localhost:8080',
+    },
+  },
   optimizeDeps: {
     include: ['monaco-editor'],
     exclude: ['@monaco-editor/react']

@@ -12,7 +12,7 @@
     "test:coverage": "COSKY_COVERAGE=1 playwright test tests/ui/dashboard.spec.ts",
     "test:ui:real": "playwright test tests/ui/real-backend.spec.ts --workers=1",
     "preview": "vite preview",
-    "generate": "fetcher-generator generate -i http://localhost:8080/v3/api-docs -o src/generated"
+    "generate": "fetcher-generator generate -i ../api/build/openapi/cosky.yaml -o src/generated"
   },
   "dependencies": {
     "@base-ui/react": "~1.8.0",
@@ -35,8 +35,8 @@
   },
   "devDependencies": {
     "@ahoo-wang/fetcher": "^3.16.10",
-    "@ahoo-wang/fetcher-cosec": "^3.16.10",
     "@ahoo-wang/fetcher-decorator": "^3.16.10",
+    "@ahoo-wang/fetcher-eventstream": "^3.18.1",
     "@ahoo-wang/fetcher-generator": "^3.16.10",
     "@ahoo-wang/fetcher-react": "^3.16.10",
     "@ahoo-wang/fetcher-storage": "^3.16.10",

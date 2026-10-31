@@ -1,19 +1,31 @@
-import {useQuery} from "@ahoo-wang/fetcher-react";
-import {namespaceApiClient} from "@/services/clients";
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {namespaces as namespacesApi} from '@/services/resources';
+import type {NamespaceResource} from '@/services/resources';
 
 export interface UseNamespacesReturn {
-    namespaces: string[],
-    loading: boolean,
-    error?: unknown,
-    refresh: () => void
+    namespaces: NamespaceResource[];
+    loading: boolean;
+    error?: unknown;
+    refresh: () => void;
 }
 
 export function useNamespaces(): UseNamespacesReturn {
-    const {result: namespaces = [], loading, error, execute} = useQuery<null, string[]>({
+    const {result: namespaces = [], loading, error, execute} = useQuery<null, NamespaceResource[]>({
         initialQuery: null,
-        execute: () => {
-            return namespaceApiClient.getNamespaces()
-        }
-    })
-    return {namespaces, loading, error, refresh: execute}
+        execute: (_, __, abortController) => namespacesApi.list(abortController),
+    });
+    return {namespaces, loading, error, refresh: execute};
 }

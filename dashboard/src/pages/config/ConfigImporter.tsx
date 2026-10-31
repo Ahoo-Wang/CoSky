@@ -11,16 +11,13 @@
  * limitations under the License.
  */
 
-import React, {useState} from 'react';
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "@/services/clients";
-import {UploadCloud} from "lucide-react";
-import {ImportPolicySelector} from "@/pages/config/ImportPolicySelector";
-import type {ImportResponse} from "@/generated";
+import {useState} from 'react';
+import {UploadCloud} from 'lucide-react';
 import {toast} from 'sonner';
+import {configs} from '@/services/resources';
 import {Button} from '@/components/ui/button';
 import {Label} from '@/components/ui/label';
-import {failureMessage} from '@/lib/actions';
+import {runAction} from '@/lib/actions';
 
 interface ConfigImporterProps {
     namespace: string;
@@ -28,48 +25,44 @@ interface ConfigImporterProps {
     onCancel: () => void;
 }
 
-export const ConfigImporter: React.FC<ConfigImporterProps> = ({namespace, onSuccess, onCancel}) => {
-    const [policy, setPolicy] = useState('skip');
+export function ConfigImporter({namespace, onSuccess, onCancel}: ConfigImporterProps) {
     const [file, setFile] = useState<File>();
-    const {loading, execute} = useExecutePromise<ImportResponse>({
-        onSuccess: (result) => {
-            toast.success(`Total: ${result.total}, succeeded: ${result.succeeded}.`);
-            onSuccess();
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Import config failed', error));
-        },
-    })
-    const handleFinish = () => {
+    const [importing, setImporting] = useState(false);
+
+    const handleSubmit = async () => {
         if (!file) {
             toast.error('Please select a ZIP file.');
             return;
         }
-        const formData = new FormData();
-        formData.append('policy', policy);
-        formData.append('importZip', file);
-        execute(() => {
-            return configApiClient.importZip(namespace, {
-                body: formData
-            })
-        })
+        setImporting(true);
+        const imported = await runAction(
+            () => configs.importArchive(namespace, file),
+            {success: 'Configs imported', failure: 'Failed to import configs'},
+        );
+        setImporting(false);
+        if (imported) {
+            onSuccess();
+        }
     };
+
     return (
-        <form className="space-y-5" onSubmit={(event) => {event.preventDefault(); handleFinish();}}>
-            <div className="space-y-2">
-                <Label>Import Policy</Label>
-                <ImportPolicySelector value={policy} onChange={setPolicy}/>
-            </div>
-            <Label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed bg-muted/25 px-6 text-center transition-colors hover:border-primary hover:bg-primary/5">
+        <form className="space-y-5" onSubmit={event => {
+            event.preventDefault();
+            void handleSubmit();
+        }}>
+            <Label className="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed text-center">
                 <UploadCloud className="mb-3 size-9 text-primary"/>
                 <span className="font-medium">{file?.name ?? 'Choose a ZIP file'}</span>
-                <span className="mt-1 text-xs font-normal text-muted-foreground">Nacos configuration ZIP format</span>
-                <input type="file" accept=".zip,application/zip" className="sr-only" onChange={event => setFile(event.target.files?.[0])}/>
+                <span className="mt-1 text-xs font-normal text-muted-foreground">
+                    Each entry path is a Config name, and replaces the Config of that name.
+                </span>
+                <input type="file" accept=".zip,application/zip" className="sr-only"
+                       onChange={event => setFile(event.target.files?.[0])}/>
             </Label>
             <div className="flex gap-2">
-                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="submit" loading={importing}>Submit</Button>
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
             </div>
         </form>
     );
-};
+}

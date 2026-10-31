@@ -11,86 +11,77 @@
  * limitations under the License.
  */
 
-import {useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "@/services/clients";
-import type {ConfigHistory} from "@/generated";
-import {ConfigVersionDiffer} from "@/pages/config/ConfigVersionDiffer";
-import {History} from "lucide-react";
-import {useDrawer} from "@/contexts/DrawerContext";
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {History} from 'lucide-react';
+import dayjs from 'dayjs';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {configs} from '@/services/resources';
+import type {ConfigResource} from '@/services/resources';
+import {ConfigVersionDiffer} from '@/pages/config/ConfigVersionDiffer';
 import {Button} from '@/components/ui/button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
-import {Badge} from '@/components/ui/badge';
-import dayjs from 'dayjs';
 
 interface ConfigVersionTableProps {
     namespace: string;
-    configId: string;
+    name: string;
 }
 
-export function ConfigVersionTable({namespace, configId}: ConfigVersionTableProps) {
-    const {loading, error, result: versions, execute: loadVersions} = useQuery<string, ConfigHistory[]>({
-        query: `${namespace}/${configId}`,
-        execute: async (_, __, abortController) => {
-            const versionList = await configApiClient.getConfigVersions(namespace, configId, {abortController});
-            return Promise.all(versionList.map(version =>
-                configApiClient.getConfigHistory(namespace, configId, version.version, {abortController})
-            ));
-        }
-    })
+export function ConfigVersionTable({namespace, name}: ConfigVersionTableProps) {
     const {openDrawer, closeDrawer} = useDrawer();
-    const handleDiffVersion = (record: ConfigHistory) => {
-        openDrawer(<ConfigVersionDiffer namespace={namespace} configId={configId} version={record.version}
-                                        onSuccess={() => {
-                                            closeDrawer();
-                                            loadVersions()
-                                        }}/>,
-            {
-                title: 'Config Version Differ',
-                width: 'min(88vw, 1320px)',
-            }
-        )
-    }
-    const columns: DataTableColumn<ConfigHistory>[] = [
-        {header: 'Version', accessor: 'version', key: 'version', sort: (left, right) => left.version - right.version},
-        {
-            header: 'Operation',
-            key: 'operation',
-            cell: record => <Badge variant="outline">{record.op}</Badge>,
-        },
+    const {result: versions, loading, error, execute: loadVersions} = useQuery<string, ConfigResource[]>({
+        query: `${namespace}/${name}`,
+        execute: (_, __, abortController) => configs.history(namespace, name, abortController),
+    });
+
+    const handleDiff = (version: ConfigResource) => {
+        openDrawer(
+            <ConfigVersionDiffer
+                namespace={namespace}
+                name={name}
+                version={version}
+                onSuccess={() => {
+                    closeDrawer();
+                    loadVersions();
+                }}
+            />,
+            {title: 'Compare with the current version', width: 'min(88vw, 1320px)'},
+        );
+    };
+
+    const columns: DataTableColumn<ConfigResource>[] = [
+        {header: 'Revision', accessor: 'revision', key: 'revision'},
         {
             header: 'Updated',
-            key: 'opTime',
-            sort: (left, right) => left.opTime - right.opTime,
-            cell: record => dayjs(record.opTime * 1000).format('YYYY-MM-DD HH:mm:ss'),
+            key: 'updatedAt',
+            cell: version => dayjs(version.updatedAt).format('YYYY-MM-DD HH:mm:ss'),
+        },
+        {header: 'By', accessor: 'updatedBy', key: 'updatedBy'},
+        {
+            header: 'SHA-256',
+            key: 'sha256',
+            cell: version => <code className="text-xs" title={version.sha256}>{version.sha256.slice(0, 12)}</code>,
         },
         {
-            header: 'Hash',
-            key: 'hash',
-            cell: record => <code className="text-xs" title={record.hash}>{record.hash.slice(0, 12)}</code>,
+            header: 'Action',
+            key: 'action',
+            className: 'w-28 text-right',
+            cell: version => (
+                <Button variant="ghost" size="sm" onClick={() => handleDiff(version)}><History/>Diff</Button>
+            ),
         },
-        {
-            header: 'Action', key: 'action', className: 'w-28 text-right', cell: record => (
-                <Button variant="ghost" size="sm" onClick={() => {
-                    handleDiffVersion(record)
-                }}><History/>Diff</Button>
-            )
-        }
     ];
 
     return (
-        <div className="space-y-3">
-            <p className="text-xs text-muted-foreground">Change attribution is recorded in Audit Log.</p>
-            <DataTable
-                data={versions}
-                getRowKey={record => record.version}
-                columns={columns}
-                loading={loading}
-                error={error}
-                onRetry={loadVersions}
-                pagination={false}
-                emptyMessage="No versions recorded yet."
-            />
-        </div>
+        <DataTable
+            data={versions}
+            getRowKey={version => version.revision}
+            columns={columns}
+            loading={loading}
+            error={error}
+            onRetry={loadVersions}
+            pagination={false}
+            emptyMessage="No versions recorded yet."
+        />
     );
 }

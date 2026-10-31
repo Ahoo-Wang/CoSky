@@ -11,120 +11,119 @@
  * limitations under the License.
  */
 
+import {useState} from 'react';
 import {Download, Pencil, Plus, Trash2, Upload} from 'lucide-react';
 import '@/monacoConfig';
-import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
-import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
-import {configApiClient} from "@/services/clients";
-import {ConfigEditor} from "@/pages/config/ConfigEditor";
-import {ConfigVersionTable} from "@/pages/config/ConfigVersionTable";
-import {ConfigImporter} from "@/pages/config/ConfigImporter";
+import {useQuery} from '@ahoo-wang/fetcher-react';
 import {saveAs} from 'file-saver';
-import dayjs from "dayjs";
-import {useDrawer} from "@/contexts/DrawerContext";
-import {PageHeader} from "@/components/layout/PageHeader";
-import {DataTableWrapper} from "@/components/layout/DataTableWrapper";
-import {toast} from 'sonner';
+import dayjs from 'dayjs';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {useWatchRefresh} from '@/hooks/useWatchRefresh';
+import {configs, Kind} from '@/services/resources';
+import type {ConfigResource} from '@/services/resources';
+import {ConfigEditor} from '@/pages/config/ConfigEditor';
+import {ConfigImporter} from '@/pages/config/ConfigImporter';
+import {ConfigVersionTable} from '@/pages/config/ConfigVersionTable';
+import {formatLabel} from '@/pages/config/formats';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
-import {failureMessage} from '@/lib/actions';
-
-type ListConfig = { configId: string }
+import {runAction} from '@/lib/actions';
 
 export function ConfigPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const {openDrawer, closeDrawer} = useDrawer();
-    const {result: configs = [], loading, error, execute: loadConfigs} = useQuery<string, ListConfig[]>({
+    const [exporting, setExporting] = useState(false);
+    const {result = [], loading, error, execute: loadConfigs} = useQuery<string, ConfigResource[]>({
         query: currentNamespace,
-        execute: async (namespace, _, abortController) => {
-            const responseResult = await configApiClient.getConfigs(namespace, {abortController});
-            return responseResult.map(config => {
-                return {
-                    configId: config,
-                }
-            });
-        },
+        execute: (namespace, _, abortController) => configs.list(namespace, abortController),
     });
-    const {loading: exportLoading, execute: executeExport} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Export config success');
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Export config failed', error));
-        }
-    })
+    useWatchRefresh(currentNamespace, Kind.KIND_CONFIG, loadConfigs);
 
     const handleExport = async () => {
-        await executeExport(async () => {
-            const blob = await configApiClient.exportZip(currentNamespace);
-            const fileTime = dayjs().format('YYYY-MM-DD-HH-mm-ss');
-            saveAs(blob, `cosky_${currentNamespace}-${fileTime}.zip`);
-        })
-    }
+        setExporting(true);
+        await runAction(async () => {
+            const archive = await configs.exportArchive(currentNamespace);
+            saveAs(archive, `cosky_${currentNamespace}-${dayjs().format('YYYY-MM-DD-HH-mm-ss')}.zip`);
+        }, {success: 'Configurations exported', failure: 'Failed to export configurations'});
+        setExporting(false);
+    };
 
-    const handleEditConfig = (configId?: string) => {
-        openDrawer(<ConfigEditor namespace={currentNamespace} configId={configId} onSuccess={() => {
-            loadConfigs();
-            closeDrawer();
-        }} onCancel={closeDrawer}/>, {
-            title: `${configId === undefined ? "Add" : "Edit"} Config`,
-        });
+    const handleEdit = (config?: ConfigResource) => {
+        openDrawer(
+            <ConfigEditor
+                namespace={currentNamespace}
+                name={config?.name}
+                onSuccess={() => {
+                    closeDrawer();
+                    loadConfigs();
+                }}
+                onCancel={closeDrawer}
+            />,
+            {title: config ? 'Edit Config' : 'Add Config'},
+        );
     };
-    const handleImportConfig = () => {
-        openDrawer(<ConfigImporter namespace={currentNamespace}
-                                   onSuccess={() => {
-                                       closeDrawer();
-                                       loadConfigs();
-                                   }}
-                                   onCancel={closeDrawer}
-        />, {
-            title: 'Import Config',
-            width: 'min(640px, 92vw)',
-        });
+
+    const handleImport = () => {
+        openDrawer(
+            <ConfigImporter
+                namespace={currentNamespace}
+                onSuccess={() => {
+                    closeDrawer();
+                    loadConfigs();
+                }}
+                onCancel={closeDrawer}
+            />,
+            {title: 'Import Configs', width: 'min(640px, 92vw)'},
+        );
     };
-    const {execute: deleteConfig} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Delete config success');
+
+    const handleDelete = async (name: string) => {
+        const deleted = await runAction(
+            () => configs.delete(currentNamespace, name),
+            {success: 'Config deleted', failure: 'Failed to delete config'},
+        );
+        if (deleted) {
             loadConfigs();
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Delete config failed', error));
         }
-    })
-    const handleDelete = async (configId: string) => {
-        await deleteConfig(() => {
-            return configApiClient.removeConfig(currentNamespace, configId);
-        })
     };
 
-
-    const expandedRowRender = (record: ListConfig) => {
-        return (
-            <ConfigVersionTable namespace={currentNamespace} configId={record.configId}/>
-        )
-    }
-    const columns: DataTableColumn<ListConfig>[] = [
+    const columns: DataTableColumn<ConfigResource>[] = [
         {
-            header: 'Config ID',
-            accessor: 'configId',
-            key: 'configId',
-            sort: (left, right) => left.configId.localeCompare(right.configId),
+            header: 'Name',
+            accessor: 'name',
+            key: 'name',
+            sort: (left, right) => left.name.localeCompare(right.name),
+        },
+        {
+            header: 'Format',
+            key: 'format',
+            cell: config => <Badge variant="outline">{formatLabel(config.format)}</Badge>,
+        },
+        {
+            header: 'Updated',
+            key: 'updated',
+            className: 'max-sm:hidden',
+            cell: config => `${dayjs(config.updatedAt).format('YYYY-MM-DD HH:mm:ss')} by ${config.updatedBy}`,
         },
         {
             header: 'Action',
             key: 'action',
             className: 'w-48 text-right',
-            cell: record => (
+            cell: config => (
                 <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEditConfig(record.configId)}>
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(config)}>
                         <Pencil/> Edit
                     </Button>
                     <ConfirmButton
                         title="Are you sure to delete this config?"
-                        description={`Configuration “${record.configId}” and access to its retained version history will be removed from ${currentNamespace}.`}
-                        onConfirm={() => handleDelete(record.configId)}
+                        description={`Configuration “${config.name}” will be deleted. Its history stays until it is created again, and can bring it back.`}
+                        onConfirm={() => handleDelete(config.name)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
@@ -143,30 +142,24 @@ export function ConfigPage() {
                 description={`Manage configuration data and version history in ${currentNamespace}.`}
                 actions={
                     <>
-                        <Button onClick={() => handleEditConfig()}>
-                            <Plus/> Add
-                        </Button>
-                        <Button variant="outline" onClick={handleImportConfig}>
-                            <Upload/> Import
-                        </Button>
-                        <Button variant="outline" loading={exportLoading} onClick={handleExport}>
-                            <Download/> Export
-                        </Button>
+                        <Button onClick={() => handleEdit()}><Plus/> Add</Button>
+                        <Button variant="outline" onClick={handleImport}><Upload/> Import</Button>
+                        <Button variant="outline" loading={exporting} onClick={handleExport}><Download/> Export</Button>
                     </>
                 }
             />
             <DataTableWrapper>
                 <DataTable
                     columns={columns}
-                    data={configs}
-                    getRowKey={record => record.configId}
+                    data={result}
+                    getRowKey={config => config.name}
                     loading={loading}
                     error={error}
                     onRetry={loadConfigs}
                     expandable={{
-                        render: expandedRowRender,
+                        render: config => <ConfigVersionTable namespace={currentNamespace} name={config.name}/>,
                     }}
-                    search={{placeholder: 'Search configurations...', getValue: record => record.configId}}
+                    search={{placeholder: 'Search configurations...', getValue: config => config.name}}
                     emptyMessage="No configurations in this namespace yet."
                 />
             </DataTableWrapper>
