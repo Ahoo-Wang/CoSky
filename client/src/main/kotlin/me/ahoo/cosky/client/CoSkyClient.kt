@@ -18,6 +18,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
@@ -78,10 +79,22 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
              * A view of one Config, null while unknown or deleted. Calls with the same name share it.
              */
             fun watch(config: String): StateFlow<Resource?> = configViews.computeIfAbsent(config) {
-                val state = watches.watch(WatchKey(name, Kind.KIND_CONFIG, name = config))
+                val state = stateOf(config)
                 state.view.map { objects -> objects[config] }
                     .stateIn(scope, SharingStarted.Eagerly, state.view.value[config])
             }
+
+            /**
+             * Waits until the view is known, then reads it: null really means the Config does not exist, as far as the
+             * server or a snapshot can tell.
+             */
+            suspend fun load(config: String): Resource? {
+                val state = stateOf(config)
+                state.known.first { it }
+                return state.view.value[config]
+            }
+
+            private fun stateOf(config: String) = watches.watch(WatchKey(name, Kind.KIND_CONFIG, name = config))
         }
 
         inner class Instances internal constructor() {
@@ -89,10 +102,32 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
              * A view of a service's instances, in name order. Calls with the same service share it.
              */
             fun watch(service: String): StateFlow<List<Resource>> = instanceViews.computeIfAbsent(service) {
-                val state = watches.watch(WatchKey(name, Kind.KIND_INSTANCE, service = service))
+                val state = stateOf(service)
                 state.view.map { objects -> sorted(objects) }
                     .stateIn(scope, SharingStarted.Eagerly, sorted(state.view.value))
             }
+
+            /**
+             * Waits until the view of a service is known, then reads it.
+             */
+            suspend fun load(service: String): List<Resource> {
+                val state = stateOf(service)
+                state.known.first { it }
+                return sorted(state.view.value)
+            }
+
+            /**
+             * The services with instances in this namespace, as of now. This watches every Instance of the namespace,
+             * so call it only where the whole list is really needed.
+             */
+            suspend fun services(): Set<String> {
+                val state = watches.watch(WatchKey(name, Kind.KIND_INSTANCE))
+                state.known.first { it }
+                return state.view.value.values.mapTo(sortedSetOf()) { it.instance.service }
+            }
+
+            private fun stateOf(service: String) =
+                watches.watch(WatchKey(name, Kind.KIND_INSTANCE, service = service))
 
             /**
              * Registers an instance on the namespace's lease, which keeps it alive until [Registration.close].
