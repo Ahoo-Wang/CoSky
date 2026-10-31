@@ -36,8 +36,7 @@ export function AuthenticatedLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const location = useLocation();
-    const apiOrigin = new URL(import.meta.env.VITE_API_BASE_URL || window.location.origin, window.location.origin).origin;
-    const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || new URL(apiOrigin).host;
+    const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || window.location.host;
 
     return (
         <>
@@ -71,7 +70,7 @@ export function AuthenticatedLayout() {
                         </div>
                         <CommandSearch/>
                         <div className="flex items-center justify-end gap-3 max-[720px]:col-start-3">
-                            <span className="grid max-w-[180px] leading-[1.15] max-[960px]:hidden" title={`Connected to ${apiOrigin}`}>
+                            <span className="grid max-w-[180px] leading-[1.15] max-[960px]:hidden" title={`Connected to ${window.location.origin}`}>
                                 <span className="text-[10px] tracking-[0.06em] text-shell-caption uppercase">Environment</span>
                                 <strong className="overflow-hidden text-[12px] font-semibold text-ellipsis whitespace-nowrap text-shell-strong">{environmentName}</strong>
                             </span>

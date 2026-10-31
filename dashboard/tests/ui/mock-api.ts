@@ -11,278 +11,367 @@
  * limitations under the License.
  */
 
+import {createHash} from 'node:crypto';
 import type {Page, Route} from '@playwright/test';
 
-const now = Date.UTC(2026, 7, 18, 1, 0, 0);
-const tokenNow = Math.floor(Date.now() / 1000);
-// Realistic 64-char SHA-256 style hash, used wherever the mock serves config hashes.
-const CONFIG_HASH = '8f4a21c9e3b74d5f8a2c1e9b3d74f5a8c2e9b3d74f5a8c2e9b3d74f5a8c2e9b3';
-const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
-const token = `${encode({alg: 'none', typ: 'JWT'})}.${encode({
-    sub: 'admin',
-    iat: tokenNow,
-    exp: tokenNow + 86_400,
-    roles: ['admin'],
-})}.`;
+export const TOKEN = 'cosky_mocktoken_mocksecret';
+export const ISSUER = 'https://idp.example';
 
-const logs = [
-    {operator: 'admin', ip: '127.0.0.1', resource: 'user-service', action: 'scaled up', status: 200, msg: 'Deployment updated', opTime: now - 120_000},
-    {operator: 'admin', ip: '127.0.0.1', resource: 'order-service', action: 'config updated', status: 200, msg: 'Configuration published', opTime: now - 360_000},
-    {operator: 'system', ip: '127.0.0.1', resource: 'payment-service', action: 'health check', status: 200, msg: 'Health check passed', opTime: now - 480_000},
-    {operator: 'admin', ip: '127.0.0.1', resource: 'rate-limiter', action: 'published', status: 200, msg: 'New configuration', opTime: now - 900_000},
-    {operator: 'admin', ip: '127.0.0.1', resource: 'staging', action: 'created', status: 200, msg: 'Namespace created', opTime: now - 3_600_000},
-    {operator: 'system', ip: '127.0.0.1', resource: 'inventory-service', action: 'instance failed', status: 500, msg: 'Probe failed', opTime: now - 10_800_000},
-    ...Array.from({length: 8}, (_, index) => ({
-        operator: index % 2 === 0 ? 'admin' : 'system',
-        ip: '127.0.0.1',
-        resource: `service-${index + 1}`,
-        action: 'updated',
-        status: 200,
-        msg: 'Resource updated',
-        opTime: now - (index + 4) * 3_600_000,
-    })),
-];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- whatever a test stores and reads back
+type Json = Record<string, any>;
 
-export interface MockApi {
-    delayNext?: {method: string; path: RegExp; milliseconds: number};
-    emptyCollections: Set<'audit' | 'configs' | 'namespaces' | 'roles' | 'services' | 'topology' | 'users'>;
-    failNext?: {method: string; path: RegExp};
-    manyServices?: boolean;
-    requests: Array<{method: string; path: string; postData: string | null}>;
+interface Stored extends Json {
+    meta: Json;
 }
 
-const instances = (serviceId: string) => [{
-    schema: 'http',
-    host: `${serviceId}.default.svc.cluster.local`,
-    port: 8080,
-    weight: 100,
-    ttlAt: Math.floor(Date.now() / 1000) + 3600,
-    metadata: {zone: 'cn-east-1'},
-    isEphemeral: true,
-    isExpired: false,
-    instanceId: `${serviceId}-01`,
-    serviceId,
-    uri: `http://${serviceId}.default.svc.cluster.local:8080`,
-    secure: false,
-}];
+export interface RecordedRequest {
+    method: string;
+    path: string;
+    headers: Record<string, string>;
+    body: string | null;
+    bytes: Buffer | null;
+}
+
+export interface MockApi {
+    /** Without auth, everyone is let in. */
+    auth: boolean;
+    oidc: boolean;
+    empty: boolean;
+    /** Such requests fail until this is cleared. */
+    failing?: {method: string; path: RegExp; status: number; message: string};
+    /** A provider that answers wrongly, to see the page refuse it. */
+    providerAnswer?: 'wrong-state' | 'wrong-nonce' | 'denied';
+    requests: RecordedRequest[];
+    /** Such requests take this long. */
+    slow?: {path: RegExp; milliseconds: number};
+    /** Lets every open Watch stream say this, and end. */
+    releaseWatch: (message?: Json) => void;
+    put: (path: string, resource: Stored) => void;
+    remove: (path: string) => void;
+}
+
+const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
+
+const updated = {updatedAt: '2026-08-18T01:00:00Z', updatedBy: 'serviceaccount:admin'};
 
 async function json(route: Route, body: unknown, status = 200) {
     await route.fulfill({status, contentType: 'application/json', body: JSON.stringify(body)});
 }
 
-export async function installApiMock(page: Page) {
-    const userRoles = new Map<string, string[]>([
-        ['admin', ['admin']],
-        ['operator', ['developer']],
-    ]);
-    const roleBindings = new Map<string, Array<{namespace: string; action: string}>>([
-        ['admin', [{namespace: 'default', action: 'rw'}]],
-        ['developer', [{namespace: 'default', action: 'rw'}]],
-        ['auditor', [{namespace: 'default', action: 'r'}]],
-    ]);
-    const lockedUsers = new Set(['operator']);
-    const mockApi: MockApi = {
-        emptyCollections: new Set(),
-        requests: [],
+/**
+ * One object per page, so that everything that lists has to read every page, as a server's byte limit can demand.
+ */
+function pageOf(items: Stored[], field: string, url: URL): Json {
+    const offset = Number(url.searchParams.get('pageToken') ?? 0);
+    const next = offset + 1;
+    return {
+        ...(items.length ? {[field]: items.slice(offset, next)} : {}),
+        ...(next < items.length ? {nextPageToken: String(next)} : {}),
     };
+}
+
+const failure = (route: Route, status: number, message: string) =>
+    json(route, {status: 'FAILED', message, detail: {}}, status);
+
+function challengeOf(verifier: string): string {
+    return createHash('sha256').update(verifier).digest('base64url');
+}
+
+/**
+ * The 8.0 REST API in memory, answering the way the server does: proto3 JSON leaves empty fields out, a list comes in
+ * pages, and writes honour If-Match and If-None-Match.
+ */
+export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 'auth' | 'oidc' | 'empty'>> = {}) {
+    let revision = 100;
+    const nextRevision = () => String(++revision);
+    const objects = new Map<string, Stored>();
+    const history = new Map<string, Stored[]>();
+    const issued = new Set<string>([TOKEN]);
+    const pendingWatches: Array<(message: Json) => void> = [];
+
+    const store = (path: string, resource: Stored) => {
+        const name = path.replace(/^.*\/(?:configs|instances|namespaces|serviceaccounts|roles|rolebindings)\//, '');
+        const stored = {...resource, meta: {...updated, ...resource.meta, name, revision: nextRevision()}};
+        objects.set(path, stored);
+        if (path.includes('/configs/')) {
+            history.set(path, [stored, ...(history.get(path) ?? [])]);
+        }
+        return stored;
+    };
+
+    const mockApi: MockApi = {
+        auth: options.auth ?? true,
+        oidc: options.oidc ?? false,
+        empty: options.empty ?? false,
+        requests: [],
+        releaseWatch: (message = {events: {revision: nextRevision(), events: []}}) =>
+            pendingWatches.splice(0).forEach(release => release(message)),
+        put: store,
+        remove: path => objects.delete(path),
+    };
+
+    if (!mockApi.empty) {
+        store('/v1/namespaces/default', {meta: {}, namespace: {}});
+        store('/v1/namespaces/prod', {meta: {}, namespace: {description: 'Production'}});
+        store('/v1/namespaces/default/configs/application.yaml', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_YAML', content: 'server:\n  port: 8080\n', sha256: 'aaaa1111bbbb2222'},
+        });
+        store('/v1/namespaces/default/configs/application.yaml', {
+            meta: {labels: {team: 'core'}},
+            config: {format: 'CONFIG_FORMAT_YAML', content: 'server:\n  port: 9090\n', sha256: 'cccc3333dddd4444'},
+        });
+        store('/v1/namespaces/default/configs/shared/datasource.json', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_JSON', content: '{"url":"jdbc"}', sha256: 'eeee5555ffff6666'},
+        });
+        store('/v1/namespaces/default/instances/order-1', {
+            meta: {lease: '42', labels: {pool: 'a'}},
+            instance: {
+                service: 'order',
+                endpoint: {scheme: 'http', host: '10.0.0.1', port: 8080},
+                weight: 2,
+                metadata: {zone: 'east'},
+            },
+        });
+        store('/v1/namespaces/default/instances/database-1', {
+            meta: {},
+            instance: {service: 'database', endpoint: {scheme: 'tcp', host: '10.0.0.2', port: 3306}},
+        });
+        store('/v1/serviceaccounts/admin', {
+            meta: {},
+            serviceAccount: {description: 'Created at bootstrap', tokens: [{id: 'first', sha256: 'hash'}]},
+        });
+        store('/v1/roles/admin', {
+            meta: {},
+            role: {
+                description: 'Everything',
+                rules: [{kinds: ['KIND_CONFIG'], namespaces: ['*'], verbs: ['VERB_GET', 'VERB_PUT']}],
+            },
+        });
+        store('/v1/rolebindings/admin', {
+            meta: {},
+            roleBinding: {
+                role: 'admin',
+                subjects: [{type: 'TYPE_SERVICE_ACCOUNT', name: 'admin'}],
+                namespaces: ['*'],
+            },
+        });
+    }
+
+    const authorized = (authorization: string | undefined) =>
+        !mockApi.auth || (authorization !== undefined && issued.has(authorization.replace('Bearer ', '')));
+
+    const collectionOf = (path: string) => [...objects.entries()]
+        .filter(([key]) => key.startsWith(`${path}/`) && (path === '/v1/namespaces' ? key.split('/').length === 4 : true))
+        .map(([, value]) => value);
+
+    const serviceOf = (resource: Stored) => resource.instance?.service as string;
+
+    const servicesIn = (namespace: string) => {
+        const instances = collectionOf(`/v1/namespaces/${namespace}/instances`);
+        return [...new Set(instances.map(serviceOf))].sort().map(service => ({
+            service,
+            instanceCount: instances.filter(instance => serviceOf(instance) === service).length,
+        }));
+    };
+
     await page.route('**/v1/**', async route => {
         const request = route.request();
         const url = new URL(request.url());
-        const {pathname} = url;
+        // Names arrive encoded, as one path segment.
+        const path = decodeURIComponent(url.pathname);
         const method = request.method();
-        mockApi.requests.push({method, path: pathname, postData: request.postData()});
+        const headers = await request.allHeaders();
+        mockApi.requests.push({method, path, headers, body: request.postData(), bytes: request.postDataBuffer()});
 
-        if (mockApi.delayNext?.method === method && mockApi.delayNext.path.test(pathname)) {
-            const {milliseconds} = mockApi.delayNext;
-            mockApi.delayNext = undefined;
-            await new Promise(resolve => setTimeout(resolve, milliseconds));
+        if (path === '/v1/auth/config') {
+            await json(route, mockApi.oidc ? {oidc: {issuer: ISSUER, clientId: 'dashboard', scopes: ['openid', 'groups']}} : {});
+            return;
         }
-
-        if (mockApi.failNext?.method === method && mockApi.failNext.path.test(pathname)) {
-            mockApi.failNext = undefined;
-            await json(route, {msg: 'Expected test failure'}, 500);
+        if (!authorized(headers.authorization)) {
+            await failure(route, 401, 'A valid token is required.');
+            return;
+        }
+        if (mockApi.failing?.method === method && mockApi.failing.path.test(path)) {
+            await failure(route, mockApi.failing.status, mockApi.failing.message);
+            return;
+        }
+        if (mockApi.slow?.path.test(path)) {
+            await new Promise(resolve => setTimeout(resolve, mockApi.slow?.milliseconds));
+        }
+        if (path === '/v1/me') {
+            await json(route, mockApi.auth
+                ? {subject: {type: 'TYPE_SERVICE_ACCOUNT', name: 'admin'}, rules: []}
+                : {subject: {name: 'anonymous'}});
             return;
         }
 
-        if (pathname.includes('/authenticate/denied/login')) {
-            await json(route, {msg: 'Invalid credentials'}, 401);
-            return;
-        }
-        if (pathname.includes('/authenticate/') && (pathname.endsWith('/login') || pathname.endsWith('/refresh'))) {
-            await json(route, {accessToken: token, refreshToken: token});
-            return;
-        }
-        if (/^\/v1\/users\/cleanup-failure-user(?:\/role)?$/.test(pathname) && (method === 'PATCH' || method === 'DELETE')) {
-            await json(route, {msg: 'Expected cleanup failure'}, 500);
-            return;
-        }
-        if (pathname === '/v1/namespaces') {
-            await json(route, mockApi.emptyCollections.has('namespaces') ? [] : ['cosky-{system}', 'default', 'production', 'staging']);
-            return;
-        }
-        if (pathname.endsWith('/stat/topology')) {
-            await json(route, mockApi.emptyCollections.has('topology') ? {} : {
-                'api-gateway': ['user-service', 'order-service', 'payment-service'],
-                'user-service': ['user-db'],
-                'order-service': ['order-db', 'redis-cache'],
-                'payment-service': ['payment-gateway'],
-            });
-            return;
-        }
-        if (pathname.endsWith('/stat')) {
-            await json(route, {namespaces: 12, configs: 342, services: {total: 134, health: 128}, instances: 512});
-            return;
-        }
-        if (pathname === '/v1/audit-log/export') {
+        const watch = path.match(/^\/v1\/namespaces\/([^/]+)\/watch$/);
+        if (watch) {
+            // Holds until released, like a stream with nothing to say.
+            const message = await new Promise<Json>(resolve => pendingWatches.push(resolve));
             await route.fulfill({
                 status: 200,
-                contentType: 'text/csv',
-                headers: {'Content-Disposition': 'attachment; filename="cosky_audit_log.csv"'},
-                body: 'Timestamp,Operator,Client IP,Resource,Action,Status,Message\n',
-            });
+                contentType: 'text/event-stream',
+                body: `data: ${JSON.stringify({watchId: '0', ...message})}\n\n`,
+            }).catch(() => undefined);
             return;
         }
-        if (pathname === '/v1/audit-log') {
-            const search = url.searchParams.get('query')?.trim().toLowerCase();
-            const from = Number(url.searchParams.get('from') ?? Number.NEGATIVE_INFINITY);
-            const to = Number(url.searchParams.get('to') ?? Number.POSITIVE_INFINITY);
-            const successful = url.searchParams.get('successful');
-            const auditLogs = (mockApi.emptyCollections.has('audit') ? [] : logs).filter(log => {
-                const matchesQuery = !search || `${log.operator} ${log.ip} ${log.resource} ${log.action} ${log.status} ${log.msg}`.toLowerCase().includes(search);
-                const matchesStatus = successful === null || (log.status < 400) === (successful === 'true');
-                return matchesQuery && matchesStatus && log.opTime >= from && log.opTime <= to;
-            });
-            const offset = Number(url.searchParams.get('offset') ?? 0);
-            const limit = Number(url.searchParams.get('limit') ?? 10);
-            await json(route, {list: auditLogs.slice(offset, offset + limit), total: auditLogs.length});
-            return;
-        }
-        if (pathname === '/v1/roles') {
-            await json(route, mockApi.emptyCollections.has('roles') ? [] : [
-                {name: 'admin', desc: 'Full platform access'},
-                {name: 'developer', desc: 'Read and update services'},
-                {name: 'auditor', desc: 'Read-only audit access'},
-            ]);
-            return;
-        }
-        if (/^\/v1\/roles\/[^/]+\/bind$/.test(pathname)) {
-            const roleName = decodeURIComponent(pathname.split('/').at(-2)!);
-            await json(route, roleBindings.get(roleName) ?? []);
-            return;
-        }
-        if (/^\/v1\/roles\/[^/]+$/.test(pathname) && method === 'PUT') {
-            const roleName = decodeURIComponent(pathname.split('/').at(-1)!);
-            const body = JSON.parse(request.postData() ?? '{}') as {resourceActionBind?: Array<{namespace: string; action: string}>};
-            roleBindings.set(roleName, body.resourceActionBind ?? []);
-            await json(route, true);
-            return;
-        }
-        if (pathname === '/v1/users') {
-            await json(route, mockApi.emptyCollections.has('users') ? [] : [
-                {name: 'admin', id: '1', attributes: {locked: lockedUsers.has('admin')}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('admin')},
-                {name: 'operator', id: '2', attributes: {locked: lockedUsers.has('operator')}, authenticated: true, anonymous: false, policies: [], roles: userRoles.get('operator')},
-            ]);
-            return;
-        }
-        if (/^\/v1\/users\/[^/]+\/unlock$/.test(pathname) && method === 'DELETE') {
-            lockedUsers.delete(decodeURIComponent(pathname.split('/').at(-2)!));
-            await json(route, true);
-            return;
-        }
-        if (/^\/v1\/users\/[^/]+\/lock$/.test(pathname) && method === 'PUT') {
-            lockedUsers.add(decodeURIComponent(pathname.split('/').at(-2)!));
-            await json(route, true);
-            return;
-        }
-        if (/^\/v1\/users\/[^/]+\/role$/.test(pathname) && method === 'PATCH') {
-            const username = decodeURIComponent(pathname.split('/').at(-2)!);
-            userRoles.set(username, JSON.parse(request.postData() ?? '[]') as string[]);
-            await json(route, true);
-            return;
-        }
-        if (pathname === '/v1/users/existing-user' && method === 'POST') {
-            await json(route, false);
-            return;
-        }
-        if (pathname.endsWith('/services/stats')) {
-            const services = [
-                {serviceId: 'api-gateway', instanceCount: 3},
-                {serviceId: 'user-service', instanceCount: 4},
-                {serviceId: 'order-service', instanceCount: 6},
-                {serviceId: 'payment-service', instanceCount: 3},
-            ];
-            if (mockApi.manyServices && !pathname.includes('/namespaces/default/')) {
-                services.push(...Array.from({length: 10}, (_, index) => ({
-                    serviceId: `service-${index + 1}`,
-                    instanceCount: 0,
-                })));
+        const view = path.match(/^\/v1\/namespaces\/([^/]+)\/views\/(services|topology|stats)$/);
+        if (view) {
+            const [, namespace, name] = view;
+            if (name === 'services') {
+                const services = servicesIn(namespace);
+                await json(route, services.length ? {services} : {});
+            } else if (name === 'topology') {
+                await json(route, mockApi.empty ? {} : {
+                    edges: [
+                        {consumer: 'gateway', producer: 'order'},
+                        {consumer: 'gateway', producer: 'user'},
+                        {consumer: 'order', producer: 'database'},
+                    ],
+                });
+            } else {
+                const instances = collectionOf(`/v1/namespaces/${namespace}/instances`);
+                await json(route, {
+                    serviceCount: servicesIn(namespace).length,
+                    instanceCount: instances.length,
+                    configCount: collectionOf(`/v1/namespaces/${namespace}/configs`).length,
+                });
             }
-            await json(route, mockApi.emptyCollections.has('services') ? [] : services);
             return;
         }
-        if (/\/services\/[^/]+\/instances$/.test(pathname) && method === 'GET') {
-            await json(route, instances(decodeURIComponent(pathname.split('/').at(-2)!)));
+        const historyPath = path.match(/^(.*\/configs\/.+)\/history$/);
+        if (historyPath) {
+            await json(route, pageOf(history.get(historyPath[1]) ?? [], 'revisions', url));
             return;
         }
-        if (pathname.endsWith('/configs') && method === 'GET') {
-            await json(route, mockApi.emptyCollections.has('configs') ? [] : ['application.yaml', 'feature-flags.json', 'rate-limiter.yaml', 'logging.properties']);
+        const rollback = path.match(/^(.*\/configs\/.+):rollback$/);
+        if (rollback && method === 'POST') {
+            const {toRevision} = request.postDataJSON() as {toRevision: string};
+            const version = history.get(rollback[1])?.find(item => item.meta.revision === toRevision);
+            const stored = store(rollback[1], {meta: {}, config: version?.config});
+            await json(route, {revision: stored.meta.revision, changed: true});
             return;
         }
-        if (pathname.endsWith('/configs/export')) {
+        const archive = path.match(/^\/v1\/namespaces\/([^/]+)\/configs:(import|export)$/);
+        if (archive) {
+            if (archive[2] === 'import') {
+                await json(route, {items: [{name: 'imported.yaml', revision: nextRevision(), changed: true}]});
+            } else {
+                await route.fulfill({status: 200, contentType: 'application/zip', body: Buffer.from('PK\u0005\u0006')});
+            }
+            return;
+        }
+        const tokens = path.match(/^(\/v1\/serviceaccounts\/[^/]+)\/tokens(?:\/(.+))?$/);
+        if (tokens) {
+            const account = objects.get(tokens[1]) as Stored;
+            if (method === 'POST') {
+                const id = `token${objects.size}${account.serviceAccount.tokens?.length ?? 0}`;
+                const plaintext = `cosky_${id}_plaintextsecret`;
+                account.serviceAccount.tokens = [...(account.serviceAccount.tokens ?? []), {id, sha256: 'hash'}];
+                await json(route, {tokenId: id, token: plaintext});
+            } else {
+                account.serviceAccount.tokens = account.serviceAccount.tokens.filter((token: Json) => token.id !== tokens[2]);
+                await json(route, {revision: nextRevision()});
+            }
+            return;
+        }
+
+        const existing = objects.get(path);
+        if (method === 'GET') {
+            const isList = /\/(configs|instances)$/.test(path) || /^\/v1\/(namespaces|serviceaccounts|roles|rolebindings)$/.test(path);
+            if (isList) {
+                const service = url.searchParams.get('service');
+                const items = collectionOf(path).filter(item => !service || serviceOf(item) === service);
+                await json(route, {...pageOf(items, 'items', url), revision: String(revision), epoch: 'e'});
+            } else if (existing) {
+                await json(route, existing);
+            } else {
+                await failure(route, 404, `${path} was not found.`);
+            }
+            return;
+        }
+        if (method === 'PUT') {
+            const ifMatch = headers['if-match']?.replaceAll('"', '');
+            if (ifMatch && existing?.meta.revision !== ifMatch) {
+                await failure(route, 409, 'It changed since it was read.');
+                return;
+            }
+            if (headers['if-none-match'] === '*' && existing) {
+                await failure(route, 409, 'It exists already.');
+                return;
+            }
+            const stored = store(path, request.postDataJSON() as Stored);
+            await json(route, {revision: stored.meta.revision, changed: true});
+            return;
+        }
+        if (method === 'DELETE') {
+            objects.delete(path);
+            await json(route, {revision: nextRevision()});
+            return;
+        }
+        await failure(route, 404, `No mock for ${method} ${path}.`);
+    });
+
+    // An identity provider, checking PKCE as a real one does.
+    let challenge = '';
+    let nonce = '';
+    await page.route(`${ISSUER}/**`, async route => {
+        const url = new URL(route.request().url());
+        if (url.pathname === '/.well-known/openid-configuration') {
             await route.fulfill({
                 status: 200,
-                contentType: 'application/zip',
-                headers: {'Content-Disposition': 'attachment; filename="cosky-export.zip"'},
-                body: 'mock-zip',
+                contentType: 'application/json',
+                headers: {'Access-Control-Allow-Origin': '*'},
+                body: JSON.stringify({
+                    authorization_endpoint: `${ISSUER}/authorize`,
+                    token_endpoint: `${ISSUER}/token`,
+                }),
             });
             return;
         }
-        if (/\/configs\/[^/]+\/versions\/\d+$/.test(pathname)) {
-            const configId = decodeURIComponent(pathname.split('/').at(-3)!);
-            await json(route, {
-                configId,
-                hash: CONFIG_HASH,
-                version: Number(pathname.split('/').at(-1)),
-                data: 'server:\n  port: 8080\nfeature:\n  enabled: true',
-                createTime: Math.floor(now / 1000) - 7200,
-                opTime: Math.floor(now / 1000) - 3600,
-                op: 'UPDATE',
-            });
+        if (url.pathname === '/authorize') {
+            challenge = url.searchParams.get('code_challenge') ?? '';
+            nonce = url.searchParams.get('nonce') ?? '';
+            const back = new URL(url.searchParams.get('redirect_uri') as string);
+            const state = url.searchParams.get('state') as string;
+            if (mockApi.providerAnswer === 'denied') {
+                back.search = new URLSearchParams({state, error: 'access_denied'}).toString();
+            } else {
+                back.search = new URLSearchParams({
+                    code: 'the-code',
+                    state: mockApi.providerAnswer === 'wrong-state' ? 'someone-elses' : state,
+                }).toString();
+            }
+            await route.fulfill({status: 302, headers: {Location: back.toString()}});
             return;
         }
-        if (/\/configs\/[^/]+\/versions$/.test(pathname)) {
-            // Mirrors the real backend: the history index only contains superseded
-            // versions, never the current one (current is 3, see the config GET below).
-            await json(route, [
-                {version: 2, hash: CONFIG_HASH, createTime: Math.floor(now / 1000) - 7200},
-                {version: 1, hash: '6c1f09a', createTime: Math.floor(now / 1000) - 10_800},
-            ]);
-            return;
-        }
-        if (/\/configs\/[^/]+$/.test(pathname) && method === 'GET') {
-            const configId = decodeURIComponent(pathname.split('/').at(-1)!);
-            await json(route, {
-                configId,
-                hash: 'd3b2a1c',
-                version: 3,
-                data: 'server:\n  port: 8080\nfeature:\n  enabled: true',
-                createTime: Math.floor(now / 1000) - 3600,
-            });
-            return;
-        }
-        if (pathname.endsWith('/configs') && method === 'POST') {
-            await json(route, {total: 4, succeeded: 4});
-            return;
-        }
-        await json(route, true);
+        const form = new URLSearchParams(route.request().postData() ?? '');
+        const verified = form.get('code') === 'the-code'
+            && form.get('grant_type') === 'authorization_code'
+            && challengeOf(form.get('code_verifier') ?? '') === challenge;
+        const idToken = [
+            encode({alg: 'none'}),
+            encode({sub: 'ada', nonce: mockApi.providerAnswer === 'wrong-nonce' ? 'someone-elses' : nonce}),
+            '',
+        ].join('.');
+        issued.add(idToken);
+        await route.fulfill({
+            status: verified ? 200 : 400,
+            contentType: 'application/json',
+            headers: {'Access-Control-Allow-Origin': '*'},
+            body: JSON.stringify(verified ? {id_token: idToken} : {error: 'invalid_grant'}),
+        });
     });
+
     return mockApi;
 }
 
 export async function login(page: Page) {
-    await page.goto('/login');
-    await page.getByRole('textbox', {name: 'Username', exact: true}).fill('admin');
-    await page.getByLabel('Password', {exact: true}).fill('password');
+    await page.goto('/#/login');
+    await page.getByLabel('Token', {exact: true}).fill(TOKEN);
     await page.getByRole('button', {name: 'Sign In', exact: true}).click();
-    await page.waitForURL('**/home');
+    await page.waitForURL('**/#/home');
 }

@@ -11,23 +11,42 @@
  * limitations under the License.
  */
 
-import React from 'react';
+import {useSyncExternalStore} from 'react';
+import type {ReactNode} from 'react';
 import {Navigate} from 'react-router-dom';
-import {RefreshableRouteGuard} from "@ahoo-wang/fetcher-react";
-import {coSecConfigurer} from "@/services/fetcher";
-import {Skeleton} from "@/components/ui/skeleton";
+import {ExchangeError} from '@ahoo-wang/fetcher';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import type {MeResponse} from '@/generated';
+import {Button} from '@/components/ui/button';
+import {Skeleton} from '@/components/ui/skeleton';
+import {MeContext} from '@/contexts/MeContext';
+import {session} from '@/security/session';
+import {identityClient} from '@/services/clients';
 
-interface ProtectedRouteProps {
-    children: React.ReactNode;
+const UNAUTHORIZED = 401;
+
+/**
+ * Lets through whoever the server accepts, which without auth is everyone (design D34).
+ */
+export function ProtectedRoute({children}: {children: ReactNode}) {
+    const token = useSyncExternalStore(session.subscribe, session.token);
+    const {result: me, error, execute: retry} = useQuery<string | null, MeResponse>({
+        query: token,
+        execute: (_, __, abortController) => identityClient.getMe({abortController}),
+    });
+    if (error instanceof ExchangeError && error.exchange.response?.status === UNAUTHORIZED) {
+        return <Navigate to="/login" replace/>;
+    }
+    if (error) {
+        return (
+            <div role="alert" className="space-y-4 p-8 text-sm">
+                <p>The server cannot be reached.</p>
+                <Button variant="outline" onClick={() => retry()}>Retry</Button>
+            </div>
+        );
+    }
+    if (!me) {
+        return <div className="space-y-3 p-8"><Skeleton className="h-9 w-56"/><Skeleton className="h-64 w-full"/></div>;
+    }
+    return <MeContext.Provider value={me}>{children}</MeContext.Provider>;
 }
-
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({children}) => {
-    return (
-        <RefreshableRouteGuard
-            tokenManager={coSecConfigurer.tokenManager!}
-            fallback={<Navigate to="/login" replace/>}
-            refreshing={<div className="space-y-3 p-8"><Skeleton className="h-9 w-56"/><Skeleton className="h-64 w-full"/></div>}>
-            {children}
-        </RefreshableRouteGuard>)
-
-};

@@ -11,14 +11,15 @@
  * limitations under the License.
  */
 
-import type {ServiceInstance} from '@/generated';
+import {createContext, useContext} from 'react';
+import type {MeResponse} from '@/generated';
 
-export type InstanceHealth = 'Healthy' | 'Expiring soon' | 'Expired' | 'Unhealthy';
+export const MeContext = createContext<Partial<MeResponse> | undefined>(undefined);
 
-export function getInstanceHealth(instance: ServiceInstance, now = Date.now()): InstanceHealth {
-    const reportedStatus = instance.metadata.instance_status?.toUpperCase();
-    if (reportedStatus && reportedStatus !== 'UP') return 'Unhealthy';
-    if (instance.isExpired || (instance.isEphemeral && instance.ttlAt * 1000 <= now)) return 'Expired';
-    if (instance.isEphemeral && instance.ttlAt * 1000 - now <= 5 * 60 * 1000) return 'Expiring soon';
-    return 'Healthy';
+export function useMe(): Partial<MeResponse> {
+    const me = useContext(MeContext);
+    if (!me) {
+        throw new Error('useMe must be used within ProtectedRoute');
+    }
+    return me;
 }

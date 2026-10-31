@@ -12,59 +12,59 @@
  */
 
 import {Trash2} from 'lucide-react';
-import {isSystemNamespace} from "@/pages/namespace/namespaces";
-import {namespaceApiClient} from "@/services/clients";
-import {AddNamespaceForm} from "@/pages/namespace/AddNamespaceForm";
-import { useCurrentNamespaceContext} from "@/contexts/namespace/CurrentNamespaceContext";
-import {useNamespacesContext} from "@/contexts/namespace/NamespacesContext";
-import {PageHeader} from "@/components/layout/PageHeader";
-import {DataTableWrapper} from "@/components/layout/DataTableWrapper";
-import {ConfirmButton} from "@/components/ui/confirm-button";
-import {DataTable} from "@/components/ui/data-table";
-import type {DataTableColumn} from "@/components/ui/data-table";
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
+import {namespaces as namespacesApi} from '@/services/resources';
+import type {NamespaceResource} from '@/services/resources';
+import {AddNamespaceForm} from '@/pages/namespace/AddNamespaceForm';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {PageHeader} from '@/components/layout/PageHeader';
+import {ConfirmButton} from '@/components/ui/confirm-button';
+import {DataTable} from '@/components/ui/data-table';
+import type {DataTableColumn} from '@/components/ui/data-table';
 import {runAction} from '@/lib/actions';
 
 export function NamespacePage() {
-    const {currentNamespace} = useCurrentNamespaceContext()
+    const {currentNamespace} = useCurrentNamespaceContext();
     const {namespaces, loading, error, refresh} = useNamespacesContext();
 
-    const handleDelete = async (namespace: string) => {
-        if (await runAction(() => namespaceApiClient.removeNamespace(namespace), {success: 'Namespace deleted successfully', failure: 'Failed to delete namespace'})) {
+    const handleDelete = async (name: string) => {
+        const deleted = await runAction(
+            () => namespacesApi.delete(name),
+            {success: 'Namespace deleted', failure: 'Failed to delete namespace'},
+        );
+        if (deleted) {
             refresh();
         }
     };
 
-    const isDisabled = (namespace: string) => {
-        return isSystemNamespace(namespace) || currentNamespace === namespace;
-    };
-
-    const columns: DataTableColumn<string>[] = [
+    const columns: DataTableColumn<NamespaceResource>[] = [
         {
             header: 'Namespace',
-            key: 'namespace',
-            cell: namespace => <span className="font-medium">{namespace}</span>,
-            sort: (left, right) => left.localeCompare(right),
+            key: 'name',
+            cell: namespace => <span className="font-medium">{namespace.name}</span>,
+            sort: (left, right) => left.name.localeCompare(right.name),
         },
+        {header: 'Description', accessor: 'description', key: 'description'},
         {
             header: 'Action',
             key: 'action',
             className: 'w-36 text-right',
-            cell: record => (
+            cell: namespace => (
                 <ConfirmButton
                     title="Are you sure to delete this namespace?"
-                    description={`Namespace “${record}” will be removed from the selector. Namespaced configuration and service data are not automatically deleted.`}
-                    onConfirm={() => handleDelete(record)}
+                    description={`Namespace “${namespace.name}” will be deleted. Only an empty namespace can be.`}
+                    onConfirm={() => handleDelete(namespace.name)}
                     variant="ghost"
                     size="sm"
                     className="text-destructive"
-                    disabled={isDisabled(record)}
+                    disabled={namespace.name === currentNamespace}
                 >
                     <Trash2/> Delete
                 </ConfirmButton>
             ),
         },
     ];
-
 
     return (
         <div>
@@ -80,11 +80,11 @@ export function NamespacePage() {
                     loading={loading}
                     error={error}
                     onRetry={refresh}
-                    getRowKey={(record) => record}
-                    search={{placeholder: 'Search namespaces...', getValue: value => value}}
+                    getRowKey={namespace => namespace.name}
+                    search={{placeholder: 'Search namespaces...', getValue: namespace => namespace.name}}
                     emptyMessage="No namespaces found."
                 />
             </DataTableWrapper>
         </div>
     );
-};
+}

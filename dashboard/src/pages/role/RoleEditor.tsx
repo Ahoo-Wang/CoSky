@@ -11,137 +11,141 @@
  * limitations under the License.
  */
 
-import {useRef, useState} from 'react';
-import type {FormEvent} from 'react';
+import {useState} from 'react';
 import {Plus, Trash2} from 'lucide-react';
-import {toast} from 'sonner';
-import {useExecutePromise, useQuery} from '@ahoo-wang/fetcher-react';
-import type {ResourceActionDto, RoleDto, SaveRoleRequest} from '@/generated';
-import {roleApiClient} from '@/services/clients';
-import {NamespaceSelector} from '@/components/namespace/NamespaceSelector';
-import {ResourceActionSelector} from '@/pages/role/ResourceActionSelector';
+import {Kind, roles, Verb} from '@/services/resources';
+import type {RoleResource} from '@/services/resources';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
+import {MultiSelect} from '@/components/ui/multi-select';
 import {Separator} from '@/components/ui/separator';
-import {Skeleton} from '@/components/ui/skeleton';
-import {failureMessage} from '@/lib/actions';
+import {runAction} from '@/lib/actions';
+import {enumLabel, splitList} from '@/lib/utils';
+
+const KIND_OPTIONS = [
+    Kind.KIND_NAMESPACE,
+    Kind.KIND_CONFIG,
+    Kind.KIND_INSTANCE,
+    Kind.KIND_SERVICE_ACCOUNT,
+    Kind.KIND_ROLE,
+    Kind.KIND_ROLE_BINDING,
+].map(value => ({value, label: enumLabel(value, 'KIND_')}));
+
+const VERB_OPTIONS = [Verb.VERB_GET, Verb.VERB_WATCH, Verb.VERB_PUT, Verb.VERB_DELETE]
+    .map(value => ({value, label: enumLabel(value, 'VERB_')}));
+
+interface RuleDraft {
+    id: number;
+    kinds: Kind[];
+    verbs: Verb[];
+    namespaces: string;
+    names: string;
+}
 
 interface RoleEditorProps {
-    initialValues?: RoleDto;
+    existing?: RoleResource;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-const EMPTY_RESOURCE_ACTIONS: ResourceActionDto[] = [];
+export function RoleEditor({existing, onSuccess, onCancel}: RoleEditorProps) {
+    const [name, setName] = useState(existing?.name ?? '');
+    const [description, setDescription] = useState(existing?.description ?? '');
+    const [rules, setRules] = useState<RuleDraft[]>(() => (existing?.rules ?? []).map((rule, id) => ({
+        id,
+        kinds: rule.kinds,
+        verbs: rule.verbs,
+        namespaces: rule.namespaces.join(', '),
+        names: rule.names.join(', '),
+    })));
+    const [nextId, setNextId] = useState(rules.length);
+    const [saving, setSaving] = useState(false);
 
-export function RoleEditor({initialValues, onSuccess, onCancel}: RoleEditorProps) {
-    const [name, setName] = useState(initialValues?.name ?? '');
-    const [desc, setDesc] = useState(initialValues?.desc ?? '');
-    const [bindings, setBindings] = useState<ResourceActionDto[]>([]);
-    const [bindingError, setBindingError] = useState('');
-    const bindingsContainer = useRef<HTMLDivElement>(null);
-    const {result, loading: loadingBindings, error: bindingsError, execute: retryBindings} = useQuery<string, ResourceActionDto[]>({
-        initialQuery: initialValues?.name,
-        execute: (query, _, abortController) => roleApiClient.getResourceBind(query, {abortController}),
-    });
-    const {loading, execute: save} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Save role success!');
+    const updateRule = (id: number, change: Partial<RuleDraft>) => {
+        setRules(current => current.map(rule => rule.id === id ? {...rule, ...change} : rule));
+    };
+
+    const addRule = () => {
+        setRules(current => [...current, {id: nextId, kinds: [], verbs: [], namespaces: '*', names: ''}]);
+        setNextId(nextId + 1);
+    };
+
+    const handleSubmit = async () => {
+        setSaving(true);
+        const saved = await runAction(
+            () => roles.put(name.trim(), {
+                description,
+                rules: rules.map(rule => ({
+                    kinds: rule.kinds,
+                    verbs: rule.verbs,
+                    namespaces: splitList(rule.namespaces),
+                    names: splitList(rule.names),
+                })),
+            }, existing?.revision),
+            {success: 'Role saved', failure: 'Failed to save role'},
+        );
+        setSaving(false);
+        if (saved) {
             onSuccess();
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Failed to save role', error));
-        },
-    });
-    const bindingsResult = result ?? EMPTY_RESOURCE_ACTIONS;
-    const [previousResult, setPreviousResult] = useState(bindingsResult);
-    if (previousResult !== bindingsResult) {
-        setPreviousResult(bindingsResult);
-        setBindings(bindingsResult.map(binding => ({...binding})));
-    }
-
-    const updateBinding = (index: number, key: keyof ResourceActionDto, value: string) => {
-        setBindingError('');
-        setBindings(current => current.map((binding, bindingIndex) => bindingIndex === index
-            ? {...binding, [key]: value}
-            : binding));
-    };
-
-    const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-        event.preventDefault();
-        if (bindings.some(binding => !binding.namespace || !binding.action)) {
-            setBindingError('Complete every permission binding before saving.');
-            requestAnimationFrame(() => bindingsContainer.current?.querySelector<HTMLButtonElement>('[aria-invalid="true"]')?.focus());
-            return;
         }
-        const uniqueBindings = new Set(bindings.map(binding => `${binding.namespace}:${binding.action}`));
-        if (uniqueBindings.size !== bindings.length) {
-            setBindingError('Remove duplicate permission bindings before saving.');
-            return;
-        }
-        setBindingError('');
-        const body: SaveRoleRequest = {desc, resourceActionBind: bindings};
-        await save(() => roleApiClient.saveRole(name, {body}));
     };
-
-    if (initialValues && bindingsError) {
-        return <div role="alert" className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/5 p-5 text-sm">
-            <p>Could not load this role's permissions. Nothing has been changed.</p>
-            <Button type="button" variant="outline" onClick={retryBindings}>Retry</Button>
-        </div>;
-    }
-    if (initialValues && (loadingBindings || result === undefined)) return <Skeleton className="h-80 w-full"/>;
 
     return (
-        <form className="space-y-5" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-                <Label htmlFor="role-name">Role Name <span className="text-destructive">*</span></Label>
-                <Input id="role-name" value={name} onChange={event => setName(event.target.value)} disabled={!!initialValues} required/>
+        <form className="space-y-5" onSubmit={event => {
+            event.preventDefault();
+            void handleSubmit();
+        }}>
+            <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                    <Label htmlFor="role-name">Name</Label>
+                    <Input id="role-name" value={name} required disabled={!!existing}
+                           onChange={event => setName(event.target.value)}/>
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="role-description">Description</Label>
+                    <Input id="role-description" value={description}
+                           onChange={event => setDescription(event.target.value)}/>
+                </div>
             </div>
-            <div className="space-y-2">
-                <Label htmlFor="role-description">Description <span className="text-destructive">*</span></Label>
-                <textarea
-                    id="role-description"
-                    value={desc}
-                    onChange={event => setDesc(event.target.value)}
-                    rows={4}
-                    required
-                    className="w-full resize-y rounded-lg border border-input bg-transparent px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                />
-            </div>
-            <div className="space-y-1 text-sm">
-                <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Resource Permissions</span><Separator className="flex-1"/></div>
-                <p className="text-xs text-muted-foreground">Permissions are scoped by namespace. A role with no bindings grants no resource access.</p>
-            </div>
-            <div ref={bindingsContainer} className="space-y-3">
-                {bindings.map((binding, index) => (
-                    <div key={`${index}-${binding.namespace}-${binding.action}`} className="grid gap-2 rounded-xl border p-3 sm:grid-cols-[1fr_1fr_auto]">
-                        <NamespaceSelector value={binding.namespace} onChange={value => updateBinding(index, 'namespace', value)}
-                                           aria-invalid={!!bindingError && !binding.namespace} aria-describedby={bindingError ? 'role-binding-error' : undefined}/>
-                        <ResourceActionSelector value={binding.action} onChange={value => updateBinding(index, 'action', value)}
-                                                aria-invalid={!!bindingError && !binding.action} aria-describedby={bindingError ? 'role-binding-error' : undefined}/>
-                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => {
-                            setBindingError('');
-                            setBindings(current => current.filter((_, bindingIndex) => bindingIndex !== index));
-                        }} aria-label="Remove permission">
-                            <Trash2/>
+            <Separator/>
+            {rules.map((rule, index) => (
+                <fieldset key={rule.id} className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                    <legend className="px-1 text-sm font-medium">Rule {index + 1}</legend>
+                    <div className="space-y-2">
+                        <Label>Kinds</Label>
+                        <MultiSelect aria-label={`Kinds of rule ${index + 1}`} className="w-full" options={KIND_OPTIONS}
+                                     value={rule.kinds} placeholder="Select kinds"
+                                     onChange={kinds => updateRule(rule.id, {kinds: kinds as Kind[]})}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Verbs</Label>
+                        <MultiSelect aria-label={`Verbs of rule ${index + 1}`} className="w-full" options={VERB_OPTIONS}
+                                     value={rule.verbs} placeholder="Select verbs"
+                                     onChange={verbs => updateRule(rule.id, {verbs: verbs as Verb[]})}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`rule-${rule.id}-namespaces`}>Namespaces</Label>
+                        <Input id={`rule-${rule.id}-namespaces`} value={rule.namespaces} placeholder="prod, staging, or *"
+                               onChange={event => updateRule(rule.id, {namespaces: event.target.value})}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor={`rule-${rule.id}-names`}>Names</Label>
+                        <Input id={`rule-${rule.id}-names`} value={rule.names} placeholder="Empty for all; order-* for a prefix"
+                               onChange={event => updateRule(rule.id, {names: event.target.value})}/>
+                    </div>
+                    <div className="sm:col-span-2">
+                        <Button type="button" variant="ghost" size="sm" className="text-destructive"
+                                onClick={() => setRules(current => current.filter(item => item.id !== rule.id))}>
+                            <Trash2/> Remove rule
                         </Button>
                     </div>
-                ))}
-                {bindingError && <p id="role-binding-error" role="alert" className="text-sm text-destructive">{bindingError}</p>}
-                <Button type="button" variant="outline" className="w-full border-dashed" onClick={() => {
-                    setBindingError('');
-                    setBindings(current => [...current, {namespace: '', action: ''}]);
-                }}>
-                    <Plus/> Add permission
-                </Button>
-            </div>
-            <p className="text-xs text-muted-foreground" aria-live="polite">
-                {bindings.length === 0 ? 'No permission bindings.' : `${bindings.length} permission binding${bindings.length === 1 ? '' : 's'} ready to save.`}
-            </p>
+                </fieldset>
+            ))}
+            <Button type="button" variant="outline" onClick={addRule}><Plus/> Add rule</Button>
+            <Separator/>
             <div className="flex gap-2">
-                <Button type="submit" loading={loading}>Submit</Button>
+                <Button type="submit" loading={saving}>Submit</Button>
                 <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
             </div>
         </form>

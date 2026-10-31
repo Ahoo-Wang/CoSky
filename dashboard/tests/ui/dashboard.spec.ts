@@ -11,669 +11,705 @@
  * limitations under the License.
  */
 
-import type {Page} from '@playwright/test';
+import type {Locator, Page} from '@playwright/test';
 import {expect, test} from './coverage';
 import {installApiMock, login} from './mock-api';
 import type {MockApi} from './mock-api';
 
 const browserErrors = new WeakMap<Page, string[]>();
-const apiMocks = new WeakMap<Page, MockApi>();
+
+// What a failed request prints is not a defect of the page. Nor is what Monaco 0.55 sometimes reports as a diff editor
+// closes: the history test goes on to open another one, and to use it.
+const EXPECTED_ERROR = /Failed to load resource|AbstractContextKeyService has been disposed/;
 
 test.beforeEach(async ({page}) => {
     const errors: string[] = [];
     browserErrors.set(page, errors);
     page.on('console', message => {
-        if (message.type() === 'error') errors.push(message.text());
+        if (message.type() === 'error' && !EXPECTED_ERROR.test(message.text())) errors.push(message.text());
     });
-    page.on('pageerror', error => errors.push(error.message));
-    apiMocks.set(page, await installApiMock(page));
+    page.on('pageerror', error => {
+        if (!EXPECTED_ERROR.test(error.message)) errors.push(error.message);
+    });
 });
 
 test.afterEach(async ({page}) => {
     expect(browserErrors.get(page), 'browser console and page errors').toEqual([]);
 });
 
-test('rejects invalid credentials without leaving the login screen', async ({page}) => {
-    await page.goto('/login');
-    const githubLink = page.getByRole('link', {name: 'View CoSky on GitHub'});
-    const giteeLink = page.getByRole('link', {name: 'View CoSky on Gitee'});
-    await expect(githubLink).toHaveAttribute('href', 'https://github.com/Ahoo-Wang/CoSky');
-    await expect(githubLink.locator('svg[data-brand="github"]')).toBeVisible();
-    await expect(giteeLink).toHaveAttribute('href', 'https://gitee.com/AhooWang/CoSky');
-    await expect(giteeLink.locator('svg')).toBeVisible();
-    await page.getByRole('textbox', {name: 'Username', exact: true}).fill('denied');
-    await page.getByLabel('Password', {exact: true}).fill('wrong');
-    await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+const toast = (page: Page, text: string) => page.getByText(text, {exact: false}).first();
 
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByText('Login failed. Invalid credentials')).toBeVisible();
-    expect(browserErrors.get(page)).toContain('Failed to load resource: the server responded with a status of 401 (Unauthorized)');
-    browserErrors.set(page, []);
-});
+const row = (scope: Page | Locator, name: string) => scope.getByRole('row').filter({hasText: name}).first();
 
-test('dashboard supports health inspection, namespace switching, and sidebar controls', async ({page}) => {
-    const api = apiMocks.get(page)!;
-    await login(page);
+const lastRequest = (api: MockApi, method: string, path: string) =>
+    [...api.requests].reverse().find(request => request.method === method && request.path === path);
 
-    await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
-    await expect(page.getByText('Environment', {exact: true})).toBeVisible();
-    await expect(page.getByText('127.0.0.1:4175', {exact: true})).toBeVisible();
-    const headerGitHubLink = page.getByRole('link', {name: 'CoSky on GitHub'});
-    const headerGiteeLink = page.getByRole('link', {name: 'CoSky on Gitee'});
-    await expect(headerGitHubLink.locator('svg[data-brand="github"]')).toBeVisible();
-    await expect(headerGiteeLink).toHaveAttribute('href', 'https://gitee.com/AhooWang/CoSky');
-    await expect(headerGiteeLink.locator('svg[data-brand="gitee"]')).toBeVisible();
-    await expect(page.getByText('Healthy Services')).toBeVisible();
-    await expect(page.getByText(/128\s*\/\s*134/)).toBeVisible();
-    await expect(page.getByText('Service Topology').first()).toBeVisible();
-    await expect(page.getByText('Recent Changes')).toBeVisible();
-    await expect(page.getByText('inventory-service')).toBeVisible();
-    await expect(page.getByText(/Updated at \d{2}:\d{2}:\d{2}/)).toBeVisible();
+const monacoLines = (page: Page) => page.locator('.monaco-editor:visible .view-lines').last();
 
-    await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
-    const topologyDialog = page.getByRole('dialog', {name: 'Service Topology'});
-    await expect(topologyDialog).toBeVisible();
-    await expect(topologyDialog.getByRole('textbox', {name: 'Search nodes...'})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(topologyDialog).toBeHidden();
-    await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
-    await page.getByRole('button', {name: 'Close topology fullscreen'}).click();
-    await expect(topologyDialog).toBeHidden();
+async function typeInMonaco(page: Page, text: string) {
+    await page.locator('.monaco-editor:visible').last().click({position: {x: 120, y: 40}});
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('Delete');
+    await page.keyboard.insertText(text);
+}
 
-    await page.getByTestId('rf__node-api-gateway').click();
-    const directEdge = page.getByTestId('rf__edge-api-gateway-user-service').locator('.react-flow__edge-path');
-    const secondHopEdge = page.getByTestId('rf__edge-user-service-user-db').locator('.react-flow__edge-path');
-    await expect(directEdge).toHaveCSS('opacity', '1');
-    await expect(directEdge).toHaveCSS('stroke-width', '3px');
-    await expect(secondHopEdge).toHaveCSS('opacity', '0.08');
+async function choose(page: Page, select: string, option: string) {
+    await page.getByRole('combobox', {name: select}).click();
+    await page.getByRole('option', {name: option, exact: true}).click();
+}
 
-    await page.getByRole('combobox', {name: 'Select Namespace'}).click();
-    await page.getByRole('option', {name: 'default', exact: true}).click();
-    await expect(page.getByRole('combobox', {name: 'Select Namespace'})).toContainText('default');
-    await expect(page.getByText('System health and service relationships in default.')).toBeVisible();
+async function confirm(page: Page, trigger: Locator) {
+    await trigger.click();
+    await page.getByRole('alertdialog').getByRole('button', {name: 'Continue'}).click();
+}
 
-    await page.getByRole('button', {name: 'Collapse navigation'}).click();
-    await expect(page.getByRole('button', {name: 'Expand navigation'})).toBeVisible();
-    await page.getByRole('button', {name: 'Expand navigation'}).click();
-    await expect(page.getByText('Microservice Governance')).toBeVisible();
+test.describe('signing in', () => {
+    test('a token signs in, a wrong one does not, and signing out ends it', async ({page}) => {
+        const api = await installApiMock(page);
+        await page.goto('/');
+        await page.waitForURL('**/#/login');
+        await expect(page.getByRole('button', {name: /Sign in with/})).toHaveCount(0);
 
-    await page.getByRole('textbox', {name: 'Search nodes...'}).fill('order');
-    await expect(page.getByTestId('rf__node-order-service').getByText('order-service', {exact: true})).toBeVisible();
+        await page.getByLabel('Token', {exact: true}).fill('not-a-token');
+        await page.getByRole('button', {name: 'Show token'}).click();
+        await expect(page.getByLabel('Token', {exact: true})).toHaveAttribute('type', 'text');
+        await page.getByRole('button', {name: 'Hide token'}).click();
+        await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+        await expect(toast(page, 'Sign-in failed: A valid token is required.')).toBeVisible();
+        await expect(page).toHaveURL(/#\/login$/);
 
-    api.emptyCollections.add('topology');
-    await page.reload();
-    await expect(page.getByText('No service relationships yet')).toBeVisible();
-});
-
-test('configuration workflow covers search, history, editor, and import', async ({page}) => {
-    await login(page);
-    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
-
-    const search = page.getByRole('textbox', {name: 'Search configurations...'});
-    await search.fill('feature');
-    await expect(page.getByText('feature-flags.json', {exact: true})).toBeVisible();
-    await expect(page.getByText('application.yaml', {exact: true})).toBeHidden();
-    await search.clear();
-
-    await page.getByRole('button', {name: 'Expand row'}).first().click();
-    await expect(page.getByRole('cell', {name: '2', exact: true})).toBeVisible();
-    await expect(page.getByRole('cell', {name: 'UPDATE', exact: true}).first()).toBeVisible();
-    await expect(page.getByRole('cell', {name: '8f4a21c9e3b7', exact: true}).first()).toBeVisible();
-    await page.getByRole('button', {name: 'Diff', exact: true}).first().click();
-    await expect(page.getByRole('dialog', {name: 'Config Version Differ'})).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Rollback to version 2'})).toBeVisible();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
-
-    await page.getByRole('button', {name: 'Add', exact: true}).click();
-    const addConfigDialog = page.getByRole('dialog', {name: 'Add Config'});
-    const addConfigDialogBox = await addConfigDialog.boundingBox();
-    expect(addConfigDialogBox?.width).toBeGreaterThan(800);
-    expect(await addConfigDialog.locator('[data-slot="sheet-header"]').evaluate(element => getComputedStyle(element).paddingLeft)).toBe('24px');
-    await page.getByRole('textbox', {name: 'Config ID'}).fill('new-config');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Config saved successfully')).toBeVisible();
-    await expect(page.getByRole('dialog', {name: 'Add Config'})).toBeHidden();
-
-    await page.getByRole('button', {name: 'Import', exact: true}).click();
-    expect((await page.getByRole('dialog', {name: 'Import Config'}).boundingBox())?.width).toBeLessThanOrEqual(641);
-    await page.locator('input[type="file"]').setInputFiles({
-        name: 'configs.zip',
-        mimeType: 'application/zip',
-        buffer: Buffer.from('mock zip'),
+        await login(page);
+        expect(lastRequest(api, 'GET', '/v1/me')?.headers.authorization).toBe('Bearer cosky_mocktoken_mocksecret');
+        await page.locator('[data-slot="account-menu-trigger"]').click();
+        await page.getByRole('menuitem', {name: 'Sign out'}).click();
+        await page.waitForURL('**/#/login');
     });
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Total: 4, succeeded: 4.')).toBeVisible();
-});
 
-test('configuration editor highlights every format and validates JSON', async ({page}) => {
-    await login(page);
-    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
-    await page.getByRole('button', {name: 'Add', exact: true}).click();
-    const dialog = page.getByRole('dialog', {name: 'Add Config'});
-    const editor = dialog.locator('.monaco-editor').first();
-    const samples = [
-        {format: 'YAML', text: 'server:\n  port: 8080'},
-        {format: 'YML', text: 'server:\n  port: 8080'},
-        {format: 'Properties', text: '# comment\nserver.port=8080'},
-        {format: 'XML', text: '<server port="8080"/>'},
-        {format: 'JSON', text: '{"port": 8080}'},
-    ];
-    const tokenStyles = () => editor.locator('.view-lines span[class^="mtk"]').evaluateAll(spans => new Set(spans.map(span => span.className)).size);
+    test('a token the server stops accepting sends the page back to sign in', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        api.failing = {method: 'GET', path: /^\/v1\/namespaces\/default\/configs$/, status: 401, message: 'Expired.'};
 
-    for (const {format, text} of samples) {
-        await dialog.getByRole('combobox').click();
-        await page.getByRole('option', {name: format, exact: true}).click();
-        await editor.click();
-        await page.keyboard.press('ControlOrMeta+A');
-        await page.keyboard.press('Delete');
-        await page.keyboard.insertText(text);
-        await expect.poll(tokenStyles, {message: `${format} is highlighted`}).toBeGreaterThan(1);
-    }
+        await page.getByRole('link', {name: 'Configuration'}).click();
 
-    await page.keyboard.insertText(',');
-    await expect(editor.locator('.squiggly-error').first(), 'the JSON language service reports errors').toBeAttached();
-});
+        await page.waitForURL('**/#/login');
+    });
 
-test('service workflow expands instances and registers a new instance', async ({page}) => {
-    await login(page);
-    await page.getByRole('link', {name: 'Service', exact: true}).click();
+    test('a server that cannot be reached offers to try again, and keeps the token', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        api.failing = {method: 'GET', path: /^\/v1\/me$/, status: 503, message: 'Down.'};
 
-    await page.getByRole('button', {name: 'Expand row'}).first().click();
-    await expect(page.getByText('api-gateway.default.svc.cluster.local')).toBeVisible();
-    await expect(page.getByText('Healthy', {exact: true})).toBeVisible();
-    await page.getByRole('button', {name: 'Add instance', exact: true}).first().click();
+        await page.reload();
 
-    await expect(page.getByRole('dialog', {name: 'Add [api-gateway] Instance'})).toBeVisible();
-    expect((await page.locator('.monaco-editor:visible').boundingBox())?.height).toBeGreaterThanOrEqual(360);
-    await expect(page.getByRole('button', {name: 'Submit', exact: true})).toBeInViewport();
-    await page.getByRole('textbox', {name: 'Host'}).fill('api-gateway-02.default.svc.cluster.local');
-    await page.getByRole('spinbutton', {name: 'Port'}).fill('8081');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save instance success!')).toBeVisible();
-    await expect(page.getByRole('dialog', {name: 'Add [api-gateway] Instance'})).toBeHidden();
-});
+        await expect(page.getByRole('alert')).toContainText('The server cannot be reached.');
+        api.failing = undefined;
+        await page.getByRole('button', {name: 'Retry'}).click();
+        await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
+    });
 
-test('administration workflows cover namespaces, users, roles, and audit logs', async ({page}) => {
-    const api = apiMocks.get(page)!;
-    await login(page);
-    await page.getByRole('link', {name: 'Namespace', exact: true}).click();
-    await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
-    await expect(page.getByRole('button', {name: 'Delete'}).first()).toBeDisabled();
-    await page.getByRole('textbox', {name: 'Enter namespace'}).fill('qa');
-    await page.getByRole('button', {name: 'Add Namespace'}).click();
-    await expect(page.getByText('Add namespace success!')).toBeVisible();
+    test('a server without auth needs no sign-in, and offers no sign-out', async ({page}) => {
+        await installApiMock(page, {auth: false});
 
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
-    await page.getByRole('link', {name: 'User', exact: true}).click();
-    await expect(page.locator('[data-slot="data-table-wrapper"]')).toHaveCSS('padding', '12px');
-    const operatorRow = page.getByRole('row').filter({hasText: 'operator'});
-    await expect(operatorRow.getByText('Local', {exact: true})).toBeVisible();
-    await expect(operatorRow.getByText('Locked', {exact: true})).toBeVisible();
-    await expect(operatorRow.getByRole('button', {name: 'Unlock operator'})).toBeEnabled();
-    const roleRequestsBefore = api.requests.filter(request => request.method === 'PATCH' && request.path.endsWith('/users/operator/role')).length;
-    await page.getByRole('button', {name: 'Roles for operator'}).click();
-    await page.getByRole('menuitemcheckbox', {name: 'auditor'}).click();
-    await page.getByRole('menuitemcheckbox', {name: 'developer'}).click();
-    await page.keyboard.press('Escape');
-    await expect(page.getByText('Role bind successfully')).toBeVisible();
-    const roleRequests = api.requests.filter(request => request.method === 'PATCH' && request.path.endsWith('/users/operator/role'));
-    expect(roleRequests).toHaveLength(roleRequestsBefore + 1);
-    expect(JSON.parse(roleRequests.at(-1)?.postData ?? '[]')).toEqual(['auditor']);
+        await page.goto('/');
 
-    await page.getByRole('button', {name: 'Add User'}).click();
-    expect((await page.getByRole('dialog', {name: 'Add User'}).boundingBox())?.width).toBeLessThanOrEqual(521);
-    await page.getByRole('textbox', {name: 'Username'}).fill('qa-user');
-    await page.getByLabel('Password', {exact: true}).fill('secret');
-    await page.getByRole('button', {name: 'Select roles'}).click();
-    await page.getByRole('menuitemcheckbox', {name: 'admin'}).click();
-    await page.keyboard.press('Escape');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Add user success!')).toBeVisible();
+        await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
+        await page.locator('[data-slot="account-menu-trigger"]').click();
+        await expect(page.getByRole('menu')).toContainText('Account');
+        await expect(page.getByRole('menuitem', {name: 'Sign out'})).toHaveCount(0);
+    });
 
-    await page.getByRole('link', {name: 'Role', exact: true}).click();
-    const adminRoleRow = page.getByRole('row').filter({hasText: 'admin'}).first();
-    await expect(adminRoleRow.getByText('System full access', {exact: true})).toBeVisible();
-    await expect(adminRoleRow.getByRole('cell').nth(3)).toHaveText('1');
-    await expect(page.getByRole('button', {name: 'Edit admin (system role)'})).toBeDisabled();
-    await expect(page.getByRole('button', {name: 'Delete admin (system role)'})).toBeDisabled();
-    await page.getByRole('button', {name: 'Add Role'}).click();
-    expect((await page.getByRole('dialog', {name: 'Add Role'}).boundingBox())?.width).toBeLessThanOrEqual(681);
-    await page.getByRole('textbox', {name: 'Role Name'}).fill('qa-role');
-    await page.getByRole('textbox', {name: 'Description'}).fill('QA access');
-    await page.getByRole('button', {name: 'Add permission'}).click();
-    await page.getByRole('combobox', {name: 'Select Namespace'}).last().click();
-    await page.getByRole('option', {name: 'default', exact: true}).click();
-    await page.getByRole('combobox', {name: 'Select Resource Action'}).click();
-    await page.getByRole('option', {name: 'Read and write'}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save role success!')).toBeVisible();
+    test('OIDC signs in with the authorization code and PKCE, and leaves no code in the address', async ({page}) => {
+        const api = await installApiMock(page, {oidc: true});
+        await page.goto('/#/login');
 
-    await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
-    await expect(page.getByRole('button', {name: 'Timestamp'})).toHaveCount(0);
-    await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
-    await expect(page.getByText('14 items')).toBeVisible();
-    await page.getByRole('textbox', {name: 'Search all events'}).fill('inventory');
-    await page.getByRole('button', {name: 'Apply'}).click();
-    await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
-    await expect(page.getByRole('cell', {name: 'order-service'})).toBeHidden();
-    await expect(page.getByText('1 item')).toBeVisible();
-    await page.getByRole('button', {name: 'Details'}).click();
-    await expect(page.getByRole('dialog', {name: 'Audit Event Details'})).toContainText('Probe failed');
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+        const authorization = page.waitForRequest(request => request.url().includes('/authorize'));
+        await page.getByRole('button', {name: 'Sign in with idp.example'}).click();
+        const url = new URL((await authorization).url());
 
-    const auditDownload = page.waitForEvent('download');
-    await page.getByRole('button', {name: 'Export CSV'}).click();
-    expect((await auditDownload).suggestedFilename()).toMatch(/^cosky_audit_log_\d{8}_\d{6}\.csv$/);
-    await expect(page.getByText('Audit log exported')).toBeVisible();
+        expect(url.searchParams.get('response_type')).toBe('code');
+        expect(url.searchParams.get('client_id')).toBe('dashboard');
+        expect(url.searchParams.get('scope')).toBe('openid groups');
+        expect(url.searchParams.get('code_challenge_method')).toBe('S256');
+        await page.waitForURL('**/#/home');
+        expect(page.url()).not.toContain('code=');
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/me')?.headers.authorization).toMatch(/^Bearer ey/);
+    });
 
-    await page.getByRole('button', {name: 'Clear audit filters'}).click();
-    await page.getByRole('combobox', {name: 'Filter by status'}).click();
-    await page.getByRole('option', {name: 'Failed', exact: true}).click();
-    await page.getByRole('button', {name: 'Apply'}).click();
-    await expect(page.getByText('1 item')).toBeVisible();
-    await expect(page.getByRole('cell', {name: 'inventory-service'})).toBeVisible();
-
-    await page.getByLabel('From', {exact: true}).fill('2026-08-19T00:00');
-    await page.getByLabel('To', {exact: true}).fill('2026-08-18T00:00');
-    await page.getByRole('button', {name: 'Apply'}).click();
-    await expect(page.getByText('From must be earlier than To.')).toBeVisible();
-});
-
-test('remaining mutations cover edit, export, rollback, delete, password, and sign-out', async ({page}) => {
-    const api = apiMocks.get(page)!;
-    await login(page);
-
-    const accountButton = page.locator('[data-slot="account-menu-trigger"]');
-    await accountButton.click();
-    await expect(accountButton).toHaveCSS('color', 'rgb(255, 255, 255)');
-    await expect(accountButton).toHaveCSS('background-color', 'rgba(255, 255, 255, 0.08)');
-    await expect(page.getByRole('menuitem', {name: 'Change password'})).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('menuitem', {name: 'Change password'})).toBeHidden();
-    await accountButton.click();
-    await page.getByRole('menuitem', {name: 'Change password'}).click();
-    await page.getByLabel('Old Password', {exact: true}).fill('password');
-    await page.getByLabel('New Password', {exact: true}).fill('new-password');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Change password success!')).toBeVisible();
-
-    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
-    await page.getByRole('button', {name: 'Edit', exact: true}).first().click();
-    await expect(page.getByRole('dialog', {name: 'Edit Config'})).toBeVisible();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Config saved successfully')).toBeVisible();
-
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', {name: 'Export', exact: true}).click();
-    const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/^cosky_.+\.zip$/);
-    await expect(page.getByText('Export config success')).toBeVisible();
-
-    await page.getByRole('button', {name: 'Expand row'}).first().click();
-    await page.getByRole('button', {name: 'Diff', exact: true}).first().click();
-    await page.getByRole('button', {name: 'Rollback to version 2'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Rollback success')).toBeVisible();
-
-    const configRow = page.getByRole('row').filter({hasText: 'application.yaml'}).first();
-    const deleteRequestsBeforeCancel = api.requests.filter(request =>
-        request.method === 'DELETE' && request.path.endsWith('/configs/application.yaml')
-    ).length;
-    await configRow.getByRole('button', {name: 'Delete'}).click();
-    const deleteDialog = page.getByRole('alertdialog', {name: 'Are you sure to delete this config?'});
-    await expect(deleteDialog).toBeVisible();
-    await expect(deleteDialog).toContainText('version history');
-    await deleteDialog.getByRole('button', {name: 'Cancel'}).click();
-    await expect(deleteDialog).toBeHidden();
-    expect(api.requests.filter(request =>
-        request.method === 'DELETE' && request.path.endsWith('/configs/application.yaml')
-    )).toHaveLength(deleteRequestsBeforeCancel);
-    await expect(configRow).toBeVisible();
-    await configRow.getByRole('button', {name: 'Delete'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Delete config success')).toBeVisible();
-
-    await page.getByRole('link', {name: 'Service', exact: true}).click();
-    await page.getByRole('textbox', {name: 'Enter service ID'}).fill('qa-service');
-    await page.getByRole('button', {name: 'Add Service'}).click();
-    await expect(page.getByText('Add service success!')).toBeVisible();
-    await page.getByRole('button', {name: 'Expand row'}).first().click();
-    const instanceTable = page.getByRole('table').nth(1);
-    await instanceTable.getByRole('button', {name: 'Edit'}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save instance success!')).toBeVisible();
-    await instanceTable.getByRole('button', {name: 'Delete'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Delete instance success!')).toBeVisible();
-    const serviceRow = page.getByRole('row').filter({hasText: 'api-gateway'}).first();
-    await serviceRow.getByRole('button', {name: 'Delete'}).click();
-    await expect(page.getByRole('alertdialog')).toContainText('3 registered instances');
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Service deleted successfully')).toBeVisible();
-
-    await page.getByRole('link', {name: 'Namespace', exact: true}).click();
-    const namespaceRow = page.getByRole('row').filter({hasText: 'production'});
-    await namespaceRow.getByRole('button', {name: 'Delete'}).click();
-    await expect(page.getByRole('alertdialog')).toContainText('not automatically deleted');
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Namespace deleted successfully')).toBeVisible();
-
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
-    await page.getByRole('link', {name: 'User', exact: true}).click();
-    const operatorRow = page.getByRole('row').filter({hasText: 'operator'});
-    await expect(operatorRow.getByText('Locked', {exact: true})).toBeVisible();
-    await operatorRow.getByRole('button', {name: 'Unlock'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('User unlocked successfully').last()).toBeVisible();
-    await expect(operatorRow.getByText('Active', {exact: true})).toBeVisible();
-    await operatorRow.getByRole('button', {name: 'Lock operator'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('User locked successfully')).toBeVisible();
-    await expect(operatorRow.getByText('Locked', {exact: true})).toBeVisible();
-    await operatorRow.getByRole('button', {name: 'Unlock operator'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('User unlocked successfully').last()).toBeVisible();
-    await expect(operatorRow.getByText('Active', {exact: true})).toBeVisible();
-    await operatorRow.getByRole('button', {name: 'Delete'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('User deleted successfully')).toBeVisible();
-
-    await page.getByRole('link', {name: 'Role', exact: true}).click();
-    const developerRow = page.getByRole('row').filter({hasText: 'developer'}).first();
-    await developerRow.getByRole('button', {name: 'Edit'}).click();
-    await page.getByRole('combobox', {name: 'Select Resource Action'}).click();
-    await page.getByRole('option', {name: 'Read only'}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save role success!')).toBeVisible();
-    await expect(developerRow.getByText('default: Read', {exact: true})).toBeVisible();
-    await developerRow.getByRole('button', {name: 'Delete'}).click();
-    await expect(page.getByRole('alertdialog')).toContainText('assigned to 1 user');
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Role deleted successfully')).toBeVisible();
-
-    await page.getByRole('button', {name: 'A admin'}).click();
-    await page.getByRole('menuitem', {name: 'Sign out'}).click();
-    await expect(page).toHaveURL(/\/login$/);
-
-    for (const [method, path] of [
-        ['PATCH', '/v1/users/admin/password'],
-        ['GET', '/configs/export'],
-        ['PUT', '/to/2'],
-        ['DELETE', '/configs/application.yaml'],
-        ['PUT', '/services/qa-service'],
-        ['DELETE', '/instances/api-gateway-01'],
-        ['DELETE', '/services/api-gateway'],
-        ['DELETE', '/namespaces/production'],
-        ['DELETE', '/users/operator/unlock'],
-        ['PUT', '/users/operator/lock'],
-        ['DELETE', '/users/operator'],
-        ['DELETE', '/roles/developer'],
+    for (const [answer, message] of [
+        ['wrong-state', 'does not belong to this sign-in'],
+        ['wrong-nonce', 'does not belong to this sign-in'],
+        ['denied', 'access_denied'],
     ] as const) {
-        expect(api.requests.some(request => request.method === method && request.path.endsWith(path)), `${method} ${path}`).toBe(true);
+        test(`OIDC refuses an answer that is ${answer}`, async ({page}) => {
+            const api = await installApiMock(page, {oidc: true});
+            api.providerAnswer = answer;
+            await page.goto('/#/login');
+
+            await page.getByRole('button', {name: 'Sign in with idp.example'}).click();
+
+            await expect(toast(page, message)).toBeVisible();
+            await expect(page).toHaveURL(/#\/login$/);
+        });
     }
 });
 
-test('resource pages expose useful empty states and keep primary actions available', async ({page}) => {
-    const api = apiMocks.get(page)!;
-    await login(page);
+test.describe('the shell', () => {
+    test('the overview shows counts and the topology, for the namespace chosen', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
 
-    api.emptyCollections.add('services');
-    await page.getByRole('link', {name: 'Service', exact: true}).click();
-    await expect(page.getByText('No services registered in this namespace yet.')).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Add Service'})).toBeVisible();
+        await expect(page.getByRole('main')).toContainText('Counts and service relationships in default.');
+        await expect(page.getByText('Services', {exact: true}).locator('..')).toContainText('2');
+        await expect(page.getByText('Instances', {exact: true}).locator('..')).toContainText('2');
+        await expect(page.getByText('Configurations', {exact: true}).locator('..')).toContainText('2');
+        await expect(page.getByText('Namespaces', {exact: true}).locator('..')).toContainText('2');
+        await expect(page.locator('.react-flow__node').filter({hasText: 'gateway'}).first()).toBeVisible();
+        await page.locator('.react-flow__node').filter({hasText: 'gateway'}).first().click();
 
-    api.emptyCollections.add('namespaces');
-    await page.reload();
-    await page.getByRole('link', {name: 'Namespace', exact: true}).click();
-    await expect(page.getByText('No namespaces found.')).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Add Namespace'})).toBeVisible();
+        await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
+        await expect(page.getByRole('dialog', {name: 'Service Topology'})).toBeVisible();
+        await page.getByRole('button', {name: 'Close topology fullscreen'}).click();
+        await expect(page.getByRole('dialog', {name: 'Service Topology'})).toHaveCount(0);
 
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
-    api.emptyCollections.add('users');
-    await page.getByRole('link', {name: 'User', exact: true}).click();
-    await expect(page.getByText('No users found.')).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Add User'})).toBeVisible();
+        await page.getByRole('combobox', {name: 'Select Namespace'}).click();
+        await page.getByRole('option', {name: 'prod', exact: true}).click();
+        await expect(page.getByRole('main')).toContainText('Counts and service relationships in prod.');
+        await expect(page.getByText('Instances', {exact: true}).locator('..')).toContainText('0');
+    });
 
-    api.emptyCollections.add('roles');
-    await page.getByRole('link', {name: 'Role', exact: true}).click();
-    await expect(page.getByText('No roles found.')).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Add Role'})).toBeVisible();
+    test('command search reaches every page, and its keys stay out of the way', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
+        await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
 
-    api.emptyCollections.add('audit');
-    await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
-    await expect(page.getByText('No audit events recorded yet.')).toBeVisible();
+        await page.keyboard.press('Control+K');
+        const search = page.getByRole('combobox', {name: /search/i});
+        await expect(search).toBeFocused();
+        await search.fill('binding');
+        await page.keyboard.press('Enter');
+        await page.waitForURL('**/#/role-binding');
+
+        await page.keyboard.press('/');
+        await expect(search).toBeFocused();
+        await search.fill('nothing like this');
+        await page.keyboard.press('Escape');
+        await expect(search).toHaveValue('');
+    });
+
+    test('the sidebar collapses, and opens its security group for a security page', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
+
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        await page.waitForURL('**/#/service-account');
+        await expect(page.getByRole('link', {name: 'Role Binding'})).toBeVisible();
+
+        await page.getByRole('button', {name: 'Collapse navigation'}).click();
+        await expect(page.getByRole('button', {name: 'Expand navigation'})).toBeVisible();
+        await page.getByRole('button', {name: 'Expand navigation'}).click();
+    });
+
+    test('a small screen navigates through a sheet', async ({page}) => {
+        await installApiMock(page);
+        await page.setViewportSize({width: 390, height: 844});
+        await login(page);
+
+        await page.getByRole('button', {name: 'Open navigation'}).click();
+        await page.getByRole('dialog').getByRole('link', {name: 'Service', exact: true}).click();
+
+        await page.waitForURL('**/#/service');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
 });
 
-test('tables expose loading, empty, sorting, pagination, and server-error states', async ({page}) => {
-    const api = apiMocks.get(page)!;
-    await login(page);
+test.describe('configuration', () => {
+    test('a new Config is created only if it does not exist, in the format its name suggests', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toContainText('YAML');
 
-    api.manyServices = true;
-    api.delayNext = {method: 'GET', path: /\/services\/stats$/, milliseconds: 800};
-    await Promise.all([
-        expect(page.locator('[data-slot="skeleton"]').first()).toBeVisible(),
-        page.getByRole('link', {name: 'Service', exact: true}).click(),
-    ]);
-    await expect(page.getByText('api-gateway', {exact: true})).toBeVisible();
-    await page.getByRole('button', {name: 'Next page'}).click();
-    await expect(page.getByText('2 / 2')).toBeVisible();
-    await page.getByRole('combobox', {name: 'Select Namespace'}).click();
-    await page.getByRole('option', {name: 'default', exact: true}).click();
-    await expect(page.getByText('1 / 1')).toBeVisible();
-    await expect(page.getByText('api-gateway', {exact: true})).toBeVisible();
-    api.manyServices = false;
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await page.getByLabel('Name', {exact: true}).fill('payments/app.properties');
+        await expect(page.getByRole('combobox', {name: 'Format'})).toContainText('Properties');
+        await typeInMonaco(page, 'a=1');
+        await page.getByRole('button', {name: 'Submit'}).click();
 
-    api.emptyCollections.add('configs');
-    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
-    await expect(page.getByText('No configurations in this namespace yet.')).toBeVisible();
-    api.emptyCollections.delete('configs');
-    await page.reload();
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        await expect(row(page, 'payments/app.properties')).toContainText('Properties');
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/configs/payments/app.properties');
+        expect(put?.headers['if-none-match']).toBe('*');
+        expect(JSON.parse(put?.body ?? '')).toMatchObject({config: {format: 'CONFIG_FORMAT_PROPERTIES', content: 'a=1'}});
+    });
 
-    const configHeader = page.getByRole('button', {name: 'Config ID'});
-    await configHeader.click();
-    await expect(page.locator('tbody tr').first()).toContainText('application.yaml');
-    await configHeader.click();
-    await expect(page.locator('tbody tr').first()).toContainText('rate-limiter.yaml');
+    test('an edit guards the revision it read, keeps the labels, and says when someone got there first', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
 
-    api.failNext = {method: 'DELETE', path: /\/configs\/application\.yaml$/};
-    const configRow = page.getByRole('row').filter({hasText: 'application.yaml'}).first();
-    await configRow.getByRole('button', {name: 'Delete'}).click();
-    await page.getByRole('button', {name: 'Continue'}).click();
-    await expect(page.getByText('Delete config failed: Expected test failure')).toBeVisible();
-    expect(browserErrors.get(page)?.some(error => error.includes('500'))).toBe(true);
-    browserErrors.set(page, []);
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('9090');
+        await expect(page.getByRole('dialog')).toContainText('serviceaccount:admin');
+        await choose(page, 'Format', 'Text');
+        await choose(page, 'Format', 'YAML');
+        await typeInMonaco(page, 'server:\n  port: 1');
+        api.put('/v1/namespaces/default/configs/application.yaml', {
+            meta: {labels: {team: 'core'}},
+            config: {format: 'CONFIG_FORMAT_YAML', content: 'someone else', sha256: 'x'},
+        });
 
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
-    api.failNext = {method: 'GET', path: /\/audit-log$/};
-    await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
-    await expect(page.getByRole('heading', {name: 'Audit Log'})).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('Could not load audit events');
-    await expect(page.getByText('No audit events recorded yet.')).toBeHidden();
-    browserErrors.set(page, []);
-    await page.getByRole('button', {name: 'Retry'}).click();
-    await expect(page.getByText('14 items')).toBeVisible();
-    await page.getByRole('button', {name: 'Next page'}).click();
-    await expect(page.getByText('2 / 2')).toBeVisible();
-    await expect(page.getByRole('cell', {name: 'service-5'})).toBeVisible();
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Failed to save config: It changed since it was read.')).toBeVisible();
+
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('someone');
+        await typeInMonaco(page, 'mine');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/configs/application.yaml');
+        expect(put?.headers['if-match']).toMatch(/^"\d+"$/);
+        expect(JSON.parse(put?.body ?? '').meta.labels).toEqual({team: 'core'});
+    });
+
+    test('a Config that cannot be read offers to try again, and changes nothing', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        api.failing = {method: 'GET', path: /configs\/application\.yaml$/, status: 404, message: 'Gone.'};
+
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+
+        await expect(page.getByRole('alert')).toContainText('Nothing has been changed.');
+        api.failing = undefined;
+        await page.getByRole('button', {name: 'Retry'}).click();
+        await expect(monacoLines(page)).toContainText('9090');
+    });
+
+    test('a name holding a slash stays one path segment', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await confirm(page, row(page, 'shared/datasource.json').getByRole('button', {name: 'Delete'}));
+
+        await expect(toast(page, 'Config deleted')).toBeVisible();
+        await expect(page.getByRole('row').filter({hasText: 'shared/datasource.json'})).toHaveCount(0);
+        expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/configs/shared/datasource.json')).toBeTruthy();
+    });
+
+    test('the history compares with the current version, and rolls back to an old one', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        const version = (sha256: string) => page.getByRole('row').filter({hasText: sha256}).last();
+        await expect(version('aaaa1111')).toBeVisible();
+
+        await version('cccc3333').getByRole('button', {name: 'Diff'}).click();
+        await expect(page.getByRole('button', {name: /Roll back to revision/})).toBeDisabled();
+        await expect(page.locator('.monaco-diff-editor .view-lines').first()).toBeVisible();
+        await page.keyboard.press('Escape');
+
+        const oldVersion = await version('aaaa1111').innerText();
+        await version('aaaa1111').getByRole('button', {name: 'Diff'}).click();
+        const rollback = page.getByRole('button', {name: /Roll back to revision/});
+        await expect(rollback).toBeEnabled();
+        await confirm(page, rollback);
+
+        await expect(toast(page, 'Rolled back')).toBeVisible();
+        const post = lastRequest(api, 'POST', '/v1/namespaces/default/configs/application.yaml:rollback');
+        expect(oldVersion).toContain(JSON.parse(post?.body ?? '').toRevision);
+    });
+
+    test('import sends the archive itself, and export gives one back', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+
+        await page.getByRole('button', {name: 'Import'}).click();
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Please select a ZIP file.')).toBeVisible();
+        await page.locator('input[type="file"]').setInputFiles({
+            name: 'configs.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from('PK-archive'),
+        });
+        await expect(page.getByRole('dialog')).toContainText('configs.zip');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Configs imported')).toBeVisible();
+        const post = lastRequest(api, 'POST', '/v1/namespaces/default/configs:import');
+        expect(post?.headers['content-type']).toBe('application/zip');
+        expect(post?.bytes?.toString()).toBe('PK-archive');
+
+        const download = page.waitForEvent('download');
+        await page.getByRole('button', {name: 'Export'}).click();
+        expect((await download).suggestedFilename()).toMatch(/^cosky_default-.*\.zip$/);
+    });
+
+    test('the list follows changes without being asked, and keeps its place', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')?.headers.authorization)
+            .toBe('Bearer cosky_mocktoken_mocksecret');
+
+        api.put('/v1/namespaces/default/configs/from-elsewhere.txt', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_TEXT', content: 'x', sha256: 'y'},
+        });
+        api.releaseWatch();
+
+        await expect(row(page, 'from-elsewhere.txt')).toBeVisible();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+    });
+
+    test('a snapshot covers whatever was missed while no stream was open', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        api.put('/v1/namespaces/default/configs/missed.txt', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_TEXT', content: 'x', sha256: 'y'},
+        });
+        api.releaseWatch({snapshot: {epoch: 'e'}});
+
+        await expect(row(page, 'missed.txt')).toBeVisible();
+    });
+
+    test('a stream the server canceled stays closed', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const watches = () => api.requests.filter(request => request.path === '/v1/namespaces/default/watch').length;
+        await expect.poll(watches).toBeGreaterThan(0);
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        const opened = watches();
+
+        api.releaseWatch({canceled: {reason: 'ERROR_REASON_PERMISSION_DENIED'}});
+        await page.waitForTimeout(2_000);
+
+        expect(watches()).toBe(opened);
+    });
+
+    test('reading again keeps what is on screen until the answer arrives', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+        const lists = () => api.requests.filter(request => request.path === '/v1/namespaces/default/configs').length;
+        const before = lists();
+        api.slow = {path: /^\/v1\/namespaces\/default\/configs$/, milliseconds: 1_500};
+
+        api.releaseWatch();
+        await expect.poll(lists).toBeGreaterThan(before);
+
+        await expect(row(page, 'application.yaml')).toBeVisible({timeout: 300});
+    });
+
+    test('a stream that goes silent is opened again', async ({page}) => {
+        await installApiMock(page);
+        // A stream that answers once and then says nothing, which a route cannot do.
+        await page.addInitScript(() => {
+            const original = window.fetch;
+            const counted = window as unknown as {watches: number};
+            counted.watches = 0;
+            window.fetch = async (input, init) => {
+                if (!String(input).includes('/watch')) return original(input, init);
+                counted.watches++;
+                const body = new ReadableStream({
+                    start: controller => controller.enqueue(new TextEncoder().encode('data:{"progress":"1"}\n\n')),
+                });
+                return new Response(body, {headers: {'Content-Type': 'text/event-stream'}});
+            };
+        });
+        await page.clock.install();
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const watches = () => page.evaluate(() => (window as unknown as {watches: number}).watches);
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        // React opens it twice in development, which says nothing about this.
+        const opened = await watches();
+        expect(opened).toBeGreaterThan(0);
+
+        await page.clock.runFor(29_000);
+        expect(await watches()).toBe(opened);
+        await page.clock.runFor(2_000);
+        await page.clock.runFor(2_000);
+
+        await expect.poll(watches).toBeGreaterThan(opened);
+    });
+
+    test('a failed read says so and can be retried', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        api.failing = {method: 'GET', path: /^\/v1\/namespaces\/default\/configs$/, status: 503, message: 'Down.'};
+
+        await page.getByRole('link', {name: 'Configuration'}).click();
+
+        await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
+        api.failing = undefined;
+        await page.getByRole('button', {name: /retry/i}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+    });
 });
 
-test('route guards, command search, password visibility, and form validation stay operable', async ({page}) => {
-    const api = apiMocks.get(page)!;
-    await page.goto('/config');
-    await expect(page).toHaveURL(/\/login$/);
+test.describe('services', () => {
+    test('a service shows its instances, leased or fixed', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
 
-    const password = page.getByLabel('Password', {exact: true});
-    await expect(password).toHaveAttribute('type', 'password');
-    await page.getByRole('button', {name: 'Show password'}).click();
-    await expect(password).toHaveAttribute('type', 'text');
-    await page.getByRole('button', {name: 'Hide password'}).click();
-    await login(page);
+        await expect(row(page, 'order')).toContainText('1');
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
+        const instance = row(page, 'order-1');
+        await expect(instance).toContainText('http://10.0.0.1:8080');
+        await expect(instance).toContainText('Leased');
+        await expect(instance).toContainText('"zone":"east"');
 
-    const commandSearch = page.getByRole('combobox', {name: 'Search navigation'});
-    await expect(commandSearch).toBeVisible();
-    await page.keyboard.press('?');
-    await expect(commandSearch).not.toBeFocused();
-    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeHidden();
-    await page.keyboard.press('/');
-    await expect(commandSearch).toBeFocused();
-    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeVisible();
-    await expect(page.getByRole('option', {name: /Configuration/})).toHaveAttribute('aria-selected', 'true');
-    await commandSearch.press('Enter');
-    await expect(page).toHaveURL(/\/config$/);
-    await page.keyboard.press('/');
-    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeVisible();
-    await commandSearch.press('Escape');
-    await expect(page.getByRole('listbox', {name: 'Navigation results'})).toBeHidden();
-    await commandSearch.fill('service');
-    await expect(page.getByRole('option', {name: /Service/})).toBeVisible();
-    await commandSearch.press('Enter');
-    await expect(page).toHaveURL(/\/service$/);
-    await commandSearch.fill('configuration');
-    await commandSearch.press('Enter');
-    await expect(page).toHaveURL(/\/config$/);
-    await commandSearch.fill('missing-page');
-    await expect(page.getByText('No pages found')).toBeVisible();
-    await page.getByRole('button', {name: 'Open selected page'}).click();
-    await expect(page.getByText('No page matches “missing-page”.')).toBeVisible();
+        await row(page, 'database').getByRole('button', {name: /expand/i}).click();
+        await expect(row(page, 'database-1')).toContainText('Fixed');
+    });
 
-    await page.getByRole('button', {name: 'Import', exact: true}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Please select a ZIP file.')).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog', {name: 'Import Config'})).toBeHidden();
+    test('an instance added here names its service and has no lease', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
 
-    await page.getByRole('button', {name: 'Add', exact: true}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    const configId = page.getByRole('textbox', {name: 'Config ID'});
-    await expect(page.locator('#config-file-name-error')).toHaveText('Please enter file name!');
-    await expect(configId).toBeFocused();
-    await expect(configId).toHaveAttribute('aria-invalid', 'true');
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+        await page.getByRole('button', {name: 'Add Instance', exact: true}).click();
+        await page.getByLabel('Service', {exact: true}).fill('billing');
+        await page.getByLabel('Host', {exact: true}).fill('10.0.0.9');
+        await page.getByLabel('Port', {exact: true}).fill('8081');
+        await typeInMonaco(page, '[1]');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Metadata must be a JSON object of strings.')).toBeVisible();
+        await typeInMonaco(page, '{"zone":"west"}');
+        await page.getByRole('button', {name: 'Submit'}).click();
 
-    api.failNext = {method: 'GET', path: /\/configs\/application\.yaml$/};
-    await page.getByRole('button', {name: 'Edit', exact: true}).first().click();
-    await expect(page.getByRole('alert')).toContainText('Failed to load this configuration');
-    await expect(page.getByRole('button', {name: 'Submit', exact: true})).toBeHidden();
-    await page.getByRole('button', {name: 'Retry'}).click();
-    await expect(page.getByRole('button', {name: 'Submit', exact: true})).toBeVisible();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
-    browserErrors.set(page, []);
+        await expect(toast(page, 'Instance saved')).toBeVisible();
+        await expect(row(page, 'billing')).toContainText('1');
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/instances/10.0.0.9-8081');
+        expect(put?.headers['if-none-match']).toBe('*');
+        const body = JSON.parse(put?.body ?? '');
+        expect(body.instance).toEqual({
+            service: 'billing',
+            endpoint: {scheme: 'http', host: '10.0.0.9', port: 8081},
+            weight: 1,
+            metadata: {zone: 'west'},
+        });
+        expect(body.meta.lease).toBeUndefined();
+    });
 
-    await page.getByRole('link', {name: 'Service', exact: true}).click();
-    await page.getByRole('button', {name: 'Add instance', exact: true}).first().click();
-    await page.getByRole('textbox', {name: 'Host'}).fill('invalid-metadata.local');
-    await page.getByRole('spinbutton', {name: 'Port'}).fill('8080');
-    await page.locator('.monaco-editor:visible').click({position: {x: 120, y: 40}});
-    await page.keyboard.insertText('invalid');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Metadata must be a valid JSON object.')).toBeVisible();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+    test('an edit keeps the lease and the labels, and a delete removes it', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
 
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
-    await page.getByRole('link', {name: 'Role', exact: true}).click();
-    await page.getByRole('button', {name: 'Add Role'}).click();
-    await page.getByRole('textbox', {name: 'Role Name'}).fill('incomplete-role');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Validation check');
-    await page.getByRole('button', {name: 'Add permission'}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.locator('#role-binding-error')).toHaveText('Complete every permission binding before saving.');
-    await expect(page.getByRole('combobox', {name: 'Select Namespace'}).last()).toBeFocused();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+        await row(page, 'order-1').getByRole('button', {name: 'Edit'}).click();
+        await expect(page.getByLabel('Service', {exact: true})).toHaveCount(0);
+        await expect(page.getByLabel('Name', {exact: true})).toHaveCount(0);
+        await page.getByLabel('Weight', {exact: true}).fill('5');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Instance saved')).toBeVisible();
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/instances/order-1');
+        const body = JSON.parse(put?.body ?? '');
+        expect(put?.headers['if-match']).toMatch(/^"\d+"$/);
+        expect(body.meta).toEqual({lease: '42', labels: {pool: 'a'}});
+        expect(body.instance.weight).toBe(5);
+        await expect(row(page, 'order-1')).toContainText('5');
 
-    await page.getByRole('link', {name: 'User', exact: true}).click();
-    const currentUserRow = page.getByRole('row').filter({hasText: 'admin'}).first();
-    await expect(currentUserRow.getByRole('button', {name: 'Roles for admin'})).toHaveCount(0);
-    await expect(currentUserRow.getByRole('cell').nth(1).getByText('admin', {exact: true})).toBeVisible();
-    await expect(currentUserRow.getByRole('button', {name: 'Delete'})).toBeDisabled();
-    api.failNext = {method: 'POST', path: /\/users\/failing-user$/};
-    await page.getByRole('button', {name: 'Add User'}).click();
-    await page.getByRole('textbox', {name: 'Username'}).fill('failing-user');
-    await page.getByLabel('Password', {exact: true}).fill('secret');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Failed to add user')).toBeVisible();
-    await expect(page.getByRole('dialog', {name: 'Add User'})).toBeVisible();
-    expect(api.requests.some(request => request.method === 'PATCH' && request.path.endsWith('/users/failing-user/role'))).toBe(false);
-    browserErrors.set(page, []);
+        await confirm(page, row(page, 'order-1').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Instance deleted')).toBeVisible();
+        expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+    });
 
-    await page.getByRole('textbox', {name: 'Username'}).fill('existing-user');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('User already exists.')).toBeVisible();
-    expect(api.requests.some(request => request.method === 'PATCH' && request.path.endsWith('/users/existing-user/role'))).toBe(false);
+    test('an instance added to a listed service needs no service name, and the page follows changes', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await row(page, 'database').getByRole('button', {name: 'Add instance', exact: true}).click();
+        await expect(page.getByRole('dialog')).toContainText('Add an instance of database');
+        await expect(page.getByLabel('Service', {exact: true})).toHaveCount(0);
+        await page.getByRole('button', {name: 'Cancel'}).click();
 
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
-    api.failNext = {method: 'PATCH', path: /\/users\/rollback-user\/role$/};
-    await page.getByRole('button', {name: 'Add User'}).click();
-    await page.getByRole('textbox', {name: 'Username'}).fill('rollback-user');
-    await page.getByLabel('Password', {exact: true}).fill('secret');
-    const rollbackDelete = page.waitForRequest(request => request.method() === 'DELETE' && request.url().endsWith('/users/rollback-user'));
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await rollbackDelete;
-    browserErrors.set(page, []);
-
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
-    await page.getByRole('button', {name: 'Add User'}).click();
-    await page.getByRole('textbox', {name: 'Username'}).fill('cleanup-failure-user');
-    await page.getByLabel('Password', {exact: true}).fill('secret');
-    const failedCleanupDelete = page.waitForRequest(request => request.method() === 'DELETE' && request.url().endsWith('/users/cleanup-failure-user'));
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await failedCleanupDelete;
-    await expect(page.getByText(/automatic cleanup failed/)).toBeVisible();
-    await expect(page.getByRole('dialog', {name: 'Add User'})).toBeHidden();
-    browserErrors.set(page, []);
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
+        await expect(row(page, 'order-1')).toBeVisible();
+        api.put('/v1/namespaces/default/instances/order-2', {
+            meta: {},
+            instance: {service: 'order', endpoint: {scheme: 'http', host: '10.0.0.3', port: 8080}},
+        });
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+        api.releaseWatch();
+        await expect(row(page, 'order-2')).toBeVisible();
+    });
 });
 
-test('mobile layout keeps navigation and dashboard controls usable', async ({page}) => {
-    await page.setViewportSize({width: 390, height: 844});
-    await login(page);
+test.describe('namespaces', () => {
+    test('a namespace is added with its description, and only an empty one can be deleted', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Namespace'}).click();
+        await expect(row(page, 'prod')).toContainText('Production');
+        await expect(row(page, 'default').getByRole('button', {name: 'Delete'})).toBeDisabled();
 
-    await expect(page.getByRole('button', {name: 'Open navigation'})).toBeVisible();
-    await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
-    await expect(page.getByText('Healthy Services')).toBeVisible();
-    await expect(page.getByRole('link', {name: '6 Unhealthy'})).toBeVisible();
-    const healthyCard = await page.getByText('Healthy Services').evaluate(element => element.parentElement?.parentElement?.getBoundingClientRect().toJSON());
-    const instancesCard = await page.getByText('Instances', {exact: true}).evaluate(element => element.parentElement?.parentElement?.getBoundingClientRect().toJSON());
-    expect(healthyCard?.y).toBe(instancesCard?.y);
-    const topology = page.locator('[data-slot="card"]').filter({hasText: 'Service Topology'}).locator('[data-slot="card-content"]');
-    expect((await topology.boundingBox())?.height).toBeLessThanOrEqual(400);
-    await page.getByRole('button', {name: 'Open navigation'}).click();
-    const navigation = page.getByRole('dialog', {name: 'Navigation'});
-    await expect(navigation).toBeVisible();
-    await expect(navigation).toHaveAttribute('aria-modal', 'true');
-    await expect(page.locator('[data-slot="sheet-overlay"]')).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Close navigation'})).toBeVisible();
-    await expect(page.getByRole('link', {name: 'Configuration'})).toBeVisible();
-    for (let index = 0; index < 12; index++) await page.keyboard.press('Tab');
-    expect(await page.evaluate(() => document.activeElement?.closest('[role="dialog"]') !== null)).toBe(true);
-    await page.getByRole('button', {name: 'Close navigation'}).click();
-    await expect(page.getByRole('button', {name: 'Open navigation'})).toBeVisible();
+        await page.getByLabel('Namespace name').fill('staging');
+        await page.getByLabel('Namespace description').fill('Rehearsals');
+        await page.getByRole('button', {name: 'Add Namespace'}).click();
+        await expect(toast(page, 'Namespace added')).toBeVisible();
+        await expect(row(page, 'staging')).toContainText('Rehearsals');
+        await expect(page.getByLabel('Namespace name')).toHaveValue('');
 
-    await page.getByRole('button', {name: 'Open navigation'}).click();
-    await page.getByRole('link', {name: 'Service', exact: true}).click();
-    const addInstance = page.getByRole('button', {name: 'Add instance'}).first();
-    const deleteService = page.getByRole('button', {name: 'Delete service'}).first();
-    await expect(addInstance).toBeInViewport();
-    await expect(deleteService).toBeInViewport();
-    expect((await addInstance.boundingBox())?.height).toBeGreaterThanOrEqual(40);
-    expect((await deleteService.boundingBox())?.height).toBeGreaterThanOrEqual(40);
+        api.failing = {method: 'DELETE', path: /namespaces\/staging$/, status: 409, message: 'It is not empty.'};
+        await confirm(page, row(page, 'staging').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Failed to delete namespace: It is not empty.')).toBeVisible();
+        api.failing = undefined;
+        await confirm(page, row(page, 'staging').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Namespace deleted')).toBeVisible();
+        await expect(page.getByRole('row').filter({hasText: 'staging'})).toHaveCount(0);
+    });
+});
 
-    await addInstance.click();
-    await expect(page.getByRole('dialog', {name: 'Add [api-gateway] Instance'})).toBeVisible();
-    await expect(page.getByRole('button', {name: 'Submit', exact: true})).toBeInViewport();
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
+test.describe('security', () => {
+    test('a service account gets a token shown once, which can be revoked', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        await expect(row(page, 'admin')).toContainText('Created at bootstrap');
 
-    await page.goto('/audit-log');
-    const failedStatus = page.getByRole('cell', {name: '500'});
-    const details = page.getByRole('button', {name: 'Details'}).first();
-    const isHorizontallyVisible = (element: Element) => {
-        const cell = element.getBoundingClientRect();
-        const table = element.closest('[data-slot="table-container"]')!.getBoundingClientRect();
-        return cell.left >= table.left && cell.right <= table.right;
-    };
-    expect(await failedStatus.evaluate(isHorizontallyVisible)).toBe(true);
-    expect(await details.evaluate(isHorizontallyVisible)).toBe(true);
-    const auditTableOverflow = await page.locator('[data-slot="table-container"]').evaluate(element => element.scrollWidth > element.clientWidth);
-    expect(auditTableOverflow).toBe(false);
+        await page.getByLabel('Service account name').fill('deployer');
+        await page.getByLabel('Service account description').fill('The pipeline');
+        await page.getByRole('button', {name: 'Add Service Account'}).click();
+        await expect(toast(page, 'Service account added')).toBeVisible();
 
-    const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
-    expect(horizontalOverflow).toBe(false);
+        await row(page, 'deployer').getByRole('button', {name: 'New token'}).click();
+        await expect(page.getByRole('textbox', {name: 'New token'})).toHaveValue(/^cosky_.*_plaintextsecret$/);
+        await page.getByRole('button', {name: 'Done'}).click();
+
+        await row(page, 'deployer').getByRole('button', {name: /expand/i}).click();
+        await confirm(page, page.getByRole('button', {name: 'Revoke'}).first());
+        await expect(toast(page, 'Token revoked')).toBeVisible();
+
+        await confirm(page, row(page, 'deployer').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Service account deleted')).toBeVisible();
+    });
+
+    test('a failed token says why', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        api.failing = {method: 'POST', path: /tokens$/, status: 400, message: 'At most 2 tokens.'};
+
+        await row(page, 'admin').getByRole('button', {name: 'New token'}).click();
+
+        await expect(toast(page, 'Failed to create token: At most 2 tokens.')).toBeVisible();
+    });
+
+    test('a role holds rules of kinds, verbs, namespaces and names', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Role', exact: true}).click();
+
+        await page.getByRole('button', {name: 'Add Role'}).click();
+        await page.getByLabel('Name', {exact: true}).fill('reader');
+        await page.getByLabel('Description', {exact: true}).fill('Reads Configs');
+        await page.getByRole('button', {name: 'Add rule'}).click();
+        await page.getByRole('button', {name: 'Add rule'}).click();
+        await page.getByRole('button', {name: 'Remove rule'}).last().click();
+        await page.getByRole('button', {name: 'Kinds of rule 1'}).click();
+        await page.getByRole('menuitemcheckbox', {name: 'Config'}).click();
+        await page.keyboard.press('Escape');
+        await page.getByRole('button', {name: 'Verbs of rule 1'}).click();
+        await page.getByRole('menuitemcheckbox', {name: 'Get'}).click();
+        await page.getByRole('menuitemcheckbox', {name: 'Watch'}).click();
+        await page.keyboard.press('Escape');
+        await page.getByLabel('Namespaces', {exact: true}).fill('prod, staging');
+        await page.getByLabel('Names', {exact: true}).fill('order-*');
+        await page.getByRole('button', {name: 'Submit'}).click();
+
+        await expect(toast(page, 'Role saved')).toBeVisible();
+        await expect(row(page, 'reader')).toContainText('Reads Configs');
+        expect(JSON.parse(lastRequest(api, 'PUT', '/v1/roles/reader')?.body ?? '').role).toEqual({
+            description: 'Reads Configs',
+            rules: [{
+                kinds: ['KIND_CONFIG'],
+                verbs: ['VERB_GET', 'VERB_WATCH'],
+                namespaces: ['prod', 'staging'],
+                names: ['order-*'],
+            }],
+        });
+
+        await row(page, 'admin').getByRole('button', {name: 'Edit'}).click();
+        await expect(page.getByLabel('Name', {exact: true})).toBeDisabled();
+        await expect(page.getByLabel('Namespaces', {exact: true})).toHaveValue('*');
+        await page.getByRole('button', {name: 'Cancel'}).click();
+
+        await confirm(page, row(page, 'reader').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Role deleted')).toBeVisible();
+    });
+
+    test('a role binding gives a role to subjects, in namespaces', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Role Binding'}).click();
+        await expect(row(page, 'admin')).toContainText('Service Account: admin');
+
+        await page.getByRole('button', {name: 'Add Role Binding'}).click();
+        await page.getByLabel('Name', {exact: true}).fill('people');
+        await choose(page, 'Role', 'admin');
+        await page.getByLabel('Namespaces', {exact: true}).fill('prod');
+        await page.getByRole('button', {name: 'Add subject'}).click();
+        await page.getByRole('button', {name: 'Add subject'}).click();
+        await page.getByRole('button', {name: 'Remove subject 2'}).click();
+        await choose(page, 'Type of subject 1', 'Group');
+        await page.getByLabel('Name of subject 1').fill('operators');
+        await page.getByRole('button', {name: 'Submit'}).click();
+
+        await expect(toast(page, 'Role binding saved')).toBeVisible();
+        await expect(row(page, 'people')).toContainText('Group: operators');
+        expect(JSON.parse(lastRequest(api, 'PUT', '/v1/rolebindings/people')?.body ?? '').roleBinding).toEqual({
+            role: 'admin',
+            subjects: [{type: 'TYPE_GROUP', name: 'operators'}],
+            namespaces: ['prod'],
+        });
+
+        await row(page, 'people').getByRole('button', {name: 'Edit'}).click();
+        await expect(page.getByLabel('Name of subject 1')).toHaveValue('operators');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Role binding saved')).toBeVisible();
+        expect(lastRequest(api, 'PUT', '/v1/rolebindings/people')?.headers['if-match']).toMatch(/^"\d+"$/);
+
+        await confirm(page, row(page, 'people').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Role binding deleted')).toBeVisible();
+    });
+
+    test('pages say when there is nothing yet', async ({page}) => {
+        await installApiMock(page, {empty: true});
+        await login(page);
+
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(page.getByRole('main')).toContainText('No configurations in this namespace yet.');
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await expect(page.getByRole('main')).toContainText('No services registered in this namespace yet.');
+        await page.getByRole('link', {name: 'Namespace'}).click();
+        await expect(page.getByRole('main')).toContainText('No namespaces found.');
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        await expect(page.getByRole('main')).toContainText('No service accounts yet.');
+        await page.getByRole('link', {name: 'Role', exact: true}).click();
+        await expect(page.getByRole('main')).toContainText('No roles yet.');
+        await page.getByRole('link', {name: 'Role Binding'}).click();
+        await expect(page.getByRole('main')).toContainText('No role bindings yet.');
+    });
 });

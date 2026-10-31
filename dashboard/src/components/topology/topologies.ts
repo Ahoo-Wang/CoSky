@@ -1,3 +1,16 @@
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import type {Node, Edge} from '@xyflow/react';
 
 export interface ReactFlowTopology {
@@ -51,6 +64,17 @@ export function getConnectedNodeIds(nodeId: string, edges: Edge[]): Set<string> 
         if (edge.target === nodeId) connected.add(edge.source);
     }
     return connected;
+}
+
+/**
+ * What each consumer depends on, from the edges the server recorded.
+ */
+export function toConsumers(edges: Array<{consumer: string; producer: string}>): Record<string, string[]> {
+    const consumers: Record<string, string[]> = {};
+    for (const {consumer, producer} of edges) {
+        (consumers[consumer] ??= []).push(producer);
+    }
+    return consumers;
 }
 
 export function toReactFlowTopology(

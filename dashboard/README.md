@@ -9,7 +9,7 @@ pnpm install
 pnpm dev
 ```
 
-Set `VITE_API_BASE_URL` to override the CoSky REST API base URL.
+The page expects the API on its own origin: `pnpm dev` proxies `/v1` to a server on `:8080` (or `$COSKY_API_URL`), such as `cosky-server --dev`.
 Set `VITE_ENVIRONMENT_NAME` to show an explicit environment or cluster name in the authenticated header.
 
 ## Verification

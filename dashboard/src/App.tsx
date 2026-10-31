@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {BrowserRouter} from 'react-router-dom';
+import {HashRouter} from 'react-router-dom';
 import '@/services/fetcher';
 import {AppRoutes} from "@/AppRoutes";
 import {ErrorBoundary} from "@/components/error/ErrorBoundary";
@@ -20,9 +20,9 @@ import {Toaster} from "@/components/ui/sonner";
 function App() {
     return (
         <ErrorBoundary>
-            <BrowserRouter>
+            <HashRouter>
                 <AppRoutes/>
-            </BrowserRouter>
+            </HashRouter>
             <Toaster position="top-right" richColors/>
         </ErrorBoundary>
     );

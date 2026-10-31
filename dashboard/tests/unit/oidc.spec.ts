@@ -12,11 +12,15 @@
  */
 
 import {expect, test} from '@playwright/test';
-import {isSystemNamespace, SYSTEM_NAMESPACE} from '../../src/pages/namespace/namespaces.ts';
+import {challengeOf, claimsOf} from '../../src/security/oidc.ts';
 
-test('recognizes only the exact protected system namespace', () => {
-    expect(isSystemNamespace(SYSTEM_NAMESPACE)).toBe(true);
-    expect(isSystemNamespace('COSKY-{SYSTEM}')).toBe(false);
-    expect(isSystemNamespace(` ${SYSTEM_NAMESPACE}`)).toBe(false);
-    expect(isSystemNamespace('topology')).toBe(false);
+test('the code challenge is the one RFC 7636 gives as its example', async () => {
+    expect(await challengeOf('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'))
+        .toBe('E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
+});
+
+test('the claims of an ID token survive base64url and UTF-8', () => {
+    const payload = Buffer.from(JSON.stringify({sub: 'ada', name: '张三~?>'})).toString('base64url');
+
+    expect(claimsOf(`header.${payload}.signature`)).toEqual({sub: 'ada', name: '张三~?>'});
 });

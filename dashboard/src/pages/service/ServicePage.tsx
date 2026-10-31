@@ -11,122 +11,78 @@
  * limitations under the License.
  */
 
-import {useEffect} from 'react';
-import {Plus, Trash2} from 'lucide-react';
+import {useState} from 'react';
+import {Plus} from 'lucide-react';
 import '@/monacoConfig';
-import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useQuery} from '@ahoo-wang/fetcher-react';
-import {serviceApiClient} from "@/services/clients";
-import type {ServiceStat} from "@/generated";
-import {ServiceInstanceTable} from "@/pages/service/ServiceInstanceTable";
-import {AddServiceForm} from "@/pages/service/AddServiceForm";
-import {ServiceInstanceEditor} from "@/pages/service/ServiceInstanceEditor";
-import {useDrawer} from "@/contexts/DrawerContext";
-import {PageHeader} from "@/components/layout/PageHeader";
-import {DataTableWrapper} from "@/components/layout/DataTableWrapper";
+import type {ServiceSummary} from '@/generated';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {useWatchRefresh} from '@/hooks/useWatchRefresh';
+import {viewsClient} from '@/services/clients';
+import {Kind} from '@/services/resources';
+import {ServiceInstanceEditor} from '@/pages/service/ServiceInstanceEditor';
+import {ServiceInstanceTable} from '@/pages/service/ServiceInstanceTable';
+import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {PageHeader} from '@/components/layout/PageHeader';
 import {Button} from '@/components/ui/button';
-import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
-import {Badge} from '@/components/ui/badge';
-import {runAction} from '@/lib/actions';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {result: services = [], loading, error, execute: loadServices} = useQuery<string, ServiceStat[]>({
+    const {openDrawer, closeDrawer} = useDrawer();
+    // One stream per page, whatever is expanded: browsers allow few connections per server over HTTP/1.1.
+    const [changes, setChanges] = useState(0);
+    const {result, loading, error, execute: loadServices} = useQuery<string, ServiceSummary[]>({
         query: currentNamespace,
-        execute: (namespace, _, abortController) => {
-            return serviceApiClient.getServiceStats(namespace, {abortController});
+        execute: async (namespace, _, abortController) => {
+            const view = await viewsClient.viewServices({urlParams: {path: {namespace}}, abortController});
+            return view.services ?? [];
         },
     });
+    useWatchRefresh(currentNamespace, Kind.KIND_INSTANCE, () => {
+        loadServices();
+        setChanges(count => count + 1);
+    });
 
-    useEffect(() => {
-        const interval = window.setInterval(loadServices, 30_000);
-        return () => window.clearInterval(interval);
-    }, [loadServices]);
-
-    const {openDrawer, closeDrawer} = useDrawer();
-
-    const handleDeleteService = async (serviceId: string) => {
-        if (await runAction(() => serviceApiClient.removeService(currentNamespace, serviceId), {success: 'Service deleted successfully', failure: 'Failed to delete service'})) {
-            loadServices();
-        }
-    };
-
-    const handleAddInstance = (serviceId: string) => {
+    const handleAddInstance = (service?: string) => {
         openDrawer(
             <ServiceInstanceEditor
                 namespace={currentNamespace}
-                serviceId={serviceId}
+                service={service}
                 onSuccess={() => {
                     closeDrawer();
-                    // ponytail: let the Redis consistency event settle before refreshing the count.
-                    window.setTimeout(loadServices, 250);
+                    loadServices();
+                    setChanges(count => count + 1);
                 }}
                 onCancel={closeDrawer}
             />,
-            {
-                title: `Add [${serviceId}] Instance`,
-            }
+            {title: service ? `Add an instance of ${service}` : 'Add Instance'},
         );
     };
 
-
-    const expandedRowRender = (record: ServiceStat) => {
-        return (
-            <ServiceInstanceTable namespace={currentNamespace} serviceId={record.serviceId}/>
-        );
-    };
-
-    const columns: DataTableColumn<ServiceStat>[] = [
+    const columns: DataTableColumn<ServiceSummary>[] = [
         {
-            header: 'Service ID',
-            key: 'serviceId',
-            sort: (left, right) => left.serviceId.localeCompare(right.serviceId),
-            cell: record => (
-                <>
-                    <span>{record.serviceId}</span>
-                    <span className="ml-2 text-xs text-muted-foreground sm:hidden">
-                        {record.instanceCount} instance{record.instanceCount === 1 ? '' : 's'}
-                    </span>
-                </>
-            ),
+            header: 'Service',
+            accessor: 'service',
+            key: 'service',
+            sort: (left, right) => left.service.localeCompare(right.service),
         },
         {
-            header: 'Instance Count',
-            accessor: 'instanceCount',
+            header: 'Instances',
             key: 'instanceCount',
-            className: 'max-sm:hidden',
-            sort: (left, right) => left.instanceCount - right.instanceCount,
-        },
-        {
-            header: 'Registration',
-            key: 'registration',
-            cell: record => <Badge variant={record.instanceCount > 0 ? 'secondary' : 'destructive'}>
-                {record.instanceCount > 0 ? 'Registered' : 'No instances'}
-            </Badge>,
+            sort: (left, right) => (left.instanceCount ?? 0) - (right.instanceCount ?? 0),
+            cell: summary => summary.instanceCount ?? 0,
         },
         {
             header: 'Action',
             key: 'action',
-            className: 'w-56 text-right max-sm:sticky max-sm:right-0 max-sm:z-10 max-sm:w-28 max-sm:bg-card max-sm:shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.25)]',
-            cell: record => (
-                <div className="flex justify-end gap-1">
-                    <Button variant="outline" size="sm" className="max-sm:size-10 max-sm:px-0" onClick={() => handleAddInstance(record.serviceId)} aria-label="Add instance">
-                        <Plus/> <span className="hidden sm:inline">Add instance</span>
-                    </Button>
-                    <ConfirmButton
-                        title="Are you sure to delete this service?"
-                        description={`Service “${record.serviceId}” has ${record.instanceCount} registered instance${record.instanceCount === 1 ? '' : 's'}. Removing it may interrupt discovery for dependents.`}
-                        onConfirm={() => handleDeleteService(record.serviceId)}
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive max-sm:size-10 max-sm:px-0"
-                        aria-label="Delete service"
-                    >
-                        <Trash2/> <span className="hidden sm:inline">Delete</span>
-                    </ConfirmButton>
-                </div>
+            className: 'w-44 text-right',
+            cell: summary => (
+                <Button variant="outline" size="sm" onClick={() => handleAddInstance(summary.service)}>
+                    <Plus/> Add instance
+                </Button>
             ),
         },
     ];
@@ -135,21 +91,27 @@ export function ServicePage() {
         <div>
             <PageHeader
                 title="Service"
-                description={`Register services and inspect instances in ${currentNamespace}.`}
-                actions={<AddServiceForm namespace={currentNamespace} onSuccess={loadServices}/>}
+                description={`Inspect services and their instances in ${currentNamespace}.`}
+                actions={<Button onClick={() => handleAddInstance()}><Plus/> Add Instance</Button>}
             />
             <DataTableWrapper>
                 <DataTable
                     columns={columns}
-                    data={services}
+                    data={result}
                     loading={loading}
                     error={error}
                     onRetry={loadServices}
-                    getRowKey={record => record.serviceId}
+                    getRowKey={summary => summary.service}
                     expandable={{
-                        render: expandedRowRender,
+                        render: summary => (
+                            <ServiceInstanceTable
+                                namespace={currentNamespace}
+                                service={summary.service}
+                                changes={changes}
+                            />
+                        ),
                     }}
-                    search={{placeholder: 'Search services...', getValue: record => record.serviceId}}
+                    search={{placeholder: 'Search services...', getValue: summary => summary.service}}
                     emptyMessage="No services registered in this namespace yet."
                 />
             </DataTableWrapper>

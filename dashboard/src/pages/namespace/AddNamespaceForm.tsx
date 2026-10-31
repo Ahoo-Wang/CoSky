@@ -12,40 +12,45 @@
  */
 
 import {useState} from 'react';
-import {useExecutePromise} from "@ahoo-wang/fetcher-react";
-import {namespaceApiClient} from "@/services/clients";
-import {Plus} from "lucide-react";
-import {toast} from "sonner";
-import {Button} from "@/components/ui/button";
-import {Input} from "@/components/ui/input";
-import {failureMessage} from '@/lib/actions';
+import {Plus} from 'lucide-react';
+import {namespaces} from '@/services/resources';
+import {Button} from '@/components/ui/button';
+import {Input} from '@/components/ui/input';
+import {runAction} from '@/lib/actions';
 
-interface NamespaceFormProps {
+interface AddNamespaceFormProps {
     onSuccess: () => void;
 }
 
-export function AddNamespaceForm({onSuccess}: NamespaceFormProps) {
-    const [namespace, setNamespace] = useState('');
-    const {loading, execute: addNamespace} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Add namespace success!');
+export function AddNamespaceForm({onSuccess}: AddNamespaceFormProps) {
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const handleSubmit = async () => {
+        setSaving(true);
+        const created = await runAction(
+            () => namespaces.create(name.trim(), description),
+            {success: 'Namespace added', failure: 'Failed to add namespace'},
+        );
+        setSaving(false);
+        if (created) {
+            setName('');
+            setDescription('');
             onSuccess();
-            setNamespace('');
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Failed to add namespace', error));
         }
-    })
-    const handleFinish = async () => {
-        await addNamespace(() => {
-            return namespaceApiClient.setNamespace(namespace)
-        })
     };
 
     return (
-        <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => {event.preventDefault(); handleFinish();}}>
-            <Input value={namespace} onChange={event => setNamespace(event.target.value)} placeholder="Enter namespace" required className="w-52"/>
-            <Button type="submit" loading={loading}><Plus/>Add Namespace</Button>
+        <form className="flex flex-wrap items-center gap-2" onSubmit={event => {
+            event.preventDefault();
+            void handleSubmit();
+        }}>
+            <Input value={name} onChange={event => setName(event.target.value)} placeholder="Enter namespace" required
+                   aria-label="Namespace name" className="w-48"/>
+            <Input value={description} onChange={event => setDescription(event.target.value)} placeholder="Description"
+                   aria-label="Namespace description" className="w-56"/>
+            <Button type="submit" loading={saving}><Plus/>Add Namespace</Button>
         </form>
     );
 }

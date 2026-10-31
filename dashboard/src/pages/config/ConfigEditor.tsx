@@ -11,134 +11,115 @@
  * limitations under the License.
  */
 
-import React, {useRef, useState} from 'react';
+import {useState} from 'react';
 import Editor from '@monaco-editor/react';
-import {ConfigFormatSelector} from "@/pages/config/ConfigFormatSelector";
-import {useExecutePromise, useQuery} from "@ahoo-wang/fetcher-react";
-import {configApiClient} from "@/services/clients";
-import {getEditorLanguage, getFileNameWithExt, getFullFileName} from "@/pages/config/fileNames";
-import dayjs from "dayjs";
-import type {Config} from "@/generated";
-import {toast} from 'sonner';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import dayjs from 'dayjs';
+import {configs, ConfigFormat} from '@/services/resources';
+import type {ConfigResource} from '@/services/resources';
+import {CONFIG_FORMAT_OPTIONS, editorLanguage, formatOfName} from '@/pages/config/formats';
 import {Button} from '@/components/ui/button';
 import {DefinitionList} from '@/components/ui/definition-list';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
+import {OptionsSelect} from '@/components/ui/options-select';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
-import {failureMessage} from '@/lib/actions';
+import {runAction} from '@/lib/actions';
 
-interface ConfigEditFormProps {
+interface ConfigEditorProps {
     namespace: string;
-    configId?: string;
+    /** The Config to edit; a new one otherwise. */
+    name?: string;
     onSuccess: () => void;
     onCancel: () => void;
 }
 
-export const ConfigEditor: React.FC<ConfigEditFormProps> = ({namespace, configId, onSuccess, onCancel}) => {
-    const fileNameWithExt = getFileNameWithExt(configId ?? '.yaml');
-    const [fileName, setFileName] = useState<string>(fileNameWithExt.name);
-    const [fileNameError, setFileNameError] = useState('');
-    const [fileExt, setFileExt] = useState<string>(fileNameWithExt.ext);
-    const [configData, setConfigData] = useState('');
-    const fileNameInput = useRef<HTMLInputElement>(null);
-    const {loading, error, result: config, execute: loadConfig} = useQuery<string, Config>({
-        query: configId,
-        execute: (query, attributes, abortController) => {
-            return configApiClient.getConfig(namespace, query, attributes, abortController);
+export function ConfigEditor({namespace, name, onSuccess, onCancel}: ConfigEditorProps) {
+    const [newName, setNewName] = useState('');
+    const [format, setFormat] = useState<ConfigFormat>(ConfigFormat.CONFIG_FORMAT_YAML);
+    const [content, setContent] = useState('');
+    const [saving, setSaving] = useState(false);
+    const {result: config, error, execute: reload} = useQuery<string | undefined, ConfigResource | null>({
+        query: name,
+        execute: async (query, _, abortController) => query ? configs.get(namespace, query, abortController) : null,
+        onSuccess: loaded => {
+            if (loaded) {
+                setFormat(loaded.format);
+                setContent(loaded.content);
+            }
         },
-        onSuccess: (config) => {
-            setConfigData(config.data)
-        }
-    })
-    const {loading: loadingSave, execute: saveConfig} = useExecutePromise({
-        onSuccess: () => {
-            toast.success('Config saved successfully');
-            onSuccess();
-        },
-        onError: async (error) => {
-            toast.error(await failureMessage('Config save failed', error));
-        }
-    })
+    });
 
-    const handleSubmit = () => {
-        const normalizedFileName = fileName.trim();
-        if (!normalizedFileName) {
-            setFileNameError('Please enter file name!');
-            fileNameInput.current?.focus();
-            return;
+    const handleSubmit = async () => {
+        setSaving(true);
+        const saved = await runAction(
+            // The revision it was read at: someone else's change since then must not be overwritten.
+            () => configs.put(namespace, name ?? newName.trim(), {format, content}, config?.revision, config?.labels),
+            {success: 'Config saved', failure: 'Failed to save config'},
+        );
+        setSaving(false);
+        if (saved) {
+            onSuccess();
         }
-        setFileNameError('');
-        const fullFileName = getFullFileName(normalizedFileName, fileExt)
-        saveConfig(() => {
-            return configApiClient.setConfig(namespace, fullFileName, {
-                body: configData
-            })
-        })
-    }
-    if (configId && error) {
+    };
+
+    if (name && error) {
         return (
             <div role="alert" className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm">
                 <p>Failed to load this configuration. Nothing has been changed.</p>
-                <Button variant="outline" onClick={() => loadConfig()}>Retry</Button>
+                <Button variant="outline" onClick={() => reload()}>Retry</Button>
             </div>
-        )
+        );
     }
-    if (configId && (loading || !config)) {
-        return (
-            <Skeleton className="h-96 w-full"/>
-        )
+    if (name && !config) {
+        return <Skeleton className="h-96 w-full"/>;
     }
     return (
-        <div className="space-y-5">
-            {!configId && (
+        <form className="space-y-5" onSubmit={event => {
+            event.preventDefault();
+            void handleSubmit();
+        }}>
+            {!name && (
                 <div className="space-y-2">
-                    <Label htmlFor="config-file-name">Config ID</Label>
-                    <div className="flex">
-                        <Input ref={fileNameInput} id="config-file-name" className="rounded-r-none" disabled={!!configId} placeholder="Enter file name" value={fileName}
-                               aria-invalid={!!fileNameError} aria-describedby={fileNameError ? 'config-file-name-error' : undefined}
-                               onChange={(e) => {
-                            setFileName(e.target.value);
-                            if (fileNameError) setFileNameError('');
-                        }}/>
-                        <ConfigFormatSelector disabled={!!configId}
-                                              value={fileExt}
-                                              onChange={(value) => {
-                                                  setFileExt(value)
-                                              }}
-                                              defaultValue="yaml"
-                                              className="w-40"
-                                              triggerClassName="rounded-l-none"/>
-                    </div>
-                    {fileNameError && <p id="config-file-name-error" role="alert" className="text-sm text-destructive">{fileNameError}</p>}
+                    <Label htmlFor="config-name">Name</Label>
+                    <Input id="config-name" value={newName} required placeholder="application.yaml" onChange={event => {
+                        setNewName(event.target.value);
+                        setFormat(formatOfName(event.target.value));
+                    }}/>
                 </div>
             )}
+            <div className="space-y-2">
+                <Label>Format</Label>
+                <OptionsSelect
+                    ariaLabel="Format"
+                    options={CONFIG_FORMAT_OPTIONS}
+                    value={format}
+                    onChange={value => setFormat(value as ConfigFormat)}
+                />
+            </div>
             {config && (
                 <DefinitionList items={[
-                    {label: 'File Name', value: config.configId},
-                    {label: 'Hash', value: config.hash},
-                    {label: 'Last Update Time', value: dayjs(config.createTime * 1000).format('YYYY-MM-DD HH:mm:ss')},
-                    {label: 'Version', value: config.version},
+                    {label: 'Name', value: config.name},
+                    {label: 'SHA-256', value: config.sha256},
+                    {label: 'Updated', value: dayjs(config.updatedAt).format('YYYY-MM-DD HH:mm:ss')},
+                    {label: 'Updated by', value: config.updatedBy},
                 ]}/>
             )}
-            <div className="flex items-center gap-3"><Separator className="flex-1"/><span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Config Data</span><Separator className="flex-1"/></div>
+            <Separator/>
             <Editor
                 height="60vh"
                 theme="vs-dark"
-                language={getEditorLanguage(fileExt)}
-                value={configData}
-                onChange={value => setConfigData(value ?? '')}
-                options={{
-                    ariaLabel: 'Config data editor',
-                    minimap: {enabled: false},
-                }}
+                language={editorLanguage(format)}
+                value={content}
+                onChange={value => setContent(value ?? '')}
+                options={{ariaLabel: 'Config content editor', minimap: {enabled: false}}}
             />
             <Separator/>
             <div className="flex gap-2">
-                <Button onClick={handleSubmit} loading={loadingSave}>Submit</Button>
-                <Button variant="outline" onClick={onCancel}>Cancel</Button>
+                <Button type="submit" loading={saving}>Submit</Button>
+                <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
             </div>
-        </div>
-
+        </form>
     );
-};
+}

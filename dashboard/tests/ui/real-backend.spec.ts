@@ -11,300 +11,224 @@
  * limitations under the License.
  */
 
+import {createHash} from 'node:crypto';
 import {expect, test} from '@playwright/test';
-import type {APIRequestContext, Page} from '@playwright/test';
-import {readFile} from 'node:fs/promises';
+import type {APIRequestContext, Locator, Page} from '@playwright/test';
 
-const username = process.env.COSKY_REAL_USERNAME ?? 'cosky';
-const password = process.env.COSKY_REAL_PASSWORD ?? '';
-const apiBaseURL = process.env.COSKY_REAL_API_URL ?? '';
+const token = process.env.COSKY_REAL_TOKEN ?? '';
 const suffix = Date.now().toString(36);
 const namespace = `e2e-${suffix}`;
-const configId = `config-${suffix}.yaml`;
-const serviceId = `service-${suffix}`;
-const roleName = `role-${suffix}`;
-const userName = `user-${suffix}`;
-const userPassword = 'E2e-user-password-1';
-const changedUserPassword = 'E2e-user-password-2';
 
-async function login(page: Page, loginUsername = username, loginPassword = password) {
-    await page.goto('/login');
-    await page.getByRole('textbox', {name: 'Username', exact: true}).fill(loginUsername);
-    await page.getByLabel('Password', {exact: true}).fill(loginPassword);
-    await page.getByRole('button', {name: 'Sign In', exact: true}).click();
-    await page.waitForURL('**/home');
+const authorization = {Authorization: `Bearer ${token}`};
+
+const row = (page: Page, name: string) => page.getByRole('row').filter({hasText: name}).first();
+
+const toast = (page: Page, text: string) => page.getByText(text, {exact: false}).first();
+
+async function confirm(page: Page, trigger: Locator) {
+    await trigger.click();
+    await page.getByRole('alertdialog').getByRole('button', {name: 'Continue'}).click();
 }
 
-async function selectNamespace(page: Page, value: string) {
-    await page.getByRole('combobox', {name: 'Select Namespace'}).click();
-    await page.getByRole('option', {name: value, exact: true}).click();
-    await expect(page.getByRole('combobox', {name: 'Select Namespace'})).toContainText(value);
-}
-
-async function insertMonacoText(page: Page, label: string, value: string, afterFirstCharacter = false) {
-    await expect(page.locator(`[aria-label="${label}"]`)).toBeAttached();
+async function typeInMonaco(page: Page, text: string) {
     await page.locator('.monaco-editor:visible').last().click({position: {x: 120, y: 40}});
-    if (afterFirstCharacter) {
-        await page.keyboard.press('Home');
-        await page.keyboard.press('ArrowRight');
-    }
-    await page.keyboard.insertText(value);
+    await page.keyboard.press('ControlOrMeta+A');
+    await page.keyboard.press('Delete');
+    await page.keyboard.insertText(text);
 }
 
-async function confirm(page: Page) {
-    await page.getByRole('button', {name: 'Continue'}).click();
+async function signIn(page: Page, withToken = token) {
+    await page.goto('/#/login');
+    await page.getByLabel('Token', {exact: true}).fill(withToken);
+    await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+    await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
 }
 
-const accountButtonName = (name: string) => `${name.slice(0, 1).toUpperCase()} ${name}`;
+async function selectNamespace(page: Page) {
+    await page.getByRole('combobox', {name: 'Select Namespace'}).click();
+    await page.getByRole('option', {name: namespace, exact: true}).click();
+}
 
-async function cleanup(request: APIRequestContext) {
-    const authentication = await request.post(new URL(`/v1/authenticate/${username}/login`, apiBaseURL).toString(), {
-        data: {password},
+async function putConfig(request: APIRequestContext, name: string, content: string) {
+    const response = await request.put(`/v1/namespaces/${namespace}/configs/${name}`, {
+        headers: authorization,
+        data: {config: {format: 'CONFIG_FORMAT_TEXT', content}},
     });
-    if (!authentication.ok()) return;
-    const {accessToken} = await authentication.json() as {accessToken: string};
-    const options = {headers: {Authorization: `Bearer ${accessToken}`}};
-    await request.delete(new URL(`/v1/users/${userName}`, apiBaseURL).toString(), options);
-    await request.delete(new URL(`/v1/roles/${roleName}`, apiBaseURL).toString(), options);
-    await request.delete(new URL(`/v1/namespaces/${namespace}/configs/${configId}`, apiBaseURL).toString(), options);
-    await request.delete(new URL(`/v1/namespaces/${namespace}/services/${serviceId}`, apiBaseURL).toString(), options);
-    await request.delete(new URL(`/v1/namespaces/${namespace}`, apiBaseURL).toString(), options);
+    expect(response.ok()).toBe(true);
 }
 
-test.skip(!process.env.COSKY_REAL_E2E || !password, 'Set COSKY_REAL_E2E=1 and COSKY_REAL_PASSWORD to run against an isolated CoSky API.');
-test.afterEach(async ({request}) => {
-    if (process.env.COSKY_REAL_E2E && password && apiBaseURL) {
-        await cleanup(request);
-    }
+test.describe.configure({mode: 'serial'});
+
+test('an anonymous visitor is asked to sign in, and a wrong token is refused', async ({page}) => {
+    await page.goto('/');
+    await page.waitForURL('**/#/login');
+
+    await page.getByLabel('Token', {exact: true}).fill('cosky_not_valid');
+    await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+
+    await expect(toast(page, 'Sign-in failed')).toBeVisible();
 });
 
-test('all dashboard operations work against the real REST API and Redis', async ({page, request}) => {
-    test.setTimeout(180_000);
-    page.setDefaultTimeout(10_000);
-    const serverErrors: string[] = [];
-    const pageErrors: string[] = [];
-    page.on('pageerror', error => pageErrors.push(error.message));
-    page.on('response', response => {
-        if (response.url().includes('/v1/') && response.status() >= 500) {
-            serverErrors.push(`${response.status()} ${response.request().method()} ${response.url()}`);
-        }
-    });
-
-    await page.goto('/login');
-    await page.getByRole('textbox', {name: 'Username', exact: true}).fill(username);
-    await page.getByLabel('Password', {exact: true}).fill('definitely-wrong');
-    await page.getByRole('button', {name: 'Sign In', exact: true}).click();
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByText(/Login failed/)).toBeVisible();
-
-    await login(page);
-    await expect(page.getByRole('heading', {name: 'Dashboard'})).toBeVisible();
-    await expect(page.getByText('Service Topology').first()).toBeVisible();
-
-    await page.getByRole('link', {name: 'Namespace', exact: true}).click();
-    await page.getByRole('textbox', {name: 'Enter namespace'}).fill(namespace);
+test('a namespace can be created, and what happens in it shows up by itself', async ({page, request}) => {
+    await signIn(page);
+    await page.getByRole('link', {name: 'Namespace'}).click();
+    await page.getByLabel('Namespace name').fill(namespace);
+    await page.getByLabel('Namespace description').fill('End to end');
     await page.getByRole('button', {name: 'Add Namespace'}).click();
-    await expect(page.getByText('Add namespace success!')).toBeVisible();
-    await page.getByRole('textbox', {name: 'Search namespaces...'}).fill(namespace);
-    await expect(page.getByRole('cell', {name: namespace, exact: true})).toBeVisible();
-    await selectNamespace(page, namespace);
+    await expect(row(page, namespace)).toContainText('End to end');
+    await selectNamespace(page);
 
-    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
+    await page.getByRole('link', {name: 'Configuration'}).click();
+    await expect(page.getByRole('main')).toContainText('No configurations in this namespace yet.');
+    await putConfig(request, 'from-elsewhere.txt', 'written by someone else');
+
+    // No reload: the stream brings it.
+    await expect(row(page, 'from-elsewhere.txt')).toBeVisible();
+});
+
+test('a Config goes through its whole life', async ({page, request}) => {
+    await signIn(page);
+    await selectNamespace(page);
+    await page.getByRole('link', {name: 'Configuration'}).click();
+
     await page.getByRole('button', {name: 'Add', exact: true}).click();
-    await page.getByRole('textbox', {name: 'Config ID'}).fill(`config-${suffix}`);
-    await insertMonacoText(page, 'Config data editor', 'feature:\n  enabled: true\n');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Config saved successfully').last()).toBeVisible();
-    await expect(page.getByRole('cell', {name: configId, exact: true})).toBeVisible();
+    await page.getByLabel('Name', {exact: true}).fill('shared/application.yaml');
+    await typeInMonaco(page, 'version: one');
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(toast(page, 'Config saved')).toBeVisible();
+    await expect(row(page, 'shared/application.yaml')).toContainText('YAML');
+    const stored = await request.get(`/v1/namespaces/${namespace}/configs/shared%2Fapplication.yaml`, {headers: authorization});
+    expect((await stored.json()).config.sha256).toBe(createHash('sha256').update('version: one').digest('hex'));
 
-    const configRow = page.getByRole('row').filter({hasText: configId}).first();
-    await configRow.getByRole('button', {name: 'Edit'}).click();
-    await insertMonacoText(page, 'Config data editor', '# revision 2\n');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Config saved successfully').last()).toBeVisible();
+    await row(page, 'shared/application.yaml').getByRole('button', {name: 'Edit'}).click();
+    await expect(page.locator('.monaco-editor:visible .view-lines').last()).toContainText('one');
+    await typeInMonaco(page, 'version: two');
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
 
-    await configRow.getByRole('button', {name: 'Expand row'}).click();
-    const historyTable = page.getByRole('table').nth(1);
-    await expect(historyTable.getByRole('cell', {name: '1', exact: true})).toBeVisible();
-    await historyTable.getByRole('button', {name: 'Diff'}).first().click();
-    await expect(page.getByRole('dialog', {name: 'Config Version Differ'})).toBeVisible();
-    await page.getByRole('button', {name: 'Rollback to version 1'}).click();
-    await confirm(page);
-    await expect(page.getByText('Rollback success')).toBeVisible();
+    await row(page, 'shared/application.yaml').getByRole('button', {name: /expand/i}).click();
+    const diffs = page.getByRole('button', {name: 'Diff'});
+    await expect(diffs).toHaveCount(2);
+    await diffs.last().click();
+    await confirm(page, page.getByRole('button', {name: /Roll back to revision/}));
+    await expect(toast(page, 'Rolled back')).toBeVisible();
 
-    const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', {name: 'Export', exact: true}).click();
-    const download = await downloadPromise;
-    const exportedZip = await download.path();
-    expect(exportedZip).toBeTruthy();
-    await expect(page.getByText('Export config success')).toBeVisible();
+    await row(page, 'shared/application.yaml').getByRole('button', {name: 'Edit'}).click();
+    await expect(page.locator('.monaco-editor:visible .view-lines').last()).toContainText('one');
+    await page.getByRole('button', {name: 'Cancel'}).click();
 
-    await configRow.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('Delete config success')).toBeVisible();
-    await page.getByRole('button', {name: 'Import', exact: true}).click();
-    await page.locator('input[type="file"]').setInputFiles({
-        name: 'configs.zip',
-        mimeType: 'application/zip',
-        buffer: await readFile(exportedZip!),
-    });
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Total: 1, succeeded: 1.')).toBeVisible();
-    await expect(page.getByRole('cell', {name: configId, exact: true})).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', {name: 'Export'}).click();
+    const archive = await (await download).path();
+
+    await confirm(page, row(page, 'shared/application.yaml').getByRole('button', {name: 'Delete'}));
+    await expect(page.getByRole('row').filter({hasText: 'shared/application.yaml'})).toHaveCount(0);
+
+    await page.getByRole('button', {name: 'Import'}).click();
+    await page.locator('input[type="file"]').setInputFiles(archive);
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(toast(page, 'Configs imported')).toBeVisible();
+    await expect(row(page, 'shared/application.yaml')).toBeVisible();
+});
+
+test('a fixed instance is added, changed and removed', async ({page}) => {
+    await signIn(page);
+    await selectNamespace(page);
+    await page.getByRole('link', {name: 'Service', exact: true}).click();
+
+    await page.getByRole('button', {name: 'Add Instance', exact: true}).click();
+    await page.getByLabel('Service', {exact: true}).fill('database');
+    await page.getByLabel('Host', {exact: true}).fill('10.0.0.9');
+    await page.getByLabel('Port', {exact: true}).fill('3306');
+    await typeInMonaco(page, '{"zone":"east"}');
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(toast(page, 'Instance saved')).toBeVisible();
+
+    await row(page, 'database').getByRole('button', {name: /expand/i}).click();
+    await expect(row(page, '10.0.0.9-3306')).toContainText('Fixed');
+    await expect(row(page, '10.0.0.9-3306')).toContainText('"zone":"east"');
+
+    await row(page, '10.0.0.9-3306').getByRole('button', {name: 'Edit'}).click();
+    await page.getByLabel('Weight', {exact: true}).fill('7');
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(row(page, '10.0.0.9-3306')).toContainText('7');
+
+    await page.getByRole('link', {name: 'Dashboard'}).click();
+    await expect(page.getByText('Instances', {exact: true}).locator('..')).toContainText('1');
 
     await page.getByRole('link', {name: 'Service', exact: true}).click();
-    await page.getByRole('textbox', {name: 'Enter service ID'}).fill(serviceId);
-    await page.getByRole('button', {name: 'Add Service'}).click();
-    await expect(page.getByText('Add service success!')).toBeVisible();
-    await page.getByRole('textbox', {name: 'Search services...'}).fill(serviceId);
-    const serviceRow = page.getByRole('row').filter({hasText: serviceId}).first();
-    await serviceRow.getByRole('button', {name: 'Add instance'}).click();
-    await page.getByRole('textbox', {name: 'Host'}).fill('127.0.0.1');
-    await page.getByRole('spinbutton', {name: 'Port'}).fill('18081');
-    await insertMonacoText(page, 'Instance metadata editor', '"zone":"e2e"', true);
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save instance success!').last()).toBeVisible();
-    await serviceRow.getByRole('button', {name: 'Expand row'}).click();
-    const instanceTable = page.getByRole('table').nth(1);
-    await expect(instanceTable.getByRole('cell', {name: '127.0.0.1', exact: true})).toBeVisible();
-    await instanceTable.getByRole('button', {name: 'Edit'}).click();
-    await page.getByRole('switch', {name: 'Ephemeral instance'}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save instance success!').last()).toBeVisible();
-    await expect(instanceTable.getByText('{"zone":"e2e"}')).toBeVisible();
-    await expect(instanceTable.getByText('No', {exact: true})).toBeVisible();
-    await instanceTable.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('Delete instance success!')).toBeVisible();
-    await serviceRow.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('Service deleted successfully')).toBeVisible();
+    await row(page, 'database').getByRole('button', {name: /expand/i}).click();
+    await confirm(page, row(page, '10.0.0.9-3306').getByRole('button', {name: 'Delete'}));
+    await expect(page.getByRole('main')).toContainText('No services registered in this namespace yet.');
+});
 
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
+test('a new service account signs in, and may only do what its role says', async ({page}) => {
+    const account = `reader-${suffix}`;
+    await signIn(page);
+    await page.getByRole('button', {name: 'Security'}).click();
+
+    await page.getByRole('link', {name: 'Service Account'}).click();
+    await page.getByLabel('Service account name').fill(account);
+    await page.getByRole('button', {name: 'Add Service Account'}).click();
+    await row(page, account).getByRole('button', {name: 'New token'}).click();
+    const newToken = page.getByRole('textbox', {name: 'New token'});
+    await expect(newToken).toHaveValue(/^cosky_/);
+    const plaintext = await newToken.inputValue();
+    await page.getByRole('button', {name: 'Done'}).click();
+
     await page.getByRole('link', {name: 'Role', exact: true}).click();
     await page.getByRole('button', {name: 'Add Role'}).click();
-    await page.getByRole('textbox', {name: 'Role Name'}).fill(roleName);
-    await page.getByRole('textbox', {name: 'Description'}).fill('End-to-end role');
-    await page.getByRole('button', {name: 'Add permission'}).click();
-    await page.getByRole('combobox', {name: 'Select Namespace'}).last().click();
-    await page.getByRole('option', {name: namespace, exact: true}).click();
-    await page.getByRole('combobox', {name: 'Select Resource Action'}).click();
-    await page.getByRole('option', {name: 'Read and write'}).click();
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save role success!').last()).toBeVisible();
-
-    await page.getByRole('textbox', {name: 'Search roles...'}).fill(roleName);
-    const roleRow = page.getByRole('row').filter({hasText: roleName}).first();
-    await expect(roleRow.getByText(`${namespace}: Read & write`, {exact: true})).toBeVisible();
-    await roleRow.getByRole('button', {name: 'Edit'}).click();
-    await expect(page.getByRole('combobox', {name: 'Select Resource Action'})).toContainText('Read and write');
-    await page.getByRole('textbox', {name: 'Description'}).fill('Updated end-to-end role');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Save role success!').last()).toBeVisible();
-
-    await page.getByRole('link', {name: 'User', exact: true}).click();
-    await page.getByRole('button', {name: 'Add User'}).click();
-    await page.getByRole('textbox', {name: 'Username'}).fill(userName);
-    await page.getByLabel('Password', {exact: true}).fill(userPassword);
-    await page.getByRole('button', {name: 'Select roles'}).click();
-    await page.getByRole('menuitemcheckbox', {name: roleName}).click();
-    await page.getByRole('menuitemcheckbox', {name: 'admin'}).click();
-    await page.keyboard.press('Escape');
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Add user success!')).toBeVisible();
-    await expect(page.getByText('Bind role success!')).toBeVisible();
-
-    await page.getByRole('button', {name: accountButtonName(username), exact: true}).click();
-    await page.getByRole('menuitem', {name: 'Sign out'}).click();
-    await login(page, userName, userPassword);
-    await page.getByRole('button', {name: accountButtonName(userName), exact: true}).click();
-    await page.getByRole('menuitem', {name: 'Change password'}).click();
-    await page.getByLabel('Old Password', {exact: true}).fill(userPassword);
-    await page.getByLabel('New Password', {exact: true}).fill(changedUserPassword);
-    await page.getByRole('button', {name: 'Submit', exact: true}).click();
-    await expect(page.getByText('Change password success!')).toBeVisible();
-    await page.getByRole('button', {name: accountButtonName(userName), exact: true}).click();
-    await page.getByRole('menuitem', {name: 'Sign out'}).click();
-    await login(page, userName, changedUserPassword);
-    await page.getByRole('button', {name: accountButtonName(userName), exact: true}).click();
-    await page.getByRole('menuitem', {name: 'Sign out'}).click();
-    const userAuthentication = await request.post(new URL(`/v1/authenticate/${userName}/login`, apiBaseURL).toString(), {
-        data: {password: changedUserPassword},
-    });
-    expect(userAuthentication.ok()).toBe(true);
-    const refreshCredentials = await userAuthentication.json() as {accessToken: string; refreshToken: string};
-    for (let attempt = 0; attempt <= 10; attempt++) {
-        await request.post(new URL(`/v1/authenticate/${userName}/login`, apiBaseURL).toString(), {
-            data: {password: 'definitely-wrong'},
-        });
+    await page.getByLabel('Name', {exact: true}).fill(account);
+    await page.getByRole('button', {name: 'Add rule'}).click();
+    await page.getByRole('button', {name: 'Kinds of rule 1'}).click();
+    for (const kind of ['Namespace', 'Config', 'Instance']) {
+        await page.getByRole('menuitemcheckbox', {name: kind, exact: true}).click();
     }
-    await login(page);
-    await page.getByRole('button', {name: 'Security', exact: true}).click();
-    await page.getByRole('link', {name: 'User', exact: true}).click();
-    await page.getByRole('textbox', {name: 'Search users...'}).fill(userName);
-    const userRow = page.getByRole('row').filter({hasText: userName}).first();
-    await expect(userRow.getByText('Locked', {exact: true})).toBeVisible();
-    await userRow.getByRole('button', {name: `Roles for ${userName}`}).click();
-    await page.getByRole('menuitemcheckbox', {name: roleName}).click();
     await page.keyboard.press('Escape');
-    await expect(page.getByText('Role bind successfully')).toBeVisible();
-    await userRow.getByRole('button', {name: 'Unlock'}).click();
-    await confirm(page);
-    await expect(page.getByText('User unlocked successfully').last()).toBeVisible();
-    await expect(userRow.getByText('Active', {exact: true})).toBeVisible();
-    await userRow.getByRole('button', {name: `Lock ${userName}`}).click();
-    await confirm(page);
-    await expect(page.getByText('User locked successfully')).toBeVisible();
-    await expect(userRow.getByText('Locked', {exact: true})).toBeVisible();
-    const lockedLogin = await request.post(new URL(`/v1/authenticate/${userName}/login`, apiBaseURL).toString(), {
-        data: {password: changedUserPassword},
-    });
-    expect(lockedLogin.ok()).toBe(false);
-    expect(await lockedLogin.text()).toContain('administrator');
-    const lockedRefresh = await request.post(new URL(`/v1/authenticate/${userName}/refresh`, apiBaseURL).toString(), {
-        data: refreshCredentials,
-    });
-    expect(lockedRefresh.ok()).toBe(false);
-    expect(await lockedRefresh.text()).toContain('administrator');
-    await userRow.getByRole('button', {name: `Unlock ${userName}`}).click();
-    await confirm(page);
-    await expect(page.getByText('User unlocked successfully').last()).toBeVisible();
-    await expect(userRow.getByText('Active', {exact: true})).toBeVisible();
-    await userRow.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('User deleted successfully')).toBeVisible();
+    await page.getByRole('button', {name: 'Verbs of rule 1'}).click();
+    await page.getByRole('menuitemcheckbox', {name: 'Get'}).click();
+    await page.getByRole('menuitemcheckbox', {name: 'Watch'}).click();
+    await page.keyboard.press('Escape');
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(toast(page, 'Role saved')).toBeVisible();
 
-    await page.getByRole('link', {name: 'Role', exact: true}).click();
-    await roleRow.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('Role deleted successfully')).toBeVisible();
+    await page.getByRole('link', {name: 'Role Binding'}).click();
+    await page.getByRole('button', {name: 'Add Role Binding'}).click();
+    await page.getByLabel('Name', {exact: true}).fill(account);
+    await page.getByRole('combobox', {name: 'Role'}).click();
+    await page.getByRole('option', {name: account, exact: true}).click();
+    await page.getByRole('button', {name: 'Add subject'}).click();
+    await page.getByLabel('Name of subject 1').fill(account);
+    await page.getByRole('button', {name: 'Submit'}).click();
+    await expect(toast(page, 'Role binding saved')).toBeVisible();
 
-    await page.getByRole('link', {name: 'Audit Log', exact: true}).click();
-    await expect(page.getByText(/\d+ items/)).toBeVisible();
-    await page.getByRole('textbox', {name: 'Search all events'}).fill(userName);
-    await page.getByRole('button', {name: 'Apply'}).click();
-    await expect(page.getByRole('cell', {name: username, exact: true}).first()).toBeVisible();
-    await page.getByRole('button', {name: 'Details'}).first().click();
-    await expect(page.getByRole('dialog', {name: 'Audit Event Details'})).toContainText(userName);
-    await page.getByRole('button', {name: 'Close', exact: true}).click();
-    const auditDownloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', {name: 'Export CSV'}).click();
-    expect((await auditDownloadPromise).suggestedFilename()).toMatch(/^cosky_audit_log_\d{8}_\d{6}\.csv$/);
+    await page.locator('[data-slot="account-menu-trigger"]').click();
+    await page.getByRole('menuitem', {name: 'Sign out'}).click();
+    await page.waitForURL('**/#/login');
 
-    await page.getByRole('link', {name: 'Configuration', exact: true}).click();
-    const importedConfigRow = page.getByRole('row').filter({hasText: configId}).first();
-    await importedConfigRow.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('Delete config success')).toBeVisible();
+    await signIn(page, plaintext);
+    await expect(page.locator('[data-slot="account-menu-trigger"]')).toContainText(account);
+    await selectNamespace(page);
+    await page.getByRole('link', {name: 'Configuration'}).click();
+    await expect(row(page, 'from-elsewhere.txt')).toBeVisible();
 
-    await selectNamespace(page, 'cosky-{system}');
-    await page.getByRole('link', {name: 'Namespace', exact: true}).click();
-    await page.getByRole('textbox', {name: 'Search namespaces...'}).fill(namespace);
-    const namespaceRow = page.getByRole('row').filter({hasText: namespace}).first();
-    await namespaceRow.getByRole('button', {name: 'Delete'}).click();
-    await confirm(page);
-    await expect(page.getByText('Namespace deleted successfully')).toBeVisible();
+    await confirm(page, row(page, 'from-elsewhere.txt').getByRole('button', {name: 'Delete'}));
+    await expect(toast(page, 'Failed to delete config')).toBeVisible();
+    await expect(row(page, 'from-elsewhere.txt')).toBeVisible();
+});
 
-    expect(serverErrors, 'real API 5xx responses').toEqual([]);
-    expect(pageErrors, 'uncaught browser errors').toEqual([]);
+test('a namespace that holds something cannot be deleted, and an empty one can', async ({page, request}) => {
+    await signIn(page);
+    await page.getByRole('link', {name: 'Namespace'}).click();
+
+    await confirm(page, row(page, namespace).getByRole('button', {name: 'Delete'}));
+    await expect(toast(page, 'Failed to delete namespace')).toBeVisible();
+
+    for (const name of ['from-elsewhere.txt', 'shared%2Fapplication.yaml']) {
+        const response = await request.delete(`/v1/namespaces/${namespace}/configs/${name}`, {headers: authorization});
+        expect(response.ok()).toBe(true);
+    }
+    await confirm(page, row(page, namespace).getByRole('button', {name: 'Delete'}));
+    await expect(toast(page, 'Namespace deleted')).toBeVisible();
+    await expect(page.getByRole('row').filter({hasText: namespace})).toHaveCount(0);
 });

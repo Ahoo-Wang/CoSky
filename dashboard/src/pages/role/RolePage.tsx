@@ -11,131 +11,74 @@
  * limitations under the License.
  */
 
-import {useState} from 'react';
 import {Pencil, Plus, Trash2} from 'lucide-react';
-import type {CoSecPrincipal, ResourceActionDto, RoleDto} from '@/generated';
+import {useQuery} from '@ahoo-wang/fetcher-react';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {roles} from '@/services/resources';
+import type {RoleResource} from '@/services/resources';
 import {RoleEditor} from '@/pages/role/RoleEditor';
-import {roleApiClient, userApiClient} from "@/services/clients";
-import {useRoles} from "@/hooks/useRoles";
-import {useDrawer} from "@/contexts/DrawerContext";
-import {PageHeader} from '@/components/layout/PageHeader';
 import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
+import {PageHeader} from '@/components/layout/PageHeader';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
-import {Badge} from '@/components/ui/badge';
-import {useQuery} from '@ahoo-wang/fetcher-react';
 import {runAction} from '@/lib/actions';
 
-const ACTION_LABELS: Record<string, string> = {r: 'Read', w: 'Write', rw: 'Read & write'};
-
-function RolePermissions({roleName}: {roleName: string}) {
-    const {result: bindings = [], loading, error, execute: retry} = useQuery<string, ResourceActionDto[]>({
-        query: roleName,
-        execute: (name, _, abortController) => roleApiClient.getResourceBind(name, {abortController}),
-    });
-    if (loading) return <span className="text-sm text-muted-foreground">Loading…</span>;
-    if (error) return <Button type="button" variant="outline" size="sm" onClick={retry}>Retry permissions</Button>;
-    if (bindings.length === 0) return <Badge variant="outline">No resource access</Badge>;
-    return <div className="flex max-w-xl flex-wrap gap-1.5">
-        {bindings.map(binding => <Badge key={`${binding.namespace}-${binding.action}`} variant="outline">
-            {binding.namespace}: {ACTION_LABELS[binding.action] ?? binding.action}
-        </Badge>)}
-    </div>;
-}
-
 export function RolePage() {
-    const [roleRevision, setRoleRevision] = useState(0);
-    const {roles = [], loading, error, load} = useRoles()
-    const {result: users = [], loading: loadingUsers, error: usersError, execute: loadUsers} = useQuery<null, CoSecPrincipal[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => userApiClient.query({abortController}),
-    });
     const {openDrawer, closeDrawer} = useDrawer();
+    const {result, loading, error, execute: loadRoles} = useQuery<null, RoleResource[]>({
+        initialQuery: null,
+        execute: (_, __, abortController) => roles.list(abortController),
+    });
 
-    const handleAdd = () => {
+    const handleEdit = (role?: RoleResource) => {
         openDrawer(
             <RoleEditor
-                onSuccess={handleSubmit}
+                existing={role}
+                onSuccess={() => {
+                    closeDrawer();
+                    loadRoles();
+                }}
                 onCancel={closeDrawer}
             />,
-            {
-                title: 'Add Role',
-                width: 'min(680px, 92vw)',
-            }
+            {title: role ? `Edit ${role.name}` : 'Add Role', width: 'min(880px, 92vw)'},
         );
     };
 
-    const handleEdit = (role: RoleDto) => {
-        openDrawer(
-            <RoleEditor
-                initialValues={role}
-                onSuccess={handleSubmit}
-                onCancel={closeDrawer}
-            />,
-            {
-                title: 'Edit Role',
-                width: 'min(680px, 92vw)',
-            }
+    const handleDelete = async (name: string) => {
+        const deleted = await runAction(
+            () => roles.delete(name),
+            {success: 'Role deleted', failure: 'Failed to delete role'},
         );
-    };
-
-    const handleSubmit = () => {
-        closeDrawer();
-        setRoleRevision(revision => revision + 1);
-        load();
-    };
-
-    const handleDelete = async (roleName: string) => {
-        if (await runAction(() => roleApiClient.removeRole(roleName), {success: 'Role deleted successfully', failure: 'Failed to delete role'})) {
-            load();
+        if (deleted) {
+            loadRoles();
         }
     };
 
-    const columns: DataTableColumn<RoleDto>[] = [
+    const columns: DataTableColumn<RoleResource>[] = [
         {
-            header: 'Role Name',
+            header: 'Name',
             accessor: 'name',
             key: 'name',
             sort: (left, right) => left.name.localeCompare(right.name),
         },
-        {
-            header: 'Description',
-            accessor: 'desc',
-            key: 'desc',
-        },
-        {
-            header: 'Resource Permissions',
-            key: 'permissions',
-            cell: record => record.name === 'admin'
-                ? <Badge variant="secondary">System full access</Badge>
-                : <RolePermissions key={`${record.name}-${roleRevision}`} roleName={record.name}/>,
-        },
-        {
-            header: 'Members',
-            key: 'members',
-            cell: record => loadingUsers ? '…' : users.filter(user => user.roles.includes(record.name)).length,
-        },
+        {header: 'Description', accessor: 'description', key: 'description'},
+        {header: 'Rules', key: 'rules', cell: role => role.rules.length},
         {
             header: 'Action',
             key: 'action',
-            className: 'w-40 text-right',
-            cell: record => (
+            className: 'w-48 text-right',
+            cell: role => (
                 <div className="flex justify-end gap-1">
-                    <Button variant="ghost" size="sm" onClick={() => handleEdit(record)} disabled={record.name === 'admin'}
-                            aria-label={record.name === 'admin' ? 'Edit admin (system role)' : `Edit ${record.name}`}>
-                        <Pencil/> Edit
-                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleEdit(role)}><Pencil/> Edit</Button>
                     <ConfirmButton
                         title="Are you sure to delete this role?"
-                        description={`Role “${record.name}” is assigned to ${users.filter(user => user.roles.includes(record.name)).length} user(s). Removing it may revoke their access.`}
-                        onConfirm={() => handleDelete(record.name)}
+                        description={`Role “${role.name}” will be deleted. Its bindings stop granting anything.`}
+                        onConfirm={() => handleDelete(role.name)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
-                        disabled={record.name === 'admin'}
-                        aria-label={record.name === 'admin' ? 'Delete admin (system role)' : `Delete ${record.name}`}
                     >
                         <Trash2/> Delete
                     </ConfirmButton>
@@ -146,23 +89,23 @@ export function RolePage() {
 
     return (
         <div>
-            <PageHeader title="Role" description="Define access policies for CoSky resources."
-                        actions={<Button onClick={handleAdd}><Plus/>Add Role</Button>}/>
+            <PageHeader
+                title="Role"
+                description="A role says what may be done. A role binding gives it to someone."
+                actions={<Button onClick={() => handleEdit()}><Plus/> Add Role</Button>}
+            />
             <DataTableWrapper>
                 <DataTable
                     columns={columns}
-                    data={roles}
-                    loading={loading || loadingUsers}
-                    error={error || usersError}
-                    onRetry={() => {
-                        load();
-                        loadUsers();
-                    }}
-                    getRowKey={record => record.name}
-                    search={{placeholder: 'Search roles...', getValue: record => `${record.name} ${record.desc}`}}
-                    emptyMessage="No roles found."
+                    data={result}
+                    loading={loading}
+                    error={error}
+                    onRetry={loadRoles}
+                    getRowKey={role => role.name}
+                    search={{placeholder: 'Search roles...', getValue: role => role.name}}
+                    emptyMessage="No roles yet."
                 />
             </DataTableWrapper>
         </div>
     );
-};
+}

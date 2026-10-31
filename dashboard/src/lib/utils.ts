@@ -17,3 +17,17 @@ import { twMerge } from "tailwind-merge"
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+/**
+ * Splits what someone typed as a list: by commas, with the spaces around them dropped.
+ */
+export function splitList(value: string): string[] {
+    return value.split(',').map(item => item.trim()).filter(Boolean);
+}
+
+/**
+ * The name of an enum value without its prefix, for people: `KIND_ROLE_BINDING` is `Role Binding`.
+ */
+export function enumLabel(value: string, prefix: string): string {
+    return value.replace(prefix, '').split('_').map(word => word[0] + word.slice(1).toLowerCase()).join(' ');
+}
