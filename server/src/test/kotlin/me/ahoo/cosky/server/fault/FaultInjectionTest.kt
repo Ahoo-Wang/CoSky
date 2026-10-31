@@ -86,6 +86,7 @@ class FaultInjectionTest {
         "cosky.lease.reaper-interval" to "200ms",
         "cosky.lease.reaper-grace" to "${grace.inWholeMilliseconds}ms",
         "cosky.lease.protection-min-leases" to protectionMinLeases,
+        "cosky.lease.lock-ttl" to "500ms",
         "cosky.auth.enabled" to "false",
     )
 
@@ -150,15 +151,22 @@ class FaultInjectionTest {
     fun `redis gone for longer than the ttl deletes no live instance`() = scenario {
         startServer().createNamespace(NAMESPACE)
         delay(PAST_GRACE)
-        client().namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
+        val (client, clientProxy) = clientBehindProxy()
+        client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
         val lease = instances().single().meta.lease
         val seen = CopyOnWriteArrayList<WatchResponse>()
         val observer = observe(seen)
         delay(SETTLE)
 
+        // A renewal must not be waiting at Redis, or it would run first on recovery and save the lease by itself.
+        clientProxy.disable()
+        delay(SETTLE)
         redisProxy.disable()
         delay(LONGER_THAN_TTL)
         redisProxy.enable()
+        // The client only comes back a little later, as a reconnect backoff does: this is what the grace is for.
+        delay(WITHIN_GRACE)
+        clientProxy.enable()
         delay(PAST_GRACE)
 
         deletions(seen).assert().isEmpty()
@@ -170,18 +178,23 @@ class FaultInjectionTest {
     fun `redis that hangs for longer than the ttl deletes no live instance`() = scenario {
         startServer().createNamespace(NAMESPACE)
         delay(PAST_GRACE)
-        client().namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
+        val (client, clientProxy) = clientBehindProxy()
+        client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
         val lease = instances().single().meta.lease
         val seen = CopyOnWriteArrayList<WatchResponse>()
         val observer = observe(seen)
         delay(SETTLE)
 
+        clientProxy.disable()
+        delay(SETTLE)
         // Nothing fails: commands simply get no answer, as when Redis is paused or the network drops packets.
         val down = redisProxy.toxics().timeout("down", ToxicDirection.DOWNSTREAM, 0)
         val up = redisProxy.toxics().timeout("up", ToxicDirection.UPSTREAM, 0)
         delay(LONGER_THAN_TTL)
         down.remove()
         up.remove()
+        delay(WITHIN_GRACE)
+        clientProxy.enable()
         delay(PAST_GRACE)
 
         deletions(seen).assert().isEmpty()
@@ -214,13 +227,18 @@ class FaultInjectionTest {
     @Test
     fun `every server gone for longer than the ttl deletes no live instance`() = scenario {
         startServer().createNamespace(NAMESPACE)
-        client().namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
+        val (client, clientProxy) = clientBehindProxy()
+        client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
         val before = instances().single()
         val position = running.watch(NAMESPACE, Kind.KIND_INSTANCE).first().snapshot
 
+        clientProxy.disable()
         running.close()
         delay(LONGER_THAN_TTL)
         startServer()
+        // The new server leads the reaper by now, and the client is not back yet.
+        delay(WITHIN_GRACE)
+        clientProxy.enable()
         delay(PAST_GRACE)
 
         val seen = CopyOnWriteArrayList<WatchResponse>()
@@ -373,6 +391,7 @@ class FaultInjectionTest {
         val LEASE_TTL = 6.seconds
         val LONGER_THAN_TTL = 9.seconds
         val GRACE = 3.seconds
+        val WITHIN_GRACE = 2.seconds
         val PAST_GRACE = 5.seconds
         val SETTLE = 300.milliseconds
         val POLL = 100.milliseconds
