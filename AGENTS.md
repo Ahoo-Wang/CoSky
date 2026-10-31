@@ -72,9 +72,9 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 
 ## Git Workflow
 
-- `main` carries 6.x until 8.0 GA; all 8.0 work lands on **`v8`** (see `docs/roadmap.md` §4)
-- One roadmap task per branch, cut from the latest `v8`; one pull request per task into `v8`, squash-merged after review
-  and a passing CI; review fixes go on the same branch
+- All 8.x work lands on `main`; **`v6`** maintains 6.x and takes bug fixes only (see `docs/roadmap.md` §4)
+- One roadmap task per branch, cut from the latest `main`; one pull request per task into `main`, squash-merged after
+  review and a passing CI; review fixes go on the same branch
 - Commits and pull request titles: Conventional Commits (`type(scope)!: summary`); the title drives labels and
   release notes
 - Releases: Semantic Versioning; 8.0 starts at `8.0.0-alpha.1`

@@ -11,14 +11,14 @@
 # limitations under the License.
 #
 
-# Creates the GitHub release when a version bump reaches main, or a pre-release from v8 (roadmap section 1),
+# Creates the GitHub release, or a pre-release, when a version bump reaches main (roadmap section 1),
 # then starts the publishing workflows.
 # A release or tag created with GITHUB_TOKEN does not trigger other workflows, so they are dispatched explicitly
 # (workflow_dispatch is exempt from that rule). Releases created by hand still trigger them as before.
 name: Release
 on:
   push:
-    branches: [ main, v8 ]
+    branches: [ main ]
     paths: [ gradle.properties ]
 permissions:
   contents: write

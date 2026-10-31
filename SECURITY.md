@@ -7,7 +7,7 @@ Security fixes are released for the latest minor version of the current major ve
 | Version | Supported |
 |---|---|
 | 8.x | ✅ |
-| 6.x | ✅ — move with the [guide](wiki/guide/upgrade-8.md) |
+| 6.x | ✅ on the `v6` branch, which takes bug fixes only — move with the [guide](wiki/guide/upgrade-8.md) |
 | < 6.0 | ❌ |
 
 ## Reporting a vulnerability
