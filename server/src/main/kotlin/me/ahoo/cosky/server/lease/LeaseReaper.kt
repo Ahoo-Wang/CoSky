@@ -17,6 +17,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.store.Store
 import org.slf4j.LoggerFactory
 import java.time.Clock
@@ -39,6 +40,7 @@ class LeaseReaper(
     private val clock: Clock = Clock.systemUTC(),
     private val owner: String = UUID.randomUUID().toString(),
     private val maintenance: suspend () -> Unit = {},
+    private val metrics: CoSkyMetrics = CoSkyMetrics(),
 ) {
     @Suppress("MagicNumber") // The defaults of design §7.6.
     data class Options(
@@ -129,23 +131,29 @@ class LeaseReaper(
             return
         }
         store.expiredLeases(namespace, options.maxPerTick).forEach { lease ->
-            store.expireLease(namespace, lease, ACTOR, force = false)
+            if (store.expireLease(namespace, lease, ACTOR, force = false)) {
+                metrics.leaseExpired()
+            }
         }
     }
 
     private suspend fun isProtected(namespace: String, now: Instant): Boolean {
         val stats = store.leaseStats(namespace)
+        metrics.leases(namespace, stats.total)
         val massive = stats.total >= options.protectionMinLeases &&
             stats.expired.toDouble() / stats.total > options.protectionThreshold
         if (!massive) {
             pausedSince.remove(namespace)
+            metrics.leaseProtection(namespace, false)
             return false
         }
         val since = pausedSince.computeIfAbsent(namespace) {
             log.error("{} of {} leases expired in namespace {}; pausing the reaper.", stats.expired, stats.total, it)
             now
         }
-        return Duration.between(since, now) < options.protectionMaxDuration
+        val paused = Duration.between(since, now) < options.protectionMaxDuration
+        metrics.leaseProtection(namespace, paused)
+        return paused
     }
 
     companion object {

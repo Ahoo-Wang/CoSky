@@ -11,3 +11,17 @@ spring:
     codecs:
       # A Config of 1 MiB, or an archive of them.
       max-in-memory-size: 64MB
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      # Those who embed the server's classes in their tests do not have the contributor below.
+      validate-group-membership: false
+      group:
+        readiness:
+          include: readinessState,coSkyReadiness

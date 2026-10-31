@@ -49,7 +49,10 @@ data class CoSkyProperties(
         val groupsClaim: String = "groups",
     )
 
-    data class Store(val redis: Redis = Redis())
+    /**
+     * @param type `redis`, or `memory` for development: nothing survives the process.
+     */
+    data class Store(val type: String = REDIS, val redis: Redis = Redis())
 
     data class Redis(
         val uri: String = "redis://localhost:6379",
@@ -75,4 +78,9 @@ data class CoSkyProperties(
         val protectionMinLeases: Int = 10,
         val protectionMaxDuration: Duration = Duration.ofMinutes(5),
     )
+
+    companion object {
+        const val REDIS = "redis"
+        const val MEMORY = "memory"
+    }
 }

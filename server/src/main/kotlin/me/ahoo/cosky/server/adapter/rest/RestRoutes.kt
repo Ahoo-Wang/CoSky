@@ -171,6 +171,7 @@ class RestRoutes(
         val principal = try {
             access.authenticate(request.headers().firstHeader(HttpHeaders.AUTHORIZATION)?.removePrefix(BEARER))
         } catch (e: CoSkyException) {
+            caches.metrics.authFailure(e.reason.name)
             val path = request.path()
             audit.record(UNKNOWN_SUBJECT, null, null, null, path, null, e.errorCode.grpcCode.name, remote)
             throw e
@@ -340,6 +341,7 @@ class RestRoutes(
             limits.maxMessageBytes,
             properties.read.minRevisionTimeout.toKotlinDuration(),
             permission,
+            caches.metrics,
         ) { send(it) }
         val bookmarks = launch {
             while (true) {

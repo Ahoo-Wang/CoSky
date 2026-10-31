@@ -14,6 +14,7 @@
 package me.ahoo.cosky.spring
 
 import io.grpc.Server
+import io.grpc.ServerInterceptors
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -28,15 +29,18 @@ import me.ahoo.cosky.api.v1.endpoint
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
+import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
 import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
 import me.ahoo.cosky.server.resource.ResourceService
+import me.ahoo.cosky.server.view.TopologyRecorder
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.minutes
 import me.ahoo.cosky.server.CoSkyProperties as ServerProperties
 
 /**
@@ -44,6 +48,7 @@ import me.ahoo.cosky.server.CoSkyProperties as ServerProperties
  */
 internal class TestCoSkyServer : AutoCloseable {
     val store = MemoryStore()
+    val topology = TopologyRecorder(store, 1.minutes)
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val server: Server
     val endpoint: String
@@ -53,7 +58,12 @@ internal class TestCoSkyServer : AutoCloseable {
         server = NettyServerBuilder.forAddress(InetSocketAddress("localhost", 0))
             .addService(ResourceGrpcService(ResourceService(store, caches)))
             .addService(LeaseGrpcService(store))
-            .addService(WatchGrpcService(caches, ServerProperties()))
+            .addService(
+                ServerInterceptors.intercept(
+                    WatchGrpcService(caches, ServerProperties(), topology = topology),
+                    ClientNameInterceptor(),
+                ),
+            )
             .build()
             .start()
         endpoint = "localhost:${server.port}"

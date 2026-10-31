@@ -44,10 +44,10 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 |--------|---------|--------|
 | `api` | Protos (`cosky.v1`), generated messages and grpc-kotlin stubs, validation, error model, OpenAPI | ✅ |
 | `store` | Store SPI and in-memory implementation | ✅ |
-| `conformance-test` | Store SPI conformance suite; the protocol suite follows in W3a | ✅ |
+| `conformance-test` | Store SPI conformance suite, and the protocol suite a client drives against a server | ✅ |
 | `client` | Coroutine client: Watch, leases, local snapshots, load balancing | ✅ |
 | `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | ✅ |
-| `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | minimal, from W2c; the rest in W3a |
+| `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | ✅ |
 | `store-redis` | Redis Store (the only module with Lua) | ✅ |
 | `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
 | `test` | Shared test utilities | ✅ |

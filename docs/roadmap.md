@@ -105,7 +105,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 
 ### W4a 端到端 + 示例 + 部署
 
-- 全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11,含超过 TTL 后恢复与丢写分叉);重写 provider / consumer 示例;
+- 链路追踪接入(§7.9);全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11,含超过 TTL 后恢复与丢写分叉);重写 provider / consumer 示例;
   发布流程支持从 `v8` 发布预发布版本;
   Dockerfile(JDK 25,开启紧凑对象头)、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标;实测 D29 的窗口默认值,不够就调整并写回设计文档。
 
@@ -149,7 +149,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W2a store + 一致性 | 协调会话 | #1008 | ✅ 已合并 |
 | W2b client + starter | 协调会话 | #1013 与本 PR | ✅ 已合并 |
 | W2c 贯通验证 | 协调会话 | #1010 与本 PR | ✅ 已合并;结果见设计文档 §7.10 |
-| W3a server | 协调会话 | #1016、#1018、#1019、#1020 与本 PR | 进行中:Watch 窗口、资源 API、鉴权(含 OIDC)、Views、拓扑、反熵、REST(含 token 端点、SSE、回滚、导入导出)已完成;还差指标、就绪探针和开发模式 |
+| W3a server | 协调会话 | #1016、#1018–#1021 与本 PR | ✅ 已合并;链路追踪移到 W4a |
 | W3b store-redis | 协调会话 | 本 PR | ✅ 已合并:D31 的启动检查与兼容性矩阵 |
 | W4a 端到端 + 示例 + 部署 | — | — | 未开始 |
 | W4b Dashboard | — | — | 未开始 |

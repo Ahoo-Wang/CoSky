@@ -220,6 +220,16 @@ class CoSkyStarterTest {
     }
 
     @Test
+    fun `the application appears in the topology under its name`() = runBlocking<Unit> {
+        val context = application()
+        context.getBean(CoSkyDiscoveryClient::class.java).getInstances("payment")
+        server.topology.flush()
+        val edge = server.store.topology(TestCoSkyServer.NAMESPACE).single()
+        edge.consumer.assert().isEqualTo("order")
+        edge.producer.assert().isEqualTo("payment")
+    }
+
+    @Test
     fun `spring cloud finds the discovery client`() {
         val context = application()
         context.getBeansOfType(DiscoveryClient::class.java).values

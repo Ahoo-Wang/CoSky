@@ -995,14 +995,15 @@ cosky:
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
 | `cosky_watch_events_sent_total` | Counter | |
 | `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`;滚动重启后看这个指标判断窗口是否够大(D29) |
-| `cosky_lease_active` / `cosky_lease_expired_total` | Gauge / Counter | |
+| `cosky_lease_active{namespace}` / `cosky_lease_expired_total` | Gauge / Counter | 由回收 Leader 上报 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2) |
 | `cosky_revision_regression_total` | Counter | §6.4 |
 | `cosky_anti_entropy_drift_total{namespace}` | Counter | 反熵发现不一致(§6.1) |
 | `cosky_auth_failures_total{reason}` | Counter | |
 
 - 就绪探针:全部 namespace 完成初始加载后才就绪。
-- 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP。
+- 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,随 W4a 的部署清单一起接入。
+- 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
 - 客户端暴露连接状态、watch 延迟、快照年龄、低频重建发现差异的指标。
 
 ### 7.10 性能目标

@@ -23,6 +23,8 @@ import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.authorizedName
+import me.ahoo.cosky.server.observe.CoSkyMetrics
+import me.ahoo.cosky.server.observe.GoneReason
 import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
@@ -41,6 +43,7 @@ class WatchSession(
     private val maxMessageBytes: Int,
     private val catchUpTimeout: Duration,
     private val permission: Permission = Permission.All,
+    private val metrics: CoSkyMetrics = CoSkyMetrics(),
     private val send: suspend (WatchResponse) -> Unit,
 ) {
     /**
@@ -53,6 +56,15 @@ class WatchSession(
      * and sends the client to another endpoint (design D29).
      */
     suspend fun run() {
+        metrics.watchStarted()
+        try {
+            serve()
+        } finally {
+            metrics.watchEnded()
+        }
+    }
+
+    private suspend fun serve() {
         val start = cache.awaitView()
         when {
             start.isClosed -> sendClosed()
@@ -63,7 +75,9 @@ class WatchSession(
                 follow(start.epoch)
             }
 
-            create.fromEpoch != start.epoch || create.fromRevision < start.earliest -> send(gone(start.earliest))
+            create.fromEpoch != start.epoch -> sendGone(start.earliest, GoneReason.EPOCH)
+
+            create.fromRevision < start.earliest -> sendGone(start.earliest, GoneReason.COMPACTED)
 
             create.fromRevision <= start.revision || catchUp(start) -> follow(start.epoch)
         }
@@ -89,7 +103,7 @@ class WatchSession(
         }
         // The store does not have it either: it comes from a timeline that was lost without anyone noticing (§6.4).
         // Waiting for another replica would not help, and the client would reconnect forever.
-        send(gone(start.earliest))
+        sendGone(start.earliest, GoneReason.REGRESSION)
         return false
     }
 
@@ -103,8 +117,13 @@ class WatchSession(
                     true
                 }
 
-                view.epoch != epoch || cursor.get() < view.earliest -> {
-                    send(gone(view.earliest))
+                view.epoch != epoch -> {
+                    sendGone(view.earliest, GoneReason.EPOCH)
+                    true
+                }
+
+                cursor.get() < view.earliest -> {
+                    sendGone(view.earliest, GoneReason.SLOW)
                     true
                 }
 
@@ -147,6 +166,7 @@ class WatchSession(
     private suspend fun sendEvents(batch: ChangeBatch) {
         val changes = batch.changes.filter { matches(it.resource) }
         val chunks = changes.chunkedByBytes(maxMessageBytes) { it.resource.serializedSize }
+        metrics.eventsSent(changes.size)
         chunks.forEachIndexed { index, chunk ->
             send(
                 response {
@@ -179,7 +199,10 @@ class WatchSession(
     private fun isInstanceOf(resource: Resource, service: String): Boolean =
         create.kind == Kind.KIND_INSTANCE && resource.instance.service == service
 
-    private fun gone(earliest: Long): WatchResponse = gone(create.watchId, earliest)
+    private suspend fun sendGone(earliest: Long, reason: GoneReason) {
+        metrics.gone(reason)
+        send(gone(create.watchId, earliest))
+    }
 
     private inline fun response(block: WatchResponse.Builder.() -> Unit): WatchResponse =
         WatchResponse.newBuilder().setWatchId(create.watchId).apply(block).build()

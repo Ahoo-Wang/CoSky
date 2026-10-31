@@ -63,8 +63,8 @@ internal class RunningServer(
     properties: Map<String, Any>,
     vararg sources: Class<*>,
     token: String? = null,
+    private val port: Int = ServerSocket(0).use { it.localPort },
 ) : AutoCloseable {
-    private val port = ServerSocket(0).use { it.localPort }
     private val context: ConfigurableApplicationContext =
         SpringApplicationBuilder(CoSkyServerApplication::class.java, *sources).run(
             // As arguments: SpringApplicationBuilder.properties only sets defaults, which application.yaml overrides.

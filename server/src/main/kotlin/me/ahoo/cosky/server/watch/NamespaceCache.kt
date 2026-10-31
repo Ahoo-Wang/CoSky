@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.server.watch
 
+import com.google.protobuf.util.Timestamps
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
@@ -33,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
 import me.ahoo.cosky.store.Position
@@ -117,6 +119,7 @@ class NamespaceCache(
     private val store: Store,
     private val windowSize: Int,
     private val antiEntropyInterval: Duration = 5.minutes,
+    private val metrics: CoSkyMetrics = CoSkyMetrics(),
 ) {
     private val state = MutableStateFlow<NamespaceView?>(null)
 
@@ -190,6 +193,7 @@ class NamespaceCache(
             return false
         }
         log.error("{} objects of namespace {} differ from the store; replacing the epoch.", different, namespace)
+        metrics.antiEntropyDrift(namespace)
         store.rotateEpoch(namespace, view.epoch)
         return true
     }
@@ -221,10 +225,14 @@ class NamespaceCache(
         return try {
             store.changes(namespace, position).collect { batch ->
                 state.update { it?.applying(batch, windowSize) }
+                val writtenAt = batch.changes.first().resource.meta.updatedAt
+                val lag = System.currentTimeMillis() - Timestamps.toMillis(writtenAt)
+                metrics.cacheApplied(namespace, batch.revision, maxOf(lag, 0))
             }
             false
         } catch (e: TimelineDivergedException) {
             isDiverged = true
+            metrics.revisionRegression()
             log.error("Namespace {} diverged, now at {}; loading it again.", namespace, e.current)
             true
         } catch (e: RevisionGoneException) {
