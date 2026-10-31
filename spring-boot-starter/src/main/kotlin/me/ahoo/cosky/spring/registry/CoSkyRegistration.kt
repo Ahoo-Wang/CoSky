@@ -13,11 +13,13 @@
 
 package me.ahoo.cosky.spring.registry
 
+import io.grpc.StatusException
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.CoSkyProperties
+import org.slf4j.LoggerFactory
 import org.springframework.boot.web.server.context.WebServerInitializedEvent
 import org.springframework.cloud.client.ServiceInstance
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration
@@ -63,6 +65,10 @@ class CoSkyServiceRegistry(
     private val client: CoSkyClient,
     private val properties: CoSkyProperties,
 ) : ServiceRegistry<CoSkyRegistration> {
+    private companion object {
+        val log = LoggerFactory.getLogger(CoSkyServiceRegistry::class.java)
+    }
+
     private val registered = ConcurrentHashMap<CoSkyRegistration, ClientRegistration>()
 
     override fun register(registration: CoSkyRegistration?) {
@@ -84,7 +90,13 @@ class CoSkyServiceRegistry(
     }
 
     override fun deregister(registration: CoSkyRegistration?) {
-        registered.remove(registration)?.let { runBlocking(VirtualThreads.dispatcher) { it.close() } }
+        val current = registered.remove(registration) ?: return
+        try {
+            runBlocking(VirtualThreads.dispatcher) { current.close() }
+        } catch (e: StatusException) {
+            // This runs while the application shuts down: closing the client gives up the lease, which then expires.
+            log.warn("Could not deregister {}: {}", registration?.serviceId, e.status)
+        }
     }
 
     /**

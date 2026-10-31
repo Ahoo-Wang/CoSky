@@ -73,8 +73,10 @@ internal class LeaseKeeper(
 
     suspend fun deregister(name: String) {
         mutex.withLock {
-            registrations.remove(name)
+            // In this order: if the server cannot be reached the registration stays, and with it the renewals of an
+            // Instance that is still there.
             resources().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
+            registrations.remove(name)
             if (registrations.isEmpty()) {
                 revoke()
             }
