@@ -1,4 +1,0 @@
-# Bootstrap Configuration
-org.springframework.cloud.bootstrap.BootstrapConfiguration=\
-me.ahoo.cosky.config.spring.cloud.CoSkyConfigBootstrapConfiguration
-

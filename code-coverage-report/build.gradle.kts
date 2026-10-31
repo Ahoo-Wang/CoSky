@@ -23,7 +23,6 @@ dependencies {
     libraryProjects.forEach {
         jacocoAggregation(it)
     }
-    jacocoAggregation(project(":cosky-rest-api"))
 }
 
 reporting {
@@ -34,7 +33,15 @@ reporting {
     }
 }
 
-val codeCoverageReport = tasks.named<JacocoReport>("codeCoverageReport")
+/**
+ * Code generated from the protos (package `me.ahoo.cosky.api.v1`) is not held to the coverage floor.
+ */
+val generatedClasses = listOf("me/ahoo/cosky/api/v1/**")
+
+val codeCoverageReport = tasks.named<JacocoReport>("codeCoverageReport") {
+    val aggregatedClasses = files(classDirectories.from.toList())
+    classDirectories.setFrom(aggregatedClasses.asFileTree.matching { exclude(generatedClasses) })
+}
 
 /**
  * Fails the build when the aggregated coverage drops below the floor, so coverage is controlled locally and in CI

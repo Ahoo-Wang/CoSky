@@ -18,13 +18,12 @@ links it with `Fixes #<number>`, so the issue closes when the change is merged.
 | Tool | Version | Used for |
 |---|---|---|
 | JDK | 17+ | Gradle build (toolchain 17) |
-| Redis | 6+ on `localhost:6379` | Integration tests |
+| Docker | Any recent version | Integration tests (Testcontainers) |
 | Node.js + pnpm | Node 22.12+, pnpm 10+ | `dashboard/` and `wiki/` only |
 
 ```bash
 ./gradlew check                 # compile, test, detekt, license headers, coverage floor
-./gradlew :cosky-config:test    # one module
-COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
+./gradlew :<module>:test        # one module
 ```
 
 ## Coding conventions
@@ -41,8 +40,8 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 ## Tests
 
 - **Unit tests** cover a class in isolation, with [MockK](https://mockk.io) for collaborators.
-- **Integration tests** run against a real Redis (`AbstractReactiveRedisTest`); `RestApiIntegrationTest` drives the
-  REST API over HTTP with authentication, RBAC and the audit log.
+- **Integration tests** run against a real Redis through [Testcontainers](https://testcontainers.com), so no local
+  Redis is needed.
 - Every bug fix comes with a test that fails without the fix.
 - `./gradlew check` fails when aggregated coverage drops below 90% of lines or 70% of branches. On pull requests,
   Codecov additionally requires 80% coverage of the changed lines and no drop of the project coverage.
@@ -51,6 +50,8 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 
 - `main` is always releasable. Work happens on short-lived branches created from `main`, e.g. `fix/renew-metadata`
   or `feat/config-search`, and comes back through a pull request.
+- `main` carries 6.x until 8.0 GA. 8.0 work is cut from `v8` and comes back through a pull request into `v8`
+  (see [docs/roadmap.md](docs/roadmap.md) §4).
 - Commit messages and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org):
   `type(scope)!: summary`, where `type` is one of `feat`, `fix`, `perf`, `docs`, `refactor`, `test`, `build`, `ci`,
   `chore`, and `!` marks a breaking change. The title determines the release notes category.
@@ -62,8 +63,8 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 - `main` is protected: every change goes through a pull request, and code owners
   ([CODEOWNERS](.github/CODEOWNERS)) are requested for review automatically.
 - The pull request template lists what reviewers check: tests, documentation and compatibility.
-- The build (`Integration Test`: tests, static analysis, license headers, coverage floor) and the `REST API Test`
-  must pass before merging; CodeQL and Codecov report on every pull request too.
+- The build (`Integration Test`: tests, static analysis, license headers, coverage floor) must pass before merging;
+  CodeQL and Codecov report on every pull request too.
 - Review conversations must be resolved, by a change or an answer, before merging.
 - History stays linear: no force pushes to `main`, and pull requests are squash-merged.
 

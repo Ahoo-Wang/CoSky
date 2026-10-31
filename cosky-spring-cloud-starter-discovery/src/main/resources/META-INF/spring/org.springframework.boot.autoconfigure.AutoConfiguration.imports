@@ -1,4 +1,0 @@
-me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyDiscoveryAutoConfiguration
-me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyDiscoveryClientConfiguration
-me.ahoo.cosky.discovery.spring.cloud.discovery.CoSkyReactiveDiscoveryClientConfiguration
-me.ahoo.cosky.discovery.spring.cloud.registry.CoSkyAutoServiceRegistrationAutoConfiguration

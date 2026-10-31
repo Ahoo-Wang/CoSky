@@ -22,27 +22,16 @@ plugins {
     alias(libs.plugins.kotlin)
     alias(libs.plugins.dokka)
     alias(libs.plugins.jmh)
+    alias(libs.plugins.protobuf) apply false
     jacoco
 }
-val dependenciesProject = project(":cosky-dependencies")
+val dependenciesProject = project(":dependencies")
 val bomProjects = setOf(
-    project(":cosky-bom"),
+    project(":bom"),
     dependenciesProject,
 )
-val coreProjects = setOf(
-    project(":cosky-config"),
-    project(":cosky-discovery"),
-)
-val restApiProject = project(":cosky-rest-api")
-val serverProjects = setOf(restApiProject)
-val exampleProjects = setOf(
-    project(":cosky-service-provider"),
-    project(":cosky-service-provider-api"),
-    project(":cosky-service-consumer"),
-)
-val testProject = project(":cosky-test")
 val codeCoverageReportProject = project(":code-coverage-report")
-val publishProjects = subprojects - serverProjects - exampleProjects - codeCoverageReportProject
+val publishProjects = subprojects - codeCoverageReportProject
 val libraryProjects = publishProjects - bomProjects
 
 ext.set("libraryProjects", libraryProjects)
@@ -167,6 +156,12 @@ configure(libraryProjects) {
 
 configure(publishProjects) {
     val isBom = bomProjects.contains(this)
+    // Directories drop the `cosky-` prefix, published artifacts keep it (design D8).
+    val coskyArtifactId = "cosky-${project.name}"
+    apply<BasePlugin>()
+    configure<BasePluginExtension> {
+        archivesName = coskyArtifactId
+    }
     apply<MavenPublishPlugin>()
     apply<SigningPlugin>()
     configure<PublishingExtension> {
@@ -196,6 +191,7 @@ configure(publishProjects) {
             val publishName = if (isBom) "mavenBom" else "mavenLibrary"
             val publishComponentName = if (isBom) "javaPlatform" else "java"
             create<MavenPublication>(publishName) {
+                artifactId = coskyArtifactId
                 from(components[publishComponentName])
                 pom {
                     name.set(rootProject.name)

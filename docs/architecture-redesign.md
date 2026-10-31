@@ -47,7 +47,7 @@ Redis (只有 server 可访问)
 | D5 | 身份 | **内置最小集(bootstrap admin + ServiceAccount + Role/RoleBinding),人员走 OIDC** | 删除自建用户/密码/锁定/改密;权限对象本身是资源,复用存储、Watch、审计 |
 | D6 | 直连 Redis 模式 | **不保留** | 双模式会让两套语义长期共存 |
 | D7 | 不做的事 | 自研一致性协议、多数据中心同步、服务端托管业务规则 | 控制面只存数据、推送变更 |
-| D8 | 模块目录 | **去掉 `cosky-` 前缀**(`api/`、`server/` …);发布的 Maven artifactId 仍为 `cosky-*` | 目录简洁;Maven 坐标需全局可辨识,由 Gradle `archivesName` 统一加前缀 |
+| D8 | 模块目录 | **去掉 `cosky-` 前缀**(`api/`、`server/` …);发布的 Maven artifactId 仍为 `cosky-*` | 目录简洁;Maven 坐标需全局可辨识,由根构建脚本统一加前缀(§3.1) |
 | D9 | 异步模型 | **Kotlin 协程优先**(`suspend` / `Flow` / `StateFlow`);Reactor 只出现在适配层 | 协程是 Kotlin 原生模型,代码顺序可读、取消语义结构化;grpc-kotlin 原生协程;Reactor 仅用于对接只提供 Reactor API 的外部框架(§3.2) |
 | D10 | Spring 配置加载 | **Spring Boot ConfigData API**(`spring.config.import=cosky:…`),不再使用 bootstrap 上下文 | Spring Boot 推荐方式,无需 Spring Cloud bootstrap(§7.7) |
 | D11 | Dashboard 部署 | **server 托管静态资源(单镜像)**,同时支持独立部署 | 部署最简;Dashboard 只依赖公开 REST API |
@@ -130,10 +130,14 @@ Redis (只有 server 可访问)
 
 删除:`cosky-core`、`cosky-config`、`cosky-discovery`、`cosky-spring-cloud-core`、两个独立 starter、`cosky-rest-api`。
 
-`settings.gradle.kts` 中统一处理 artifactId:
+根 `build.gradle.kts` 统一处理前缀。`archivesName` 只影响 jar 文件名,不影响 `maven-publish` 的坐标,所以 `artifactId` 要显式设置:
 
 ```kotlin
-subprojects { base { archivesName.set("cosky-${project.name}") } }
+configure(publishProjects) {
+    val coskyArtifactId = "cosky-${project.name}"
+    configure<BasePluginExtension> { archivesName = coskyArtifactId }
+    // publishing.publications:create<MavenPublication>(...) { artifactId = coskyArtifactId }
+}
 ```
 
 ### 3.2 异步模型与适配层边界
