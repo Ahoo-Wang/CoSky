@@ -11,18 +11,10 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.server
-
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.asCoroutineDispatcher
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
-
-/**
- * Coroutines stay the programming model, virtual threads carry them (design D28), so that an occasional blocking call
- * does not hold a platform thread.
- */
-object VirtualThreads {
-    val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor()
-    val dispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher()
+dependencies {
+    api(project(":api"))
+    implementation("io.grpc:grpc-netty-shaded")
+    testImplementation(project(":server"))
+    testImplementation(project(":store"))
+    testImplementation("io.grpc:grpc-inprocess")
 }

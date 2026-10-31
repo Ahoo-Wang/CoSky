@@ -24,6 +24,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
@@ -32,7 +33,6 @@ import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
-import me.ahoo.cosky.server.VirtualThreads
 import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
