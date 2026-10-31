@@ -48,6 +48,18 @@ val Resource.key: ResourceKey
         .build()
 
 /**
+ * The resource as a client wrote it: the store fills the read-only metadata, so it never counts as a change.
+ */
+fun Resource.withoutReadOnlyMeta(): Resource = toBuilder().apply {
+    metaBuilder
+        .clearRevision()
+        .clearCreateRevision()
+        .clearCreatedAt()
+        .clearUpdatedAt()
+        .clearUpdatedBy()
+}.build()
+
+/**
  * The batch contract every store shares: all keys lie in [namespace], and none repeats, since a batch has one
  * revision and each object changes once in it.
  */
