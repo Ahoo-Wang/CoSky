@@ -15,8 +15,10 @@ package me.ahoo.cosky.server.watch
 
 import kotlinx.collections.immutable.PersistentList
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.collections.immutable.persistentHashMapOf
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentHashMap
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,16 +42,23 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * One complete revision of a namespace, immutable, so that reads need no lock and always see a consistent state.
  *
- * @param generation grows with every load: a watcher from an older one must start over.
+ * @param earliest the oldest position a watcher can resume from.
+ * @param window the revisions after [earliest], [windowEvents] changes in total (design D29).
  */
 data class NamespaceView(
-    val generation: Long,
     val epoch: String,
     val revision: Long,
     val earliest: Long,
     val objects: PersistentMap<ResourceKey, Resource>,
     val window: PersistentList<ChangeBatch>,
+    val windowEvents: Int = window.sumOf { it.changes.size },
 ) {
+    /**
+     * The namespace is not active, or does not exist.
+     */
+    val isClosed: Boolean
+        get() = this === CLOSED
+
     fun applying(batch: ChangeBatch, windowSize: Int): NamespaceView {
         val applied = batch.changes.fold(objects) { current, change ->
             val key = change.resource.key
@@ -60,13 +69,32 @@ data class NamespaceView(
                 else -> current.removing(key)
             }
         }
-        val next = window.adding(batch)
-        val trimmed = if (next.size > windowSize) next.removingAt(0) else next
+        var trimmed = window.adding(batch)
+        var events = windowEvents + batch.changes.size
+        // Whole revisions leave, the oldest first; the newest stays however large it is.
+        while (events > windowSize && trimmed.size > 1) {
+            events -= trimmed.first().changes.size
+            trimmed = trimmed.removingAt(0)
+        }
         return copy(
             revision = batch.revision,
             earliest = trimmed.first().revision - 1,
             objects = applied,
             window = trimmed,
+            windowEvents = events,
+        )
+    }
+
+    companion object {
+        /**
+         * Every wait for a revision ends on it, and it holds nothing.
+         */
+        val CLOSED = NamespaceView(
+            epoch = "",
+            revision = Long.MAX_VALUE,
+            earliest = Long.MAX_VALUE,
+            objects = persistentHashMapOf(),
+            window = persistentListOf(),
         )
     }
 }
@@ -83,19 +111,20 @@ class NamespaceCache(
     private val windowSize: Int,
 ) {
     private val state = MutableStateFlow<NamespaceView?>(null)
-    private val closed = MutableStateFlow(false)
-    private var generation = 0L
 
     /**
-     * Null while loading, which ends every watcher of the previous view.
+     * Null while loading. A watcher waits that out: what ends it is the next view, if its position is no longer valid
+     * there. So a failed read of the store does not make every client List again.
      */
     val views: StateFlow<NamespaceView?>
         get() = state
 
-    val isClosed: StateFlow<Boolean>
-        get() = closed
-
     suspend fun awaitView(): NamespaceView = views.filterNotNull().first()
+
+    /**
+     * The position in the store itself, which this cache may be behind.
+     */
+    suspend fun storePosition(): Position? = store.position(namespace)
 
     /**
      * Runs until the namespace stops being active.
@@ -104,7 +133,7 @@ class NamespaceCache(
         while (true) {
             try {
                 if (!followOnce()) {
-                    closed.value = true
+                    state.value = NamespaceView.CLOSED
                     return
                 }
             } catch (e: CancellationException) {
@@ -142,14 +171,13 @@ class NamespaceCache(
             all[resource.key] = resource
             all
         }
-        generation += 1
+        val recent = store.recentChanges(namespace, position.revision, windowSize)
         return NamespaceView(
-            generation = generation,
             epoch = position.epoch,
             revision = position.revision,
-            earliest = position.revision,
+            earliest = recent.firstOrNull()?.let { it.revision - 1 } ?: position.revision,
             objects = objects.toPersistentHashMap(),
-            window = persistentListOf(),
+            window = recent.toPersistentList(),
         )
     }
 

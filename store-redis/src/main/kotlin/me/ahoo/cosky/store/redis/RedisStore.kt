@@ -13,11 +13,14 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.Limit
 import io.lettuce.core.MapScanCursor
+import io.lettuce.core.Range
 import io.lettuce.core.RedisClient
 import io.lettuce.core.ScanArgs
 import io.lettuce.core.ScanCursor
 import io.lettuce.core.ScriptOutputType
+import io.lettuce.core.StreamMessage
 import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.codec.ByteArrayCodec
@@ -225,6 +228,26 @@ class RedisStore(
         }
     }
 
+    override suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch> {
+        val log = RedisKeys(namespace).log
+        val newestFirst = mutableListOf<StreamMessage<String, ByteArray>>()
+        var upper = Range.Boundary.including(until.toString())
+        do {
+            val count = minOf(limit - newestFirst.size, TAIL_BATCH_SIZE).toLong()
+            val page = commands.xrevrange(log, Range.from(Range.Boundary.unbounded(), upper), Limit.from(count)).await()
+            newestFirst += page
+            page.lastOrNull()?.let { upper = Range.Boundary.excluding(it.id) }
+        } while (page.size.toLong() == count && newestFirst.size < limit)
+        val oldest = newestFirst.lastOrNull() ?: return emptyList()
+        // The limit or a trim may have cut through the oldest revision, and part of a revision is of no use.
+        val cut = oldest.id.substringBefore('-').takeIf { oldest.id.substringAfter('-') != "0" }
+        return newestFirst.asReversed()
+            .dropWhile { it.id.substringBefore('-') == cut }
+            .map { logEntryOf(it.id, it.body) }
+            .groupBy { it.revision }
+            .map { (revision, entries) -> ChangeBatch(revision, entries.map { it.change }) }
+    }
+
     private suspend fun rotateEpoch(namespace: String, expected: String): Position {
         val keys = RedisKeys(namespace)
         val reply = EPOCH_ROTATE.run<List<Any?>>(
@@ -424,10 +447,14 @@ class RedisStore(
     private fun logEntryOf(raw: Any?): LogEntry {
         val entry = raw.asList()
         val fields = entry[1].asList().chunked(2).associate { (field, value) -> field.asText() to value as ByteArray }
+        return logEntryOf(entry[0].asText(), fields)
+    }
+
+    private fun logEntryOf(id: String, fields: Map<String, ByteArray>): LogEntry {
         val meta = fields.getValue("m").decodeToString()
         val resource = resourceOf(fields.getValue("o"), StoredMeta.parse(meta))
         val type = if (fields.getValue("t").decodeToString() == "P") ChangeType.PUT else ChangeType.DELETE
-        return LogEntry(entry[0].asText().substringBefore('-').toLong(), meta, Change(type, resource))
+        return LogEntry(id.substringBefore('-').toLong(), meta, Change(type, resource))
     }
 
     private fun newEpoch(): String = UUID.randomUUID().toString().replace("-", "")

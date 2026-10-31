@@ -106,6 +106,9 @@ class MemoryStore(
         emitAll(batches)
     }
 
+    override suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch> =
+        active(namespace)?.recentChanges(until, limit).orEmpty()
+
     override suspend fun history(key: ResourceKey, limit: Int): List<Resource> {
         val revisions = slot(key.namespace).value?.history?.get(key).orEmpty()
         return if (limit == 0) revisions else revisions.take(limit)

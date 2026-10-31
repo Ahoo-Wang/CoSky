@@ -25,6 +25,7 @@ data class CoSkyProperties(
     val store: Store = Store(),
     val watch: Watch = Watch(),
     val lease: Lease = Lease(),
+    val read: Read = Read(),
 ) {
     data class Store(val redis: Redis = Redis())
 
@@ -33,6 +34,8 @@ data class CoSkyProperties(
         val cluster: Boolean = false,
         val tailPollInterval: Duration = Duration.ofSeconds(1),
     )
+
+    data class Read(val minRevisionTimeout: Duration = Duration.ofSeconds(3))
 
     data class Watch(
         val window: Int = 10_000,

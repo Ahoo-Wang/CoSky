@@ -34,7 +34,8 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.toKotlinDuration
 
 /**
- * One stream multiplexes many watches (design §4.3). A watch that fails ends alone, with `canceled`.
+ * One stream multiplexes many watches (design §4.3). A watch that fails ends alone, with `canceled`, unless the whole
+ * replica cannot serve it: then the stream ends, and the client moves all its watches to another endpoint (D29).
  */
 @Service
 class WatchGrpcService(
@@ -69,11 +70,14 @@ class WatchGrpcService(
             )
 
             else -> {
-                val session = WatchSession(create, caches.of(create.namespace), Limits.DEFAULT.maxMessageBytes) {
-                    send(it)
-                }
+                val session = WatchSession(
+                    create,
+                    caches.of(create.namespace),
+                    Limits.DEFAULT.maxMessageBytes,
+                    properties.read.minRevisionTimeout.toKotlinDuration(),
+                ) { send(it) }
                 val job = launch {
-                    session.run()
+                    grpcCall { session.run() }
                     watches.remove(create.watchId)
                 }
                 watches[create.watchId] = ActiveWatch(session, job)

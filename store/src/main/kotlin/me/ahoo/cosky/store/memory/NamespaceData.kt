@@ -77,6 +77,19 @@ internal data class NamespaceData(
 
     fun writeIdAt(target: Long): Long? = log.lastOrNull { it.revision == target }?.writeId
 
+    fun recentChanges(until: Long, limit: Int): List<ChangeBatch> {
+        var remaining = limit
+        return log.takeWhile { it.revision <= until }
+            .groupBy { it.revision }
+            .map { (revision, entries) -> ChangeBatch(revision, entries.map { it.change }) }
+            .asReversed()
+            .takeWhile { batch ->
+                remaining -= batch.changes.size
+                remaining >= 0
+            }
+            .asReversed()
+    }
+
     fun applying(mutations: List<Mutation>, write: Write, settings: Settings): Pair<NamespaceData, ApplyResult> {
         if (state != NamespaceState.ACTIVE) {
             return this to ApplyResult.NamespaceNotActive

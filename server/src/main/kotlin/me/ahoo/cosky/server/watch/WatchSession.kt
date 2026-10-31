@@ -14,6 +14,7 @@
 package me.ahoo.cosky.server.watch
 
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.Kind
@@ -24,6 +25,7 @@ import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration
 
 /**
  * One watch of a stream (design §7.3): starts from a snapshot or a position, then delivers whole revisions in order,
@@ -35,6 +37,7 @@ class WatchSession(
     private val create: WatchRequest.Create,
     private val cache: NamespaceCache,
     private val maxMessageBytes: Int,
+    private val catchUpTimeout: Duration,
     private val send: suspend (WatchResponse) -> Unit,
 ) {
     /**
@@ -42,30 +45,76 @@ class WatchSession(
      */
     val cursor = AtomicLong(create.fromRevision)
 
+    /**
+     * @throws CoSkyException with `UNAVAILABLE` when this replica stays behind the client, which ends the whole stream
+     * and sends the client to another endpoint (design D29).
+     */
     suspend fun run() {
         val start = cache.awaitView()
-        if (create.fromRevision == 0L) {
-            sendSnapshot(start)
-        } else if (!isResumable(start)) {
-            send(gone(start.earliest))
-            return
+        when {
+            start.isClosed -> sendClosed()
+
+            create.fromRevision == 0L -> {
+                sendSnapshot(start)
+                cursor.set(start.revision)
+                follow(start.epoch)
+            }
+
+            create.fromEpoch != start.epoch || create.fromRevision < start.earliest -> send(gone(start.earliest))
+
+            create.fromRevision <= start.revision || catchUp(start) -> follow(start.epoch)
         }
-        cursor.set(maxOf(cursor.get(), if (create.fromRevision == 0L) start.revision else create.fromRevision))
-        follow(start.generation)
     }
 
-    private fun isResumable(view: NamespaceView): Boolean =
-        create.fromEpoch == view.epoch && create.fromRevision in view.earliest..view.revision
-
-    private suspend fun follow(generation: Long) {
-        cache.views.first { view ->
-            if (view == null || view.generation != generation || cursor.get() < view.earliest) {
-                send(gone(view?.earliest ?: cursor.get()))
-                return@first true
-            }
-            deliver(view)
-            false
+    /**
+     * Waits for this replica to reach the position of the client, which came from another replica.
+     *
+     * @return false if the position turned out to be invalid.
+     */
+    private suspend fun catchUp(start: NamespaceView): Boolean {
+        val caughtUp = withTimeoutOrNull(catchUpTimeout) {
+            cache.views.first { it != null && (it.epoch != start.epoch || it.revision >= create.fromRevision) }
         }
+        if (caughtUp != null) {
+            return true
+        }
+        val stored = cache.storePosition()
+        if (stored?.epoch == start.epoch && stored.revision >= create.fromRevision) {
+            throw CoSkyException.storeUnavailable(
+                "This replica is behind revision ${create.fromRevision} of namespace ${create.namespace}.",
+            )
+        }
+        // The store does not have it either: it comes from a timeline that was lost without anyone noticing (§6.4).
+        // Waiting for another replica would not help, and the client would reconnect forever.
+        send(gone(start.earliest))
+        return false
+    }
+
+    private suspend fun follow(epoch: String) {
+        cache.views.first { view ->
+            when {
+                view == null -> false
+
+                view.isClosed -> {
+                    sendClosed()
+                    true
+                }
+
+                view.epoch != epoch || cursor.get() < view.earliest -> {
+                    send(gone(view.earliest))
+                    true
+                }
+
+                else -> {
+                    deliver(view)
+                    false
+                }
+            }
+        }
+    }
+
+    private suspend fun sendClosed() {
+        send(canceled(create.watchId, CoSkyException.namespaceNotFound(create.namespace)))
     }
 
     private suspend fun deliver(view: NamespaceView) {
