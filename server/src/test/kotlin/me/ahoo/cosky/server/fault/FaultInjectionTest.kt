@@ -390,9 +390,9 @@ class FaultInjectionTest {
         const val NO_PROTECTION = 1000
         val LEASE_TTL = 6.seconds
         val LONGER_THAN_TTL = 9.seconds
-        val GRACE = 3.seconds
+        val GRACE = 5.seconds
         val WITHIN_GRACE = 2.seconds
-        val PAST_GRACE = 5.seconds
+        val PAST_GRACE = 7.seconds
         val SETTLE = 300.milliseconds
         val POLL = 100.milliseconds
         val SCENARIO_TIMEOUT = 120.seconds

@@ -725,7 +725,7 @@ client                         server                         Redis
 消费者读到空列表,客户端再集中重新注册。Reaper 每轮依次判断:
 
 1. **恢复宽限**:成为 Leader 或访问存储失败后,`reaper-grace`(默认 30 秒)内不回收。这段时间足够客户端走完最长 10 秒的重连退避并立即续期;
-   到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间超过 5 个 `reaper-interval` 就重新开始宽限。
+   到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间,或一轮中途的一次访问,超过 5 个 `reaper-interval` 就重新开始宽限。
 2. **大比例到期暂停**:按 namespace 读取 `leaseStats`。租约数不少于 `protection-min-leases`(默认 10)且到期比例超过 `protection-threshold`(默认 50%)时暂停回收,
    记录 ERROR 日志并置位 `cosky_lease_protection_active`。这一层覆盖宽限检测不到的情况,例如客户端与 server 之间分区、Reaper 到 Redis 却正常。
    比例回落后自动恢复;持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。

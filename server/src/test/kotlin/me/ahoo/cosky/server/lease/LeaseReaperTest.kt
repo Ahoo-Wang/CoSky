@@ -20,7 +20,9 @@ import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.store.GrantResult
+import me.ahoo.cosky.store.LeaseStats
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -116,6 +118,64 @@ class LeaseReaperTest {
         store.keepAlive(NAMESPACE, listOf(lease))
         tickEverySecond(5)
         instances().assert().containsExactly("a")
+    }
+
+    /**
+     * The worst moment for a store to hang: when it answers, what it says has expired only did during the outage.
+     */
+    private suspend fun midTickHang(hangingStore: (hang: () -> Unit) -> Store) {
+        var hanging = false
+        val reaper = LeaseReaper(
+            hangingStore {
+                if (hanging) {
+                    clock.advance(Duration.ofSeconds(TTL + 10))
+                    hanging = false
+                }
+            },
+            { listOf(NAMESPACE) },
+            options,
+            clock,
+        )
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        val lease = register("a")
+        hanging = true
+        reaper.tick()
+        instances().assert().containsExactly("a")
+
+        // That started the grace again, which is what lets the process renew in time.
+        repeat(5) {
+            clock.advance(Duration.ofSeconds(1))
+            reaper.tick()
+        }
+        instances().assert().containsExactly("a")
+        store.keepAlive(NAMESPACE, listOf(lease))
+    }
+
+    @Test
+    fun `a store hanging while it lists what expired does not lead to reaping`() = scenario {
+        midTickHang { hang ->
+            object : Store by store {
+                override suspend fun expiredLeases(namespace: String, limit: Int): List<Long> {
+                    hang()
+                    return store.expiredLeases(namespace, limit)
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `a store hanging while it counts leases does not lead to reaping`() = scenario {
+        midTickHang { hang ->
+            object : Store by store {
+                override suspend fun leaseStats(namespace: String): LeaseStats {
+                    hang()
+                    return store.leaseStats(namespace)
+                }
+            }
+        }
     }
 
     @Test
