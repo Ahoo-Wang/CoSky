@@ -11,4 +11,10 @@ spec:
     - name: rest
       port: 80
       protocol: TCP
-      targetPort: 8080
+      targetPort: http
+    # A client keeps one long-lived connection: give it several addresses, or the service of each replica, to spread
+    # them evenly across replicas. Through this ClusterIP they stay where they first landed.
+    - name: grpc
+      port: 9090
+      protocol: TCP
+      targetPort: grpc

@@ -20,6 +20,8 @@ dependencies {
     api("org.springframework.boot:spring-boot-autoconfigure")
     api("org.springframework.cloud:spring-cloud-commons")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+    // Spring needs it to apply the default values of CoSkyProperties, in the application as well as in tests.
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
     compileOnly("org.springframework.boot:spring-boot-health")
     compileOnly("org.springframework.boot:spring-boot-web-server")
     compileOnly("org.springframework.cloud:spring-cloud-context")
