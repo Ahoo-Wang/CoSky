@@ -50,6 +50,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | ✅ |
 | `store-redis` | Redis Store (the only module with Lua) | ✅ |
 | `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
+| `examples` | A provider and a consumer on the starter; `e2e` runs them with the server as separate processes | ✅ |
 | `test` | Shared test utilities | ✅ |
 | `buildSrc` | Build logic (OpenAPI generation) | ✅ |
 | `dashboard/` | React 19 frontend (separate build — see dashboard/CLAUDE.md); still on the 6.x API until W4b | — |

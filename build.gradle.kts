@@ -31,7 +31,12 @@ val bomProjects = setOf(
     dependenciesProject,
 )
 val codeCoverageReportProject = project(":code-coverage-report")
-val publishProjects = subprojects - codeCoverageReportProject
+val exampleProjects = setOf(
+    project(":examples:provider"),
+    project(":examples:consumer"),
+    project(":examples:e2e"),
+)
+val publishProjects = subprojects - codeCoverageReportProject - exampleProjects - project(":examples")
 val libraryProjects = publishProjects - bomProjects
 
 ext.set("libraryProjects", libraryProjects)
@@ -151,6 +156,32 @@ configure(libraryProjects) {
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
         jmh("org.openjdk.jmh:jmh-core")
         jmh("org.openjdk.jmh:jmh-generator-annprocess")
+    }
+}
+
+// Examples show how to use the published modules: they are not published, and not held to the coverage floor.
+configure(exampleProjects) {
+    apply(plugin = "org.jetbrains.kotlin.jvm")
+    configure<KotlinJvmProjectExtension> {
+        jvmToolchain {
+            languageVersion.set(JavaLanguageVersion.of(21))
+        }
+    }
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+        compilerOptions {
+            freeCompilerArgs = listOf("-Xjsr305=strict")
+            javaParameters = true
+        }
+    }
+    tasks.withType<Test> {
+        useJUnitPlatform()
+        testLogging {
+            exceptionFormat = TestExceptionFormat.FULL
+        }
+    }
+    dependencies {
+        add("implementation", platform(dependenciesProject))
+        add("testImplementation", platform(rootProject.libs.junit.bom))
     }
 }
 
