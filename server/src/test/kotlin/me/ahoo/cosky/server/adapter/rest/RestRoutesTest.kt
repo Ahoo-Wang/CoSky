@@ -59,7 +59,7 @@ class RestRoutesTest {
     private val access = AccessControl(caches)
     private val adminToken = Tokens.generate()
 
-    private fun client(authenticated: Boolean = false): WebTestClient {
+    private fun client(authenticated: Boolean = false, properties: CoSkyProperties = CoSkyProperties()): WebTestClient {
         val authorizer: Authorizer = if (authenticated) access else Authorizer.ALLOW_ALL
         val routes = RestRoutes(
             ResourceService(store, caches, authorizer = authorizer),
@@ -69,7 +69,7 @@ class RestRoutesTest {
             authorizer,
             access.takeIf { authenticated },
             AuditLogger(),
-            CoSkyProperties(),
+            properties,
         ).routes()
         return WebTestClient.bindToRouterFunction(routes).build()
     }
@@ -345,6 +345,32 @@ class RestRoutesTest {
     }
 
     private fun bearer(token: String = adminToken.plaintext): String = "Bearer $token"
+
+    @Test
+    fun `the sign-in page learns how people sign in, before anyone has`() {
+        val oidc = CoSkyProperties.Oidc(issuer = "https://idp.example", clientId = "dashboard", audience = "private")
+        val client = client(authenticated = true, CoSkyProperties(auth = CoSkyProperties.Auth(oidc = oidc)))
+
+        val config = client.get().uri("/v1/auth/config").exchange().expectStatus().isOk.json().getAsJsonObject("oidc")
+
+        config["issuer"].asString.assert().isEqualTo("https://idp.example")
+        config["clientId"].asString.assert().isEqualTo("dashboard")
+        config.getAsJsonArray("scopes").map { it.asString }.assert().containsExactly("openid", "profile")
+        config.keySet().assert().containsExactlyInAnyOrder("issuer", "clientId", "scopes")
+    }
+
+    @Test
+    fun `without a whole OIDC client there is nothing to sign in with`() {
+        listOf(
+            CoSkyProperties.Oidc(),
+            CoSkyProperties.Oidc(issuer = "https://idp.example"),
+            CoSkyProperties.Oidc(clientId = "dashboard"),
+        ).forEach { oidc ->
+            val config = client(authenticated = true, CoSkyProperties(auth = CoSkyProperties.Auth(oidc = oidc)))
+                .get().uri("/v1/auth/config").exchange().expectStatus().isOk.json()
+            config.keySet().assert().isEmpty()
+        }
+    }
 
     @Test
     fun `without a token there is no answer, and with one there is`() = runBlocking<Unit> {

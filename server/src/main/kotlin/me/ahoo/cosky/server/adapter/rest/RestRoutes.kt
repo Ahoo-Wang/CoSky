@@ -97,7 +97,18 @@ class RestRoutes(
     private val properties: CoSkyProperties,
     private val limits: Limits = Limits.DEFAULT,
 ) {
-    fun routes(): RouterFunction<ServerResponse> = coRouter {
+    fun routes(): RouterFunction<ServerResponse> = publicRoutes().and(signedInRoutes())
+
+    /**
+     * What the sign-in page needs before anyone has signed in (design D34).
+     */
+    private fun publicRoutes(): RouterFunction<ServerResponse> = coRouter {
+        context { VirtualThreads.dispatcher }
+
+        GET("/v1/auth/config") { authConfig() }
+    }
+
+    private fun signedInRoutes(): RouterFunction<ServerResponse> = coRouter {
         context { VirtualThreads.dispatcher }
 
         GET("/v1/me", ::me)
@@ -430,6 +441,22 @@ class RestRoutes(
             add(
                 "rules",
                 JsonArray().apply { access?.rulesOf(principal).orEmpty().forEach { add(ProtoJson.tree(it)) } },
+            )
+        }
+        return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValueAndAwait(response.toString())
+    }
+
+    private suspend fun authConfig(): ServerResponse {
+        val oidc = properties.auth.oidc
+        val response = JsonObject()
+        if (oidc.issuer != null && oidc.clientId != null) {
+            response.add(
+                "oidc",
+                JsonObject().apply {
+                    addProperty("issuer", oidc.issuer)
+                    addProperty("clientId", oidc.clientId)
+                    add("scopes", JsonArray().apply { oidc.scopes.forEach { add(it) } })
+                },
             )
         }
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValueAndAwait(response.toString())

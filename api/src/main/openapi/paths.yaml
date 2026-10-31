@@ -492,6 +492,19 @@ paths:
         default: { $ref: '#/components/responses/Error' }
 
   # --- Identity ---
+  /v1/auth/config:
+    get:
+      tags: [Identity]
+      operationId: getAuthConfig
+      security: []
+      description: What a sign-in page needs before anyone has signed in. Holds public values only.
+      responses:
+        '200':
+          description: How people sign in.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthConfigResponse' }
+        default: { $ref: '#/components/responses/Error' }
   /v1/me:
     get:
       tags: [Identity]
@@ -652,6 +665,20 @@ components:
           type: string
           description: Plaintext `cosky_<tokenId>_<secret>`, returned only once.
         expiresAt: { type: string, format: date-time }
+    AuthConfigResponse:
+      type: object
+      properties:
+        oidc:
+          type: object
+          description: Omitted when people cannot sign in through OIDC; a ServiceAccount token still works.
+          properties:
+            issuer:
+              type: string
+            clientId:
+              type: string
+            scopes:
+              type: array
+              items: { type: string }
     MeResponse:
       type: object
       properties:

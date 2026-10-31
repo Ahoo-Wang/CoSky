@@ -103,6 +103,7 @@ jobs:
           done
           curl -sf http://localhost:8080/actuator/health/readiness
           curl -sf http://localhost:8080/v1/namespaces/default/configs
+          curl -sf http://localhost:8080/ | grep -q 'id="root"'
           docker stop --time 15 cosky
           docker logs cosky | tail -5
           # 143 is the JVM's exit on SIGTERM: anything else means it had to be killed.
