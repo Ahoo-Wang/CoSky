@@ -1,0 +1,145 @@
+// Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//      http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Resource model (design §3.3, §4.1). Every object is a Resource: shared metadata plus one kind-specific spec.
+package cosky.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "me.ahoo.cosky.api.v1";
+option java_outer_classname = "ResourceProto";
+
+message ObjectMeta {
+  string namespace = 1; // "_system" for Namespace / ServiceAccount / Role / RoleBinding
+  string name = 2;
+  int64 revision = 3; // namespace revision that last modified it (read-only)
+  int64 create_revision = 4; // read-only
+  map<string, string> labels = 5;
+  google.protobuf.Timestamp created_at = 6; // read-only
+  google.protobuf.Timestamp updated_at = 7; // read-only
+  string updated_by = 8; // read-only; identity of the writer, the audit trail
+  int64 lease = 9; // settable on Instance only
+}
+
+message Resource {
+  ObjectMeta meta = 1;
+  // The kind is determined by which spec is set.
+  oneof spec {
+    NamespaceSpec namespace = 10;
+    ConfigSpec config = 11;
+    InstanceSpec instance = 12;
+    ServiceAccountSpec service_account = 13;
+    RoleSpec role = 14;
+    RoleBindingSpec role_binding = 15;
+  }
+}
+
+enum Kind {
+  KIND_UNSPECIFIED = 0;
+  KIND_NAMESPACE = 1;
+  KIND_CONFIG = 2;
+  KIND_INSTANCE = 3;
+  KIND_SERVICE_ACCOUNT = 4;
+  KIND_ROLE = 5;
+  KIND_ROLE_BINDING = 6;
+}
+
+// Identifies one resource; global kinds use the "_system" namespace.
+message ResourceKey {
+  string namespace = 1;
+  Kind kind = 2;
+  string name = 3;
+}
+
+message NamespaceSpec {
+  string description = 1;
+}
+
+enum ConfigFormat {
+  CONFIG_FORMAT_UNSPECIFIED = 0;
+  CONFIG_FORMAT_YAML = 1;
+  CONFIG_FORMAT_PROPERTIES = 2;
+  CONFIG_FORMAT_JSON = 3;
+  CONFIG_FORMAT_TEXT = 4;
+}
+
+message ConfigSpec {
+  ConfigFormat format = 1; // declared explicitly, never inferred from the name
+  string content = 2; // <= 1 MiB
+  string sha256 = 3; // computed by the server, read-only
+}
+
+message Endpoint {
+  string scheme = 1; // http / https / grpc ...
+  string host = 2;
+  int32 port = 3;
+}
+
+message InstanceSpec {
+  string service = 1;
+  Endpoint endpoint = 2;
+  optional int32 weight = 3; // unset = 1 (filled by the server); 0 = drained but still registered
+  map<string, string> metadata = 4; // user data, kept apart from system fields; <= 64 entries
+}
+
+message ServiceAccountSpec {
+  string description = 1;
+  repeated TokenRef tokens = 2; // at most 2, for rotation
+}
+
+message TokenRef {
+  string id = 1;
+  string sha256 = 2; // only the hash is stored; the plaintext is returned once, on creation
+  google.protobuf.Timestamp expires_at = 3;
+}
+
+enum Verb {
+  VERB_UNSPECIFIED = 0;
+  VERB_GET = 1; // includes List
+  VERB_WATCH = 2;
+  VERB_PUT = 3;
+  VERB_DELETE = 4;
+}
+
+message Rule {
+  repeated Kind kinds = 1;
+  repeated string namespaces = 2; // "*" matches every namespace
+  repeated Verb verbs = 3;
+  // Empty matches every object. Otherwise exact values, or prefixes when they end in "*", matched against the Config
+  // name, the Instance spec.service and the object name of other kinds (§7.8).
+  repeated string names = 4;
+}
+
+message RoleSpec {
+  string description = 1;
+  repeated Rule rules = 2;
+}
+
+message Subject {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_SERVICE_ACCOUNT = 1;
+    TYPE_USER = 2;
+    TYPE_GROUP = 3;
+  }
+  Type type = 1;
+  string name = 2; // USER / GROUP come from OIDC claims
+}
+
+message RoleBindingSpec {
+  string role = 1;
+  repeated Subject subjects = 2;
+  // Required. The grant applies only in these namespaces, intersected with Rule.namespaces; "*" adds no restriction.
+  repeated string namespaces = 3;
+}

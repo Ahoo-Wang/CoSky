@@ -1,0 +1,95 @@
+// Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//      http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Error model (design §4.4). The server packs one ErrorDetail into google.rpc.Status.details
+// (the grpc-status-details-bin trailer); the REST mapping returns the same detail in the JSON error body.
+package cosky.v1;
+
+import "cosky/v1/resource.proto";
+
+option java_multiple_files = true;
+option java_package = "me.ahoo.cosky.api.v1";
+option java_outer_classname = "ErrorsProto";
+
+// Machine-readable reason; the gRPC code and HTTP status follow from it (see me.ahoo.cosky.api.error.ErrorCodes).
+enum ErrorReason {
+  ERROR_REASON_UNSPECIFIED = 0;
+  ERROR_REASON_RESOURCE_NOT_FOUND = 1; // NOT_FOUND / 404
+  ERROR_REASON_NAMESPACE_NOT_FOUND = 2; // NOT_FOUND / 404 (§7.2)
+  ERROR_REASON_REVISION_CONFLICT = 3; // ABORTED / 409
+  ERROR_REASON_LEASE_NOT_FOUND = 4; // FAILED_PRECONDITION / 412
+  ERROR_REASON_NAMESPACE_NOT_EMPTY = 5; // FAILED_PRECONDITION / 409 (§7.2)
+  ERROR_REASON_UNAUTHENTICATED = 6; // UNAUTHENTICATED / 401
+  ERROR_REASON_PERMISSION_DENIED = 7; // PERMISSION_DENIED / 403
+  ERROR_REASON_INVALID_ARGUMENT = 8; // INVALID_ARGUMENT / 400
+  ERROR_REASON_MIN_REVISION_TIMEOUT = 9; // DEADLINE_EXCEEDED / 504
+  ERROR_REASON_STORE_UNAVAILABLE = 10; // UNAVAILABLE / 503
+  ERROR_REASON_REVISION_REGRESSION = 11; // UNAVAILABLE / 503: the namespace diverged and is reloading (§6.4)
+  ERROR_REASON_WATCH_QUOTA_EXCEEDED = 12; // RESOURCE_EXHAUSTED / 429: too many watches on one stream (§7.3)
+}
+
+message ErrorDetail {
+  ErrorReason reason = 1;
+  oneof detail {
+    ResourceNotFound resource_not_found = 10;
+    NamespaceRef namespace = 11; // NAMESPACE_NOT_FOUND, NAMESPACE_NOT_EMPTY, MIN_REVISION_TIMEOUT, REVISION_REGRESSION
+    RevisionConflict revision_conflict = 12;
+    LeaseNotFound lease_not_found = 13;
+    BadRequest bad_request = 14;
+    WatchQuotaExceeded watch_quota_exceeded = 15;
+  }
+}
+
+message ResourceNotFound {
+  ResourceKey key = 1;
+}
+
+message NamespaceRef {
+  string namespace = 1;
+}
+
+message RevisionConflict {
+  ResourceKey key = 1;
+  int64 expected_revision = 2;
+  int64 current_revision = 3; // 0 = the resource does not exist
+}
+
+message LeaseNotFound {
+  string namespace = 1;
+  int64 lease = 2;
+}
+
+message WatchQuotaExceeded {
+  int32 limit = 1; // watches allowed on one stream
+}
+
+message BadRequest {
+  repeated FieldViolation violations = 1;
+}
+
+message FieldViolation {
+  string field = 1; // path in proto field names, e.g. "resource.meta.labels[\"team\"]"
+  ViolationCode code = 2;
+  string description = 3;
+}
+
+enum ViolationCode {
+  VIOLATION_CODE_UNSPECIFIED = 0;
+  VIOLATION_CODE_REQUIRED = 1; // missing or empty
+  VIOLATION_CODE_INVALID_FORMAT = 2; // does not match the naming rule
+  VIOLATION_CODE_RESERVED_NAME = 3; // the name is reserved, e.g. "_system"
+  VIOLATION_CODE_TOO_LONG = 4; // exceeds a length or size limit
+  VIOLATION_CODE_TOO_MANY = 5; // exceeds a count limit
+  VIOLATION_CODE_OUT_OF_RANGE = 6; // a number outside its allowed range
+  VIOLATION_CODE_NOT_ALLOWED = 7; // not allowed for this kind or in this context
+}

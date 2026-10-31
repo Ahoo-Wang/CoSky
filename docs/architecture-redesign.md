@@ -3,7 +3,7 @@
 > 基于 `main@bc6e873`(v6.2.0)代码审查。目标是回答:**如果今天从零开始做 CoSky,它应该长什么样?**
 >
 > 状态:方案已确认(见 §1 决策记录),详细设计见 §7;实施计划与进度见 [roadmap.md](roadmap.md)。
-> 2026-10-30 架构审查后新增 D19–D22;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
+> 2026-10-30 架构审查后新增 D19–D24;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
 
 ---
 
@@ -62,6 +62,8 @@ Redis (只有 server 可访问)
 | D20 | 租约回收保护 | **恢复宽限 + 大比例到期暂停 + 单轮回收上限**;存储故障不等于租约丢失 | 控制面故障超过 TTL 后恢复时,到期的主要是存活进程的租约,不能把控制面故障放大成数据面故障(§6.2) |
 | D21 | Redis 追尾 | **`PUBLISH` 提示 + 按 namespace 执行非阻塞 `tail.lua` + 兜底轮询**;`store-redis` 不使用阻塞命令 | Cluster 下跨 slot 的 `XREAD` 报 `CROSSSLOT`;每 namespace 一条阻塞连接则连接数随 namespace 增长;提示丢失只影响延迟(§6.1) |
 | D22 | 键布局 | **只读元数据随对象持久化**(`ver`、Stream、历史);租约 TTL 单独保存,实例挂载集中在一个 Sorted Set;"无变化"基于确定性序列化 | Lua 无法解析 protobuf,脚本和事件必须能直接拿到审计与租约数据(§5.1) |
+| D23 | 消息大小 | **单条消息按字节分开**:List / History 分页,Snapshot / Events 用 `more` 分块,上限 2 MiB | 5 万实例的全量约 50 MB,超过 gRPC 默认 4 MiB;批写事件和 Config 历史同样可能超限(§4.6) |
+| D24 | 授权范围 | **RoleBinding 必须声明 namespace;`Rule.names` 按名称或服务收窄;租约只能由授予者续期和撤销** | 否则内置 `client` 无法限定 namespace,同 namespace 的账号能覆盖其他服务的 Instance、撤销其租约,D1 的数据面鉴权形同虚设(§7.8) |
 
 ---
 
@@ -267,6 +269,7 @@ message Rule {
   repeated Kind kinds = 1;
   repeated string namespaces = 2;             // 支持 "*"
   repeated Verb verbs = 3;
+  repeated string names = 4;                  // 空 = 全部;否则为精确值或以 * 结尾的前缀(§7.8)
 }
 message RoleSpec { string description = 1; repeated Rule rules = 2; }
 
@@ -275,7 +278,11 @@ message Subject {
   Type type = 1;
   string name = 2;                            // USER/GROUP 来自 OIDC claim
 }
-message RoleBindingSpec { string role = 1; repeated Subject subjects = 2; }
+message RoleBindingSpec {
+  string role = 1;
+  repeated Subject subjects = 2;
+  repeated string namespaces = 3;             // 必填;与 Rule.namespaces 取交集,"*" 不增加限制
+}
 ```
 
 ### 4.2 命名约束
@@ -313,8 +320,15 @@ message ListRequest {
   map<string, string> label_selector = 3;
   string service = 4;                                                  // Instance 过滤
   int64 min_revision = 5;
+  int32 page_size = 6;                                                 // 0 = 默认 500,最大 1000
+  string page_token = 7;                                               // 上一页的 next_page_token;空 = 第一页
 }
-message ListResponse { repeated Resource items = 1; int64 revision = 2; string epoch = 3; }   // revision 只在同一 epoch 内可比较
+message ListResponse {
+  repeated Resource items = 1;
+  int64 revision = 2;                                                  // 每一页都是第一页的 revision(§4.6)
+  string epoch = 3;                                                    // revision 只在同一 epoch 内可比较
+  string next_page_token = 4;                                          // 空 = 最后一页
+}
 
 message PutRequest {
   Resource resource = 1;
@@ -328,8 +342,8 @@ message PutResponse {
 message DeleteRequest  { ResourceKey key = 1; int64 expected_revision = 2; }
 message DeleteResponse { int64 revision = 1; bool deleted = 2; }
 
-message HistoryRequest  { ResourceKey key = 1; int32 limit = 2; }   // 0 或超过 history-size 时按 history-size 截断
-message HistoryResponse { repeated Resource revisions = 1; }       // 新 → 旧
+message HistoryRequest  { ResourceKey key = 1; int32 limit = 2; string page_token = 3; }   // limit 为 0 或超过 history-size 时按 history-size 截断
+message HistoryResponse { repeated Resource revisions = 1; string next_page_token = 2; }  // 新 → 旧
 
 service WatchService {
   rpc Watch(stream WatchRequest) returns (stream WatchResponse);   // 一条流复用多个 watch
@@ -356,15 +370,15 @@ message WatchResponse {
   int64 watch_id = 1;
   oneof payload {
     Snapshot snapshot = 2;              // from_revision = 0 时的初始全量
-    Events events = 3;                  // 同一 revision 的事件成批到达
+    Events events = 3;                  // 同一 revision 的事件,可能分多条消息
     int64 progress = 4;                 // 进度书签:当前已追到的 revision,空闲时周期发送
     int64 gone = 5;                     // (from_epoch, from_revision) 无法续传;值为最早可续传 revision,客户端需重新 List
     Canceled canceled = 6;              // server 结束单个 watch,流与其他 watch 不受影响
   }
   // Create 被拒(WATCH_QUOTA_EXCEEDED)、namespace 被删除(NAMESPACE_NOT_FOUND)或失去权限(PERMISSION_DENIED),§7.2 / §7.3
   message Canceled { string message = 1; ErrorDetail detail = 2; }
-  message Snapshot { repeated Resource items = 1; int64 revision = 2; string epoch = 3; }
-  message Events { int64 revision = 1; repeated Event events = 2; }
+  message Snapshot { repeated Resource items = 1; int64 revision = 2; string epoch = 3; bool more = 4; }   // more:还有分块(§4.6)
+  message Events { int64 revision = 1; repeated Event events = 2; bool more = 3; }                       // more:同一 revision 还有事件
   message Event {
     enum Type { TYPE_UNSPECIFIED = 0; TYPE_PUT = 1; TYPE_DELETE = 2; }
     Type type = 1;
@@ -372,7 +386,7 @@ message WatchResponse {
   }
 }
 
-service LeaseService {
+service LeaseService {                                                // 授权见 §7.8
   rpc Grant(GrantRequest) returns (GrantResponse);
   rpc KeepAlive(stream KeepAliveRequest) returns (stream KeepAliveResponse);
   rpc Revoke(RevokeRequest) returns (RevokeResponse);
@@ -412,11 +426,11 @@ HTTP 状态按**错误原因**映射,而不是按 gRPC code 一刀切;未带 CoS
 
 | 方法 | 路径 | 对应 |
 |---|---|---|
-| GET | `/v1/namespaces/{ns}/{kind}` | List(`?labelSelector=&service=&minRevision=`) |
+| GET | `/v1/namespaces/{ns}/{kind}` | List(`?labelSelector=&service=&minRevision=&pageSize=&pageToken=`) |
 | GET | `/v1/namespaces/{ns}/{kind}/{name}` | Get |
 | PUT | `/v1/namespaces/{ns}/{kind}/{name}` | Put;`If-Match: <revision>`、`If-None-Match: *` |
 | DELETE | `/v1/namespaces/{ns}/{kind}/{name}` | Delete;`If-Match` |
-| GET | `/v1/namespaces/{ns}/configs/{name}/history` | History |
+| GET | `/v1/namespaces/{ns}/configs/{name}/history` | History(`?limit=&pageToken=`) |
 | POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{ "toRevision": n }`,server 读历史后 Put |
 | GET | `/v1/namespaces/{ns}/watch?kind=&fromRevision=&fromEpoch=` | Watch,SSE,供 Dashboard 实时刷新 |
 | GET | `/v1/namespaces/{ns}/views/{services\|topology\|stats}` | Views |
@@ -430,6 +444,23 @@ REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射
 **OpenAPI**(`api/` 构建产物 `cosky.yaml`)采用混合生成:`components.schemas` 由 proto 描述符按 proto3 JSON 映射自动生成,
 保证与 proto 同步;`paths` 在 `api/src/main/openapi/paths.yaml` 中手写(本节路由无法从 RPC 自动推导:
 `{kind}` 复数段、`If-Match` 头、SSE、`:rollback`、导入导出、token 端点);构建时合并并校验引用完整。
+
+### 4.6 消息大小与分页(D23)
+
+gRPC 默认单条消息上限 4 MiB,而一个 namespace 的全量可达 50 MB。所有可能变大的响应都按字节分开:
+单条消息的资源总量不超过 `max-message-bytes`(默认 2 MiB)。单个资源最大约 1 MiB,所以每条消息至少放得下一个。
+
+| 响应 | 方式 | 一致性 |
+|---|---|---|
+| List | `page_size` + `page_token`;一页可能因字节上限少于 `page_size` | 见下 |
+| History | `page_token`;`limit` 仍是总条数 | 按 revision 倒序,游标是 revision |
+| Watch `Snapshot` | `more = true` 表示还有分块,最后一块之前不发事件 | 所有分块来自同一个不可变快照 |
+| Watch `Events` | `more = true` 表示同一 revision 还有事件,客户端收齐后原子应用 | 同一 revision |
+
+- **List 的一致性**:server 无状态,不为翻页保留快照。token 携带 epoch、第一页的 revision 和游标(上一页最后一个 name)。
+  每页读取当时的缓存,所以对象都不早于第一页的 revision。客户端从这个 revision 开始 Watch,只应用比对象 revision 更新的事件,即可收敛。
+  需要一次拿到一致视图时用 Watch 的 `Snapshot`。
+- **token 失效**:epoch 变化后 token 作废,返回 `INVALID_ARGUMENT`(字段 `page_token`),客户端从第一页重新 List。
 
 ---
 
@@ -453,7 +484,8 @@ interface Store {
     fun changes(namespace: String, from: Position): Flow<ChangeBatch>
     suspend fun history(key: ResourceKey, limit: Int): List<StoredObject>
 
-    suspend fun grantLease(namespace: String, ttl: Duration): Lease
+    suspend fun grantLease(namespace: String, ttl: Duration, owner: String): Lease
+    suspend fun leaseOwners(namespace: String, leases: Collection<Long>): Map<Long, String?>   // 用于校验所有者(§7.8);null = 已不存在
     suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, Duration?>   // 批量,TTL 由存储保存;null = 已不存在
     suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean   // force = Revoke
     suspend fun expiredLeases(namespace: String, limit: Int): List<Long>
@@ -491,6 +523,7 @@ sealed interface ApplyResult {
 | `cosky:{ns}:hist:config:<name>` | Sorted Set | score = revision,member = `<元数据>\0<对象字节>`;保留最近 20 个 |
 | `cosky:{ns}:lease` | Sorted Set | lease id → 到期时间(ms,Redis `TIME`) |
 | `cosky:{ns}:lease:ttl` | Hash | lease id → TTL(ms),续期时据此计算新的到期时间 |
+| `cosky:{ns}:lease:owner` | Hash | lease id → 授予它的主体(§7.8) |
 | `cosky:{ns}:lease:attach` | Sorted Set | member = Instance name,score = lease id |
 | `cosky:{ns}:lease:seq` | String | 租约 id 生成器;id 小于 2^53,作为 score 不丢精度 |
 | `cosky:leader:reaper` | String | 回收 Leader 锁,`SET NX PX` |
@@ -515,9 +548,9 @@ sealed interface ApplyResult {
 | 脚本 | 作用 |
 |---|---|
 | `apply.lua` | 通用原子批写:逐项校验 CAS 与租约 → 内容不变的项跳过 → 若有变化则 `INCR rev` → `HSET/HDEL obj/ver` → 维护 `lease:attach` → Config 写历史 → `XADD log`(每项一条,`MAXLEN ~`)→ `PUBLISH cosky:hint` → 返回新 revision 或冲突明细 |
-| `lease_grant.lua` | 生成 id,`ZADD lease <TIME+ttl> id`,`HSET lease:ttl id ttl` |
+| `lease_grant.lua` | 生成 id,`ZADD lease <TIME+ttl> id`,`HSET lease:ttl id ttl`,`HSET lease:owner id owner` |
 | `lease_keepalive.lua` | 批量:读 `lease:ttl`,存在则 `ZADD lease <TIME+ttl> id`,不存在返回 0;已到期但未回收的租约同样续期(到期只表示可以回收);**不改 revision、不写日志** |
-| `lease_expire.lua` | 对单个租约:确认 `score ≤ TIME` → `ZRANGEBYSCORE lease:attach id id` 取挂载实例 → 有实例则等价于一次 apply 删除它们 → 清理 `lease:attach`、`lease:ttl`、`lease`。Revoke 复用此脚本(跳过到期检查);`actor` 到期回收时为 `system`,Revoke 时为调用者 |
+| `lease_expire.lua` | 对单个租约:确认 `score ≤ TIME` → `ZRANGEBYSCORE lease:attach id id` 取挂载实例 → 有实例则等价于一次 apply 删除它们 → 清理 `lease:attach`、`lease:ttl`、`lease:owner`、`lease`。Revoke 复用此脚本(跳过到期检查);`actor` 到期回收时为 `system`,Revoke 时为调用者 |
 | `tail.lua` | 一次原子读:比较 epoch → 比较 `rev` 与已应用 revision → 比较已应用 revision 的日志条目 → 返回后续事件(§6.1、§6.4) |
 | `epoch_rotate.lua` | 比较并更换 epoch,多个副本同时发现分叉时只有一个生效 |
 | `lock.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
@@ -659,8 +692,9 @@ client                         server                         Redis
 - **人员**:配置 OIDC 时,Dashboard 走授权码 + PKCE,server 用 JWKS 校验 ID Token,
   `sub` → `USER`、`groups` claim → `GROUP`。未配置 OIDC 时,Dashboard 使用 ServiceAccount token 登录。
 - **Bootstrap**:首次启动若 `_system` 中无任何 RoleBinding,读取环境变量 `COSKY_BOOTSTRAP_TOKEN`
-  创建 `admin` ServiceAccount 并绑定内置 `admin` 角色。
-- **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(对绑定 namespace:Config GET/WATCH,Instance 全部)。
+  创建 `admin` ServiceAccount 并绑定内置 `admin` 角色(`namespaces = ["*"]`)。
+- **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(Config GET/WATCH,Instance 全部)。
+  内置角色的规则对所有 namespace 生效,由 RoleBinding 的 `namespaces` 限定范围;按服务隔离时用自定义 Role(§7.8)。
 - **审计**:每个 revision 的 `updated_by` + Config 历史即变更追溯;每次写入和认证事件另输出一行结构化审计日志(§7.8),
   由运维的日志系统收集,server 不存储审计数据。
 - 拓扑视图:server 记录"已认证主体 × Watch 的服务",即 consumer → producer 边,无需客户端额外写入。
@@ -734,6 +768,10 @@ registration.close()                                                            
 | description | ≤ 1024 字符 |
 | History `limit` | 0 或超过 `history-size` 时按 `history-size` 截断,负数非法 |
 | 一次批写(apply)的操作数 | ≤ 100 |
+| 一次批写(apply)的总字节 | ≤ 8 MiB |
+| 单条消息的资源总量 | ≤ 2 MiB(§4.6) |
+| List `page_size` | 0 = 默认 500,最大 1000 |
+| `Rule.names` | ≤ 64 项 |
 | 单 namespace 对象数 | 软上限 100,000(超过告警,不拒绝) |
 | Config 历史 | 每个 Config 最近 20 个 revision |
 
@@ -748,7 +786,7 @@ registration.close()                                                            
 
 ### 7.3 Watch 语义
 
-- **顺序**:同一 namespace 内按 revision 全序;同一 revision 的多条事件在一个 `Events` 消息中原子送达(过滤后为空则不发送)。
+- **顺序**:同一 namespace 内按 revision 全序;同一 revision 的事件作为一个整体应用,过大时分成多条 `Events`,以 `more` 标记(过滤后为空则不发送)。
 - **投递**:单条流内恰好一次;跨重连至少一次,客户端丢弃 `revision ≤ 已应用 revision` 的批次即可去重。
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
   `from_epoch` 与当前 epoch 不同、`r` 早于窗口或大于当前 revision → `gone`。
@@ -794,6 +832,7 @@ me.ahoo.cosky.server
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
+- **分块**:收齐 `Snapshot` 与 `Events` 的全部分块后再更新 `StateFlow`,订阅者不会看到半个 revision。
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。
 - **关闭**:`close()` 在 3 秒内 Revoke 租约,超时则放弃,由 server 到期回收。
 - **负载均衡**:`weight = 0` 的实例不参与选择;无可用实例时 `choose()` 返回 `null`。
@@ -803,6 +842,7 @@ me.ahoo.cosky.server
 | 属性 | 默认 | 说明 |
 |---|---|---|
 | `cosky.store.type` | `redis` | `redis` / `memory`(仅开发) |
+| `cosky.api.max-message-bytes` | `2MiB` | 单条消息的资源总量(§4.6) |
 | `cosky.store.redis.uri` | `redis://localhost:6379` | 支持 Sentinel / Cluster URI |
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount |
@@ -854,8 +894,23 @@ cosky:
 - **Token 格式**:`cosky_<tokenId>_<secret>`,`secret` 为 32 字节随机数的 base62。按 `tokenId` 查找,常量时间比较 `sha256(secret)`。
 - **Token 管理**:`POST /v1/serviceaccounts/{name}/tokens` 创建并**只返回一次明文**;`DELETE …/tokens/{id}` 吊销。每个账号最多 2 个有效 token,用于轮换。
 - **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);Dashboard 在浏览器内完成授权码 + PKCE。
-- **授权判定**:请求 `(subject, verb, kind, namespace)` 命中任一绑定角色的任一规则即放行;全局对象的 namespace 为 `_system`;
-  Views 需要对应 namespace 的 `INSTANCE` `GET` 权限。
+- **授权判定(D24)**:请求 `(subject, verb, kind, namespace, name)` 命中任一绑定角色的任一规则即放行。
+  规则生效的 namespace 是 `Rule.namespaces` 与 `RoleBinding.namespaces` 的交集;全局对象的 namespace 为 `_system`。
+- **`Rule.names`**:为空匹配全部;否则是精确值或以 `*` 结尾的前缀,比较 Config 名、Instance 的 `spec.service`、其他 kind 的对象名。
+  Instance 按服务授权,否则账号可以冒充其他服务注册:Put 校验新对象的 `spec.service`,覆盖已有对象时还校验旧对象的;Delete 校验现有对象。
+  List / Watch 整个 kind 时按规则过滤结果,不拒绝请求。
+- **Views**:需要对应 namespace 的 `INSTANCE` `GET` 权限,且规则的 `names` 为空,因为视图是全量数据。
+- **租约**:Lease 不是资源。Grant 需要该 namespace 的 `INSTANCE` `PUT` 权限,调用者记为所有者;KeepAlive、Revoke,以及把 Instance 挂到租约上都只允许所有者,否则 `PERMISSION_DENIED`。
+  `ObjectMeta.lease` 对读者可见,所以安全性不依赖 id 保密。管理员清理实例用 Delete。server 在一条 KeepAlive 流内缓存校验结果,只有首次访问存储。
+
+  按服务隔离的自定义 Role 示例(RoleBinding 再用 `namespaces = ["prod"]` 限定范围):
+
+  ```yaml
+  rules:
+    - { kinds: [INSTANCE], namespaces: ["*"], verbs: [PUT, DELETE], names: [order] }
+    - { kinds: [INSTANCE], namespaces: ["*"], verbs: [GET, WATCH] }
+    - { kinds: [CONFIG], namespaces: ["*"], verbs: [GET, WATCH], names: [order-service.yaml, "shared/*"] }
+  ```
 - **TLS**:两个端口均支持 TLS,生产环境建议开启;mTLS 留作后续。
 - **审计日志**:logger `cosky.audit`,JSON 一行一事件:`time, subject, verb, kind, namespace, name, revision, result, remote`。
 

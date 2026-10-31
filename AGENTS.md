@@ -14,6 +14,15 @@ Redis.
 # Build all modules (CI mode fails on any style violation instead of auto-correcting)
 CI=true ./gradlew build
 
+# Run tests of one module
+./gradlew :api:test
+
+# Lint the protos (part of check)
+./gradlew :api:bufLint
+
+# Generate the OpenAPI document (api/build/openapi/cosky.yaml, part of assemble)
+./gradlew :api:generateOpenApi
+
 # Check code style (Detekt), license headers and the coverage floor
 ./gradlew check
 ```
@@ -32,7 +41,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 
 | Module | Purpose | Status |
 |--------|---------|--------|
-| `api` | Protos (`cosky.v1`), generated messages and grpc-kotlin stubs, validation, error model, OpenAPI | planned (W1b) |
+| `api` | Protos (`cosky.v1`), generated messages and grpc-kotlin stubs, validation, error model, OpenAPI | ✅ |
 | `store` | Store SPI and in-memory implementation | planned (W2a) |
 | `conformance-test` | Store SPI and protocol conformance suites | planned (W2a) |
 | `client` | Coroutine client: List/Watch, leases, local snapshots, load balancing | planned (W2b) |
@@ -41,7 +50,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `store-redis` | Redis Store (the only module with Lua) | planned (W3b) |
 | `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
 | `test` | Shared test utilities | ✅ |
-| `buildSrc` | Build logic (OpenAPI generation) | planned (W1b) |
+| `buildSrc` | Build logic (OpenAPI generation) | ✅ |
 | `dashboard/` | React 19 frontend (separate build — see dashboard/CLAUDE.md); still on the 6.x API until W4b | — |
 | `wiki/` | VitePress documentation site; still describes 6.x until W4d | — |
 

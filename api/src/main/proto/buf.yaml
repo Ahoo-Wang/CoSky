@@ -1,0 +1,9 @@
+# Lint configuration for `./gradlew :api:bufLint` (part of `check`).
+version: v2
+lint:
+  use:
+    - STANDARD
+  except:
+    # ResourceService.Get returns the Resource itself rather than a GetResponse, as Google AIP-131 recommends for
+    # standard Get methods (design D17).
+    - RPC_RESPONSE_STANDARD_NAME
