@@ -3,7 +3,7 @@
 > 基于 `main@bc6e873`(v6.2.0)代码审查。目标是回答:**如果今天从零开始做 CoSky,它应该长什么样?**
 >
 > 状态:方案已确认(见 §1 决策记录),详细设计见 §7;实施计划与进度见 [roadmap.md](roadmap.md)。
-> 2026-10-30 架构审查后新增 D19–D26,其后新增 D27–D31;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
+> 2026-10-30 架构审查后新增 D19–D26,其后新增 D27–D32;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
 
 ---
 
@@ -71,6 +71,7 @@ Redis (只有 server 可访问)
 | D29 | Watch 窗口 | **副本落后不是 `gone`**:同一 epoch 下 `from_revision` 大于副本 revision 时先挂起等它追上,最多 `read.min-revision-timeout`,超时以 `UNAVAILABLE` 结束流;副本加载时用 Stream 预填窗口;内存窗口与 Stream 都按事件计数,默认 10,000 | 客户端的位置本身有效,发 `gone` 会把滚动重启变成一次集中重新 List。窗口只需覆盖重连间隙:5 万实例 10 分钟滚动约 170 事件/秒,窗口能撑约 60 秒(估算,W4a 实测);扩大到 10 万每个 namespace 约多占 100 MB,不值得(§6.1、§7.3) |
 | D30 | 拓扑 | **边作为软状态写入 Redis**:每个副本每 30 秒写一次,不经过 `rev` 和日志,不产生 Watch 事件,90 秒未刷新即失效;consumer 优先取客户端名,其次取认证主体 | 每个副本只见到自己的 watcher。向各副本扇出查询需要成员发现,只显示本副本数据会误导,推迟到 8.1 又比 6.x 少一项功能;多个应用共用 token 时,只靠主体分不开它们(§5.1、§6.3) |
 | D31 | Redis 前提 | **启动时检查,不满足则拒绝启动**:淘汰策略必须是 `noeviction`,版本不低于 7.0;**不使用 `WAIT`**,改为建议 `min-replicas-to-write`;`KeepAliveResponse.attached_count` 让客户端发现丢失的注册并重新 Put | 淘汰会悄悄删数据。`WAIT` 在 Cluster 下要路由到键所在节点,也消除不了丢写。租约还在而实例已丢时续期一直成功,客户端需要一个信号;相比每个实例 Watch 自己(2 万注册就多 2 万 watcher),这个计数不增加扇出负担(§5.3、§6.2) |
+| D32 | 回收时机 | **租约到期后再等 TTL 的三分之一才回收**;到期数不变,用于判断大比例到期 | 客户端每 TTL/3 续期一次,同一次分区切断的租约会在这段时间内陆续到期。若到期即回收,比例永远到不了门槛,D20 的暂停在真实分区时不起作用(W4a 故障注入发现)。等这一段,回收器在删除任何实例之前就能看到全部到期的租约。代价是死实例晚一点摘除:默认从 30 秒变成 40 秒(§6.2) |
 
 ---
 
@@ -500,7 +501,7 @@ interface Store {
     suspend fun leaseOwners(namespace: String, leases: Collection<Long>): Map<Long, String?>   // 用于校验所有者(§7.8);null = 已不存在
     suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, LeaseRenewal?>   // 批量,TTL 由存储保存;null = 已不存在
     suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean   // force = Revoke
-    suspend fun expiredLeases(namespace: String, limit: Int): List<Long>
+    suspend fun expiredLeases(namespace: String, limit: Int): List<Long>     // 可以回收的:到期已超过 TTL/3(D32)
     suspend fun leaseStats(namespace: String): LeaseStats                    // 租约总数与已到期数,用于回收保护
 
     /** epoch 仍是 `expected` 时更换它,用于 `changes` 之外发现的不一致(§6.1);返回当前位置。 */
@@ -586,7 +587,7 @@ sealed interface ApplyResult {
 | `tail.lua` | 一次原子读:比较 epoch → 比较 `rev` 与已应用 revision → 比较已应用 revision 的日志条目 → 返回后续事件(§6.1、§6.4) |
 | `read_batch.lua` | 全量读取的一批:`HSCAN ver` 后在同一脚本内 `HGET obj`,对象与元数据总是匹配,也避免大 Hash 的 `HGETALL` 阻塞 Redis |
 | `epoch_rotate.lua` | 比较并更换 epoch,多个副本同时发现分叉时只有一个生效 |
-| `lease_query.lua` | 用 Redis `TIME` 统计租约总数与到期数,并列出到期租约 |
+| `lease_query.lua` | 用 Redis `TIME` 统计租约总数与到期数,并列出可以回收的租约,即到期已超过 TTL 三分之一的(D32) |
 | `lock_acquire.lua` / `lock_release.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
 | `topology_record.lua` | 校验 `state = active` → `ZADD topology <TIME+retention> edge` → `ZREMRANGEBYSCORE` 清理已到期的边;**不改 revision、不写日志** |
 | `topology_read.lua` | 用 Redis `TIME` 读取未到期的边 |
@@ -709,7 +710,7 @@ client                         server                         Redis
   │ 进程正常退出:Revoke(L) ──▶ │ lease_expire.lua ──────────▶ │  DELETE 事件
   │                            │                              │
   │ 进程崩溃,租约到期           │ Reaper Leader 每 1s:          │
-  │                            │  ZRANGEBYSCORE lease ≤ now   │
+  │                            │  到期超过 TTL/3 的租约(D32)  │
   │                            │  逐个 lease_expire.lua ─────▶ │  DELETE 事件
 ```
 
@@ -728,10 +729,14 @@ client                         server                         Redis
    到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间,或一轮中途的一次访问,超过 5 个 `reaper-interval` 就重新开始宽限。
 2. **大比例到期暂停**:按 namespace 读取 `leaseStats`。租约数不少于 `protection-min-leases`(默认 10)且到期比例超过 `protection-threshold`(默认 50%)时暂停回收,
    记录 ERROR 日志并置位 `cosky_lease_protection_active`。这一层覆盖宽限检测不到的情况,例如客户端与 server 之间分区、Reaper 到 Redis 却正常。
-   比例回落后自动恢复;持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。
+   比例回落后重新开始恢复宽限,因为客户端是陆续回来的:比例跌破门槛时,还有很多正在重连。持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。
 3. **单轮上限**:每个 namespace 每轮最多回收 `reaper-max-per-tick`(默认 100)个租约,让删除事件平滑扩散。
 
-代价是真实的大面积崩溃时,死实例最多多保留 `protection-max-duration`,调用方要靠重试和熔断应对。正常退出走 Revoke,不计入到期比例。
+**回收时机(D32)**:租约到期后再等 TTL 的三分之一才回收。客户端每 TTL/3 续期一次,所以同一次分区切断的租约是在 TTL/3 内陆续到期的,不是同时到期。
+如果到期即回收,到期的租约总是刚出现就被删掉,比例永远到不了 `protection-threshold`,整个 namespace 的实例都会被逐个删除。等过这一段,切断的租约都已到期,第 2 层才能在删除任何实例之前做出判断。
+同一 namespace 混用差别很大的 TTL 时,这个判断会变弱:短 TTL 的租约可能先于长 TTL 的进入回收,比例因此被低估。
+
+代价是死实例在 TTL 的 4/3 后才被摘除(默认 40 秒),真实的大面积崩溃时最多再多保留 `protection-max-duration`,调用方要靠重试和熔断应对。正常退出走 Revoke,不受影响,也不计入到期比例。
 
 ### 6.3 认证与授权
 

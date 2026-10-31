@@ -206,10 +206,27 @@ class LeaseReaperTest {
     }
 
     @Test
+    fun `an expired lease waits a third of its ttl, long enough to see what expired with it`() = scenario {
+        tickEverySecond(31)
+        // They renewed at different moments, as clients do, so a partition makes them expire one after the other.
+        val leases = (0 until 4).map { register("i$it", ttlSeconds = 30) }
+        repeat(4) { index ->
+            clock.advance(Duration.ofSeconds(2))
+            store.keepAlive(NAMESPACE, leases.drop(index))
+        }
+        tickEverySecond(31)
+        // The first has expired for over two thirds of what it waits, and all of them have expired: nothing goes.
+        instances().size.assert().isEqualTo(4)
+        tickEverySecond(30)
+        reaper.paused.assert().contains(NAMESPACE)
+        instances().size.assert().isEqualTo(4)
+    }
+
+    @Test
     fun `few leases never count as mass expiry`() = scenario {
         tickEverySecond(31)
         repeat(3) { register("i$it", ttlSeconds = 2) }
-        tickEverySecond(4)
+        tickEverySecond(5)
         instances().assert().isEmpty()
     }
 
@@ -223,6 +240,66 @@ class LeaseReaperTest {
         reaper.tick()
         reaper.paused.assert().isEmpty()
         instances().size.assert().isEqualTo(4)
+    }
+
+    @Test
+    fun `when a pause ends, clients still on their way back get the grace`() = scenario {
+        tickEverySecond(31)
+        val leases = List(4) { register("i$it", ttlSeconds = 2) }
+        tickEverySecond(10)
+        reaper.paused.assert().containsExactly(NAMESPACE)
+
+        // Most have come back, which ends the pause, and the last is still reconnecting.
+        store.keepAlive(NAMESPACE, leases.take(3))
+        tickEverySecond(1)
+        reaper.paused.assert().isEmpty()
+        tickEverySecond(1)
+        store.keepAlive(NAMESPACE, leases.take(3))
+        instances().size.assert().isEqualTo(4)
+
+        store.keepAlive(NAMESPACE, leases)
+        tickEverySecond(1)
+        instances().size.assert().isEqualTo(4)
+    }
+
+    @Test
+    fun `a client that does not come back after a pause goes once the grace is over`() = scenario {
+        tickEverySecond(31)
+        val leases = List(4) { register("i$it", ttlSeconds = 60) }
+        tickEverySecond(85)
+        reaper.paused.assert().containsExactly(NAMESPACE)
+        store.keepAlive(NAMESPACE, leases.take(3))
+        tickEverySecond(1)
+        reaper.paused.assert().isEmpty()
+        tickEverySecond(29)
+        instances().size.assert().isEqualTo(4)
+        tickEverySecond(3)
+        instances().size.assert().isEqualTo(3)
+    }
+
+    @Test
+    fun `a store hanging on one namespace stops the tick before the next`() = scenario {
+        var hanging = false
+        val first = "first"
+        store.createNamespace(first)
+        val hangingStore = object : Store by store {
+            override suspend fun leaseStats(namespace: String): LeaseStats {
+                if (hanging && namespace == first) {
+                    clock.advance(Duration.ofSeconds(TTL + 20))
+                    hanging = false
+                }
+                return store.leaseStats(namespace)
+            }
+        }
+        val reaper = LeaseReaper(hangingStore, { listOf(first, NAMESPACE) }, options, clock)
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        register("a")
+        hanging = true
+        reaper.tick()
+        instances().assert().containsExactly("a")
     }
 
     @Test

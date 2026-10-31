@@ -389,12 +389,10 @@ class RedisStore(
         return LeaseStats(reply[0].asText().toInt(), reply[1].asText().toInt())
     }
 
-    private suspend fun leaseQuery(namespace: String, limit: Int): List<Any?> = LEASE_QUERY.run(
-        commands,
-        ScriptOutputType.MULTI,
-        listOf(RedisKeys(namespace).lease),
-        listOf(limit.arg()),
-    )
+    private suspend fun leaseQuery(namespace: String, limit: Int): List<Any?> {
+        val keys = RedisKeys(namespace)
+        return LEASE_QUERY.run(commands, ScriptOutputType.MULTI, listOf(keys.lease, keys.leaseTtl), listOf(limit.arg()))
+    }
 
     override suspend fun createNamespace(namespace: String): Position {
         if (namespaceState(namespace) == NamespaceState.TERMINATING) {

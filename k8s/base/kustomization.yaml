@@ -1,0 +1,21 @@
+# The CoSky server on Redis: kubectl apply -k k8s/base
+#
+# It expects two Secrets in the same namespace, which stay out of this repository:
+#   kubectl create secret generic cosky-redis --from-literal=uri=redis://:<password>@<host>:6379
+#   kubectl create secret generic cosky-auth --from-literal=bootstrap-token=cosky_<id>_<secret>
+#
+# Redis must run with maxmemory-policy noeviction, version 7.0 or later, or the server refuses to start (design D31).
+#
+# Build your own on top of it: an overlay of a few lines can set the namespace, the image tag, the replicas or the
+# resources. See overlays/redis-cluster for the shape.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - deployment.yaml
+  - service.yaml
+  - pdb.yaml
+
+images:
+  - name: ahoowang/cosky
+    newTag: 8.0.0-beta.1
