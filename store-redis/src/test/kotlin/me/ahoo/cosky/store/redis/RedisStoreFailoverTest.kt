@@ -21,6 +21,7 @@ import io.lettuce.core.resource.DnsResolvers
 import io.lettuce.core.resource.MappingSocketAddressResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -46,7 +47,10 @@ import kotlin.time.Duration.Companion.seconds
  */
 class RedisStoreFailoverTest {
     private val network = Network.newNetwork()
-    private val primary = RedisContainer().withNetwork(network).withNetworkAliases(PRIMARY_ALIAS)
+    private val primary = RedisContainer()
+        .withNetwork(network)
+        .withNetworkAliases(PRIMARY_ALIAS)
+        .withCommand("redis-server", "--repl-diskless-sync-delay", "0")
     private val replica = RedisContainer()
         .withNetwork(network)
         .withCommand("redis-server", "--replicaof", PRIMARY_ALIAS, REDIS_PORT.toString())
@@ -104,10 +108,22 @@ class RedisStoreFailoverTest {
         primary.execInContainer("redis-cli", "CLIENT", "KILL", "TYPE", "pubsub")
     }
 
-    private fun waitForReplica() {
-        val synced = primary.execInContainer("redis-cli", "WAIT", "1", "5000").stdout.trim()
-        check(synced == "1") { "The replica did not catch up: $synced" }
+    /**
+     * Compares replication offsets: a WAIT from a fresh connection says nothing about other connections' writes.
+     */
+    private suspend fun waitForReplica() {
+        withTimeout(TIMEOUT) {
+            while (replication(primary, "master_repl_offset") != replication(replica, "slave_repl_offset")) {
+                delay(50.milliseconds)
+            }
+        }
     }
+
+    private fun replication(container: RedisContainer, field: String): String? =
+        container.execInContainer("redis-cli", "INFO", "replication").stdout.lineSequence()
+            .firstOrNull { it.startsWith("$field:") }
+            ?.substringAfter(':')
+            ?.trim()
 
     private suspend fun follow(start: Position, caughtUp: CompletableDeferred<Unit>, revision: Long) {
         store.changes(NAMESPACE, start).collect {
