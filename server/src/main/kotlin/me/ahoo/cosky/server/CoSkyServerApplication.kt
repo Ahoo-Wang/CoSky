@@ -31,6 +31,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.adapter.grpc.AuthInterceptor
+import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.AuthBootstrap
@@ -38,6 +39,8 @@ import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.lease.LeaseReaper
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
+import me.ahoo.cosky.server.view.TopologyRecorder
+import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
@@ -87,7 +90,19 @@ class CoSkyServerApplication : DisposableBean {
 
     @Bean
     fun watchCache(store: Store, properties: CoSkyProperties): WatchCache =
-        WatchCache(store, properties.watch.window, scope)
+        WatchCache(store, properties.watch.window, scope, properties.watch.antiEntropyInterval.toKotlinDuration())
+
+    @Bean
+    fun topologyRecorder(store: Store, properties: CoSkyProperties): TopologyRecorder =
+        TopologyRecorder(store, properties.view.topologyFlushInterval.toKotlinDuration())
+
+    @Bean
+    fun viewService(store: Store, caches: WatchCache, authorizer: Authorizer): ViewService =
+        ViewService(store, caches, authorizer)
+
+    @Bean
+    @GlobalServerInterceptor
+    fun clientNameInterceptor(): ServerInterceptor = ClientNameInterceptor()
 
     @Bean
     fun accessControl(caches: WatchCache): AccessControl = AccessControl(caches)
@@ -148,6 +163,7 @@ class CoSkyServerApplication : DisposableBean {
         store: Store,
         caches: WatchCache,
         reaper: LeaseReaper,
+        topology: TopologyRecorder,
         properties: CoSkyProperties,
     ): ApplicationRunner = ApplicationRunner {
         runBlocking(VirtualThreads.dispatcher) {
@@ -158,6 +174,7 @@ class CoSkyServerApplication : DisposableBean {
         }
         caches.of(NamingRules.SYSTEM_NAMESPACE)
         scope.launch { reaper.run() }
+        scope.launch { topology.run() }
     }
 
     /**

@@ -13,8 +13,6 @@
 
 package me.ahoo.cosky.server.resource
 
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.DeleteRequest
@@ -276,24 +274,8 @@ class ResourceService(
         }
     }
 
-    /**
-     * A view no older than [minRevision].
-     */
-    private suspend fun viewOf(namespace: String, minRevision: Long): NamespaceView {
-        val cache = caches.of(namespace)
-        val view = withTimeoutOrNull(minRevisionTimeout) {
-            cache.views.first { it != null && it.revision >= minRevision }
-        }
-        if (view != null && !view.isClosed) {
-            return view
-        }
-        throw when {
-            view != null -> CoSkyException.namespaceNotFound(namespace)
-            cache.isDiverged -> CoSkyException.revisionRegression(namespace)
-            cache.views.value == null -> CoSkyException.storeUnavailable("Namespace $namespace is loading.")
-            else -> CoSkyException.minRevisionTimeout(namespace, minRevision)
-        }
-    }
+    private suspend fun viewOf(namespace: String, minRevision: Long): NamespaceView =
+        caches.viewAt(namespace, minRevision, minRevisionTimeout)
 
     private fun matches(resource: Resource, request: ListRequest): Boolean =
         resource.kind == request.kind &&

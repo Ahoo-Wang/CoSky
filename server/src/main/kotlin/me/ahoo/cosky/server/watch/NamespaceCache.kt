@@ -20,13 +20,17 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentHashMap
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.fold
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.store.ChangeBatch
@@ -37,6 +41,9 @@ import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.TimelineDivergedException
 import me.ahoo.cosky.store.key
 import org.slf4j.LoggerFactory
+import kotlin.random.Random
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -109,6 +116,7 @@ class NamespaceCache(
     private val namespace: String,
     private val store: Store,
     private val windowSize: Int,
+    private val antiEntropyInterval: Duration = 5.minutes,
 ) {
     private val state = MutableStateFlow<NamespaceView?>(null)
 
@@ -136,7 +144,57 @@ class NamespaceCache(
     /**
      * Runs until the namespace stops being active.
      */
-    suspend fun run() {
+    suspend fun run(): Unit = coroutineScope {
+        val checking = launch { keepChecking() }
+        follow()
+        checking.cancel()
+    }
+
+    private suspend fun keepChecking() {
+        while (true) {
+            // Replicas should not all scan at once.
+            delay(antiEntropyInterval * (JITTER_FLOOR + Random.nextDouble() * JITTER_SPREAD))
+            try {
+                checkAgainstStore()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                log.warn("Comparing namespace {} with the store failed.", namespace, e)
+            }
+        }
+    }
+
+    /**
+     * Anti-entropy (design §6.1): no defect on the incremental path should last. What changed during the scan is
+     * skipped, and any other difference counts as a forked timeline, which every replica and watcher then reloads.
+     *
+     * @return whether a difference was found.
+     */
+    suspend fun checkAgainstStore(): Boolean {
+        val before = store.position(namespace) ?: return false
+        val scanned = store.versions(namespace).toList().associate { it.key to it.revision }
+        val after = store.position(namespace) ?: return false
+        val view = withTimeoutOrNull(CATCH_UP_TIMEOUT) {
+            state.first { it != null && (it.epoch != before.epoch || it.revision >= after.revision) }
+        }
+        // Without the changes since the scan began, nothing can be said this time.
+        if (view == null || view.epoch != before.epoch || view.earliest > before.revision) {
+            return false
+        }
+        val changed = view.window.filter { it.revision > before.revision }
+            .flatMapTo(mutableSetOf()) { batch -> batch.changes.map { it.resource.key } }
+        val different = (scanned.keys + view.objects.keys).count { key ->
+            key !in changed && scanned[key] != view.objects[key]?.meta?.revision
+        }
+        if (different == 0) {
+            return false
+        }
+        log.error("{} objects of namespace {} differ from the store; replacing the epoch.", different, namespace)
+        store.rotateEpoch(namespace, view.epoch)
+        return true
+    }
+
+    private suspend fun follow() {
         while (true) {
             try {
                 if (!followOnce()) {
@@ -193,5 +251,8 @@ class NamespaceCache(
     private companion object {
         val log = LoggerFactory.getLogger(NamespaceCache::class.java)
         val RETRY_DELAY = 1.seconds
+        val CATCH_UP_TIMEOUT = 10.seconds
+        const val JITTER_FLOOR = 0.8
+        const val JITTER_SPREAD = 0.4
     }
 }

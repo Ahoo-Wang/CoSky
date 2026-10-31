@@ -41,7 +41,11 @@ private const val PREFIX = "cosky:"
 /**
  * One Config named by `spring.config.import=cosky:<name>` (design §7.7).
  */
-data class CoSkyConfigDataResource(val config: String, val properties: CoSkyProperties) : ConfigDataResource()
+data class CoSkyConfigDataResource(
+    val config: String,
+    val properties: CoSkyProperties,
+    val applicationName: String?,
+) : ConfigDataResource()
 
 class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDataResource> {
     override fun isResolvable(context: ConfigDataLocationResolverContext, location: ConfigDataLocation): Boolean =
@@ -52,7 +56,8 @@ class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDa
         location: ConfigDataLocation,
     ): List<CoSkyConfigDataResource> {
         val properties = context.binder.bindOrCreate(CoSkyProperties.PREFIX, Bindable.of(CoSkyProperties::class.java))
-        return listOf(CoSkyConfigDataResource(location.getNonPrefixedValue(PREFIX), properties))
+        val applicationName = context.binder.bind("spring.application.name", String::class.java).orElse(null)
+        return listOf(CoSkyConfigDataResource(location.getNonPrefixedValue(PREFIX), properties, applicationName))
     }
 }
 
@@ -63,7 +68,7 @@ class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDa
 class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
     override fun load(context: ConfigDataLoaderContext, resource: CoSkyConfigDataResource): ConfigData {
         val properties = resource.properties
-        val namespace = CoSkyClients.shared(properties).namespace(properties.namespace)
+        val namespace = CoSkyClients.shared(properties, resource.applicationName).namespace(properties.namespace)
         val config = runBlocking(VirtualThreads.dispatcher) {
             withTimeoutOrNull(properties.configLoadTimeout) { namespace.configs.load(resource.config) }
         }

@@ -52,9 +52,14 @@ import org.springframework.core.env.Environment
 @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["enabled"], matchIfMissing = true)
 @EnableConfigurationProperties(CoSkyProperties::class)
 class CoSkyAutoConfiguration {
+    private companion object {
+        const val APPLICATION_NAME = "spring.application.name"
+    }
+
     @Bean(destroyMethod = "")
     @ConditionalOnMissingBean
-    fun coSkyClient(properties: CoSkyProperties): CoSkyClient = CoSkyClients.shared(properties)
+    fun coSkyClient(properties: CoSkyProperties, environment: Environment): CoSkyClient =
+        CoSkyClients.shared(properties, environment.getProperty(APPLICATION_NAME))
 
     @Bean
     fun coSkyClientCloser(properties: CoSkyProperties): DisposableBean = DisposableBean {

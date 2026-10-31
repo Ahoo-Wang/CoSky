@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.store.memory
 
+import kotlinx.collections.immutable.toPersistentHashMap
 import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.transformWhile
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.TopologyEdge
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.GrantResult
@@ -96,7 +98,7 @@ class MemoryStore(
                 throw TimelineDivergedException(data.position)
             }
             if (tail.isDiverged(data)) {
-                throw TimelineDivergedException(rotateEpoch(namespace, from.epoch))
+                throw TimelineDivergedException(rotateIfExpected(namespace, from.epoch))
             }
             if (tail.cursor < data.earliestResumable) {
                 throw RevisionGoneException(data.earliestResumable)
@@ -227,7 +229,27 @@ class MemoryStore(
         }
     }
 
-    private fun rotateEpoch(namespace: String, expected: String): Position = transition(namespace) { current ->
+    override suspend fun rotateEpoch(namespace: String, expected: String): Position =
+        rotateIfExpected(namespace, expected)
+
+    override suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration) {
+        transition(namespace) { current ->
+            if (current?.state != NamespaceState.ACTIVE) {
+                return@transition current to Unit
+            }
+            val now = now()
+            val expiresAt = now.plus(retention.toJavaDuration())
+            val refreshed = edges.fold(current.topology) { all, edge -> all.putting(edge, expiresAt) }
+            current.copy(topology = refreshed.filterValues { it.isAfter(now) }.toPersistentHashMap()) to Unit
+        }
+    }
+
+    override suspend fun topology(namespace: String): Set<TopologyEdge> {
+        val now = now()
+        return active(namespace)?.topology.orEmpty().filterValues { it.isAfter(now) }.keys
+    }
+
+    private fun rotateIfExpected(namespace: String, expected: String): Position = transition(namespace) { current ->
         val next = if (current?.epoch == expected) current.copy(epoch = newEpoch()) else current
         next to requireNotNull(next).position
     }

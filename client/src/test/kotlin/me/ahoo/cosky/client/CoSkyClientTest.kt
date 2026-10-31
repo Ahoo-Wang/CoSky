@@ -68,6 +68,7 @@ class CoSkyClientTest {
         snapshotDir: Path? = null,
         includeConfig: Boolean = true,
         token: String? = null,
+        clientName: String? = null,
         leaseTtl: Duration = 30.seconds,
         resync: Duration = 30.minutes,
         endpoints: List<String> = listOf("only"),
@@ -76,6 +77,7 @@ class CoSkyClientTest {
         CoSkyClientOptions(
             endpoints = endpoints,
             token = token,
+            clientName = clientName,
             snapshotDir = snapshotDir,
             snapshotIncludeConfig = includeConfig,
             snapshotDebounce = 10.milliseconds,
@@ -339,6 +341,12 @@ class CoSkyClientTest {
         restored.map { it.meta.lease }.toSet().single().assert().isNotEqualTo(lost)
         restored.first { it.meta.name == "a" }.instance.metadataMap.assert().containsEntry("zone", "az1")
         restored.first { it.meta.name == "a" }.instance.weight.assert().isEqualTo(3)
+    }
+
+    @Test
+    fun `a client names itself on every call`() = scenario {
+        client(clientName = "order").namespace(NAMESPACE).instances.register("order", ENDPOINT)
+        server.clientNames.first().assert().isEqualTo("order")
     }
 
     @Test

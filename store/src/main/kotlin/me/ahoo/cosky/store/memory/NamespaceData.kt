@@ -22,6 +22,7 @@ import kotlinx.collections.immutable.toPersistentList
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.TopologyEdge
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
@@ -65,6 +66,7 @@ internal data class NamespaceData(
     val attachments: PersistentMap<String, Long> = persistentHashMapOf(),
     val leaseSequence: Long = 0,
     val ancestors: PersistentList<NamespaceData> = persistentListOf(),
+    val topology: PersistentMap<TopologyEdge, Instant> = persistentHashMapOf(),
 ) {
     val position: Position
         get() = Position(epoch, revision)

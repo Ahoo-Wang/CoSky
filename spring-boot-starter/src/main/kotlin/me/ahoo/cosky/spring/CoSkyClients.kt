@@ -25,8 +25,11 @@ internal object CoSkyClients {
     private val clients = ConcurrentHashMap<CoSkyProperties, CoSkyClient>()
     private val imported = ConcurrentHashMap<CoSkyProperties, MutableMap<String, Long>>()
 
-    fun shared(properties: CoSkyProperties): CoSkyClient =
-        clients.computeIfAbsent(properties) { CoSkyClient(it.toOptions()) }
+    /**
+     * @param applicationName `spring.application.name`, which names this client in the server's topology view.
+     */
+    fun shared(properties: CoSkyProperties, applicationName: String?): CoSkyClient =
+        clients.computeIfAbsent(properties) { CoSkyClient(it.toOptions(applicationName)) }
 
     /**
      * Remembers a Config this application loaded and the revision it saw, so that a change to it can trigger a refresh.

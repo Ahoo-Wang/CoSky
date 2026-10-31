@@ -52,9 +52,10 @@ data class CoSkyProperties(
         data class Refresh(val enabled: Boolean = true)
     }
 
-    fun toOptions(): CoSkyClientOptions = CoSkyClientOptions(
+    fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(
         endpoints = endpoints,
         token = token,
+        clientName = applicationName,
         snapshotDir = snapshot.dir.takeIf { snapshot.enabled },
         snapshotIncludeConfig = snapshot.includeConfig,
     )

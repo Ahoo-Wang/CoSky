@@ -501,6 +501,9 @@ interface Store {
     suspend fun expiredLeases(namespace: String, limit: Int): List<Long>
     suspend fun leaseStats(namespace: String): LeaseStats                    // 租约总数与已到期数,用于回收保护
 
+    /** epoch 仍是 `expected` 时更换它,用于 `changes` 之外发现的不一致(§6.1);返回当前位置。 */
+    suspend fun rotateEpoch(namespace: String, expected: String): Position
+
     /** 刷新拓扑边,保留 `retention`;软状态,不经过 revision(D30)。 */
     suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration)
     suspend fun topology(namespace: String): Set<TopologyEdge>               // 未过期的边
@@ -691,7 +694,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 | `GONE` | 落后超出 Stream 窗口 | 重新加载,落在新窗口之外的 watcher 收到 `gone` |
 
 **反熵(D19)**:增量路径上的任何缺陷都不应永久生效。server 每 `anti-entropy-interval`(默认 5 分钟)扫描 `ver`,与缓存比较 name → revision,
-扫描期间有变更的 name 跳过,其余不一致按分叉处理(§6.4)。客户端的低频重建见 §7.5。
+扫描期间有变更的 name 跳过,其余不一致时更换 epoch,所有副本和 watcher 随之重新加载(§6.4)。客户端的低频重建见 §7.5。
 
 ### 6.2 租约与实例生命周期
 

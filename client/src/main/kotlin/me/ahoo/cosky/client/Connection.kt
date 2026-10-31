@@ -64,13 +64,13 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
     }
 
     private fun decorate(channel: ManagedChannel): Channel {
-        val token = options.token ?: return channel
-        return ClientInterceptors.intercept(channel, BearerToken(token))
+        val headers = Metadata()
+        options.token?.let { headers.put(AUTHORIZATION, "Bearer $it") }
+        options.clientName?.let { headers.put(CLIENT_NAME, it) }
+        return ClientInterceptors.intercept(channel, ExtraHeaders(headers))
     }
 
-    private class BearerToken(token: String) : ClientInterceptor {
-        private val value = "Bearer $token"
-
+    private class ExtraHeaders(private val extra: Metadata) : ClientInterceptor {
         override fun <Req, Resp> interceptCall(
             method: MethodDescriptor<Req, Resp>,
             callOptions: CallOptions,
@@ -78,7 +78,7 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
         ): ClientCall<Req, Resp> =
             object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(next.newCall(method, callOptions)) {
                 override fun start(responseListener: Listener<Resp>, headers: Metadata) {
-                    headers.put(AUTHORIZATION, value)
+                    headers.merge(extra)
                     super.start(responseListener, headers)
                 }
             }
@@ -86,6 +86,7 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
 
     private companion object {
         val AUTHORIZATION: Metadata.Key<String> = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER)
+        val CLIENT_NAME: Metadata.Key<String> = Metadata.Key.of("cosky-client-name", Metadata.ASCII_STRING_MARSHALLER)
     }
 }
 
