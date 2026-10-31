@@ -68,7 +68,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   CAS 三种模式、批写原子性(任一失败全部不生效)、无变化不推进 revision(labels 顺序不同也算无变化)、`changes` 续传 / 窗口外 `RevisionGoneException`、
   epoch(删除重建后更换;钩子 `loseWritesAfter` 模拟丢写后 `changes` 抛 `TimelineDivergedException`)、只读元数据随读取 / 事件 / 历史完整返回、
   租约授予 / 批量保活 / 到期未回收可续期 / 到期 / 撤销 / 挂载实例随租约删除 / 迁移到新租约后旧租约到期不影响实例、`leaseStats`、`leaseOwners`、`versions`、
-  Config 历史截断(A → B → A 保留三条)、`dropNamespace`、`tryLock` 互斥与过期。
+  Config 历史截断(A → B → A 保留三条)、namespace 生命周期(创建、删除前判空、`terminating` 后写入被拒、`dropNamespace` 可重入、重建换 epoch)、`tryLock` 互斥与过期。
 - **验收**:内存实现通过全部 conformance 用例;测试类可被 `store-redis` 直接继承复用。
 
 ### W2b `client/` + `spring-boot-starter/`
@@ -174,12 +174,10 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 ### 架构审查(2026-10-30)
 
 P0 已写入设计文档:Watch 时间线(D19)、回收保护(D20)、Redis 追尾(D21)、键布局(D22)。
-R1 分页与分块(D23)、R2 授权范围(D24)已关闭。以下问题尚未决定,须在"最晚决定"列的时间点之前关闭:
+R1 分页与分块(D23)、R2 授权范围(D24)、R3 namespace 生命周期(D25)、R4 本地快照(D26)已关闭。以下问题尚未决定,须在"最晚决定"列的时间点之前关闭:
 
 | # | 问题 | 涉及章节 | 最晚决定 |
 |---|---|---|---|
-| R3 | namespace 删除有竞态;`hist` 键没有索引和清理策略,`dropNamespace` 的实现未定义 | §5.0、§7.2 | W2a 开工前 |
-| R4 | 快照在容器中基本失效,§9 的缓解不成立;快照路径不一致,`serverId` 没有来源;Config 明文落盘 | §6.5、§7.5、§9 | W2b 开工前 |
 | R5 | 副本滞后被误判为 `gone`;`MAXLEN ~` 截断同一 revision 的批次;窗口单位不一致,也小于滚动重启的事件量 | §6.1、§7.3 | W3a 开工前 |
 | R6 | 拓扑视图在多副本下只有局部数据 | §4.3、§6.3 | W3a 开工前 |
 | R7 | 冷启动读取 `obj` 与 `ver` 不是原子操作;`HGETALL` 大 Hash 阻塞 Redis | §6.1 | W3b 开工前 |

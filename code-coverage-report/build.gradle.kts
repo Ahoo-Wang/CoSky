@@ -34,13 +34,13 @@ reporting {
 }
 
 /**
- * Code generated from the protos (package `me.ahoo.cosky.api.v1`) is not held to the coverage floor.
+ * Not held to the coverage floor: code generated from the protos, and the test suites other modules run.
  */
-val generatedClasses = listOf("me/ahoo/cosky/api/v1/**")
+val uncoveredClasses = listOf("me/ahoo/cosky/api/v1/**", "me/ahoo/cosky/test/**")
 
 val codeCoverageReport = tasks.named<JacocoReport>("codeCoverageReport") {
     val aggregatedClasses = files(classDirectories.from.toList())
-    classDirectories.setFrom(aggregatedClasses.asFileTree.matching { exclude(generatedClasses) })
+    classDirectories.setFrom(aggregatedClasses.asFileTree.matching { exclude(uncoveredClasses) })
 }
 
 /**

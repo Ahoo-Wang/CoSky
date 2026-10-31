@@ -3,7 +3,7 @@
 > 基于 `main@bc6e873`(v6.2.0)代码审查。目标是回答:**如果今天从零开始做 CoSky,它应该长什么样?**
 >
 > 状态:方案已确认(见 §1 决策记录),详细设计见 §7;实施计划与进度见 [roadmap.md](roadmap.md)。
-> 2026-10-30 架构审查后新增 D19–D24;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
+> 2026-10-30 架构审查后新增 D19–D26;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
 
 ---
 
@@ -64,6 +64,8 @@ Redis (只有 server 可访问)
 | D22 | 键布局 | **只读元数据随对象持久化**(`ver`、Stream、历史);租约 TTL 单独保存,实例挂载集中在一个 Sorted Set;"无变化"基于确定性序列化 | Lua 无法解析 protobuf,脚本和事件必须能直接拿到审计与租约数据(§5.1) |
 | D23 | 消息大小 | **单条消息按字节分开**:List / History 分页,Snapshot / Events 用 `more` 分块,上限 2 MiB | 5 万实例的全量约 50 MB,超过 gRPC 默认 4 MiB;批写事件和 Config 历史同样可能超限(§4.6) |
 | D24 | 授权范围 | **RoleBinding 必须声明 namespace;`Rule.names` 按名称或服务收窄;租约只能由授予者续期和撤销** | 否则内置 `client` 无法限定 namespace,同 namespace 的账号能覆盖其他服务的 Instance、撤销其租约,D1 的数据面鉴权形同虚设(§7.8) |
+| D25 | Namespace 生命周期 | **写入必须看到 slot 内的 `state = active`**;删除时原子判空并置 `terminating`;`hist:idx` 索引历史键 | `_system` 与业务 namespace 不在同一 slot,依赖缓存判空会丢数据,迟到的写入还会让已删除的 namespace 复活(§7.2) |
+| D26 | 本地快照 | **定位为同盘重启的兜底**,k8s 中须挂持久卷才有效;路径含 `serverKey`;不加密,权限 `0600`,可关闭 Config 落盘 | 容器默认没有持久卷,不能承诺新进程可用旧视图;客户端没有地方安全存放密钥(§7.5、§9) |
 
 ---
 
@@ -473,25 +475,30 @@ gRPC 默认单条消息上限 4 MiB,而一个 namespace 的全量可达 50 MB。
 data class Position(val epoch: String, val revision: Long)
 
 interface Store {
-    /** 原子批写;全部未变化时返回当前 revision 且 changed = 0。 */
+    /** 原子批写;全部未变化时返回当前 revision 且 changed = 0;一批内同一 key 只能出现一次。 */
     suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult
 
-    /** 当前位置;namespace 还没有 epoch 时创建。 */
-    suspend fun position(namespace: String): Position
-    fun readAll(namespace: String): Flow<StoredObject>                       // 全量加载,含完整只读元数据
+    /** 当前位置;namespace 不是 active 时为 null。 */
+    suspend fun position(namespace: String): Position?
+    fun readAll(namespace: String): Flow<Resource>                           // 全量加载,含完整只读元数据
     fun versions(namespace: String): Flow<ObjectVersion>                     // 只读 name → revision,用于反熵
-    /** 有序、可续传;超出窗口抛 RevisionGoneException,`from` 不在当前时间线上抛 TimelineDivergedException。 */
+    /** 有序、可续传;超出窗口抛 RevisionGoneException,`from` 不在当前时间线上抛 TimelineDivergedException;namespace 不再是 active 时结束。 */
     fun changes(namespace: String, from: Position): Flow<ChangeBatch>
-    suspend fun history(key: ResourceKey, limit: Int): List<StoredObject>
+    suspend fun history(key: ResourceKey, limit: Int): List<Resource>
 
-    suspend fun grantLease(namespace: String, ttl: Duration, owner: String): Lease
+    suspend fun grantLease(namespace: String, ttl: Duration, owner: String): GrantResult
     suspend fun leaseOwners(namespace: String, leases: Collection<Long>): Map<Long, String?>   // 用于校验所有者(§7.8);null = 已不存在
     suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, Duration?>   // 批量,TTL 由存储保存;null = 已不存在
     suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean   // force = Revoke
     suspend fun expiredLeases(namespace: String, limit: Int): List<Long>
     suspend fun leaseStats(namespace: String): LeaseStats                    // 租约总数与已到期数,用于回收保护
 
-    /** 删除 namespace 的全部数据(epoch、rev、log、对象、历史、租约);调用方保证其已为空。 */
+    /** state = active,新 epoch;已是 active 时不变;还有待清理的数据时先清理。 */
+    suspend fun createNamespace(namespace: String): Position
+    suspend fun namespaceState(namespace: String): NamespaceState?           // ACTIVE / TERMINATING / null
+    /** 原子判空并置为 terminating;此后写入返回 NamespaceNotActive(§7.2)。 */
+    suspend fun terminateNamespace(namespace: String): TerminateResult
+    /** 清理 terminating namespace 的全部数据(epoch、rev、log、对象、历史、租约),只留 state 墓碑;可重入。 */
     suspend fun dropNamespace(namespace: String)
 
     /** 带过期的互斥锁,用于 Reaper 选主;owner 相同时为续约。 */
@@ -503,6 +510,8 @@ sealed interface ApplyResult {
     data class Applied(val revision: Long, val changed: Int) : ApplyResult
     data class Conflict(val index: Int, val currentRevision: Long?) : ApplyResult
     data class LeaseNotFound(val index: Int, val lease: Long) : ApplyResult
+    data object NamespaceNotActive : ApplyResult
+    data object BatchTooLarge : ApplyResult                                  // 超过操作数或总字节上限(§7.1)
 }
 ```
 
@@ -515,12 +524,14 @@ sealed interface ApplyResult {
 
 | 键 | 类型 | 内容 |
 |---|---|---|
-| `cosky:{ns}:epoch` | String | 时间线标识,128 位随机值;`SET NX` 创建,分叉时比较并更换 |
+| `cosky:{ns}:state` | String | `active` / `terminating`;写入前必须是 `active`(§7.2) |
+| `cosky:{ns}:epoch` | String | 时间线标识,128 位随机值;`createNamespace` 创建,分叉时比较并更换 |
 | `cosky:{ns}:rev` | String | namespace revision,INCR 递增 |
 | `cosky:{ns}:obj:<kind>` | Hash | name → 资源 protobuf 字节(确定性序列化,meta 中只读字段除外) |
 | `cosky:{ns}:ver:<kind>` | Hash | name → 元数据 `<revision>:<create_revision>:<created_ms>:<updated_ms>:<actor>` |
 | `cosky:{ns}:log` | Stream | 变更日志;ID = `<revision>-<seq>`;字段 `t`(P/D)、`k`(kind)、`n`(name)、`m`(元数据)、`o`(对象字节);`MAXLEN ~ 10000` |
 | `cosky:{ns}:hist:config:<name>` | Sorted Set | score = revision,member = `<元数据>\0<对象字节>`;保留最近 20 个 |
+| `cosky:{ns}:hist:idx` | Set | 有历史的 Config name,`dropNamespace` 据此枚举,不需要 SCAN |
 | `cosky:{ns}:lease` | Sorted Set | lease id → 到期时间(ms,Redis `TIME`) |
 | `cosky:{ns}:lease:ttl` | Hash | lease id → TTL(ms),续期时据此计算新的到期时间 |
 | `cosky:{ns}:lease:owner` | Hash | lease id → 授予它的主体(§7.8) |
@@ -547,19 +558,24 @@ sealed interface ApplyResult {
 
 | 脚本 | 作用 |
 |---|---|
-| `apply.lua` | 通用原子批写:逐项校验 CAS 与租约 → 内容不变的项跳过 → 若有变化则 `INCR rev` → `HSET/HDEL obj/ver` → 维护 `lease:attach` → Config 写历史 → `XADD log`(每项一条,`MAXLEN ~`)→ `PUBLISH cosky:hint` → 返回新 revision 或冲突明细 |
-| `lease_grant.lua` | 生成 id,`ZADD lease <TIME+ttl> id`,`HSET lease:ttl id ttl`,`HSET lease:owner id owner` |
+| `apply.lua` | 通用原子批写:校验 `state = active` → 逐项校验 CAS 与租约 → 内容不变的项跳过 → 若有变化则 `INCR rev` → `HSET/HDEL obj/ver` → 维护 `lease:attach` → Config 写历史并 `SADD hist:idx` → `XADD log`(每项一条,`MAXLEN ~`)→ `PUBLISH cosky:hint` → 返回新 revision 或冲突明细 |
+| `lease_grant.lua` | 校验 `state = active` → 生成 id,`ZADD lease <TIME+ttl> id`,`HSET lease:ttl id ttl`,`HSET lease:owner id owner` |
 | `lease_keepalive.lua` | 批量:读 `lease:ttl`,存在则 `ZADD lease <TIME+ttl> id`,不存在返回 0;已到期但未回收的租约同样续期(到期只表示可以回收);**不改 revision、不写日志** |
 | `lease_expire.lua` | 对单个租约:确认 `score ≤ TIME` → `ZRANGEBYSCORE lease:attach id id` 取挂载实例 → 有实例则等价于一次 apply 删除它们 → 清理 `lease:attach`、`lease:ttl`、`lease:owner`、`lease`。Revoke 复用此脚本(跳过到期检查);`actor` 到期回收时为 `system`,Revoke 时为调用者 |
 | `tail.lua` | 一次原子读:比较 epoch → 比较 `rev` 与已应用 revision → 比较已应用 revision 的日志条目 → 返回后续事件(§6.1、§6.4) |
 | `epoch_rotate.lua` | 比较并更换 epoch,多个副本同时发现分叉时只有一个生效 |
 | `lock.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
+| `namespace_create.lua` | 已是 `active` 时返回当前位置;否则 `SET state active`,写入新 epoch |
+| `namespace_terminate.lua` | `HLEN obj:config` 与 `HLEN obj:instance` 都为 0 时 `SET state terminating`,否则返回不为空 |
+
+`dropNamespace` 不是单个脚本:先读 `hist:idx` 和 `lease`,再分批 `UNLINK` 各键,只留 `state`。任何一步中断都可以重新执行。
 
 `apply.lua` 伪代码:
 
 ```lua
--- KEYS: rev, log, lease, lease:attach, 然后每个 op: obj, ver, hist(仅 Config)
+-- KEYS: state, rev, log, lease, lease:attach, hist:idx, 然后每个 op: obj, ver, hist(仅 Config)
 -- ARGV: namespace, actor, n_ops, 然后每个 op: type, kind, name, expected_rev, bytes, lease;now 由脚本内 TIME 取得
+if GET state ~= "active" then return {"NAMESPACE_NOT_ACTIVE"} end
 local changed = {}
 for each op do
   local cur = parse(HGET ver name)                  -- {rev, create_rev, created_ms, ...} 或 nil
@@ -575,7 +591,7 @@ for i, op in ipairs(changed) do
   local m = rev..":"..(cur.create_rev or rev)..":"..(cur.created_ms or now)..":"..now..":"..actor
   if PUT:    o = op.bytes; HSET obj name o; HSET ver name m
              if op.lease ~= 0 then ZADD lease:attach op.lease name else ZREM lease:attach name end
-             Config 时 ZADD hist rev (m.."\0"..o) + ZREMRANGEBYRANK 截断
+             Config 时 ZADD hist rev (m.."\0"..o) + ZREMRANGEBYRANK 截断 + SADD hist:idx name
   if DELETE: o = HGET obj name; HDEL obj/ver name; ZREM lease:attach name
   XADD log MAXLEN ~ 10000 (rev.."-"..(i-1)) t P|D k kind n name m m o o
 end
@@ -614,7 +630,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 
 ```
 启动 / 新 namespace:
-  E0 = GET epoch(不存在则 SET NX 随机值)
+  E0 = GET epoch(由 createNamespace 创建)
   R0 = GET rev
   HGETALL obj:* 与 ver:*                  -- 读到的对象可能比 R0 新
   XRANGE log (R0+1)-0 +                   -- 回放,按 ver 中 revision 比较做幂等应用
@@ -744,7 +760,7 @@ registration.close()                                                            
 - 同一 key 的多个 `watch` 调用共享一个底层 Watch(`stateIn` + 引用计数),最后一个订阅者离开后延迟取消。
 - 热路径(`choose()`、`config.value`)只读 `StateFlow.value`,不挂起、不分配。
 - 一条 gRPC 连接承载全部 Watch 与 KeepAlive;多个 server 端点轮换重连,重连带 `from_revision` 和 `from_epoch`。
-- 快照落盘:`~/.cosky/<ns>/snapshot.pb`(含 epoch 和 revision);启动时先加载快照立即可用,连接成功后从快照位置续传。
+- 快照落盘(§7.5):有快照时启动先加载,立即可用,连接成功后从快照位置续传。
 - 负载均衡:一个 `LoadBalancer` SPI,内置加权随机(前缀和 + 二分)与轮询。
 
 ---
@@ -756,7 +772,7 @@ registration.close()                                                            
 - **Put 是整体替换**,不支持局部 patch。请求中的只读字段(`revision`、`create_revision`、时间、`updated_by`、`sha256`)被忽略,由 server 填写。
 - **创建 / 更新**由 `expected_revision` 区分:`-1` 仅创建,`>0` CAS 更新,`0` 不校验(upsert)。
 - **无变化写入**:内容(确定性序列化后的对象字节)与当前一致时返回 `changed = false`,不推进 revision,不产生事件。
-- **删除后重建**:`create_revision` 重新开始;Config 历史在删除后**保留**,可通过 rollback 从历史恢复(恢复即重建)。
+- **删除后重建**:`create_revision` 重新开始;Config 历史在删除后**保留**到 Config 被重建或 namespace 被删除,可通过 rollback 从历史恢复(恢复即重建)。8.0 不做 TTL,历史量受"出现过的 name 数 × `history-size`"限制。
 - **Instance 与租约**:租约必须属于同一 namespace,且在写入时未到期;允许把实例从一个租约迁到另一个,或改为不挂租约,旧租约随后到期不影响该实例。
 - **labels 选择器**:仅支持等值匹配,多个条件为 AND。
 
@@ -778,9 +794,14 @@ registration.close()                                                            
 ### 7.2 Namespace 生命周期
 
 - `_system` 在 server 首次启动时自动创建;`default` namespace 在 bootstrap 时创建。
-- 向不存在的 namespace 写入返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。
-- **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。
-  删除成功后 server 调用 `Store.dropNamespace` 清理全部键,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
+- **创建**:先 `Store.createNamespace`(`state = active`,新 epoch),再 Put `_system` 中的 Namespace 对象。
+- **写入(D25)**:`apply.lua`、`lease_grant.lua` 要求 `state = active`,否则返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。判断在脚本内完成,不依赖缓存,所以迟到的写入不会让已删除的 namespace 复活。
+- **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。删除分三步,每步都可重入:
+  1. `Store.terminateNamespace`:原子判空并置 `terminating`,此后写入都被拒绝;
+  2. `Store.dropNamespace`:清理全部键,只留 `state` 作为墓碑;
+  3. 删除 `_system` 中的 Namespace 对象,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
+- **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续。
+- **数据丢失**:`_system` 中有对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。
 - 删除后重建的 namespace revision 从 1 重新开始,epoch 也是新的随机值;客户端携带旧 `from_epoch` 时一律返回 `gone`,
   即使 `from_revision` 落在新 namespace 的范围之内。
 
@@ -826,8 +847,10 @@ me.ahoo.cosky.server
 ### 7.5 客户端细则
 
 - **连接状态** `StateFlow<ConnectionState>`:`Connecting` → `Synced` ⇄ `Degraded`(断线,用本地视图服务)→ `Closed`。
-- **快照文件**:`<snapshotDir>/<serverId>/<namespace>/<kind>[-<filter>].pb`,内容为 `ListResponse`(含 epoch 和 revision);
-  变化后 1 秒防抖写入,先写临时文件再原子 rename。`snapshotDir` 默认 `~/.cosky`,可关闭。
+- **快照定位(D26)**:用于同一磁盘上的进程重启。k8s 中只有挂了持久卷才有效;server 全挂且没有快照时,非 `optional` 的配置让新进程启动失败(fail fast),靠 server 多副本降低风险。
+- **快照文件**:`<snapshotDir>/<serverKey>/<namespace>/<kind>[-<filter>].pb`,内容为当前视图(含 epoch 和 revision);变化后 1 秒防抖写入,先写临时文件再原子 rename。
+  `serverKey` 是端点列表和 token ID 的哈希,不需要新增 RPC,还能隔离同一主机上不同身份的进程。`snapshotDir` 默认 `~/.cosky`,可关闭。
+- **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`;`snapshot-include-config = false` 时 Config 不落盘。
 - **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例。
@@ -982,7 +1005,7 @@ cosky:
 | 取舍 | 代价 | 缓解 |
 |---|---|---|
 | 引入服务端,多一跳 | 写延迟多一个 RTT,部署多一个组件 | 读走本地快照;server 无状态可水平扩容;提供单镜像 + Helm |
-| server 成为关键路径 | server 全挂时不能注册 / 改配置 | 快照落盘,运行中进程与新启动进程仍可用旧视图;恢复时由回收保护避免清空实例(§6.2) |
+| server 成为关键路径 | server 全挂时不能注册 / 改配置;没有持久快照的新进程启动失败 | 运行中进程继续用内存视图;快照目录持久化时新进程可用旧视图(§7.5);server 多副本;恢复时由回收保护避免清空实例(§6.2) |
 | 回收保护 | 真实的大面积崩溃时,死实例最多多保留 5 分钟 | 调用方重试与熔断;指标告警;阈值可配置 |
 | Pub/Sub → Stream | Stream 占内存 | `MAXLEN ~ 10000` + `gone` 重新 List |
 | 提示 + 兜底轮询 | Redis 负载随 副本数 × namespace 数 增长 | 正常靠提示驱动;轮询是非阻塞小脚本,间隔可调 |

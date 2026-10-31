@@ -32,7 +32,8 @@ CI=true ./gradlew build
 - **Framework**: JUnit 5 with `me.ahoo.test:fluent-assert-core` for assertions; `kotlinx-coroutines-test` for suspend code
 - **Redis**: integration tests use Testcontainers (no local Redis needed)
 - **Coverage**: Jacoco aggregated in `code-coverage-report/`; `check` fails below 90% line / 70% branch coverage.
-  Generated code (`me.ahoo.cosky.api.v1`) is excluded — never put hand-written code in that package
+  Generated code (`me.ahoo.cosky.api.v1`) and the conformance suites (`me.ahoo.cosky.test`) are excluded — never put
+  production code in those packages
 - **Bug fixes** come with a test that fails without the fix
 
 ## Project Structure
@@ -42,8 +43,8 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | Module | Purpose | Status |
 |--------|---------|--------|
 | `api` | Protos (`cosky.v1`), generated messages and grpc-kotlin stubs, validation, error model, OpenAPI | ✅ |
-| `store` | Store SPI and in-memory implementation | planned (W2a) |
-| `conformance-test` | Store SPI and protocol conformance suites | planned (W2a) |
+| `store` | Store SPI and in-memory implementation | ✅ |
+| `conformance-test` | Store SPI conformance suite; the protocol suite follows in W3a | ✅ |
 | `client` | Coroutine client: List/Watch, leases, local snapshots, load balancing | planned (W2b) |
 | `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | planned (W2b) |
 | `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | planned (W3a) |
