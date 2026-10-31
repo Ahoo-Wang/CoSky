@@ -11,7 +11,7 @@ pnpm dev            # http://localhost:5173, with /v1 proxied to a server on :80
 pnpm lint           # eslint --fix
 pnpm build          # tsc -b && vite build
 pnpm test:unit      # Playwright unit tests (tests/unit)
-pnpm test:ui        # Playwright end-to-end tests against the mock API (tests/ui/mock-api.ts)
+pnpm test:ui        # Playwright end-to-end tests of the production build against the mock API (tests/ui/mock-api.ts)
 pnpm test:ui:real   # The hosted page against a real server: see playwright.real.config.ts
 pnpm test:coverage  # enforces 80% statements/functions/lines, 75% branches
 pnpm generate       # regenerate src/generated from ../api/build/openapi/cosky.yaml (./gradlew :api:generateOpenApi)

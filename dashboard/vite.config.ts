@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'node:path'
 
 const exclude = [/src\/generated/, /node_modules/]
+const coverage = process.env.COSKY_COVERAGE === '1'
 
 export default defineConfig({
   plugins: [
@@ -28,6 +29,8 @@ export default defineConfig({
       '/v1': process.env.COSKY_API_URL ?? 'http://localhost:8080',
     },
   },
+  // Coverage maps what the browser ran back to the sources, which must not reach dist/ and the image.
+  build: coverage ? {sourcemap: true, outDir: 'dist-coverage'} : {},
   optimizeDeps: {
     include: ['monaco-editor'],
     exclude: ['@monaco-editor/react']

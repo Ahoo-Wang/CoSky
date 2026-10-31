@@ -41,8 +41,8 @@ export const coverageOptions: CoverageReportOptions = {
     ],
     logging: 'error',
     entryFilter: entry => {
-        const pathname = new URL(entry.url).pathname;
-        return pathname.startsWith('/src/') && !pathname.startsWith('/src/generated/') && /\.tsx?$/.test(pathname);
+        // The chunks of the production build, which their source maps lead back to the sources.
+        return /^\/assets\/.*\.js$/.test(new URL(entry.url).pathname);
     },
     sourceFilter: sourcePath => !sourcePath.includes('node_modules') &&
         !sourcePath.includes('/generated/') && /\.tsx?$/.test(sourcePath),
