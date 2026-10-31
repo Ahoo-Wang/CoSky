@@ -76,6 +76,11 @@ jobs:
         continue-on-error: true
         run: pnpm test:coverage
 
+      - name: Check the Kubernetes manifests
+        run: |
+          kubectl kustomize k8s/base > /dev/null
+          kubectl kustomize k8s/overlays/redis-cluster | grep -q COSKY_STORE_REDIS_CLUSTER
+
       - name: Set up JDK
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
