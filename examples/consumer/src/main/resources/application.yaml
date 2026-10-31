@@ -1,0 +1,12 @@
+spring:
+  application:
+    name: consumer
+  cloud:
+    # Spring Cloud 2025.1 declares Spring Boot 4.0, and this runs on 4.1. Spring Cloud 2026.0 will declare it.
+    compatibility-verifier:
+      enabled: false
+server:
+  port: 8082
+cosky:
+  endpoints: localhost:9090
+  namespace: default
