@@ -19,6 +19,7 @@ import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.server.auth.Permission
@@ -147,7 +148,7 @@ class WatchSession(
     }
 
     private suspend fun sendSnapshot(view: NamespaceView) {
-        val items = view.objects.values.filter { matches(it) }
+        val items = candidates(view).filter { matches(it) }
         val chunks = items.chunkedByBytes(maxMessageBytes) { it.serializedSize }.ifEmpty { listOf(emptyList()) }
         chunks.forEachIndexed { index, chunk ->
             send(
@@ -188,6 +189,21 @@ class WatchSession(
             },
         )
         .setResource(change.resource)
+        .build()
+
+    /**
+     * Where to look, so that the size of the namespace does not decide what a watch of one object costs.
+     */
+    private fun candidates(view: NamespaceView): Collection<Resource> = when {
+        create.name.isNotEmpty() -> listOfNotNull(view.objects[keyOf(create.name)])
+        create.kind == Kind.KIND_INSTANCE && create.service.isNotEmpty() -> view.instancesOf(create.service)
+        else -> view.objects.values
+    }
+
+    private fun keyOf(name: String): ResourceKey = ResourceKey.newBuilder()
+        .setNamespace(create.namespace)
+        .setKind(create.kind)
+        .setName(name)
         .build()
 
     private fun matches(resource: Resource): Boolean =

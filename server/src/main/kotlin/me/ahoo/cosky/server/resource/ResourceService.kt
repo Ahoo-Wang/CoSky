@@ -88,7 +88,8 @@ class ResourceService(
             throw PageTokens.invalid("The timeline changed since this page was requested; list from the first page.")
         }
         val pageSize = request.pageSize.takeIf { it != 0 } ?: limits.defaultPageSize
-        val page = view.objects.values.asSequence()
+        val candidates = if (request.service.isEmpty()) view.objects.values else view.instancesOf(request.service)
+        val page = candidates.asSequence()
             .filter { it.meta.name > token?.after.orEmpty() && matches(it, request) }
             .filter { permission.allows(it.authorizedName) }
             .sortedBy { it.meta.name }

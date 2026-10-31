@@ -130,6 +130,7 @@ configure(libraryProjects) {
         }
         threads.set(jmhThreads)
         fork.set(1)
+        profilers.set(listOf("gc"))
         jvmArgs.set(listOf("-Dlogback.configurationFile=${rootProject.rootDir}/config/logback-jmh.xml"))
     }
     tasks.withType<Test> {
