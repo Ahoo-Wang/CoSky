@@ -30,6 +30,7 @@ import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.key
+import me.ahoo.cosky.store.withoutReadOnlyMeta
 import java.time.Instant
 import kotlin.time.Duration
 
@@ -255,15 +256,6 @@ private fun trimmed(log: PersistentList<LogEntry>, logSize: Int): PersistentList
     }
     return current
 }
-
-private fun Resource.withoutReadOnlyMeta(): Resource = toBuilder().apply {
-    metaBuilder
-        .clearRevision()
-        .clearCreateRevision()
-        .clearCreatedAt()
-        .clearUpdatedAt()
-        .clearUpdatedBy()
-}.build()
 
 private fun Resource.stamped(nextRevision: Long, current: Resource?, write: Write): Resource = toBuilder().apply {
     val now = write.now.toTimestamp()

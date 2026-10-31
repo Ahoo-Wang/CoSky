@@ -35,12 +35,11 @@ class MemoryStoreTest {
     }
 
     @Test
-    fun `losing writes needs the revision to be retained`() = runBlocking {
+    fun `losing writes needs the revision to be retained`() = runBlocking<Unit> {
         val store = MemoryStore()
         store.createNamespace(NAMESPACE)
         store.apply(NAMESPACE, listOf(Mutation.Put(config)), "test")
         assertThrownBy<IllegalArgumentException> { store.loseWritesAfter(NAMESPACE, 0) }
-        Unit
     }
 
     @Test
@@ -49,7 +48,7 @@ class MemoryStoreTest {
     }
 
     @Test
-    fun `losing nothing changes nothing`() = runBlocking {
+    fun `losing nothing changes nothing`() = runBlocking<Unit> {
         val store = MemoryStore()
         val position = store.createNamespace(NAMESPACE)
         store.loseWritesAfter(NAMESPACE, 0)

@@ -16,6 +16,7 @@ rootProject.name = "CoSky"
 include(":api")
 include(":store")
 include(":conformance-test")
+include(":store-redis")
 include(":bom")
 include(":dependencies")
 include(":test")
