@@ -29,3 +29,7 @@ management:
       group:
         readiness:
           include: readinessState,coSkyReadiness
+cosky:
+  auth:
+    # Design 6.3: the first start creates the admin ServiceAccount from it.
+    bootstrap-token: ${COSKY_BOOTSTRAP_TOKEN:}

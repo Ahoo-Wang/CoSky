@@ -1,3 +1,10 @@
+# The CoSky server (design 7.4), which keeps its data in Redis and nothing on disk, so replicas come and go freely.
+#
+# It expects two Secrets:
+#   kubectl create secret generic cosky-redis --from-literal=uri=redis://:<password>@<host>:6379
+#   kubectl create secret generic cosky-auth --from-literal=bootstrap-token=cosky_<id>_<secret>
+#
+# Redis must run with maxmemory-policy noeviction, version 7.0 or later, or the server refuses to start (design D31).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,7 +12,12 @@ metadata:
   labels:
     app: cosky
 spec:
-  replicas: 1
+  replicas: 3
+  strategy:
+    rollingUpdate:
+      # One at a time: clients of a stopping replica reconnect to the others, and can resume where they were (D29).
+      maxSurge: 1
+      maxUnavailable: 1
   selector:
     matchLabels:
       app: cosky
@@ -14,58 +26,81 @@ spec:
       labels:
         app: cosky
       annotations:
-        instrumentation.opentelemetry.io/inject-java: "true"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: /actuator/prometheus
     spec:
+      # The gRPC grace period is 5 seconds, and the rest is for the JVM to stop.
+      terminationGracePeriodSeconds: 20
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: cosky
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
       containers:
-        - env:
-            - name: SPRING_DATA_REDIS_HOST
+        - name: cosky
+          image: ahoowang/cosky:8.0.0-beta.1
+          env:
+            - name: COSKY_STORE_REDIS_URI
               valueFrom:
                 secretKeyRef:
-                  name: redis-secret
-                  key: host
-            - name: SPRING_DATA_REDIS_PASSWORD
+                  name: cosky-redis
+                  key: uri
+            # Uncomment on a Redis Cluster.
+            # - name: COSKY_STORE_REDIS_CLUSTER
+            #   value: "true"
+            # Only read on the first start, while no RoleBinding exists; it may be removed afterwards.
+            - name: COSKY_BOOTSTRAP_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: redis-secret
-                  key: password
-            - name: COSKY_SECURITY_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: cosky-secret
-                  key: security-key
-            - name: TZ
-              value: Asia/Shanghai
-          image: ahoowang/cosky:6.2.0
-          startupProbe:
-            httpGet:
-              port: http
-              path: /actuator/health
-          readinessProbe:
-            httpGet:
-              port: http
-              path: /actuator/health/readiness
-          livenessProbe:
-            httpGet:
-              port: http
-              path: /actuator/health/liveness
-          name: cosky
+                  name: cosky-auth
+                  key: bootstrap-token
           ports:
             - name: http
               containerPort: 8080
               protocol: TCP
+            - name: grpc
+              containerPort: 9090
+              protocol: TCP
+          startupProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
+            periodSeconds: 2
+            failureThreshold: 60
+          # Ready once every namespace has loaded; asking also starts the loading (design 7.9).
+          readinessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/readiness
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              port: http
+              path: /actuator/health/liveness
           resources:
-            limits:
-              cpu: "1"
-              memory: 1280Mi
+            # About 1 KB per instance and per watch on top of the JVM (design 7.10); size the limit to the fleet.
             requests:
-              cpu: 250m
-              memory: 1024Mi
-          volumeMounts:
-            - mountPath: /etc/localtime
-              name: volume-localtime
-      volumes:
-        - hostPath:
-            path: /etc/localtime
-            type: ""
-          name: volume-localtime
-
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 2Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cosky
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: cosky
