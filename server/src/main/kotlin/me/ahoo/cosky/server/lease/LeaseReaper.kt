@@ -38,6 +38,7 @@ class LeaseReaper(
     private val options: Options = Options(),
     private val clock: Clock = Clock.systemUTC(),
     private val owner: String = UUID.randomUUID().toString(),
+    private val maintenance: suspend () -> Unit = {},
 ) {
     @Suppress("MagicNumber") // The defaults of design §7.6.
     data class Options(
@@ -48,11 +49,13 @@ class LeaseReaper(
         val protectionThreshold: Double = 0.5,
         val protectionMinLeases: Int = 10,
         val protectionMaxDuration: Duration = Duration.ofMinutes(5),
+        val maintenanceInterval: Duration = Duration.ofSeconds(30),
     )
 
     private var leaderSince: Instant? = null
     private var lastFailure: Instant? = null
     private var lastTick: Instant? = null
+    private var lastMaintenance: Instant? = null
     private val pausedSince = ConcurrentHashMap<String, Instant>()
 
     /**
@@ -88,10 +91,22 @@ class LeaseReaper(
         if (leaderSince == null) {
             leaderSince = now
         }
+        maintain(now)
         if (inGrace(now)) {
             return
         }
         namespaces().forEach { reap(it, now) }
+    }
+
+    /**
+     * What else one server at a time should do. It deletes nothing a live process depends on, so it needs no grace.
+     */
+    private suspend fun maintain(now: Instant) {
+        val last = lastMaintenance
+        if (last == null || Duration.between(last, now) >= options.maintenanceInterval) {
+            lastMaintenance = now
+            maintenance()
+        }
     }
 
     /**

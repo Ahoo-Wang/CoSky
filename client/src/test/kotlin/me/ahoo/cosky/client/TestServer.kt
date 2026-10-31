@@ -28,6 +28,7 @@ import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
+import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.util.UUID
@@ -48,7 +49,7 @@ internal class TestServer : AutoCloseable {
     fun start() {
         val caches = WatchCache(store, WINDOW, scope)
         server = InProcessServerBuilder.forName(name)
-            .addService(ServerInterceptors.intercept(ResourceGrpcService(store, caches), recording))
+            .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
             .addService(LeaseGrpcService(store))
             .addService(WatchGrpcService(caches, CoSkyProperties()))
             .build()

@@ -31,6 +31,7 @@ import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
+import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -50,7 +51,7 @@ internal class TestCoSkyServer : AutoCloseable {
     init {
         val caches = WatchCache(store, WINDOW, scope)
         server = NettyServerBuilder.forAddress(InetSocketAddress("localhost", 0))
-            .addService(ResourceGrpcService(store, caches))
+            .addService(ResourceGrpcService(ResourceService(store, caches)))
             .addService(LeaseGrpcService(store))
             .addService(WatchGrpcService(caches, ServerProperties()))
             .build()
