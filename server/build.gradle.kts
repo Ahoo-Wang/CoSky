@@ -20,6 +20,8 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-grpc-server")
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.boot:spring-boot-starter-actuator")
+    implementation("io.micrometer:micrometer-registry-prometheus")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     implementation("com.google.protobuf:protobuf-java-util")
     implementation("com.google.code.gson:gson")
@@ -27,6 +29,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework:spring-test")
     testImplementation(project(":test"))
+    testImplementation(project(":conformance-test"))
+    testImplementation(project(":client"))
     testImplementation("io.grpc:grpc-inprocess")
 }
 

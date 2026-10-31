@@ -18,6 +18,7 @@ import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.resource.ClientResources
+import io.micrometer.core.instrument.MeterRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -40,6 +41,9 @@ import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.OidcAuthenticator
 import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.lease.LeaseReaper
+import me.ahoo.cosky.server.observe.CoSkyMetrics
+import me.ahoo.cosky.server.observe.MeteredStore
+import me.ahoo.cosky.server.observe.ReadinessIndicator
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.TopologyRecorder
@@ -48,13 +52,16 @@ import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
+import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.cosky.store.redis.RedisStore
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.health.contributor.HealthIndicator
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
@@ -78,11 +85,35 @@ class CoSkyServerApplication : DisposableBean {
     }
 
     @Bean
-    fun store(properties: CoSkyProperties, resources: ObjectProvider<ClientResources>): Store {
+    fun metrics(registry: MeterRegistry): CoSkyMetrics = CoSkyMetrics(registry)
+
+    @Bean
+    fun store(
+        properties: CoSkyProperties,
+        resources: ObjectProvider<ClientResources>,
+        metrics: CoSkyMetrics,
+    ): Store {
+        val options = StoreOptions(logSize = properties.watch.window)
+        return when (properties.store.type) {
+            CoSkyProperties.MEMORY -> {
+                log.warn("The store is in memory: nothing survives this process. Use it for development only.")
+                MemoryStore(options)
+            }
+
+            CoSkyProperties.REDIS -> redisStore(properties, resources, options)
+
+            else -> error("cosky.store.type must be ${CoSkyProperties.REDIS} or ${CoSkyProperties.MEMORY}.")
+        }.let { MeteredStore(it, metrics) }
+    }
+
+    private fun redisStore(
+        properties: CoSkyProperties,
+        resources: ObjectProvider<ClientResources>,
+        options: StoreOptions,
+    ): Store {
         val redis = properties.store.redis
         val uri = RedisURI.create(redis.uri)
         val clientResources = resources.getIfAvailable { ClientResources.create() }
-        val options = StoreOptions(logSize = properties.watch.window)
         val pollInterval = redis.tailPollInterval.toKotlinDuration()
         val store = if (redis.cluster) {
             RedisStore.cluster(RedisClusterClient.create(clientResources, uri), options, pollInterval)
@@ -94,8 +125,16 @@ class CoSkyServerApplication : DisposableBean {
     }
 
     @Bean
-    fun watchCache(store: Store, properties: CoSkyProperties): WatchCache =
-        WatchCache(store, properties.watch.window, scope, properties.watch.antiEntropyInterval.toKotlinDuration())
+    fun watchCache(store: Store, properties: CoSkyProperties, metrics: CoSkyMetrics): WatchCache = WatchCache(
+        store,
+        properties.watch.window,
+        scope,
+        properties.watch.antiEntropyInterval.toKotlinDuration(),
+        metrics,
+    )
+
+    @Bean("coSkyReadiness")
+    fun readiness(caches: WatchCache): HealthIndicator = ReadinessIndicator(caches)
 
     @Bean
     fun topologyRecorder(store: Store, properties: CoSkyProperties): TopologyRecorder =
@@ -157,7 +196,8 @@ class CoSkyServerApplication : DisposableBean {
     @Bean
     @GlobalServerInterceptor
     @ConditionalOnProperty(prefix = "cosky.auth", name = ["enabled"], matchIfMissing = true)
-    fun authInterceptor(access: AccessControl, audit: AuditLogger): ServerInterceptor = AuthInterceptor(access, audit)
+    fun authInterceptor(access: AccessControl, audit: AuditLogger, metrics: CoSkyMetrics): ServerInterceptor =
+        AuthInterceptor(access, audit, metrics)
 
     @Bean
     fun resourceService(
@@ -175,7 +215,12 @@ class CoSkyServerApplication : DisposableBean {
     )
 
     @Bean
-    fun leaseReaper(store: Store, caches: WatchCache, properties: CoSkyProperties): LeaseReaper {
+    fun leaseReaper(
+        store: Store,
+        caches: WatchCache,
+        properties: CoSkyProperties,
+        metrics: CoSkyMetrics,
+    ): LeaseReaper {
         val lease = properties.lease
         return LeaseReaper(
             store = store,
@@ -194,6 +239,7 @@ class CoSkyServerApplication : DisposableBean {
                 protectionMaxDuration = lease.protectionMaxDuration,
             ),
             maintenance = NamespaceReconciler(store, caches)::reconcile,
+            metrics = metrics,
         )
     }
 
@@ -241,9 +287,17 @@ class CoSkyServerApplication : DisposableBean {
 
     private companion object {
         const val DEFAULT_NAMESPACE = "default"
+        val log = LoggerFactory.getLogger(CoSkyServerApplication::class.java)
     }
 }
 
+/**
+ * `--dev` is the shortest way to try the server: no Redis, and no sign-in.
+ */
 fun main(args: Array<String>) {
-    runApplication<CoSkyServerApplication>(*args)
+    val development = listOf("--cosky.store.type=${CoSkyProperties.MEMORY}", "--cosky.auth.enabled=false")
+    val arguments = args.flatMap { if (it == DEV_FLAG) development else listOf(it) }
+    runApplication<CoSkyServerApplication>(*arguments.toTypedArray())
 }
+
+private const val DEV_FLAG = "--dev"

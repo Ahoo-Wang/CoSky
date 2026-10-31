@@ -13,6 +13,9 @@
 
 dependencies {
     api(project(":store"))
+    api(project(":client"))
+    implementation("io.grpc:grpc-stub")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     api("org.junit.jupiter:junit-jupiter-api")
     api("me.ahoo.test:fluent-assert-core")
 }

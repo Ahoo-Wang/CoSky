@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.store.Store
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
@@ -31,11 +32,12 @@ class WatchCache(
     private val windowSize: Int,
     private val scope: CoroutineScope,
     private val antiEntropyInterval: Duration = 5.minutes,
+    val metrics: CoSkyMetrics = CoSkyMetrics(),
 ) {
     private val caches = ConcurrentHashMap<String, NamespaceCache>()
 
     fun of(namespace: String): NamespaceCache = caches.computeIfAbsent(namespace) {
-        NamespaceCache(namespace, store, windowSize, antiEntropyInterval).also { cache ->
+        NamespaceCache(namespace, store, windowSize, antiEntropyInterval, metrics).also { cache ->
             scope.launch {
                 cache.run()
                 caches.remove(namespace, cache)

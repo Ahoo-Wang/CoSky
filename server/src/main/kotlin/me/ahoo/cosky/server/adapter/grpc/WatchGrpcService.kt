@@ -128,6 +128,7 @@ class WatchGrpcService(
                     Limits.DEFAULT.maxMessageBytes,
                     properties.read.minRevisionTimeout.toKotlinDuration(),
                     permission,
+                    caches.metrics,
                 ) { send(it) }
                 val edge = recordTopology(create, consumer)
                 val job = launch {

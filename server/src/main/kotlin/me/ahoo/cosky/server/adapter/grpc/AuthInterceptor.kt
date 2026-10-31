@@ -24,6 +24,7 @@ import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 
 /**
  * The caller of the current call, which [AuthInterceptor] put there; anonymous where authentication is off.
@@ -41,6 +42,7 @@ internal object AuthContext {
 class AuthInterceptor(
     private val access: AccessControl,
     private val audit: AuditLogger,
+    private val metrics: CoSkyMetrics = CoSkyMetrics(),
 ) : ServerInterceptor {
     override fun <ReqT : Any, RespT : Any> interceptCall(
         call: ServerCall<ReqT, RespT>,
@@ -55,6 +57,7 @@ class AuthInterceptor(
             access.authenticate(headers[AUTHORIZATION]?.removePrefix(BEARER))
         } catch (e: CoSkyException) {
             val failure = e.toStatusRuntimeException()
+            metrics.authFailure(e.reason.name)
             audit.record(
                 UNKNOWN_SUBJECT,
                 null,
