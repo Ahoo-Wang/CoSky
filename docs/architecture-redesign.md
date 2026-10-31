@@ -641,7 +641,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - 必须开启 AOF(`appendfsync everysec`);主从切换存在丢失最后约 1 秒写入的风险,在文档中明示。
 - 支持 Standalone / Sentinel / Cluster;Cluster 下按 namespace 自然分布到各分片,任何命令都不跨 namespace(§6.1)。
 - server 检测时间线分叉(§6.4),发现后更换 epoch 并让所有 watcher 重新 List,避免客户端停留在已被丢弃的视图上。
-- **启动检查(D31)**:server 连接后读取 `INFO`(Cluster 下检查每个 master):`maxmemory_policy` 不是 `noeviction`,或版本低于 7.0 时拒绝启动;`INFO` 被限制而读不到时只记 WARN。CI 矩阵覆盖 Redis 7.0、7.4 和 Valkey。
+- **启动检查(D31)**:server 连接后读取 `INFO`(Cluster 下检查每个 master):`maxmemory_policy` 不是 `noeviction`,或版本低于 7.0 时拒绝启动;`INFO` 被限制而读不到时只记 WARN。托管 Redis 的默认策略常是 `volatile-lru`,需要先改参数组。CI 矩阵覆盖 Redis 7.0、7.4 和 Valkey。
 - **不使用 `WAIT`(D31)**:建议配置 `min-replicas-to-write 1` 和 `min-replicas-max-lag 10` 缩小丢写窗口。残余风险:主从切换时,已确认的 Config 写入和 token 吊销仍可能回滚,只能通过 ERROR 日志和 `cosky_revision_regression_total` 发现。
 
 ---

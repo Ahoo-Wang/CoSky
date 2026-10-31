@@ -342,6 +342,18 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `an instance lost while its lease survives is put back`() = scenario {
+        val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        instances.register("order", ENDPOINT)
+        val lost = instancesOnServer().single()
+        val lease = lost.meta.lease
+        // What a failover leaves behind: the lease is there, and the newer write is not.
+        server.store.apply(NAMESPACE, listOf(Mutation.Delete(lost.key)), "test")
+        eventually { instancesOnServer().isNotEmpty() }
+        instancesOnServer().single().meta.lease.assert().isEqualTo(lease)
+    }
+
+    @Test
     fun `a failing stream does not count as losing the lease`() = scenario {
         client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances.register("order", ENDPOINT)
         val before = instancesOnServer().single()

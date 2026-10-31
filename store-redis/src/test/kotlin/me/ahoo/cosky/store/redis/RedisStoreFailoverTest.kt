@@ -170,7 +170,7 @@ class RedisStoreFailoverTest {
         }
     }
 
-    private class RedisContainer : GenericContainer<RedisContainer>("redis:7.4-alpine") {
+    private class RedisContainer : GenericContainer<RedisContainer>(REDIS_IMAGE) {
         init {
             withExposedPorts(REDIS_PORT)
         }

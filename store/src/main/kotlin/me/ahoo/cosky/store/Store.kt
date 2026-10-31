@@ -81,7 +81,7 @@ interface Store {
      * Renews [leases] by their own TTL, including those expired but not reaped yet: expiry only makes a lease
      * reapable (§6.2). The value is the TTL, or null when the lease no longer exists.
      */
-    suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, Duration?>
+    suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, LeaseRenewal?>
 
     /**
      * Removes a lease and, in one revision, the Instances attached to it. Unless [force] (Revoke), a lease that has

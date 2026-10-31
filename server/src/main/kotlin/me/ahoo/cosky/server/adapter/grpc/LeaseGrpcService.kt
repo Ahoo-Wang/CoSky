@@ -53,10 +53,11 @@ class LeaseGrpcService(
     override fun keepAlive(requests: Flow<KeepAliveRequest>): Flow<KeepAliveResponse> = requests.map { request ->
         grpcCall {
             requireValid(Validator.DEFAULT.validate(request))
-            val ttl = store.keepAlive(request.namespace, listOf(request.lease))[request.lease]
+            val renewal = store.keepAlive(request.namespace, listOf(request.lease))[request.lease]
             KeepAliveResponse.newBuilder()
                 .setLease(request.lease)
-                .setTtlSeconds(ttl?.inWholeSeconds?.toInt() ?: 0)
+                .setTtlSeconds(renewal?.ttl?.inWholeSeconds?.toInt() ?: 0)
+                .setAttachedCount(renewal?.attached ?: 0)
                 .build()
         }
     }

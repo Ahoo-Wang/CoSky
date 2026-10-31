@@ -42,6 +42,11 @@ data class ChangeBatch(val revision: Long, val changes: List<Change>)
 
 data class Lease(val id: Long, val ttl: Duration)
 
+/**
+ * @param attached the Instances on the lease, which a client compares with what it registered (design D31).
+ */
+data class LeaseRenewal(val ttl: Duration, val attached: Int)
+
 data class LeaseStats(val total: Int, val expired: Int)
 
 sealed interface ApplyResult {

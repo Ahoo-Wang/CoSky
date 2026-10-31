@@ -31,6 +31,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.GrantResult
+import me.ahoo.cosky.store.LeaseRenewal
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.TerminateResult
@@ -99,6 +100,11 @@ class RedisStoreClusterTest {
     }
 
     @Test
+    fun `the prerequisites are checked on every node`() = runBlocking {
+        RedisStore.cluster(CLIENT).use { it.checkPrerequisites() }
+    }
+
+    @Test
     fun `the whole lifecycle stays within a slot`() = runBlocking<Unit> {
         val (first, _) = namespaces()
         val store = RedisStore.cluster(CLIENT)
@@ -106,7 +112,7 @@ class RedisStoreClusterTest {
             store.createNamespace(first)
             store.apply(first, listOf(Mutation.Put(config(first, "1"))), "test")
             val lease = (store.grantLease(first, 1.minutes, "test") as GrantResult.Granted).lease.id
-            store.keepAlive(first, listOf(lease)).assert().isEqualTo(mapOf(lease to 1.minutes))
+            store.keepAlive(first, listOf(lease)).assert().isEqualTo(mapOf(lease to LeaseRenewal(1.minutes, 0)))
             store.expireLease(first, lease, "test", force = true).assert().isTrue()
             store.apply(first, listOf(Mutation.Delete(config(first, "1").key)), "test")
             store.terminateNamespace(first).assert().isEqualTo(TerminateResult.TERMINATED)
@@ -115,7 +121,7 @@ class RedisStoreClusterTest {
         }
     }
 
-    private class ClusterContainer : GenericContainer<ClusterContainer>("redis:7.4-alpine")
+    private class ClusterContainer : GenericContainer<ClusterContainer>(REDIS_IMAGE)
 
     private companion object {
         const val NODES = 3

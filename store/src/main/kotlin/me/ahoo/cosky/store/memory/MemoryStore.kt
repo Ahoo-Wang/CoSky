@@ -25,6 +25,7 @@ import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Lease
+import me.ahoo.cosky.store.LeaseRenewal
 import me.ahoo.cosky.store.LeaseStats
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
@@ -130,7 +131,7 @@ class MemoryStore(
         return leases.associateWith { records?.get(it)?.owner }
     }
 
-    override suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, Duration?> =
+    override suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, LeaseRenewal?> =
         transition(namespace) { current ->
             if (current == null) {
                 return@transition null to leases.associateWith { null }
@@ -140,7 +141,9 @@ class MemoryStore(
                 val record = records[id] ?: return@fold records
                 records.putting(id, record.copy(expiresAt = now.plus(record.ttl.toJavaDuration())))
             }
-            current.copy(leases = renewed) to leases.associateWith { renewed[it]?.ttl }
+            current.copy(leases = renewed) to leases.associateWith { id ->
+                renewed[id]?.let { LeaseRenewal(it.ttl, current.attachments.values.count { lease -> lease == id }) }
+            }
         }
 
     override suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean =

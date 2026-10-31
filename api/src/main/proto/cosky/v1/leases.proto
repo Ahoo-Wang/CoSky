@@ -44,6 +44,8 @@ message KeepAliveRequest {
 message KeepAliveResponse {
   int64 lease = 1;
   int32 ttl_seconds = 2; // 0 = the lease no longer exists
+  // Instances on the lease; fewer than the client registered means a failover lost some, and it should put them back
+  int32 attached_count = 3;
 }
 
 message RevokeRequest {
