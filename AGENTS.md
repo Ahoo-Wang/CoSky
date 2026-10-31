@@ -46,7 +46,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `store` | Store SPI and in-memory implementation | ✅ |
 | `conformance-test` | Store SPI conformance suite; the protocol suite follows in W3a | ✅ |
 | `client` | Coroutine client: Watch, leases, local snapshots, load balancing | ✅ |
-| `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | planned (W2b) |
+| `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | ✅ |
 | `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | minimal, from W2c; the rest in W3a |
 | `store-redis` | Redis Store (the only module with Lua) | ✅ |
 | `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
@@ -59,7 +59,9 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 
 - **Language**: Kotlin (JVM 21 toolchain; the server runs on JDK 25 but compiles to Java 21 like everything else)
 - **Virtual threads**: coroutines run on a virtual thread dispatcher in `server` and `client`; never `Dispatchers.IO`
-  or a platform thread pool. In `client`, which may run on JDK 21–23, do not block inside `synchronized`
+  or a platform thread pool. In `client`, which may run on JDK 21–23, do not block inside `synchronized`. The one
+  exception is the starter's refresher: Spring's `ContextRefresher.refresh` blocks inside `synchronized`, so it gets a
+  platform thread of its own
 - **Async**: Kotlin coroutines (`suspend` / `Flow` / `StateFlow`) everywhere. Reactor is allowed only in
   `store-redis`, `spring-boot-starter` and `server` `..adapter..` packages — Detekt `ForbiddenImport` enforces it
 - **Style**: Detekt + ktlint formatting, 120 character lines; auto-corrects locally, fails CI on any violation

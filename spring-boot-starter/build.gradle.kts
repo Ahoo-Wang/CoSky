@@ -29,6 +29,7 @@ dependencies {
     testImplementation("io.grpc:grpc-netty-shaded")
     testImplementation("org.springframework.boot:spring-boot-health")
     testImplementation("org.springframework.boot:spring-boot-starter-webflux")
+    testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework.cloud:spring-cloud-context")
     testImplementation("org.springframework.cloud:spring-cloud-loadbalancer")
 }

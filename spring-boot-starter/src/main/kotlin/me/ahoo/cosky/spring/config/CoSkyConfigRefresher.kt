@@ -15,17 +15,22 @@ package me.ahoo.cosky.spring.config
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.CoSkyClients
 import me.ahoo.cosky.spring.CoSkyProperties
+import me.ahoo.cosky.spring.revisionOrZero
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.SmartInitializingSingleton
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.context.ApplicationEventPublisher
+import java.util.concurrent.Executors
 
 /**
  * Publishes a Spring Cloud [RefreshEvent] when a Config this application imported changes. The refresh then runs the
@@ -38,18 +43,39 @@ class CoSkyConfigRefresher(
 ) : SmartInitializingSingleton, DisposableBean {
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
 
+    /**
+     * A platform thread, unlike everything else here: the imports block inside the synchronized
+     * `ContextRefresher.refresh`, which on JDK 21-23 would pin a carrier the client itself needs.
+     */
+    private val refreshing = Executors.newSingleThreadExecutor {
+        Thread(it, "cosky-config-refresh").apply { isDaemon = true }
+    }.asCoroutineDispatcher()
+
     override fun afterSingletonsInstantiated() {
         val configs = client.namespace(properties.namespace).configs
-        CoSkyClients.importedBy(properties).forEach { config ->
+        CoSkyClients.importedBy(properties).forEach { (config, loaded) ->
             scope.launch {
-                configs.watch(config).drop(1).collect {
-                    publisher.publishEvent(RefreshEvent(this@CoSkyConfigRefresher, config, "CoSky Config $config"))
-                }
+                // By revision, so that a change between the load and this point counts too.
+                configs.watch(config).dropWhile { it.revisionOrZero() == loaded }.collect { refresh(config) }
             }
+        }
+    }
+
+    private suspend fun refresh(config: String) = withContext(refreshing) {
+        try {
+            publisher.publishEvent(RefreshEvent(this@CoSkyConfigRefresher, config, "CoSky Config $config"))
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            // Content that does not parse, say. The next change may fix it, so this keeps watching.
+            log.warn("Refreshing after a change to Config {} failed.", config, e)
         }
     }
 
     override fun destroy() {
         scope.cancel()
+        refreshing.close()
+    }
+
+    private companion object {
+        val log = LoggerFactory.getLogger(CoSkyConfigRefresher::class.java)
     }
 }

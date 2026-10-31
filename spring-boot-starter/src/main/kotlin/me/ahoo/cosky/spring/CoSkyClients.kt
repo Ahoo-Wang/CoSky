@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.spring
 
+import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.client.CoSkyClient
 import java.util.concurrent.ConcurrentHashMap
 
@@ -22,22 +23,27 @@ import java.util.concurrent.ConcurrentHashMap
  */
 internal object CoSkyClients {
     private val clients = ConcurrentHashMap<CoSkyProperties, CoSkyClient>()
-    private val imported = ConcurrentHashMap<CoSkyProperties, MutableSet<String>>()
+    private val imported = ConcurrentHashMap<CoSkyProperties, MutableMap<String, Long>>()
 
     fun shared(properties: CoSkyProperties): CoSkyClient =
         clients.computeIfAbsent(properties) { CoSkyClient(it.toOptions()) }
 
     /**
-     * Remembers a Config this application loaded, so that a change to it can trigger a refresh.
+     * Remembers a Config this application loaded and the revision it saw, so that a change to it can trigger a refresh.
      */
-    fun markImported(properties: CoSkyProperties, config: String) {
-        imported.computeIfAbsent(properties) { ConcurrentHashMap.newKeySet() }.add(config)
+    fun markImported(properties: CoSkyProperties, config: String, revision: Long) {
+        imported.computeIfAbsent(properties) { ConcurrentHashMap() }[config] = revision
     }
 
-    fun importedBy(properties: CoSkyProperties): Set<String> = imported[properties].orEmpty()
+    fun importedBy(properties: CoSkyProperties): Map<String, Long> = imported[properties].orEmpty()
 
     fun close(properties: CoSkyProperties) {
         imported.remove(properties)
         clients.remove(properties)?.close()
     }
 }
+
+/**
+ * The revision of a Config, 0 when there is none.
+ */
+internal fun Resource?.revisionOrZero(): Long = this?.meta?.revision ?: 0

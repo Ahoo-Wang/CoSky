@@ -19,17 +19,26 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.client.CoSkyClient
+import me.ahoo.cosky.client.ConnectionState
+import me.ahoo.cosky.spring.config.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.discovery.CoSkyDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyReactiveDiscoveryClient
 import me.ahoo.cosky.spring.registry.CoSkyAutoServiceRegistration
+import me.ahoo.cosky.spring.registry.CoSkyRegistration
+import me.ahoo.cosky.spring.registry.CoSkyServiceRegistry
 import me.ahoo.test.asserts.assert
+import me.ahoo.test.asserts.assertThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.context.config.ConfigDataResourceNotFoundException
 import org.springframework.boot.health.contributor.HealthIndicator
 import org.springframework.boot.health.contributor.Status
+import org.springframework.boot.test.context.FilteredClassLoader
+import org.springframework.boot.test.context.runner.ApplicationContextRunner
+import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.cloud.client.discovery.DiscoveryClient
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier
@@ -48,9 +57,13 @@ class CoSkyStarterTest {
     @EnableAutoConfiguration
     class Application {
         val refreshes = CopyOnWriteArrayList<RefreshEvent>()
+        val refreshThreads = CopyOnWriteArrayList<Thread>()
 
         @Bean
-        fun refreshListener(): ApplicationListener<RefreshEvent> = ApplicationListener { refreshes += it }
+        fun refreshListener(): ApplicationListener<RefreshEvent> = ApplicationListener {
+            refreshes += it
+            refreshThreads += Thread.currentThread()
+        }
     }
 
     private fun application(vararg arguments: String, web: Boolean = false): ConfigurableApplicationContext {
@@ -128,11 +141,54 @@ class CoSkyStarterTest {
     fun `changing an imported config publishes a refresh`() = runBlocking<Unit> {
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
         val context = application("--spring.config.import=cosky:order.yaml")
-        val refreshes = context.getBean(Application::class.java).refreshes
+        val application = context.getBean(Application::class.java)
         delay(200.milliseconds)
-        refreshes.assert().isEmpty()
+        application.refreshes.assert().isEmpty()
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
-        eventually { refreshes.isNotEmpty() }
+        eventually { application.refreshes.isNotEmpty() }
+        application.refreshThreads.first().isVirtual.assert().isFalse()
+    }
+
+    @Test
+    fun `a refresh reads the new content`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        context.environment.getProperty("order.limit").assert().isEqualTo("10")
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+        eventually { context.environment.getProperty("order.limit") == "20" }
+    }
+
+    @Test
+    fun `content that does not parse keeps the old values and does not stop later refreshes`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        server.put(TestCoSkyServer.config("order.yaml", "order: [unclosed"))
+        delay(1.seconds)
+        context.environment.getProperty("order.limit").assert().isEqualTo("10")
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+        eventually { context.environment.getProperty("order.limit") == "20" }
+    }
+
+    @Test
+    fun `an optional config that appears later is picked up`() = runBlocking<Unit> {
+        val context = application("--spring.config.import=optional:cosky:late.yaml")
+        context.environment.getProperty("late.value").assert().isNull()
+        server.put(TestCoSkyServer.config("late.yaml", "late:\n  value: here"))
+        eventually { context.environment.getProperty("late.value") == "here" }
+    }
+
+    @Test
+    fun `a change between loading and watching still counts`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        val properties = context.getBean(CoSkyProperties::class.java)
+        // Stands in for that gap: this refresher starts from a revision older than the one the view is at.
+        CoSkyClients.markImported(properties, "order.yaml", 0)
+        val events = CopyOnWriteArrayList<Any>()
+        val refresher = CoSkyConfigRefresher(context.getBean(CoSkyClient::class.java), properties) { events += it }
+        refresher.afterSingletonsInstantiated()
+        eventually { events.isNotEmpty() }
+        refresher.destroy()
     }
 
     // --- discovery ---
@@ -216,21 +272,76 @@ class CoSkyStarterTest {
         server.instances().assert().isEmpty()
     }
 
+    @Test
+    fun `spring cloud's own switch turns automatic registration off`() {
+        val context = application("--spring.cloud.service-registry.auto-registration.enabled=false", web = true)
+        context.getBeansOfType(CoSkyAutoServiceRegistration::class.java).assert().isEmpty()
+        context.getBeansOfType(CoSkyServiceRegistry::class.java).assert().hasSize(1)
+        server.instances().assert().isEmpty()
+    }
+
+    @Test
+    fun `a registration describes the instance, which has no status`() {
+        val registry = application().getBean(CoSkyServiceRegistry::class.java)
+        val registration = CoSkyRegistration("order", "10.0.0.1", secure = true, metadata = emptyMap())
+        registration.setPort(8443)
+        registration.isSecure.assert().isTrue()
+        registration.uri.toString().assert().isEqualTo("https://10.0.0.1:8443")
+        assertThrownBy<UnsupportedOperationException> { registry.setStatus(registration, "UP") }
+        assertThrownBy<UnsupportedOperationException> { registry.getStatus<String>(registration) }
+    }
+
     // --- the rest ---
 
     @Test
-    fun `health reports the connection, and stays up when degraded`() {
-        val context = application()
-        val health = checkNotNull(context.getBean("coSkyHealthIndicator", HealthIndicator::class.java).health())
-        health.status.assert().isEqualTo(Status.UP)
-        health.details.keys.assert().containsExactly("connection")
+    fun `health stays up when degraded, and is down once closed`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "a: 1"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        val client = context.getBean(CoSkyClient::class.java)
+        val indicator = context.getBean("coSkyHealthIndicator", HealthIndicator::class.java)
+        eventually { client.connectionState.value == ConnectionState.SYNCED }
+        checkNotNull(indicator.health()).status.assert().isEqualTo(Status.UP)
+
+        server.close()
+        eventually { client.connectionState.value == ConnectionState.DEGRADED }
+        val degraded = checkNotNull(indicator.health())
+        degraded.status.assert().isEqualTo(Status.UP)
+        degraded.details["connection"].assert().isEqualTo("DEGRADED")
+
+        client.close()
+        checkNotNull(indicator.health()).status.assert().isEqualTo(Status.DOWN)
     }
 
     @Test
     fun `configuration loading and the context share one client`() {
         server.put(TestCoSkyServer.config("order.yaml", "a: 1"))
-        val first = application("--spring.config.import=cosky:order.yaml")
-        first.getBean(CoSkyClient::class.java).assert().isSameAs(first.getBean(CoSkyClient::class.java))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        // Clients are shared by their settings: the context finds what loading did under the settings it bound itself.
+        CoSkyClients.importedBy(context.getBean(CoSkyProperties::class.java)).keys.assert()
+            .containsExactly("order.yaml")
+    }
+
+    @Test
+    fun `each integration applies only when its framework is there`() {
+        ApplicationContextRunner()
+            .withClassLoader(
+                FilteredClassLoader(
+                    RefreshEvent::class.java,
+                    ServiceInstanceListSupplier::class.java,
+                    HealthIndicator::class.java,
+                    WebServerApplicationContext::class.java,
+                ),
+            )
+            .withConfiguration(AutoConfigurations.of(CoSkyAutoConfiguration::class.java))
+            .withPropertyValues("cosky.endpoints=${server.endpoint}", "cosky.snapshot.enabled=false")
+            .run { context ->
+                context.startupFailure.assert().isNull()
+                context.containsBean("coSkyDiscoveryClient").assert().isTrue()
+                context.containsBean("coSkyServiceRegistry").assert().isTrue()
+                context.containsBean("coSkyConfigRefresher").assert().isFalse()
+                context.containsBean("coSkyHealthIndicator").assert().isFalse()
+                context.containsBean("coSkyAutoServiceRegistration").assert().isFalse()
+            }
     }
 
     @Test

@@ -123,7 +123,9 @@ class CoSkyAutoServiceRegistration(
     override fun getRegistration(): CoSkyRegistration = registration
 
     /**
-     * Never registered separately: management registration is off unless asked for.
+     * Never used: a separate management port is not an instance of the service, see [shouldRegisterManagement].
      */
     override fun getManagementRegistration(): CoSkyRegistration = registration
+
+    override fun shouldRegisterManagement(): Boolean = false
 }

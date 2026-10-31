@@ -105,26 +105,36 @@ class CoSkyAutoConfiguration {
         fun coSkyServiceRegistry(client: CoSkyClient, properties: CoSkyProperties): CoSkyServiceRegistry =
             CoSkyServiceRegistry(client, properties)
 
-        @Bean
+        /**
+         * Needs a web server for the port, and follows Spring Cloud's own switch, which also takes away its properties.
+         */
+        @Configuration(proxyBeanMethods = false)
         @ConditionalOnClass(WebServerApplicationContext::class)
-        fun coSkyAutoServiceRegistration(
-            context: ApplicationContext,
-            registry: CoSkyServiceRegistry,
-            registrationProperties: AutoServiceRegistrationProperties,
-            properties: CoSkyProperties,
-            environment: Environment,
-            inetUtils: InetUtils,
-        ): CoSkyAutoServiceRegistration = CoSkyAutoServiceRegistration(
-            context,
-            registry,
-            registrationProperties,
-            CoSkyRegistration(
-                service = environment.getRequiredProperty("spring.application.name"),
-                host = inetUtils.findFirstNonLoopbackHostInfo().ipAddress,
-                secure = environment.getProperty("server.ssl.enabled", Boolean::class.java, false),
-                metadata = properties.registry.metadata,
-            ),
+        @ConditionalOnProperty(
+            name = ["spring.cloud.service-registry.auto-registration.enabled"],
+            matchIfMissing = true,
         )
+        class AutoRegistration {
+            @Bean
+            fun coSkyAutoServiceRegistration(
+                context: ApplicationContext,
+                registry: CoSkyServiceRegistry,
+                registrationProperties: AutoServiceRegistrationProperties,
+                properties: CoSkyProperties,
+                environment: Environment,
+                inetUtils: InetUtils,
+            ): CoSkyAutoServiceRegistration = CoSkyAutoServiceRegistration(
+                context,
+                registry,
+                registrationProperties,
+                CoSkyRegistration(
+                    service = environment.getRequiredProperty("spring.application.name"),
+                    host = inetUtils.findFirstNonLoopbackHostInfo().ipAddress,
+                    secure = environment.getProperty("server.ssl.enabled", Boolean::class.java, false),
+                    metadata = properties.registry.metadata,
+                ),
+            )
+        }
     }
 
     @Configuration(proxyBeanMethods = false)

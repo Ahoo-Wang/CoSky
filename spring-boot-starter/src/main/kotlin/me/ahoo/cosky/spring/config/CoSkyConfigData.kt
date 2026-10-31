@@ -20,6 +20,7 @@ import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.spring.CoSkyClients
 import me.ahoo.cosky.spring.CoSkyProperties
+import me.ahoo.cosky.spring.revisionOrZero
 import org.springframework.boot.context.config.ConfigData
 import org.springframework.boot.context.config.ConfigDataLoader
 import org.springframework.boot.context.config.ConfigDataLoaderContext
@@ -65,8 +66,12 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
         val namespace = CoSkyClients.shared(properties).namespace(properties.namespace)
         val config = runBlocking(VirtualThreads.dispatcher) {
             withTimeoutOrNull(properties.configLoadTimeout) { namespace.configs.load(resource.config) }
-        } ?: throw ConfigDataResourceNotFoundException(resource)
-        CoSkyClients.markImported(properties, resource.config)
+        }
+        // Also when there is nothing: an optional Config that appears later is a change too.
+        CoSkyClients.markImported(properties, resource.config, config.revisionOrZero())
+        if (config == null) {
+            throw ConfigDataResourceNotFoundException(resource)
+        }
         return ConfigData(parse(resource.config, config))
     }
 
