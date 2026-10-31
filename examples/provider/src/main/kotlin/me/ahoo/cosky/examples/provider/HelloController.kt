@@ -15,6 +15,7 @@ package me.ahoo.cosky.examples.provider
 
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.cloud.context.config.annotation.RefreshScope
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RestController
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RefreshScope
 class HelloController(@Value("\${example.greeting:Hello}") private val greeting: String) {
-    @GetMapping("/hello/{name}")
+    // Plain text whatever the client accepts: as HTML, the name in the path could carry a script.
+    @GetMapping("/hello/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
     fun hello(@PathVariable name: String): String = "$greeting, $name"
 }

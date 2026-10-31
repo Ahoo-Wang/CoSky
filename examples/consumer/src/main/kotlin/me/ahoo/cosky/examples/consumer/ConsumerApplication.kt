@@ -17,6 +17,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
 import org.springframework.cloud.client.loadbalancer.LoadBalanced
 import org.springframework.context.annotation.Bean
+import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RestController
@@ -37,7 +38,7 @@ class ConsumerApplication {
 class CallController(builder: WebClient.Builder) {
     private val provider = builder.baseUrl("http://provider").build()
 
-    @GetMapping("/call/{name}")
+    @GetMapping("/call/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
     suspend fun call(@PathVariable name: String): String =
         provider.get().uri("/hello/{name}", name).retrieve().awaitBody()
 }
