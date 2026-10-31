@@ -307,6 +307,18 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `a long replay keeps every revision whole`() = scenario { store ->
+        val start = position(store)
+        repeat(400) { batch ->
+            val mutations = List(3) { Mutation.Put(config("c$it", content = "$batch")) }
+            store.apply(namespace, mutations, ACTOR)
+        }
+        val batches = store.changes(namespace, start).take(400).toList()
+        batches.map { it.revision }.assert().isEqualTo((1L..400L).toList())
+        batches.map { it.changes.size }.toSet().assert().containsExactly(3)
+    }
+
+    @Test
     fun `a position outside the window is gone`() = scenario(StoreOptions(logSize = 10)) { store ->
         val start = position(store)
         repeat(300) { store.put(config(content = "$it")) }
@@ -471,6 +483,11 @@ abstract class StoreConformanceTest {
         val lease = store.grant()
         store.keepAlive(namespace, listOf(lease, MISSING_LEASE))
             .assert().isEqualTo(mapOf(lease to LONG_TTL, MISSING_LEASE to null))
+    }
+
+    @Test
+    fun `keep-alive without leases does nothing`() = scenario { store ->
+        store.keepAlive(namespace, emptyList()).assert().isEmpty()
     }
 
     @Test
@@ -658,6 +675,13 @@ abstract class StoreConformanceTest {
         store.history(configKey(), 0).assert().isEmpty()
         store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to null))
         store.readAll(namespace).toList().assert().isEmpty()
+    }
+
+    @Test
+    fun `dropping a namespace that was never created does nothing`() = scenario { store ->
+        val absent = "absent-${UUID.randomUUID()}"
+        store.dropNamespace(absent)
+        store.namespaceState(absent).assert().isNull()
     }
 
     @Test
