@@ -10,6 +10,7 @@
 - 交付 **CoSky 8.0.0**:按目标架构完整重写,不兼容 6.x 的 API、Redis 键结构和客户端。
 - 6.x 进入维护期:只修安全问题和严重缺陷,不再加功能。
 - 版本序列:`8.0.0-alpha.N`(开发预览,API 可变)→ `8.0.0-beta.N`(API 冻结)→ `8.0.0-rc.N` → `8.0.0`。起始版本为 `8.0.0-alpha.1`。
+- alpha 阶段不发布制品:API 还会变,只有 `api` 模块时对用户也没有用。W4a 扩展发布流程,M4 后开始发布 `8.0.0-beta.N`。
 - 8.0 的范围就是设计文档 §3–§7;明确不做的事见设计文档 D7。
 
 ## 2. 里程碑
@@ -18,7 +19,7 @@
 |---|---|---|
 | **M0 设计定稿** | 设计文档评审通过,开放问题(本文 §6)全部关闭 | 维护者确认 |
 | **M1 契约** | `api/` 完成:proto、生成代码、校验规则、错误码;构建骨架就位 | W1a、W1b 合并 |
-| **M2 语义** | Store SPI + 内存实现 + conformance 套件;client 在假服务上跑通 | W2 全部合并 |
+| **M2 语义** | Store SPI + 内存实现 + conformance 套件;client 在假服务上跑通;真实 Redis 贯通验证 | W2 全部合并 |
 | **M3 组件完成** | server、store-redis 完成并通过 conformance;client 对接真实 server | W3 全部合并 |
 | **M4 可发布** | 端到端与故障注入通过、Dashboard 切换、迁移工具、文档、性能目标(§7.10)达成 | W4 全部合并 |
 | **8.0.0 GA** | RC 在至少一个真实环境试运行两周无 P0/P1 问题 | GitHub Release |
@@ -31,10 +32,12 @@
 W1a 骨架 → W1b api
      │
      ├──────────────┐
-W2  store + 一致性   client + starter(假服务)
+W2a store + 一致性   W2b client + starter(假服务)
+     │
+W2c 贯通验证(真实 Redis + 最小 server)
      │
      ├──────────────┐
-W3  server          store-redis
+W3a server          W3b store-redis
      │              │
      └──────┬───────┘
 W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
@@ -75,6 +78,18 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   租约丢失重注册、`UNAVAILABLE` 不触发重注册、重连后立即续期、快照启动。
 - **验收**:不依赖 Spring 的 `client` 模块无 `reactor` 依赖;starter 有 Spring Boot 集成测试(ConfigData 加载、刷新、注册、发现)。
 
+### W2c 贯通验证
+
+追尾(§6.1)、回收保护(§6.2)和分叉检测(§6.4)目前只有 Lua 原型验证,如果到 W4a 才第一次用真实 Redis 联调,出问题时返工最大。W2a 合入后先打通最小链路,代码合适就留给 W3a、W3b 继续用,不合适就丢弃。
+
+- **范围**:`store-redis` 中 `apply.lua` → Stream → `tail.lua` → `Store.changes` 的最小实现;`server` 中最小的 `NamespaceCache`、gRPC Watch 和 Reaper 保护。不含鉴权、REST、Views。
+- **验收**(Testcontainers,多节点 Redis Cluster):
+  - 多 namespace 跨 slot 追尾,`PUBLISH` 提示跨节点送达。
+  - 真实主从切换丢写,revision 回退并涨回后,watcher 收到 `gone` 并收敛。
+  - Redis 或 server 不可用超过 TTL 后恢复,存活实例不被删除。
+  - Spring Boot 4 + Spring gRPC + grpc-kotlin 最小可运行。
+  - 粗测 §7.10 的扇出与内存目标,把结果和偏差写回设计文档;默认值(§7.6)按结果调整。
+
 ### W3a `server/`
 
 - **范围**:§6.1–§6.4、§7.2–§7.4、§7.6、§7.8、§7.9;运行在内存 Store 上。
@@ -90,6 +105,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 ### W4a 端到端 + 示例 + 部署
 
 - 全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11,含超过 TTL 后恢复与丢写分叉);重写 provider / consumer 示例;
+  发布流程支持从 `v8` 发布预发布版本;
   Dockerfile、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标。
 
 ### W4b Dashboard
@@ -131,6 +147,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W1b api | 协调会话 | #1006 | ✅ 已合并,含 D19、D23、D24 的契约改动 |
 | W2a store + 一致性 | — | — | 未开始 |
 | W2b client + starter | — | — | 未开始 |
+| W2c 贯通验证 | — | — | 未开始 |
 | W3a server | — | — | 未开始 |
 | W3b store-redis | — | — | 未开始 |
 | W4a 端到端 + 示例 + 部署 | — | — | 未开始 |
@@ -167,14 +184,14 @@ R1 分页与分块(D23)、R2 授权范围(D24)已关闭。以下问题尚未决�
 | R6 | 拓扑视图在多副本下只有局部数据 | §4.3、§6.3 | W3a 开工前 |
 | R7 | 冷启动读取 `obj` 与 `ver` 不是原子操作;`HGETALL` 大 Hash 阻塞 Redis | §6.1 | W3b 开工前 |
 | R8 | Redis 前提未写明(淘汰策略、最低版本、`WAIT`);丢写后租约还在而 Instance 已丢失时不会重新注册 | §5.3、§6.5 | W3b 开工前 |
-| R9 | 真实 server 与 Redis 到 W4a 才联调;6.x 与 8.0 没有共存迁移方案;alpha 发布路径与 CodeQL 未覆盖 `v8` | 本文 §3、§4 | W2 开工前 |
+| R9 | 6.x 与 8.0 没有共存迁移方案,存量集群只能整体切换 | 本文 W4c | W4c 开工前 |
 
 ## 7. 风险
 
 | 风险 | 影响 | 应对 |
 |---|---|---|
 | W3a server 体量最大,成为关键路径 | M3 延期 | W3a 内部再拆:先 ResourceService + WatchService,后 LeaseService + 鉴权 + ViewService |
-| Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W3a 开始时先做最小可运行验证(W1 不涉及 server) |
-| Redis Cluster 下 Stream 与脚本的行为差异 | W3b 返工 | conformance 同时跑 Standalone 与 Cluster |
+| Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W2c 做最小可运行验证 |
+| Redis Cluster 下 Stream 与脚本的行为差异 | W3b 返工 | W2c 先验证;conformance 同时跑 Standalone 与 Cluster |
 | namespace 很多时兜底轮询的负载或传播延迟不达标 | W3b 返工 | W3b 压测;`tail-poll-interval` 可调 |
 | 8.0 不兼容导致用户迁移成本高 | 采用受阻 | W4c 迁移工具 + 迁移指南;6.x 维护期 |
