@@ -37,9 +37,7 @@ jobs:
       - name: Build Code Coverage Report
         run: ./gradlew codeCoverageReport --stacktrace
 
-      # Until the api module lands (roadmap W1b) the skeleton has no code, so there is no report to upload.
       - name: Upload Code Coverage Report to Codecov
-        if: hashFiles('code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml') != ''
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

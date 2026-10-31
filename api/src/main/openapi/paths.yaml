@@ -1,0 +1,667 @@
+#
+# Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#      http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Hand-written part of the CoSky REST API (design §4.5, D18). The build merges it with the schemas generated from the
+# protos (every cosky.v1 message and enum, under its proto name) into build/openapi/cosky.yaml. Request and response
+# bodies use the proto3 JSON mapping.
+openapi: 3.1.0
+info:
+  title: CoSky REST API
+  version: v1
+  description: |
+    Management plane of CoSky. Every resource is a `Resource`: shared metadata plus one kind-specific spec.
+
+    Revisions double as entity tags: `GET` and `PUT` return `ETag: "<revision>"`, and writes take it back in
+    `If-Match` (compare-and-set) or `If-None-Match: *` (create only).
+
+    Lists are paginated: `nextPageToken` is empty on the last page, and `revision` is that of the first page on every
+    page. Watching from it converges on the current state.
+
+    `{name}` is a single path segment. A Config name containing `/` must be sent with `/` encoded as `%2F`,
+    e.g. `/v1/namespaces/prod/configs/shared%2Fdatasource.yaml`.
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+security:
+  - bearerAuth: []
+tags:
+  - name: Configs
+  - name: Instances
+  - name: Watch
+  - name: Views
+  - name: Namespaces
+  - name: ServiceAccounts
+  - name: Roles
+  - name: RoleBindings
+  - name: Identity
+
+paths:
+  # --- Configs ---
+  /v1/namespaces/{namespace}/configs:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Configs]
+      operationId: listConfigs
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/minRevision'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200': { $ref: '#/components/responses/List' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/configs/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/configName'
+    get:
+      tags: [Configs]
+      operationId: getConfig
+      parameters:
+        - $ref: '#/components/parameters/minRevision'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [Configs]
+      operationId: putConfig
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
+      requestBody: { $ref: '#/components/requestBodies/Resource' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Configs]
+      operationId: deleteConfig
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      responses:
+        '200': { $ref: '#/components/responses/Delete' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/configs/{name}/history:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/configName'
+    get:
+      tags: [Configs]
+      operationId: getConfigHistory
+      parameters:
+        - name: limit
+          in: query
+          description: Revisions to return, newest first. 0 or more than the server's history size returns the full history.
+          schema: { type: integer, format: int32, minimum: 0 }
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200':
+          description: Revisions of the Config, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/HistoryResponse' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/configs/{name}:rollback:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/configName'
+    post:
+      tags: [Configs]
+      operationId: rollbackConfig
+      description: Puts the content of an earlier revision from the history again; also recreates a deleted Config.
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RollbackRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/configs:import:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    post:
+      tags: [Configs]
+      operationId: importConfigs
+      description: |
+        Imports a zip archive; each entry path is a Config name. The format follows the file extension (`.yaml`/`.yml`,
+        `.properties`, `.json`, anything else TEXT).
+      requestBody:
+        required: true
+        content:
+          application/zip:
+            schema: { type: string, contentMediaType: application/zip }
+      responses:
+        '200':
+          description: One result per imported Config.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConfigImportResponse' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/configs:export:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Configs]
+      operationId: exportConfigs
+      responses:
+        '200':
+          description: Zip archive with one entry per Config, named after it.
+          content:
+            application/zip:
+              schema: { type: string, contentMediaType: application/zip }
+        default: { $ref: '#/components/responses/Error' }
+
+  # --- Instances ---
+  /v1/namespaces/{namespace}/instances:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Instances]
+      operationId: listInstances
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/service'
+        - $ref: '#/components/parameters/minRevision'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200': { $ref: '#/components/responses/List' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/instances/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Instances]
+      operationId: getInstance
+      parameters:
+        - $ref: '#/components/parameters/minRevision'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [Instances]
+      operationId: putInstance
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
+      requestBody: { $ref: '#/components/requestBodies/Resource' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Instances]
+      operationId: deleteInstance
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      responses:
+        '200': { $ref: '#/components/responses/Delete' }
+        default: { $ref: '#/components/responses/Error' }
+
+  # --- Watch ---
+  /v1/namespaces/{namespace}/watch:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Watch]
+      operationId: watch
+      description: |
+        Server-sent events, one `WatchResponse` (proto3 JSON) per `data:` line, `watchId` always 0. With
+        `fromRevision` 0 the stream starts with a `snapshot`, then `events`; `progress` bookmarks arrive while idle;
+        `gone` means the client must list again; `canceled` ends the stream. A `snapshot` carries the `epoch` to resume
+        with. Large snapshots and revisions span several messages, marked by `more`; apply them once the last arrives.
+      parameters:
+        - name: kind
+          in: query
+          required: true
+          schema: { $ref: '#/components/schemas/Kind' }
+        - name: name
+          in: query
+          description: Watch one object; empty watches every object of the kind.
+          schema: { type: string }
+        - $ref: '#/components/parameters/service'
+        - name: fromRevision
+          in: query
+          description: Resume after this revision; 0 sends the current snapshot first.
+          schema: { type: string, format: int64 }
+        - name: fromEpoch
+          in: query
+          description: Epoch of `fromRevision`, required when it is positive; a different epoch gets `gone`.
+          schema: { type: string }
+      responses:
+        '200':
+          description: Event stream.
+          content:
+            text/event-stream:
+              schema: { type: string }
+              itemSchema: { $ref: '#/components/schemas/WatchResponse' }
+        default: { $ref: '#/components/responses/Error' }
+
+  # --- Views ---
+  /v1/namespaces/{namespace}/views/services:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Views]
+      operationId: viewServices
+      responses:
+        '200':
+          description: Services with their instance counts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ServicesResponse' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/views/topology:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Views]
+      operationId: viewTopology
+      responses:
+        '200':
+          description: Consumer to producer edges.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TopologyResponse' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{namespace}/views/stats:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Views]
+      operationId: viewStats
+      responses:
+        '200':
+          description: Namespace statistics.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StatsResponse' }
+        default: { $ref: '#/components/responses/Error' }
+
+  # --- Global objects (namespace "_system") ---
+  /v1/namespaces:
+    get:
+      tags: [Namespaces]
+      operationId: listNamespaces
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/minRevision'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200': { $ref: '#/components/responses/List' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/namespaces/{name}:
+    parameters:
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Namespaces]
+      operationId: getNamespace
+      parameters:
+        - $ref: '#/components/parameters/minRevision'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [Namespaces]
+      operationId: putNamespace
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
+      requestBody: { $ref: '#/components/requestBodies/Resource' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Namespaces]
+      operationId: deleteNamespace
+      description: Only an empty namespace (no Configs, no Instances) can be deleted; otherwise 409 NAMESPACE_NOT_EMPTY.
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      responses:
+        '200': { $ref: '#/components/responses/Delete' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/serviceaccounts:
+    get:
+      tags: [ServiceAccounts]
+      operationId: listServiceAccounts
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/minRevision'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200': { $ref: '#/components/responses/List' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/serviceaccounts/{name}:
+    parameters:
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [ServiceAccounts]
+      operationId: getServiceAccount
+      parameters:
+        - $ref: '#/components/parameters/minRevision'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [ServiceAccounts]
+      operationId: putServiceAccount
+      description: Tokens are managed through the token endpoints; `tokens` in the request body is ignored.
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
+      requestBody: { $ref: '#/components/requestBodies/Resource' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [ServiceAccounts]
+      operationId: deleteServiceAccount
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      responses:
+        '200': { $ref: '#/components/responses/Delete' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/serviceaccounts/{name}/tokens:
+    parameters:
+      - $ref: '#/components/parameters/name'
+    post:
+      tags: [ServiceAccounts]
+      operationId: createToken
+      description: Creates a token and returns its plaintext once. An account holds at most 2 valid tokens (§7.8).
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTokenRequest' }
+      responses:
+        '200':
+          description: The new token; the plaintext is never shown again.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CreateTokenResponse' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/serviceaccounts/{name}/tokens/{tokenId}:
+    parameters:
+      - $ref: '#/components/parameters/name'
+      - name: tokenId
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [ServiceAccounts]
+      operationId: revokeToken
+      responses:
+        '204':
+          description: The token is revoked.
+        default: { $ref: '#/components/responses/Error' }
+  /v1/roles:
+    get:
+      tags: [Roles]
+      operationId: listRoles
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/minRevision'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200': { $ref: '#/components/responses/List' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/roles/{name}:
+    parameters:
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Roles]
+      operationId: getRole
+      parameters:
+        - $ref: '#/components/parameters/minRevision'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [Roles]
+      operationId: putRole
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
+      requestBody: { $ref: '#/components/requestBodies/Resource' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [Roles]
+      operationId: deleteRole
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      responses:
+        '200': { $ref: '#/components/responses/Delete' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/rolebindings:
+    get:
+      tags: [RoleBindings]
+      operationId: listRoleBindings
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/minRevision'
+        - $ref: '#/components/parameters/pageSize'
+        - $ref: '#/components/parameters/pageToken'
+      responses:
+        '200': { $ref: '#/components/responses/List' }
+        default: { $ref: '#/components/responses/Error' }
+  /v1/rolebindings/{name}:
+    parameters:
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [RoleBindings]
+      operationId: getRoleBinding
+      parameters:
+        - $ref: '#/components/parameters/minRevision'
+      responses:
+        '200': { $ref: '#/components/responses/Resource' }
+        default: { $ref: '#/components/responses/Error' }
+    put:
+      tags: [RoleBindings]
+      operationId: putRoleBinding
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
+      requestBody: { $ref: '#/components/requestBodies/Resource' }
+      responses:
+        '200': { $ref: '#/components/responses/Put' }
+        default: { $ref: '#/components/responses/Error' }
+    delete:
+      tags: [RoleBindings]
+      operationId: deleteRoleBinding
+      parameters:
+        - $ref: '#/components/parameters/ifMatch'
+      responses:
+        '200': { $ref: '#/components/responses/Delete' }
+        default: { $ref: '#/components/responses/Error' }
+
+  # --- Identity ---
+  /v1/me:
+    get:
+      tags: [Identity]
+      operationId: getMe
+      responses:
+        '200':
+          description: The authenticated subject and its effective permissions.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeResponse' }
+        default: { $ref: '#/components/responses/Error' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: A ServiceAccount token (`cosky_<tokenId>_<secret>`) or an OIDC ID token.
+  parameters:
+    namespace:
+      name: namespace
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$' }
+    name:
+      name: name
+      in: path
+      required: true
+      schema: { type: string }
+    configName:
+      name: name
+      in: path
+      required: true
+      description: Config name as one path segment; `/` in the name is encoded as `%2F`.
+      schema: { type: string }
+    labelSelector:
+      name: labelSelector
+      in: query
+      description: Equality conditions `key=value`, comma-separated, all of which must match.
+      schema: { type: string }
+      example: team=order,zone=az1
+    service:
+      name: service
+      in: query
+      description: Instances of this service only.
+      schema: { type: string }
+    minRevision:
+      name: minRevision
+      in: query
+      description: Read your writes; waits until the server has caught up to this revision (504 on timeout).
+      schema: { type: string, format: int64 }
+    pageSize:
+      name: pageSize
+      in: query
+      description: Objects per page; 0 means 500, at most 1000. A page may hold fewer to stay within the size cap.
+      schema: { type: integer, format: int32, minimum: 0, maximum: 1000 }
+    pageToken:
+      name: pageToken
+      in: query
+      description: |
+        `nextPageToken` of the previous page. A token stops being valid when the namespace epoch changes (400); list
+        again from the first page.
+      schema: { type: string, maxLength: 1024 }
+    ifMatch:
+      name: If-Match
+      in: header
+      description: '`"<revision>"` (the ETag); the write applies only if the current revision matches, else 409.'
+      schema: { type: string }
+      example: '"42"'
+    ifNoneMatch:
+      name: If-None-Match
+      in: header
+      description: '`*`: create only; 409 if the object already exists.'
+      schema: { type: string, enum: ['*'] }
+  headers:
+    ETag:
+      description: '`"<revision>"` of the object, usable in `If-Match`.'
+      schema: { type: string }
+  requestBodies:
+    Resource:
+      required: true
+      description: The whole object (Put replaces it); read-only fields are ignored.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Resource' }
+  responses:
+    Resource:
+      description: The object.
+      headers:
+        ETag: { $ref: '#/components/headers/ETag' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Resource' }
+    List:
+      description: Matching objects and the revision they were read at.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ListResponse' }
+    Put:
+      description: The resulting revision; `changed` is false when the content was unchanged.
+      headers:
+        ETag: { $ref: '#/components/headers/ETag' }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/PutResponse' }
+    Delete:
+      description: The revision of the deletion.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/DeleteResponse' }
+    Error:
+      description: Error; the HTTP status follows `detail.reason` (design §4.4).
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          description: gRPC status code name, e.g. `ABORTED`.
+        message:
+          type: string
+        detail:
+          $ref: '#/components/schemas/ErrorDetail'
+    RollbackRequest:
+      type: object
+      required: [toRevision]
+      properties:
+        toRevision:
+          type: string
+          format: int64
+          description: A revision from the Config's history.
+    ConfigImportResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              revision: { type: string, format: int64 }
+              changed: { type: boolean }
+    CreateTokenRequest:
+      type: object
+      properties:
+        expiresAt:
+          type: string
+          format: date-time
+          description: Expiry; omitted means the token does not expire.
+    CreateTokenResponse:
+      type: object
+      properties:
+        id: { type: string }
+        token:
+          type: string
+          description: Plaintext `cosky_<tokenId>_<secret>`, returned only once.
+        expiresAt: { type: string, format: date-time }
+    MeResponse:
+      type: object
+      properties:
+        subject:
+          $ref: '#/components/schemas/Subject'
+        groups:
+          type: array
+          items: { type: string }
+          description: OIDC groups of a user.
+        rules:
+          type: array
+          items: { $ref: '#/components/schemas/Rule' }
+          description: Union of the rules of every role bound to the subject or its groups.

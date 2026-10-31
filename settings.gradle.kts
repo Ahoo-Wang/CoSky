@@ -13,6 +13,7 @@
 
 rootProject.name = "CoSky"
 
+include(":api")
 include(":bom")
 include(":dependencies")
 include(":test")

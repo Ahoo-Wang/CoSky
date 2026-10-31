@@ -64,21 +64,21 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 - **范围**:§5.0 Store SPI;内存实现;conformance 抽象测试类,覆盖:
   CAS 三种模式、批写原子性(任一失败全部不生效)、无变化不推进 revision(labels 顺序不同也算无变化)、`changes` 续传 / 窗口外 `RevisionGoneException`、
   epoch(删除重建后更换;钩子 `loseWritesAfter` 模拟丢写后 `changes` 抛 `TimelineDivergedException`)、只读元数据随读取 / 事件 / 历史完整返回、
-  租约授予 / 批量保活 / 到期未回收可续期 / 到期 / 撤销 / 挂载实例随租约删除 / 迁移到新租约后旧租约到期不影响实例、`leaseStats`、`versions`、
+  租约授予 / 批量保活 / 到期未回收可续期 / 到期 / 撤销 / 挂载实例随租约删除 / 迁移到新租约后旧租约到期不影响实例、`leaseStats`、`leaseOwners`、`versions`、
   Config 历史截断(A → B → A 保留三条)、`dropNamespace`、`tryLock` 互斥与过期。
 - **验收**:内存实现通过全部 conformance 用例;测试类可被 `store-redis` 直接继承复用。
 
 ### W2b `client/` + `spring-boot-starter/`
 
 - **范围**:§6.5、§7.5 客户端全部行为;§7.7 starter 全部集成点;Java `CompletableFuture` 门面推迟到 8.1(见 §6 Q5)。
-- **测试**:以测试内的 gRPC 假服务(grpc-kotlin in-process)模拟 server,覆盖断线续传(带 `from_epoch`)、`gone` 重新 List、低频重建、
+- **测试**:以测试内的 gRPC 假服务(grpc-kotlin in-process)模拟 server,覆盖断线续传(带 `from_epoch`)、`gone` 重新 List、`Snapshot` / `Events` 分块、低频重建、
   租约丢失重注册、`UNAVAILABLE` 不触发重注册、重连后立即续期、快照启动。
 - **验收**:不依赖 Spring 的 `client` 模块无 `reactor` 依赖;starter 有 Spring Boot 集成测试(ConfigData 加载、刷新、注册、发现)。
 
 ### W3a `server/`
 
 - **范围**:§6.1–§6.4、§7.2–§7.4、§7.6、§7.8、§7.9;运行在内存 Store 上。
-- **验收**:client 驱动的协议级 conformance 用例全部通过;REST 与 gRPC 行为一致的对照测试;鉴权矩阵测试;
+- **验收**:client 驱动的协议级 conformance 用例全部通过;REST 与 gRPC 行为一致的对照测试;鉴权矩阵测试(含 `Rule.names`、RoleBinding namespace、租约所有者);List 分页与消息字节上限;
   回收保护三层(恢复宽限、大比例到期暂停、单轮上限)测试;epoch 变化时 watcher 收到 `gone`;反熵发现不一致时按分叉处理。
 
 ### W3b `store-redis/`
@@ -126,8 +126,9 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | 任务 | 子会话 | 分支 | 状态 |
 |---|---|---|---|
 | M0 设计定稿 | 协调会话 | `v8`(#1001、#1004) | 重新打开:D19–D22 已确认;其余问题待决(§6) |
-| W1a 构建骨架 | 协调会话 | `claude/v8-cleanup-old-modules` | PR 审查中 |
-| W1b api | 协调会话 | — | 代码已审查;须带上 D19 与 R1、R2 的契约改动后以 PR 合入 `v8` |
+| M1 契约 | 协调会话 | — | ✅ 完成(W1a、W1b 合并) |
+| W1a 构建骨架 | 协调会话 | #1005 | ✅ 已合并 |
+| W1b api | 协调会话 | #1006 | ✅ 已合并,含 D19、D23、D24 的契约改动 |
 | W2a store + 一致性 | — | — | 未开始 |
 | W2b client + starter | — | — | 未开始 |
 | W3a server | — | — | 未开始 |
@@ -156,12 +157,10 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 ### 架构审查(2026-10-30)
 
 P0 已写入设计文档:Watch 时间线(D19)、回收保护(D20)、Redis 追尾(D21)、键布局(D22)。
-以下问题尚未决定,须在"最晚决定"列的时间点之前关闭:
+R1 分页与分块(D23)、R2 授权范围(D24)已关闭。以下问题尚未决定,须在"最晚决定"列的时间点之前关闭:
 
 | # | 问题 | 涉及章节 | 最晚决定 |
 |---|---|---|---|
-| R1 | List 与 Snapshot 没有分页或分块,超过 gRPC 默认 4 MiB 上限;批写事件也可能超限 | §4.3 | W1 合入前 |
-| R2 | `RoleBinding` 无法限定 namespace;Lease 没有授权规则且 id 可猜;同 namespace 的 client 可覆盖其他服务的 Instance | §4.1、§6.3、§7.8 | W1 合入前 |
 | R3 | namespace 删除有竞态;`hist` 键没有索引和清理策略,`dropNamespace` 的实现未定义 | §5.0、§7.2 | W2a 开工前 |
 | R4 | 快照在容器中基本失效,§9 的缓解不成立;快照路径不一致,`serverId` 没有来源;Config 明文落盘 | §6.5、§7.5、§9 | W2b 开工前 |
 | R5 | 副本滞后被误判为 `gone`;`MAXLEN ~` 截断同一 revision 的批次;窗口单位不一致,也小于滚动重启的事件量 | §6.1、§7.3 | W3a 开工前 |

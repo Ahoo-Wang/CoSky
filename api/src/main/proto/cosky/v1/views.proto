@@ -1,0 +1,66 @@
+// Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//      http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// Derived read-only views, computed from the server's watch cache and never stored (design §4.3).
+// The design only names the RPCs; these messages are the minimal shape the Dashboard needs.
+package cosky.v1;
+
+option java_multiple_files = true;
+option java_package = "me.ahoo.cosky.api.v1";
+option java_outer_classname = "ViewsProto";
+
+service ViewService {
+  rpc Services(ServicesRequest) returns (ServicesResponse); // services with instance counts
+  rpc Topology(TopologyRequest) returns (TopologyResponse); // consumer -> producer edges
+  rpc Stats(StatsRequest) returns (StatsResponse);
+}
+
+message ServicesRequest {
+  string namespace = 1;
+}
+
+message ServicesResponse {
+  repeated ServiceSummary services = 1; // ordered by service name
+  int64 revision = 2; // namespace revision the view was computed at
+}
+
+// A service is the group of instances sharing InstanceSpec.service.
+message ServiceSummary {
+  string service = 1;
+  int32 instance_count = 2;
+}
+
+message TopologyRequest {
+  string namespace = 1;
+}
+
+// Edges are recorded from live watches: an authenticated subject watching a service's instances consumes it (§6.3).
+message TopologyResponse {
+  repeated TopologyEdge edges = 1;
+}
+
+message TopologyEdge {
+  string consumer = 1; // authenticated subject name
+  string producer = 2; // watched service
+}
+
+message StatsRequest {
+  string namespace = 1;
+}
+
+message StatsResponse {
+  int32 service_count = 1;
+  int32 instance_count = 2;
+  int32 config_count = 3;
+  int64 revision = 4; // namespace revision the counts were computed at
+}
