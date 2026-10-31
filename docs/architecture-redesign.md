@@ -3,7 +3,7 @@
 > 基于 `main@bc6e873`(v6.2.0)代码审查。目标是回答:**如果今天从零开始做 CoSky,它应该长什么样?**
 >
 > 状态:方案已确认(见 §1 决策记录),详细设计见 §7;实施计划与进度见 [roadmap.md](roadmap.md)。
-> 2026-10-30 架构审查后新增 D19–D26,其后新增 D27、D28;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
+> 2026-10-30 架构审查后新增 D19–D26,其后新增 D27–D31;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
 
 ---
 
@@ -68,6 +68,9 @@ Redis (只有 server 可访问)
 | D26 | 本地快照 | **定位为同盘重启的兜底**,k8s 中须挂持久卷才有效;路径含 `serverKey`;不加密,权限 `0600`,可关闭 Config 落盘 | 容器默认没有持久卷,不能承诺新进程可用旧视图;客户端没有地方安全存放密钥(§7.5、§9) |
 | D27 | JVM 版本 | **基线 Java 21**,所有模块编译为 Java 21 字节码;**server 运行在 JDK 25** | 库的基线决定用户必须升级到哪个版本;server 是我们自己发布的镜像,可以直接用最新 LTS,紧凑对象头(JEP 519)等改进正好能减少 Watch Cache 的内存。server 不使用 Java 21 之后的 API,以便与其他模块保持同一工具链 |
 | D28 | 虚拟线程 | **协程仍是编程模型(D9),虚拟线程是默认执行载体**:server 的请求处理与业务协程、所有阻塞操作都跑在虚拟线程上,不用 `Dispatchers.IO` 和平台线程池 | 协程负责结构化并发和取消,虚拟线程让偶发的阻塞不再占用平台线程,不必区分哪段代码可能阻塞(§3.2、§7.4)。Lettuce 的 Netty 事件循环不变,它本身不阻塞 |
+| D29 | Watch 窗口 | **副本落后不是 `gone`**:同一 epoch 下 `from_revision` 大于副本 revision 时先挂起等它追上,最多 `read.min-revision-timeout`,超时以 `UNAVAILABLE` 结束流;副本加载时用 Stream 预填窗口;内存窗口与 Stream 都按事件计数,默认 10,000 | 客户端的位置本身有效,发 `gone` 会把滚动重启变成一次集中重新 List。窗口只需覆盖重连间隙:5 万实例 10 分钟滚动约 170 事件/秒,窗口能撑约 60 秒(估算,W4a 实测);扩大到 10 万每个 namespace 约多占 100 MB,不值得(§6.1、§7.3) |
+| D30 | 拓扑 | **边作为软状态写入 Redis**:每个副本每 30 秒写一次,不经过 `rev` 和日志,不产生 Watch 事件,90 秒未刷新即失效;consumer 优先取客户端名,其次取认证主体 | 每个副本只见到自己的 watcher。向各副本扇出查询需要成员发现,只显示本副本数据会误导,推迟到 8.1 又比 6.x 少一项功能;多个应用共用 token 时,只靠主体分不开它们(§5.1、§6.3) |
+| D31 | Redis 前提 | **启动时检查,不满足则拒绝启动**:淘汰策略必须是 `noeviction`,版本不低于 7.0;**不使用 `WAIT`**,改为建议 `min-replicas-to-write`;`KeepAliveResponse.attached_count` 让客户端发现丢失的注册并重新 Put | 淘汰会悄悄删数据。`WAIT` 在 Cluster 下要路由到键所在节点,也消除不了丢写。租约还在而实例已丢时续期一直成功,客户端需要一个信号;相比每个实例 Watch 自己(2 万注册就多 2 万 watcher),这个计数不增加扇出负担(§5.3、§6.2) |
 
 ---
 
@@ -400,11 +403,11 @@ service LeaseService {                                                // 授权�
 message GrantRequest  { string namespace = 1; int32 ttl_seconds = 2; }   // 默认 30,范围 [5, 300]
 message GrantResponse { int64 lease = 1; int32 ttl_seconds = 2; }
 message KeepAliveRequest  { string namespace = 1; int64 lease = 2; }
-message KeepAliveResponse { int64 lease = 1; int32 ttl_seconds = 2; }    // ttl_seconds = 0 表示租约已不存在;流以 UNAVAILABLE 结束不代表租约丢失
+message KeepAliveResponse { int64 lease = 1; int32 ttl_seconds = 2; int32 attached_count = 3; }    // ttl_seconds = 0 表示租约已不存在;流以 UNAVAILABLE 结束不代表租约丢失
 message RevokeRequest  { string namespace = 1; int64 lease = 2; }
 message RevokeResponse {}
 
-service ViewService {                                                 // 派生只读视图,不落库
+service ViewService {                                                 // 派生只读视图;只有拓扑的边落库,且是软状态(D30)
   rpc Services(ServicesRequest) returns (ServicesResponse);        // 服务列表 + 实例数
   rpc Topology(TopologyRequest) returns (TopologyResponse);        // consumer → producer 边
   rpc Stats(StatsRequest) returns (StatsResponse);
@@ -491,23 +494,30 @@ interface Store {
 
     suspend fun grantLease(namespace: String, ttl: Duration, owner: String): GrantResult
     suspend fun leaseOwners(namespace: String, leases: Collection<Long>): Map<Long, String?>   // 用于校验所有者(§7.8);null = 已不存在
-    suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, Duration?>   // 批量,TTL 由存储保存;null = 已不存在
+    suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, LeaseRenewal?>   // 批量,TTL 由存储保存;null = 已不存在
     suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean   // force = Revoke
     suspend fun expiredLeases(namespace: String, limit: Int): List<Long>
     suspend fun leaseStats(namespace: String): LeaseStats                    // 租约总数与已到期数,用于回收保护
+
+    /** 刷新拓扑边,保留 `retention`;软状态,不经过 revision(D30)。 */
+    suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration)
+    suspend fun topology(namespace: String): Set<TopologyEdge>               // 未过期的边
 
     /** state = active,新 epoch;已是 active 时不变;还有待清理的数据时先清理。 */
     suspend fun createNamespace(namespace: String): Position
     suspend fun namespaceState(namespace: String): NamespaceState?           // ACTIVE / TERMINATING / null
     /** 原子判空并置为 terminating;此后写入返回 NamespaceNotActive(§7.2)。 */
     suspend fun terminateNamespace(namespace: String): TerminateResult
-    /** 清理 terminating namespace 的全部数据(epoch、rev、log、对象、历史、租约),只留 state 墓碑;可重入。 */
+    /** 清理 terminating namespace 的全部数据(epoch、rev、log、对象、历史、租约、拓扑),只留 state 墓碑;可重入。 */
     suspend fun dropNamespace(namespace: String)
 
     /** 带过期的互斥锁,用于 Reaper 选主;owner 相同时为续约。 */
     suspend fun tryLock(name: String, owner: String, ttl: Duration): Boolean
     suspend fun unlock(name: String, owner: String)
 }
+
+/** 续期结果;`attached` 是挂在该租约上的实例数(D31)。 */
+data class LeaseRenewal(val ttl: Duration, val attached: Int)
 
 sealed interface ApplyResult {
     data class Applied(val revision: Long, val changed: Int) : ApplyResult
@@ -540,6 +550,7 @@ sealed interface ApplyResult {
 | `cosky:{ns}:lease:owner` | Hash | lease id → 授予它的主体(§7.8) |
 | `cosky:{ns}:lease:attach` | Sorted Set | member = Instance name,score = lease id |
 | `cosky:{ns}:lease:seq` | String | 租约 id 生成器;id 小于 2^53,作为 score 不丢精度 |
+| `cosky:{ns}:topology` | Sorted Set | member = `<consumer>\0<producer>`,score = 到期时间(ms,Redis `TIME`);软状态(D30) |
 | `cosky:leader:reaper` | String | 回收 Leader 锁,`SET NX PX` |
 
 另有 Pub/Sub 频道 `cosky:hint`,只用作追尾的唤醒提示(§6.1)。
@@ -563,13 +574,15 @@ sealed interface ApplyResult {
 |---|---|
 | `apply.lua` | 通用原子批写:校验 `state = active` → 逐项校验 CAS 与租约 → 内容不变的项跳过 → 若有变化则 `INCR rev` → `HSET/HDEL obj/ver` → 维护 `lease:attach` → Config 写历史并 `SADD hist:idx` → `XADD log`(每项一条,`MAXLEN ~`)→ `PUBLISH cosky:hint` → 返回新 revision 或冲突明细 |
 | `lease_grant.lua` | 校验 `state = active` → 生成 id,`ZADD lease <TIME+ttl> id`,`HSET lease:ttl id ttl`,`HSET lease:owner id owner` |
-| `lease_keepalive.lua` | 批量:读 `lease:ttl`,存在则 `ZADD lease <TIME+ttl> id`,不存在返回 0;已到期但未回收的租约同样续期(到期只表示可以回收);**不改 revision、不写日志** |
+| `lease_keepalive.lua` | 批量:读 `lease:ttl`,存在则 `ZADD lease <TIME+ttl> id` 并用 `ZCOUNT lease:attach id id` 返回挂载实例数(D31),不存在返回 0;已到期但未回收的租约同样续期(到期只表示可以回收);**不改 revision、不写日志** |
 | `lease_expire.lua` | 对单个租约:确认 `score ≤ TIME` → `ZRANGEBYSCORE lease:attach id id` 取挂载实例 → 有实例则等价于一次 apply 删除它们 → 清理 `lease:attach`、`lease:ttl`、`lease:owner`、`lease`。Revoke 复用此脚本(跳过到期检查);`actor` 到期回收时为 `system`,Revoke 时为调用者 |
 | `tail.lua` | 一次原子读:比较 epoch → 比较 `rev` 与已应用 revision → 比较已应用 revision 的日志条目 → 返回后续事件(§6.1、§6.4) |
 | `read_batch.lua` | 全量读取的一批:`HSCAN ver` 后在同一脚本内 `HGET obj`,对象与元数据总是匹配,也避免大 Hash 的 `HGETALL` 阻塞 Redis |
 | `epoch_rotate.lua` | 比较并更换 epoch,多个副本同时发现分叉时只有一个生效 |
 | `lease_query.lua` | 用 Redis `TIME` 统计租约总数与到期数,并列出到期租约 |
 | `lock_acquire.lua` / `lock_release.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
+| `topology_record.lua` | 校验 `state = active` → `ZADD topology <TIME+retention> edge` → `ZREMRANGEBYSCORE` 清理已到期的边;**不改 revision、不写日志** |
+| `topology_read.lua` | 用 Redis `TIME` 读取未到期的边 |
 | `namespace_create.lua` | 已是 `active` 时返回当前位置;否则 `SET state active`,写入新 epoch |
 | `namespace_terminate.lua` | `HLEN obj:config` 与 `HLEN obj:instance` 都为 0 时 `SET state terminating`,否则返回不为空 |
 
@@ -626,6 +639,8 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - 必须开启 AOF(`appendfsync everysec`);主从切换存在丢失最后约 1 秒写入的风险,在文档中明示。
 - 支持 Standalone / Sentinel / Cluster;Cluster 下按 namespace 自然分布到各分片,任何命令都不跨 namespace(§6.1)。
 - server 检测时间线分叉(§6.4),发现后更换 epoch 并让所有 watcher 重新 List,避免客户端停留在已被丢弃的视图上。
+- **启动检查(D31)**:server 连接后读取 `INFO`(Cluster 下检查每个 master):`maxmemory_policy` 不是 `noeviction`,或版本低于 7.0 时拒绝启动;`INFO` 被限制而读不到时只记 WARN。CI 矩阵覆盖 Redis 7.0、7.4 和 Valkey。
+- **不使用 `WAIT`(D31)**:建议配置 `min-replicas-to-write 1` 和 `min-replicas-max-lag 10` 缩小丢写窗口。残余风险:主从切换时,已确认的 Config 写入和 token 吊销仍可能回滚,只能通过 ERROR 日志和 `cosky_revision_regression_total` 发现。
 
 ---
 
@@ -638,12 +653,12 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
   E0 = GET epoch(由 createNamespace 创建)
   R0 = GET rev
   分批 read_batch.lua                     -- HSCAN ver + HGET obj,每个对象与其元数据原子读出;可能比 R0 新
-  XRANGE log (R0+1)-0 +                   -- 回放,只应用比对象 revision 更新的事件
+  XRANGE log - +                          -- 预填窗口(D29);比对象 revision 更新的事件同时回放
   进入追尾:收到提示或轮询到期时执行 tail.lua
 
 内存结构(每 namespace):
   objects: kind → name → Resource
-  window:  最近 N 个 revision 的事件环形缓冲(N 与 Stream MAXLEN 对齐)
+  window:  最近 N 个事件的环形缓冲(N 与 Stream MAXLEN 相同;按事件计数,整批淘汰)
   epoch:   当前时间线
   revision: 已应用的最大 revision
 ```
@@ -651,6 +666,8 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - 所有 Get/List/Watch 由 Watch Cache 服务,只有写操作打到 Redis。
 - `min_revision`:缓存 revision 未达到时挂起等待(默认最多 3 秒),实现跨副本的"读己之写"。
 - 客户端 `from_epoch` 不一致或 `from_revision` 早于窗口 → 返回 `gone`,客户端重新 List 后从新位置 Watch。
+- `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `gone`,超过 `read.min-revision-timeout` 则以 `UNAVAILABLE` 结束整条流,客户端换端点重连。
+- `MAXLEN ~` 可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
 - 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。
 
 **追尾(D21)**:不使用 `XREAD`。Cluster 下跨 slot 的多键 `XREAD` 直接报 `CROSSSLOT`,每 namespace 一条阻塞连接又会让连接数随 namespace 增长。
@@ -689,6 +706,8 @@ client                         server                         Redis
 ```
 
 - KeepAlive 返回 `ttl_seconds = 0`(租约已过期被回收)时,客户端重新 Grant 并重新注册其全部实例。
+- KeepAlive 响应带 `attached_count`,即挂在该租约上的实例数(D31)。主从切换可能丢失最近的 Put,而更早的租约还在,续期一直成功。客户端发现它少于本地注册数时重新 Put 全部实例,不重新 Grant;内容不变的项会被跳过,所以并发注册造成的误判无害。
+  这也意味着手工删除存活进程的 Instance 会被恢复:要摘除仍在运行的实例,把 `weight` 设为 0。
 - 存储不可用时 KeepAlive 流以 `UNAVAILABLE` 结束,**不代表租约丢失**:客户端保留注册信息,重连成功后立即续期,不等下一周期。
 - 一个进程在一个 namespace 只持有一个租约,心跳成本 O(进程数),与实例数无关。
 - 持久实例 = 不挂租约的 Instance,无特殊分支。
@@ -718,7 +737,9 @@ client                         server                         Redis
   内置角色的规则对所有 namespace 生效,由 RoleBinding 的 `namespaces` 限定范围;按服务隔离时用自定义 Role(§7.8)。
 - **审计**:每个 revision 的 `updated_by` + Config 历史即变更追溯;每次写入和认证事件另输出一行结构化审计日志(§7.8),
   由运维的日志系统收集,server 不存储审计数据。
-- 拓扑视图:server 记录"已认证主体 × Watch 的服务",即 consumer → producer 边,无需客户端额外写入。
+- **拓扑视图(D30)**:server 记录"consumer × Watch 的服务",即 consumer → producer 边,无需客户端额外写入。只记录按 service 过滤的 Instance watch:watch 整个 namespace 不代表依赖全部服务。
+  consumer 优先取 gRPC metadata `cosky-client-name`(starter 填 `spring.application.name`;只是标签,不参与鉴权),其次取已认证主体,都没有时不记录。
+  每个副本每 `view.topology-flush-interval` 把当前 watcher 的边写入 `topology`,保留 3 倍间隔;`Topology` 直接读 Store。
 
 ### 6.4 时间线分叉检测(D19)
 
@@ -815,7 +836,7 @@ registration.close()                                                            
 - **顺序**:同一 namespace 内按 revision 全序;同一 revision 的事件作为一个整体应用,过大时分成多条 `Events`,以 `more` 标记(过滤后为空则不发送)。
 - **投递**:单条流内恰好一次;跨重连至少一次,客户端丢弃 `revision ≤ 已应用 revision` 的批次即可去重。
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
-  `from_epoch` 与当前 epoch 不同、`r` 早于窗口或大于当前 revision → `gone`。
+  `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `gone`;`r` 大于当前 revision → 等副本追上,超时以 `UNAVAILABLE` 结束流(D29)。
 - **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `gone` 结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
 - **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`)。
@@ -859,7 +880,7 @@ me.ahoo.cosky.server
 - **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`;`snapshot-include-config = false` 时 Config 不落盘。
 - **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
-- **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例。
+- **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新 Put(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
 - **分块**:收齐 `Snapshot` 与 `Events` 的全部分块后再更新 `StateFlow`,订阅者不会看到半个 revision。
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。
@@ -877,7 +898,8 @@ me.ahoo.cosky.server
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount |
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` | — / — / — / `groups` | 不配置则不启用 OIDC |
-| `cosky.watch.window` | `10000` | 事件窗口,与 Stream `MAXLEN` 一致 |
+| `cosky.watch.window` | `10000` | 事件窗口,按事件计数,与 Stream `MAXLEN` 相同;应不小于 峰值事件速率 × 最长重连间隙(D29) |
+| `cosky.view.topology-flush-interval` | `30s` | 拓扑边的写入间隔,保留 3 倍间隔(D30) |
 | `cosky.watch.progress-interval` | `10s` | |
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
@@ -961,7 +983,7 @@ cosky:
 | `cosky_cache_lag_seconds{namespace}` | Gauge | 写入 → 进入缓存的延迟 |
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
 | `cosky_watch_events_sent_total` | Counter | |
-| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch` |
+| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active` / `cosky_lease_expired_total` | Gauge / Counter | |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2) |
 | `cosky_revision_regression_total` | Counter | §6.4 |
