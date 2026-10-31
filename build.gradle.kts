@@ -79,7 +79,7 @@ configure(libraryProjects) {
     apply(plugin = "org.jetbrains.kotlin.jvm")
     configure<KotlinJvmProjectExtension> {
         jvmToolchain {
-            languageVersion.set(JavaLanguageVersion.of(17))
+            languageVersion.set(JavaLanguageVersion.of(21))
         }
     }
     tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {

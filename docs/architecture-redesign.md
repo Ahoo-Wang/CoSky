@@ -3,7 +3,7 @@
 > 基于 `main@bc6e873`(v6.2.0)代码审查。目标是回答:**如果今天从零开始做 CoSky,它应该长什么样?**
 >
 > 状态:方案已确认(见 §1 决策记录),详细设计见 §7;实施计划与进度见 [roadmap.md](roadmap.md)。
-> 2026-10-30 架构审查后新增 D19–D26;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
+> 2026-10-30 架构审查后新增 D19–D26,其后新增 D27;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
 
 ---
 
@@ -66,6 +66,7 @@ Redis (只有 server 可访问)
 | D24 | 授权范围 | **RoleBinding 必须声明 namespace;`Rule.names` 按名称或服务收窄;租约只能由授予者续期和撤销** | 否则内置 `client` 无法限定 namespace,同 namespace 的账号能覆盖其他服务的 Instance、撤销其租约,D1 的数据面鉴权形同虚设(§7.8) |
 | D25 | Namespace 生命周期 | **写入必须看到 slot 内的 `state = active`**;删除时原子判空并置 `terminating`;`hist:idx` 索引历史键 | `_system` 与业务 namespace 不在同一 slot,依赖缓存判空会丢数据,迟到的写入还会让已删除的 namespace 复活(§7.2) |
 | D26 | 本地快照 | **定位为同盘重启的兜底**,k8s 中须挂持久卷才有效;路径含 `serverKey`;不加密,权限 `0600`,可关闭 Config 落盘 | 容器默认没有持久卷,不能承诺新进程可用旧视图;客户端没有地方安全存放密钥(§7.5、§9) |
+| D27 | JVM 版本 | **基线 Java 21**,所有模块编译为 Java 21 字节码;**server 运行在 JDK 25** | 库的基线决定用户必须升级到哪个版本;server 是我们自己发布的镜像,可以直接用最新 LTS,紧凑对象头(JEP 519)等改进正好能减少 Watch Cache 的内存。server 不使用 Java 21 之后的 API,以便与其他模块保持同一工具链 |
 
 ---
 
@@ -819,7 +820,7 @@ registration.close()                                                            
 
 ### 7.4 Server 内部结构
 
-技术栈:Spring Boot 4 + WebFlux(协程)+ Spring gRPC(grpc-kotlin stub)。两个端口:`8080` HTTP(REST、SSE、
+技术栈:Spring Boot 4 + WebFlux(协程)+ Spring gRPC(grpc-kotlin stub),运行在 JDK 25(D27)。两个端口:`8080` HTTP(REST、SSE、
 Dashboard 静态资源、Actuator),`9090` gRPC。
 
 ```

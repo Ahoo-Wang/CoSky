@@ -87,7 +87,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
   - 多 namespace 跨 slot 追尾,`PUBLISH` 提示跨节点送达。
   - 真实主从切换丢写,revision 回退并涨回后,watcher 收到 `gone` 并收敛。
   - Redis 或 server 不可用超过 TTL 后恢复,存活实例不被删除。
-  - Spring Boot 4 + Spring gRPC + grpc-kotlin 最小可运行。
+  - Spring Boot 4 + Spring gRPC + grpc-kotlin 在 JDK 25 上最小可运行。
   - 粗测 §7.10 的扇出与内存目标,把结果和偏差写回设计文档;默认值(§7.6)按结果调整。
 
 ### W3a `server/`
@@ -106,7 +106,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 
 - 全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11,含超过 TTL 后恢复与丢写分叉);重写 provider / consumer 示例;
   发布流程支持从 `v8` 发布预发布版本;
-  Dockerfile、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标。
+  Dockerfile(JDK 25)、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标。
 
 ### W4b Dashboard
 
