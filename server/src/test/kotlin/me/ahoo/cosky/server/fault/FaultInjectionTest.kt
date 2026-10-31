@@ -40,7 +40,6 @@ import me.ahoo.cosky.server.RunningServer
 import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import org.testcontainers.Testcontainers
 import org.testcontainers.containers.Network
@@ -293,10 +292,6 @@ class FaultInjectionTest {
 
     // --- partitions ---
 
-    @Disabled(
-        "Leases cut off together expire over one renewal period, and each is reaped as it expires, so the share of " +
-            "expired leases never reaches the threshold. It needs a design decision.",
-    )
     @Test
     fun `a partition cutting off most clients for longer than the ttl deletes no live instance`() = scenario {
         startServer(protectionMinLeases = 2).createNamespace(NAMESPACE)
@@ -314,7 +309,11 @@ class FaultInjectionTest {
 
         partitioned.forEach { it.disable() }
         delay(LONGER_THAN_TTL)
-        partitioned.forEach { it.enable() }
+        // They come back one by one, as reconnecting clients do: most being back ends the pause, with one still out.
+        partitioned.forEach {
+            it.enable()
+            delay(BETWEEN_RECONNECTS)
+        }
         delay(PAST_GRACE)
 
         deletions(seen).assert().isEmpty()
@@ -392,6 +391,7 @@ class FaultInjectionTest {
         val LONGER_THAN_TTL = 9.seconds
         val GRACE = 5.seconds
         val WITHIN_GRACE = 2.seconds
+        val BETWEEN_RECONNECTS = 1.seconds
         val PAST_GRACE = 7.seconds
         val SETTLE = 300.milliseconds
         val POLL = 100.milliseconds

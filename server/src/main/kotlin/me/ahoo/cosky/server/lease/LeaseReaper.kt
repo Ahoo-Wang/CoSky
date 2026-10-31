@@ -97,7 +97,13 @@ class LeaseReaper(
         if (inGrace(now)) {
             return
         }
-        namespaces().forEach { reap(it, now) }
+        namespaces().forEach { namespace ->
+            // Finding the store hung while reaping one namespace is a reason not to go on to the next.
+            if (inGrace(clock.instant())) {
+                return
+            }
+            reap(namespace, now)
+        }
     }
 
     /**
@@ -165,9 +171,14 @@ class LeaseReaper(
         val massive = stats.total >= options.protectionMinLeases &&
             stats.expired.toDouble() / stats.total > options.protectionThreshold
         if (!massive) {
-            pausedSince.remove(namespace)
             metrics.leaseProtection(namespace, false)
-            return false
+            if (pausedSince.remove(namespace) == null) {
+                return false
+            }
+            // Clients come back one by one, so the share falls below the threshold with many still on their way. They
+            // get what any client gets after an outage: reaping now would delete them just as the partition heals.
+            lastFailure = now
+            return true
         }
         val since = pausedSince.computeIfAbsent(namespace) {
             log.error("{} of {} leases expired in namespace {}; pausing the reaper.", stats.expired, stats.total, it)

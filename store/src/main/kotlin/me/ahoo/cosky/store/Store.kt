@@ -112,7 +112,11 @@ interface Store {
     suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean
 
     /**
-     * Up to [limit] expired leases, longest expired first.
+     * Up to [limit] leases ready to be reaped, longest expired first: those a third of their TTL past expiry.
+     *
+     * Clients renew every third of the TTL, so leases cut off together expire over that long. By waiting it out, the
+     * reaper sees all of them as expired before it removes any, and [leaseStats] can tell a partition from a few dead
+     * processes (design D32).
      */
     suspend fun expiredLeases(namespace: String, limit: Int): List<Long>
 

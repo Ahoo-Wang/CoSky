@@ -557,6 +557,16 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `an expired lease is only ready to be reaped a third of its ttl later`() = scenario { store ->
+        val lease = store.grant(READY_TTL)
+        delay(READY_TTL + READY_MARGIN)
+        store.leaseStats(namespace).expired.assert().isEqualTo(1)
+        store.expiredLeases(namespace, 10).assert().isEmpty()
+        delay(READY_TTL / 3)
+        store.expiredLeases(namespace, 10).assert().containsExactly(lease)
+    }
+
+    @Test
     fun `an expired lease can renew until it is reaped`() = scenario { store ->
         val lease = store.grant(SHORT_TTL)
         delay(EXPIRY_WAIT)
@@ -977,6 +987,8 @@ abstract class StoreConformanceTest {
         const val CONFIG_NAME = "application.yaml"
         const val MISSING_LEASE = 9_000_000L
         val SHORT_TTL = 50.milliseconds
+        val READY_TTL = 900.milliseconds
+        val READY_MARGIN = 50.milliseconds
         val LONG_TTL = 1.minutes
         val EXPIRY_WAIT = 150.milliseconds
         val SCENARIO_TIMEOUT = 30.seconds

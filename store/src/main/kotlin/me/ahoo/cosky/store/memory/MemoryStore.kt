@@ -49,6 +49,8 @@ import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration
 import kotlin.time.toJavaDuration
 
+private const val REAP_AFTER_TTL_PARTS = 3
+
 /**
  * A [Store] in memory, for tests and development mode (`--dev`): nothing survives the process.
  *
@@ -157,7 +159,7 @@ class MemoryStore(
     override suspend fun expiredLeases(namespace: String, limit: Int): List<Long> {
         val now = now()
         return slot(namespace).value?.leases.orEmpty().entries
-            .filter { !it.value.expiresAt.isAfter(now) }
+            .filter { !it.value.expiresAt.plus((it.value.ttl / REAP_AFTER_TTL_PARTS).toJavaDuration()).isAfter(now) }
             .sortedBy { it.value.expiresAt }
             .take(limit)
             .map { it.key }
