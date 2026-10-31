@@ -910,8 +910,8 @@ me.ahoo.cosky.server
 | 属性 | 默认 | 说明 |
 |---|---|---|
 | `cosky.store.type` | `redis` | `redis` / `memory`(仅开发) |
-| `cosky.api.max-message-bytes` | `2MiB` | 单条消息的资源总量(§4.6) |
 | `cosky.store.redis.uri` | `redis://localhost:6379` | 支持 Sentinel / Cluster URI |
+| `cosky.store.redis.cluster` | `false` | URI 是 Redis Cluster 的种子节点 |
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
 | `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发 |
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount;格式同普通 token |
@@ -921,13 +921,14 @@ me.ahoo.cosky.server
 | `cosky.watch.progress-interval` | `10s` | |
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
-| `cosky.lease.default-ttl` / `min-ttl` / `max-ttl` | `30s` / `5s` / `300s` | |
 | `cosky.lease.reaper-interval` | `1s` | |
 | `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后的回收宽限(§6.2) |
 | `cosky.lease.reaper-max-per-tick` | `100` | 每个 namespace 每轮最多回收的租约数 |
+| `cosky.lease.lock-ttl` | `15s` | 回收器 Leader 锁的有效期 |
 | `cosky.lease.protection-threshold` / `protection-min-leases` / `protection-max-duration` | `0.5` / `10` / `5m` | 大比例到期暂停(§6.2) |
-| `cosky.config.history-size` | `20` | |
 | `cosky.read.min-revision-timeout` | `3s` | |
+
+单条消息上限(2 MiB,§4.6)、租约 TTL(默认 30 秒,范围 5–300 秒)和 Config 历史(20 个 revision)在 8.0 是固定值(`Limits`),不可配置。
 
 ### 7.7 Spring Boot Starter
 

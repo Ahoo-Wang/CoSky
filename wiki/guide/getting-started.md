@@ -1,145 +1,111 @@
 ---
 title: Getting Started
-description: Add configuration and service discovery to a Spring Boot application, then run the dashboard.
+description: Run a CoSky server, serve a Config to a Spring Boot application, and find it from another one.
 ---
 
 # Getting Started
 
-In about ten minutes you will have a Spring Boot application that loads its configuration from CoSky, registers itself, and discovers other services, plus the dashboard to manage both.
+This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
 
-**You need:** Java 17+, Docker (for Redis and the dashboard), and a Spring Boot 4 application built with Gradle or Maven.
-
-## 1. Start Redis and the dashboard
+## 1. Start a server
 
 ```bash
-docker network create cosky
-docker run -d --name redis --network cosky -p 6379:6379 redis:7
-docker run -d --name cosky --network cosky -p 8080:8080 \
-  -e SPRING_DATA_REDIS_URL=redis://redis:6379 \
-  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.2.0
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky --dev
 ```
 
-The server creates the super user `cosky` with a random password on first start:
+`--dev` needs no Redis and no sign-in. Nothing survives a restart, so never run it for real: [Deployment](./deployment.md) shows how. Port 9090 serves applications over gRPC. Port 8080 serves the REST API and the Dashboard, at <http://localhost:8080>.
 
-```bash
-docker logs cosky | grep "init super user"
-```
+## 2. Add the starter
 
-Open <http://localhost:8080> and sign in as `cosky`.
-
-## 2. Add the dependencies
-
-::: code-group
-
-```kotlin [Gradle (Kotlin DSL)]
+```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
-    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
-    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
-    // Loads bootstrap.yaml, where the CoSky config source is configured.
-    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0"))
+    implementation("me.ahoo.cosky:cosky-spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.cloud:spring-cloud-context") // for live refresh
 }
 ```
 
-```xml [Maven]
-<dependencyManagement>
-    <dependencies>
-        <dependency>
-            <groupId>me.ahoo.cosky</groupId>
-            <artifactId>cosky-bom</artifactId>
-            <version>6.2.0</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>me.ahoo.cosky</groupId>
-            <artifactId>cosky-dependencies</artifactId>
-            <version>6.2.0</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-    </dependencies>
-</dependencyManagement>
-<dependencies>
-    <dependency>
-        <groupId>me.ahoo.cosky</groupId>
-        <artifactId>cosky-spring-cloud-starter-config</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>me.ahoo.cosky</groupId>
-        <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-starter-bootstrap</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-    </dependency>
-</dependencies>
-```
-
-:::
-
-`cosky-bom` manages the versions of the CoSky modules, `cosky-dependencies` those of Spring Boot, Spring Cloud and the other libraries CoSky is tested with. Without `spring-cloud-starter-bootstrap` (or `spring.cloud.bootstrap.enabled=true`), `bootstrap.yaml` is ignored and no configuration is loaded from CoSky.
-
 ## 3. Configure the application
 
-`src/main/resources/bootstrap.yaml`:
-
 ```yaml
+# application.yaml
 spring:
   application:
-    name: order-service
-  data:
-    redis:
-      url: redis://localhost:6379
+    name: provider
+  config:
+    import: "optional:cosky:provider.yaml"
   cloud:
-    cosky:
-      namespace: dev
+    # Spring Cloud 2025.1 declares Spring Boot 4.0. Remove this once on Spring Cloud 2026.0.
+    compatibility-verifier:
+      enabled: false
+cosky:
+  endpoints: localhost:9090
+  namespace: default
 ```
 
-- The configuration loaded is `order-service.yaml` in the `dev` namespace (the application name plus `.yaml`).
-- The application registers as service `order-service` on its web server port.
+The application registers itself as the service `provider` once its web server is up, and imports the Config `provider.yaml`. `optional:` lets it start while that Config does not exist yet.
 
-## 4. Create the configuration
+## 4. Create a Config
 
-In the dashboard:
-
-1. Open **Namespace** and add `{dev}`. CoSky wraps every namespace in a Redis Cluster hash tag, so `dev` in the application is `{dev}` in Redis; applications do not add their namespace to this list themselves.
-2. Open **Config**, select `{dev}`, and create `order-service.yaml`:
-
-```yaml
-greeting: Hello from CoSky
+```bash
+curl -X PUT localhost:8080/v1/namespaces/default/configs/provider.yaml \
+  -H 'Content-Type: application/json' \
+  -d '{"config":{"format":"CONFIG_FORMAT_YAML","content":"example:\n  greeting: Bonjour"}}'
 ```
 
-Read it like any Spring property:
+A bean in `@RefreshScope` sees the new value without a restart:
 
 ```kotlin
 @RestController
 @RefreshScope
-class GreetingController(@Value("\${greeting}") private val greeting: String) {
-    @GetMapping("/greeting")
-    fun greeting() = greeting
+class HelloController(@Value("\${example.greeting:Hello}") private val greeting: String) {
+    @GetMapping("/hello/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
+    fun hello(@PathVariable name: String): String = "$greeting, $name"
 }
 ```
 
-## 5. Run and verify
+## 5. Find it from another application
 
-Start the application, then:
+Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name, and call the provider by its service name:
 
-- `curl localhost:<port>/greeting` returns `Hello from CoSky`.
-- Edit the config in the dashboard: the next request returns the new value, without a restart.
-- **Service** in the dashboard lists `order-service` with one instance.
-- Other applications reach it through Spring Cloud LoadBalancer, e.g. `http://order-service/greeting` with a `@LoadBalanced` `WebClient` or OpenFeign.
+```kotlin
+@Bean
+@LoadBalanced
+fun webClientBuilder(): WebClient.Builder = WebClient.builder()
+
+// ...
+builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
+```
+
+## 6. Look around
+
+Open the [Dashboard](./dashboard.md) at <http://localhost:8080>. Instances show up under **Service**, with **Leased** next to them, and the topology on the first page shows who calls whom.
+
+```bash
+curl localhost:8080/v1/namespaces/default/views/topology
+```
+
+## See it run
+
+The repository holds this as a working example. `examples/README.md` walks through it:
+
+```bash
+./gradlew :server:run --args='--dev'
+```
+
+```bash
+./gradlew :examples:provider:run
+```
+
+```bash
+./gradlew :examples:consumer:run
+```
 
 ## Next steps
 
-- [Configuration](./configuration.md): formats, refresh, versions and rollback.
-- [Service Discovery](./service-discovery.md): metadata, status, expiry and load balancing.
-- [Deployment](./deployment.md): run the server in production.
-- The [examples](https://github.com/Ahoo-Wang/CoSky/tree/main/examples) contain a provider and a Feign consumer.
+- [Configuration](./configuration.md): formats, revisions, rollback and import.
+- [Service Discovery](./service-discovery.md): leases, weights and fixed instances.
+- [Deployment](./deployment.md) and [Security](./security.md): before real traffic.

@@ -1,1275 +1,1281 @@
 <doc title="Overview" path="guide/index.md">
 # Overview
 
-CoSky provides **configuration management** and **service discovery** for Spring Cloud microservices, using only **Redis** as infrastructure. There is no registry cluster to run: applications talk to Redis directly through the CoSky starters, and an optional REST API server adds a web dashboard, users and permissions.
+CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server. Redis is the one piece of infrastructure it needs.
 
 ## How it works
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
 graph LR
     subgraph App["Each application"]
-        style App fill:#161b22,stroke:#30363d,color:#e6edf3
-        STARTER["CoSky starters"] --> CACHE["Local cache"]
+        STARTER["Starter or client"] --> VIEW["Local view"]
     end
-    subgraph Ops["Optional"]
-        style Ops fill:#161b22,stroke:#30363d,color:#e6edf3
-        SERVER["REST API server<br>+ dashboard"]
-    end
+    SERVER["CoSky server<br>+ Dashboard"]
     REDIS[("Redis")]
-    STARTER -- "writes: Lua scripts" --> REDIS
-    REDIS -- "changes: Pub/Sub" --> CACHE
+    STARTER -- "writes, leases: gRPC" --> SERVER
+    SERVER -- "changes: Watch" --> VIEW
     SERVER --> REDIS
-    style STARTER fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CACHE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SERVER fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REDIS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-- **Writes** (registering an instance, saving a config) are single Lua scripts, so they are atomic.
-- **Reads** are served from a local cache in each application, so they cost no network round trip.
-- **Changes** reach every cache through Redis Pub/Sub; a periodic resync covers messages lost while disconnected.
+- **Writes** go through the server, which applies each one atomically and gives the namespace a new revision.
+- **Reads** come from a view in each application's memory, so they cost no network round trip.
+- **Changes** reach every view over a Watch stream. A client that was away resumes from the revision it last saw.
+- **Everything is a resource**: a Config, an Instance, a Namespace, a Role. They share one API, over gRPC and REST.
 
-[Architecture](./architecture.md) explains the data model and the consistency guarantees in detail.
+[Architecture](./architecture.md) explains the data model and the consistency guarantees.
 
 ## Features
 
 | Area | What you get |
 |---|---|
-| Configuration | Spring Cloud property source with live refresh, YAML / properties, versions with rollback, import and export (Nacos-compatible zip) |
-| Service discovery | Spring Cloud `DiscoveryClient` and service registry, ephemeral instances with automatic expiry, metadata and status, weighted load balancing, service topology |
-| Operations | REST API server with a web dashboard, JWT authentication, namespace-scoped roles, audit log, statistics |
-| Isolation | Namespaces separate environments or tenants in one Redis |
+| Configuration | Spring Boot `spring.config.import` with live refresh; YAML, JSON, properties and text; revisions with rollback; zip import and export |
+| Service discovery | Spring Cloud `DiscoveryClient`, `ServiceRegistry` and LoadBalancer; instances under a lease; metadata and weights; fixed instances |
+| Resilience | Local views keep serving through an outage; a snapshot on disk survives a restart; mass expiry protection; several server replicas |
+| Security | ServiceAccount tokens and OIDC on every call, data plane included; roles scoped to namespaces and name prefixes; TLS; a structured audit log |
+| Operations | One image with the Dashboard; Kustomize manifests; Prometheus metrics; OpenTelemetry traces; topology of who watches whom |
 
 ## When CoSky fits
 
-CoSky is a good fit when you already run Redis, use Spring Cloud, and want discovery and configuration without operating another cluster.
+- You already run Redis, and would rather not add a consensus system to your stack.
+- A namespace holds up to about 50,000 instances and 10,000 Configs, the size [measured](./performance.md).
+- You want Spring Cloud integration, or Kotlin, or can generate a gRPC or REST client from its protos and OpenAPI document.
 
-Consider an alternative when you need:
+## When it does not
 
-- **DNS-based discovery** or non-JVM clients without HTTP access to the REST API: CoSky clients are JVM libraries.
-- **Health checks performed by the registry** (TCP/HTTP probes): CoSky instances prove liveness by renewing; a hung process that keeps renewing stays registered.
-- **Strong consistency for reads**: application reads come from a local cache that is updated asynchronously (typically within milliseconds).
-
-| | CoSky | Nacos | Consul | Eureka |
-|---|---|---|---|---|
-| Infrastructure | Redis | Nacos cluster + MySQL | Consul cluster | Eureka servers |
-| Configuration | ✅ | ✅ | ✅ (KV) | ❌ |
-| Discovery | ✅ | ✅ | ✅ | ✅ |
-| Health check | Client renewal | Client beat, TCP/HTTP | TCP/HTTP/gRPC | Client beat |
-| DNS interface | ❌ | ✅ | ✅ | ❌ |
-| Spring Cloud | ✅ | ✅ | ✅ | ✅ |
+- Your data must survive any single failure without loss. Redis replication is asynchronous, so a failover can lose the last writes. CoSky notices and recovers, as [Architecture](./architecture.md) describes, but it cannot bring them back. Use a Raft-based system instead.
+- You need health checks run by the server. Instances stay alive by renewing a lease, and CoSky does not probe them.
+- You need a client for another language off the shelf. Only Kotlin has one; other languages use the protos.
 
 ## Where to go next
 
-| I want to… | Read |
+| Goal | Page |
 |---|---|
-| Try CoSky in a Spring Boot app | [Getting Started](./getting-started.md) |
-| Load and refresh configuration | [Configuration](./configuration.md) |
-| Register and discover services | [Service Discovery](./service-discovery.md) |
-| Use CoSky without Spring | [Using the SDK](./sdk.md) |
-| Run the REST API server and dashboard | [Deployment](./deployment.md), [Security](./security.md), [Dashboard](./dashboard.md) |
-| Upgrade from 5.x | [Upgrading to 6.0](./upgrade-6.md) |
+| Run it in five minutes | [Getting Started](./getting-started.md) |
+| Serve Spring properties | [Configuration](./configuration.md) |
+| Register and find services | [Service Discovery](./service-discovery.md) |
+| Use it without Spring | [Using the SDK](./sdk.md) |
+| Run it in production | [Deployment](./deployment.md), [Security](./security.md) |
+| Move from CoSky 6.x | [Moving from 6.x](./upgrade-8.md) |
 | Look up a property or an endpoint | [Configuration Properties](./properties.md), [REST API](./rest-api.md) |
-| Understand the design | [Architecture](./architecture.md), [Performance](./performance.md) |
-| Contribute | [Internals](./internals.md) and [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
 </doc>
 
 <doc title="Getting Started" path="guide/getting-started.md">
 # Getting Started
 
-In about ten minutes you will have a Spring Boot application that loads its configuration from CoSky, registers itself, and discovers other services, plus the dashboard to manage both.
+This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
 
-**You need:** Java 17+, Docker (for Redis and the dashboard), and a Spring Boot 4 application built with Gradle or Maven.
-
-## 1. Start Redis and the dashboard
+## 1. Start a server
 
 ```bash
-docker network create cosky
-docker run -d --name redis --network cosky -p 6379:6379 redis:7
-docker run -d --name cosky --network cosky -p 8080:8080 \
-  -e SPRING_DATA_REDIS_URL=redis://redis:6379 \
-  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.2.0
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky --dev
 ```
 
-The server creates the super user `cosky` with a random password on first start:
+`--dev` needs no Redis and no sign-in. Nothing survives a restart, so never run it for real: [Deployment](./deployment.md) shows how. Port 9090 serves applications over gRPC. Port 8080 serves the REST API and the Dashboard, at <http://localhost:8080>.
 
-```bash
-docker logs cosky | grep "init super user"
-```
+## 2. Add the starter
 
-Open <http://localhost:8080> and sign in as `cosky`.
-
-## 2. Add the dependencies
-
-::: code-group
-
-```kotlin [Gradle (Kotlin DSL)]
+```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
-    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
-    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
-    // Loads bootstrap.yaml, where the CoSky config source is configured.
-    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0"))
+    implementation("me.ahoo.cosky:cosky-spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
+    implementation("org.springframework.cloud:spring-cloud-context") // for live refresh
 }
 ```
 
-```xml [Maven]
-<dependencyManagement>
-    <dependencies>
-        <dependency>
-            <groupId>me.ahoo.cosky</groupId>
-            <artifactId>cosky-bom</artifactId>
-            <version>6.2.0</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-        <dependency>
-            <groupId>me.ahoo.cosky</groupId>
-            <artifactId>cosky-dependencies</artifactId>
-            <version>6.2.0</version>
-            <type>pom</type>
-            <scope>import</scope>
-        </dependency>
-    </dependencies>
-</dependencyManagement>
-<dependencies>
-    <dependency>
-        <groupId>me.ahoo.cosky</groupId>
-        <artifactId>cosky-spring-cloud-starter-config</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>me.ahoo.cosky</groupId>
-        <artifactId>cosky-spring-cloud-starter-discovery</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-starter-bootstrap</artifactId>
-    </dependency>
-    <dependency>
-        <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-starter-loadbalancer</artifactId>
-    </dependency>
-</dependencies>
-```
-
-:::
-
-`cosky-bom` manages the versions of the CoSky modules, `cosky-dependencies` those of Spring Boot, Spring Cloud and the other libraries CoSky is tested with. Without `spring-cloud-starter-bootstrap` (or `spring.cloud.bootstrap.enabled=true`), `bootstrap.yaml` is ignored and no configuration is loaded from CoSky.
-
 ## 3. Configure the application
 
-`src/main/resources/bootstrap.yaml`:
-
 ```yaml
+# application.yaml
 spring:
   application:
-    name: order-service
-  data:
-    redis:
-      url: redis://localhost:6379
+    name: provider
+  config:
+    import: "optional:cosky:provider.yaml"
   cloud:
-    cosky:
-      namespace: dev
+    # Spring Cloud 2025.1 declares Spring Boot 4.0. Remove this once on Spring Cloud 2026.0.
+    compatibility-verifier:
+      enabled: false
+cosky:
+  endpoints: localhost:9090
+  namespace: default
 ```
 
-- The configuration loaded is `order-service.yaml` in the `dev` namespace (the application name plus `.yaml`).
-- The application registers as service `order-service` on its web server port.
+The application registers itself as the service `provider` once its web server is up, and imports the Config `provider.yaml`. `optional:` lets it start while that Config does not exist yet.
 
-## 4. Create the configuration
+## 4. Create a Config
 
-In the dashboard:
-
-1. Open **Namespace** and add `{dev}`. CoSky wraps every namespace in a Redis Cluster hash tag, so `dev` in the application is `{dev}` in Redis; applications do not add their namespace to this list themselves.
-2. Open **Config**, select `{dev}`, and create `order-service.yaml`:
-
-```yaml
-greeting: Hello from CoSky
+```bash
+curl -X PUT localhost:8080/v1/namespaces/default/configs/provider.yaml \
+  -H 'Content-Type: application/json' \
+  -d '{"config":{"format":"CONFIG_FORMAT_YAML","content":"example:\n  greeting: Bonjour"}}'
 ```
 
-Read it like any Spring property:
+A bean in `@RefreshScope` sees the new value without a restart:
 
 ```kotlin
 @RestController
 @RefreshScope
-class GreetingController(@Value("\${greeting}") private val greeting: String) {
-    @GetMapping("/greeting")
-    fun greeting() = greeting
+class HelloController(@Value("\${example.greeting:Hello}") private val greeting: String) {
+    @GetMapping("/hello/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
+    fun hello(@PathVariable name: String): String = "$greeting, $name"
 }
 ```
 
-## 5. Run and verify
+## 5. Find it from another application
 
-Start the application, then:
+Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name, and call the provider by its service name:
 
-- `curl localhost:<port>/greeting` returns `Hello from CoSky`.
-- Edit the config in the dashboard: the next request returns the new value, without a restart.
-- **Service** in the dashboard lists `order-service` with one instance.
-- Other applications reach it through Spring Cloud LoadBalancer, e.g. `http://order-service/greeting` with a `@LoadBalanced` `WebClient` or OpenFeign.
+```kotlin
+@Bean
+@LoadBalanced
+fun webClientBuilder(): WebClient.Builder = WebClient.builder()
+
+// ...
+builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
+```
+
+## 6. Look around
+
+Open the [Dashboard](./dashboard.md) at <http://localhost:8080>. Instances show up under **Service**, with **Leased** next to them, and the topology on the first page shows who calls whom.
+
+```bash
+curl localhost:8080/v1/namespaces/default/views/topology
+```
+
+## See it run
+
+The repository holds this as a working example. `examples/README.md` walks through it:
+
+```bash
+./gradlew :server:run --args='--dev'
+```
+
+```bash
+./gradlew :examples:provider:run
+```
+
+```bash
+./gradlew :examples:consumer:run
+```
 
 ## Next steps
 
-- [Configuration](./configuration.md): formats, refresh, versions and rollback.
-- [Service Discovery](./service-discovery.md): metadata, status, expiry and load balancing.
-- [Deployment](./deployment.md): run the server in production.
-- The [examples](https://github.com/Ahoo-Wang/CoSky/tree/main/examples) contain a provider and a Feign consumer.
+- [Configuration](./configuration.md): formats, revisions, rollback and import.
+- [Service Discovery](./service-discovery.md): leases, weights and fixed instances.
+- [Deployment](./deployment.md) and [Security](./security.md): before real traffic.
 </doc>
 
 <doc title="Configuration" path="guide/configuration.md">
 # Configuration
 
-This guide is for application developers using the config starter, and for whoever manages configs in the dashboard. Setup is covered in [Getting Started](./getting-started.md).
+A **Config** is a named document in a namespace: a name, a format and its content, up to 1 MiB.
 
-## Which config an application loads
+| Field | Rules |
+|---|---|
+| Name | Letters, digits, `.`, `_`, `-` and `/`, up to 253 characters. `shared/datasource.yaml` is one name. |
+| Format | `YAML`, `JSON`, `PROPERTIES` or `TEXT`, declared with the Config. Only importing a zip file guesses it, from the file extension. |
+| Content | UTF-8. The server keeps its SHA-256, which you can compare and cannot set. |
 
-At startup the starter loads one config, identified by a **namespace** and a **config id**:
+## Loading into Spring
 
-| | Property | Default |
-|---|---|---|
-| Namespace | `spring.cloud.cosky.namespace` | `cosky-{default}` |
-| Config id | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.${file-extension}` |
-| Default extension | `spring.cloud.cosky.config.file-extension` | `yaml` |
+```yaml
+spring:
+  config:
+    import: "optional:cosky:order-service.yaml,cosky:shared/datasource.yaml"
+cosky:
+  endpoints: cosky.internal:9090
+  token: ${COSKY_TOKEN}
+  namespace: prod
+```
 
-These properties belong in `bootstrap.yaml`, and the application needs `spring-cloud-starter-bootstrap` (see [Getting Started](./getting-started.md#_2-add-the-dependencies)).
-
-- **Format** follows the extension of the config id: `.yaml` / `.yml`, `.properties` or `.xml`. A config id without an extension uses `file-extension`.
-- **Multi-document YAML** (`---`) is supported; a later document overrides an earlier one.
-- **Precedence**: properties from CoSky override `application.yaml` and other local sources, as with any Spring Cloud bootstrap property source.
-- **Missing config**: the application starts with a warning and no CoSky properties.
-- **Redis unreachable**: loading waits up to `spring.cloud.cosky.config.timeout` (2s).
-
-Several services can share settings by pointing `config-id` at the same config.
+- `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it.
+- YAML and JSON are parsed as YAML, and properties as properties. A TEXT Config becomes one property named after the Config.
+- `cosky.config.load-timeout` (5 seconds) limits how long an import waits for the server.
 
 ## Live refresh
 
-When a config changes, every application using it receives the change through Redis Pub/Sub, typically within milliseconds, and the starter publishes Spring Cloud's `RefreshEvent`. What updates depends on how a value is read:
+With `spring-cloud-context` on the classpath, a change to an imported Config publishes a Spring Cloud `RefreshEvent`, so beans in `@RefreshScope` and `@ConfigurationProperties` beans see it. This holds for a Config that did not exist at start as well. Turn it off with `cosky.config.refresh.enabled: false`.
 
-| How the value is read | Updated on change |
-|---|---|
-| `@ConfigurationProperties` beans | ✅ rebound |
-| `@Value` in a `@RefreshScope` bean | ✅ the bean is recreated on next use |
-| `@Value` in a regular singleton | ❌ keeps the startup value |
-| `Environment.getProperty(...)` | ✅ |
+The application compares against the revision it loaded, so a change made between loading and watching still counts.
 
-The refresh event is published only after the local cache holds the new value, so a refreshed bean never reads the previous version. If an application misses a message (for example during a Redis reconnection), its cache resyncs within 5 minutes.
+## Writing
 
-## Versions and rollback
-
-Every save that changes the content creates a new version; saving identical content does nothing. CoSky keeps the **latest 10 versions** of each config and can roll back to any of them; rolling back saves the old content as a new version, so it can be undone too. A removed config can also be rolled back.
-
-In the dashboard, **Config → History** lists versions with a diff against the current content. Through the API:
+Use the [Dashboard](./dashboard.md) or the [REST API](./rest-api.md). A write replaces the whole Config:
 
 ```bash
-GET  /v1/namespaces/{namespace}/configs/{configId}/versions             # list versions
-GET  /v1/namespaces/{namespace}/configs/{configId}/versions/{version}   # content of a version
-PUT  /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}   # roll back
+curl -X PUT localhost:8080/v1/namespaces/prod/configs/shared%2Fdatasource.yaml \
+  -H "Authorization: Bearer $COSKY_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'If-Match: "42"' \
+  -d '{"config":{"format":"CONFIG_FORMAT_YAML","content":"url: jdbc:mysql://db/orders"}}'
 ```
+
+| Header | Means |
+|---|---|
+| `If-Match: "42"` | Only if it is still at revision 42. Otherwise `409`, and nothing changes. |
+| `If-None-Match: *` | Only if it does not exist. |
+| Neither | Write regardless. |
+
+The Dashboard always sends the first two, so nobody overwrites a change they did not see. Writing the same content changes nothing: there is no new revision and no event.
+
+A `/` in a name is encoded as `%2F` in the path, because a name is one path segment.
+
+## History and rollback
+
+Each Config keeps its last 20 revisions, newest first:
+
+```bash
+curl localhost:8080/v1/namespaces/prod/configs/app.yaml/history
+```
+
+Rolling back writes the content of an earlier revision as a new one, so the history only grows:
+
+```bash
+curl -X POST localhost:8080/v1/namespaces/prod/configs/app.yaml:rollback \
+  -H 'Content-Type: application/json' -d '{"toRevision":"41"}'
+```
+
+A deleted Config keeps its history until it is created again or its namespace is deleted, and a rollback brings it back.
 
 ## Import and export
 
-- **Export** (`GET /v1/namespaces/{namespace}/configs/export`) downloads every config of a namespace as a zip, one file per config.
-- **Import** (`POST /v1/namespaces/{namespace}/configs`, multipart field `importZip`) creates a config per file. `policy=skip` (default) keeps existing configs, `policy=overwrite` replaces them.
-- **From Nacos**: a Nacos export zip imports as is. The `DEFAULT_GROUP/` prefix is dropped and other `/` become `-`.
-- **Limits**: 10 MiB per zip, 64 MiB once unzipped. Directories and hidden files are skipped.
+A zip file moves many Configs at once. Each entry path is a Config name, and its extension decides the format.
 
-## Turning it off
+```bash
+curl -o configs.zip localhost:8080/v1/namespaces/prod/configs:export
+```
 
-`spring.cloud.cosky.config.enabled=false` disables the config starter; `spring.cloud.cosky.enabled=false` disables CoSky entirely.
+```bash
+curl -X POST localhost:8080/v1/namespaces/staging/configs:import --data-binary @configs.zip
+```
 
-## See also
+An import overwrites Configs of the same name, and holds at most 10,000 entries.
 
-- [Configuration Properties](./properties.md) for every property.
-- [Using the SDK](./sdk.md#configuration) to read and watch configs without Spring.
-- [Architecture](./architecture.md#consistency-model) for how the cache stays consistent.
+## Keeping secrets
+
+Config content is not encrypted, on the server or in the [snapshots](./sdk.md#snapshots) clients keep on disk. Turn snapshots of Configs off with `cosky.snapshot.include-config: false`, and keep real secrets in a system made for them.
 </doc>
 
 <doc title="Service Discovery" path="guide/service-discovery.md">
 # Service Discovery
 
-This guide is for application developers using the discovery starter. Setup is covered in [Getting Started](./getting-started.md).
+An **Instance** is one running copy of a service: a service name, an endpoint, a weight and metadata. A service is simply the group of Instances that share a name.
 
-## Registration
+## Registering
 
-With the discovery starter on the classpath, an application registers itself once its web server has started, and deregisters on graceful shutdown. Its instance is described by:
+With the starter, an application registers once its web server is ready, and removes itself on shutdown.
 
-| Field | Property (`spring.cloud.cosky.discovery.registry.*`) | Default |
-|---|---|---|
-| Service id | `service-id` | `spring.application.name` |
-| Host | `host` | first non-loopback IP address |
-| Port | `port` | the web server port |
-| Scheme | `schema` | `http` |
-| Weight | `weight` | `1` |
-| Metadata | `metadata.<key>` | none |
-| Status | `initial-status` | `UP` (stored as metadata `instance_status`) |
-
-The instance id is `<serviceId>@<scheme>#<host>#<port>`, so an instance re-registering from the same address replaces itself.
-
-`spring.cloud.service-registry.auto-registration.enabled=false` keeps an application discoverable-only: it discovers others without registering.
-
-## Staying registered: ephemeral instances
-
-By default an instance is **ephemeral**: it lives for a TTL and must keep renewing it.
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-stateDiagram-v2
-    [*] --> Registered: register
-    Registered --> Registered: renew every 10s (TTL 60s)
-    Registered --> [*]: deregister on shutdown
-    Registered --> Expired: no renewal for 60s
-    Expired --> [*]: removed, "expired" event
-    Expired --> Registered: renewal finds it gone and registers again
+```yaml
+spring:
+  application:
+    name: order-service
+cosky:
+  registry:
+    enabled: true
+    weight: 1
+    metadata:
+      zone: az1
 ```
 
-- `renew.period` (10s) must stay well below `ttl` (60s), so that a few missed renewals do not expire a healthy instance.
-- An expired instance is removed and announced by any registered CoSky client in the namespace; no server needs to run.
-- If an instance expired anyway, for example during a network partition, its next renewal registers it again with the metadata set since it first registered.
-- Consumers never receive an instance whose TTL has passed, even before it is removed.
+- The service is `spring.application.name`, which must be a DNS-style name: lowercase letters, digits, `-` and `.`, up to 63 characters. `OrderService` is refused.
+- A separate management port is not registered.
+- `spring.cloud.service-registry.auto-registration.enabled: false` turns registering off.
 
-**Fixed instances** (`is-ephemeral: false`) never expire and are not renewed. Use them for endpoints that cannot run the client, such as a database proxy registered through the [REST API](./rest-api.md); remove them explicitly.
+## Leases
 
-Liveness is proven by renewing only: CoSky does not probe instances. A process that hangs but keeps its renewal thread alive stays registered; combine CoSky with health-aware routing or circuit breakers where that matters.
+A process holds one lease per namespace, however many instances it registers, and renews it every third of its TTL (30 seconds by default). When renewals stop, its instances go.
 
-## Discovering services
+| Event | What happens |
+|---|---|
+| Clean shutdown | The lease is revoked within 3 seconds, and the instances go at once. |
+| Crash | The lease expires, and the instances go a third of the TTL later: 40 seconds by default. |
+| Lease lost, such as after a Redis failover | The client notices, waits up to 5 seconds so that not everyone returns at once, and registers everything again. |
+| Client reconnects | It renews at once, without waiting for the next period. |
 
-Applications discover through Spring Cloud's standard APIs, backed by a local cache that change events keep current:
+Allowed TTLs are 5 to 300 seconds.
 
-```kotlin
-@Autowired lateinit var discoveryClient: DiscoveryClient          // or ReactiveDiscoveryClient
+## Finding services
 
-discoveryClient.services                                          // service ids in the namespace
-discoveryClient.getInstances("order-service")                     // live instances
+`DiscoveryClient` and `ReactiveDiscoveryClient` read the local view. The first read of a service waits up to `cosky.discovery.load-timeout` (5 seconds), so that "not known yet" is not mistaken for "empty". Afterwards, a read costs no network round trip.
+
+Add `spring-cloud-starter-loadbalancer`, and `@LoadBalanced` clients get their instances from CoSky, with Spring Cloud's own algorithms choosing among them.
+
+## Weights
+
+A weight of `0` keeps an instance registered but takes it out of rotation, which is how to drain one: load balancers leave it out, while `DiscoveryClient` still lists it. The Kotlin client's load balancer picks at random in proportion to weight. Spring Cloud LoadBalancer's default round robin treats every other weight alike.
+
+## Fixed instances
+
+An Instance without a lease stays until someone deletes it. Use this for something that cannot register itself, such as a database:
+
+```bash
+curl -X PUT localhost:8080/v1/namespaces/prod/instances/orders-db \
+  -H 'Content-Type: application/json' \
+  -d '{"instance":{"service":"orders-db","endpoint":{"scheme":"tcp","host":"10.0.0.5","port":3306}}}'
 ```
 
-With `spring-cloud-starter-loadbalancer`, `@LoadBalanced` `WebClient` / `RestClient` and OpenFeign resolve `http://order-service/...` through CoSky.
+The Dashboard marks each instance **Leased** or **Fixed**. Nothing checks whether a fixed instance is alive.
 
-Discovery is scoped to the application's namespace. Lookups are answered from memory; the first lookup of a service loads it from Redis and subscribes to its changes.
+## When things fail
 
-## Metadata and status
+CoSky favours keeping a stale instance over dropping a live one, and callers are expected to retry and use circuit breakers.
 
-Metadata is a string map attached to an instance, e.g. a zone or a version. Set it at registration with `registry.metadata.*`, edit it in the dashboard, or at runtime through the [SDK](./sdk.md#service-discovery).
+| Failure | What applications see |
+|---|---|
+| Server unreachable | Reads keep serving the last view, and the health indicator stays `UP` with `connection: DEGRADED`, because a restart would not help. |
+| Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
+| Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
+| More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |
+| Redis fails over and loses recent writes | Every replica notices the revision going backwards, and clients start over from a fresh snapshot. Writes that were lost stay lost. |
 
-Spring Cloud's `ServiceRegistry.setStatus` (for example through the `/actuator/serviceregistry` endpoint) stores the status as the `instance_status` metadata.
+These all have settings under [`cosky.lease`](./properties.md#server). A process that really crashed during such a pause stays listed for up to 5 minutes longer.
 
-Spring Cloud discovery returns only instances whose status is `UP`, or that have no status (such as fixed instances registered through the REST API). Setting an instance to `OUT_OF_SERVICE` therefore takes it out of rotation without deregistering it, and setting it back to `UP` returns it. Set `spring.cloud.cosky.discovery.filter-only-up-instances=false` to receive every instance.
+## Who calls whom
 
-## Load balancing and weights
-
-| Client | Algorithm | Uses weights |
-|---|---|---|
-| Spring Cloud LoadBalancer (default) | Round robin | ❌ |
-| Spring Cloud LoadBalancer with `spring.cloud.loadbalancer.configurations=weighted` | Weighted | ✅ |
-| CoSky `LoadBalancer` bean (`BinaryWeightRandomLoadBalancer`) | Weighted random | ✅ |
-
-CoSky exposes each instance's weight as the `weight` metadata of Spring Cloud instances, which is where Spring Cloud LoadBalancer's weighted configuration reads it. Code using the CoSky API directly can inject CoSky's `LoadBalancer` and call `choose(namespace, serviceId)`. The SDK also provides `RandomLoadBalancer` (ignores weights) and the `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` variants, which choose by weight like the default with different memory and lookup trade-offs.
-
-## Service topology
-
-Each application records itself as a consumer of the services it discovers, and the dashboard draws the resulting dependency graph. Turn it off with `spring.cloud.cosky.discovery.topology-enabled=false`. A discovered service from another namespace appears as `<namespace>.<serviceId>`.
-
-## See also
-
-- [Configuration Properties](./properties.md#service-discovery) for every property.
-- [Using the SDK](./sdk.md#service-discovery) to register and discover without Spring.
-- [Architecture](./architecture.md#service-discovery) for the data model and expiry mechanics.
+A client that watches a service counts as consuming it. The topology on the [Dashboard](./dashboard.md) and at `/views/topology` shows these edges, under the name in `spring.application.name`, or the signed-in subject without one. They expire 90 seconds after the last replica saw the watch, so a stopped consumer disappears by itself.
 </doc>
 
 <doc title="Using the SDK" path="guide/sdk.md">
 # Using the SDK
 
-The Spring Cloud starters wire everything for you. Use the SDK directly when you are not on Spring Cloud, or need finer control: managing configs from a tool, registering an instance on behalf of another process, or watching a config.
-
-All APIs are reactive (Project Reactor `Mono` / `Flux`) and take the namespace explicitly. Namespaces must not be blank or contain `:`; wrap them in a hash tag (e.g. `{dev}`) when Redis runs in cluster mode.
-
-## Dependencies
+`cosky-client` is a coroutine client with no dependency on Spring or Redis. The starter is built on it. It needs JDK 21 or later.
 
 ```kotlin
-dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
-    implementation("me.ahoo.cosky:cosky-config")     // configuration
-    implementation("me.ahoo.cosky:cosky-discovery")  // service discovery
-}
+implementation("me.ahoo.cosky:cosky-client:8.0.0")
 ```
 
-Both build on Spring Data Redis with Lettuce:
-
 ```kotlin
-val connectionFactory = LettuceConnectionFactory("localhost", 6379).apply { afterPropertiesSet() }
-val redisTemplate = ReactiveStringRedisTemplate(connectionFactory)
-// Shared by every cache that follows changes.
-val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
-```
-
-## Configuration
-
-`RedisConfigService` reads and writes Redis directly; `RedisConsistencyConfigService` adds the local cache kept current by change events, and is what applications should read through.
-
-```kotlin
-val redisConfigService = RedisConfigService(redisTemplate)
-val configService = RedisConsistencyConfigService(
-    delegate = redisConfigService,
-    configEventListenerContainer = RedisConfigEventListenerContainer(listenerContainer),
+val client = CoSkyClient(
+    CoSkyClientOptions(
+        endpoints = listOf("cosky-0.internal:9090", "cosky-1.internal:9090"),
+        token = System.getenv("COSKY_TOKEN"),
+        clientName = "order-service",
+    ),
 )
-
-configService.setConfig("{dev}", "order-service.yaml", "greeting: hello").block()
-configService.getConfig("{dev}", "order-service.yaml").block()?.data      // served from memory after the first read
-
-// The current snapshot, then one snapshot per change, after the cache is updated.
-configService.watchConfig("{dev}", "order-service.yaml")
-    .subscribe { snapshot -> println("v${snapshot.version}: ${snapshot.value?.data}") }
-
-configService.getConfigVersions("{dev}", "order-service.yaml").collectList().block()
-configService.rollback("{dev}", "order-service.yaml", targetVersion = 1).block()
-
-configService.close()   // stops listening when you are done
+val prod = client.namespace("prod")
 ```
 
-## Service discovery
-
-### Registering and renewing
+## Reading Configs
 
 ```kotlin
-val registry = RedisServiceRegistry(RegistryProperties(instanceTtl = Duration.ofSeconds(60)), redisTemplate)
-val renewal = RenewInstanceService(RenewProperties(period = Duration.ofSeconds(10)), registry)
+// Once, waiting for the first view.
+val config: Resource? = prod.configs.load("order-service.yaml")
 
-val instance = Instance.asInstance(serviceId = "order-service", schema = "http", host = "10.0.0.5", port = 8080)
-    .asServiceInstance(weight = 2, metadata = mapOf("zone" to "a"))
-
-registry.register("{dev}", instance).block()
-renewal.start()        // renews every registered ephemeral instance and reaps expired ones
-
-registry.setMetadata("{dev}", instance.serviceId, instance.instanceId, "zone", "b").block()   // one key
-registry.setMetadata("{dev}", instance.serviceId, instance.instanceId, mapOf("zone" to "b")).block() // replace all
-
-renewal.stop()
-registry.deregister("{dev}", instance).block()
+// Always current, from memory.
+val current: StateFlow<Resource?> = prod.configs.watch("order-service.yaml")
+current.collect { apply(it?.config?.content) }
 ```
 
-Register a fixed instance with `asServiceInstance(isEphemeral = false)`; it is never renewed nor expired.
-
-### Discovering
+## Finding instances
 
 ```kotlin
-val discovery = ConsistencyRedisServiceDiscovery(
-    delegate = RedisServiceDiscovery(redisTemplate),
-    serviceEventListenerContainer = RedisServiceEventListenerContainer(listenerContainer),
-    instanceEventListenerContainer = RedisInstanceEventListenerContainer(listenerContainer),
+val instances: StateFlow<List<Resource>> = prod.instances.watch("payment")
+val services: Set<String> = prod.instances.services()
+
+val balancer = prod.loadBalancer("payment")
+val chosen: Resource? = balancer.choose()
+```
+
+`choose()` picks at random in proportion to weight, allocates nothing and does not suspend. It returns `null` when no instance can be chosen.
+
+## Registering
+
+```kotlin
+val registration = prod.instances.register(
+    service = "order-service",
+    endpoint = endpoint {
+        scheme = "http"
+        host = "10.0.0.7"
+        port = 8080
+    },
+    metadata = mapOf("zone" to "az1"),
+    weight = 2,
 )
-
-discovery.getServices("{dev}").block()                       // List<String>
-discovery.getInstances("{dev}", "order-service").block()     // List<ServiceInstance>, expired ones excluded
-
-val loadBalancer = BinaryWeightRandomLoadBalancer(discovery)
-loadBalancer.choose("{dev}", "order-service").block()        // weighted random choice
-
-discovery.close()
+// ...
+registration.close()
 ```
 
-Each call returns an immutable snapshot; an unchanged snapshot is the same list instance, so caching derived data per snapshot is cheap.
+The client keeps the lease alive, and registers everything again if the lease is lost. Closing the last registration ends the lease.
 
-## See also
+## Closing
 
-- [Architecture](./architecture.md) for the data model, events and consistency guarantees.
-- The tests under `cosky-config` and `cosky-discovery` exercise every API against Redis.
+`client.close()` revokes its leases within 3 seconds. After that the server expires them.
+
+## Connection states
+
+`client.connectionState` is a `StateFlow`:
+
+| State | Means |
+|---|---|
+| `CONNECTING` | No server has answered yet. |
+| `SYNCED` | Following a server. |
+| `DEGRADED` | Not connected: serving what is known, from memory or a snapshot. |
+| `CLOSED` | Closed. |
+
+Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn.
+
+## Snapshots
+
+The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume.
+
+Snapshots are not encrypted. The directory is `0700` and the files `0600`. `snapshotIncludeConfig = false` keeps Config contents off the disk, and `snapshotDir = null` turns snapshots off.
+
+## TLS
+
+```kotlin
+CoSkyClientOptions(
+    endpoints = listOf("cosky.internal:9090"),
+    tls = true,
+    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem"), // for a private CA
+)
+```
+
+See [Security](./security.md#tls). For anything else, `channelFactory` builds the gRPC channel yourself.
+
+## Writing
+
+The client reads, registers and renews. To manage resources from code, use the generated gRPC stubs in `cosky-api`:
+
+```kotlin
+val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
+resources.put(putRequest { resource = /* ... */ })
+```
+
+## Java
+
+`cosky-client` exposes coroutines, which are awkward from Java. A Java facade is planned for 8.1. Until then, Java applications use the Spring Boot starter, which needs no Kotlin in your code.
+
+## Other languages
+
+Nothing in the client is privileged: everything goes through the public protocol. The protos are in `api/src/main/proto`, and `./gradlew :api:generateOpenApi` writes the OpenAPI document to `api/build/openapi/cosky.yaml`. A conforming client has to follow what the [design](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md) says about Watch positions and lease renewal, and `conformance-test` holds the suite the Kotlin client passes.
 </doc>
 
 <doc title="Deployment" path="guide/deployment.md">
 # Deployment
 
-This page is for operators running the **REST API server**, which serves the REST API and the dashboard. Applications using the starters do not need it: they only need Redis.
+The server is one image, `ahoowang/cosky` (also `ghcr.io/ahoo-wang/cosky`), holding the Dashboard too. Run at least two replicas: they share nothing but Redis, and clients move between them by themselves.
 
-The server is stateless; all state lives in Redis. Run as many instances as you need behind a load balancer, with the **same JWT secret** on each.
-
-## Before you start
-
-| Requirement | Why |
+| Port | Serves |
 |---|---|
-| Redis reachable from the server | All data lives there. See [Preparing Redis](#preparing-redis). |
-| A JWT secret (`COSKY_SECURITY_KEY`), random, ≥ 32 characters | The server refuses to start without one while security is enabled. Generate it with `openssl rand -base64 32`. |
-| Port 8080 | REST API and dashboard. |
+| `8080` | REST API, Dashboard, Actuator |
+| `9090` | gRPC, for applications |
+
+## Redis
+
+CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noeviction`. The server checks both at start and refuses to run otherwise, because an eviction would silently lose objects and Watch history. It works on a single node, Sentinel or a Cluster, and each namespace stays in one slot.
+
+Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
 
 ## Docker
 
-Images are published for `linux/amd64` and `linux/arm64` to `ahoowang/cosky`, `ghcr.io/ahoo-wang/cosky` and `registry.cn-shanghai.aliyuncs.com/ahoo/cosky`, tagged `6.2.0` and `6.2`.
-
 ```bash
-docker run -d --name cosky -p 8080:8080 \
-  -e SPRING_DATA_REDIS_URL=redis://redis.example.com:6379 \
-  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.2.0
+docker run -d --name cosky -p 8080:8080 -p 9090:9090 \
+  -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
+  -e COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)" \
+  ahoowang/cosky
 ```
 
-A Compose file starting Redis with persistence and CoSky:
+Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
 
-```yaml
-services:
-  redis:
-    image: redis:7
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-  cosky:
-    image: ahoowang/cosky:6.2.0
-    ports:
-      - "8080:8080"
-    environment:
-      SPRING_DATA_REDIS_URL: redis://redis:6379
-      COSKY_SECURITY_KEY: ${COSKY_SECURITY_KEY:?set COSKY_SECURITY_KEY to a random secret}
-    depends_on:
-      redis:
-        condition: service_healthy
-volumes:
-  redis-data:
-```
-
-The image runs as a non-root user and defines a health check on `/actuator/health`.
+Any [property](./properties.md) can be set as an environment variable or an argument. `--dev` runs in memory without sign-in, for trying things out only.
 
 ## Kubernetes
 
-The repository provides manifests in [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/main/k8s/deployment): `cosky.yml` for a standalone Redis, `cosky-cluster.yml` for Redis Cluster, and `cosky-service.yaml` exposing port 80.
+The repository holds [Kustomize](https://kustomize.io) manifests: a Deployment of three replicas, a Service and a PodDisruptionBudget.
 
 ```bash
-kubectl create secret generic cosky-secret --from-literal=security-key="$(openssl rand -base64 32)"
-kubectl create secret generic redis-secret \
-  --from-literal=host=redis.default.svc --from-literal=password='<redis password>'
-# for Redis Cluster: --from-literal=nodes=node1:6379,node2:6379,node3:6379 instead of host
-kubectl apply -f k8s/deployment/cosky.yml -f k8s/deployment/cosky-service.yaml
+kubectl create secret generic cosky-redis --from-literal=uri=redis://redis:6379
 ```
-
-- Startup, readiness and liveness probes use `/actuator/health`, `/actuator/health/readiness` and `/actuator/health/liveness`.
-- Requests are 250m CPU / 1 GiB memory, limits 1 CPU / 1.25 GiB; the JVM heap is fixed at 512 MiB (see [JVM options](#jvm-options)).
-- The pod is annotated for the OpenTelemetry Operator's Java auto-instrumentation; remove the annotation if you do not run the operator.
-
-## Standalone distribution
-
-Build the distribution from source (JDK 17+, and Node.js 22.12+ with pnpm for the dashboard):
 
 ```bash
-cd dashboard && pnpm install && pnpm build && cd ..   # without this, the server has no web UI
-./gradlew :cosky-rest-api:distTar
-tar -xvf cosky-rest-api/build/distributions/cosky-rest-api-6.2.0.tar
-cd cosky-rest-api-6.2.0
-COSKY_SECURITY_KEY="$(openssl rand -base64 32)" bin/cosky-rest-api \
-  --spring.data.redis.url=redis://localhost:6379
+kubectl create secret generic cosky-auth --from-literal=bootstrap-token="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
 ```
 
-| Path | Content |
+```bash
+kubectl apply -k k8s/base
+```
+
+For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overlay of a few lines can set the namespace, the image tag or the resources: that one shows the shape.
+
+Probes use `/actuator/health/liveness` and `/actuator/health/readiness`. A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
+
+## Rolling updates
+
+On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does.
+
+## The Dashboard on its own
+
+The image serves the Dashboard at `/`. To host it elsewhere, put it behind a reverse proxy that also forwards `/v1` to the server: the page expects the API on its own origin, and the server has no CORS.
+
+## Observability
+
+Metrics are at `/actuator/prometheus`:
+
+| Metric | Watch for |
 |---|---|
-| `bin/cosky-rest-api` | Start script; extra JVM options go in `JAVA_OPTS` |
-| `config/application.yaml`, `config/bootstrap.yaml` | Configuration, read instead of the defaults bundled in the jar |
-| `ui/` | Dashboard |
-| `logs/` | Application log (`cosky-rest-api.log`) and GC logs |
-| `data/` | Heap dumps on `OutOfMemoryError` |
+| `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
+| `cosky_store_apply_seconds` | Write latency |
+| `cosky_watch_active` | Watches on this replica |
+| `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
+| `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
+| `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
+| `cosky_revision_regression_total` | Redis lost writes |
+| `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
+| `cosky_auth_failures_total{reason}` | Failed sign-ins |
 
-Run the script from the distribution directory: it resolves `config/`, `logs/` and `data/` relative to the working directory.
+**Traces** cover gRPC and HTTP at a 10% sample. To export them, set `management.opentelemetry.tracing.export.otlp.endpoint`, such as `http://collector:4318/v1/traces`.
 
-### JVM options
+**Audit**: every write and every authentication failure is one JSON line in the log. Collect those with the rest of your logs. See [Security](./security.md#audit).
 
-The start script (and the Docker image) runs with a fixed 512 MiB heap, ZGC, GC logging to `logs/` and heap dumps to `data/`. Add options through `JAVA_OPTS`, for example a larger heap (`-Xmx1g`), or remote JMX with authentication and TLS when you need it.
+## Sizing
 
-## Configuring the server
-
-Any property can be set as an environment variable (`SPRING_DATA_REDIS_URL`), a command-line argument (`--spring.data.redis.url=…`) or in `config/application.yaml`. The ones operators usually set:
-
-| Environment variable | Default | Purpose |
-|---|---|---|
-| `SPRING_DATA_REDIS_URL` | `redis://localhost:6379` | Redis connection; or `SPRING_DATA_REDIS_HOST`, `_PORT`, `_PASSWORD` |
-| `SPRING_DATA_REDIS_CLUSTER_NODES` | — | Redis Cluster nodes, comma-separated |
-| `COSKY_SECURITY_KEY` | — (required) | JWT signing secret |
-| `COSKY_SUPER_INIT` | `false` | `true` resets the super user's password at every start; set it once to recover access, then remove it |
-| `COSKY_NAMESPACE` | `cosky-{system}` | Namespace of the server's own config and registration |
-| `COSKY_AUTO_REGISTRY` | `true` | Register the server itself as service `cosky-rest-api` |
-| `SERVER_PORT` | `8080` | HTTP port |
-
-The full list is in [Configuration Properties](./properties.md#rest-api-server).
-
-### First start
-
-On first start the server creates the super user `cosky` with a random password and prints it to the log:
-
-```bash
-docker logs cosky | grep "init super user"        # or: grep "init super user" logs/cosky-rest-api.log
-```
-
-Sign in at `http://<server>:8080`, then create users and roles: see [Security](./security.md).
-
-## Preparing Redis
-
-| Concern | Recommendation |
-|---|---|
-| Version and mode | Any maintained Redis release, standalone, Sentinel or Cluster. No modules or Redis Functions are needed. |
-| Persistence | Enable AOF (`appendonly yes`) or RDB snapshots: configs, users and roles exist only in Redis. Instances are re-registered by their renewals after a restart. |
-| Eviction | Use `maxmemory-policy noeviction`, or keep CoSky in a Redis without `maxmemory`: an evicted key is a lost config or instance. |
-| Cluster | Every key of a namespace carries the namespace's hash tag (the starters add `{…}` automatically), so a namespace lives in one slot and Lua scripts stay valid. |
-| Security | Require a password (`requirepass` or ACLs) and keep Redis on a private network; anyone who can write to it can change configs and registrations. |
-
-## Upgrading
-
-Upgrade servers one at a time; the key schema is shared across versions. Read [Upgrading to 6.0](./upgrade-6.md) when coming from 5.x.
+[Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so give the container what the heap should be, plus a quarter.
 </doc>
 
 <doc title="Security" path="guide/security.md">
 # Security
 
-This page is for administrators of the REST API server. Security covers the server's API and dashboard; applications using the starters access Redis directly, so protect Redis itself (see [Deployment](./deployment.md#preparing-redis)).
+Every call goes through the server and is checked there, including what applications do. Nothing but the server touches Redis, so protect Redis and its credentials as you would the data itself.
 
-## Model
+## Who is calling
 
-| Concept | Meaning |
-|---|---|
-| **Super user** `cosky` | Created on first start; can do everything and can be neither locked nor removed. |
-| **User** | Signs in with a password (stored as a BCrypt hash, at most 72 bytes) and holds roles. |
-| **Role** | Grants `r` (read), `w` (write) or `rw` (both) on namespaces. The built-in `admin` role grants everything, including user and role management. |
-| **Policy** | Rules evaluated before roles: public endpoints, what any signed-in user may do, and the `admin` / super user grants. |
-
-A request is allowed when the policy allows it; otherwise when one of the user's roles grants the action on the namespace in the request path (`GET`, `HEAD`, `OPTIONS`, `TRACE` need `r` or `rw`; `POST`, `PUT`, `PATCH`, `DELETE` need `w` or `rw`).
-
-Signed-in users without roles can only list the namespaces their roles grant (`GET /v1/namespaces`, so an empty list) and read the server's own namespace name.
-
-## Common tasks
-
-All of these are available in the dashboard (**User**, **Role**) and through the [REST API](./rest-api.md#users-roles-and-audit).
-
-**Give a team read access to a namespace**
-
-1. Create a role, e.g. `payments-read`, with `{prod}` → `r`.
-2. Create the users and bind them to the role.
-
-A user bound to several roles gets the union of their grants. A removed role grants nothing but stays bound to its users until they are rebound.
-
-**Make someone an administrator**: bind the `admin` role.
-
-**Lock a user out**: lock the user; sign-in and token refresh are rejected until the user is unlocked.
-
-**Recover the super user**: start the server once with `COSKY_SUPER_INIT=true` (`cosky.security.enforce-init-super-user`), read the new password from the log, then remove the variable; while it is set, the password is reset at every start.
-
-## Tokens
-
-Signing in returns a JWT access token (valid 15 minutes) and a refresh token (valid 3 hours), signed with `cosky.security.key`. Clients send `Authorization: Bearer <access token>` and exchange the refresh token for a new pair before it expires.
-
-| Setting | Default |
-|---|---|
-| `cosky.security.key` (`COSKY_SECURITY_KEY`) | none: the server refuses to start without it |
-| `cosec.jwt.token-validity.access` | `15m` |
-| `cosec.jwt.token-validity.refresh` | `3H` |
-
-Changing the key invalidates every issued token, which signs everybody out. Use the same key on every server instance.
-
-## Failed sign-ins
-
-After 10 failed attempts a user is locked out, and the lock lifts 15 minutes after the last attempt. The user list shows who is locked; an administrator can unlock earlier.
-
-## Customizing the policy
-
-The bundled policy allows without sign-in: `OPTIONS` requests, the dashboard's static files, Swagger UI, `/actuator/health`, and sign-in / token refresh. It allows any signed-in user to call `GET /v1/namespaces` and `GET /v1/namespaces/current`, and grants everything to the `admin` role and to `cosky`.
-
-To change it, save a [CoSec policy](https://github.com/Ahoo-Wang/CoSec) as the config `cosky-policy.json` in the `cosky-{system}` namespace, starting from the [bundled one](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/cosky-policy.json). Every server instance applies it as soon as it is saved; a policy that does not parse is rejected with an error in the log and the previous one stays in force.
-
-## Audit log
-
-The server records each request it handles: operator, IP, path, method, status, error message and time. By default only write operations are recorded.
-
-| Setting | Default | Values |
+| Subject | Signs in with | For |
 |---|---|---|
-| `cosky.security.audit-log.action` | `write` | `read`, `write`, `rw` |
-| `cosky.security.audit-log.max-size` | `100000` | newest entries kept |
+| `SERVICE_ACCOUNT` | A token, `cosky_<id>_<secret>` | Programs, and people without OIDC |
+| `USER` and `GROUP` | An OIDC ID token | People |
 
-The dashboard's **Audit Log** filters by text, time range and outcome, and exports CSV.
+A token goes in `Authorization: Bearer`, over gRPC and HTTP alike. The server keeps only its SHA-256, and shows the plaintext once, when creating it.
 
-## Turning security off
+An account holds at most two tokens, which allows rotating without a gap: create the second, move the programs over, revoke the first. Revoking takes effect at once, including on open streams.
 
-`cosky.security.enabled=false` disables authentication and authorization altogether. Only do this when the server is reachable exclusively by trusted clients.
+### The first token
+
+On its first start, a server without any role binding turns `COSKY_BOOTSTRAP_TOKEN` into the `admin` ServiceAccount, with the `admin` role in every namespace. Use it to create real accounts, then revoke it.
+
+```bash
+export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
+```
+
+### OIDC
+
+```yaml
+cosky:
+  auth:
+    oidc:
+      issuer: https://idp.example.com/realms/main
+      client-id: cosky-dashboard
+      scopes: [openid, profile, groups]   # some providers send groups only when asked
+```
+
+The server checks signature, issuer, audience and expiry against the provider's keys. `sub` becomes the `USER` name, and the `groups` claim (see `groups-claim`) the `GROUP` names. The token's audience must be `audience`, or the client when that is not set.
+
+The Dashboard signs in through the authorization code flow with PKCE, so register `cosky-dashboard` as a public client, with the Dashboard's address as its redirect URI. The provider must allow that origin to call its token endpoint. `GET /v1/auth/config` gives the page these public values before anyone has signed in, and holds nothing else.
+
+## Who may do what
+
+A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces.
+
+```json
+{
+  "role": {
+    "description": "Runs the order service",
+    "rules": [
+      {"kinds": ["KIND_INSTANCE"], "namespaces": ["*"], "verbs": ["VERB_PUT", "VERB_DELETE"], "names": ["order"]},
+      {"kinds": ["KIND_INSTANCE"], "namespaces": ["*"], "verbs": ["VERB_GET", "VERB_WATCH"]},
+      {"kinds": ["KIND_CONFIG"], "namespaces": ["*"], "verbs": ["VERB_GET", "VERB_WATCH"], "names": ["order-service.yaml", "shared/*"]}
+    ]
+  }
+}
+```
+
+```json
+{
+  "roleBinding": {
+    "role": "order-service",
+    "subjects": [{"type": "TYPE_SERVICE_ACCOUNT", "name": "order"}],
+    "namespaces": ["prod"]
+  }
+}
+```
+
+- A call is allowed when any rule of any bound role matches it. A rule applies only where its own namespaces and the binding's overlap.
+- `names` left empty matches everything. Otherwise it holds exact values, or prefixes ending in `*`, matched against the Config name, the Instance's **service**, or the object name.
+- Global kinds (Namespace, ServiceAccount, Role, RoleBinding) live in the namespace `_system`.
+- `GET` includes lists, and only what the rule allows shows up in them.
+- A lease belongs to whoever took it, so one account cannot attach its instances to another's lease.
+- A change to a role reaches open Watch streams: one that lost permission is canceled.
+
+`GET /v1/me` shows who the server thinks you are, and your effective rules.
+
+With `cosky.auth.enabled: false` everyone may do everything. It is for development only.
+
+## TLS
+
+Without TLS, tokens cross the network in the clear, so turn it on in production. The server uses Spring's SSL bundles:
+
+```yaml
+spring:
+  ssl:
+    bundle:
+      jks:
+        cosky:
+          keystore:
+            location: file:/etc/cosky/server.p12
+            password: ${KEYSTORE_PASSWORD}
+            type: PKCS12
+  grpc:
+    server:
+      ssl:
+        bundle: cosky
+server:
+  ssl:
+    bundle: cosky
+```
+
+And clients:
+
+```yaml
+cosky:
+  tls:
+    enabled: true
+    trusted-certificates: /etc/cosky/ca.pem   # for a private CA; otherwise the JVM's trust store decides
+```
+
+Mutual TLS is not supported yet: a client proves who it is with its token.
+
+## Audit
+
+Each write and each failed sign-in is one JSON line in the log, with the time, subject, verb, kind, namespace, name, revision, outcome and remote address. Config contents and tokens never appear. The server keeps no audit data of its own: collect the lines with your log system, which also decides how long they stay.
+
+## What is not protected
+
+- Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
+- Anyone who can reach Redis can read and change everything, past all of the above.
+- Instance metadata is visible to anyone allowed to read the instance.
 </doc>
 
 <doc title="Dashboard" path="guide/dashboard.md">
 # Dashboard
 
-The REST API server serves a web dashboard at `http://<server>:8080`. Sign in with a CoSky user (see [Security](./security.md)); each page works on the namespace selected at the top, and only shows what your roles grant.
+The server hosts the Dashboard at `/`, on port 8080. It uses only the public [REST API](./rest-api.md), so it can do nothing you could not do with `curl`, and your [roles](./security.md#who-may-do-what) apply to it. A refused action shows the server's reason.
 
-| Page | What you do there |
+![Dashboard](/dashboard-dashboard.png)
+
+## Signing in
+
+Paste a ServiceAccount token, or use the OIDC button when the server [offers one](./security.md#oidc). The token stays in that browser tab, and goes when the tab closes. A server with `cosky.auth.enabled: false` asks for nothing.
+
+## Pages
+
+The namespace selector in the header decides what every page shows.
+
+| Page | What it does |
 |---|---|
-| **Home** | Counts of namespaces, configs, services and instances, and the service topology |
-| **Config** | Create, edit and remove configs; browse the history with diffs and roll back; import and export zips |
-| **Service** | Browse services and instances, register fixed instances, edit metadata, deregister |
-| **Namespace** | Add and remove namespaces |
-| **User** | Create users, bind roles, lock, unlock, change passwords |
-| **Role** | Define roles and the namespaces they grant |
-| **Audit Log** | Search who did what, filter by time and outcome, export CSV |
+| **Dashboard** | Counts of services, instances, Configs and namespaces, and the topology of who watches whom |
+| **Configuration** | Create, edit, delete, import and export Configs; compare any revision with the current one, and roll back |
+| **Service** | Services and their instances, leased or fixed; add, edit and delete instances |
+| **Namespace** | Create and delete namespaces. Only an empty one can be deleted, and not the one selected. |
+| **Service Account** | Accounts and their tokens. A new token shows once, so copy it then. |
+| **Role** and **Role Binding** | Who may do what, and where |
 
-![Home](/dashboard-dashboard.png)
+![Configuration](/dashboard-config.png)
 
-## Configs
+## Staying current
 
-![Configs](/dashboard-config.png)
+The Configuration and Service pages follow changes as they happen, over a server-sent event stream, without a reload. A stream that breaks or goes silent is opened again. The first page reads its counts every 30 seconds, so that it does not hold a connection of its own: browsers allow few per server over HTTP/1.1.
 
-Saving a config creates a new version that every application using it receives within milliseconds. The history compares any version with the current one and rolls back to it; see [Configuration](./configuration.md#versions-and-rollback).
+## Editing safely
 
-![Rollback](/dashboard-config-rollback.png)
-
-## Services
-
-![Services](/dashboard-service.png)
-
-Instances registered by applications appear and disappear on their own. Fixed instances added here stay until removed; see [Service Discovery](./service-discovery.md).
-
-![Topology](/dashboard-topology.png)
-
-## Users, roles and audit
-
-![Roles](/dashboard-role.png)
-
-![Audit log](/dashboard-audit-log.png)
-
-## Developing the dashboard
-
-The dashboard is a React application in [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/main/dashboard); its README describes the development server, tests and the API client generation.
+An edit remembers the revision it started from. If someone changed the object in the meantime, saving fails with the server's reason and changes nothing, so reload and try again.
 </doc>
 
-<doc title="Upgrading to 6.0" path="guide/upgrade-6.md">
-# Upgrading to 6.0
+<doc title="Moving from 6.x" path="guide/upgrade-8.md">
+# Moving from 6.x
 
-CoSky 6.0 rebuilds the consistency layer, hardens security and bounds the data kept in Redis. The Redis key schema is unchanged, so 5.x and 6.0 clients can share a namespace during a rolling upgrade.
+CoSky 8.0 is a new system, and nothing from 6.x carries over by itself. Applications on 6.x talk to Redis directly, and applications on 8.0 talk to the server, so **neither generation can see the other's instances**. There is no bridge: applications move together, in one cutover.
 
-## Recommended order
+If some services must call each other across generations during a move, run the two installations side by side and switch traffic between whole environments.
 
-1. **Upgrade the REST API servers** — set a JWT secret first (see below), then roll out 6.0.
-2. **Grant namespace roles** to users who are not admins, and update a stored policy if you have one.
-3. **Upgrade the applications** using the starters or the SDK, fixing the API changes below.
-4. **Once every client runs 6.0**, optionally enable `renew-event-carries-ttl-at`.
+## What changes
 
-## REST API server
+| | 6.x | 8.0 |
+|---|---|---|
+| Applications reach | Redis, directly | The server, over gRPC |
+| Authentication of applications | None | A token on every call |
+| Starters | `cosky-spring-cloud-starter-config`, `cosky-spring-cloud-starter-discovery` | `cosky-spring-boot-starter` |
+| Loading configuration | `bootstrap.yaml` | `spring.config.import` |
+| Settings | `spring.cloud.cosky.*`, `spring.data.redis.*` | `cosky.*` |
+| Namespaces | Any name, often `{dev}` or `cosky-{default}` | DNS labels, such as `dev` or `default` |
+| Service names | Anything | DNS-style names, lowercase |
+| Config formats | Guessed from the extension | Declared with the Config |
+| Staying alive | Each instance's own TTL | One lease per process |
+| People | Users with passwords | OIDC, or ServiceAccount tokens |
+| Permissions | Read or write per namespace | Roles down to kinds, verbs and name prefixes |
+| Audit | A page in the Dashboard | JSON lines in the log |
+| Redis | Any version | 7.0 or later, `noeviction` |
+| JDK | 17 | 21 for clients, 25 for the server |
 
-### A JWT secret is required
+## What moves
 
-With security enabled (the default), the server refuses to start unless `cosky.security.key` is set. Tokens used to be signed with a secret published in the repository.
+| | How |
+|---|---|
+| Configs, with their history if you like | `cosky-migrate` |
+| Instances that register themselves | They do so on 8.0 when they switch |
+| Fixed instances | By hand, from the report |
+| Users and roles | By hand, from the report |
+| Audit log and topology | They do not. The audit log stays in 6.x's Redis, and topology rebuilds itself. |
+
+Revisions and timestamps start anew. A Config removed in 6.x has no current version, and does not arrive.
+
+## Building the tool
 
 ```bash
-export COSKY_SECURITY_KEY="$(openssl rand -base64 32)"
+./gradlew :migration:installDist
 ```
 
-Use the same secret on every server instance. Changing it invalidates all issued tokens. The Docker, Kubernetes and standalone examples in this wiki already pass `COSKY_SECURITY_KEY`.
+The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`, and needs JDK 21 or later.
 
-### Users need roles to read namespaces
+## The cutover
 
-The default policy used to let every authenticated user read every namespace. It now only grants `GET /v1/namespaces` (which lists the namespaces the user's roles cover) and `GET /v1/namespaces/current`; everything else needs a role. Give each non-admin user a role with read (`r`) or read-write (`rw`) access to the namespaces they work with — see [Security](./security.md).
+**1. Start 8.0.** It may share the Redis of 6.x if that Redis meets the [requirements](./requirements.md): their keys do not overlap.
 
-If you stored your own policy (config `cosky-policy.json` in the `cosky-{system}` namespace), it overrides the bundled one: replace the `namespace` statement's pattern `/v1/namespaces/**` with `["/v1/namespaces", "/v1/namespaces/current"]`.
+**2. Rehearse while 6.x still runs.** This reads both sides, writes nothing, and writes a report:
 
-### Other server changes
+```bash
+export COSKY_TOKEN=<bootstrap token>
+cosky-migrate --source redis://6x-redis:6379 --target http://cosky:8080 --dry-run
+```
 
-| Change | What to do |
-|---|---|
-| Passwords are hashed with BCrypt | Nothing: existing hashes keep working and are upgraded on each user's next login. New passwords are limited to 72 bytes. |
-| `PUT /v1/namespaces/current/{namespace}` removed | It switched the namespace of the whole server for every user. Pass the namespace in each request path instead. |
-| Config history keeps the latest 10 versions | Older versions are trimmed on the next change of each config. |
-| The audit log keeps the newest 100,000 entries | Tune with `cosky.security.audit-log.max-size`. |
-| Config imports are limited | Zip files up to 10 MiB, 64 MiB once unzipped. |
+Read `cosky-migration-report.md`:
 
-## Applications (starters and SDK)
+- **Service names to change.** `OrderService` cannot register on 8.0, so change `spring.application.name`.
+- **Namespaces 8.0 cannot name.** `cosky-{default}` goes to `default` and `{dev}` to `dev`, while anything else illegal stops the run. Name it with `--namespace 'Old_Name=new-name'`, or leave it out with `--namespace 'Old_Name='`. A namespace 6.x never listed must be named this way too.
+- **Configs 8.0 refuses**, such as a name holding `:` or content over 1 MiB.
 
-### Configuration
+**3. Rebuild people and permissions.** The report lists every 6.x role with the 8.0 rule each grant corresponds to, and every user with their roles. Create those roles and bindings, and a ServiceAccount with a token for each application. An application without a token cannot do anything on a server with auth on.
 
-- `spring.cloud.cosky.enabled=false` now disables discovery and registration too.
-- New: `spring.cloud.cosky.discovery.topology-enabled` (default `true`) controls whether the application records itself as a consumer of the services it discovers.
-- `spring.cloud.cosky.discovery.registry.is-ephemeral` still binds.
+**4. Prepare the applications.** Replace the starters, move `bootstrap.yaml` into `application.yaml`, and set the token. On Spring Boot 4.1, also set `spring.cloud.compatibility-verifier.enabled: false` until Spring Cloud 2026.0:
 
-### API changes
+```yaml
+spring:
+  application:
+    name: order-service
+  config:
+    import: "cosky:order-service.yaml"
+cosky:
+  endpoints: cosky.internal:9090
+  token: ${COSKY_TOKEN}
+  namespace: prod
+```
 
-These only affect code that uses the CoSky classes directly, not applications that use Spring Cloud's `DiscoveryClient` or `@Value`/`@ConfigurationProperties`.
+**5. Stop writing Configs to 6.x, and import.**
 
-| 5.x | 6.0 |
-|---|---|
-| `ServiceDiscovery.getServices(namespace)` / `getInstances(namespace, serviceId)` return `Flux` | They return `Mono<List<…>>` snapshots. An unchanged snapshot is the same list instance. |
-| Overloads without a namespace, `NamespacedContext`, `ServiceInstanceContext` | Removed: pass the namespace explicitly. A namespace must not be blank or contain `:`. |
-| `EventListenerContainer` is `AutoCloseable` with `receive(topic)` | `listen(topic)` emits the event stream once the subscription is active; `receive(topic)` remains. |
-| Load balancers take a `ServiceDiscovery` and an `InstanceEventListenerContainer` | They take only the `ServiceDiscovery`, e.g. `RandomLoadBalancer(serviceDiscovery)`. |
-| Reset hooks on the consistency services | Removed: watch changes with `ConfigWatcher.watchConfig(namespace, configId)`. |
-| `RedisServiceTopology(redisTemplate)` | `RedisServiceTopology(redisTemplate, consumer)`, where `consumer` is the local `NamespacedServiceId`. |
-| `ServiceRegistry.setMetadata(…, key, value)` replaced all metadata | It now sets that key only; `setMetadata(…, map)` still replaces all metadata. |
-| `ServiceInstance` equality compares the address (instance id, schema, host, port) | Equality is structural: weight, ephemeral, ttlAt and metadata count too. |
+```bash
+cosky-migrate --source redis://6x-redis:6379 --target http://cosky:8080 --history
+```
 
-## Mixed versions
+Exit code `0` means everything arrived, `1` that some Configs need attention, and `2` that it could not run or stopped early. Running it again continues an interrupted run, and changes nothing else.
 
-- Instances registered by 5.x clients keep being cleaned up when they expire. 6.0 clients also index ephemeral instances by expiry, so `expired` events no longer depend on the REST API server.
-- `spring.cloud.cosky.discovery.registry.renew-event-carries-ttl-at` (default `false`) publishes renew events with the new expiry time, which saves every subscriber a Redis read per renewal. 5.x clients reject that payload: enable it only after all clients run 6.0.
+**6. Switch.** Deploy the applications on 8.0 and stop 6.x. Then create the fixed instances from the report: nothing renews them, so nothing registers them again.
+
+## What the tool will not do
+
+- **Overwrite an edit.** A Config whose content on 8.0 matches no version left in 6.x was edited there, so it stays and is reported. To import it anyway, delete it on 8.0 first.
+- **Touch 6.x.** It only reads, and never reads a password hash.
+- **Copy secrets into the report.** It holds names, addresses and permissions, never the content of a Config or a metadata value.
+
+For a Redis password, use `COSKY_SOURCE_URI` rather than `--source`, where `ps` cannot see it. Run `cosky-migrate --help` for everything else.
+
+## Going back
+
+Until you stop 6.x, going back is deploying the applications on 6.x again. Nothing writes to its keys, but Configs edited on 8.0 after the switch stay on 8.0.
 </doc>
 
 <doc title="Configuration Properties" path="guide/properties.md">
 # Configuration Properties
 
-Durations accept Spring Boot's formats (`10s`, `1m`, `PT10S`). Properties that control which config to load must be set in `bootstrap.yaml`.
+## Server
 
-## Common
+Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
 
-| Property | Default | Description |
+### Store
+
+| Property | Default | Meaning |
 |---|---|---|
-| `spring.cloud.cosky.enabled` | `true` | Enables CoSky (configuration and discovery). |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace of the application's config and registration. A value without `{…}` is wrapped in a hash tag: `dev` becomes `{dev}`. |
-| `spring.data.redis.*` | Spring Boot defaults | Redis connection (`url`, `host`, `port`, `password`, `cluster.nodes`, …), shared with the application. |
+| `cosky.store.type` | `redis` | `redis`, or `memory` for development: nothing survives the process |
+| `cosky.store.redis.uri` | `redis://localhost:6379` | Also takes Sentinel URIs |
+| `cosky.store.redis.cluster` | `false` | The URI is a seed of a Redis Cluster |
+| `cosky.store.redis.tail-poll-interval` | `1s` | How often each namespace is read when no hint arrives |
 
-## Configuration
+### Authentication
 
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `spring.cloud.cosky.config.enabled` | `true` | Enables the config starter. |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.${file-extension}` | Config to load. |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Format of a config id without extension: `yaml`, `yml`, `properties` or `xml`. |
-| `spring.cloud.cosky.config.timeout` | `2s` | Maximum wait for the config at startup. |
+| `cosky.auth.enabled` | `true` | Off, everyone may do everything. Only for development. |
+| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | Becomes the `admin` ServiceAccount on the first start |
+| `cosky.auth.oidc.issuer` | — | Turns OIDC on, together with `client-id` |
+| `cosky.auth.oidc.client-id` | — | The Dashboard's client |
+| `cosky.auth.oidc.audience` | The client | What a token must be for |
+| `cosky.auth.oidc.groups-claim` | `groups` | The claim holding group names |
+| `cosky.auth.oidc.scopes` | `openid, profile` | What the Dashboard asks for. Some providers send groups only when asked. |
 
-## Service discovery
+### Watch and reads
 
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `spring.cloud.cosky.discovery.enabled` | `true` | Enables discovery and registration. |
-| `spring.cloud.cosky.discovery.order` | `0` | Order of CoSky's `DiscoveryClient` among several. |
-| `spring.cloud.cosky.discovery.timeout` | `2s` | Maximum wait of a blocking `DiscoveryClient` call. |
-| `spring.cloud.cosky.discovery.topology-enabled` | `true` | Records the application as a consumer of the services it discovers. |
-| `spring.cloud.cosky.discovery.filter-only-up-instances` | `true` | Returns only instances whose `instance_status` is `UP` or absent. |
-| `spring.cloud.service-registry.auto-registration.enabled` | `true` | Registers the application at startup (Spring Cloud). |
+| `cosky.watch.window` | `10000` | Events kept for resuming, and in the store's log. Should be at least the peak event rate times the longest reconnection gap. |
+| `cosky.watch.progress-interval` | `10s` | Bookmarks sent on idle watches |
+| `cosky.watch.max-per-stream` | `1000` | Watches on one stream |
+| `cosky.watch.anti-entropy-interval` | `5m` | How often a replica compares its view with the store |
+| `cosky.read.min-revision-timeout` | `3s` | How long a read or a resume waits for a replica to catch up |
+| `cosky.view.topology-flush-interval` | `30s` | How often a replica records who watches whom. Edges expire after three times this. |
 
-### Registration
+### Leases
 
-Prefix: `spring.cloud.cosky.discovery.registry`.
-
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `service-id` | `spring.application.name` | Service the instance belongs to. |
-| `host` | first non-loopback IP | Address other services call. |
-| `port` | web server port | Port other services call. |
-| `schema` | `http` | URI scheme. |
-| `weight` | `1` | Relative weight, used by CoSky's load balancers and Spring Cloud LoadBalancer's weighted configuration. |
-| `is-ephemeral` | `true` | `true`: expires unless renewed. `false`: fixed, never expires. |
-| `ttl` | `60s` | Lifetime of an ephemeral instance without renewal. |
-| `renew.initial-delay` | `1s` | Delay before the first renewal. |
-| `renew.period` | `10s` | Renewal interval; keep it well below `ttl`. |
-| `metadata.<key>` | — | Metadata registered with the instance. |
-| `initial-status` | `UP` | Value of the `instance_status` metadata at registration. |
-| `timeout` | `2s` | Maximum wait for registration, deregistration and status changes. |
-| `renew-event-carries-ttl-at` | `false` | Publishes renewals with the new expiry time, saving consumers a Redis read. Enable only once every client runs 6.0 or later. |
+| `cosky.lease.reaper-interval` | `1s` | How often expired leases are looked for |
+| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store |
+| `cosky.lease.reaper-max-per-tick` | `100` | Leases reaped per namespace per round |
+| `cosky.lease.lock-ttl` | `15s` | How long the reaper's leadership lasts without renewal |
+| `cosky.lease.protection-threshold` | `0.5` | Reaping pauses when more than this share of a namespace's leases expire at once |
+| `cosky.lease.protection-min-leases` | `10` | Namespaces with fewer leases have no such pause |
+| `cosky.lease.protection-max-duration` | `5m` | How long the pause lasts at most |
 
-## REST API server
+### From Spring
 
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `cosky.security.key` | — (required) | JWT signing secret; environment variable `COSKY_SECURITY_KEY`. |
-| `cosky.security.enabled` | `true` | Enables authentication and authorization. |
-| `cosky.security.enforce-init-super-user` | `false` | Resets the super user's password at every start; environment variable `COSKY_SUPER_INIT`. |
-| `cosky.security.audit-log.action` | `write` | Requests to record: `read`, `write` or `rw`. |
-| `cosky.security.audit-log.max-size` | `100000` | Newest audit entries kept. |
-| `cosec.jwt.token-validity.access` | `15m` | Access token lifetime. |
-| `cosec.jwt.token-validity.refresh` | `3H` | Refresh token lifetime. |
-| `cosky.namespace` | `cosky-{system}` | Namespace of the server's own config and registration; environment variable `COSKY_NAMESPACE`. |
-| `cosky.auto-registry` | `true` | Registers the server as service `cosky-rest-api`; environment variable `COSKY_AUTO_REGISTRY`. |
-| `server.port` | `8080` | HTTP port. |
+| `server.port` | `8080` | REST, Dashboard and Actuator |
+| `spring.grpc.server.port` | `9090` | gRPC |
+| `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
+| `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
+| `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
+| `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
 
-The server is a Spring Boot application: standard Spring Boot properties (logging, actuator, Redis) apply as well.
+### Fixed limits
+
+These cannot be set in 8.0.
+
+| Limit | Value |
+|---|---|
+| Config content | 1 MiB |
+| Config history | The last 20 revisions |
+| Lease TTL | 5 to 300 seconds, 30 by default |
+| Instance metadata | 64 entries; keys up to 63 characters, values up to 1024 |
+| Labels | 32 entries; keys up to 63 characters, values up to 253 |
+| Description | 1024 characters |
+| Tokens per ServiceAccount | 2 |
+| One message | 2 MiB; larger results come in pages or parts |
+| One page of a list | 500 by default, 1000 at most |
+
+## Spring Boot starter
+
+| Property | Default | Meaning |
+|---|---|---|
+| `cosky.enabled` | `true` | Everything below |
+| `cosky.endpoints` | `localhost:9090` | Servers to try in turn |
+| `cosky.token` | — | Sent on every call |
+| `cosky.namespace` | `default` | |
+| `cosky.tls.enabled` | `false` | Connect over TLS |
+| `cosky.tls.trusted-certificates` | — | A PEM file to trust, for a private CA. The JVM's trust store decides otherwise. |
+| `cosky.snapshot.enabled` | `true` | Keep views on disk |
+| `cosky.snapshot.dir` | `~/.cosky` | |
+| `cosky.snapshot.include-config` | `true` | Snapshots are not encrypted, so false keeps Config contents off the disk |
+| `cosky.registry.enabled` | `true` | Register this application |
+| `cosky.registry.weight` | `1` | `0` takes no traffic |
+| `cosky.registry.metadata` | — | |
+| `cosky.discovery.enabled` | `true` | `DiscoveryClient` and LoadBalancer |
+| `cosky.discovery.load-timeout` | `5s` | How long the first read of a service waits |
+| `cosky.config.load-timeout` | `5s` | How long importing a Config waits |
+| `cosky.config.refresh.enabled` | `true` | Publish `RefreshEvent` on changes |
+
+The service name is `spring.application.name`. `spring.cloud.service-registry.auto-registration.enabled: false` also stops registering.
 </doc>
 
 <doc title="REST API" path="guide/rest-api.md">
 # REST API
 
-The REST API server exposes everything the dashboard does. The machine-readable contract is served by the server itself: OpenAPI at `/v3/api-docs` and Swagger UI at `/swagger-ui.html`.
+The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the full OpenAPI 3.1 document to `api/build/openapi/cosky.yaml`, with the same schemas as gRPC, since both come from one set of protos.
 
 ## Conventions
 
-- **Authentication**: sign in with `POST /v1/authenticate/{username}/login` and send `Authorization: Bearer <accessToken>` on every other request. See [Security](./security.md#tokens).
-- **Authorization**: requests on `/v1/namespaces/{namespace}/…` need a role granting the namespace; user, role, namespace and audit endpoints need the `admin` role.
-- **Namespaces** in paths are the full names, e.g. `{dev}` (URL-encoded: `%7Bdev%7D`). Instance ids contain `@` and `#`: URL-encode them too.
-- **Errors** return `{"code": "0001", "msg": "<reason>"}` with status 400 for invalid requests, 401 without a valid token, 403 when not permitted, 404 for unknown routes.
+**Authentication**: `Authorization: Bearer <token>`, on everything except `GET /v1/auth/config`.
 
-## Authentication
-
-| Method | Path | Body | Returns |
-|---|---|---|---|
-| POST | `/v1/authenticate/{username}/login` | `{"password": "…"}` | `{"accessToken", "refreshToken"}` |
-| POST | `/v1/authenticate/{username}/refresh` | `{"accessToken", "refreshToken"}` | a new token pair |
-
-## Namespaces
-
-| Method | Path | Description |
-|---|---|---|
-| GET | `/v1/namespaces` | Namespaces you can access (all of them for administrators) |
-| GET | `/v1/namespaces/current` | The server's own namespace |
-| PUT | `/v1/namespaces/{namespace}` | Add a namespace |
-| DELETE | `/v1/namespaces/{namespace}` | Remove a namespace from the list |
-
-## Configs
-
-Prefix: `/v1/namespaces/{namespace}/configs`.
-
-| Method | Path | Description |
-|---|---|---|
-| GET | *(prefix)* | Config ids of the namespace |
-| GET | `/{configId}` | Current config: `configId`, `data`, `hash`, `version`, `createTime` |
-| PUT | `/{configId}` | Save (body: the raw content, `text/plain`); creates a version |
-| DELETE | `/{configId}` | Remove |
-| GET | `/{configId}/versions` | Versions in the history |
-| GET | `/{configId}/versions/{version}` | Content of a version |
-| PUT | `/{configId}/to/{targetVersion}` | Roll back to a version |
-| GET | `/export` | All configs as a zip |
-| POST | *(prefix)* `?policy=skip\|overwrite` | Import a zip (multipart field `importZip`); returns `{"total", "succeeded"}` |
-
-## Services and instances
-
-Prefix: `/v1/namespaces/{namespace}/services`.
-
-| Method | Path | Description |
-|---|---|---|
-| GET | *(prefix)* | Service ids |
-| PUT | `/{serviceId}` | Add a service without instances |
-| DELETE | `/{serviceId}` | Remove a service and its instance index |
-| GET | `/{serviceId}/instances` | Live instances |
-| PUT | `/{serviceId}/instances` | Register an instance (body below) |
-| DELETE | `/{serviceId}/instances/{instanceId}` | Deregister an instance |
-| PUT | `/{serviceId}/instances/{instanceId}/metadata` | Replace an instance's metadata (body: a string map) |
-| GET | `/{serviceId}/lb` | One instance chosen by weighted random |
-| GET | `/stats` | Instance count per service |
-
-Registering an instance:
+**Resources** have shared metadata and one kind-specific spec, in proto3 JSON. Empty fields are left out, and 64-bit numbers such as revisions are strings.
 
 ```json
-{ "schema": "http", "host": "10.0.0.5", "port": 8080, "weight": 1, "isEphemeral": false, "metadata": { "zone": "a" } }
+{
+  "meta": {
+    "namespace": "prod",
+    "name": "app.yaml",
+    "revision": "42",
+    "createRevision": "7",
+    "updatedAt": "2026-08-18T01:00:00Z",
+    "updatedBy": "serviceaccount:admin"
+  },
+  "config": {"format": "CONFIG_FORMAT_YAML", "content": "a: 1", "sha256": "..."}
+}
 ```
 
-An ephemeral instance registered through the API expires after the TTL unless something renews it; register endpoints that cannot renew as fixed (`"isEphemeral": false`).
+**Names**: `{name}` is one path segment, so a `/` in a Config name is sent as `%2F`.
 
-## Statistics
+**Writes** replace the whole object, and read-only fields are ignored.
 
-| Method | Path | Description |
+| Header | Means |
+|---|---|
+| `If-Match: "42"` | Only if it is still at revision 42 |
+| `If-None-Match: *` | Only if it does not exist |
+
+`GET` and `PUT` return the revision as `ETag`. A `PUT` of what is already there answers `{"changed": false}` and creates no revision.
+
+**Lists** come in pages: pass `nextPageToken` as `pageToken` until it is empty. `pageSize` is 500 by default and 1000 at most, and a page can hold fewer when the objects are large. The response's `revision` and `epoch` let you start a Watch from where the list ended.
+
+**Reading your own writes**: a replica may be slightly behind. `?minRevision=42` waits until it has reached that revision, and answers `504` after 3 seconds.
+
+**Errors** carry a reason that does not change between versions:
+
+```json
+{
+  "status": "ABORTED",
+  "message": "The revision does not match.",
+  "detail": {"reason": "ERROR_REASON_REVISION_CONFLICT"}
+}
+```
+
+| Reason | HTTP |
+|---|---|
+| `RESOURCE_NOT_FOUND`, `NAMESPACE_NOT_FOUND` | 404 |
+| `INVALID_ARGUMENT` | 400, with the violations in `detail` |
+| `UNAUTHENTICATED` | 401 |
+| `PERMISSION_DENIED` | 403 |
+| `REVISION_CONFLICT`, `NAMESPACE_NOT_EMPTY` | 409 |
+| `LEASE_NOT_FOUND` | 412 |
+| `WATCH_QUOTA_EXCEEDED` | 429 |
+| `STORE_UNAVAILABLE`, `REVISION_REGRESSION` | 503 |
+| `MIN_REVISION_TIMEOUT` | 504 |
+
+## Endpoints
+
+### Configs
+
+| Method | Path | |
 |---|---|---|
-| GET | `/v1/namespaces/{namespace}/stat` | Counts of namespaces, configs, services (total and with instances) and instances |
-| GET | `/v1/namespaces/{namespace}/stat/topology` | Consumers and the services they depend on |
+| GET | `/v1/namespaces/{ns}/configs` | List. `?labelSelector=a=1,b=2` |
+| GET, PUT, DELETE | `/v1/namespaces/{ns}/configs/{name}` | |
+| GET | `/v1/namespaces/{ns}/configs/{name}/history` | Newest first. `?limit=&pageToken=` |
+| POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{"toRevision": "41"}`. Writes that content as a new revision, and brings back a deleted Config. |
+| POST | `/v1/namespaces/{ns}/configs:import` | A zip file as the body; each entry path is a Config name |
+| GET | `/v1/namespaces/{ns}/configs:export` | A zip file |
 
-Service statistics are refreshed every 10 seconds by one server instance, elected through Redis.
+### Instances
 
-## Users, roles and audit
-
-| Method | Path | Description |
+| Method | Path | |
 |---|---|---|
-| GET | `/v1/users` | Users with their roles and lock state |
-| POST | `/v1/users/{username}` | Create (`{"password": "…"}`) |
-| DELETE | `/v1/users/{username}` | Remove |
-| PATCH | `/v1/users/{username}/password` | Change password (`{"oldPassword", "newPassword"}`) |
-| PATCH | `/v1/users/{username}/role` | Replace roles (body: `["role", …]`) |
-| PUT | `/v1/users/{username}/lock` | Lock |
-| DELETE | `/v1/users/{username}/unlock` | Unlock |
-| GET | `/v1/roles` | Roles |
-| PUT | `/v1/roles/{roleName}` | Create or replace (`{"desc", "resourceActionBind": [{"namespace", "action": "r\|w\|rw"}]}`) |
-| GET | `/v1/roles/{roleName}/bind` | Namespaces a role grants |
-| DELETE | `/v1/roles/{roleName}` | Remove |
-| GET | `/v1/audit-log?offset&limit&query&from&to&successful` | Audit entries, newest first; `from` / `to` in epoch milliseconds |
-| GET | `/v1/audit-log/export?query&from&to&successful` | Matching entries as CSV |
+| GET | `/v1/namespaces/{ns}/instances` | List. `?service=order&labelSelector=` |
+| GET, PUT, DELETE | `/v1/namespaces/{ns}/instances/{name}` | Without `meta.lease`, it stays until deleted |
+
+Leases are gRPC only: applications use the [client](./sdk.md).
+
+### Watch
+
+`GET /v1/namespaces/{ns}/watch?kind=KIND_CONFIG&name=&service=&fromRevision=&fromEpoch=`
+
+Server-sent events, one proto3 JSON message per `data:` line:
+
+| Message | Means |
+|---|---|
+| `snapshot` | The current state, when `fromRevision` is 0. Holds the `epoch` to resume with. |
+| `events` | One revision's changes |
+| `progress` | A bookmark, every 10 seconds while idle |
+| `gone` | Your position is no longer valid: start over without one |
+| `canceled` | The stream ends, for the reason given |
+
+Large snapshots and revisions span several messages, marked by `more`. An `EventSource` cannot send a token: use `fetch` with a stream reader, as the Dashboard does.
+
+### Views
+
+Computed from the server's memory, read-only.
+
+| Path | |
+|---|---|
+| `/v1/namespaces/{ns}/views/services` | Services and their instance counts |
+| `/v1/namespaces/{ns}/views/topology` | Who consumes whom |
+| `/v1/namespaces/{ns}/views/stats` | Counts of services, instances and Configs |
+
+### Global objects
+
+| Method | Path | |
+|---|---|---|
+| GET | `/v1/namespaces` | |
+| GET, PUT, DELETE | `/v1/namespaces/{name}` | Only an empty namespace can be deleted |
+| GET | `/v1/serviceaccounts` | |
+| GET, PUT, DELETE | `/v1/serviceaccounts/{name}` | `tokens` in the body is ignored |
+| POST | `/v1/serviceaccounts/{name}/tokens` | Returns the plaintext once. `{"expiresAt": "..."}` is optional. |
+| DELETE | `/v1/serviceaccounts/{name}/tokens/{tokenId}` | |
+| GET | `/v1/roles` | |
+| GET, PUT, DELETE | `/v1/roles/{name}` | |
+| GET | `/v1/rolebindings` | |
+| GET, PUT, DELETE | `/v1/rolebindings/{name}` | |
+
+### Identity
+
+| Path | |
+|---|---|
+| `/v1/me` | Who you are, and your effective rules |
+| `/v1/auth/config` | How people sign in. Needs no token and holds public values only. |
+
+### Operations
+
+| Path | |
+|---|---|
+| `/actuator/health/liveness`, `/actuator/health/readiness` | Probes |
+| `/actuator/prometheus` | [Metrics](./deployment.md#observability) |
 </doc>
 
 <doc title="Requirements" path="guide/requirements.md">
 # Requirements
 
-This page states what CoSky must do, with stable identifiers to reference in issues and pull requests. Every requirement names the tests that verify it, so a change that breaks one fails the build. New requirements are proposed through a feature request and added here with their tests.
-
-## Scope
-
-CoSky provides configuration management and service discovery for microservices, using only Redis as infrastructure. It is used as a library through Spring Cloud starters and the SDK, and optionally operated through the REST API server and its dashboard.
-
-## Functional requirements
-
-### Configuration
-
-| ID | Requirement | Verified by |
+| Component | Version | Notes |
 |---|---|---|
-| FR-C1 | Configs are stored per namespace and config id, created, updated, read and removed. | `RedisConfigServiceTest`, `RestApiIntegrationTest.configLifecycle` |
-| FR-C2 | Every change creates a new version; the latest 10 versions are kept and any of them can be rolled back to, including a removed config. | `RedisConfigServiceTest`, `RedisConsistencyConfigServiceTest.rollback` |
-| FR-C3 | Applications receive config changes without polling, and a change made right after the first read is never lost. | `RedisConsistencyConfigServiceTest`, `CoSkyConfigRefresherTest` |
-| FR-C4 | Spring Cloud applications load their config at startup, including multi-document YAML, and refresh on change. | `CoSkyPropertySourceLocatorTest`, `CoSkyConfigRefresherTest` |
-| FR-C5 | Configs are exported to and imported from zip archives, skipping or overwriting existing configs, within size limits. | `ConfigControllerImportTest`, `ZipsTest`, `RestApiIntegrationTest.configLifecycle` |
+| Server | JDK 25 | The image includes it |
+| Client and starter | JDK 21 or later | |
+| `cosky-migrate` | JDK 21 or later | |
+| Spring Boot | 4.1 | For the starter |
+| Spring Cloud | 2025.1 | Declares Spring Boot 4.0, so set `spring.cloud.compatibility-verifier.enabled: false` until 2026.0 |
+| Redis | 7.0 or later, with `maxmemory-policy noeviction` | The server checks both at start, and refuses to run otherwise |
+| Valkey | 8 | |
+| Kubernetes | Anything with Kustomize | The manifests were checked with `kubectl kustomize`, and have not run on a real cluster yet |
+| Browser | A current Chrome, Edge, Firefox or Safari | Only Chrome is tested |
 
-### Service discovery
+Every pull request runs against Redis 7.0, Redis 7.4 and Valkey 8, on a single node and a Redis Cluster.
 
-| ID | Requirement | Verified by |
-|---|---|---|
-| FR-D1 | Instances register as ephemeral (kept alive by renewal) or fixed, and deregister. | `RedisServiceRegistryTest`, `RenewInstanceServiceTest` |
-| FR-D2 | An ephemeral instance that stops renewing expires, is removed and announced, independently of the REST API server. | `InstanceExpiryReaperTest`, `RenewInstanceServiceRobustnessTest` |
-| FR-D3 | An instance re-registered after expiring keeps the metadata set since its registration. | `RedisServiceRegistryTest.reRegisterAfterExpiryKeepsMetadataSetSince` |
-| FR-D4 | Instance metadata can be set per key or replaced as a whole. | `RedisServiceRegistryTest` |
-| FR-D5 | Clients discover services and their live instances, kept up to date by change events, never serving expired instances. | `ConsistencyRedisServiceDiscoveryTest`, `ConsistencyRenewEventTest` |
-| FR-D6 | Load balancers choose among live instances (random and weighted), consistent with the discovery cache. | `RandomLoadBalancerTest`, `ArrayChooserTest`, `BinaryChooserTest`, `TreeChooserTest`, `LoadBalancerConsistencyTest` |
-| FR-D7 | Consumers are recorded as dependents of the services they discover (topology). | `ServiceTopologyTest`, `TopologyRecordingServiceDiscoveryTest` |
-| FR-D8 | Spring Cloud applications register themselves and discover others through the standard `DiscoveryClient` APIs. | `CoSkyDiscoveryClientTest`, `CoSkyServiceRegistryTest`, `CoSkyAutoServiceRegistrationAutoConfigurationTest` |
-| FR-D9 | Spring Cloud clients receive only instances that are `UP` (or have no status), and see each instance's weight. | `CoSkyDiscoveryClientTest` |
+## Dependencies
 
-### REST API server and security
+| Library | Version |
+|---|---|
+| Kotlin | 2.x, compiled to Java 21 |
+| gRPC | 1.81 |
+| Protobuf | 4.34 |
+| Spring gRPC | 1.1 |
+| Lettuce | 7.5 |
 
-| ID | Requirement | Verified by |
-|---|---|---|
-| FR-S1 | Users authenticate with a password and receive JWT access and refresh tokens; anonymous requests to protected endpoints are rejected. | `RestApiIntegrationTest`, `RefreshTokenAuthenticationTest` |
-| FR-S2 | Passwords are stored as BCrypt hashes; hashes of older versions are verified and upgraded on login. | `UserPasswordTest` |
-| FR-S3 | Users are locked after repeated failed logins or by an administrator, and unlocked by an administrator. | `UserServiceTest`, `RestApiIntegrationTest.usersAndAuditLog` |
-| FR-S4 | Roles grant read or read-write access per namespace; a user only sees and reaches the namespaces their roles grant. | `RbacServiceTest`, `RestApiIntegrationTest.namespaceRoleGrantsOnlyItsNamespace` |
-| FR-S5 | The security policy can be replaced at runtime; an invalid policy never replaces a valid one. | `CoSkyPolicyTest` |
-| FR-S6 | Operations are recorded in an audit log that can be filtered and exported. | `AuditLogServiceTest`, `AuditLogFilterTest`, `RestApiIntegrationTest.usersAndAuditLog` |
-
-## Non-functional requirements
-
-| ID | Requirement | Verified by |
-|---|---|---|
-| NFR-1 | **Performance**: cached config and discovery reads are served from local memory, without a Redis round trip. | JMH benchmarks in CI, see [Performance](./performance.md) |
-| NFR-2 | **Consistency**: every Redis mutation is a single Lua script, so concurrent writers never observe partial state. | `DiscoveryLuaKeysTest`, `ConfigLuaKeysTest`, `LuaScriptsTest` |
-| NFR-3 | **Resilience**: a transient Redis failure is retried and never cached; the last good value keeps being served. | `ReactiveWatchCacheTest`, `RedisConsistencyConfigServiceErrorTest`, `ConsistencyRedisServiceDiscoveryErrorTest` |
-| NFR-4 | **Bounded storage**: config history and the audit log are trimmed to fixed sizes. | `RedisConfigServiceTest.historyIsTrimmedToHistorySize`, `AuditLogRetentionTest` |
-| NFR-5 | **Security by default**: the server refuses to start without a JWT secret, and users get no namespace access unless granted. | `JwtSecretValidatorTest`, `RestApiIntegrationTest` |
-| NFR-6 | **Compatibility**: plain Redis, standalone or cluster (a namespace must carry a hash tag), with no Redis Functions or modules; Java 17+. | Integration tests against Redis in CI, [Architecture](./architecture.md#data-model) |
-| NFR-7 | **Quality gates**: every change passes static analysis, license checks and at least 90% line / 70% branch coverage. | `./gradlew check` in CI, see [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
+`cosky-bom` manages the versions of the CoSky modules. Spring Boot's and Spring Cloud's own BOMs manage the rest.
 </doc>
 
 <doc title="Architecture" path="guide/architecture.md">
 # Architecture
 
-This page explains how CoSky works, for engineers evaluating it, operating it at scale, or contributing to it.
-
-## Principles
-
-1. **Redis is the only infrastructure.** Clients talk to Redis directly; no CoSky server sits on the read or write path of applications.
-2. **Every mutation is one Lua script**, so concurrent writers never see partial state, and every mutation announces itself on a Pub/Sub channel.
-3. **Applications read from memory.** A local cache follows the change events, so reads cost no round trip and Redis load does not grow with read traffic.
-
-## Modules
+This page explains how CoSky works and what it guarantees. The [design document](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md) has the reasoning behind each decision.
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-graph BT
-    CORE["cosky-core"]
-    CONFIG["cosky-config"] --> CORE
-    DISCOVERY["cosky-discovery"] --> CORE
-    SCC["cosky-spring-cloud-core"] --> CORE
-    SCONFIG["cosky-spring-cloud-starter-config"] --> CONFIG
-    SCONFIG --> SCC
-    SDISC["cosky-spring-cloud-starter-discovery"] --> DISCOVERY
-    SDISC --> SCC
-    REST["cosky-rest-api"] --> SCONFIG
-    REST --> SDISC
-    style CORE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DISCOVERY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SCC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SCONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SDISC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REST fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+graph TB
+    subgraph Apps["Applications"]
+        A1["Local view<br>+ snapshot on disk"]
+    end
+    subgraph Server["CoSky server replicas"]
+        API["gRPC and REST"] --> CACHE["Watch cache<br>per namespace"]
+        REAPER["Lease reaper<br>one leader"]
+    end
+    REDIS[("Redis<br>objects + change log")]
+    A1 -- "Put, leases" --> API
+    CACHE -- "Watch" --> A1
+    API -- "atomic write" --> REDIS
+    REDIS -- "change log" --> CACHE
+    REAPER --> REDIS
 ```
 
-| Module | Responsibility |
+## The data model
+
+Everything is a **Resource**: shared metadata and one spec. A Namespace, Config, Instance, ServiceAccount, Role and RoleBinding are all handled by one API.
+
+A **namespace** is the unit of everything: of isolation, of ordering, and of placement, since it stays in one Redis slot. Each has its own **revision**, a counter that goes up by one with each write. An object remembers the revision that last changed it.
+
+Global kinds live in the reserved namespace `_system`.
+
+## A write
+
+1. The server validates the request and checks permission.
+2. One Lua script, atomically: compares the expected revision if asked, gives the namespace its next revision, stores the object, and appends the change to the namespace's log, a Redis Stream.
+3. The write is acknowledged.
+
+Writing what is already there changes nothing, and creates no revision.
+
+## Following changes
+
+Each replica follows each namespace's log, and keeps an immutable view of the namespace in memory, plus a window of recent changes. A write publishes a hint, so followers usually read at once. Should a hint be lost, each also polls once a second.
+
+Watchers read those views without any lock. A slow watcher only misses intermediate views, then finds what it missed in the window. It holds back nobody else. If it falls out of the window, it gets `gone` and starts over from a snapshot of what it watches, which is the only cost.
+
+So Redis load grows with the number of namespaces and replicas, and not with the number of clients.
+
+Every 5 minutes, a replica also compares its view with the store. Any difference should be impossible, so it counts as a lost timeline, as below.
+
+## What a client can rely on
+
+- **Order**: changes within a namespace arrive in revision order, and a whole revision at once. Subscribers never see half of one.
+- **Delivery**: exactly once within a stream. Across reconnections at least once, and the client drops what it already applied.
+- **Resuming**: a client that reconnects to any replica continues from the revision it saw.
+- **Reads** are from a local view, so they can be slightly stale. Propagation was [measured](./performance.md) at under 200 ms to 5,000 connections.
+- **Writes** go to the primary, and are atomic. `minRevision` lets a REST caller read its own write from any replica.
+
+As a safety net, a client also starts over from a fresh snapshot every 30 minutes or so.
+
+## Leases
+
+A process holds one lease per namespace, and attaches its instances to it, so renewing costs the same however many it has. An Instance without a lease is simply permanent, with no special handling.
+
+One replica at a time runs the **reaper**, under a lock in Redis. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
+
+1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped.
+2. **Delay**: a lease is reaped a third of its TTL after expiry. Leases cut off by one partition expire over that span, since they renew at different moments. Reaping at once would remove them one by one, and the next step would never see them together.
+3. **Mass expiry**: when more than half of a namespace's leases have expired, and it has at least 10, reaping pauses and logs an error. This covers a partition between clients and servers, which the grace cannot detect. When the share falls, grace starts over. After 5 minutes, it reaps regardless.
+4. **Pace**: at most 100 leases per namespace per round.
+
+The cost is that a process that really crashed stays listed for 40 seconds by default. Callers should retry.
+
+## When Redis loses writes
+
+Redis replication is asynchronous, so a failover can lose recent writes, and revisions then go backwards or diverge. Each namespace carries an **epoch**, a random value that changes when this is found, and a position is an epoch and a revision together.
+
+| Detected by | Then |
 |---|---|
-| `cosky-core` | Namespaces, Redis key helpers, the Lua script loader, event listener containers, and `ReactiveWatchCache`, the consistency cache everything else builds on |
-| `cosky-config` | Config storage, versions and rollback (`RedisConfigService`), and its cached view (`RedisConsistencyConfigService`) |
-| `cosky-discovery` | Registry, renewal and expiry, discovery and its cached view, load balancers, statistics, topology |
-| `cosky-spring-cloud-*` | Spring Boot auto-configuration, Spring Cloud property source, `DiscoveryClient` and service registry |
-| `cosky-rest-api` | REST API server and dashboard host: CoSec security, audit log, statistics job |
+| The log's position going backwards or missing | Every replica reloads, and every watcher gets `gone` and starts over |
+| A client resuming from a revision the store does not have | That client gets `gone` |
+| A lease that no longer exists | The client registers everything again |
+| The periodic comparison with the store | The epoch is replaced, so all of the above follows |
 
-## Data model
+The system returns to a consistent state, but what Redis lost stays lost. It takes an application to restore a Config, from its history or by writing it again.
 
-Every key starts with its namespace. Namespaces are wrapped in a Redis Cluster hash tag (`{dev}`), so all keys of a namespace map to one slot and a Lua script can touch several of them.
+## When servers are away
 
-| Key | Type | Content |
-|---|---|---|
-| `{ns}:cfg:{configId}` | hash | Current config: `data`, `hash`, `version`, `createTime` |
-| `{ns}:cfg_idx` | set | Config ids |
-| `{ns}:cfg_htr:{configId}:{version}` | hash | A previous version, with the operation that replaced it |
-| `{ns}:cfg_htr_idx:{configId}` | sorted set | History keys by version; the latest 10 are kept |
-| `{ns}:svc_idx` | set | Service ids |
-| `{ns}:svc_itc_idx:{serviceId}` | set | Instance ids of a service |
-| `{ns}:svc_itc:{instanceId}` | hash | Instance fields and metadata; a Redis TTL makes ephemeral instances expire |
-| `{ns}:svc_itc_exp` | sorted set | Ephemeral instances by expiry time, to find expired ones without scanning |
-| `{ns}:svc_stat` | hash | Instance count per service |
-| `{ns}:topology_idx`, `{ns}:topology:{consumer}` | sets | Consumers, and the services each consumes |
-| `cosky-{system}:ns_idx` | set | Namespaces listed in the dashboard |
-| `cosky-{system}:…` | | Users, roles, login locks and the audit log of the REST API server |
+An application keeps serving its local view. On restart, it loads the [snapshot](./sdk.md#snapshots) from disk. Without a snapshot and without a server, an import that is not `optional` fails the start, so that an application does not run without its configuration.
 
-Instance ids are `<serviceId>@<scheme>#<host>#<port>`. Instance metadata keys are stored with a `_` prefix; `__` marks internal fields.
+## Why a server at all
 
-## Writes and events
+CoSky 6.x had applications talk to Redis directly, which left the data plane without authentication, tied every client to one storage layout, and grew Redis's connections with the number of processes. Adding one small server gives authentication on every call, clients for any language, and resumable streams, while reads stay local. The server keeps nothing durable itself, so replicas can come and go.
 
-Each mutation runs as one Lua script and publishes on the channel named after the key it changed:
-
-| Channel | Messages |
-|---|---|
-| `{ns}:cfg:{configId}` | `set`, `remove`, `rollback` |
-| `{ns}:svc_idx` | `set`, `remove` (a service appeared or disappeared) |
-| `{ns}:svc_itc:{instanceId}` | `register`, `deregister`, `expired`, `set_metadata`, `renew` (or `renew:<ttlAt>`) |
-| `cosky-{system}:role_resource_bind:{role}` | `save`, `remove` |
-
-Scripts share functions through `-- @include` directives resolved when they are loaded, and receive the keys they touch through `KEYS`, so they work unchanged on Redis Cluster and need no Redis Functions or modules.
-
-## Consistency model
-
-Every cached view (configs, services, instances, the security policy, roles) is a `ReactiveWatchCache`. For each key it:
-
-1. **subscribes** to the key's channel and waits until the subscription is active,
-2. **loads** the value from Redis, so no change can slip in between,
-3. **applies** events one at a time, in order, publishing a new immutable snapshot only when the value actually changes.
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-sequenceDiagram
-    autonumber
-    participant W as Writer
-    participant R as Redis
-    participant C as Cache (each application)
-    C->>R: SUBSCRIBE channel
-    C->>R: load value
-    R-->>C: value (snapshot v1)
-    W->>R: EVALSHA script (mutation + PUBLISH)
-    R-->>C: event
-    C->>R: reload or apply the change
-    R-->>C: new value (snapshot v2)
-```
-
-Guarantees and limits:
-
-- **Reads are eventually consistent**, typically within milliseconds of a write. A write is visible in Redis immediately; caches follow.
-- **Lost messages heal.** Pub/Sub delivers at most once; every cached key is also reloaded every 5 minutes, which bounds the staleness after a missed message.
-- **Failures are not cached.** A failed load is retried with backoff (1 s up to 30 s). Meanwhile the last good snapshot keeps being served; only a key that never loaded fails its readers.
-- **Snapshots are shared.** A snapshot is prepared once per change and an unchanged value is the very same object, so readers can cache what they derive from it; load balancers reuse their state this way.
-- **Cached keys stay.** A key, once read, keeps its subscription for the lifetime of the cache.
-
-## Service discovery
-
-**Expiry.** An ephemeral instance's hash has a Redis TTL, renewed by its client (every 10 s for a 60 s TTL by default). When Redis drops it, nothing would be announced, so each renewal also records the expiry time in `{ns}:svc_itc_exp`. After every renewal round, each client reaps up to 100 instances of its namespaces whose expiry time has passed: if the key is really gone, it removes the instance from its service and publishes `expired`. Reads perform the same cleanup lazily. No server is needed for instances to disappear.
-
-**Renewal events are throttled.** A renewal is published only when the previously published expiry time is about to pass, so a stable fleet produces few events. By default consumers then re-read the instance's TTL; with `renew-event-carries-ttl-at`, the event carries the new expiry time instead (enable it only once every client runs 6.0).
-
-**Expired instances are filtered on read** by comparing their expiry time with the local clock, so consumers do not depend on reaping latency. Keep clocks synchronized (NTP): a client whose clock runs ahead may treat live instances as expired.
-
-## REST API server
-
-The server is a Spring Boot application using the same starters as any application, plus:
-
-- **CoSec** for JWT authentication and policy-based authorization ([Security](./security.md)),
-- **Simba** to elect, through Redis, the one instance that refreshes service statistics every 10 seconds,
-- **CosId** for distributed id generation.
-
-It keeps no state of its own, so instances can be added and removed freely.
-
-## Trade-offs
-
-| Decision | Benefit | Cost |
-|---|---|---|
-| Redis as the only store | Nothing new to operate; Redis is fast and familiar | Redis availability and persistence become CoSky's; a Redis outage stops writes (cached reads continue) |
-| Client renewal instead of server health checks | No server needed; scales with clients | A hung process that keeps renewing stays registered |
-| Local caches fed by Pub/Sub | Reads in nanoseconds, Redis load independent of reads | Eventual consistency; one subscription per watched key |
-| Lua scripts for every mutation | Atomicity without distributed locks | Scripts are part of the data contract; changing them needs care across client versions |
-| Namespace hash tags | Cluster-safe multi-key scripts | A namespace cannot be spread over several cluster slots |
+Redis stays because it is what CoSky is for: for those who already run it, there is nothing new to operate. Those who need more durability should use a system built on consensus.
 </doc>
 
 <doc title="Performance" path="guide/performance.md">
 # Performance
 
-Applications read configs and instances from a **local cache**, so a read costs a map lookup instead of a Redis round trip. Writes and cache misses go to Redis and are bounded by its latency.
+Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one 10-core laptop, over loopback**, so there was no real network, and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware.
 
 ## Results
 
-JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.1.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh).
-
-| Operation | Through | Throughput |
+| Target | Result | Verdict |
 |---|---|---|
-| Read a config | local cache (`RedisConsistencyConfigService`) | **750,901,545 ops/s** |
-| Read a config | Redis (`RedisConfigService`) | 48,160 ops/s |
-| Save a config | Redis | 35,479 ops/s |
-| List services | local cache (`ConsistencyRedisServiceDiscovery`) | **1,791,707,975 ops/s** |
-| List instances of a service | local cache | **232,887,361 ops/s** |
-| List services | Redis (`RedisServiceDiscovery`) | 49,117 ops/s |
-| List instances of a service | Redis | 38,013 ops/s |
-| Register / renew / deregister an instance | Redis | 36,691 / 40,740 / 44,275 ops/s |
+| 50,000 instances and 10,000 Configs in a namespace | Written in 7 seconds at 64 concurrent writers. A second replica loaded them and was ready in 2 to 3.5 seconds. | Met |
+| About 1 KB per instance | 86 MB for 60,000 objects, about 1.5 KB each, with the index by service and the event window | Slightly over |
+| Write p99 under 20 ms | 2 ms at about 12,000 writes per second with 16 writers; 8 ms at most. Without a real network. | Met, to be measured again in one data center |
+| 20,000 connections and 100,000 watches on a replica | 5,000 connections and 100,000 watches all succeeded, in 8 seconds. Of 15,000 and 105,000, 14,890 connections and 104,230 watches succeeded, in 12 seconds. | **20,000 not reached**: the laptop ran out of ephemeral ports. The cause of the 110 failed connections was not found. |
+| Propagation p99 under 500 ms | 190 ms to 5,000 connections, 412 ms at most. About 750 ms to 15,000. | Met at 5,000, **missed at 15,000** |
+| `choose()` and reading a Config allocate nothing | `choose()` 24 to 58 million operations per second, reading a Config about 1,500 million, at about 0 bytes each | Met |
 
-How to read these numbers:
+The missed propagation target is the worst case: every connection watches the same service, and the generator receives every copy on the same machine. In real traffic, an event goes only to those who depend on that service.
 
-- **Cached reads** scale with CPU cores; they are what applications pay on every config property access and every load-balanced call.
-- **Redis operations** depend mostly on network latency and Redis itself. Over a real network expect fewer; on shared CI runners, roughly half.
-- Each figure is a single 10-second measurement after a 10-second warm-up: use them for orders of magnitude and for comparing versions on the same machine, not as capacity guarantees.
+## The event window
 
-## Why cached reads are cheap
+A replica was killed under load, and 100 clients reconnected to another one, all watching one service. Falling out of the window means reading a fresh snapshot of that service, which costs little.
 
-A cached read returns an immutable snapshot prepared when the value last changed: no I/O, no lock, and for configs no allocation. Keeping the snapshot current costs one Redis Pub/Sub message per change, plus a reload of the changed key. [Architecture](./architecture.md#consistency-model) describes the mechanism.
+| Writes per second | Window | Clients | Deliveries per second | `gone` |
+|---|---|---|---|---|
+| About 160 | 10,000 | 100 | About 16,000 | 0 |
+| About 1,600 | 10,000 | 5 / 20 | About 8,000 / 32,000 | 0 |
+| About 1,600 | 10,000 | 100 | About 160,000 | 97 to 100 |
+| About 1,500 | 50,000 | 100 | About 150,000 | 0 |
+
+So `gone` appears only when delivery cannot keep up, around 160,000 per second. The default stays at 10,000, and `cosky_watch_gone_total` after a rolling update shows whether yours should be larger.
+
+## Not measured
+
+- A real network, or a real data center.
+- More than one server replica under connection load.
+- Redis Cluster at this scale.
+- Long runs: memory over days, and leaks.
 
 ## Reproducing
 
-With Redis running on `localhost:6379`:
-
 ```bash
-./gradlew :cosky-config:jmh :cosky-discovery:jmh -PjmhThreads=8
-# one benchmark class
-./gradlew :cosky-discovery:jmh -PjmhIncludes=ConsistencyRedisServiceDiscoveryBenchmark
+COSKY_MEASURE=load COSKY_MEASURE_HEAP=4g ./gradlew :server:test --tests '*LoadMeasurement*'
 ```
 
-Results are written to `<module>/build/results/jmh/results.json`. Options: `-PjmhThreads`, `-PjmhIncludes`, `-PjmhExcludes`, `-PjmhMode` (default `thrpt`).
+`COSKY_LOAD_CONNECTIONS`, `COSKY_LOAD_WATCHES_PER_CONNECTION`, `COSKY_LOAD_RATES`, `COSKY_LOAD_WINDOW` and `COSKY_LOAD_WINDOW_CLIENTS` set the shape. The hot paths of the client are JMH benchmarks:
 
-The [benchmark workflow](https://github.com/Ahoo-Wang/CoSky/blob/main/.github/workflows/benchmark-test.yml) runs both suites on every push, which makes regressions visible between commits.
+```bash
+./gradlew :client:jmh
+```
 </doc>
 
 <doc title="Internals" path="guide/internals.md">
 # Internals
 
-This page is for contributors. The process (setup, conventions, tests, pull requests, releases) is in [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md); the design is in [Architecture](./architecture.md).
+For working on CoSky itself. [Architecture](./architecture.md) explains the system, the [design document](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md) the reasoning, and `CONTRIBUTING.md` how to send a change.
 
-## Where things live
+## Modules
 
-| To change… | Look at |
-|---|---|
-| The consistency cache | `cosky-core`: `cache/ReactiveWatchCache.kt` |
-| Lua script loading and `-- @include` | `cosky-core`: `redis/LuaScripts.kt` |
-| Config storage, versions | `cosky-config`: `redis/RedisConfigService.kt`, `src/main/resources/config_*.lua`, `cosky/config/config_lib.lua` |
-| Registration, renewal, expiry | `cosky-discovery`: `redis/RedisServiceRegistry.kt`, `RenewInstanceService.kt`, `registry_*.lua`, `cosky/discovery/discovery_lib.lua` |
-| Cached discovery | `cosky-discovery`: `redis/ConsistencyRedisServiceDiscovery.kt` |
-| Redis key names | `ConfigKeyGenerator`, `DiscoveryKeyGenerator` (and the key functions of the Lua libraries) |
-| Spring wiring and properties | `cosky-spring-cloud-*`: `*AutoConfiguration.kt`, `*Properties.kt` |
-| REST endpoints | `cosky-rest-api`: `*Controller.kt`; paths in `support/RequestPathPrefix.kt` |
-| Security | `cosky-rest-api`: `security/` and `src/main/resources/cosky-policy.json` |
-| Dashboard | `dashboard/` (React; see its README) |
-| Documentation | `wiki/` (VitePress; conventions in `wiki/AGENTS.md`) |
+| Module | Holds | Depends on |
+|---|---|---|
+| `api` | Protos, generated code, validation, errors, the OpenAPI document | Nothing |
+| `store` | The Store interface, and an implementation in memory | `api` |
+| `store-redis` | The Redis Store: the only module with Lua | `store` |
+| `server` | gRPC, REST, the Watch cache, the reaper, auth, views | `api`, `store`, `store-redis` |
+| `client` | Connections, Watch, leases, snapshots, load balancing. No Spring and no Redis. | `api` |
+| `spring-boot-starter` | ConfigData loading, refresh, discovery, registry | `client` |
+| `conformance-test` | The suites the Store and the protocol must pass | `store`, `client` |
+| `migration` | `cosky-migrate`. The only module that knows 6.x. | `api` |
+| `examples` | A provider and a consumer, and the test that runs them | The starter |
+| `dashboard` | The React frontend, with a build of its own | The REST API |
+| `wiki` | This site | |
 
-## Invariants and the tests that guard them
+Two rules hold this together. Nothing but the server touches the Store, and clients never see Redis. And both protocols are one contract: REST is mapped from the same protos as gRPC.
 
-| Invariant | Guarded by |
-|---|---|
-| Every Redis mutation is one Lua script that publishes its change | Code review; `ConsistencyRedisServiceDiscoveryTest`, `RedisConsistencyConfigServiceTest` observe the events |
-| Key names in Lua and in Kotlin agree | `ConfigLuaKeysTest`, `DiscoveryLuaKeysTest` |
-| A cache subscribes before it loads, and applies events in order | `ReactiveWatchCacheTest` |
-| A failed load is never cached | `ReactiveWatchCacheTest`, `*ErrorTest` |
-| Expired instances are reaped without the server | `InstanceExpiryReaperTest` |
-| The REST API enforces authentication and RBAC | `RestApiIntegrationTest` |
-
-[Requirements](./requirements.md) maps every user-visible behavior to its tests.
-
-## Changing the Redis data model
-
-The key schema and the Lua scripts are a contract between client versions running side by side, so:
-
-1. Add the key to the key generator **and** to the Lua library, and extend the matching `*LuaKeysTest`.
-2. Pass every key a script touches through `KEYS` (needed for Redis Cluster), and publish on the changed key's channel.
-3. Consider older clients: a new event payload or field must not break them, or must be opt-in (as `renew-event-carries-ttl-at` is).
-4. Describe the change in [Architecture](./architecture.md#data-model) and, if it affects upgrades, in the upgrade guide.
-
-## Tests
-
-- Tests run against a real Redis on `localhost:6379`; extend `AbstractReactiveRedisTest` (module `cosky-test`) to get a template and clean-up.
-- Use `me.ahoo.test.asserts.assert` for assertions and MockK for collaborators.
-- `./gradlew check` also runs detekt, the license header check and the coverage floor.
-
-## Debugging
+## Building
 
 ```bash
-redis-cli --scan --pattern '{dev}:*'              # keys of a namespace
-redis-cli hgetall '{dev}:svc_itc:order-service@http#10.0.0.5#8080'
-redis-cli psubscribe '{dev}:*'                    # watch every event of a namespace
-redis-cli zrange '{dev}:svc_itc_exp' 0 -1 withscores   # ephemeral instances by expiry time
+./gradlew build
 ```
 
-Raise `logging.level.me.ahoo.cosky` to `debug` to log cache loads, events and renewals.
+The server's tests need JDK 25 and Docker, and Gradle provides the JDKs. `./gradlew :server:run --args='--dev'` starts a server in memory.
 
-## Benchmarks
+The server bundles the Dashboard when `dashboard/dist` exists:
 
-JMH benchmarks live in `src/jmh` of `cosky-config` and `cosky-discovery`; see [Performance](./performance.md#reproducing). Compare before and after on the same machine when changing a hot path.
+```bash
+pnpm --dir dashboard install && pnpm --dir dashboard build
+```
+
+## Testing
+
+| Level | Where | Against |
+|---|---|---|
+| Store conformance | `conformance-test`, run by `store` and `store-redis` | Memory, Redis, Redis Cluster |
+| Protocol conformance | `conformance-test`, run by `server` | The real services over gRPC |
+| Parity of the protocols | `ProtocolParityTest` | The same request over gRPC and REST ends the same way |
+| Faults | `FaultInjectionTest` | A real server behind Toxiproxy: partitions, slow links, a hung store |
+| Failover | `RedisStoreFailoverTest` | A real Redis losing writes |
+| End to end | `examples/e2e` | The server, a provider and a consumer as separate processes |
+| TLS | `TlsEndToEndTest` | Both ports, with a generated certificate |
+| Dashboard | `dashboard/tests/ui` | A mock answering as the server does |
+| Dashboard against the image | `dashboard/tests/ui/real-backend.spec.ts` | The page the image hosts, on that image |
+| Migration | `migration` | A real Redis and a real server |
+
+Line coverage has a floor of 90%, enforced by `./gradlew build`. New behaviour should fail a test when you take it out, so try that.
+
+Every pull request also runs Redis 7.0 and Valkey 8, CodeQL, and an image build that starts the image and drives it.
+
+## Lua
+
+All of it is in `store-redis`. Each script keeps to one namespace's hash tag, and declares its keys. The layout is in the design's section on keys.
+
+## Conventions
+
+- Coroutines, carried by virtual threads. Reactor stays in the adapters, which Detekt enforces.
+- Errors carry a stable reason, mapped to a gRPC code and an HTTP status in one place.
+- A change to behaviour updates the design, and a decision gets a D-number in its table.
+- Tests assert behaviour through public interfaces, against real dependencies where it matters.
 </doc>

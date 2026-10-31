@@ -1,75 +1,124 @@
 ---
 title: Security
-description: Users, roles, the security policy, tokens and the audit log of the CoSky REST API server.
+description: Sign in with tokens or OIDC, say who may do what with roles, encrypt the connections, and read the audit log.
 ---
 
 # Security
 
-This page is for administrators of the REST API server. Security covers the server's API and dashboard; applications using the starters access Redis directly, so protect Redis itself (see [Deployment](./deployment.md#preparing-redis)).
+Every call goes through the server and is checked there, including what applications do. Nothing but the server touches Redis, so protect Redis and its credentials as you would the data itself.
 
-## Model
+## Who is calling
 
-| Concept | Meaning |
-|---|---|
-| **Super user** `cosky` | Created on first start; can do everything and can be neither locked nor removed. |
-| **User** | Signs in with a password (stored as a BCrypt hash, at most 72 bytes) and holds roles. |
-| **Role** | Grants `r` (read), `w` (write) or `rw` (both) on namespaces. The built-in `admin` role grants everything, including user and role management. |
-| **Policy** | Rules evaluated before roles: public endpoints, what any signed-in user may do, and the `admin` / super user grants. |
-
-A request is allowed when the policy allows it; otherwise when one of the user's roles grants the action on the namespace in the request path (`GET`, `HEAD`, `OPTIONS`, `TRACE` need `r` or `rw`; `POST`, `PUT`, `PATCH`, `DELETE` need `w` or `rw`).
-
-Signed-in users without roles can only list the namespaces their roles grant (`GET /v1/namespaces`, so an empty list) and read the server's own namespace name.
-
-## Common tasks
-
-All of these are available in the dashboard (**User**, **Role**) and through the [REST API](./rest-api.md#users-roles-and-audit).
-
-**Give a team read access to a namespace**
-
-1. Create a role, e.g. `payments-read`, with `{prod}` → `r`.
-2. Create the users and bind them to the role.
-
-A user bound to several roles gets the union of their grants. A removed role grants nothing but stays bound to its users until they are rebound.
-
-**Make someone an administrator**: bind the `admin` role.
-
-**Lock a user out**: lock the user; sign-in and token refresh are rejected until the user is unlocked.
-
-**Recover the super user**: start the server once with `COSKY_SUPER_INIT=true` (`cosky.security.enforce-init-super-user`), read the new password from the log, then remove the variable; while it is set, the password is reset at every start.
-
-## Tokens
-
-Signing in returns a JWT access token (valid 15 minutes) and a refresh token (valid 3 hours), signed with `cosky.security.key`. Clients send `Authorization: Bearer <access token>` and exchange the refresh token for a new pair before it expires.
-
-| Setting | Default |
-|---|---|
-| `cosky.security.key` (`COSKY_SECURITY_KEY`) | none: the server refuses to start without it |
-| `cosec.jwt.token-validity.access` | `15m` |
-| `cosec.jwt.token-validity.refresh` | `3H` |
-
-Changing the key invalidates every issued token, which signs everybody out. Use the same key on every server instance.
-
-## Failed sign-ins
-
-After 10 failed attempts a user is locked out, and the lock lifts 15 minutes after the last attempt. The user list shows who is locked; an administrator can unlock earlier.
-
-## Customizing the policy
-
-The bundled policy allows without sign-in: `OPTIONS` requests, the dashboard's static files, Swagger UI, `/actuator/health`, and sign-in / token refresh. It allows any signed-in user to call `GET /v1/namespaces` and `GET /v1/namespaces/current`, and grants everything to the `admin` role and to `cosky`.
-
-To change it, save a [CoSec policy](https://github.com/Ahoo-Wang/CoSec) as the config `cosky-policy.json` in the `cosky-{system}` namespace, starting from the [bundled one](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/cosky-policy.json). Every server instance applies it as soon as it is saved; a policy that does not parse is rejected with an error in the log and the previous one stays in force.
-
-## Audit log
-
-The server records each request it handles: operator, IP, path, method, status, error message and time. By default only write operations are recorded.
-
-| Setting | Default | Values |
+| Subject | Signs in with | For |
 |---|---|---|
-| `cosky.security.audit-log.action` | `write` | `read`, `write`, `rw` |
-| `cosky.security.audit-log.max-size` | `100000` | newest entries kept |
+| `SERVICE_ACCOUNT` | A token, `cosky_<id>_<secret>` | Programs, and people without OIDC |
+| `USER` and `GROUP` | An OIDC ID token | People |
 
-The dashboard's **Audit Log** filters by text, time range and outcome, and exports CSV.
+A token goes in `Authorization: Bearer`, over gRPC and HTTP alike. The server keeps only its SHA-256, and shows the plaintext once, when creating it.
 
-## Turning security off
+An account holds at most two tokens, which allows rotating without a gap: create the second, move the programs over, revoke the first. Revoking takes effect at once, including on open streams.
 
-`cosky.security.enabled=false` disables authentication and authorization altogether. Only do this when the server is reachable exclusively by trusted clients.
+### The first token
+
+On its first start, a server without any role binding turns `COSKY_BOOTSTRAP_TOKEN` into the `admin` ServiceAccount, with the `admin` role in every namespace. Use it to create real accounts, then revoke it.
+
+```bash
+export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
+```
+
+### OIDC
+
+```yaml
+cosky:
+  auth:
+    oidc:
+      issuer: https://idp.example.com/realms/main
+      client-id: cosky-dashboard
+      scopes: [openid, profile, groups]   # some providers send groups only when asked
+```
+
+The server checks signature, issuer, audience and expiry against the provider's keys. `sub` becomes the `USER` name, and the `groups` claim (see `groups-claim`) the `GROUP` names. The token's audience must be `audience`, or the client when that is not set.
+
+The Dashboard signs in through the authorization code flow with PKCE, so register `cosky-dashboard` as a public client, with the Dashboard's address as its redirect URI. The provider must allow that origin to call its token endpoint. `GET /v1/auth/config` gives the page these public values before anyone has signed in, and holds nothing else.
+
+## Who may do what
+
+A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces.
+
+```json
+{
+  "role": {
+    "description": "Runs the order service",
+    "rules": [
+      {"kinds": ["KIND_INSTANCE"], "namespaces": ["*"], "verbs": ["VERB_PUT", "VERB_DELETE"], "names": ["order"]},
+      {"kinds": ["KIND_INSTANCE"], "namespaces": ["*"], "verbs": ["VERB_GET", "VERB_WATCH"]},
+      {"kinds": ["KIND_CONFIG"], "namespaces": ["*"], "verbs": ["VERB_GET", "VERB_WATCH"], "names": ["order-service.yaml", "shared/*"]}
+    ]
+  }
+}
+```
+
+```json
+{
+  "roleBinding": {
+    "role": "order-service",
+    "subjects": [{"type": "TYPE_SERVICE_ACCOUNT", "name": "order"}],
+    "namespaces": ["prod"]
+  }
+}
+```
+
+- A call is allowed when any rule of any bound role matches it. A rule applies only where its own namespaces and the binding's overlap.
+- `names` left empty matches everything. Otherwise it holds exact values, or prefixes ending in `*`, matched against the Config name, the Instance's **service**, or the object name.
+- Global kinds (Namespace, ServiceAccount, Role, RoleBinding) live in the namespace `_system`.
+- `GET` includes lists, and only what the rule allows shows up in them.
+- A lease belongs to whoever took it, so one account cannot attach its instances to another's lease.
+- A change to a role reaches open Watch streams: one that lost permission is canceled.
+
+`GET /v1/me` shows who the server thinks you are, and your effective rules.
+
+With `cosky.auth.enabled: false` everyone may do everything. It is for development only.
+
+## TLS
+
+Without TLS, tokens cross the network in the clear, so turn it on in production. The server uses Spring's SSL bundles:
+
+```yaml
+spring:
+  ssl:
+    bundle:
+      jks:
+        cosky:
+          keystore:
+            location: file:/etc/cosky/server.p12
+            password: ${KEYSTORE_PASSWORD}
+            type: PKCS12
+  grpc:
+    server:
+      ssl:
+        bundle: cosky
+server:
+  ssl:
+    bundle: cosky
+```
+
+And clients:
+
+```yaml
+cosky:
+  tls:
+    enabled: true
+    trusted-certificates: /etc/cosky/ca.pem   # for a private CA; otherwise the JVM's trust store decides
+```
+
+Mutual TLS is not supported yet: a client proves who it is with its token.
+
+## Audit
+
+Each write and each failed sign-in is one JSON line in the log, with the time, subject, verb, kind, namespace, name, revision, outcome and remote address. Config contents and tokens never appear. The server keeps no audit data of its own: collect the lines with your log system, which also decides how long they stay.
+
+## What is not protected
+
+- Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
+- Anyone who can reach Redis can read and change everything, past all of the above.
+- Instance metadata is visible to anyone allowed to read the instance.

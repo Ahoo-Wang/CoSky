@@ -1,93 +1,81 @@
 ---
 title: 服务发现
-description: 应用如何注册、保持注册、过期以及互相发现，包括元数据、状态、负载均衡与拓扑。
+description: 把实例挂在租约上注册，通过 Spring Cloud 查找，并了解出故障时会发生什么。
 ---
 
 # 服务发现
 
-本页面向使用 discovery starter 的应用开发者。接入步骤见[快速开始](./getting-started.md)。
+**Instance** 是服务的一个运行副本，包含服务名、端点、权重和元数据。服务就是共用一个名称的一组 Instance。
 
 ## 注册
 
-classpath 中有 discovery starter 时，应用会在 Web 服务器启动后注册自身，并在优雅停机时注销。实例由以下字段描述：
+使用 starter 时，应用在 Web 服务器就绪后注册，关闭时自行移除。
 
-| 字段 | 属性（`spring.cloud.cosky.discovery.registry.*`） | 默认值 |
-|---|---|---|
-| 服务 ID | `service-id` | `spring.application.name` |
-| 主机 | `host` | 第一个非回环 IP 地址 |
-| 端口 | `port` | Web 服务器端口 |
-| 协议 | `schema` | `http` |
-| 权重 | `weight` | `1` |
-| 元数据 | `metadata.<key>` | 无 |
-| 状态 | `initial-status` | `UP`（存为元数据 `instance_status`） |
-
-实例 ID 为 `<serviceId>@<scheme>#<host>#<port>`，因此同一地址重新注册的实例会替换掉自己。
-
-`spring.cloud.service-registry.auto-registration.enabled=false` 让应用只发现、不注册。
-
-## 保持注册：临时实例
-
-默认情况下实例是**临时**的：它有一个存活期（TTL），必须不断续约。
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-stateDiagram-v2
-    [*] --> Registered: 注册
-    Registered --> Registered: 每 10 秒续约（TTL 60 秒）
-    Registered --> [*]: 停机时注销
-    Registered --> Expired: 60 秒未续约
-    Expired --> [*]: 移除，发布 "expired" 事件
-    Expired --> Registered: 续约时发现已不存在，重新注册
+```yaml
+spring:
+  application:
+    name: order-service
+cosky:
+  registry:
+    enabled: true
+    weight: 1
+    metadata:
+      zone: az1
 ```
 
-- `renew.period`（10 秒）要明显小于 `ttl`（60 秒），这样偶尔漏掉几次续约不会让健康实例过期。
-- 过期实例由命名空间内任意一个已注册的 CoSky 客户端移除并发出通知，不需要运行服务器。
-- 如果实例仍然过期了（例如网络分区期间），下一次续约会重新注册它，并带上注册以来设置的元数据。
-- 消费者永远拿不到 TTL 已过的实例，即使它还没被移除。
+- 服务名就是 `spring.application.name`，必须是 DNS 风格的名称：小写字母、数字、`-` 和 `.`，最长 63 个字符。`OrderService` 会被拒绝。
+- 单独的管理端口不会注册。
+- `spring.cloud.service-registry.auto-registration.enabled: false` 可以关闭注册。
 
-**固定实例**（`is-ephemeral: false`）永不过期，也不续约。用于无法运行客户端的端点，例如通过 [REST API](./rest-api.md) 注册的数据库代理；需要显式移除。
+## 租约
 
-存活只靠续约证明：CoSky 不探测实例。进程卡死但续约线程仍在运行时会一直保持注册；在需要的地方，请配合健康感知路由或熔断器使用。
+一个进程在一个 namespace 中只持有一个租约，无论它注册多少实例，并在每过 TTL（默认 30 秒）的三分之一时续约一次。续约停止后，它的实例就会消失。
 
-## 发现服务
+| 事件 | 结果 |
+|---|---|
+| 正常关闭 | 3 秒内撤销租约，实例立即消失。 |
+| 崩溃 | 租约到期，再过 TTL 的三分之一后实例消失，默认共 40 秒。 |
+| 租约丢失，比如 Redis 故障切换之后 | 客户端发现后最多等待 5 秒，避免所有客户端同时回来，然后重新注册全部实例。 |
+| 客户端重连 | 立即续约，不等下一个周期。 |
 
-应用通过 Spring Cloud 标准 API 发现服务，背后是由变更事件保持最新的本地缓存：
+允许的 TTL 是 5 到 300 秒。
 
-```kotlin
-@Autowired lateinit var discoveryClient: DiscoveryClient          // 或 ReactiveDiscoveryClient
+## 查找服务
 
-discoveryClient.services                                          // 命名空间内的服务 ID
-discoveryClient.getInstances("order-service")                     // 存活实例
+`DiscoveryClient` 和 `ReactiveDiscoveryClient` 读取本地视图。首次读取一个服务时最多等待 `cosky.discovery.load-timeout`（5 秒），避免把"还不知道"当成"没有实例"。之后的读取不需要网络往返。
+
+加入 `spring-cloud-starter-loadbalancer` 后，`@LoadBalanced` 客户端从 CoSky 获取实例，由 Spring Cloud 自己的算法选择。
+
+## 权重
+
+权重为 `0` 的实例仍然注册，但不接收流量，用来摘流：负载均衡器会排除它，`DiscoveryClient` 仍会列出它。Kotlin 客户端的负载均衡器按权重比例随机选择。Spring Cloud LoadBalancer 默认的轮询对其他权重一视同仁。
+
+## 固定实例
+
+不挂租约的 Instance 会一直保留，直到有人删除它。适用于无法自行注册的对象，比如数据库：
+
+```bash
+curl -X PUT localhost:8080/v1/namespaces/prod/instances/orders-db \
+  -H 'Content-Type: application/json' \
+  -d '{"instance":{"service":"orders-db","endpoint":{"scheme":"tcp","host":"10.0.0.5","port":3306}}}'
 ```
 
-引入 `spring-cloud-starter-loadbalancer` 后，`@LoadBalanced` 的 `WebClient` / `RestClient` 以及 OpenFeign 会通过 CoSky 解析 `http://order-service/...`。
+Dashboard 把实例标为 **Leased** 或 **Fixed**。没有任何机制检查固定实例是否存活。
 
-服务发现限定在应用所在的命名空间内。查询由内存应答；第一次查询某个服务时会从 Redis 加载它并订阅其变更。
+## 出故障时
 
-## 元数据与状态
+CoSky 宁可保留一个过期的实例，也不错删活着的实例，所以调用方应该重试并使用熔断。
 
-元数据是附加在实例上的字符串映射，例如可用区或版本。注册时用 `registry.metadata.*` 设置，也可以在控制台中编辑，或在运行时通过 [SDK](./sdk.md#服务发现) 修改。
+| 故障 | 应用看到什么 |
+|---|---|
+| server 不可达 | 继续读取最后的视图；健康指示器保持 `UP`，并带 `connection: DEGRADED`，因为重启也没有帮助。 |
+| server 不可用时重启 | 从磁盘[快照](./sdk.md#快照)恢复视图。 |
+| server 或网络中断超过 TTL | 回收器恢复后等待 30 秒，让存活的客户端有机会续约，而不是被移除。 |
+| 一个 namespace 超过一半的租约同时到期 | 暂停回收，因为这看起来像网络分区。比例回落后恢复，最多暂停 5 分钟。 |
+| Redis 故障切换并丢失最近的写入 | 每个副本都会发现 revision 回退，客户端从新的快照重新开始。丢失的写入不会回来。 |
 
-Spring Cloud 的 `ServiceRegistry.setStatus`（例如通过 `/actuator/serviceregistry` 端点）会把状态存为元数据 `instance_status`。
+这些都可以在 [`cosky.lease`](./properties.md#server) 下配置。在这样的暂停期间真正崩溃的进程，最多会多列出 5 分钟。
 
-Spring Cloud 服务发现只返回状态为 `UP` 或没有状态的实例（例如通过 REST API 注册的固定实例）。因此把实例设为 `OUT_OF_SERVICE` 就能让它退出轮转而不必注销，设回 `UP` 即恢复。设置 `spring.cloud.cosky.discovery.filter-only-up-instances=false` 可以拿到全部实例。
+## 谁在调用谁
 
-## 负载均衡与权重
-
-| 客户端 | 算法 | 是否使用权重 |
-|---|---|---|
-| Spring Cloud LoadBalancer（默认） | 轮询 | ❌ |
-| 设置了 `spring.cloud.loadbalancer.configurations=weighted` 的 Spring Cloud LoadBalancer | 加权 | ✅ |
-| CoSky `LoadBalancer` bean（`BinaryWeightRandomLoadBalancer`） | 加权随机 | ✅ |
-
-CoSky 把每个实例的权重作为 Spring Cloud 实例的 `weight` 元数据暴露出来，Spring Cloud LoadBalancer 的加权配置正是从这里读取权重。直接使用 CoSky API 的代码可以注入 CoSky 的 `LoadBalancer` 并调用 `choose(namespace, serviceId)`。SDK 还提供 `RandomLoadBalancer`（忽略权重），以及 `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` 两个变体：它们和默认实现一样按权重选择，只是内存与查找开销的取舍不同。
-
-## 服务拓扑
-
-每个应用会把自己记录为其所发现服务的消费者，控制台据此绘制依赖图。用 `spring.cloud.cosky.discovery.topology-enabled=false` 关闭。从其他命名空间发现的服务显示为 `<namespace>.<serviceId>`。
-
-## 另见
-
-- [配置属性](./properties.md#服务发现)：全部属性。
-- [使用 SDK](./sdk.md#服务发现)：不用 Spring 注册与发现。
-- [架构](./architecture.md#服务发现)：数据模型与过期机制。
+客户端 watch 一个服务就算作依赖它。[Dashboard](./dashboard.md) 的拓扑图和 `/views/topology` 显示这些边，使用 `spring.application.name` 作为名称，没有时使用登录主体。最后一个副本看到 watch 之后 90 秒这些边就会过期，所以已停止的消费者会自行消失。

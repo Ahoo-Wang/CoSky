@@ -1,67 +1,70 @@
 ---
 title: Internals
-description: A map of the codebase for contributors, the invariants it protects, and how to debug it.
+description: How the repository is organized and tested, for those working on CoSky itself.
 ---
 
 # Internals
 
-This page is for contributors. The process (setup, conventions, tests, pull requests, releases) is in [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md); the design is in [Architecture](./architecture.md).
+For working on CoSky itself. [Architecture](./architecture.md) explains the system, the [design document](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md) the reasoning, and `CONTRIBUTING.md` how to send a change.
 
-## Where things live
+## Modules
 
-| To change… | Look at |
-|---|---|
-| The consistency cache | `cosky-core`: `cache/ReactiveWatchCache.kt` |
-| Lua script loading and `-- @include` | `cosky-core`: `redis/LuaScripts.kt` |
-| Config storage, versions | `cosky-config`: `redis/RedisConfigService.kt`, `src/main/resources/config_*.lua`, `cosky/config/config_lib.lua` |
-| Registration, renewal, expiry | `cosky-discovery`: `redis/RedisServiceRegistry.kt`, `RenewInstanceService.kt`, `registry_*.lua`, `cosky/discovery/discovery_lib.lua` |
-| Cached discovery | `cosky-discovery`: `redis/ConsistencyRedisServiceDiscovery.kt` |
-| Redis key names | `ConfigKeyGenerator`, `DiscoveryKeyGenerator` (and the key functions of the Lua libraries) |
-| Spring wiring and properties | `cosky-spring-cloud-*`: `*AutoConfiguration.kt`, `*Properties.kt` |
-| REST endpoints | `cosky-rest-api`: `*Controller.kt`; paths in `support/RequestPathPrefix.kt` |
-| Security | `cosky-rest-api`: `security/` and `src/main/resources/cosky-policy.json` |
-| Dashboard | `dashboard/` (React; see its README) |
-| Documentation | `wiki/` (VitePress; conventions in `wiki/AGENTS.md`) |
+| Module | Holds | Depends on |
+|---|---|---|
+| `api` | Protos, generated code, validation, errors, the OpenAPI document | Nothing |
+| `store` | The Store interface, and an implementation in memory | `api` |
+| `store-redis` | The Redis Store: the only module with Lua | `store` |
+| `server` | gRPC, REST, the Watch cache, the reaper, auth, views | `api`, `store`, `store-redis` |
+| `client` | Connections, Watch, leases, snapshots, load balancing. No Spring and no Redis. | `api` |
+| `spring-boot-starter` | ConfigData loading, refresh, discovery, registry | `client` |
+| `conformance-test` | The suites the Store and the protocol must pass | `store`, `client` |
+| `migration` | `cosky-migrate`. The only module that knows 6.x. | `api` |
+| `examples` | A provider and a consumer, and the test that runs them | The starter |
+| `dashboard` | The React frontend, with a build of its own | The REST API |
+| `wiki` | This site | |
 
-## Invariants and the tests that guard them
+Two rules hold this together. Nothing but the server touches the Store, and clients never see Redis. And both protocols are one contract: REST is mapped from the same protos as gRPC.
 
-| Invariant | Guarded by |
-|---|---|
-| Every Redis mutation is one Lua script that publishes its change | Code review; `ConsistencyRedisServiceDiscoveryTest`, `RedisConsistencyConfigServiceTest` observe the events |
-| Key names in Lua and in Kotlin agree | `ConfigLuaKeysTest`, `DiscoveryLuaKeysTest` |
-| A cache subscribes before it loads, and applies events in order | `ReactiveWatchCacheTest` |
-| A failed load is never cached | `ReactiveWatchCacheTest`, `*ErrorTest` |
-| Expired instances are reaped without the server | `InstanceExpiryReaperTest` |
-| The REST API enforces authentication and RBAC | `RestApiIntegrationTest` |
-
-[Requirements](./requirements.md) maps every user-visible behavior to its tests.
-
-## Changing the Redis data model
-
-The key schema and the Lua scripts are a contract between client versions running side by side, so:
-
-1. Add the key to the key generator **and** to the Lua library, and extend the matching `*LuaKeysTest`.
-2. Pass every key a script touches through `KEYS` (needed for Redis Cluster), and publish on the changed key's channel.
-3. Consider older clients: a new event payload or field must not break them, or must be opt-in (as `renew-event-carries-ttl-at` is).
-4. Describe the change in [Architecture](./architecture.md#data-model) and, if it affects upgrades, in the upgrade guide.
-
-## Tests
-
-- Tests run against a real Redis on `localhost:6379`; extend `AbstractReactiveRedisTest` (module `cosky-test`) to get a template and clean-up.
-- Use `me.ahoo.test.asserts.assert` for assertions and MockK for collaborators.
-- `./gradlew check` also runs detekt, the license header check and the coverage floor.
-
-## Debugging
+## Building
 
 ```bash
-redis-cli --scan --pattern '{dev}:*'              # keys of a namespace
-redis-cli hgetall '{dev}:svc_itc:order-service@http#10.0.0.5#8080'
-redis-cli psubscribe '{dev}:*'                    # watch every event of a namespace
-redis-cli zrange '{dev}:svc_itc_exp' 0 -1 withscores   # ephemeral instances by expiry time
+./gradlew build
 ```
 
-Raise `logging.level.me.ahoo.cosky` to `debug` to log cache loads, events and renewals.
+The server's tests need JDK 25 and Docker, and Gradle provides the JDKs. `./gradlew :server:run --args='--dev'` starts a server in memory.
 
-## Benchmarks
+The server bundles the Dashboard when `dashboard/dist` exists:
 
-JMH benchmarks live in `src/jmh` of `cosky-config` and `cosky-discovery`; see [Performance](./performance.md#reproducing). Compare before and after on the same machine when changing a hot path.
+```bash
+pnpm --dir dashboard install && pnpm --dir dashboard build
+```
+
+## Testing
+
+| Level | Where | Against |
+|---|---|---|
+| Store conformance | `conformance-test`, run by `store` and `store-redis` | Memory, Redis, Redis Cluster |
+| Protocol conformance | `conformance-test`, run by `server` | The real services over gRPC |
+| Parity of the protocols | `ProtocolParityTest` | The same request over gRPC and REST ends the same way |
+| Faults | `FaultInjectionTest` | A real server behind Toxiproxy: partitions, slow links, a hung store |
+| Failover | `RedisStoreFailoverTest` | A real Redis losing writes |
+| End to end | `examples/e2e` | The server, a provider and a consumer as separate processes |
+| TLS | `TlsEndToEndTest` | Both ports, with a generated certificate |
+| Dashboard | `dashboard/tests/ui` | A mock answering as the server does |
+| Dashboard against the image | `dashboard/tests/ui/real-backend.spec.ts` | The page the image hosts, on that image |
+| Migration | `migration` | A real Redis and a real server |
+
+Line coverage has a floor of 90%, enforced by `./gradlew build`. New behaviour should fail a test when you take it out, so try that.
+
+Every pull request also runs Redis 7.0 and Valkey 8, CodeQL, and an image build that starts the image and drives it.
+
+## Lua
+
+All of it is in `store-redis`. Each script keeps to one namespace's hash tag, and declares its keys. The layout is in the design's section on keys.
+
+## Conventions
+
+- Coroutines, carried by virtual threads. Reactor stays in the adapters, which Detekt enforces.
+- Errors carry a stable reason, mapped to a gRPC code and an HTTP status in one place.
+- A change to behaviour updates the design, and a decision gets a D-number in its table.
+- Tests assert behaviour through public interfaces, against real dependencies where it matters.

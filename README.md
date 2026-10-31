@@ -1,4 +1,4 @@
-# [CoSky](https://github.com/Ahoo-Wang/CoSky): Configuration and Service Discovery on Redis
+# [CoSky](https://github.com/Ahoo-Wang/CoSky): Configuration and Service Discovery
 
 <p align="center">
      <img src="./docs/cosky-logo.svg" alt="CoSky Logo" width="200"/>
@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![GitHub release](https://img.shields.io/github/release/Ahoo-Wang/CoSky.svg)](https://github.com/Ahoo-Wang/CoSky/releases)
-[![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-core)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
+[![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-client)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9e31358946b645abb283e83b10e85e2d)](https://www.codacy.com/gh/Ahoo-Wang/CoSky/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Ahoo-Wang/CoSky&amp;utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/Ahoo-Wang/CoSky/branch/main/graph/badge.svg?token=N114DHHBUI)](https://codecov.io/gh/Ahoo-Wang/CoSky)
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
@@ -14,74 +14,72 @@
 
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
-CoSky provides **configuration management** and **service discovery** for Spring Cloud microservices, using only **Redis** as infrastructure. There is no registry cluster to operate: applications talk to the Redis you already run, and an optional REST API server adds a web dashboard, users and permissions.
+CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 
-- **Reads from memory.** Each application keeps a local cache that Redis Pub/Sub keeps current: reading a config or choosing an instance costs no network round trip ([benchmarks](https://cosky.ahoo.me/guide/performance)).
-- **Atomic writes.** Every change is a single Lua script, announced to every subscriber.
-- **Spring Cloud native.** A property source with live refresh, a `DiscoveryClient` and a service registry.
-
-<p align="center">
-     <img src="./docs/CoSky-Discovery.png" alt="CoSky service discovery"/>
-</p>
+- **Reads from memory.** Each application keeps a local view that a Watch stream keeps current, so reading a Config or choosing an instance costs no network round trip.
+- **Keeps working through failures.** Clients serve what they know when the server is away, and restart from a snapshot on disk. A mass expiry after a partition is held back rather than obeyed.
+- **Access control on every call.** ServiceAccount tokens and OIDC, for applications as well as people, with roles down to a name prefix.
+- **Nothing new to operate.** One image holds the server and the Dashboard, and needs only the Redis you already run.
 
 ## Features
 
 | Area | What you get |
 |---|---|
-| Configuration | Live refresh, YAML / properties, versions with rollback, import and export (Nacos-compatible) |
-| Service discovery | Ephemeral instances with automatic expiry, metadata and status, weighted load balancing, topology |
-| Operations | REST API and dashboard, JWT authentication, namespace-scoped roles, audit log |
-| Isolation | Namespaces separate environments or tenants in one Redis |
+| Configuration | `spring.config.import` with live refresh; YAML, JSON, properties and text; revisions with rollback; zip import and export |
+| Service discovery | Spring Cloud `DiscoveryClient`, `ServiceRegistry` and LoadBalancer; instances under a lease; metadata and weights; fixed instances |
+| Resilience | Local views keep serving through an outage; snapshots survive a restart; mass expiry protection; several server replicas |
+| Security | Tokens and OIDC on every call; roles scoped to namespaces and name prefixes; TLS; a structured audit log |
+| Operations | Kustomize manifests; Prometheus metrics; OpenTelemetry traces; topology of who watches whom |
 
 ## Quick start
 
-Add the starters (`spring-cloud-starter-bootstrap` makes Spring Cloud read `bootstrap.yaml`):
+Start a server. `--dev` needs no Redis and no sign-in, and keeps nothing:
+
+```bash
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky --dev
+```
+
+Add the starter to a Spring Boot 4 application:
 
 ```kotlin
 dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
-    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-config")
-    implementation("me.ahoo.cosky:cosky-spring-cloud-starter-discovery")
-    implementation("org.springframework.cloud:spring-cloud-starter-bootstrap")
-    implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0"))
+    implementation("me.ahoo.cosky:cosky-spring-boot-starter")
+    implementation("org.springframework.cloud:spring-cloud-context")
 }
 ```
 
-Point them at Redis in `bootstrap.yaml`:
+Point it at the server:
 
 ```yaml
 spring:
   application:
-    name: order-service          # loads config order-service.yaml, registers as order-service
-  data:
-    redis:
-      url: redis://localhost:6379
+    name: order-service          # registers as order-service
+  config:
+    import: "optional:cosky:order-service.yaml"
   cloud:
-    cosky:
-      namespace: dev
+    compatibility-verifier:
+      enabled: false             # until Spring Cloud 2026.0, which declares Spring Boot 4.1
+cosky:
+  endpoints: localhost:9090
 ```
 
-Run the dashboard to manage configs and services:
+Open the Dashboard at <http://localhost:8080>. The [Getting Started](https://cosky.ahoo.me/guide/getting-started) guide walks through the whole setup, and the [examples](examples) hold a provider and a consumer.
 
-```bash
-docker run -d --name cosky -p 8080:8080 \
-  -e SPRING_DATA_REDIS_URL=redis://host.docker.internal:6379 \
-  -e COSKY_SECURITY_KEY="$(openssl rand -base64 32)" \
-  ahoowang/cosky:6.2.0
-docker logs cosky | grep "init super user"    # password of the super user "cosky"
-```
+## Moving from 6.x
 
-The [Getting Started](https://cosky.ahoo.me/guide/getting-started) guide walks through the whole setup; the [examples](examples) contain a provider and a Feign consumer.
+8.0 is a new system: applications on 6.x and 8.0 cannot see each other, so they move together. [Moving from 6.x](https://cosky.ahoo.me/guide/upgrade-8) explains the cutover, and [`cosky-migrate`](migration) imports the Configs and reports what to rebuild by hand. The `main` branch carries 6.x until 8.0 is released.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Overview](https://cosky.ahoo.me/guide/) | What CoSky is, when it fits, how it compares |
-| [Configuration](https://cosky.ahoo.me/guide/configuration) · [Service Discovery](https://cosky.ahoo.me/guide/service-discovery) · [SDK](https://cosky.ahoo.me/guide/sdk) | Using CoSky in applications |
-| [Deployment](https://cosky.ahoo.me/guide/deployment) · [Security](https://cosky.ahoo.me/guide/security) · [Upgrading to 6.0](https://cosky.ahoo.me/guide/upgrade-6) | Running the REST API server |
-| [Properties](https://cosky.ahoo.me/guide/properties) · [REST API](https://cosky.ahoo.me/guide/rest-api) | Reference |
+| [Overview](https://cosky.ahoo.me/guide/) | What CoSky is, and when it fits |
+| [Configuration](https://cosky.ahoo.me/guide/configuration) · [Service Discovery](https://cosky.ahoo.me/guide/service-discovery) · [SDK](https://cosky.ahoo.me/guide/sdk) | Using it |
+| [Deployment](https://cosky.ahoo.me/guide/deployment) · [Security](https://cosky.ahoo.me/guide/security) · [Dashboard](https://cosky.ahoo.me/guide/dashboard) | Running it |
+| [Properties](https://cosky.ahoo.me/guide/properties) · [REST API](https://cosky.ahoo.me/guide/rest-api) · [Requirements](https://cosky.ahoo.me/guide/requirements) | Reference |
 | [Architecture](https://cosky.ahoo.me/guide/architecture) · [Performance](https://cosky.ahoo.me/guide/performance) | How it works |
 
 ## Contributing

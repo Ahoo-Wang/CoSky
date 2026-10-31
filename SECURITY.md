@@ -6,8 +6,9 @@ Security fixes are released for the latest minor version of the current major ve
 
 | Version | Supported |
 |---|---|
-| 6.x | ✅ |
-| < 6.0 | ❌ — upgrade with the [6.0 upgrade guide](wiki/guide/upgrade-6.md) |
+| 8.x | ✅ |
+| 6.x | ✅ — move with the [guide](wiki/guide/upgrade-8.md) |
+| < 6.0 | ❌ |
 
 ## Reporting a vulnerability
 
@@ -15,16 +16,16 @@ Please do **not** open a public issue. Report it privately through
 [GitHub's private vulnerability reporting](https://github.com/Ahoo-Wang/CoSky/security/advisories/new)
 (or by email to ahoowang@qq.com) with:
 
-- the affected version and component (e.g. REST API server, Spring Cloud starter),
+- the affected version and component (e.g. server, Spring Boot starter),
 - a description of the vulnerability and its impact,
 - steps or a proof of concept to reproduce it.
 
 You will get an acknowledgement within 3 working days. Once the issue is confirmed, a fix is prepared in a private
 fork and released as a patch version; the release notes credit the reporter unless they prefer otherwise.
 
-## Hardening the REST API server
+## Hardening the server
 
-- Set a random `cosky.security.key` (`COSKY_SECURITY_KEY`) of at least 32 characters; the server refuses to start
-  without one.
-- Grant users only the namespaces they need through RBAC roles, and keep the `admin` role for administrators.
-- Expose the server through TLS, and keep Redis on a private network with authentication enabled.
+- Turn on [TLS](wiki/guide/security.md#tls) on both ports, and in the clients: without it, tokens cross the network in the clear.
+- Revoke the bootstrap token once real accounts exist, and grant each subject only what it needs through roles.
+- Keep Redis on a private network with authentication enabled: whoever reaches it can read and change everything.
+- Never run with `cosky.auth.enabled: false` or `--dev` outside development.

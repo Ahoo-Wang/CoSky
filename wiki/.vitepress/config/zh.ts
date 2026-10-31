@@ -4,7 +4,7 @@ export const zh: DefaultTheme.Config = {
   label: '简体中文',
   lang: 'zh-CN',
   title: 'CoSky',
-  description: '高性能微服务治理平台 — 服务发现与配置中心',
+  description: '面向微服务的配置管理与服务发现，一个位于 Redis 前面的小型 server',
   themeConfig: {
     nav: [
       { text: '指南', link: '/zh/guide/' },
@@ -34,7 +34,7 @@ export const zh: DefaultTheme.Config = {
             { text: '部署', link: '/zh/guide/deployment' },
             { text: '安全', link: '/zh/guide/security' },
             { text: '控制台', link: '/zh/guide/dashboard' },
-            { text: '升级到 6.0', link: '/zh/guide/upgrade-6' },
+            { text: '从 6.x 迁移', link: '/zh/guide/upgrade-8' },
           ],
         },
         {

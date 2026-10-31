@@ -1,46 +1,37 @@
 ---
 title: Dashboard
-description: A tour of the CoSky web dashboard served by the REST API server.
+description: What the web console does, how to sign in, and how it stays current.
 ---
 
 # Dashboard
 
-The REST API server serves a web dashboard at `http://<server>:8080`. Sign in with a CoSky user (see [Security](./security.md)); each page works on the namespace selected at the top, and only shows what your roles grant.
+The server hosts the Dashboard at `/`, on port 8080. It uses only the public [REST API](./rest-api.md), so it can do nothing you could not do with `curl`, and your [roles](./security.md#who-may-do-what) apply to it. A refused action shows the server's reason.
 
-| Page | What you do there |
+![Dashboard](/dashboard-dashboard.png)
+
+## Signing in
+
+Paste a ServiceAccount token, or use the OIDC button when the server [offers one](./security.md#oidc). The token stays in that browser tab, and goes when the tab closes. A server with `cosky.auth.enabled: false` asks for nothing.
+
+## Pages
+
+The namespace selector in the header decides what every page shows.
+
+| Page | What it does |
 |---|---|
-| **Home** | Counts of namespaces, configs, services and instances, and the service topology |
-| **Config** | Create, edit and remove configs; browse the history with diffs and roll back; import and export zips |
-| **Service** | Browse services and instances, register fixed instances, edit metadata, deregister |
-| **Namespace** | Add and remove namespaces |
-| **User** | Create users, bind roles, lock, unlock, change passwords |
-| **Role** | Define roles and the namespaces they grant |
-| **Audit Log** | Search who did what, filter by time and outcome, export CSV |
+| **Dashboard** | Counts of services, instances, Configs and namespaces, and the topology of who watches whom |
+| **Configuration** | Create, edit, delete, import and export Configs; compare any revision with the current one, and roll back |
+| **Service** | Services and their instances, leased or fixed; add, edit and delete instances |
+| **Namespace** | Create and delete namespaces. Only an empty one can be deleted, and not the one selected. |
+| **Service Account** | Accounts and their tokens. A new token shows once, so copy it then. |
+| **Role** and **Role Binding** | Who may do what, and where |
 
-![Home](/dashboard-dashboard.png)
+![Configuration](/dashboard-config.png)
 
-## Configs
+## Staying current
 
-![Configs](/dashboard-config.png)
+The Configuration and Service pages follow changes as they happen, over a server-sent event stream, without a reload. A stream that breaks or goes silent is opened again. The first page reads its counts every 30 seconds, so that it does not hold a connection of its own: browsers allow few per server over HTTP/1.1.
 
-Saving a config creates a new version that every application using it receives within milliseconds. The history compares any version with the current one and rolls back to it; see [Configuration](./configuration.md#versions-and-rollback).
+## Editing safely
 
-![Rollback](/dashboard-config-rollback.png)
-
-## Services
-
-![Services](/dashboard-service.png)
-
-Instances registered by applications appear and disappear on their own. Fixed instances added here stay until removed; see [Service Discovery](./service-discovery.md).
-
-![Topology](/dashboard-topology.png)
-
-## Users, roles and audit
-
-![Roles](/dashboard-role.png)
-
-![Audit log](/dashboard-audit-log.png)
-
-## Developing the dashboard
-
-The dashboard is a React application in [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/main/dashboard); its README describes the development server, tests and the API client generation.
+An edit remembers the revision it started from. If someone changed the object in the meantime, saving fails with the server's reason and changes nothing, so reload and try again.

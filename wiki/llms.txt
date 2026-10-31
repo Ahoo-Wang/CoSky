@@ -1,36 +1,36 @@
 # CoSky
 
-> Configuration management and service discovery for Spring Cloud microservices, using only Redis as infrastructure.
+> Configuration management and service discovery for microservices: a small server in front of Redis, with clients that read from memory.
 
 ## Introduction
 
 - [Overview](guide/index.md): What CoSky is, how it works, when it fits, and where to go next.
-- [Getting Started](guide/getting-started.md): Add configuration and service discovery to a Spring Boot application, then run the dashboard.
+- [Getting Started](guide/getting-started.md): Run a CoSky server, serve a Config to a Spring Boot application, and find it from another one.
 
 ## Guides
 
-- [Configuration](guide/configuration.md): Load configuration from CoSky into Spring, refresh it live, and manage versions, rollback, import and export.
-- [Service Discovery](guide/service-discovery.md): How applications register, stay registered, expire and discover each other, with metadata, status, load balancing and topology.
-- [Using the SDK](guide/sdk.md): Use CoSky's configuration and discovery services directly, without the Spring Cloud starters.
+- [Configuration](guide/configuration.md): Serve Spring properties from CoSky, refresh them live, and keep their revisions.
+- [Service Discovery](guide/service-discovery.md): Register instances under a lease, find them through Spring Cloud, and understand what happens when things fail.
+- [Using the SDK](guide/sdk.md): The Kotlin client without Spring, its snapshots and connection states, and clients for other languages.
 
 ## Operations
 
-- [Deployment](guide/deployment.md): Run the CoSky REST API server and dashboard with Docker, Kubernetes or as a standalone distribution, and prepare Redis for production.
-- [Security](guide/security.md): Users, roles, the security policy, tokens and the audit log of the CoSky REST API server.
-- [Dashboard](guide/dashboard.md): A tour of the CoSky web dashboard served by the REST API server.
-- [Upgrading to 6.0](guide/upgrade-6.md): Breaking changes in CoSky 6.0 and the steps to upgrade servers and clients from 5.x.
+- [Deployment](guide/deployment.md): Run the CoSky server in production on Docker or Kubernetes, with what it asks of Redis.
+- [Security](guide/security.md): Sign in with tokens or OIDC, say who may do what with roles, encrypt the connections, and read the audit log.
+- [Dashboard](guide/dashboard.md): What the web console does, how to sign in, and how it stays current.
+- [Moving from 6.x](guide/upgrade-8.md): Move a CoSky 6.x installation to 8.0 in one cutover, with cosky-migrate.
 
 ## Reference
 
-- [Configuration Properties](guide/properties.md): Every property of the CoSky starters and of the REST API server, with defaults.
-- [REST API](guide/rest-api.md): Endpoints of the CoSky REST API server, authentication and error format.
-- [Requirements](guide/requirements.md): The functional and non-functional requirements CoSky meets, each traced to the tests that verify it.
+- [Configuration Properties](guide/properties.md): Every setting of the server and the Spring Boot starter, with its default.
+- [REST API](guide/rest-api.md): The endpoints of the REST API and the conventions they share.
+- [Requirements](guide/requirements.md): The versions CoSky needs and is tested with.
 
 ## Concepts
 
-- [Architecture](guide/architecture.md): CoSky's modules, Redis data model, events and consistency model, and the trade-offs behind them.
-- [Performance](guide/performance.md): How fast CoSky reads and writes, how it was measured, and how to reproduce the benchmarks.
+- [Architecture](guide/architecture.md): The data model, how changes travel, and what happens when parts of the system fail.
+- [Performance](guide/performance.md): The targets of CoSky 8.0, what was measured, and what was not.
 
 ## Contributing
 
-- [Internals](guide/internals.md): A map of the codebase for contributors, the invariants it protects, and how to debug it.
+- [Internals](guide/internals.md): How the repository is organized and tested, for those working on CoSky itself.

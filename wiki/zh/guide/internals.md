@@ -1,67 +1,70 @@
 ---
 title: 内部实现
-description: 面向贡献者的代码地图、代码所守护的不变量，以及调试方法。
+description: 仓库如何组织和测试，供开发 CoSky 本身的人参考。
 ---
 
 # 内部实现
 
-本页面向贡献者。流程（环境、规范、测试、PR、发版）见 [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md)；设计见[架构](./architecture.md)。
+面向开发 CoSky 本身的人。系统说明见[架构](./architecture.md)，决策理由见[设计文档](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md)，如何提交修改见 `CONTRIBUTING.md`。
 
-## 代码在哪里
+## 模块
 
-| 要修改… | 看这里 |
-|---|---|
-| 一致性缓存 | `cosky-core`：`cache/ReactiveWatchCache.kt` |
-| Lua 脚本加载与 `-- @include` | `cosky-core`：`redis/LuaScripts.kt` |
-| 配置存储、版本 | `cosky-config`：`redis/RedisConfigService.kt`、`src/main/resources/config_*.lua`、`cosky/config/config_lib.lua` |
-| 注册、续约、过期 | `cosky-discovery`：`redis/RedisServiceRegistry.kt`、`RenewInstanceService.kt`、`registry_*.lua`、`cosky/discovery/discovery_lib.lua` |
-| 带缓存的服务发现 | `cosky-discovery`：`redis/ConsistencyRedisServiceDiscovery.kt` |
-| Redis 键名 | `ConfigKeyGenerator`、`DiscoveryKeyGenerator`（以及 Lua 库中的键函数） |
-| Spring 装配与属性 | `cosky-spring-cloud-*`：`*AutoConfiguration.kt`、`*Properties.kt` |
-| REST 接口 | `cosky-rest-api`：`*Controller.kt`；路径在 `support/RequestPathPrefix.kt` |
-| 安全 | `cosky-rest-api`：`security/` 与 `src/main/resources/cosky-policy.json` |
-| 控制台 | `dashboard/`（React；见其 README） |
-| 文档 | `wiki/`（VitePress；规范见 `wiki/AGENTS.md`） |
+| 模块 | 内容 | 依赖 |
+|---|---|---|
+| `api` | proto、生成的代码、校验、错误、OpenAPI 文档 | 无 |
+| `store` | Store 接口和内存实现 | `api` |
+| `store-redis` | Redis Store：唯一包含 Lua 的模块 | `store` |
+| `server` | gRPC、REST、Watch 缓存、回收器、鉴权、视图 | `api`、`store`、`store-redis` |
+| `client` | 连接、Watch、租约、快照、负载均衡。不含 Spring 和 Redis。 | `api` |
+| `spring-boot-starter` | ConfigData 加载、刷新、发现、注册 | `client` |
+| `conformance-test` | Store 和协议必须通过的测试套件 | `store`、`client` |
+| `migration` | `cosky-migrate`。唯一了解 6.x 的模块。 | `api` |
+| `examples` | 一个 provider、一个 consumer，以及运行它们的测试 | starter |
+| `dashboard` | React 前端，有自己的构建 | REST API |
+| `wiki` | 本站 | |
 
-## 不变量与守护它们的测试
+两条规则把这些维系在一起：除了 server，没有任何东西接触 Store，客户端也看不到 Redis；两种协议是同一份契约，REST 由与 gRPC 相同的 proto 映射而来。
 
-| 不变量 | 守护者 |
-|---|---|
-| 每次 Redis 修改都是一个发布变更的 Lua 脚本 | 代码评审；`ConsistencyRedisServiceDiscoveryTest`、`RedisConsistencyConfigServiceTest` 观察事件 |
-| Lua 与 Kotlin 中的键名一致 | `ConfigLuaKeysTest`、`DiscoveryLuaKeysTest` |
-| 缓存先订阅再加载，并按顺序应用事件 | `ReactiveWatchCacheTest` |
-| 加载失败永远不会被缓存 | `ReactiveWatchCacheTest`、`*ErrorTest` |
-| 不依赖服务器即可清理过期实例 | `InstanceExpiryReaperTest` |
-| REST API 执行认证与 RBAC | `RestApiIntegrationTest` |
+## 构建
 
-[需求](./requirements.md)把每个用户可见的行为对应到验证它的测试。
+```bash
+./gradlew build
+```
 
-## 修改 Redis 数据模型
+server 的测试需要 JDK 25 和 Docker，JDK 由 Gradle 提供。`./gradlew :server:run --args='--dev'` 启动一个内存模式的 server。
 
-键结构和 Lua 脚本是同时运行的不同客户端版本之间的契约，因此：
+`dashboard/dist` 存在时，server 会把 Dashboard 打包进去：
 
-1. 同时在键生成器**和** Lua 库中添加键，并扩展对应的 `*LuaKeysTest`。
-2. 脚本操作的每个键都通过 `KEYS` 传入（Redis Cluster 需要），并在被修改键的频道上发布消息。
-3. 考虑旧版本客户端：新的事件内容或字段不能让它们出错，否则就必须是可选开启的（就像 `renew-event-carries-ttl-at`）。
-4. 在[架构](./architecture.md#数据模型)中描述变更；如果影响升级，还要写进升级指南。
+```bash
+pnpm --dir dashboard install && pnpm --dir dashboard build
+```
 
 ## 测试
 
-- 测试针对 `localhost:6379` 上的真实 Redis 运行；继承 `AbstractReactiveRedisTest`（`cosky-test` 模块）即可获得 template 与清理逻辑。
-- 断言使用 `me.ahoo.test.asserts.assert`，协作者使用 MockK。
-- `./gradlew check` 还会运行 detekt、许可证头检查和覆盖率门槛。
+| 层次 | 位置 | 针对 |
+|---|---|---|
+| Store 一致性 | `conformance-test`，由 `store` 和 `store-redis` 运行 | 内存、Redis、Redis Cluster |
+| 协议一致性 | `conformance-test`，由 `server` 运行 | 通过 gRPC 访问真实服务 |
+| 协议对等 | `ProtocolParityTest` | 同一请求经 gRPC 和 REST 的结果相同 |
+| 故障 | `FaultInjectionTest` | Toxiproxy 后面的真实 server：分区、慢链路、挂起的存储 |
+| 故障切换 | `RedisStoreFailoverTest` | 丢失写入的真实 Redis |
+| 端到端 | `examples/e2e` | 作为独立进程运行的 server、provider 和 consumer |
+| TLS | `TlsEndToEndTest` | 两个端口，使用生成的证书 |
+| Dashboard | `dashboard/tests/ui` | 行为与 server 相同的 mock |
+| 针对镜像的 Dashboard | `dashboard/tests/ui/real-backend.spec.ts` | 镜像托管的页面，连接该镜像 |
+| 迁移 | `migration` | 真实 Redis 和真实 server |
 
-## 调试
+行覆盖率下限是 90%，由 `./gradlew build` 强制。新行为应该在去掉实现时让某个测试失败，请实际试一下。
 
-```bash
-redis-cli --scan --pattern '{dev}:*'              # 命名空间中的键
-redis-cli hgetall '{dev}:svc_itc:order-service@http#10.0.0.5#8080'
-redis-cli psubscribe '{dev}:*'                    # 观察命名空间的所有事件
-redis-cli zrange '{dev}:svc_itc_exp' 0 -1 withscores   # 按过期时间排列的临时实例
-```
+每个 PR 还会运行 Redis 7.0 和 Valkey 8、CodeQL，以及构建镜像、启动并驱动它的任务。
 
-把 `logging.level.me.ahoo.cosky` 调到 `debug`，可以记录缓存加载、事件和续约。
+## Lua
 
-## 基准测试
+全部在 `store-redis` 中。每个脚本只使用一个 namespace 的哈希标签，并声明它用到的键。键的布局见设计文档中关于键的章节。
 
-JMH 基准测试位于 `cosky-config` 和 `cosky-discovery` 的 `src/jmh` 下；见[性能](./performance.md#复现)。修改热点路径时，请在同一台机器上对比修改前后。
+## 约定
+
+- 协程，由虚拟线程承载。Reactor 只留在适配层，由 Detekt 强制。
+- 错误带有稳定的原因，在一处映射到 gRPC 状态码和 HTTP 状态。
+- 修改行为时同步更新设计文档，决策在其表格中有 D 编号。
+- 测试通过公开接口断言行为，关键之处使用真实依赖。

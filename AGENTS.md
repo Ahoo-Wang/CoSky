@@ -55,7 +55,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `test` | Shared test utilities | ✅ |
 | `buildSrc` | Build logic (OpenAPI generation) | ✅ |
 | `dashboard/` | React 19 frontend (separate build — see dashboard/CLAUDE.md); the server image bundles it | ✅ |
-| `wiki/` | VitePress documentation site; still describes 6.x until W4d | — |
+| `wiki/` | VitePress documentation site, see wiki/AGENTS.md | ✅ |
 
 ## Code Style
 

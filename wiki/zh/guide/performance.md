@@ -1,47 +1,53 @@
 ---
 title: 性能
-description: CoSky 的读写速度、测量方法，以及如何复现基准测试。
+description: CoSky 8.0 的目标、测量结果，以及没有测量的部分。
 ---
 
 # 性能
 
-应用从**本地缓存**读取配置和实例，一次读取只是一次映射查找，而不是一次 Redis 往返。写入和缓存未命中会访问 Redis，受其延迟限制。
+测量经过真实的 gRPC 和序列化，server 单独运行在一个 JVM 中（JDK 25，紧凑对象头），连接 Redis 7.4 容器。**压测端和 server 共用一台 10 核笔记本，走本机回环**，所以没有真实网络，压测端还会和 server 争抢 CPU。这些数字仅供参考，请在自己的硬件上测量。
 
 ## 结果
 
-JMH 吞吐量，8 线程，Redis 与测试同机（Apple M4 Pro、JDK 17.0.20、Redis 8.10、JMH 1.37），测试对象为 CoSky 6.1.0。原始结果：[`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh)。
-
-| 操作 | 途径 | 吞吐量 |
+| 目标 | 结果 | 判断 |
 |---|---|---|
-| 读取配置 | 本地缓存（`RedisConsistencyConfigService`） | **750,901,545 ops/s** |
-| 读取配置 | Redis（`RedisConfigService`） | 48,160 ops/s |
-| 保存配置 | Redis | 35,479 ops/s |
-| 列出服务 | 本地缓存（`ConsistencyRedisServiceDiscovery`） | **1,791,707,975 ops/s** |
-| 列出服务的实例 | 本地缓存 | **232,887,361 ops/s** |
-| 列出服务 | Redis（`RedisServiceDiscovery`） | 49,117 ops/s |
-| 列出服务的实例 | Redis | 38,013 ops/s |
-| 注册 / 续约 / 注销实例 | Redis | 36,691 / 40,740 / 44,275 ops/s |
+| 单 namespace 50,000 实例和 10,000 Config | 64 个并发写入者 7 秒写完。第二个副本加载后 2 到 3.5 秒就绪。 | 达到 |
+| 每个实例约 1 KB | 60,000 个对象占 86 MB，每个约 1.5 KB，含按服务的索引和事件窗口 | 略超 |
+| 写入 p99 低于 20 毫秒 | 16 个写入者约 12,000 次/秒时为 2 毫秒，最大 8 毫秒。没有真实网络。 | 达到，须在同机房复测 |
+| 单副本 20,000 连接和 100,000 watch | 5,000 连接和 100,000 watch 全部成功，用时 8 秒。15,000 和 105,000 中，14,890 个连接和 104,230 个 watch 成功，用时 12 秒。 | **未达到 20,000**：笔记本的临时端口耗尽。110 个失败连接的原因没有找到。 |
+| 传播 p99 低于 500 毫秒 | 到 5,000 个连接为 190 毫秒，最大 412 毫秒。到 15,000 个约 750 毫秒。 | 5,000 时达到，**15,000 时未达到** |
+| `choose()` 和读 Config 不分配内存 | `choose()` 每秒 2,400 万到 5,800 万次，读 Config 每秒约 15 亿次，每次约 0 字节 | 达到 |
 
-如何解读这些数字：
+未达标的传播目标是最坏情况：所有连接都 watch 同一个服务，压测端还要在同一台机器上收下每一份。真实流量中，一个事件只发给依赖该服务的客户端。
 
-- **缓存读取**随 CPU 核数扩展；这是应用每次访问配置属性、每次负载均衡调用时付出的代价。
-- **Redis 操作**主要取决于网络延迟和 Redis 本身。经过真实网络时会更低；在共享的 CI 机器上大约减半。
-- 每个数字都是一次 10 秒预热后的单次 10 秒测量：用来判断数量级、在同一台机器上比较不同版本，而不是容量保证。
+## 事件窗口
 
-## 缓存读取为什么便宜
+在负载下杀掉一个副本，100 个客户端重连到另一个副本，都 watch 同一个服务。掉出窗口意味着重新读取这个服务的快照，代价很小。
 
-缓存读取返回的是值上次变化时构建好的不可变快照：没有 I/O、没有锁，配置读取甚至不分配内存。保持快照最新的代价是每次变更一条 Redis Pub/Sub 消息，加上重新加载变化的那个键。[架构](./architecture.md#一致性模型)描述了这一机制。
+| 每秒写入 | 窗口 | 客户端 | 每秒投递 | `gone` |
+|---|---|---|---|---|
+| 约 160 | 10,000 | 100 | 约 16,000 | 0 |
+| 约 1,600 | 10,000 | 5 / 20 | 约 8,000 / 32,000 | 0 |
+| 约 1,600 | 10,000 | 100 | 约 160,000 | 97 到 100 |
+| 约 1,500 | 50,000 | 100 | 约 150,000 | 0 |
+
+所以 `gone` 只在投递跟不上时出现，大约在每秒 160,000 次。默认值保持 10,000，滚动更新后看 `cosky_watch_gone_total` 就知道你的窗口是否需要调大。
+
+## 没有测量的
+
+- 真实网络或真实机房。
+- 连接负载下的多个 server 副本。
+- 这个规模的 Redis Cluster。
+- 长时间运行：几天的内存变化和泄漏。
 
 ## 复现
 
-在 `localhost:6379` 运行 Redis 后：
-
 ```bash
-./gradlew :cosky-config:jmh :cosky-discovery:jmh -PjmhThreads=8
-# 只运行一个基准测试类
-./gradlew :cosky-discovery:jmh -PjmhIncludes=ConsistencyRedisServiceDiscoveryBenchmark
+COSKY_MEASURE=load COSKY_MEASURE_HEAP=4g ./gradlew :server:test --tests '*LoadMeasurement*'
 ```
 
-结果写入 `<模块>/build/results/jmh/results.json`。可选参数：`-PjmhThreads`、`-PjmhIncludes`、`-PjmhExcludes`、`-PjmhMode`（默认 `thrpt`）。
+`COSKY_LOAD_CONNECTIONS`、`COSKY_LOAD_WATCHES_PER_CONNECTION`、`COSKY_LOAD_RATES`、`COSKY_LOAD_WINDOW` 和 `COSKY_LOAD_WINDOW_CLIENTS` 控制规模。客户端的热路径是 JMH 基准：
 
-[基准测试工作流](https://github.com/Ahoo-Wang/CoSky/blob/main/.github/workflows/benchmark-test.yml)在每次推送时运行这两组测试，便于发现提交之间的性能回退。
+```bash
+./gradlew :client:jmh
+```

@@ -1,102 +1,117 @@
 ---
 title: 使用 SDK
-description: 不依赖 Spring Cloud starter，直接使用 CoSky 的配置与服务发现服务。
+description: 不依赖 Spring 使用 Kotlin 客户端，了解快照和连接状态，以及其他语言的客户端。
 ---
 
 # 使用 SDK
 
-Spring Cloud starter 会替你装配好一切。以下情况可以直接使用 SDK：不使用 Spring Cloud，或需要更细的控制，例如用工具管理配置、代替另一个进程注册实例、监听某个配置。
-
-所有 API 都是响应式的（Project Reactor 的 `Mono` / `Flux`），并显式传入命名空间。命名空间不能为空，也不能包含 `:`；Redis 为集群模式时，请把它包进 hash tag（例如 `{dev}`）。
-
-## 依赖
+`cosky-client` 是一个协程客户端，不依赖 Spring 或 Redis，starter 就构建在它之上。需要 JDK 21 或更高版本。
 
 ```kotlin
-dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
-    implementation("me.ahoo.cosky:cosky-config")     // 配置
-    implementation("me.ahoo.cosky:cosky-discovery")  // 服务发现
-}
+implementation("me.ahoo.cosky:cosky-client:8.0.0")
 ```
 
-两者都基于 Spring Data Redis 与 Lettuce：
-
 ```kotlin
-val connectionFactory = LettuceConnectionFactory("localhost", 6379).apply { afterPropertiesSet() }
-val redisTemplate = ReactiveStringRedisTemplate(connectionFactory)
-// 所有跟随变更的缓存共用。
-val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
-```
-
-## 配置
-
-`RedisConfigService` 直接读写 Redis；`RedisConsistencyConfigService` 在其上加了由变更事件保持最新的本地缓存，应用应通过它读取。
-
-```kotlin
-val redisConfigService = RedisConfigService(redisTemplate)
-val configService = RedisConsistencyConfigService(
-    delegate = redisConfigService,
-    configEventListenerContainer = RedisConfigEventListenerContainer(listenerContainer),
+val client = CoSkyClient(
+    CoSkyClientOptions(
+        endpoints = listOf("cosky-0.internal:9090", "cosky-1.internal:9090"),
+        token = System.getenv("COSKY_TOKEN"),
+        clientName = "order-service",
+    ),
 )
-
-configService.setConfig("{dev}", "order-service.yaml", "greeting: hello").block()
-configService.getConfig("{dev}", "order-service.yaml").block()?.data      // 首次读取后由内存提供
-
-// 先发出当前快照，之后每次变更（缓存更新后）发出一个快照。
-configService.watchConfig("{dev}", "order-service.yaml")
-    .subscribe { snapshot -> println("v${snapshot.version}: ${snapshot.value?.data}") }
-
-configService.getConfigVersions("{dev}", "order-service.yaml").collectList().block()
-configService.rollback("{dev}", "order-service.yaml", targetVersion = 1).block()
-
-configService.close()   // 用完后停止监听
+val prod = client.namespace("prod")
 ```
 
-## 服务发现
-
-### 注册与续约
+## 读取 Config
 
 ```kotlin
-val registry = RedisServiceRegistry(RegistryProperties(instanceTtl = Duration.ofSeconds(60)), redisTemplate)
-val renewal = RenewInstanceService(RenewProperties(period = Duration.ofSeconds(10)), registry)
+// 读一次，等待第一个视图。
+val config: Resource? = prod.configs.load("order-service.yaml")
 
-val instance = Instance.asInstance(serviceId = "order-service", schema = "http", host = "10.0.0.5", port = 8080)
-    .asServiceInstance(weight = 2, metadata = mapOf("zone" to "a"))
-
-registry.register("{dev}", instance).block()
-renewal.start()        // 为所有已注册的临时实例续约，并清理过期实例
-
-registry.setMetadata("{dev}", instance.serviceId, instance.instanceId, "zone", "b").block()   // 设置一个键
-registry.setMetadata("{dev}", instance.serviceId, instance.instanceId, mapOf("zone" to "b")).block() // 整体替换
-
-renewal.stop()
-registry.deregister("{dev}", instance).block()
+// 始终最新，从内存读取。
+val current: StateFlow<Resource?> = prod.configs.watch("order-service.yaml")
+current.collect { apply(it?.config?.content) }
 ```
 
-用 `asServiceInstance(isEphemeral = false)` 注册固定实例；它既不续约也不过期。
-
-### 发现
+## 查找实例
 
 ```kotlin
-val discovery = ConsistencyRedisServiceDiscovery(
-    delegate = RedisServiceDiscovery(redisTemplate),
-    serviceEventListenerContainer = RedisServiceEventListenerContainer(listenerContainer),
-    instanceEventListenerContainer = RedisInstanceEventListenerContainer(listenerContainer),
+val instances: StateFlow<List<Resource>> = prod.instances.watch("payment")
+val services: Set<String> = prod.instances.services()
+
+val balancer = prod.loadBalancer("payment")
+val chosen: Resource? = balancer.choose()
+```
+
+`choose()` 按权重比例随机选择，不分配内存，也不挂起。没有可选的实例时返回 `null`。
+
+## 注册
+
+```kotlin
+val registration = prod.instances.register(
+    service = "order-service",
+    endpoint = endpoint {
+        scheme = "http"
+        host = "10.0.0.7"
+        port = 8080
+    },
+    metadata = mapOf("zone" to "az1"),
+    weight = 2,
 )
-
-discovery.getServices("{dev}").block()                       // List<String>
-discovery.getInstances("{dev}", "order-service").block()     // List<ServiceInstance>，不含已过期实例
-
-val loadBalancer = BinaryWeightRandomLoadBalancer(discovery)
-loadBalancer.choose("{dev}", "order-service").block()        // 加权随机选择
-
-discovery.close()
+// ...
+registration.close()
 ```
 
-每次调用返回不可变快照；未变化的快照是同一个列表实例，所以按快照缓存派生数据的成本很低。
+客户端负责维持租约，租约丢失时重新注册全部实例。关闭最后一个注册时租约结束。
 
-## 另见
+## 关闭
 
-- [架构](./architecture.md)：数据模型、事件与一致性保证。
-- `cosky-config` 和 `cosky-discovery` 下的测试针对 Redis 覆盖了每个 API。
+`client.close()` 在 3 秒内撤销租约，超时后由 server 让它们到期。
+
+## 连接状态
+
+`client.connectionState` 是一个 `StateFlow`：
+
+| 状态 | 含义 |
+|---|---|
+| `CONNECTING` | 还没有 server 响应。 |
+| `SYNCED` | 正在跟随一个 server。 |
+| `DEGRADED` | 未连接：用内存或快照中已知的数据提供服务。 |
+| `CLOSED` | 已关闭。 |
+
+重连的退避从 100 毫秒到 10 秒，带抖动，并依次轮换端点。
+
+## 快照
+
+客户端把视图写入 `~/.cosky`（`snapshotDir`，starter 中为 `cosky.snapshot.dir`），重启后先从这里恢复，状态为 `DEGRADED`，直到连上 server。这对在同一块磁盘上重启的进程有用。在 Kubernetes 中需要持久卷。
+
+快照没有加密，目录权限是 `0700`，文件权限是 `0600`。`snapshotIncludeConfig = false` 让 Config 内容不落盘，`snapshotDir = null` 关闭快照。
+
+## TLS
+
+```kotlin
+CoSkyClientOptions(
+    endpoints = listOf("cosky.internal:9090"),
+    tls = true,
+    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem"), // 用于私有 CA
+)
+```
+
+详见[安全](./security.md#tls)。其他情况可以用 `channelFactory` 自己构建 gRPC 通道。
+
+## 写入
+
+客户端负责读取、注册和续约。要在代码中管理资源，请使用 `cosky-api` 中生成的 gRPC stub：
+
+```kotlin
+val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
+resources.put(putRequest { resource = /* ... */ })
+```
+
+## Java
+
+`cosky-client` 暴露的是协程，在 Java 中不好用。Java 门面计划在 8.1 提供。在此之前，Java 应用请使用 Spring Boot starter，你的代码里不需要写 Kotlin。
+
+## 其他语言
+
+客户端没有任何特权，一切都走公开协议。proto 在 `api/src/main/proto`，`./gradlew :api:generateOpenApi` 把 OpenAPI 文档写到 `api/build/openapi/cosky.yaml`。符合规范的客户端要遵守[设计文档](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md)中关于 Watch 位置和租约续期的规定，`conformance-test` 中有 Kotlin 客户端通过的测试套件。

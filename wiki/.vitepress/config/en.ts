@@ -4,7 +4,7 @@ export const en: DefaultTheme.Config = {
   label: 'English',
   lang: 'en',
   title: 'CoSky',
-  description: 'High-Performance Microservice Governance Platform — Service Discovery & Configuration',
+  description: 'Configuration and service discovery for microservices, on a small server in front of Redis',
   themeConfig: {
     nav: [
       { text: 'Guide', link: '/guide/' },
@@ -34,7 +34,7 @@ export const en: DefaultTheme.Config = {
             { text: 'Deployment', link: '/guide/deployment' },
             { text: 'Security', link: '/guide/security' },
             { text: 'Dashboard', link: '/guide/dashboard' },
-            { text: 'Upgrading to 6.0', link: '/guide/upgrade-6' },
+            { text: 'Moving from 6.x', link: '/guide/upgrade-8' },
           ],
         },
         {
