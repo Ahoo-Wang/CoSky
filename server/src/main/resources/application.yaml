@@ -16,6 +16,9 @@ spring:
       # A Config of 1 MiB, or an archive of them.
       max-in-memory-size: 64MB
 management:
+  tracing:
+    sampling:
+      probability: 0.1
   endpoints:
     web:
       exposure:
