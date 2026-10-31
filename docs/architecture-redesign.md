@@ -153,7 +153,7 @@ configure(publishProjects) {
 
 | 适配点 | 位置 | 方式 |
 |---|---|---|
-| Redis 驱动 | `store-redis` | 直接使用 Lettuce;Lettuce 的 Reactive API 仅在本模块内部,通过 `kotlinx-coroutines-reactive`(`awaitSingle` / `asFlow`)桥接,对外只暴露 `Store` 的协程接口 |
+| Redis 驱动 | `store-redis` | 直接使用 Lettuce 的 async API,通过 `kotlinx.coroutines.future.await` 挂起;我们的代码不出现 Reactor,对外只暴露 `Store` 的协程接口 |
 | gRPC | `server`、`client` | grpc-kotlin 生成协程 stub,天然无 Reactor |
 | REST / SSE | `server` | Spring WebFlux 的协程支持(`suspend` handler、返回 `Flow` 的 SSE),业务代码不出现 `Mono` / `Flux` |
 | Spring Cloud 发现 | `spring-boot-starter` | `ReactiveDiscoveryClient` 要求 `Flux`:在适配类中用 `flow.asFlux()` 转换 |
@@ -566,8 +566,10 @@ sealed interface ApplyResult {
 | `lease_keepalive.lua` | 批量:读 `lease:ttl`,存在则 `ZADD lease <TIME+ttl> id`,不存在返回 0;已到期但未回收的租约同样续期(到期只表示可以回收);**不改 revision、不写日志** |
 | `lease_expire.lua` | 对单个租约:确认 `score ≤ TIME` → `ZRANGEBYSCORE lease:attach id id` 取挂载实例 → 有实例则等价于一次 apply 删除它们 → 清理 `lease:attach`、`lease:ttl`、`lease:owner`、`lease`。Revoke 复用此脚本(跳过到期检查);`actor` 到期回收时为 `system`,Revoke 时为调用者 |
 | `tail.lua` | 一次原子读:比较 epoch → 比较 `rev` 与已应用 revision → 比较已应用 revision 的日志条目 → 返回后续事件(§6.1、§6.4) |
+| `read_batch.lua` | 全量读取的一批:`HSCAN ver` 后在同一脚本内 `HGET obj`,对象与元数据总是匹配,也避免大 Hash 的 `HGETALL` 阻塞 Redis |
 | `epoch_rotate.lua` | 比较并更换 epoch,多个副本同时发现分叉时只有一个生效 |
-| `lock.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
+| `lease_query.lua` | 用 Redis `TIME` 统计租约总数与到期数,并列出到期租约 |
+| `lock_acquire.lua` / `lock_release.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
 | `namespace_create.lua` | 已是 `active` 时返回当前位置;否则 `SET state active`,写入新 epoch |
 | `namespace_terminate.lua` | `HLEN obj:config` 与 `HLEN obj:instance` 都为 0 时 `SET state terminating`,否则返回不为空 |
 
@@ -635,8 +637,8 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 启动 / 新 namespace:
   E0 = GET epoch(由 createNamespace 创建)
   R0 = GET rev
-  HGETALL obj:* 与 ver:*                  -- 读到的对象可能比 R0 新
-  XRANGE log (R0+1)-0 +                   -- 回放,按 ver 中 revision 比较做幂等应用
+  分批 read_batch.lua                     -- HSCAN ver + HGET obj,每个对象与其元数据原子读出;可能比 R0 新
+  XRANGE log (R0+1)-0 +                   -- 回放,只应用比对象 revision 更新的事件
   进入追尾:收到提示或轮询到期时执行 tail.lua
 
 内存结构(每 namespace):
