@@ -32,10 +32,13 @@ import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.adapter.grpc.AuthInterceptor
 import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
+import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.AuthBootstrap
 import me.ahoo.cosky.server.auth.Authorizer
+import me.ahoo.cosky.server.auth.OidcAuthenticator
+import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.lease.LeaseReaper
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
@@ -57,6 +60,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Primary
 import org.springframework.grpc.server.GlobalServerInterceptor
 import org.springframework.grpc.server.ServerBuilderCustomizer
+import org.springframework.web.reactive.function.server.RouterFunction
+import org.springframework.web.reactive.function.server.ServerResponse
 import kotlin.time.toKotlinDuration
 
 @SpringBootApplication
@@ -105,7 +110,41 @@ class CoSkyServerApplication : DisposableBean {
     fun clientNameInterceptor(): ServerInterceptor = ClientNameInterceptor()
 
     @Bean
-    fun accessControl(caches: WatchCache): AccessControl = AccessControl(caches)
+    fun accessControl(caches: WatchCache, properties: CoSkyProperties): AccessControl {
+        val oidc = properties.auth.oidc
+        val authenticator = oidc.issuer?.let { issuer ->
+            val audience = checkNotNull(oidc.audience ?: oidc.clientId) {
+                "With an OIDC issuer set, cosky.auth.oidc.audience or client-id is required."
+            }
+            OidcAuthenticator.create(issuer, audience, oidc.groupsClaim)
+        }
+        return AccessControl(caches, oidc = authenticator)
+    }
+
+    @Bean
+    fun tokenService(store: Store, caches: WatchCache, authorizer: Authorizer): TokenService =
+        TokenService(store, caches, authorizer)
+
+    @Bean
+    fun restRoutes(
+        resources: ResourceService,
+        views: ViewService,
+        tokens: TokenService,
+        caches: WatchCache,
+        authorizer: Authorizer,
+        access: AccessControl,
+        audit: AuditLogger,
+        properties: CoSkyProperties,
+    ): RouterFunction<ServerResponse> = RestRoutes(
+        resources,
+        views,
+        tokens,
+        caches,
+        authorizer,
+        access.takeIf { properties.auth.enabled },
+        audit,
+        properties,
+    ).routes()
 
     @Bean
     @Primary

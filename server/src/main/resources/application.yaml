@@ -7,3 +7,7 @@ spring:
   grpc:
     server:
       port: 9090
+  http:
+    codecs:
+      # A Config of 1 MiB, or an archive of them.
+      max-in-memory-size: 64MB

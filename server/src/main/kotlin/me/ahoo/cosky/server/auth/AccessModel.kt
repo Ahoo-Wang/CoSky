@@ -49,7 +49,7 @@ internal class AccessModel(objects: Collection<Resource>) {
     fun token(id: String): Pair<String, TokenRef>? = tokens[id]
 
     fun permission(principal: Principal, verb: Verb, kind: Kind, namespace: String): Permission {
-        val matching = rulesOf(principal).filter { it.grants(verb, kind, namespace) }
+        val matching = effectiveRulesOf(principal).filter { it.grants(verb, kind, namespace) }
         return when {
             matching.isEmpty() -> Permission.None
             matching.any { it.names.isEmpty() } -> Permission.All
@@ -57,7 +57,14 @@ internal class AccessModel(objects: Collection<Resource>) {
         }
     }
 
-    private fun rulesOf(principal: Principal): List<EffectiveRule> = rulesByPrincipal.computeIfAbsent(principal) {
+    /**
+     * Every rule bound to [principal], each limited to where it applies.
+     */
+    fun rulesOf(principal: Principal): List<Rule> = effectiveRulesOf(principal).map { it.toRule() }
+
+    private fun effectiveRulesOf(principal: Principal): List<EffectiveRule> = rulesByPrincipal.computeIfAbsent(
+        principal
+    ) {
         bindings.filter { binding -> binding.subjectsList.any { matches(it, principal) } }
             .flatMap { binding ->
                 roles[binding.role].orEmpty().map { EffectiveRule(it, binding.namespacesList.toSet()) }
@@ -72,7 +79,7 @@ internal class AccessModel(objects: Collection<Resource>) {
     /**
      * A rule as bound: it applies where its own namespaces and those of the binding intersect (design D24).
      */
-    private class EffectiveRule(rule: Rule, private val boundTo: Set<String>) {
+    private class EffectiveRule(private val rule: Rule, private val boundTo: Set<String>) {
         private val kinds = rule.kindsList.toSet()
         private val verbs = rule.verbsList.toSet()
         private val namespaces = rule.namespacesList.toSet()
@@ -80,6 +87,17 @@ internal class AccessModel(objects: Collection<Resource>) {
 
         fun grants(verb: Verb, kind: Kind, namespace: String): Boolean =
             verb in verbs && kind in kinds && covers(namespaces, namespace) && covers(boundTo, namespace)
+
+        fun toRule(): Rule = rule.toBuilder()
+            .clearNamespaces()
+            .addAllNamespaces(
+                when {
+                    Permission.WILDCARD in boundTo -> namespaces
+                    Permission.WILDCARD in namespaces -> boundTo
+                    else -> namespaces intersect boundTo
+                },
+            )
+            .build()
 
         private fun covers(allowed: Set<String>, namespace: String): Boolean =
             Permission.WILDCARD in allowed || namespace in allowed

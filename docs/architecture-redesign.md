@@ -445,6 +445,8 @@ HTTP 状态按**错误原因**映射,而不是按 gRPC code 一刀切;未带 CoS
 | POST / GET | `/v1/namespaces/{ns}/configs:import` / `:export` | zip 批量导入导出(保留现有能力) |
 | GET | `/v1/me` | 当前身份与有效权限 |
 
+Put 的响应带 `ETag: "<revision>"`;内容未变化时没有新 revision,也就不带 `ETag`。Watch 的 SSE 流只承载一个 watch,权限变化时发出 `gone` 或 `canceled` 后结束,客户端重新连接。
+
 `{kind}` 取 `configs` / `instances`;全局对象走 `/v1/{namespaces|serviceaccounts|roles|rolebindings}/{name}`。
 REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射。
 路径中的 `{name}` 是单个路径段:Config 名中的 `/` 必须编码为 `%2F`(WebFlux 的 `PathPattern` 按段匹配后再解码)。

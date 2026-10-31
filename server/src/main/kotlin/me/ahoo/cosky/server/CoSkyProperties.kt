@@ -34,8 +34,20 @@ data class CoSkyProperties(
     /**
      * @param enabled off only for development: everyone may then do everything.
      * @param bootstrapToken becomes the admin ServiceAccount on the first start (design §6.3).
+     * @param oidc lets people sign in, when its issuer is set.
      */
-    data class Auth(val enabled: Boolean = true, val bootstrapToken: String? = null)
+    data class Auth(val enabled: Boolean = true, val bootstrapToken: String? = null, val oidc: Oidc = Oidc())
+
+    /**
+     * @param clientId the Dashboard's client, which it signs people in with.
+     * @param audience what a token must be for; the client when not set.
+     */
+    data class Oidc(
+        val issuer: String? = null,
+        val clientId: String? = null,
+        val audience: String? = null,
+        val groupsClaim: String = "groups",
+    )
 
     data class Store(val redis: Redis = Redis())
 

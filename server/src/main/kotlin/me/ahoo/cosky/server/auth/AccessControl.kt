@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
+import me.ahoo.cosky.api.v1.Rule
 import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.cosky.api.v1.TokenRef
 import me.ahoo.cosky.api.v1.Verb
@@ -35,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference
 class AccessControl(
     private val caches: WatchCache,
     private val clock: Clock = Clock.systemUTC(),
+    private val oidc: OidcAuthenticator? = null,
 ) : Authorizer {
     private class Snapshot(val revision: Long, val model: AccessModel)
 
@@ -47,10 +49,14 @@ class AccessControl(
         get() = system.views.filterNotNull().distinctUntilChangedBy { it.revision }.map { }
 
     /**
+     * @param plaintext a ServiceAccount token or, where OIDC is configured, an ID token.
      * @throws CoSkyException with `UNAUTHENTICATED` unless the token is valid; `UNAVAILABLE` while rules are loading.
      */
     fun authenticate(plaintext: String?): Principal {
         val token = plaintext?.let { Tokens.parse(it) }
+        if (token == null && plaintext != null && oidc != null) {
+            return oidc.authenticate(plaintext)
+        }
         val account = token?.let { model().token(it.id) }?.takeIf { (_, ref) ->
             !isExpired(ref) && token.matches(ref.sha256)
         }
@@ -68,6 +74,11 @@ class AccessControl(
 
     override fun permission(principal: Principal, verb: Verb, kind: Kind, namespace: String): Permission =
         model().permission(principal, verb, kind, namespace)
+
+    /**
+     * What a principal may do, for `/v1/me`.
+     */
+    fun rulesOf(principal: Principal): List<Rule> = model().rulesOf(principal)
 
     private fun isExpired(ref: TokenRef): Boolean =
         ref.hasExpiresAt() && clock.instant().epochSecond >= ref.expiresAt.seconds
