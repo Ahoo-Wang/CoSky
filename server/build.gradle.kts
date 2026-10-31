@@ -46,6 +46,13 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-toxiproxy")
 }
 
+// The Dashboard, once `pnpm build` has run in dashboard/. A server built without it still works, without a UI (D11).
+tasks.processResources {
+    from(rootProject.layout.projectDirectory.dir("dashboard/dist")) {
+        into("static")
+    }
+}
+
 // The server runs on JDK 25 and compiles to Java 21 like every other module (design D27).
 val javaToolchains = the<JavaToolchainService>()
 

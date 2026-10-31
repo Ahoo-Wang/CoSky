@@ -122,6 +122,7 @@ class OpenApiDocumentTest {
             "/v1/roles/{name}" to setOf("get", "put", "delete"),
             "/v1/rolebindings" to setOf("get"),
             "/v1/rolebindings/{name}" to setOf("get", "put", "delete"),
+            "/v1/auth/config" to setOf("get"),
             "/v1/me" to setOf("get"),
         )
         paths.keys.assert().containsExactlyInAnyOrderElementsOf(expected.keys)

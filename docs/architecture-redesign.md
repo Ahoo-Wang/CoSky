@@ -73,6 +73,7 @@ Redis (只有 server 可访问)
 | D31 | Redis 前提 | **启动时检查,不满足则拒绝启动**:淘汰策略必须是 `noeviction`,版本不低于 7.0;**不使用 `WAIT`**,改为建议 `min-replicas-to-write`;`KeepAliveResponse.attached_count` 让客户端发现丢失的注册并重新 Put | 淘汰会悄悄删数据。`WAIT` 在 Cluster 下要路由到键所在节点,也消除不了丢写。租约还在而实例已丢时续期一直成功,客户端需要一个信号;相比每个实例 Watch 自己(2 万注册就多 2 万 watcher),这个计数不增加扇出负担(§5.3、§6.2) |
 | D32 | 回收时机 | **租约到期后再等 TTL 的三分之一才回收**;到期数不变,用于判断大比例到期 | 客户端每 TTL/3 续期一次,同一次分区切断的租约会在这段时间内陆续到期。若到期即回收,比例永远到不了门槛,D20 的暂停在真实分区时不起作用(W4a 故障注入发现)。等这一段,回收器在删除任何实例之前就能看到全部到期的租约。代价是死实例晚一点摘除:默认从 30 秒变成 40 秒(§6.2) |
 | D33 | 6.x 迁移 | **整体切换,不做共存**:停止 6.x 写入,用 `cosky-migrate` 导入 Config,应用一起升级到 8.0 并重新注册;不提供桥接。server、client、starter 里没有 6.x 的任何痕迹,6.x 的键结构只有 `migration/` 模块知道 | 两代客户端互相看不见(6.x 直连 Redis,8.0 走 gRPC),分批升级只能靠同步进程。它要维护、要防回环、要翻译租约和权限的语义差异,换来的只是一段过渡期。代价是一次切换,由升级方承担;架构和代码保持干净 |
+| D34 | Dashboard 登录配置 | **匿名接口 `GET /v1/auth/config`**:只返回 OIDC 的公开参数(`issuer`、`clientId`、`scopes`),未配置时为空;是否需要登录看 `GET /v1/me` 是否返回 401。独立部署的 Dashboard 经同源反向代理访问 server,server 不提供 CORS | 登录前浏览器拿不到任何配置。写进前端构建变量要按环境重新构建镜像,违背 D11;注入 `index.html` 则独立部署拿不到 |
 
 ---
 
@@ -446,6 +447,7 @@ HTTP 状态按**错误原因**映射,而不是按 gRPC code 一刀切;未带 CoS
 | GET | `/v1/namespaces/{ns}/watch?kind=&fromRevision=&fromEpoch=` | Watch,SSE,供 Dashboard 实时刷新 |
 | GET | `/v1/namespaces/{ns}/views/{services\|topology\|stats}` | Views |
 | POST / GET | `/v1/namespaces/{ns}/configs:import` / `:export` | zip 批量导入导出(保留现有能力) |
+| GET | `/v1/auth/config` | 登录页需要的公开参数,不需要登录(D34) |
 | GET | `/v1/me` | 当前身份与有效权限 |
 
 Put 的响应带 `ETag: "<revision>"`;内容未变化时没有新 revision,也就不带 `ETag`。Watch 的 SSE 流只承载一个 watch,权限变化时发出 `gone` 或 `canceled` 后结束,客户端重新连接。
@@ -913,7 +915,7 @@ me.ahoo.cosky.server
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
 | `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发 |
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount;格式同普通 token |
-| `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` | — / — / — / `groups` | 不配置则不启用 OIDC |
+| `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` / `scopes` | — / — / — / `groups` / `openid,profile` | 不配置则不启用 OIDC;`scopes` 是 Dashboard 登录时申请的范围,有些提供方要显式申请才返回分组 |
 | `cosky.watch.window` | `10000` | 事件窗口,按事件计数,与 Stream `MAXLEN` 相同;应不小于 峰值事件速率 × 最长重连间隙(D29) |
 | `cosky.view.topology-flush-interval` | `30s` | 拓扑边的写入间隔,保留 3 倍间隔(D30) |
 | `cosky.watch.progress-interval` | `10s` | |

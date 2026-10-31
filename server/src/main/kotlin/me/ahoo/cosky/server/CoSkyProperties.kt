@@ -41,12 +41,14 @@ data class CoSkyProperties(
     /**
      * @param clientId the Dashboard's client, which it signs people in with.
      * @param audience what a token must be for; the client when not set.
+     * @param scopes what the Dashboard asks for. Some providers only send groups when asked to.
      */
     data class Oidc(
         val issuer: String? = null,
         val clientId: String? = null,
         val audience: String? = null,
         val groupsClaim: String = "groups",
+        val scopes: List<String> = listOf("openid", "profile"),
     )
 
     /**
