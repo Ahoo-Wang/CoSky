@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.server
 
+import io.grpc.Status
+import io.grpc.StatusException
 import io.lettuce.core.internal.HostAndPort
 import io.lettuce.core.resource.ClientResources
 import io.lettuce.core.resource.DnsResolvers
@@ -36,6 +38,8 @@ import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.getRequest
 import me.ahoo.cosky.api.v1.grantRequest
 import me.ahoo.cosky.api.v1.resourceKey
+import me.ahoo.cosky.server.auth.Tokens
+import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.context.annotation.Bean
@@ -56,6 +60,7 @@ class ServerEndToEndTest {
         "cosky.store.redis.tail-poll-interval" to "100ms",
         "cosky.lease.reaper-interval" to "200ms",
         "cosky.lease.reaper-grace" to grace,
+        "cosky.auth.enabled" to "false",
     )
 
     private fun scenario(timeout: Duration = 60.seconds, block: suspend CoroutineScope.() -> Unit) =
@@ -68,6 +73,37 @@ class ServerEndToEndTest {
             block(redis)
         } finally {
             redis.stop()
+        }
+    }
+
+    @Test
+    fun `the bootstrap token signs in, and nothing else does`() = withRedis { redis ->
+        val token = Tokens.generate()
+        val secured = properties(redis) + mapOf(
+            "cosky.auth.enabled" to "true",
+            "cosky.auth.bootstrap-token" to token.plaintext,
+        )
+        RunningServer(secured, token = token.plaintext).use { server ->
+            scenario {
+                server.createNamespace("secured")
+                server.putConfig("secured", "a", "1")
+                val request = getRequest {
+                    key = RunningServer.config("secured", "a", "1").key
+                    minRevision = 1
+                }
+                server.resources.get(request).meta.updatedBy.assert().isEqualTo("serviceaccount:admin")
+                val anonymous = runCatching { server.anonymousResources.get(request) }.exceptionOrNull()
+                (anonymous as StatusException).status.code.assert().isEqualTo(Status.Code.UNAUTHENTICATED)
+            }
+        }
+    }
+
+    @Test
+    fun `the default namespace exists from the first start on`() = withRedis { redis ->
+        RunningServer(properties(redis)).use { server ->
+            scenario {
+                server.putConfig("default", "a", "1")
+            }
         }
     }
 

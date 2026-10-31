@@ -26,7 +26,14 @@ data class CoSkyProperties(
     val watch: Watch = Watch(),
     val lease: Lease = Lease(),
     val read: Read = Read(),
+    val auth: Auth = Auth(),
 ) {
+    /**
+     * @param enabled off only for development: everyone may then do everything.
+     * @param bootstrapToken becomes the admin ServiceAccount on the first start (design §6.3).
+     */
+    data class Auth(val enabled: Boolean = true, val bootstrapToken: String? = null)
+
     data class Store(val redis: Redis = Redis())
 
     data class Redis(

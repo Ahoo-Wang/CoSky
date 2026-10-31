@@ -21,6 +21,8 @@ import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
+import me.ahoo.cosky.server.auth.Permission
+import me.ahoo.cosky.server.auth.authorizedName
 import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
@@ -38,6 +40,7 @@ class WatchSession(
     private val cache: NamespaceCache,
     private val maxMessageBytes: Int,
     private val catchUpTimeout: Duration,
+    private val permission: Permission = Permission.All,
     private val send: suspend (WatchResponse) -> Unit,
 ) {
     /**
@@ -170,12 +173,13 @@ class WatchSession(
     private fun matches(resource: Resource): Boolean =
         resource.kind == create.kind &&
             (create.name.isEmpty() || resource.meta.name == create.name) &&
-            (create.service.isEmpty() || isInstanceOf(resource, create.service))
+            (create.service.isEmpty() || isInstanceOf(resource, create.service)) &&
+            permission.allows(resource.authorizedName)
 
     private fun isInstanceOf(resource: Resource, service: String): Boolean =
         create.kind == Kind.KIND_INSTANCE && resource.instance.service == service
 
-    private fun gone(earliest: Long): WatchResponse = response { gone = earliest }
+    private fun gone(earliest: Long): WatchResponse = gone(create.watchId, earliest)
 
     private inline fun response(block: WatchResponse.Builder.() -> Unit): WatchResponse =
         WatchResponse.newBuilder().setWatchId(create.watchId).apply(block).build()
@@ -184,6 +188,11 @@ class WatchSession(
         fun canceled(watchId: Long, error: CoSkyException): WatchResponse = WatchResponse.newBuilder()
             .setWatchId(watchId)
             .setCanceled(error.toWatchCanceled())
+            .build()
+
+        fun gone(watchId: Long, earliest: Long): WatchResponse = WatchResponse.newBuilder()
+            .setWatchId(watchId)
+            .setGone(earliest)
             .build()
 
         fun progress(watchId: Long, revision: Long): WatchResponse = WatchResponse.newBuilder()

@@ -29,9 +29,16 @@ import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.PutResponse
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.api.validation.requireValid
+import me.ahoo.cosky.server.audit.AuditLogger
+import me.ahoo.cosky.server.auth.Authorizer
+import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.Permission
+import me.ahoo.cosky.server.auth.Principal
+import me.ahoo.cosky.server.auth.authorizedName
 import me.ahoo.cosky.server.watch.NamespaceView
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.chunkedByBytes
@@ -52,17 +59,31 @@ class ResourceService(
     private val caches: WatchCache,
     private val limits: Limits = Limits.DEFAULT,
     private val minRevisionTimeout: Duration = 3.seconds,
+    private val authorizer: Authorizer = Authorizer.ALLOW_ALL,
+    private val audit: AuditLogger = AuditLogger(),
 ) {
     private val validator = Validator(limits)
 
-    suspend fun get(request: GetRequest): Resource {
+    suspend fun get(request: GetRequest, caller: Caller): Resource {
         requireValid(validator.validate(request))
-        return viewOf(request.key.namespace, request.minRevision).objects[request.key]
-            ?: throw CoSkyException.resourceNotFound(request.key)
+        val key = request.key
+        val permission = permissionOf(caller.principal, Verb.VERB_GET, key.kind, key.namespace)
+        // An Instance is authorized by its service, which takes reading it.
+        if (key.kind != Kind.KIND_INSTANCE) {
+            requireAllowed(permission, key.name)
+        }
+        val resource = viewOf(key.namespace, request.minRevision).objects[key]
+            ?: throw CoSkyException.resourceNotFound(key)
+        requireAllowed(permission, resource.authorizedName)
+        return resource
     }
 
-    suspend fun list(request: ListRequest): ListResponse {
+    /**
+     * A rule limited to some names filters the list rather than refusing it (design §7.8).
+     */
+    suspend fun list(request: ListRequest, caller: Caller): ListResponse {
         requireValid(validator.validate(request))
+        val permission = permissionOf(caller.principal, Verb.VERB_GET, request.kind, request.namespace)
         val token = PageTokens.list(request.pageToken)
         val view = viewOf(request.namespace, request.minRevision)
         if (token != null && token.epoch != view.epoch) {
@@ -71,6 +92,7 @@ class ResourceService(
         val pageSize = request.pageSize.takeIf { it != 0 } ?: limits.defaultPageSize
         val page = view.objects.values.asSequence()
             .filter { it.meta.name > token?.after.orEmpty() && matches(it, request) }
+            .filter { permission.allows(it.authorizedName) }
             .sortedBy { it.meta.name }
             .take(pageSize + 1)
             .toList()
@@ -91,32 +113,43 @@ class ResourceService(
             .build()
     }
 
-    /**
-     * @param actor who is writing, for `updated_by` and the audit trail.
-     */
-    suspend fun put(request: PutRequest, actor: String): PutResponse {
+    suspend fun put(request: PutRequest, caller: Caller): PutResponse {
         requireValid(validator.validate(request))
         val key = request.resource.key
-        if (key.kind == Kind.KIND_NAMESPACE) {
-            store.createNamespace(key.name)
+        return audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
+            authorizePut(request.resource, key, caller.principal)
+            if (key.kind == Kind.KIND_NAMESPACE) {
+                store.createNamespace(key.name)
+            }
+            val write = withStoredTokens(request)
+            val applied = apply(
+                key,
+                Mutation.Put(write.resource, write.expectedRevision),
+                write.expectedRevision,
+                caller.principal.id,
+            )
+            PutResponse.newBuilder().setRevision(applied.revision).setChanged(applied.changed > 0).build()
         }
-        val mutation = Mutation.Put(request.resource, request.expectedRevision)
-        val applied = apply(key, mutation, request.expectedRevision, actor)
-        return PutResponse.newBuilder().setRevision(applied.revision).setChanged(applied.changed > 0).build()
     }
 
-    suspend fun delete(request: DeleteRequest, actor: String): DeleteResponse {
+    suspend fun delete(request: DeleteRequest, caller: Caller): DeleteResponse {
         requireValid(validator.validate(request))
         val key = request.key
-        if (key.kind == Kind.KIND_NAMESPACE) {
-            dropNamespace(key, request.expectedRevision)
+        return audited(caller, Verb.VERB_DELETE, key, DeleteResponse::getRevision) {
+            authorizeDelete(key, caller.principal)
+            if (key.kind == Kind.KIND_NAMESPACE) {
+                dropNamespace(key, request.expectedRevision)
+            }
+            val mutation = Mutation.Delete(key, request.expectedRevision)
+            val applied = apply(key, mutation, request.expectedRevision, caller.principal.id)
+            DeleteResponse.newBuilder().setRevision(applied.revision).setDeleted(applied.changed > 0).build()
         }
-        val applied = apply(key, Mutation.Delete(key, request.expectedRevision), request.expectedRevision, actor)
-        return DeleteResponse.newBuilder().setRevision(applied.revision).setDeleted(applied.changed > 0).build()
     }
 
-    suspend fun history(request: HistoryRequest): HistoryResponse {
+    suspend fun history(request: HistoryRequest, caller: Caller): HistoryResponse {
         requireValid(validator.validate(request))
+        val key = request.key
+        requireAllowed(permissionOf(caller.principal, Verb.VERB_GET, key.kind, key.namespace), key.name)
         val before = PageTokens.history(request.pageToken)
         val limit = request.limit.takeIf { it in 1..limits.configHistorySize } ?: limits.configHistorySize
         val remaining = store.history(request.key, limit).filter { it.meta.revision < before }
@@ -125,6 +158,98 @@ class ResourceService(
             .addAllRevisions(items)
             .setNextPageToken(if (remaining.size > items.size) items.last().meta.revision.toString() else "")
             .build()
+    }
+
+    private fun permissionOf(principal: Principal, verb: Verb, kind: Kind, namespace: String): Permission {
+        val permission = authorizer.permission(principal, verb, kind, namespace)
+        if (permission == Permission.None) {
+            throw CoSkyException.permissionDenied(
+                "${principal.id} may not ${verb.name.removePrefix("VERB_")} ${kind.name.removePrefix("KIND_")} " +
+                    "in namespace $namespace.",
+            )
+        }
+        return permission
+    }
+
+    private fun requireAllowed(permission: Permission, name: String) {
+        if (!permission.allows(name)) {
+            throw CoSkyException.permissionDenied("This does not extend to $name.")
+        }
+    }
+
+    /**
+     * For an Instance both the new and any existing service count, or an account could take over another service's
+     * instance. A lease is only for its owner (design §7.8).
+     */
+    private suspend fun authorizePut(resource: Resource, key: ResourceKey, principal: Principal) {
+        val permission = permissionOf(principal, Verb.VERB_PUT, key.kind, key.namespace)
+        requireAllowed(permission, resource.authorizedName)
+        if (key.kind != Kind.KIND_INSTANCE) {
+            return
+        }
+        viewOf(key.namespace, 0).objects[key]?.let { requireAllowed(permission, it.authorizedName) }
+        val lease = resource.meta.lease
+        if (lease != 0L && principal != Principal.ANONYMOUS) {
+            val owner = store.leaseOwners(key.namespace, listOf(lease))[lease]
+            if (owner != null && owner != principal.id) {
+                throw CoSkyException.permissionDenied("Lease $lease belongs to another subject.")
+            }
+        }
+    }
+
+    private suspend fun authorizeDelete(key: ResourceKey, principal: Principal) {
+        val permission = permissionOf(principal, Verb.VERB_DELETE, key.kind, key.namespace)
+        if (key.kind == Kind.KIND_INSTANCE) {
+            viewOf(key.namespace, 0).objects[key]?.let { requireAllowed(permission, it.authorizedName) }
+        } else {
+            requireAllowed(permission, key.name)
+        }
+    }
+
+    /**
+     * Tokens are not for writing: a ServiceAccount keeps the ones it has, whatever the request says (design §7.8). The
+     * compare-and-set keeps a token created meanwhile from being lost.
+     */
+    private suspend fun withStoredTokens(request: PutRequest): PutRequest {
+        val resource = request.resource
+        if (!resource.hasServiceAccount()) {
+            return request
+        }
+        val stored = viewOf(resource.key.namespace, 0).objects[resource.key]
+        val tokens = stored?.serviceAccount?.tokensList.orEmpty()
+        return request.toBuilder()
+            .setResource(resource.toBuilder().apply { serviceAccountBuilder.clearTokens().addAllTokens(tokens) })
+            .setExpectedRevision(
+                when {
+                    request.expectedRevision != Mutation.NO_CHECK -> request.expectedRevision
+                    else -> stored?.meta?.revision ?: Mutation.MUST_NOT_EXIST
+                },
+            )
+            .build()
+    }
+
+    /**
+     * Records the write and how it ended, in the audit log (design §7.8).
+     */
+    private inline fun <T> audited(
+        caller: Caller,
+        verb: Verb,
+        key: ResourceKey,
+        revisionOf: (T) -> Long,
+        block: () -> T,
+    ): T {
+        val response = try {
+            block()
+        } catch (e: CoSkyException) {
+            record(caller, verb, key, null, e.errorCode.grpcCode.name)
+            throw e
+        }
+        record(caller, verb, key, revisionOf(response), RESULT_OK)
+        return response
+    }
+
+    private fun record(caller: Caller, verb: Verb, key: ResourceKey, revision: Long?, result: String) {
+        audit.record(caller.principal.id, verb, key.kind, key.namespace, key.name, revision, result, caller.remote)
     }
 
     /**
@@ -186,5 +311,9 @@ class ResourceService(
         is ApplyResult.LeaseNotFound -> throw CoSkyException.leaseNotFound(key.namespace, result.lease)
         ApplyResult.NamespaceNotActive -> throw CoSkyException.namespaceNotFound(key.namespace)
         ApplyResult.BatchTooLarge -> error("A single mutation cannot exceed the batch limit.")
+    }
+
+    private companion object {
+        const val RESULT_OK = "OK"
     }
 }

@@ -21,12 +21,16 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.server.CoSkyProperties
+import me.ahoo.cosky.server.auth.Authorizer
+import me.ahoo.cosky.server.auth.Permission
+import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchSession
 import org.springframework.stereotype.Service
@@ -41,13 +45,16 @@ import kotlin.time.toKotlinDuration
 class WatchGrpcService(
     private val caches: WatchCache,
     private val properties: CoSkyProperties,
+    private val authorizer: Authorizer = Authorizer.ALLOW_ALL,
 ) : WatchServiceGrpcKt.WatchServiceCoroutineImplBase(VirtualThreads.dispatcher) {
     override fun watch(requests: Flow<WatchRequest>): Flow<WatchResponse> = channelFlow {
+        val principal = AuthContext.caller().principal
         val watches = ConcurrentHashMap<Long, ActiveWatch>()
         val bookmarks = launch { sendProgress(watches) }
+        launch { authorizer.changes.collect { grpcCall { reevaluate(principal, watches) } } }
         requests.collect { request ->
             when (request.requestCase) {
-                WatchRequest.RequestCase.CREATE -> create(request, watches)
+                WatchRequest.RequestCase.CREATE -> grpcCall { create(request, principal, watches) }
                 WatchRequest.RequestCase.CANCEL -> watches.remove(request.cancel.watchId)?.job?.cancel()
                 else -> Unit
             }
@@ -55,15 +62,55 @@ class WatchGrpcService(
         bookmarks.join()
     }
 
+    /**
+     * What a watch delivered was filtered by what its subject could see, so when that changes it has to start over
+     * (design §7.3). A revoked token ends the whole stream.
+     */
+    private suspend fun ProducerScope<WatchResponse>.reevaluate(
+        principal: Principal,
+        watches: MutableMap<Long, ActiveWatch>,
+    ) {
+        if (!authorizer.isValid(principal)) {
+            throw CoSkyException.unauthenticated("The token is no longer valid.")
+        }
+        watches.forEach { (id, watch) ->
+            val now = authorizer.permission(principal, Verb.VERB_WATCH, watch.create.kind, watch.create.namespace)
+            if (now != watch.permission) {
+                watches.remove(id)
+                watch.job.cancel()
+                send(
+                    if (now == Permission.None) {
+                        WatchSession.canceled(id, denied(principal, watch.create))
+                    } else {
+                        WatchSession.gone(id, 0)
+                    },
+                )
+            }
+        }
+    }
+
+    private fun denied(principal: Principal, create: WatchRequest.Create): CoSkyException =
+        CoSkyException.permissionDenied(
+            "${principal.id} may not watch ${create.kind.name.removePrefix("KIND_")} in namespace ${create.namespace}.",
+        )
+
     private suspend fun ProducerScope<WatchResponse>.create(
         request: WatchRequest,
+        principal: Principal,
         watches: MutableMap<Long, ActiveWatch>,
     ) {
         val create = request.create
         val violations = Validator.DEFAULT.validate(request)
+        val permission = if (violations.isEmpty()) {
+            authorizer.permission(principal, Verb.VERB_WATCH, create.kind, create.namespace)
+        } else {
+            Permission.None
+        }
         when {
             violations.isNotEmpty() ->
                 send(WatchSession.canceled(create.watchId, CoSkyException.invalidArgument(violations)))
+
+            permission == Permission.None -> send(WatchSession.canceled(create.watchId, denied(principal, create)))
 
             watches.size >= properties.watch.maxPerStream -> send(
                 WatchSession.canceled(create.watchId, CoSkyException.watchQuotaExceeded(properties.watch.maxPerStream)),
@@ -75,12 +122,13 @@ class WatchGrpcService(
                     caches.of(create.namespace),
                     Limits.DEFAULT.maxMessageBytes,
                     properties.read.minRevisionTimeout.toKotlinDuration(),
+                    permission,
                 ) { send(it) }
                 val job = launch {
                     grpcCall { session.run() }
                     watches.remove(create.watchId)
                 }
-                watches[create.watchId] = ActiveWatch(session, job)
+                watches[create.watchId] = ActiveWatch(create, permission, session, job)
             }
         }
     }
@@ -95,5 +143,10 @@ class WatchGrpcService(
         }
     }
 
-    private class ActiveWatch(val session: WatchSession, val job: Job)
+    private class ActiveWatch(
+        val create: WatchRequest.Create,
+        val permission: Permission,
+        val session: WatchSession,
+        val job: Job,
+    )
 }
