@@ -140,6 +140,14 @@ class CoSkyExceptionTest {
         assertThrownBy<IllegalArgumentException> { CoSkyException(ErrorDetail.getDefaultInstance(), "no reason") }
     }
 
+    @Test
+    fun `store unavailable keeps its cause`() {
+        val cause = IllegalStateException("connection refused")
+        val error = CoSkyException.storeUnavailable("The store is unavailable.", cause)
+        error.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+        error.cause.assert().isSameAs(cause)
+    }
+
     private fun statusWith(detail: Any) = StatusProto.toStatusRuntimeException(
         RpcStatus.newBuilder().setCode(Status.Code.INTERNAL.value()).addDetails(detail).build(),
     )
