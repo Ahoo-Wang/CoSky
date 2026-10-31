@@ -1,12 +1,8 @@
-# Pull requests only build and check, to find errors early. The main branch also deploys to GitHub Pages.
+# Pull requests only build and check, to find errors early. Deploying to GitHub Pages is by hand: the site describes the
+# released version, so it keeps serving 6.x until 8.0 is out. Deploy on pushes to main again then (roadmap section 4).
 name: Wiki
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'wiki/**'
-      - '.github/workflows/deploy-wiki.yml'
   pull_request:
     paths:
       - 'wiki/**'

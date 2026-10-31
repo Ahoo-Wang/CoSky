@@ -50,8 +50,8 @@ links it with `Fixes #<number>`, so the issue closes when the change is merged.
 
 - `main` is always releasable. Work happens on short-lived branches created from `main`, e.g. `fix/renew-metadata`
   or `feat/config-search`, and comes back through a pull request.
-- `main` carries 6.x until 8.0 GA. 8.0 work is cut from `v8` and comes back through a pull request into `v8`
-  (see [docs/roadmap.md](docs/roadmap.md) §4).
+- `v6` maintains 6.x and takes bug fixes only. Cut the branch from `v6` and open the pull request against `v6`; if the
+  bug also exists on `main`, fix it there too. Features, refactoring and routine dependency upgrades go to `main` only.
 - Commit messages and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org):
   `type(scope)!: summary`, where `type` is one of `feat`, `fix`, `perf`, `docs`, `refactor`, `test`, `build`, `ci`,
   `chore`, and `!` marks a breaking change. The title determines the release notes category.
@@ -60,13 +60,13 @@ links it with `Fixes #<number>`, so the issue closes when the change is merged.
 
 ## Code review
 
-- `main` is protected: every change goes through a pull request, and code owners
+- `main` and `v6` are protected: every change goes through a pull request, and code owners
   ([CODEOWNERS](.github/CODEOWNERS)) are requested for review automatically.
 - The pull request template lists what reviewers check: tests, documentation and compatibility.
-- The build (`Integration Test`: tests, static analysis, license headers, coverage floor) must pass before merging;
-  CodeQL and Codecov report on every pull request too.
+- The build (`Integration Test`: tests, static analysis, license headers, coverage floor), `Redis Compatibility` and
+  the image test (`Push Docker image`) must pass before merging; CodeQL and Codecov report on every pull request too.
 - Review conversations must be resolved, by a change or an answer, before merging.
-- History stays linear: no force pushes to `main`, and pull requests are squash-merged.
+- History stays linear: no force pushes to `main` or `v6`, and pull requests are squash-merged.
 
 ## Releases and versioning
 
@@ -85,6 +85,8 @@ To release:
    the merge commit: the optional introduction followed by notes generated from the merged pull requests, grouped by
    their labels ([.github/release.yml](.github/release.yml)).
 3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, and the Docker images.
+
+A 6.x bug-fix release works the same way, with the pull request against `v6`.
 
 ## License
 

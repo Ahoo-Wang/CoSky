@@ -14,6 +14,9 @@
 
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
+> [!IMPORTANT]
+> **8.0 is in development and has not been released.** The artifacts and image below are not published yet, and [cosky.ahoo.me](https://cosky.ahoo.me/) still documents 6.x; the 8.0 documentation is in [`wiki/`](wiki/guide). The latest release is 6.x, maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only.
+
 CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 
 - **Reads from memory.** Each application keeps a local view that a Watch stream keeps current, so reading a Config or choosing an instance costs no network round trip.
@@ -70,7 +73,7 @@ Open the Dashboard at <http://localhost:8080>. The [Getting Started](https://cos
 
 ## Moving from 6.x
 
-8.0 is a new system: applications on 6.x and 8.0 cannot see each other, so they move together. [Moving from 6.x](https://cosky.ahoo.me/guide/upgrade-8) explains the cutover, and [`cosky-migrate`](migration) imports the Configs and reports what to rebuild by hand. The `main` branch carries 6.x until 8.0 is released.
+8.0 is a new system: applications on 6.x and 8.0 cannot see each other, so they move together. [Moving from 6.x](wiki/guide/upgrade-8.md) explains the cutover, and [`cosky-migrate`](migration) imports the Configs and reports what to rebuild by hand.
 
 ## Documentation
 

@@ -14,6 +14,9 @@
 
 > **[文档](https://cosky.ahoo.me/zh/)** | [English Documentation](https://cosky.ahoo.me/) | [English README](README.md)
 
+> [!IMPORTANT]
+> **8.0 正在开发中，尚未发布。** 下文的制品和镜像都还没有发布，[cosky.ahoo.me](https://cosky.ahoo.me/zh/) 上仍是 6.x 的文档，8.0 的文档在 [`wiki/`](wiki/zh/guide) 中。最新发布版本是 6.x，由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG。
+
 CoSky 为微服务提供**配置管理**和**服务发现**。一个小型 server 位于 **Redis** 前面，应用只和这个 server 通信。
 
 - **从内存读取。** 每个应用都保存一份由 Watch 流保持最新的本地视图，读配置、选实例都不需要网络往返。
@@ -70,7 +73,7 @@ cosky:
 
 ## 从 6.x 迁移
 
-8.0 是一套新系统：6.x 和 8.0 的应用互相看不到对方，所以要一起迁移。[从 6.x 迁移](https://cosky.ahoo.me/zh/guide/upgrade-8)说明了切换步骤，[`cosky-migrate`](migration) 负责导入 Config，并报告需要手工重建的内容。在 8.0 发布之前，`main` 分支仍是 6.x。
+8.0 是一套新系统：6.x 和 8.0 的应用互相看不到对方，所以要一起迁移。[从 6.x 迁移](wiki/zh/guide/upgrade-8.md)说明了切换步骤，[`cosky-migrate`](migration) 负责导入 Config，并报告需要手工重建的内容。
 
 ## 文档
 
