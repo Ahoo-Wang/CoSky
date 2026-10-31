@@ -698,7 +698,7 @@ client                         server                         Redis
 消费者读到空列表,客户端再集中重新注册。Reaper 每轮依次判断:
 
 1. **恢复宽限**:成为 Leader 或访问存储失败后,`reaper-grace`(默认 30 秒)内不回收。这段时间足够客户端走完最长 10 秒的重连退避并立即续期;
-   到期但未回收的租约仍可续期,所以存活进程不需要重新注册。
+   到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间超过 5 个 `reaper-interval` 就重新开始宽限。
 2. **大比例到期暂停**:按 namespace 读取 `leaseStats`。租约数不少于 `protection-min-leases`(默认 10)且到期比例超过 `protection-threshold`(默认 50%)时暂停回收,
    记录 ERROR 日志并置位 `cosky_lease_protection_active`。这一层覆盖宽限检测不到的情况,例如客户端与 server 之间分区、Reaper 到 Redis 却正常。
    比例回落后自动恢复;持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。
@@ -816,8 +816,7 @@ registration.close()                                                            
 - **投递**:单条流内恰好一次;跨重连至少一次,客户端丢弃 `revision ≤ 已应用 revision` 的批次即可去重。
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
   `from_epoch` 与当前 epoch 不同、`r` 早于窗口或大于当前 revision → `gone`。
-- **慢消费者**:每个 watcher 一个有界缓冲(默认 1,000 批),溢出时以 `gone` 结束该 watch,客户端重新 List,
-  不阻塞其他 watcher,也不让 server 内存无界增长。
+- **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `gone` 结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
 - **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`)。
 - **配额**:单条流最多 1,000 个 watch,超出时该 Create 收到 `canceled`(`WATCH_QUOTA_EXCEEDED`;REST 侧为 429),流本身不中断。
@@ -830,7 +829,7 @@ Dashboard 静态资源、Actuator),`9090` gRPC。
 ```
 me.ahoo.cosky.server
 ├─ resource/   ResourceService:校验 → 鉴权 → Store.apply → 等待 min_revision
-├─ watch/      NamespaceCache、WatchCache(管理全部 namespace)、WatchHub(扇出)、AntiEntropy
+├─ watch/      NamespaceCache、WatchCache(管理全部 namespace)、WatchSession(单个 watch)、AntiEntropy
 ├─ lease/      LeaseService、LeaseReaper(含回收保护)、LeaderElection
 ├─ auth/       TokenAuthenticator、OidcAuthenticator、Authorizer、Bootstrap
 ├─ view/       ServicesView、TopologyView、StatsView
@@ -844,12 +843,12 @@ me.ahoo.cosky.server
 并发模型:
 - 每个 `NamespaceCache` 由**一个协程**独占消费 `Store.changes`,状态以不可变持久化集合
   (`kotlinx.collections.immutable`)发布到 `AtomicReference`,读请求无锁、读到的总是某个完整 revision 的一致快照。
-- 事件窗口是固定大小的环形数组,只由该协程写入。
-- 扇出:每个 watcher 一个 `Channel(capacity)`,生产者用 `trySend`,失败即判定为慢消费者(§7.3)。
+- 事件窗口是视图的一部分,与对象一起发布。
+- 扇出:所有 watcher 收集同一个 `StateFlow<NamespaceView>`,每个 watcher 按自己的游标从窗口取事件。不需要每个 watcher 一个缓冲,慢消费者也无需特别判定(§7.3)。
 - `min_revision` 等待:`NamespaceCache.revision` 是 `StateFlow<Long>`,`withTimeout { revision.first { it >= r } }`。
 - `Authorizer` 根据 `_system` 缓存把每个主体的规则预编译为查找表,`_system` 变化时整体重建。
 - **虚拟线程(D28)**:grpc-kotlin 服务和 REST handler 的协程都跑在虚拟线程 dispatcher 上,gRPC `ServerBuilder.executor` 和 `spring.threads.virtual.enabled=true` 同样使用虚拟线程。JWKS 拉取这类偶发阻塞因此不占用平台线程。
-  扇出是纯计算的热路径,虚拟线程没有明显好处,默认设置下的开销由 W2c 实测;如果明显,`WatchHub` 留在 `Dispatchers.Default`,并写回本节。
+  扇出是纯计算的热路径,W2c 实测(§7.10)中位数没有差别,只有尾部比 `Dispatchers.Default` 高约一倍,且仍在目标之内,所以保留虚拟线程。
 
 ### 7.5 客户端细则
 
@@ -879,7 +878,6 @@ me.ahoo.cosky.server
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount |
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` | — / — / — / `groups` | 不配置则不启用 OIDC |
 | `cosky.watch.window` | `10000` | 事件窗口,与 Stream `MAXLEN` 一致 |
-| `cosky.watch.buffer` | `1000` | 单 watcher 缓冲 |
 | `cosky.watch.progress-interval` | `10s` | |
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
@@ -975,6 +973,20 @@ cosky:
 | 变更传播 | 写入确认 → 客户端收到事件 p99 < 500 ms |
 | 客户端热路径 | `choose()` / 读配置零分配、不挂起 |
 | server 内存 | 约 1 KB / 实例(50,000 实例约 50 MB) |
+
+W2c 粗测,JDK 25、10 核,单进程内,**不含网络和序列化**,事件样本只有 50 个:
+
+| 项目 | 默认对象头 | 紧凑对象头 |
+|---|---|---|
+| 单实例内存 | 1,115 B | 1,012 B |
+| 单 watch 内存(不含连接和 gRPC 流) | 847 B | 802 B |
+
+| 把一个事件扇出到 100,000 个 watch | p50 | 最大值 | 建立这些 watch |
+|---|---|---|---|
+| 虚拟线程 | 111 ms | 298 ms | 0.8 s |
+| `Dispatchers.Default` | 119 ms | 152 ms | 0.37 s |
+
+每个 watch 都收到每个事件,是最坏情况。实例内存符合目标,紧凑对象头(JEP 519)再省约 9%,server 镜像应开启。20,000 连接、网络传播和写入延迟的目标还没有验证。
 
 ### 7.11 测试策略
 

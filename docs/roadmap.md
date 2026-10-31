@@ -106,7 +106,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 
 - 全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11,含超过 TTL 后恢复与丢写分叉);重写 provider / consumer 示例;
   发布流程支持从 `v8` 发布预发布版本;
-  Dockerfile(JDK 25)、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标。
+  Dockerfile(JDK 25,开启紧凑对象头)、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标。
 
 ### W4b Dashboard
 
@@ -147,8 +147,8 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W1b api | 协调会话 | #1006 | ✅ 已合并,含 D19、D23、D24 的契约改动 |
 | W2a store + 一致性 | 协调会话 | #1008 | ✅ 已合并 |
 | W2b client + starter | — | — | 未开始 |
-| W2c 贯通验证 | 协调会话 | — | 进行中:`store-redis` 已完成,最小 server 未开始 |
-| W3a server | — | — | 未开始 |
+| W2c 贯通验证 | 协调会话 | #1010 与本 PR | ✅ 已合并;结果见设计文档 §7.10 |
+| W3a server | — | — | 未开始;最小 Watch、租约回收和读写路径已随 W2c 完成 |
 | W3b store-redis | 协调会话 | — | Store 实现已随 W2c 完成,通过一致性套件;还差 R8 |
 | W4a 端到端 + 示例 + 部署 | — | — | 未开始 |
 | W4b Dashboard | — | — | 未开始 |
@@ -188,7 +188,7 @@ R1 分页与分块(D23)、R2 授权范围(D24)、R3 namespace 生命周期(D25)�
 | 风险 | 影响 | 应对 |
 |---|---|---|
 | W3a server 体量最大,成为关键路径 | M3 延期 | W3a 内部再拆:先 ResourceService + WatchService,后 LeaseService + 鉴权 + ViewService |
-| Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W2c 做最小可运行验证 |
+| Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W2c 已验证;Spring gRPC 1.1 依赖 gRPC 1.81 而 Boot 4.1 管理 1.80,版本目录须手动对齐,否则运行时报 `AbstractMethodError` |
 | Redis Cluster 下 Stream 与脚本的行为差异 | W3b 返工 | W2c 先验证;conformance 同时跑 Standalone 与 Cluster |
 | namespace 很多时兜底轮询的负载或传播延迟不达标 | W3b 返工 | W3b 压测;`tail-poll-interval` 可调 |
 | 8.0 不兼容导致用户迁移成本高 | 采用受阻 | W4c 迁移工具 + 迁移指南;6.x 维护期 |

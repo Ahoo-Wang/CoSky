@@ -1,0 +1,109 @@
+/*
+ * Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package me.ahoo.cosky.server
+
+import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisURI
+import io.lettuce.core.cluster.RedisClusterClient
+import io.lettuce.core.resource.ClientResources
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.api.v1.Kind
+import me.ahoo.cosky.api.validation.NamingRules
+import me.ahoo.cosky.server.lease.LeaseReaper
+import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreOptions
+import me.ahoo.cosky.store.redis.RedisStore
+import org.springframework.beans.factory.DisposableBean
+import org.springframework.beans.factory.ObjectProvider
+import org.springframework.boot.ApplicationRunner
+import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Bean
+import org.springframework.grpc.server.ServerBuilderCustomizer
+import kotlin.time.toKotlinDuration
+
+@SpringBootApplication
+@EnableConfigurationProperties(CoSkyProperties::class)
+class CoSkyServerApplication : DisposableBean {
+    private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+
+    /**
+     * gRPC runs its calls on virtual threads too, before they reach a coroutine (design D28).
+     */
+    @Bean
+    fun virtualThreadExecutor(): ServerBuilderCustomizer<*> = ServerBuilderCustomizer { builder ->
+        builder.executor(VirtualThreads.executor)
+    }
+
+    @Bean
+    fun store(properties: CoSkyProperties, resources: ObjectProvider<ClientResources>): Store {
+        val redis = properties.store.redis
+        val uri = RedisURI.create(redis.uri)
+        val clientResources = resources.getIfAvailable { ClientResources.create() }
+        val options = StoreOptions(logSize = properties.watch.window)
+        val pollInterval = redis.tailPollInterval.toKotlinDuration()
+        return if (redis.cluster) {
+            RedisStore.cluster(RedisClusterClient.create(clientResources, uri), options, pollInterval)
+        } else {
+            RedisStore.standalone(RedisClient.create(clientResources, uri), options, pollInterval)
+        }
+    }
+
+    @Bean
+    fun watchCache(store: Store, properties: CoSkyProperties): WatchCache =
+        WatchCache(store, properties.watch.window, scope)
+
+    @Bean
+    fun leaseReaper(store: Store, caches: WatchCache, properties: CoSkyProperties): LeaseReaper {
+        val lease = properties.lease
+        return LeaseReaper(
+            store = store,
+            namespaces = {
+                caches.of(NamingRules.SYSTEM_NAMESPACE).awaitView().objects.keys
+                    .filter { it.kind == Kind.KIND_NAMESPACE }
+                    .map { it.name }
+            },
+            options = LeaseReaper.Options(
+                interval = lease.reaperInterval,
+                grace = lease.reaperGrace,
+                maxPerTick = lease.reaperMaxPerTick,
+                lockTtl = lease.lockTtl,
+                protectionThreshold = lease.protectionThreshold,
+                protectionMinLeases = lease.protectionMinLeases,
+                protectionMaxDuration = lease.protectionMaxDuration,
+            ),
+        )
+    }
+
+    @Bean
+    fun bootstrap(store: Store, caches: WatchCache, reaper: LeaseReaper): ApplicationRunner = ApplicationRunner {
+        runBlocking { store.createNamespace(NamingRules.SYSTEM_NAMESPACE) }
+        caches.of(NamingRules.SYSTEM_NAMESPACE)
+        scope.launch { reaper.run() }
+    }
+
+    override fun destroy() {
+        scope.cancel()
+    }
+}
+
+fun main(args: Array<String>) {
+    runApplication<CoSkyServerApplication>(*args)
+}

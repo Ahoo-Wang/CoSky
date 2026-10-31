@@ -14,9 +14,6 @@
 dependencies {
     api(platform(libs.spring.boot.dependencies))
     api(platform(libs.spring.cloud.dependencies))
-    api(platform(libs.cosid.bom))
-    api(platform(libs.simba.bom))
-    api(platform(libs.cosec.bom))
     api(platform(libs.fluent.assert.bom))
     api(platform(libs.protobuf.bom))
     api(platform(libs.grpc.bom))

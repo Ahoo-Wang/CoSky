@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: cosky-server
+  threads:
+    virtual:
+      enabled: true
+  grpc:
+    server:
+      port: 9090
