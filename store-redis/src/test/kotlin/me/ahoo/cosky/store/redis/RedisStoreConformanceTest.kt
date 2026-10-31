@@ -57,7 +57,7 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
         stores.forEach { it.close() }
     }
 
-    private class RedisContainer : GenericContainer<RedisContainer>("redis:7.4-alpine")
+    private class RedisContainer : GenericContainer<RedisContainer>(REDIS_IMAGE)
 
     private companion object {
         val REDIS: RedisContainer = RedisContainer().withExposedPorts(6379).also { it.start() }

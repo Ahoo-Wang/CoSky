@@ -37,6 +37,7 @@ import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.ChangeType
 import me.ahoo.cosky.store.GrantResult
+import me.ahoo.cosky.store.LeaseRenewal
 import me.ahoo.cosky.store.LeaseStats
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
@@ -521,7 +522,25 @@ abstract class StoreConformanceTest {
     fun `keep-alive renews by the lease's own ttl`() = scenario { store ->
         val lease = store.grant()
         store.keepAlive(namespace, listOf(lease, MISSING_LEASE))
-            .assert().isEqualTo(mapOf(lease to LONG_TTL, MISSING_LEASE to null))
+            .assert().isEqualTo(mapOf(lease to LeaseRenewal(LONG_TTL, 0), MISSING_LEASE to null))
+    }
+
+    @Test
+    fun `keep-alive counts the instances on the lease`() = scenario { store ->
+        val lease = store.grant()
+        val other = store.grant()
+        store.put(instance("order-1", lease = lease))
+        store.put(instance("order-2", lease = lease))
+        store.put(instance("order-3", lease = other))
+        store.keepAlive(namespace, listOf(lease, other)).mapValues { it.value?.attached }
+            .assert().isEqualTo(mapOf(lease to 2, other to 1))
+
+        store.apply(namespace, listOf(Mutation.Delete(instanceKey("order-1"))), ACTOR)
+        store.keepAlive(namespace, listOf(lease))[lease]?.attached.assert().isEqualTo(1)
+
+        store.put(instance("order-2", lease = other))
+        store.keepAlive(namespace, listOf(lease, other)).mapValues { it.value?.attached }
+            .assert().isEqualTo(mapOf(lease to 0, other to 2))
     }
 
     @Test
@@ -541,7 +560,7 @@ abstract class StoreConformanceTest {
         val lease = store.grant(SHORT_TTL)
         delay(EXPIRY_WAIT)
         store.expiredLeases(namespace, 10).assert().containsExactly(lease)
-        store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to SHORT_TTL))
+        store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to LeaseRenewal(SHORT_TTL, 0)))
         store.expiredLeases(namespace, 10).assert().isEmpty()
         store.expireLease(namespace, lease, ACTOR, force = false).assert().isFalse()
     }

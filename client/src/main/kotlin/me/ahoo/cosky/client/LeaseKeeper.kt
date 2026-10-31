@@ -125,8 +125,10 @@ internal class LeaseKeeper(
         }
         leases().keepAlive(renewals).collect { response ->
             backoff.reset()
-            if (response.ttlSeconds == 0 && response.lease == lease) {
-                restore()
+            when {
+                response.lease != lease -> Unit
+                response.ttlSeconds == 0 -> restore()
+                response.attachedCount < registrations.size -> putBack()
             }
         }
     }
@@ -142,6 +144,18 @@ internal class LeaseKeeper(
             registrations.values.forEach { put(it) }
         }
         log.info("Restored {} registrations in namespace {} with lease {}.", registrations.size, namespace, lease)
+    }
+
+    /**
+     * A failover can lose an Instance while the older lease survives, and renewing keeps succeeding (design D31). So
+     * this also runs for a registration still on its way, which is harmless: writing the same content changes nothing.
+     */
+    private suspend fun putBack() {
+        delay(options.reRegisterJitter * Random.nextDouble())
+        mutex.withLock {
+            registrations.values.forEach { put(it) }
+        }
+        log.warn("Put back the registrations in namespace {}, since lease {} had lost some.", namespace, lease)
     }
 
     private suspend fun grant(): Long = leases().grant(

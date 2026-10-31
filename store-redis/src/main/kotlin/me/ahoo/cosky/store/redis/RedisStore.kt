@@ -17,11 +17,13 @@ import io.lettuce.core.Limit
 import io.lettuce.core.MapScanCursor
 import io.lettuce.core.Range
 import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisCommandExecutionException
 import io.lettuce.core.ScanArgs
 import io.lettuce.core.ScanCursor
 import io.lettuce.core.ScriptOutputType
 import io.lettuce.core.StreamMessage
 import io.lettuce.core.cluster.RedisClusterClient
+import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.codec.ByteArrayCodec
 import io.lettuce.core.codec.RedisCodec
@@ -43,6 +45,7 @@ import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
 import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Lease
+import me.ahoo.cosky.store.LeaseRenewal
 import me.ahoo.cosky.store.LeaseStats
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
@@ -57,6 +60,7 @@ import me.ahoo.cosky.store.exceeds
 import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.redis.RedisKeys.Companion.token
 import me.ahoo.cosky.store.requireWellFormed
+import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -289,19 +293,46 @@ class RedisStore(
         return leases.associateWith { owners[it.toString()] }
     }
 
-    override suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, Duration?> {
+    override suspend fun keepAlive(namespace: String, leases: Collection<Long>): Map<Long, LeaseRenewal?> {
         if (leases.isEmpty()) {
             return emptyMap()
         }
         val keys = RedisKeys(namespace)
         val ids = leases.toList()
-        val ttls = LEASE_KEEPALIVE.run<List<Any?>>(
+        val reply = LEASE_KEEPALIVE.run<List<Any?>>(
             commands,
             ScriptOutputType.MULTI,
-            listOf(keys.lease, keys.leaseTtl),
+            listOf(keys.lease, keys.leaseTtl, keys.leaseAttach),
             ids.map { it.arg() },
         )
-        return ids.zip(ttls).associate { (id, ttl) -> id to ttl.asText().toLongOrNull()?.milliseconds }
+        return ids.zip(reply.chunked(2)).associate { (id, renewal) ->
+            val (ttl, attached) = renewal
+            id to ttl.asText().toLongOrNull()?.let { LeaseRenewal(it.milliseconds, (attached as Long).toInt()) }
+        }
+    }
+
+    /**
+     * Refuses a Redis that would lose data without anyone noticing, or that the scripts were not tested on (design
+     * D31). Call it once before serving. Where `INFO` is not allowed it can only warn.
+     *
+     * @throws IllegalStateException when a prerequisite is not met.
+     */
+    suspend fun checkPrerequisites() {
+        val reports = try {
+            when (commands) {
+                is RedisAdvancedClusterAsyncCommands -> commands.upstream().commands().info().map { it.await() }
+                else -> listOf(commands.info().await())
+            }
+        } catch (e: RedisCommandExecutionException) {
+            log.warn("Cannot check the Redis prerequisites, since INFO failed: {}", e.message)
+            return
+        }
+        val checks = reports.map { RedisPrerequisites.check(it) }
+        checks.flatMap { it.unknown }.distinct().forEach {
+            log.warn("Cannot check the Redis prerequisites, since INFO does not report {}.", it)
+        }
+        val problems = checks.flatMap { it.problems }.distinct()
+        check(problems.isEmpty()) { "This Redis cannot back CoSky: ${problems.joinToString(" ")}" }
     }
 
     override suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean {
@@ -462,6 +493,7 @@ class RedisStore(
     private data class LogEntry(val revision: Long, val meta: String, val change: Change)
 
     companion object {
+        private val log = LoggerFactory.getLogger(RedisStore::class.java)
         private const val STATE_ACTIVE = "active"
         private const val NOT_ACTIVE = "NOT_ACTIVE"
         private const val SCAN_START = "0"

@@ -60,11 +60,13 @@ class CoSkyServerApplication : DisposableBean {
         val clientResources = resources.getIfAvailable { ClientResources.create() }
         val options = StoreOptions(logSize = properties.watch.window)
         val pollInterval = redis.tailPollInterval.toKotlinDuration()
-        return if (redis.cluster) {
+        val store = if (redis.cluster) {
             RedisStore.cluster(RedisClusterClient.create(clientResources, uri), options, pollInterval)
         } else {
             RedisStore.standalone(RedisClient.create(clientResources, uri), options, pollInterval)
         }
+        runBlocking(VirtualThreads.dispatcher) { store.checkPrerequisites() }
+        return store
     }
 
     @Bean
