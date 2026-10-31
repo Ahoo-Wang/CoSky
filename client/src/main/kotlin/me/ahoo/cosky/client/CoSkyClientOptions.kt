@@ -13,8 +13,10 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.Grpc
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
+import io.grpc.TlsChannelCredentials
 import java.nio.file.Path
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -31,6 +33,9 @@ import kotlin.time.Duration.Companion.seconds
  * could miss (§6.4); ±20% jitter is added.
  * @param leaseTtl TTL of the lease; renewed every third of it.
  * @param closeTimeout how long closing waits to revoke leases, after which the server expires them.
+ * @param tls connects over TLS. Without it the token crosses the network in the clear.
+ * @param tlsTrustedCertificates a PEM file of the certificates to trust, for a private CA. The JVM's trust store
+ * decides otherwise.
  */
 @Suppress("MagicNumber") // The defaults of design §7.5.
 data class CoSkyClientOptions(
@@ -46,8 +51,16 @@ data class CoSkyClientOptions(
     val reRegisterJitter: Duration = 5.seconds,
     val leaseTtl: Duration = 30.seconds,
     val closeTimeout: Duration = 3.seconds,
+    val tls: Boolean = false,
+    val tlsTrustedCertificates: Path? = null,
     val channelFactory: (String) -> ManagedChannel = { endpoint ->
-        ManagedChannelBuilder.forTarget(endpoint).usePlaintext().build()
+        if (tls) {
+            val credentials = TlsChannelCredentials.newBuilder()
+            tlsTrustedCertificates?.let { credentials.trustManager(it.toFile()) }
+            Grpc.newChannelBuilder(endpoint, credentials.build()).build()
+        } else {
+            ManagedChannelBuilder.forTarget(endpoint).usePlaintext().build()
+        }
     },
 ) {
     init {

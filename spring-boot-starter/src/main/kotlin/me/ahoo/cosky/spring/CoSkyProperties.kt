@@ -28,12 +28,19 @@ data class CoSkyProperties(
     val enabled: Boolean = true,
     val endpoints: List<String> = listOf("localhost:9090"),
     val token: String? = null,
+    val tls: Tls = Tls(),
     val namespace: String = "default",
     val snapshot: Snapshot = Snapshot(),
     val registry: Registry = Registry(),
     val discovery: Discovery = Discovery(),
     val config: Config = Config(),
 ) {
+    /**
+     * @param trustedCertificates a PEM file of the certificates to trust, for a private CA. The JVM's trust store
+     * decides otherwise.
+     */
+    data class Tls(val enabled: Boolean = false, val trustedCertificates: Path? = null)
+
     data class Snapshot(
         val enabled: Boolean = true,
         val dir: Path = Path.of(System.getProperty("user.home"), ".cosky"),
@@ -58,6 +65,8 @@ data class CoSkyProperties(
         clientName = applicationName,
         snapshotDir = snapshot.dir.takeIf { snapshot.enabled },
         snapshotIncludeConfig = snapshot.includeConfig,
+        tls = tls.enabled,
+        tlsTrustedCertificates = tls.trustedCertificates,
     )
 
     val configLoadTimeout: kotlin.time.Duration

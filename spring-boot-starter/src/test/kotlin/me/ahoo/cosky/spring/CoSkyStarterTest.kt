@@ -46,6 +46,7 @@ import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory
 import org.springframework.context.ApplicationListener
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.context.annotation.Bean
+import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -175,6 +176,16 @@ class CoSkyStarterTest {
         context.environment.getProperty("late.value").assert().isNull()
         server.put(TestCoSkyServer.config("late.yaml", "late:\n  value: here"))
         eventually { context.environment.getProperty("late.value") == "here" }
+    }
+
+    @Test
+    fun `the TLS settings reach the client`() {
+        val certificates = Path.of("/etc/cosky/ca.pem")
+        val options = CoSkyProperties(tls = CoSkyProperties.Tls(true, certificates)).toOptions()
+
+        options.tls.assert().isTrue()
+        options.tlsTrustedCertificates.assert().isEqualTo(certificates)
+        CoSkyProperties().toOptions().tls.assert().isFalse()
     }
 
     @Test
