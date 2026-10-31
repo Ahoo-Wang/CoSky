@@ -119,6 +119,13 @@ class NamespaceCache(
     val views: StateFlow<NamespaceView?>
         get() = state
 
+    /**
+     * Whether it is loading because the timeline forked, in which case reads must not be served (design §6.4).
+     */
+    @Volatile
+    var isDiverged: Boolean = false
+        private set
+
     suspend fun awaitView(): NamespaceView = views.filterNotNull().first()
 
     /**
@@ -152,12 +159,14 @@ class NamespaceCache(
         state.value = null
         val position = store.position(namespace) ?: return false
         state.value = load(position)
+        isDiverged = false
         return try {
             store.changes(namespace, position).collect { batch ->
                 state.update { it?.applying(batch, windowSize) }
             }
             false
         } catch (e: TimelineDivergedException) {
+            isDiverged = true
             log.error("Namespace {} diverged, now at {}; loading it again.", namespace, e.current)
             true
         } catch (e: RevisionGoneException) {

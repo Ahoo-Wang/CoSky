@@ -20,13 +20,20 @@ import io.lettuce.core.resource.ClientResources
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Kind
+import me.ahoo.cosky.api.v1.namespaceSpec
+import me.ahoo.cosky.api.v1.objectMeta
+import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.lease.LeaseReaper
+import me.ahoo.cosky.server.resource.NamespaceReconciler
+import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
 import me.ahoo.cosky.store.redis.RedisStore
@@ -74,6 +81,10 @@ class CoSkyServerApplication : DisposableBean {
         WatchCache(store, properties.watch.window, scope)
 
     @Bean
+    fun resourceService(store: Store, caches: WatchCache, properties: CoSkyProperties): ResourceService =
+        ResourceService(store, caches, minRevisionTimeout = properties.read.minRevisionTimeout.toKotlinDuration())
+
+    @Bean
     fun leaseReaper(store: Store, caches: WatchCache, properties: CoSkyProperties): LeaseReaper {
         val lease = properties.lease
         return LeaseReaper(
@@ -92,18 +103,42 @@ class CoSkyServerApplication : DisposableBean {
                 protectionMinLeases = lease.protectionMinLeases,
                 protectionMaxDuration = lease.protectionMaxDuration,
             ),
+            maintenance = NamespaceReconciler(store, caches)::reconcile,
         )
     }
 
     @Bean
     fun bootstrap(store: Store, caches: WatchCache, reaper: LeaseReaper): ApplicationRunner = ApplicationRunner {
-        runBlocking { store.createNamespace(NamingRules.SYSTEM_NAMESPACE) }
+        runBlocking(VirtualThreads.dispatcher) { createInitialNamespaces(store) }
         caches.of(NamingRules.SYSTEM_NAMESPACE)
         scope.launch { reaper.run() }
     }
 
+    /**
+     * `default` exists from the first start on (design §7.2), but it stays deleted if someone deletes it.
+     */
+    private suspend fun createInitialNamespaces(store: Store) {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        if (store.readAll(NamingRules.SYSTEM_NAMESPACE).firstOrNull { it.hasNamespace() } != null) {
+            return
+        }
+        store.createNamespace(DEFAULT_NAMESPACE)
+        val namespace = resource {
+            meta = objectMeta {
+                namespace = NamingRules.SYSTEM_NAMESPACE
+                name = DEFAULT_NAMESPACE
+            }
+            this.namespace = namespaceSpec {}
+        }
+        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(namespace)), LeaseReaper.ACTOR)
+    }
+
     override fun destroy() {
         scope.cancel()
+    }
+
+    private companion object {
+        const val DEFAULT_NAMESPACE = "default"
     }
 }
 
