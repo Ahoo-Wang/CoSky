@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import me.ahoo.cosky.api.VirtualThreads
+import me.ahoo.cosky.api.configFormatOf
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.DeleteRequest
@@ -277,7 +278,7 @@ class RestRoutes(
         Resource.newBuilder().apply {
             metaBuilder.setNamespace(namespace).setName(name)
             config = configSpec {
-                format = ConfigArchive.formatOf(name)
+                format = configFormatOf(name)
                 this.content = content.decodeToString()
             }
         }.build()

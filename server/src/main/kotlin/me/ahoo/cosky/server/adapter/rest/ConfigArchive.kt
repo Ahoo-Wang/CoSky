@@ -15,7 +15,6 @@ package me.ahoo.cosky.server.adapter.rest
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -58,13 +57,6 @@ internal object ConfigArchive {
             else -> return entry.name to content
         }
         throw ProtoJson.invalidBody(problem)
-    }
-
-    fun formatOf(name: String): ConfigFormat = when (name.substringAfterLast('.', "").lowercase()) {
-        "yaml", "yml" -> ConfigFormat.CONFIG_FORMAT_YAML
-        "properties" -> ConfigFormat.CONFIG_FORMAT_PROPERTIES
-        "json" -> ConfigFormat.CONFIG_FORMAT_JSON
-        else -> ConfigFormat.CONFIG_FORMAT_TEXT
     }
 
     /**
