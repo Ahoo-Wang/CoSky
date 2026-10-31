@@ -15,7 +15,7 @@
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
 > [!IMPORTANT]
-> **8.0 is in development and has not been released.** The artifacts and image below are not published yet, and [cosky.ahoo.me](https://cosky.ahoo.me/) still documents 6.x; the 8.0 documentation is in [`wiki/`](wiki/guide). The latest release is 6.x, maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only.
+> **8.0 has not been released yet.** The artifacts and image below are not published, and `ahoowang/cosky` is still 6.x. The latest release is 6.x, maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only; its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 
 CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 

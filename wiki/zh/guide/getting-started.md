@@ -5,6 +5,10 @@ description: 运行一个 CoSky server，把 Config 提供给 Spring Boot 应用
 
 # 快速开始
 
+::: warning 8.0 尚未发布
+本页的镜像和制品还没有发布，`ahoowang/cosky` 目前仍是 6.x。6.x 的文档在 [`v6` 分支](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide)中。
+:::
+
 你需要一个开发模式的 server 和一个 Spring Boot 4 应用。版本要求见[需求](./requirements.md)。
 
 ## 1. 启动 server
