@@ -762,7 +762,7 @@ val target = ns.loadBalancer("payment").choose()                                
 registration.close()                                                              // suspend:Revoke 租约
 ```
 
-- 同一 key 的多个 `watch` 调用共享一个底层 Watch(`stateIn` + 引用计数),最后一个订阅者离开后延迟取消。
+- 同一 key 的多个 `watch` 调用共享一个底层 Watch,它存活到 client 关闭。热路径只读 `StateFlow.value`,不算订阅,所以订阅数无法判断何时可以取消;一个进程关心的 key 也是有限的。
 - 热路径(`choose()`、`config.value`)只读 `StateFlow.value`,不挂起、不分配。
 - 一条 gRPC 连接承载全部 Watch 与 KeepAlive;多个 server 端点轮换重连,重连带 `from_revision` 和 `from_epoch`。
 - 快照落盘(§7.5):有快照时启动先加载,立即可用,连接成功后从快照位置续传。

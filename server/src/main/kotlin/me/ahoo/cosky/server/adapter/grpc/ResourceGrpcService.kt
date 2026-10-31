@@ -15,6 +15,7 @@ package me.ahoo.cosky.server.adapter.grpc
 
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
+import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.DeleteRequest
 import me.ahoo.cosky.api.v1.DeleteResponse
@@ -27,7 +28,6 @@ import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.ResourceServiceGrpcKt
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.api.validation.requireValid
-import me.ahoo.cosky.server.VirtualThreads
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation

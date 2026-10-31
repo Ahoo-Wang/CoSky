@@ -74,7 +74,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 ### W2b `client/` + `spring-boot-starter/`
 
 - **范围**:§6.5、§7.5 客户端全部行为;§7.7 starter 全部集成点;Java `CompletableFuture` 门面推迟到 8.1(见 §6 Q5)。
-- **测试**:以测试内的 gRPC 假服务(grpc-kotlin in-process)模拟 server,覆盖断线续传(带 `from_epoch`)、`gone` 重新 List、`Snapshot` / `Events` 分块、低频重建、
+- **测试**:用真实的 server 代码(内存 Store,gRPC in-process),比假服务更能发现协议问题,覆盖断线续传(带 `from_epoch`)、`gone` 重新 List、`Snapshot` / `Events` 分块、低频重建、
   租约丢失重注册、`UNAVAILABLE` 不触发重注册、重连后立即续期、快照启动。
 - **验收**:不依赖 Spring 的 `client` 模块无 `reactor` 依赖;starter 有 Spring Boot 集成测试(ConfigData 加载、刷新、注册、发现)。
 
@@ -146,7 +146,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W1a 构建骨架 | 协调会话 | #1005 | ✅ 已合并 |
 | W1b api | 协调会话 | #1006 | ✅ 已合并,含 D19、D23、D24 的契约改动 |
 | W2a store + 一致性 | 协调会话 | #1008 | ✅ 已合并 |
-| W2b client + starter | — | — | 未开始 |
+| W2b client + starter | 协调会话 | — | 进行中:client 已完成,starter 未开始 |
 | W2c 贯通验证 | 协调会话 | #1010 与本 PR | ✅ 已合并;结果见设计文档 §7.10 |
 | W3a server | — | — | 未开始;最小 Watch、租约回收和读写路径已随 W2c 完成 |
 | W3b store-redis | 协调会话 | — | Store 实现已随 W2c 完成,通过一致性套件;还差 R8 |

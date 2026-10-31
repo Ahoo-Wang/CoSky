@@ -22,6 +22,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.lease.LeaseReaper

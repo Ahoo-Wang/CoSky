@@ -15,6 +15,7 @@ package me.ahoo.cosky.server.adapter.grpc
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.GrantRequest
 import me.ahoo.cosky.api.v1.GrantResponse
@@ -26,7 +27,6 @@ import me.ahoo.cosky.api.v1.RevokeResponse
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.api.validation.requireValid
-import me.ahoo.cosky.server.VirtualThreads
 import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Store
 import org.springframework.stereotype.Service
