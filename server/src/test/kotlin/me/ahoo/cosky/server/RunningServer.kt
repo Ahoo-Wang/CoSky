@@ -13,8 +13,11 @@
 
 package me.ahoo.cosky.server
 
+import io.grpc.ClientInterceptors
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
+import io.grpc.Metadata
+import io.grpc.stub.MetadataUtils
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -56,7 +59,11 @@ internal class RedisContainer(vararg command: String) : GenericContainer<RedisCo
 /**
  * A real server on a real port, and a real client, as nothing but the protocol connects them (design §0).
  */
-internal class RunningServer(properties: Map<String, Any>, vararg sources: Class<*>) : AutoCloseable {
+internal class RunningServer(
+    properties: Map<String, Any>,
+    vararg sources: Class<*>,
+    token: String? = null,
+) : AutoCloseable {
     private val port = ServerSocket(0).use { it.localPort }
     private val context: ConfigurableApplicationContext =
         SpringApplicationBuilder(CoSkyServerApplication::class.java, *sources).run(
@@ -65,9 +72,18 @@ internal class RunningServer(properties: Map<String, Any>, vararg sources: Class
         )
     private val channel: ManagedChannel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
 
-    val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
-    val leases = LeaseServiceGrpcKt.LeaseServiceCoroutineStub(channel)
-    val watches = WatchServiceGrpcKt.WatchServiceCoroutineStub(channel)
+    val anonymousResources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
+    private val credentials = token?.let { bearer ->
+        val headers = Metadata().apply {
+            put(Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER), "Bearer $bearer")
+        }
+        MetadataUtils.newAttachHeadersInterceptor(headers)
+    }
+    private val signedIn = credentials?.let { ClientInterceptors.intercept(channel, it) } ?: channel
+
+    val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(signedIn)
+    val leases = LeaseServiceGrpcKt.LeaseServiceCoroutineStub(signedIn)
+    val watches = WatchServiceGrpcKt.WatchServiceCoroutineStub(signedIn)
 
     suspend fun createNamespace(name: String) {
         resources.put(

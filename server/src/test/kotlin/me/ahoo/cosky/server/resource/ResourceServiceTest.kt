@@ -32,6 +32,7 @@ import me.ahoo.cosky.api.v1.ListRequest
 import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.namespaceSpec
@@ -40,6 +41,8 @@ import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.resourceKey
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
+import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -113,7 +116,7 @@ class ResourceServiceTest {
 
     private suspend fun put(resource: Resource, expected: Long = 0) = resources.put(
         PutRequest.newBuilder().setResource(resource).setExpectedRevision(expected).build(),
-        ACTOR,
+        CALLER,
     )
 
     private fun get(name: String, minRevision: Long = 0): GetRequest =
@@ -130,30 +133,35 @@ class ResourceServiceTest {
     @Test
     fun `a get waits for the revision it asks for`() = scenario {
         val revision = put(config("a")).revision
-        resources.get(get("a", revision)).meta.updatedBy.assert().isEqualTo(ACTOR)
+        resources.get(get("a", revision), CALLER).meta.updatedBy.assert().isEqualTo(CALLER.principal.id)
     }
 
     @Test
     fun `a revision that does not come in time fails`() = scenario {
         put(config("a"))
-        errorOf { resources.get(get("a", 100)) }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
+        errorOf {
+            resources.get(
+                get("a", 100),
+                CALLER
+            )
+        }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
     }
 
     @Test
     fun `a get of a missing resource fails`() = scenario {
-        errorOf { resources.get(get("a")) }.assert().isEqualTo(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
+        errorOf { resources.get(get("a"), CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
     }
 
     @Test
     fun `reading a namespace that does not exist fails`() = scenario {
         val key = configKey("a").toBuilder().setNamespace("missing").build()
-        errorOf { resources.get(GetRequest.newBuilder().setKey(key).build()) }
+        errorOf { resources.get(GetRequest.newBuilder().setKey(key).build(), CALLER) }
             .assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND)
     }
 
     @Test
     fun `an invalid request fails before anything else`() = scenario {
-        errorOf { resources.get(GetRequest.getDefaultInstance()) }
+        errorOf { resources.get(GetRequest.getDefaultInstance(), CALLER) }
             .assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
     }
 
@@ -164,7 +172,7 @@ class ResourceServiceTest {
         put(config("b"))
         put(config("a"))
         val revision = put(instance("order-1", "order")).revision
-        val response = resources.list(list().setMinRevision(revision).build())
+        val response = resources.list(list().setMinRevision(revision).build(), CALLER)
         response.itemsList.map { it.meta.name }.assert().containsExactly("a", "b")
         response.revision.assert().isEqualTo(revision)
         response.epoch.assert().isNotEmpty()
@@ -176,7 +184,7 @@ class ResourceServiceTest {
         put(instance("order-1", "order"))
         val revision = put(instance("payment-1", "payment")).revision
         val request = list(Kind.KIND_INSTANCE).setService("payment").setMinRevision(revision).build()
-        resources.list(request).itemsList.map { it.meta.name }.assert().containsExactly("payment-1")
+        resources.list(request, CALLER).itemsList.map { it.meta.name }.assert().containsExactly("payment-1")
     }
 
     @Test
@@ -185,23 +193,24 @@ class ResourceServiceTest {
         put(config("b", labels = mapOf("team" to "x", "tier" to "2")))
         val revision = put(config("c", labels = mapOf("team" to "y"))).revision
         val request = list().putLabelSelector("team", "x").putLabelSelector("tier", "2").setMinRevision(revision)
-        resources.list(request.build()).itemsList.map { it.meta.name }.assert().containsExactly("b")
+        resources.list(request.build(), CALLER).itemsList.map { it.meta.name }.assert().containsExactly("b")
     }
 
     @Test
     fun `pages cover everything once and report the first revision`() = scenario {
         var revision = 0L
         repeat(5) { revision = put(config("c$it")).revision }
-        val first = resources.list(list().setPageSize(2).setMinRevision(revision).build())
+        val first = resources.list(list().setPageSize(2).setMinRevision(revision).build(), CALLER)
         first.itemsList.map { it.meta.name }.assert().containsExactly("c0", "c1")
         // A write between pages does not change what the pages report.
         val later = put(config("c9")).revision
         val second = resources.list(
-            list().setPageSize(2).setPageToken(first.nextPageToken).setMinRevision(later).build()
+            list().setPageSize(2).setPageToken(first.nextPageToken).setMinRevision(later).build(),
+            CALLER,
         )
         second.itemsList.map { it.meta.name }.assert().containsExactly("c2", "c3")
         second.revision.assert().isEqualTo(revision)
-        val third = resources.list(list().setPageSize(2).setPageToken(second.nextPageToken).build())
+        val third = resources.list(list().setPageSize(2).setPageToken(second.nextPageToken).build(), CALLER)
         third.itemsList.map { it.meta.name }.assert().containsExactly("c4", "c9")
         third.nextPageToken.assert().isEmpty()
     }
@@ -212,9 +221,9 @@ class ResourceServiceTest {
         scenario {
             var revision = 0L
             repeat(3) { revision = put(config("c$it", "x".repeat(200))).revision }
-            val first = capped.list(list().setMinRevision(revision).build())
+            val first = capped.list(list().setMinRevision(revision).build(), CALLER)
             first.itemsList.map { it.meta.name }.assert().containsExactly("c0")
-            val second = capped.list(list().setPageToken(first.nextPageToken).build())
+            val second = capped.list(list().setPageToken(first.nextPageToken).build(), CALLER)
             second.itemsList.map { it.meta.name }.assert().containsExactly("c1")
         }
     }
@@ -223,13 +232,13 @@ class ResourceServiceTest {
     fun `a page token from another epoch asks to start over`() = scenario {
         val revision = put(config("a")).revision
         val token = PageTokens.encode(ListPageToken("another", revision, "a"))
-        errorOf { resources.list(list().setPageToken(token).setMinRevision(revision).build()) }
+        errorOf { resources.list(list().setPageToken(token).setMinRevision(revision).build(), CALLER) }
             .assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
     }
 
     @Test
     fun `garbage is not a page token`() = scenario {
-        errorOf { resources.list(list().setPageToken("not a token").build()) }
+        errorOf { resources.list(list().setPageToken("not a token").build(), CALLER) }
             .assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
     }
 
@@ -268,8 +277,8 @@ class ResourceServiceTest {
     fun `a delete reports whether anything was deleted`() = scenario {
         put(config("a"))
         val request = DeleteRequest.newBuilder().setKey(configKey("a")).build()
-        resources.delete(request, ACTOR).deleted.assert().isTrue()
-        resources.delete(request, ACTOR).deleted.assert().isFalse()
+        resources.delete(request, CALLER).deleted.assert().isTrue()
+        resources.delete(request, CALLER).deleted.assert().isFalse()
     }
 
     // --- namespaces ---
@@ -288,7 +297,7 @@ class ResourceServiceTest {
         put(namespace(NAMESPACE))
         put(config("a"))
         val request = DeleteRequest.newBuilder().setKey(namespaceKey(NAMESPACE)).build()
-        errorOf { resources.delete(request, ACTOR) }.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY)
+        errorOf { resources.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY)
         store.namespaceState(NAMESPACE).assert().isEqualTo(NamespaceState.ACTIVE)
     }
 
@@ -297,10 +306,10 @@ class ResourceServiceTest {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
         put(namespace("orders"))
         val request = DeleteRequest.newBuilder().setKey(namespaceKey("orders")).build()
-        resources.delete(request, ACTOR).deleted.assert().isTrue()
+        resources.delete(request, CALLER).deleted.assert().isTrue()
         store.position("orders").assert().isNull()
         delay(SETTLE)
-        errorOf { resources.get(GetRequest.newBuilder().setKey(namespaceKey("orders")).build()) }
+        errorOf { resources.get(GetRequest.newBuilder().setKey(namespaceKey("orders")).build(), CALLER) }
             .assert().isEqualTo(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
     }
 
@@ -312,7 +321,7 @@ class ResourceServiceTest {
             namespaceKey("orders")
         ).setExpectedRevision(revision + 5).build()
         delay(SETTLE)
-        errorOf { resources.delete(request, ACTOR) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+        errorOf { resources.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
         store.namespaceState("orders").assert().isEqualTo(NamespaceState.ACTIVE)
     }
 
@@ -324,9 +333,13 @@ class ResourceServiceTest {
     @Test
     fun `history is newest first, up to the limit`() = scenario {
         repeat(3) { put(config("a", "v$it")) }
-        resources.history(history()).revisionsList.map { it.config.content }.assert().containsExactly("v2", "v1", "v0")
         resources.history(
-            history(limit = 2)
+            history(),
+            CALLER
+        ).revisionsList.map { it.config.content }.assert().containsExactly("v2", "v1", "v0")
+        resources.history(
+            history(limit = 2),
+            CALLER
         ).revisionsList.map { it.config.content }.assert().containsExactly("v2", "v1")
     }
 
@@ -335,11 +348,11 @@ class ResourceServiceTest {
         val capped = ResourceService(store, caches, CAPPED, SHORT_TIMEOUT)
         scenario {
             repeat(3) { put(config("a", "$it".repeat(200))) }
-            val first = capped.history(history())
+            val first = capped.history(history(), CALLER)
             first.revisionsCount.assert().isEqualTo(1)
-            val second = capped.history(history(token = first.nextPageToken))
+            val second = capped.history(history(token = first.nextPageToken), CALLER)
             second.revisionsCount.assert().isEqualTo(1)
-            val third = capped.history(history(token = second.nextPageToken))
+            val third = capped.history(history(token = second.nextPageToken), CALLER)
             third.revisionsCount.assert().isEqualTo(1)
             third.nextPageToken.assert().isEmpty()
             listOf(first, second, third).map { it.revisionsList.single().config.content.first() }
@@ -350,16 +363,14 @@ class ResourceServiceTest {
     @Test
     fun `garbage is not a history page token`() = scenario {
         errorOf {
-            resources.history(
-                history(token = "soon")
-            )
+            resources.history(history(token = "soon"), CALLER)
         }.assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
     }
 
     private companion object {
         const val NAMESPACE = "resources"
         const val WINDOW = 64
-        const val ACTOR = "someone"
+        val CALLER = Caller(Principal(Subject.Type.TYPE_USER, "someone"))
         val CAPPED = Limits(maxConfigContentBytes = 250, maxMessageBytes = 300)
         val SHORT_TIMEOUT = 300.milliseconds
         val SETTLE = 100.milliseconds

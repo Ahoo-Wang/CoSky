@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.server
 
+import io.grpc.ServerInterceptor
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.cluster.RedisClusterClient
@@ -29,6 +30,11 @@ import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
+import me.ahoo.cosky.server.adapter.grpc.AuthInterceptor
+import me.ahoo.cosky.server.audit.AuditLogger
+import me.ahoo.cosky.server.auth.AccessControl
+import me.ahoo.cosky.server.auth.AuthBootstrap
+import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.lease.LeaseReaper
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
@@ -41,9 +47,12 @@ import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.runApplication
 import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Primary
+import org.springframework.grpc.server.GlobalServerInterceptor
 import org.springframework.grpc.server.ServerBuilderCustomizer
 import kotlin.time.toKotlinDuration
 
@@ -81,8 +90,35 @@ class CoSkyServerApplication : DisposableBean {
         WatchCache(store, properties.watch.window, scope)
 
     @Bean
-    fun resourceService(store: Store, caches: WatchCache, properties: CoSkyProperties): ResourceService =
-        ResourceService(store, caches, minRevisionTimeout = properties.read.minRevisionTimeout.toKotlinDuration())
+    fun accessControl(caches: WatchCache): AccessControl = AccessControl(caches)
+
+    @Bean
+    @Primary
+    fun authorizer(access: AccessControl, properties: CoSkyProperties): Authorizer =
+        if (properties.auth.enabled) access else Authorizer.ALLOW_ALL
+
+    @Bean
+    fun auditLogger(): AuditLogger = AuditLogger()
+
+    @Bean
+    @GlobalServerInterceptor
+    @ConditionalOnProperty(prefix = "cosky.auth", name = ["enabled"], matchIfMissing = true)
+    fun authInterceptor(access: AccessControl, audit: AuditLogger): ServerInterceptor = AuthInterceptor(access, audit)
+
+    @Bean
+    fun resourceService(
+        store: Store,
+        caches: WatchCache,
+        properties: CoSkyProperties,
+        authorizer: Authorizer,
+        audit: AuditLogger,
+    ): ResourceService = ResourceService(
+        store,
+        caches,
+        minRevisionTimeout = properties.read.minRevisionTimeout.toKotlinDuration(),
+        authorizer = authorizer,
+        audit = audit,
+    )
 
     @Bean
     fun leaseReaper(store: Store, caches: WatchCache, properties: CoSkyProperties): LeaseReaper {
@@ -108,8 +144,18 @@ class CoSkyServerApplication : DisposableBean {
     }
 
     @Bean
-    fun bootstrap(store: Store, caches: WatchCache, reaper: LeaseReaper): ApplicationRunner = ApplicationRunner {
-        runBlocking(VirtualThreads.dispatcher) { createInitialNamespaces(store) }
+    fun bootstrap(
+        store: Store,
+        caches: WatchCache,
+        reaper: LeaseReaper,
+        properties: CoSkyProperties,
+    ): ApplicationRunner = ApplicationRunner {
+        runBlocking(VirtualThreads.dispatcher) {
+            createInitialNamespaces(store)
+            if (properties.auth.enabled) {
+                AuthBootstrap(store).run(properties.auth.bootstrapToken)
+            }
+        }
         caches.of(NamingRules.SYSTEM_NAMESPACE)
         scope.launch { reaper.run() }
     }

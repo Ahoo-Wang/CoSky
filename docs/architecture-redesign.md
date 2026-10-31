@@ -899,7 +899,8 @@ me.ahoo.cosky.server
 | `cosky.api.max-message-bytes` | `2MiB` | 单条消息的资源总量(§4.6) |
 | `cosky.store.redis.uri` | `redis://localhost:6379` | 支持 Sentinel / Cluster URI |
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
-| `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount |
+| `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发 |
+| `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount;格式同普通 token |
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` | — / — / — / `groups` | 不配置则不启用 OIDC |
 | `cosky.watch.window` | `10000` | 事件窗口,按事件计数,与 Stream `MAXLEN` 相同;应不小于 峰值事件速率 × 最长重连间隙(D29) |
 | `cosky.view.topology-flush-interval` | `30s` | 拓扑边的写入间隔,保留 3 倍间隔(D30) |
@@ -974,6 +975,8 @@ cosky:
     - { kinds: [INSTANCE], namespaces: ["*"], verbs: [GET, WATCH] }
     - { kinds: [CONFIG], namespaces: ["*"], verbs: [GET, WATCH], names: [order-service.yaml, "shared/*"] }
   ```
+- **吊销**:token 被吊销后,它打开的 Watch 和 KeepAlive 流以 `UNAUTHENTICATED` 结束。到期只在 `_system` 变化或下一次续期时才会发现,所以长期空闲的 Watch 可能略晚结束。
+- **`ServiceAccount.tokens` 只读**:Put 时保留已有 token,忽略请求中的值;token 只能通过 token 端点管理。
 - **TLS**:两个端口均支持 TLS,生产环境建议开启;mTLS 留作后续。
 - **审计日志**:logger `cosky.audit`,JSON 一行一事件:`time, subject, verb, kind, namespace, name, revision, result, remote`。
 

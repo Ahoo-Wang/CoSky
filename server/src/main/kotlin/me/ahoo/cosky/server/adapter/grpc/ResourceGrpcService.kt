@@ -35,18 +35,17 @@ import org.springframework.stereotype.Service
 class ResourceGrpcService(
     private val resources: ResourceService,
 ) : ResourceServiceGrpcKt.ResourceServiceCoroutineImplBase(VirtualThreads.dispatcher) {
-    override suspend fun get(request: GetRequest): Resource = grpcCall { resources.get(request) }
+    override suspend fun get(request: GetRequest): Resource = grpcCall { resources.get(request, AuthContext.caller()) }
 
-    override suspend fun list(request: ListRequest): ListResponse = grpcCall { resources.list(request) }
+    override suspend fun list(request: ListRequest): ListResponse =
+        grpcCall { resources.list(request, AuthContext.caller()) }
 
-    override suspend fun put(request: PutRequest): PutResponse = grpcCall { resources.put(request, ACTOR) }
+    override suspend fun put(request: PutRequest): PutResponse =
+        grpcCall { resources.put(request, AuthContext.caller()) }
 
-    override suspend fun delete(request: DeleteRequest): DeleteResponse = grpcCall { resources.delete(request, ACTOR) }
+    override suspend fun delete(request: DeleteRequest): DeleteResponse =
+        grpcCall { resources.delete(request, AuthContext.caller()) }
 
-    override suspend fun history(request: HistoryRequest): HistoryResponse = grpcCall { resources.history(request) }
-
-    private companion object {
-        /** Authentication comes with W3a; until then every write has the same author. */
-        const val ACTOR = "anonymous"
-    }
+    override suspend fun history(request: HistoryRequest): HistoryResponse =
+        grpcCall { resources.history(request, AuthContext.caller()) }
 }
