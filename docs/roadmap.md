@@ -54,29 +54,34 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 ### W2a `store/` + `conformance-test/`
 
 - **范围**:§5.0 Store SPI;内存实现;conformance 抽象测试类,覆盖:
-  CAS 三种模式、批写原子性(任一失败全部不生效)、无变化不推进 revision、`changes` 续传 / 窗口外 `RevisionGoneException`、
-  租约授予 / 批量保活 / 到期 / 撤销 / 挂载实例随租约删除、Config 历史截断、`dropNamespace`、`tryLock` 互斥与过期。
+  CAS 三种模式、批写原子性(任一失败全部不生效)、无变化不推进 revision(labels 顺序不同也算无变化)、`changes` 续传 / 窗口外 `RevisionGoneException`、
+  epoch(删除重建后更换;钩子 `loseWritesAfter` 模拟丢写后 `changes` 抛 `TimelineDivergedException`)、只读元数据随读取 / 事件 / 历史完整返回、
+  租约授予 / 批量保活 / 到期未回收可续期 / 到期 / 撤销 / 挂载实例随租约删除 / 迁移到新租约后旧租约到期不影响实例、`leaseStats`、`versions`、
+  Config 历史截断(A → B → A 保留三条)、`dropNamespace`、`tryLock` 互斥与过期。
 - **验收**:内存实现通过全部 conformance 用例;测试类可被 `store-redis` 直接继承复用。
 
 ### W2b `client/` + `spring-boot-starter/`
 
 - **范围**:§6.5、§7.5 客户端全部行为;§7.7 starter 全部集成点;Java `CompletableFuture` 门面推迟到 8.1(见 §6 Q5)。
-- **测试**:以测试内的 gRPC 假服务(grpc-kotlin in-process)模拟 server,覆盖断线续传、`gone` 重新 List、租约丢失重注册、快照启动。
+- **测试**:以测试内的 gRPC 假服务(grpc-kotlin in-process)模拟 server,覆盖断线续传(带 `from_epoch`)、`gone` 重新 List、低频重建、
+  租约丢失重注册、`UNAVAILABLE` 不触发重注册、重连后立即续期、快照启动。
 - **验收**:不依赖 Spring 的 `client` 模块无 `reactor` 依赖;starter 有 Spring Boot 集成测试(ConfigData 加载、刷新、注册、发现)。
 
 ### W3a `server/`
 
 - **范围**:§6.1–§6.4、§7.2–§7.4、§7.6、§7.8、§7.9;运行在内存 Store 上。
-- **验收**:client 驱动的协议级 conformance 用例全部通过;REST 与 gRPC 行为一致的对照测试;鉴权矩阵测试。
+- **验收**:client 驱动的协议级 conformance 用例全部通过;REST 与 gRPC 行为一致的对照测试;鉴权矩阵测试;
+  回收保护三层(恢复宽限、大比例到期暂停、单轮上限)测试;epoch 变化时 watcher 收到 `gone`;反熵发现不一致时按分叉处理。
 
 ### W3b `store-redis/`
 
-- **范围**:§5.1–§5.3 键布局与 4 个脚本;Lettuce 协程桥接;Standalone / Cluster 均需验证。
-- **验收**:继承 W2a conformance 用例并全部通过(Testcontainers Redis);Cluster 模式下所有脚本键均显式声明。
+- **范围**:§5.1–§5.3 键布局与脚本;§6.1 追尾(提示 + `tail.lua` + 兜底轮询);Lettuce 协程桥接;Standalone / Cluster 均需验证。
+- **验收**:继承 W2a conformance 用例并全部通过(Testcontainers Redis);Cluster 模式下所有脚本键均显式声明,多 namespace 跨 slot 追尾通过;
+  提示丢失时靠轮询仍能收敛。
 
 ### W4a 端到端 + 示例 + 部署
 
-- 全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11);重写 provider / consumer 示例;
+- 全链路测试(server + store-redis + client);Toxiproxy 故障注入(§7.11,含超过 TTL 后恢复与丢写分叉);重写 provider / consumer 示例;
   Dockerfile、k8s 清单 / Helm;JMH 与压测达成 §7.10 目标。
 
 ### W4b Dashboard
@@ -112,8 +117,8 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 
 | 任务 | 子会话 | 分支 | 状态 |
 |---|---|---|---|
-| M0 设计定稿 | 协调会话 | `v8`(#1001) | ✅ 完成 |
-| W1 骨架 + api | w1-api | `claude/w1-api-c1af77` | 已审查,待变基后以 PR 合入 `v8` |
+| M0 设计定稿 | 协调会话 | `v8`(#1001) | 重新打开:P0 已写入 D19–D22,待维护者确认;其余问题待决(§6) |
+| W1 骨架 + api | w1-api | `claude/w1-api-c1af77` | 已审查;须先带上 D19 的 proto 改动,再变基并以 PR 合入 `v8` |
 | W2a store + 一致性 | — | — | 未开始 |
 | W2b client + starter | — | — | 未开始 |
 | W3a server | — | — | 未开始 |
@@ -123,7 +128,9 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W4c 迁移工具 | — | — | 未开始 |
 | W4d 文档 | — | — | 未开始 |
 
-## 6. 已关闭的问题
+## 6. 设计问题
+
+### 已关闭
 
 M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10–D16)。
 
@@ -137,6 +144,23 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 | Q6 | server gRPC 接入 | Spring gRPC(D15) |
 | Q7 | 性能目标 | 采纳设计文档 §7.10(D16) |
 
+### 架构审查(2026-10-30)
+
+P0 已写入设计文档:Watch 时间线(D19)、回收保护(D20)、Redis 追尾(D21)、键布局(D22)。
+以下问题尚未决定,须在"最晚决定"列的时间点之前关闭:
+
+| # | 问题 | 涉及章节 | 最晚决定 |
+|---|---|---|---|
+| R1 | List 与 Snapshot 没有分页或分块,超过 gRPC 默认 4 MiB 上限;批写事件也可能超限 | §4.3 | W1 合入前 |
+| R2 | `RoleBinding` 无法限定 namespace;Lease 没有授权规则且 id 可猜;同 namespace 的 client 可覆盖其他服务的 Instance | §4.1、§6.3、§7.8 | W1 合入前 |
+| R3 | namespace 删除有竞态;`hist` 键没有索引和清理策略,`dropNamespace` 的实现未定义 | §5.0、§7.2 | W2a 开工前 |
+| R4 | 快照在容器中基本失效,§9 的缓解不成立;快照路径不一致,`serverId` 没有来源;Config 明文落盘 | §6.5、§7.5、§9 | W2b 开工前 |
+| R5 | 副本滞后被误判为 `gone`;`MAXLEN ~` 截断同一 revision 的批次;窗口单位不一致,也小于滚动重启的事件量 | §6.1、§7.3 | W3a 开工前 |
+| R6 | 拓扑视图在多副本下只有局部数据 | §4.3、§6.3 | W3a 开工前 |
+| R7 | 冷启动读取 `obj` 与 `ver` 不是原子操作;`HGETALL` 大 Hash 阻塞 Redis | §6.1 | W3b 开工前 |
+| R8 | Redis 前提未写明(淘汰策略、最低版本、`WAIT`);丢写后租约还在而 Instance 已丢失时不会重新注册 | §5.3、§6.5 | W3b 开工前 |
+| R9 | 真实 server 与 Redis 到 W4a 才联调;6.x 与 8.0 没有共存迁移方案;`v8` 定期合入 `main` 的规则不成立;alpha 发布路径与 CodeQL 未覆盖 `v8` | 本文 §3、§4 | W2 开工前 |
+
 ## 7. 风险
 
 | 风险 | 影响 | 应对 |
@@ -144,4 +168,5 @@ M0 的开放问题已全部按推荐采纳,结论记录在设计文档 §1(D10�
 | W3a server 体量最大,成为关键路径 | M3 延期 | W3a 内部再拆:先 ResourceService + WatchService,后 LeaseService + 鉴权 + ViewService |
 | Spring Boot 4 / Spring gRPC 版本兼容 | 构建与集成受阻 | W1 先做最小可运行验证 |
 | Redis Cluster 下 Stream 与脚本的行为差异 | W3b 返工 | conformance 同时跑 Standalone 与 Cluster |
+| namespace 很多时兜底轮询的负载或传播延迟不达标 | W3b 返工 | W3b 压测;`tail-poll-interval` 可调 |
 | 8.0 不兼容导致用户迁移成本高 | 采用受阻 | W4c 迁移工具 + 迁移指南;6.x 维护期 |
