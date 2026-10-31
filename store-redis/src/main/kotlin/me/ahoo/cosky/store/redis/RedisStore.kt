@@ -39,6 +39,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.TopologyEdge
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
@@ -252,7 +253,32 @@ class RedisStore(
             .map { (revision, entries) -> ChangeBatch(revision, entries.map { it.change }) }
     }
 
-    private suspend fun rotateEpoch(namespace: String, expected: String): Position {
+    override suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration) {
+        val keys = RedisKeys(namespace)
+        TOPOLOGY_RECORD.run<Long>(
+            commands,
+            ScriptOutputType.INTEGER,
+            listOf(keys.state, keys.topology),
+            listOf(retention.inWholeMilliseconds.arg()) + edges.map { edgeMember(it).arg() },
+        )
+    }
+
+    private fun edgeMember(edge: TopologyEdge): String = "${edge.consumer}$EDGE_SEPARATOR${edge.producer}"
+
+    override suspend fun topology(namespace: String): Set<TopologyEdge> {
+        val members = TOPOLOGY_READ.run<List<Any?>>(
+            commands,
+            ScriptOutputType.MULTI,
+            listOf(RedisKeys(namespace).topology),
+            emptyList(),
+        )
+        return members.mapTo(mutableSetOf()) { member ->
+            val (consumer, producer) = member.asText().split(EDGE_SEPARATOR, limit = 2)
+            TopologyEdge.newBuilder().setConsumer(consumer).setProducer(producer).build()
+        }
+    }
+
+    override suspend fun rotateEpoch(namespace: String, expected: String): Position {
         val keys = RedisKeys(namespace)
         val reply = EPOCH_ROTATE.run<List<Any?>>(
             commands,
@@ -426,6 +452,7 @@ class RedisStore(
             keys.leaseOwner,
             keys.leaseAttach,
             keys.leaseSequence,
+            keys.topology,
         )
         (history + objects + fixed + keys.historyIndex).chunked(REMOVE_BATCH_SIZE).forEach {
             commands.unlink(*it.toTypedArray()).await()
@@ -517,7 +544,10 @@ class RedisStore(
         private val LEASE_QUERY = RedisScript("lease_query")
         private val LOCK_ACQUIRE = RedisScript("lock_acquire")
         private val LOCK_RELEASE = RedisScript("lock_release")
+        private val TOPOLOGY_RECORD = RedisScript("topology_record")
+        private val TOPOLOGY_READ = RedisScript("topology_read")
         private val NAMESPACE_CREATE = RedisScript("namespace_create")
+        private const val EDGE_SEPARATOR = "\u0000"
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
 
         fun standalone(

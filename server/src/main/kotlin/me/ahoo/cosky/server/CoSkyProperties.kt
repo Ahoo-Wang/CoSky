@@ -27,7 +27,10 @@ data class CoSkyProperties(
     val lease: Lease = Lease(),
     val read: Read = Read(),
     val auth: Auth = Auth(),
+    val view: View = View(),
 ) {
+    data class View(val topologyFlushInterval: Duration = Duration.ofSeconds(30))
+
     /**
      * @param enabled off only for development: everyone may then do everything.
      * @param bootstrapToken becomes the admin ServiceAccount on the first start (design §6.3).
@@ -48,6 +51,7 @@ data class CoSkyProperties(
         val window: Int = 10_000,
         val progressInterval: Duration = Duration.ofSeconds(10),
         val maxPerStream: Int = 1000,
+        val antiEntropyInterval: Duration = Duration.ofMinutes(5),
     )
 
     data class Lease(

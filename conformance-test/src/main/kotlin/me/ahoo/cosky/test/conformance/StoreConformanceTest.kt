@@ -26,6 +26,7 @@ import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.TopologyEdge
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.copy
 import me.ahoo.cosky.api.v1.endpoint
@@ -761,6 +762,60 @@ abstract class StoreConformanceTest {
         store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to null))
     }
 
+    // --- topology ---
+
+    @Test
+    fun `topology edges are shared and create no revision`() = scenario { store ->
+        store.recordTopology(namespace, listOf(edge("order", "payment")), LONG_TTL)
+        store.recordTopology(namespace, listOf(edge("order", "payment"), edge("cart", "payment")), LONG_TTL)
+        store.topology(namespace).assert().containsExactlyInAnyOrder(edge("order", "payment"), edge("cart", "payment"))
+        position(store).revision.assert().isEqualTo(0)
+    }
+
+    @Test
+    fun `a topology edge nobody refreshes expires`() = scenario { store ->
+        store.recordTopology(namespace, listOf(edge("order", "payment")), SHORT_TTL)
+        store.recordTopology(namespace, listOf(edge("cart", "payment")), LONG_TTL)
+        delay(EXPIRY_WAIT)
+        store.topology(namespace).assert().containsExactly(edge("cart", "payment"))
+    }
+
+    @Test
+    fun `refreshing a topology edge keeps it`() = scenario { store ->
+        store.recordTopology(namespace, listOf(edge("order", "payment")), SHORT_TTL)
+        store.recordTopology(namespace, listOf(edge("order", "payment")), LONG_TTL)
+        delay(EXPIRY_WAIT)
+        store.topology(namespace).assert().containsExactly(edge("order", "payment"))
+    }
+
+    @Test
+    fun `dropping a namespace drops its topology, and a late write does not bring it back`() = scenario { store ->
+        store.recordTopology(namespace, listOf(edge("order", "payment")), LONG_TTL)
+        store.terminateNamespace(namespace)
+        store.dropNamespace(namespace)
+        store.recordTopology(namespace, listOf(edge("order", "payment")), LONG_TTL)
+        store.createNamespace(namespace)
+        store.topology(namespace).assert().isEmpty()
+    }
+
+    // --- epochs ---
+
+    @Test
+    fun `rotating the epoch ends those who follow the old one`() = scenario { store ->
+        val start = position(store)
+        val rotated = store.rotateEpoch(namespace, start.epoch)
+        rotated.epoch.assert().isNotEqualTo(start.epoch)
+        rotated.revision.assert().isEqualTo(start.revision)
+        thrownBy<TimelineDivergedException> { store.changes(namespace, start).first() }
+    }
+
+    @Test
+    fun `rotating an epoch that already changed changes nothing`() = scenario { store ->
+        val start = position(store)
+        val rotated = store.rotateEpoch(namespace, start.epoch)
+        store.rotateEpoch(namespace, start.epoch).assert().isEqualTo(rotated)
+    }
+
     // --- locks ---
 
     @Test
@@ -823,6 +878,9 @@ abstract class StoreConformanceTest {
     )
 
     private suspend fun position(store: Store): Position = checkNotNull(store.position(namespace))
+
+    private fun edge(consumer: String, producer: String): TopologyEdge =
+        TopologyEdge.newBuilder().setConsumer(consumer).setProducer(producer).build()
 
     /**
      * Follows from [start] until [caughtUpTo], runs [disturb], and returns how the follower failed.

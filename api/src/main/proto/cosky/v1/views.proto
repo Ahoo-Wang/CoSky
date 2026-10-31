@@ -44,13 +44,13 @@ message TopologyRequest {
   string namespace = 1;
 }
 
-// Edges are recorded from live watches: an authenticated subject watching a service's instances consumes it (§6.3).
+// Edges are recorded from live watches: a client watching the instances of one service consumes it (§6.3).
 message TopologyResponse {
   repeated TopologyEdge edges = 1;
 }
 
 message TopologyEdge {
-  string consumer = 1; // authenticated subject name
+  string consumer = 1; // the name the client gave itself, or else the authenticated subject (design D30)
   string producer = 2; // watched service
 }
 

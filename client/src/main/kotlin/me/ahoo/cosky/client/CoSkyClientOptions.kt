@@ -24,6 +24,7 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * @param endpoints servers to try in turn, each `host:port`.
  * @param token sent as `Authorization: Bearer` when set.
+ * @param clientName names this application in the server's topology view (design D30); only a label.
  * @param snapshotDir where views survive a restart (design §7.5); null turns snapshots off.
  * @param snapshotIncludeConfig false keeps Config contents off the disk, since snapshots are not encrypted.
  * @param resyncInterval how often a watch starts over from a snapshot, as a backstop for anything an incremental path
@@ -35,6 +36,7 @@ import kotlin.time.Duration.Companion.seconds
 data class CoSkyClientOptions(
     val endpoints: List<String>,
     val token: String? = null,
+    val clientName: String? = null,
     val snapshotDir: Path? = Path.of(System.getProperty("user.home"), ".cosky"),
     val snapshotIncludeConfig: Boolean = true,
     val snapshotDebounce: Duration = 1.seconds,

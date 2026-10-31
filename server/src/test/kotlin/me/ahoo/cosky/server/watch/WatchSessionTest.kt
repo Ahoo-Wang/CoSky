@@ -22,9 +22,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -44,6 +46,7 @@ import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.ObjectVersion
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.key
@@ -363,6 +366,51 @@ class WatchSessionTest {
         val oversized = trimmed.applying(batch(4, WINDOW + 1), WINDOW)
         oversized.window.map { it.revision }.assert().containsExactly(4L)
         oversized.earliest.assert().isEqualTo(3)
+    }
+
+    @Test
+    fun `no difference from the store leaves the epoch alone`() = scenario {
+        put("a")
+        val view = caughtUpTo(1)
+        cache.checkAgainstStore().assert().isFalse()
+        store.position(NAMESPACE)?.epoch.assert().isEqualTo(view.epoch)
+    }
+
+    @Test
+    fun `an object changing during the comparison does not count as a difference`() {
+        val racing = object : Store by store {
+            override fun versions(namespace: String): Flow<ObjectVersion> = flow {
+                // The scan sees the old state, and the change arrives before the comparison.
+                val scanned = store.versions(namespace).toList()
+                put("a", "changed")
+                scanned.forEach { emit(it) }
+            }
+        }
+        val comparing = NamespaceCache(NAMESPACE, racing, WINDOW)
+        scenario(comparing) {
+            put("a")
+            val view = checkNotNull(comparing.views.first { it?.revision == 1L })
+            comparing.checkAgainstStore().assert().isFalse()
+            store.position(NAMESPACE)?.epoch.assert().isEqualTo(view.epoch)
+        }
+    }
+
+    @Test
+    fun `a difference from the store replaces the epoch, which ends watches`() {
+        val lying = object : Store by store {
+            override fun versions(namespace: String): Flow<ObjectVersion> = emptyFlow()
+        }
+        val comparing = NamespaceCache(NAMESPACE, lying, WINDOW)
+        scenario(comparing) {
+            put("a")
+            val view = checkNotNull(comparing.views.first { it?.revision == 1L })
+            val sent = watch(create(1, view.epoch), cache = comparing, whileRunning = {
+                delay(SETTLE)
+                comparing.checkAgainstStore().assert().isTrue()
+            }) { it.hasGone() }
+            sent.single().hasGone().assert().isTrue()
+            store.position(NAMESPACE)?.epoch.assert().isNotEqualTo(view.epoch)
+        }
     }
 
     @Test

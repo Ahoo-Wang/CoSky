@@ -43,6 +43,7 @@ internal class TestServer : AutoCloseable {
     val name = "cosky-${UUID.randomUUID()}"
     val store = MemoryStore(keepRevisions = 64)
     val authorizations = CopyOnWriteArrayList<String>()
+    val clientNames = CopyOnWriteArrayList<String>()
     private var scope = newScope()
     private var server: Server? = null
 
@@ -70,6 +71,7 @@ internal class TestServer : AutoCloseable {
             headers: Metadata,
             next: ServerCallHandler<Req, Resp>,
         ): ServerCall.Listener<Req> {
+            headers.get(CLIENT_NAME)?.let { clientNames += it }
             headers.get(AUTHORIZATION)?.let { authorizations += it }
             return next.startCall(call, headers)
         }
@@ -80,5 +82,6 @@ internal class TestServer : AutoCloseable {
     private companion object {
         const val WINDOW = 1000
         val AUTHORIZATION: Metadata.Key<String> = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER)
+        val CLIENT_NAME: Metadata.Key<String> = Metadata.Key.of("cosky-client-name", Metadata.ASCII_STRING_MARSHALLER)
     }
 }

@@ -31,6 +31,7 @@ internal class RedisKeys(namespace: String) {
     val leaseOwner = "$prefix:lease:owner"
     val leaseAttach = "$prefix:lease:attach"
     val leaseSequence = "$prefix:lease:seq"
+    val topology = "$prefix:topology"
     val historyIndex = "$prefix:hist:idx"
 
     fun objects(kind: Kind): String = "$prefix:obj:${kind.token}"

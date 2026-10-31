@@ -16,6 +16,7 @@ package me.ahoo.cosky.store
 import kotlinx.coroutines.flow.Flow
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.TopologyEdge
 import kotlin.time.Duration
 
 /**
@@ -64,6 +65,25 @@ interface Store {
      * most. A replica seeds its window with them, so that clients can resume on it right after it loads (§6.1).
      */
     suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch>
+
+    /**
+     * Replaces the epoch if it is still [expected], for a difference found outside a [changes] flow (§6.1). Whoever
+     * follows the namespace then has to load it again.
+     *
+     * @return the position now.
+     */
+    suspend fun rotateEpoch(namespace: String, expected: String): Position
+
+    /**
+     * Refreshes who watches what, to be kept for [retention]. Soft state: it creates no revision and no event, and
+     * an edge nobody refreshes goes away (design D30).
+     */
+    suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration)
+
+    /**
+     * The edges that have not expired.
+     */
+    suspend fun topology(namespace: String): Set<TopologyEdge>
 
     /**
      * Revisions of a Config, newest first, surviving its deletion; [limit] 0 returns all that are retained.
