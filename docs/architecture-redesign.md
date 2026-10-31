@@ -3,7 +3,7 @@
 > 基于 `main@bc6e873`(v6.2.0)代码审查。目标是回答:**如果今天从零开始做 CoSky,它应该长什么样?**
 >
 > 状态:方案已确认(见 §1 决策记录),详细设计见 §7;实施计划与进度见 [roadmap.md](roadmap.md)。
-> 2026-10-30 架构审查后新增 D19–D26;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
+> 2026-10-30 架构审查后新增 D19–D26,其后新增 D27、D28;审查遗留问题见 [roadmap.md §6](roadmap.md#6-设计问题)。
 
 ---
 
@@ -66,6 +66,8 @@ Redis (只有 server 可访问)
 | D24 | 授权范围 | **RoleBinding 必须声明 namespace;`Rule.names` 按名称或服务收窄;租约只能由授予者续期和撤销** | 否则内置 `client` 无法限定 namespace,同 namespace 的账号能覆盖其他服务的 Instance、撤销其租约,D1 的数据面鉴权形同虚设(§7.8) |
 | D25 | Namespace 生命周期 | **写入必须看到 slot 内的 `state = active`**;删除时原子判空并置 `terminating`;`hist:idx` 索引历史键 | `_system` 与业务 namespace 不在同一 slot,依赖缓存判空会丢数据,迟到的写入还会让已删除的 namespace 复活(§7.2) |
 | D26 | 本地快照 | **定位为同盘重启的兜底**,k8s 中须挂持久卷才有效;路径含 `serverKey`;不加密,权限 `0600`,可关闭 Config 落盘 | 容器默认没有持久卷,不能承诺新进程可用旧视图;客户端没有地方安全存放密钥(§7.5、§9) |
+| D27 | JVM 版本 | **基线 Java 21**,所有模块编译为 Java 21 字节码;**server 运行在 JDK 25** | 库的基线决定用户必须升级到哪个版本;server 是我们自己发布的镜像,可以直接用最新 LTS,紧凑对象头(JEP 519)等改进正好能减少 Watch Cache 的内存。server 不使用 Java 21 之后的 API,以便与其他模块保持同一工具链 |
+| D28 | 虚拟线程 | **协程仍是编程模型(D9),虚拟线程是默认执行载体**:server 的请求处理与业务协程、所有阻塞操作都跑在虚拟线程上,不用 `Dispatchers.IO` 和平台线程池 | 协程负责结构化并发和取消,虚拟线程让偶发的阻塞不再占用平台线程,不必区分哪段代码可能阻塞(§3.2、§7.4)。Lettuce 的 Netty 事件循环不变,它本身不阻塞 |
 
 ---
 
@@ -155,6 +157,7 @@ configure(publishProjects) {
 | gRPC | `server`、`client` | grpc-kotlin 生成协程 stub,天然无 Reactor |
 | REST / SSE | `server` | Spring WebFlux 的协程支持(`suspend` handler、返回 `Flow` 的 SSE),业务代码不出现 `Mono` / `Flux` |
 | Spring Cloud 发现 | `spring-boot-starter` | `ReactiveDiscoveryClient` 要求 `Flux`:在适配类中用 `flow.asFlux()` 转换 |
+| 虚拟线程(D28)| `server`、`client` | 协程运行在 `Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()` 上,替代 `Dispatchers.IO` 和平台线程池 |
 | Spring 配置加载 | `spring-boot-starter` | Spring Boot ConfigData API(`spring.config.import=cosky:…`,§7.7)是阻塞接口:优先读本地快照,否则 `runBlocking { withTimeout(..) }` |
 | Java 调用方 | `client` 可选门面 | `CoSkyJavaClient` 以 `CompletableFuture`(`future {}`)暴露;Spring 用户无需使用 |
 
@@ -819,7 +822,7 @@ registration.close()                                                            
 
 ### 7.4 Server 内部结构
 
-技术栈:Spring Boot 4 + WebFlux(协程)+ Spring gRPC(grpc-kotlin stub)。两个端口:`8080` HTTP(REST、SSE、
+技术栈:Spring Boot 4 + WebFlux(协程)+ Spring gRPC(grpc-kotlin stub),运行在 JDK 25(D27)。两个端口:`8080` HTTP(REST、SSE、
 Dashboard 静态资源、Actuator),`9090` gRPC。
 
 ```
@@ -843,6 +846,8 @@ me.ahoo.cosky.server
 - 扇出:每个 watcher 一个 `Channel(capacity)`,生产者用 `trySend`,失败即判定为慢消费者(§7.3)。
 - `min_revision` 等待:`NamespaceCache.revision` 是 `StateFlow<Long>`,`withTimeout { revision.first { it >= r } }`。
 - `Authorizer` 根据 `_system` 缓存把每个主体的规则预编译为查找表,`_system` 变化时整体重建。
+- **虚拟线程(D28)**:grpc-kotlin 服务和 REST handler 的协程都跑在虚拟线程 dispatcher 上,gRPC `ServerBuilder.executor` 和 `spring.threads.virtual.enabled=true` 同样使用虚拟线程。JWKS 拉取这类偶发阻塞因此不占用平台线程。
+  扇出是纯计算的热路径,虚拟线程没有明显好处,默认设置下的开销由 W2c 实测;如果明显,`WatchHub` 留在 `Dispatchers.Default`,并写回本节。
 
 ### 7.5 客户端细则
 
@@ -859,6 +864,7 @@ me.ahoo.cosky.server
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。
 - **关闭**:`close()` 在 3 秒内 Revoke 租约,超时则放弃,由 server 到期回收。
 - **负载均衡**:`weight = 0` 的实例不参与选择;无可用实例时 `choose()` 返回 `null`。
+- **虚拟线程(D28)**:快照写入等阻塞操作跑在虚拟线程上。客户端可能运行在 JDK 21–23,这些版本中 `synchronized` 内阻塞会占住载体线程(JEP 491 在 JDK 24 解决),所以客户端不在 `synchronized` 内阻塞;server 运行在 JDK 25,没有这个限制。
 
 ### 7.6 Server 配置项
 
