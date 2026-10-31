@@ -1,73 +1,104 @@
 ---
 title: Configuration Properties
-description: Every property of the CoSky starters and of the REST API server, with defaults.
+description: Every setting of the server and the Spring Boot starter, with its default.
 ---
 
 # Configuration Properties
 
-Durations accept Spring Boot's formats (`10s`, `1m`, `PT10S`). Properties that control which config to load must be set in `bootstrap.yaml`.
+## Server
 
-## Common
+Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
 
-| Property | Default | Description |
+### Store
+
+| Property | Default | Meaning |
 |---|---|---|
-| `spring.cloud.cosky.enabled` | `true` | Enables CoSky (configuration and discovery). |
-| `spring.cloud.cosky.namespace` | `cosky-{default}` | Namespace of the application's config and registration. A value without `{…}` is wrapped in a hash tag: `dev` becomes `{dev}`. |
-| `spring.data.redis.*` | Spring Boot defaults | Redis connection (`url`, `host`, `port`, `password`, `cluster.nodes`, …), shared with the application. |
+| `cosky.store.type` | `redis` | `redis`, or `memory` for development: nothing survives the process |
+| `cosky.store.redis.uri` | `redis://localhost:6379` | Also takes Sentinel URIs |
+| `cosky.store.redis.cluster` | `false` | The URI is a seed of a Redis Cluster |
+| `cosky.store.redis.tail-poll-interval` | `1s` | How often each namespace is read when no hint arrives |
 
-## Configuration
+### Authentication
 
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `spring.cloud.cosky.config.enabled` | `true` | Enables the config starter. |
-| `spring.cloud.cosky.config.config-id` | `${spring.application.name}.${file-extension}` | Config to load. |
-| `spring.cloud.cosky.config.file-extension` | `yaml` | Format of a config id without extension: `yaml`, `yml`, `properties` or `xml`. |
-| `spring.cloud.cosky.config.timeout` | `2s` | Maximum wait for the config at startup. |
+| `cosky.auth.enabled` | `true` | Off, everyone may do everything. Only for development. |
+| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | Becomes the `admin` ServiceAccount on the first start |
+| `cosky.auth.oidc.issuer` | — | Turns OIDC on, together with `client-id` |
+| `cosky.auth.oidc.client-id` | — | The Dashboard's client |
+| `cosky.auth.oidc.audience` | The client | What a token must be for |
+| `cosky.auth.oidc.groups-claim` | `groups` | The claim holding group names |
+| `cosky.auth.oidc.scopes` | `openid, profile` | What the Dashboard asks for. Some providers send groups only when asked. |
 
-## Service discovery
+### Watch and reads
 
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `spring.cloud.cosky.discovery.enabled` | `true` | Enables discovery and registration. |
-| `spring.cloud.cosky.discovery.order` | `0` | Order of CoSky's `DiscoveryClient` among several. |
-| `spring.cloud.cosky.discovery.timeout` | `2s` | Maximum wait of a blocking `DiscoveryClient` call. |
-| `spring.cloud.cosky.discovery.topology-enabled` | `true` | Records the application as a consumer of the services it discovers. |
-| `spring.cloud.cosky.discovery.filter-only-up-instances` | `true` | Returns only instances whose `instance_status` is `UP` or absent. |
-| `spring.cloud.service-registry.auto-registration.enabled` | `true` | Registers the application at startup (Spring Cloud). |
+| `cosky.watch.window` | `10000` | Events kept for resuming, and in the store's log. Should be at least the peak event rate times the longest reconnection gap. |
+| `cosky.watch.progress-interval` | `10s` | Bookmarks sent on idle watches |
+| `cosky.watch.max-per-stream` | `1000` | Watches on one stream |
+| `cosky.watch.anti-entropy-interval` | `5m` | How often a replica compares its view with the store |
+| `cosky.read.min-revision-timeout` | `3s` | How long a read or a resume waits for a replica to catch up |
+| `cosky.view.topology-flush-interval` | `30s` | How often a replica records who watches whom. Edges expire after three times this. |
 
-### Registration
+### Leases
 
-Prefix: `spring.cloud.cosky.discovery.registry`.
-
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `service-id` | `spring.application.name` | Service the instance belongs to. |
-| `host` | first non-loopback IP | Address other services call. |
-| `port` | web server port | Port other services call. |
-| `schema` | `http` | URI scheme. |
-| `weight` | `1` | Relative weight, used by CoSky's load balancers and Spring Cloud LoadBalancer's weighted configuration. |
-| `is-ephemeral` | `true` | `true`: expires unless renewed. `false`: fixed, never expires. |
-| `ttl` | `60s` | Lifetime of an ephemeral instance without renewal. |
-| `renew.initial-delay` | `1s` | Delay before the first renewal. |
-| `renew.period` | `10s` | Renewal interval; keep it well below `ttl`. |
-| `metadata.<key>` | — | Metadata registered with the instance. |
-| `initial-status` | `UP` | Value of the `instance_status` metadata at registration. |
-| `timeout` | `2s` | Maximum wait for registration, deregistration and status changes. |
-| `renew-event-carries-ttl-at` | `false` | Publishes renewals with the new expiry time, saving consumers a Redis read. Enable only once every client runs 6.0 or later. |
+| `cosky.lease.reaper-interval` | `1s` | How often expired leases are looked for |
+| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store |
+| `cosky.lease.reaper-max-per-tick` | `100` | Leases reaped per namespace per round |
+| `cosky.lease.lock-ttl` | `15s` | How long the reaper's leadership lasts without renewal |
+| `cosky.lease.protection-threshold` | `0.5` | Reaping pauses when more than this share of a namespace's leases expire at once |
+| `cosky.lease.protection-min-leases` | `10` | Namespaces with fewer leases have no such pause |
+| `cosky.lease.protection-max-duration` | `5m` | How long the pause lasts at most |
 
-## REST API server
+### From Spring
 
-| Property | Default | Description |
+| Property | Default | Meaning |
 |---|---|---|
-| `cosky.security.key` | — (required) | JWT signing secret; environment variable `COSKY_SECURITY_KEY`. |
-| `cosky.security.enabled` | `true` | Enables authentication and authorization. |
-| `cosky.security.enforce-init-super-user` | `false` | Resets the super user's password at every start; environment variable `COSKY_SUPER_INIT`. |
-| `cosky.security.audit-log.action` | `write` | Requests to record: `read`, `write` or `rw`. |
-| `cosky.security.audit-log.max-size` | `100000` | Newest audit entries kept. |
-| `cosec.jwt.token-validity.access` | `15m` | Access token lifetime. |
-| `cosec.jwt.token-validity.refresh` | `3H` | Refresh token lifetime. |
-| `cosky.namespace` | `cosky-{system}` | Namespace of the server's own config and registration; environment variable `COSKY_NAMESPACE`. |
-| `cosky.auto-registry` | `true` | Registers the server as service `cosky-rest-api`; environment variable `COSKY_AUTO_REGISTRY`. |
-| `server.port` | `8080` | HTTP port. |
+| `server.port` | `8080` | REST, Dashboard and Actuator |
+| `spring.grpc.server.port` | `9090` | gRPC |
+| `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
+| `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
+| `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
+| `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
 
-The server is a Spring Boot application: standard Spring Boot properties (logging, actuator, Redis) apply as well.
+### Fixed limits
+
+These cannot be set in 8.0.
+
+| Limit | Value |
+|---|---|
+| Config content | 1 MiB |
+| Config history | The last 20 revisions |
+| Lease TTL | 5 to 300 seconds, 30 by default |
+| Instance metadata | 64 entries; keys up to 63 characters, values up to 1024 |
+| Labels | 32 entries; keys up to 63 characters, values up to 253 |
+| Description | 1024 characters |
+| Tokens per ServiceAccount | 2 |
+| One message | 2 MiB; larger results come in pages or parts |
+| One page of a list | 500 by default, 1000 at most |
+
+## Spring Boot starter
+
+| Property | Default | Meaning |
+|---|---|---|
+| `cosky.enabled` | `true` | Everything below |
+| `cosky.endpoints` | `localhost:9090` | Servers to try in turn |
+| `cosky.token` | — | Sent on every call |
+| `cosky.namespace` | `default` | |
+| `cosky.tls.enabled` | `false` | Connect over TLS |
+| `cosky.tls.trusted-certificates` | — | A PEM file to trust, for a private CA. The JVM's trust store decides otherwise. |
+| `cosky.snapshot.enabled` | `true` | Keep views on disk |
+| `cosky.snapshot.dir` | `~/.cosky` | |
+| `cosky.snapshot.include-config` | `true` | Snapshots are not encrypted, so false keeps Config contents off the disk |
+| `cosky.registry.enabled` | `true` | Register this application |
+| `cosky.registry.weight` | `1` | `0` takes no traffic |
+| `cosky.registry.metadata` | — | |
+| `cosky.discovery.enabled` | `true` | `DiscoveryClient` and LoadBalancer |
+| `cosky.discovery.load-timeout` | `5s` | How long the first read of a service waits |
+| `cosky.config.load-timeout` | `5s` | How long importing a Config waits |
+| `cosky.config.refresh.enabled` | `true` | Publish `RefreshEvent` on changes |
+
+The service name is `spring.application.name`. `spring.cloud.service-registry.auto-registration.enabled: false` also stops registering.

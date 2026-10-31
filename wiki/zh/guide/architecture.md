@@ -1,140 +1,97 @@
 ---
 title: 架构
-description: CoSky 的模块划分、Redis 数据模型、事件与一致性模型，以及背后的取舍。
+description: 数据模型、变化如何传递，以及系统部分失效时会发生什么。
 ---
 
 # 架构
 
-本页说明 CoSky 如何工作，面向评估它、大规模运维它或参与贡献的工程师。
-
-## 原则
-
-1. **Redis 是唯一的基础设施。** 客户端直接访问 Redis；应用的读写路径上没有任何 CoSky 服务器。
-2. **每次修改都是一个 Lua 脚本**，并发写入方不会看到中间状态，每次修改都会在一个 Pub/Sub 频道上发出通知。
-3. **应用从内存读取。** 本地缓存跟随变更事件，读取不产生网络往返，Redis 负载也不随读流量增长。
-
-## 模块
+本页说明 CoSky 如何工作、保证什么。每个决定背后的理由见[设计文档](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md)。
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-graph BT
-    CORE["cosky-core"]
-    CONFIG["cosky-config"] --> CORE
-    DISCOVERY["cosky-discovery"] --> CORE
-    SCC["cosky-spring-cloud-core"] --> CORE
-    SCONFIG["cosky-spring-cloud-starter-config"] --> CONFIG
-    SCONFIG --> SCC
-    SDISC["cosky-spring-cloud-starter-discovery"] --> DISCOVERY
-    SDISC --> SCC
-    REST["cosky-rest-api"] --> SCONFIG
-    REST --> SDISC
-    style CORE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style DISCOVERY fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SCC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SCONFIG fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SDISC fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REST fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
+graph TB
+    subgraph Apps["应用"]
+        A1["本地视图<br>+ 磁盘快照"]
+    end
+    subgraph Server["CoSky server 副本"]
+        API["gRPC 和 REST"] --> CACHE["Watch 缓存<br>按 namespace"]
+        REAPER["租约回收器<br>一个 Leader"]
+    end
+    REDIS[("Redis<br>对象 + 变更日志")]
+    A1 -- "Put、租约" --> API
+    CACHE -- "Watch" --> A1
+    API -- "原子写入" --> REDIS
+    REDIS -- "变更日志" --> CACHE
+    REAPER --> REDIS
 ```
-
-| 模块 | 职责 |
-|---|---|
-| `cosky-core` | 命名空间、Redis 键工具、Lua 脚本加载器、事件监听容器，以及其他一切所依赖的一致性缓存 `ReactiveWatchCache` |
-| `cosky-config` | 配置存储、版本与回滚（`RedisConfigService`），及其缓存视图（`RedisConsistencyConfigService`） |
-| `cosky-discovery` | 注册、续约与过期，服务发现及其缓存视图，负载均衡器，统计，拓扑 |
-| `cosky-spring-cloud-*` | Spring Boot 自动配置、Spring Cloud 属性源、`DiscoveryClient` 与服务注册 |
-| `cosky-rest-api` | REST API 服务器和控制台宿主：CoSec 安全、审计日志、统计任务 |
 
 ## 数据模型
 
-每个键都以命名空间开头。命名空间被包进 Redis Cluster hash tag（`{dev}`），因此一个命名空间的所有键映射到同一个槽，一个 Lua 脚本可以同时操作其中多个键。
+一切都是 **Resource**：共享的元数据加一个 spec。Namespace、Config、Instance、ServiceAccount、Role 和 RoleBinding 都由同一套 API 处理。
 
-| 键 | 类型 | 内容 |
-|---|---|---|
-| `{ns}:cfg:{configId}` | hash | 当前配置：`data`、`hash`、`version`、`createTime` |
-| `{ns}:cfg_idx` | set | 配置 ID |
-| `{ns}:cfg_htr:{configId}:{version}` | hash | 历史版本，以及替换它的操作 |
-| `{ns}:cfg_htr_idx:{configId}` | sorted set | 按版本排列的历史键；保留最近 10 个 |
-| `{ns}:svc_idx` | set | 服务 ID |
-| `{ns}:svc_itc_idx:{serviceId}` | set | 服务的实例 ID |
-| `{ns}:svc_itc:{instanceId}` | hash | 实例字段与元数据；临时实例靠 Redis TTL 过期 |
-| `{ns}:svc_itc_exp` | sorted set | 按过期时间排列的临时实例，用来查找过期实例而无需扫描 |
-| `{ns}:svc_stat` | hash | 每个服务的实例数 |
-| `{ns}:topology_idx`、`{ns}:topology:{consumer}` | set | 消费者，以及每个消费者使用的服务 |
-| `cosky-{system}:ns_idx` | set | 控制台中列出的命名空间 |
-| `cosky-{system}:…` | | REST API 服务器的用户、角色、登录锁定与审计日志 |
+**namespace** 是一切的单位：隔离、排序和存放都以它为单位，因为它位于一个 Redis slot 中。每个 namespace 有自己的 **revision**，每次写入加一。对象记录最后一次修改它的 revision。
 
-实例 ID 为 `<serviceId>@<scheme>#<host>#<port>`。实例元数据的键以 `_` 前缀存储；`__` 标记内部字段。
+全局类型位于保留的 namespace `_system`。
 
-## 写入与事件
+## 一次写入
 
-每次修改作为一个 Lua 脚本执行，并在以被修改的键命名的频道上发布消息：
+1. server 校验请求并检查权限。
+2. 一个 Lua 脚本原子地完成：按要求比较期望的 revision，给 namespace 分配下一个 revision，保存对象，并把变化追加到 namespace 的日志（一个 Redis Stream）。
+3. 确认写入。
 
-| 频道 | 消息 |
+写入已有的内容不会有任何变化，也不产生 revision。
+
+## 跟随变化
+
+每个副本跟随每个 namespace 的日志，在内存中保存该 namespace 的不可变视图，以及最近变化的窗口。写入会发布一个提示，所以跟随者通常立即读取；提示丢失时，每个 namespace 也每秒轮询一次。
+
+Watcher 不加锁地读取这些视图。慢的 watcher 只是错过中间的视图，之后从窗口中补齐，不会拖慢任何其他 watcher。如果掉出窗口，它会收到 `gone`，并从所 watch 内容的快照重新开始，代价仅此而已。
+
+所以 Redis 的负载随 namespace 和副本的数量增长，而不是随客户端的数量增长。
+
+每 5 分钟，副本还会把视图与存储比较一次。不一致本不该发生，所以按时间线丢失处理，见下文。
+
+## 客户端可以依赖什么
+
+- **顺序**：一个 namespace 内的变化按 revision 顺序到达，一个 revision 整体到达。订阅者不会看到半个 revision。
+- **投递**：一条流内恰好一次。跨重连至少一次，客户端丢弃已应用的部分。
+- **续传**：重连到任何副本的客户端都从看到的 revision 继续。
+- **读取**来自本地视图，可能稍有滞后。传播延迟[测得](./performance.md)在 5,000 个连接时低于 200 毫秒。
+- **写入**发往主节点，且是原子的。`minRevision` 让 REST 调用方可以从任何副本读到自己的写入。
+
+作为安全网，客户端还会每 30 分钟左右从新的快照重新开始一次。
+
+## 租约
+
+一个进程在一个 namespace 中持有一个租约，并把实例挂在上面，所以无论有多少实例，续约成本都相同。不挂租约的 Instance 就是永久的，没有特殊处理。
+
+同一时间由一个副本运行**回收器**，靠 Redis 中的锁选出。它移除到期租约的实例，并带有以下保护，因为错删活着的实例比保留死掉的实例更糟：
+
+1. **宽限**：成为 Leader 或访问存储失败后，30 秒内不回收。客户端有时间重连；到期的租约在被回收之前仍可续约。
+2. **延迟**：租约到期后再过 TTL 的三分之一才回收。同一次分区切断的租约是陆续到期的，因为它们续约的时刻不同。如果立即回收，它们会被逐个移除，下一步就永远看不到它们一起到期。
+3. **大面积到期**：一个 namespace 超过一半的租约到期，且租约不少于 10 个时，暂停回收并记录错误日志。这覆盖了宽限检测不到的情况，比如客户端和 server 之间的分区。比例回落后重新开始宽限。5 分钟后无论如何都恢复回收。
+4. **节奏**：每个 namespace 每轮最多 100 个租约。
+
+代价是真正崩溃的进程默认还会列出 40 秒。调用方应该重试。
+
+## Redis 丢失写入时
+
+Redis 复制是异步的，所以故障切换可能丢失最近的写入，revision 随之回退或分叉。每个 namespace 带有一个 **epoch**，是发现这种情况时会变化的随机值，位置由 epoch 和 revision 共同组成。
+
+| 由什么发现 | 然后 |
 |---|---|
-| `{ns}:cfg:{configId}` | `set`、`remove`、`rollback` |
-| `{ns}:svc_idx` | `set`、`remove`（服务出现或消失） |
-| `{ns}:svc_itc:{instanceId}` | `register`、`deregister`、`expired`、`set_metadata`、`renew`（或 `renew:<ttlAt>`） |
-| `cosky-{system}:role_resource_bind:{role}` | `save`、`remove` |
+| 日志位置回退或缺失 | 每个副本重新加载，每个 watcher 收到 `gone` 并重新开始 |
+| 客户端从存储中没有的 revision 续传 | 该客户端收到 `gone` |
+| 租约已不存在 | 客户端重新注册全部实例 |
+| 与存储的定期比较 | 替换 epoch，随后发生以上全部 |
 
-脚本通过加载时解析的 `-- @include` 指令共享函数，并通过 `KEYS` 接收它们操作的键，因此在 Redis Cluster 上无需改动，也不需要 Redis Functions 或模块。
+系统会回到一致的状态，但 Redis 丢失的内容不会回来。恢复 Config 需要应用方从历史中找回或重新写入。
 
-## 一致性模型
+## server 不可用时
 
-每个缓存视图（配置、服务、实例、安全策略、角色）都是一个 `ReactiveWatchCache`。对每个键，它：
+应用继续提供本地视图。重启时从磁盘加载[快照](./sdk.md#快照)。既没有快照也没有 server 时，非 `optional` 的导入会让启动失败，这样应用就不会在没有配置的情况下运行。
 
-1. **订阅**该键的频道，并等待订阅生效；
-2. 从 Redis **加载**值，这样中间不会漏掉任何变更；
-3. 按顺序逐个**应用**事件，只有值真正变化时才发布新的不可变快照。
+## 为什么要有 server
 
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-sequenceDiagram
-    autonumber
-    participant W as 写入方
-    participant R as Redis
-    participant C as 缓存（每个应用）
-    C->>R: SUBSCRIBE 频道
-    C->>R: 加载值
-    R-->>C: 值（快照 v1）
-    W->>R: EVALSHA 脚本（修改 + PUBLISH）
-    R-->>C: 事件
-    C->>R: 重新加载或应用变更
-    R-->>C: 新值（快照 v2）
-```
+CoSky 6.x 让应用直连 Redis，结果数据面没有认证，每个客户端都绑定在一种存储布局上，Redis 的连接数还随进程数增长。增加一个小型 server 后，每次调用都有认证，任何语言都可以写客户端，流也能续传，而读取仍然在本地。server 自己不持久保存任何东西，所以副本可以随时增减。
 
-保证与限制：
-
-- **读取最终一致**，通常在写入后毫秒内更新。写入在 Redis 中立即可见，缓存随后跟上。
-- **丢失的消息会被修复。** Pub/Sub 最多投递一次；每个缓存的键还会每 5 分钟重新加载一次，限定了漏掉消息后的陈旧时间。
-- **失败不会被缓存。** 加载失败会退避重试（1 秒到 30 秒）。期间继续提供最近一次的有效快照；只有从未加载成功的键才会让读取方失败。
-- **快照被共享。** 每次变更只构建一次快照，未变化的值就是同一个对象，因此读取方可以缓存由它派生的数据；负载均衡器就是这样复用自身状态的。
-- **缓存的键会一直保留。** 一个键一旦被读取，在缓存的生命周期内一直保持订阅。
-
-## 服务发现
-
-**过期。** 临时实例的 hash 带有 Redis TTL，由客户端续约（默认每 10 秒续约一次，TTL 60 秒）。Redis 删除它时不会发出任何通知，所以每次续约还会把过期时间记录到 `{ns}:svc_itc_exp`。每轮续约之后，每个客户端会清理其命名空间中最多 100 个已过期的实例：如果键确实已经不存在，就把实例从服务中移除并发布 `expired`。读取时也会顺带做同样的清理。实例的消失不需要任何服务器。
-
-**续约事件会被节流。** 只有在上一次发布的过期时间即将到达时才发布续约事件，因此稳定运行的实例群产生的事件很少。默认情况下消费者随后会重新读取实例的 TTL；开启 `renew-event-carries-ttl-at` 后，事件直接携带新的过期时间（所有客户端都运行 6.0 后再开启）。
-
-**读取时过滤过期实例**：用本地时钟比较其过期时间，所以消费者不依赖清理的延迟。请保持时钟同步（NTP）：时钟偏快的客户端可能把存活实例当作已过期。
-
-## REST API 服务器
-
-服务器是一个 Spring Boot 应用，使用与普通应用相同的 starter，此外还有：
-
-- **CoSec**：JWT 认证与基于策略的授权（[安全](./security.md)）；
-- **Simba**：通过 Redis 选出唯一一个实例，每 10 秒刷新服务统计；
-- **CosId**：分布式 ID 生成。
-
-它自身不保存状态，可以随意增减实例。
-
-## 取舍
-
-| 决策 | 收益 | 代价 |
-|---|---|---|
-| Redis 作为唯一存储 | 无需运维新组件；Redis 快且熟悉 | Redis 的可用性与持久化就是 CoSky 的；Redis 故障时写入停止（缓存读取继续） |
-| 客户端续约而非服务端健康检查 | 不需要服务器；随客户端扩展 | 进程卡死但仍在续约时会保持注册 |
-| 由 Pub/Sub 驱动的本地缓存 | 纳秒级读取，Redis 负载与读流量无关 | 最终一致；每个被监听的键占用一个订阅 |
-| 每次修改都用 Lua 脚本 | 无需分布式锁即可保证原子性 | 脚本是数据契约的一部分，跨客户端版本修改需谨慎 |
-| 命名空间 hash tag | 多键脚本在集群上安全 | 一个命名空间不能分布到多个集群槽 |
+保留 Redis，是因为这正是 CoSky 的定位：对已经在运行它的人来说，没有新东西要运维。需要更高持久性的人应该使用基于共识的系统。

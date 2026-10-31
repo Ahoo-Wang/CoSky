@@ -7,16 +7,16 @@
     "dev": "vitepress dev",
     "build": "vitepress build",
     "preview": "vitepress preview",
-    "validate:mermaid": "node scripts/validate-mermaid.mjs"
+    "check:mermaid": "node scripts/check-mermaid.mjs"
   },
   "devDependencies": {
-    "@mermaid-js/mermaid-cli": "^11.17.0",
-    "medium-zoom": "^1.1.0",
-    "puppeteer": "~25.12.0",
-    "vitepress": "2.0.0-alpha.18",
-    "vitepress-mermaid-renderer": "^1.1.27"
+    "mermaid": "^12.2.0",
+    "svg-pan-zoom": "^3.6.2",
+    "vitepress": "^1.6.4",
+    "vitepress-plugin-mermaid": "^2.0.17"
   },
   "engines": {
     "node": ">=22.12.0"
-  }
+  },
+  "packageManager": "pnpm@12.14.0"
 }

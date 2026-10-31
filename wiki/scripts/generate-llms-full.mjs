@@ -12,7 +12,7 @@ const sections = [
   { title: "Guides", pages: ["guide/configuration.md", "guide/service-discovery.md", "guide/sdk.md"] },
   {
     title: "Operations",
-    pages: ["guide/deployment.md", "guide/security.md", "guide/dashboard.md", "guide/upgrade-6.md"],
+    pages: ["guide/deployment.md", "guide/security.md", "guide/dashboard.md", "guide/upgrade-8.md"],
   },
   { title: "Reference", pages: ["guide/properties.md", "guide/rest-api.md", "guide/requirements.md"] },
   { title: "Concepts", pages: ["guide/architecture.md", "guide/performance.md"] },
@@ -20,7 +20,7 @@ const sections = [
 ];
 
 const SUMMARY =
-  "Configuration management and service discovery for Spring Cloud microservices, using only Redis as infrastructure.";
+  "Configuration management and service discovery for microservices: a small server in front of Redis, with clients that read from memory.";
 
 function parse(relativePath) {
   const raw = fs.readFileSync(path.join(WIKI_ROOT, relativePath), "utf-8");

@@ -1,70 +1,93 @@
 ---
 title: 配置管理
-description: 把 CoSky 中的配置加载进 Spring 并实时刷新，管理版本、回滚、导入与导出。
+description: 由 CoSky 提供 Spring 属性，实时刷新，并保留 revision。
 ---
 
 # 配置管理
 
-本页面向使用 config starter 的应用开发者，以及在控制台中管理配置的人。接入步骤见[快速开始](./getting-started.md)。
+**Config** 是 namespace 中一份有名称的文档，包含名称、格式和内容，内容最大 1 MiB。
 
-## 应用加载哪个配置
+| 字段 | 规则 |
+|---|---|
+| 名称 | 字母、数字、`.`、`_`、`-` 和 `/`，最长 253 个字符。`shared/datasource.yaml` 是一个名称。 |
+| 格式 | `YAML`、`JSON`、`PROPERTIES` 或 `TEXT`，随 Config 声明。只有导入 zip 文件时才按扩展名推断。 |
+| 内容 | UTF-8。server 保存它的 SHA-256，你可以用来比较，但不能设置。 |
 
-启动时 starter 加载一个配置，由**命名空间**和**配置 ID** 确定：
+## 加载到 Spring
 
-| | 属性 | 默认值 |
-|---|---|---|
-| 命名空间 | `spring.cloud.cosky.namespace` | `cosky-{default}` |
-| 配置 ID | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.${file-extension}` |
-| 默认扩展名 | `spring.cloud.cosky.config.file-extension` | `yaml` |
+```yaml
+spring:
+  config:
+    import: "optional:cosky:order-service.yaml,cosky:shared/datasource.yaml"
+cosky:
+  endpoints: cosky.internal:9090
+  token: ${COSKY_TOKEN}
+  namespace: prod
+```
 
-这些属性要写在 `bootstrap.yaml` 中，并且应用需要依赖 `spring-cloud-starter-bootstrap`（见[快速开始](./getting-started.md#_2-添加依赖)）。
-
-- **格式**取决于配置 ID 的扩展名：`.yaml` / `.yml`、`.properties` 或 `.xml`。没有扩展名的配置 ID 使用 `file-extension`。
-- 支持**多文档 YAML**（`---`），后面的文档覆盖前面的。
-- **优先级**：与任何 Spring Cloud bootstrap 属性源一样，CoSky 中的属性覆盖 `application.yaml` 等本地来源。
-- **配置不存在**：应用照常启动，打印警告，不带任何 CoSky 属性。
-- **Redis 不可达**：最多等待 `spring.cloud.cosky.config.timeout`（2 秒）。
-
-多个服务可以把 `config-id` 指向同一个配置来共享设置。
+- `cosky:` 不带 `optional:` 时，Config 加载失败会让应用启动失败，包括连不上任何 server 且没有快照的情况。
+- YAML 和 JSON 按 YAML 解析，properties 按 properties 解析。TEXT 类型的 Config 成为一个以 Config 名命名的属性。
+- `cosky.config.load-timeout`（5 秒）限制一次导入等待 server 的时间。
 
 ## 实时刷新
 
-配置变更后，所有使用它的应用通过 Redis Pub/Sub 收到变更（通常在毫秒内），starter 随即发布 Spring Cloud 的 `RefreshEvent`。哪些值会更新取决于读取方式：
+classpath 中有 `spring-cloud-context` 时，被导入的 Config 发生变化会发布 Spring Cloud 的 `RefreshEvent`，`@RefreshScope` 中的 bean 和 `@ConfigurationProperties` bean 都能看到新值。启动时还不存在的 Config 也一样。用 `cosky.config.refresh.enabled: false` 可以关闭。
 
-| 读取方式 | 变更后是否更新 |
-|---|---|
-| `@ConfigurationProperties` bean | ✅ 重新绑定 |
-| `@RefreshScope` bean 中的 `@Value` | ✅ 下次使用时重建 bean |
-| 普通单例中的 `@Value` | ❌ 保持启动时的值 |
-| `Environment.getProperty(...)` | ✅ |
+应用以加载时看到的 revision 为基准比较，所以加载之后、开始监听之前的变化也不会漏掉。
 
-刷新事件只在本地缓存已持有新值之后才发布，所以刷新后的 bean 不会读到旧版本。应用如果漏掉了某条消息（例如 Redis 重连期间），它的缓存会在 5 分钟内重新同步。
+## 写入
 
-## 版本与回滚
-
-每次改变内容的保存都会产生新版本；保存相同内容不会有任何变化。CoSky 为每个配置保留**最近 10 个版本**，可以回滚到其中任意一个；回滚会把旧内容保存为新版本，所以回滚本身也能撤销。已删除的配置同样可以回滚。
-
-在控制台中，**Config → History** 列出各个版本，并显示与当前内容的差异。通过 API：
+使用 [Dashboard](./dashboard.md) 或 [REST API](./rest-api.md)。一次写入替换整个 Config：
 
 ```bash
-GET  /v1/namespaces/{namespace}/configs/{configId}/versions             # 版本列表
-GET  /v1/namespaces/{namespace}/configs/{configId}/versions/{version}   # 某个版本的内容
-PUT  /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}   # 回滚
+curl -X PUT localhost:8080/v1/namespaces/prod/configs/shared%2Fdatasource.yaml \
+  -H "Authorization: Bearer $COSKY_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'If-Match: "42"' \
+  -d '{"config":{"format":"CONFIG_FORMAT_YAML","content":"url: jdbc:mysql://db/orders"}}'
 ```
+
+| 请求头 | 含义 |
+|---|---|
+| `If-Match: "42"` | 仅当它仍在 revision 42。否则返回 `409`，不做任何改动。 |
+| `If-None-Match: *` | 仅当它不存在。 |
+| 都不带 | 直接写入。 |
+
+Dashboard 总是发送前两者之一，所以不会覆盖别人的修改。写入相同的内容不会有任何变化：没有新 revision，也没有事件。
+
+名称中的 `/` 在路径里要编码成 `%2F`，因为名称是一个路径段。
+
+## 历史与回滚
+
+每个 Config 保留最近 20 个 revision，新的在前：
+
+```bash
+curl localhost:8080/v1/namespaces/prod/configs/app.yaml/history
+```
+
+回滚是把较早 revision 的内容写成一个新 revision，所以历史只增不减：
+
+```bash
+curl -X POST localhost:8080/v1/namespaces/prod/configs/app.yaml:rollback \
+  -H 'Content-Type: application/json' -d '{"toRevision":"41"}'
+```
+
+删除 Config 后，它的历史会保留到重新创建或 namespace 被删除，回滚可以把它恢复回来。
 
 ## 导入与导出
 
-- **导出**（`GET /v1/namespaces/{namespace}/configs/export`）把命名空间中的所有配置下载为 zip，每个配置一个文件。
-- **导入**（`POST /v1/namespaces/{namespace}/configs`，multipart 字段 `importZip`）为每个文件创建一个配置。`policy=skip`（默认）保留已有配置，`policy=overwrite` 覆盖它们。
-- **从 Nacos 迁移**：Nacos 导出的 zip 可以直接导入。`DEFAULT_GROUP/` 前缀会被去掉，其余 `/` 替换为 `-`。
-- **限制**：zip 最大 10 MiB，解压后最大 64 MiB。目录和隐藏文件会被跳过。
+zip 文件可以一次移动多个 Config。每个条目的路径就是 Config 名称，扩展名决定格式。
 
-## 关闭
+```bash
+curl -o configs.zip localhost:8080/v1/namespaces/prod/configs:export
+```
 
-`spring.cloud.cosky.config.enabled=false` 关闭 config starter；`spring.cloud.cosky.enabled=false` 关闭整个 CoSky。
+```bash
+curl -X POST localhost:8080/v1/namespaces/staging/configs:import --data-binary @configs.zip
+```
 
-## 另见
+导入会覆盖同名 Config，一次最多 10,000 个条目。
 
-- [配置属性](./properties.md)：全部属性。
-- [使用 SDK](./sdk.md#配置)：不用 Spring 读取和监听配置。
-- [架构](./architecture.md#一致性模型)：缓存如何保持一致。
+## 保管机密
+
+Config 内容没有加密，无论是在 server 上，还是在客户端落盘的[快照](./sdk.md#快照)里。用 `cosky.snapshot.include-config: false` 可以让快照不包含 Config。真正的机密请放在专门的系统中。

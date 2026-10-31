@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: CoSky
-  text: Configuration and Service Discovery on Redis
-  tagline: For Spring Cloud microservices, with nothing to operate but the Redis you already run
+  text: Configuration and Service Discovery
+  tagline: A small server in front of the Redis you already run, with clients that read from memory
   image:
     src: /cosky-logo.svg
     alt: CoSky
@@ -22,20 +22,20 @@ hero:
 features:
   - title: Service Discovery
     icon: 🔍
-    details: Applications register themselves, renew, and expire on their own; consumers discover live instances through Spring Cloud, with weighted load balancing and service topology.
+    details: Applications register under a lease and disappear when it ends. Consumers see changes as they happen, through Spring Cloud or a Kotlin client.
   - title: Configuration Management
     icon: ⚙️
-    details: Spring properties served from Redis and refreshed live, with versions, rollback, and import/export from Nacos.
+    details: Spring properties served from CoSky and refreshed live, with revisions, rollback and zip import and export.
   - title: Reads from Memory
     icon: 🚀
-    details: Each application keeps a local cache that Redis Pub/Sub keeps current, so reading a config or choosing an instance costs no network round trip.
-  - title: Spring Cloud Native
-    icon: 🌿
-    details: Drop-in Spring Cloud integration via starters for both configuration and service discovery.
-  - title: Security & RBAC
+    details: Each client keeps a local view that a Watch stream keeps current, so reading a Config or choosing an instance costs no network round trip.
+  - title: Keeps Working Through Failures
+    icon: 🛡️
+    details: Clients serve what they know when the server is away, and restarts resume from a snapshot on disk. A mass expiry after a partition is held back rather than obeyed.
+  - title: Access Control on Every Call
     icon: 🔐
-    details: JWT authentication, namespace-scoped RBAC, audit logging, and policy-based authorization powered by CoSec.
-  - title: Lightweight Deployment
+    details: ServiceAccount tokens and OIDC, with roles that say who may do what, down to a name prefix. Applications authenticate too, and never touch Redis.
+  - title: Light to Run
     icon: 📦
-    details: Applications need only Redis. The optional REST API server and dashboard run as a Docker image, on Kubernetes, or as a standalone distribution.
+    details: One image holds the server and the Dashboard. It needs Redis 7 and nothing else, and runs on Docker or Kubernetes.
 ---

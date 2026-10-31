@@ -1,98 +1,142 @@
 ---
 title: REST API
-description: CoSky REST API 服务器的接口、认证方式与错误格式。
+description: REST API 的接口及其共同约定。
 ---
 
 # REST API
 
-REST API 服务器暴露了控制台能做的一切。机器可读的接口定义由服务器自身提供：OpenAPI 位于 `/v3/api-docs`，Swagger UI 位于 `/swagger-ui.html`。
+管理 API，位于 8080 端口。`./gradlew :api:generateOpenApi` 把完整的 OpenAPI 3.1 文档写到 `api/build/openapi/cosky.yaml`，schema 与 gRPC 相同，因为两者来自同一份 proto。
 
 ## 约定
 
-- **认证**：用 `POST /v1/authenticate/{username}/login` 登录，之后每个请求都带上 `Authorization: Bearer <accessToken>`。见[安全](./security.md#令牌)。
-- **授权**：`/v1/namespaces/{namespace}/…` 下的请求需要授予该命名空间权限的角色；用户、角色、命名空间和审计接口需要 `admin` 角色。
-- 路径中的**命名空间**使用完整名称，例如 `{dev}`（URL 编码为 `%7Bdev%7D`）。实例 ID 含有 `@` 和 `#`，同样需要 URL 编码。
-- **错误**返回 `{"code": "0001", "msg": "<原因>"}`：请求无效为 400，没有有效令牌为 401，无权限为 403，未知路由为 404。
+**认证**：`Authorization: Bearer <token>`，`GET /v1/auth/config` 除外。
 
-## 认证
-
-| 方法 | 路径 | 请求体 | 返回 |
-|---|---|---|---|
-| POST | `/v1/authenticate/{username}/login` | `{"password": "…"}` | `{"accessToken", "refreshToken"}` |
-| POST | `/v1/authenticate/{username}/refresh` | `{"accessToken", "refreshToken"}` | 新的令牌对 |
-
-## 命名空间
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | `/v1/namespaces` | 你能访问的命名空间（管理员为全部） |
-| GET | `/v1/namespaces/current` | 服务器自身的命名空间 |
-| PUT | `/v1/namespaces/{namespace}` | 添加命名空间 |
-| DELETE | `/v1/namespaces/{namespace}` | 从列表中移除命名空间 |
-
-## 配置
-
-前缀：`/v1/namespaces/{namespace}/configs`。
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | *（前缀）* | 命名空间中的配置 ID |
-| GET | `/{configId}` | 当前配置：`configId`、`data`、`hash`、`version`、`createTime` |
-| PUT | `/{configId}` | 保存（请求体为原始内容，`text/plain`）；产生新版本 |
-| DELETE | `/{configId}` | 删除 |
-| GET | `/{configId}/versions` | 历史中的版本 |
-| GET | `/{configId}/versions/{version}` | 某个版本的内容 |
-| PUT | `/{configId}/to/{targetVersion}` | 回滚到某个版本 |
-| GET | `/export` | 全部配置打包为 zip |
-| POST | *（前缀）* `?policy=skip\|overwrite` | 导入 zip（multipart 字段 `importZip`）；返回 `{"total", "succeeded"}` |
-
-## 服务与实例
-
-前缀：`/v1/namespaces/{namespace}/services`。
-
-| 方法 | 路径 | 说明 |
-|---|---|---|
-| GET | *（前缀）* | 服务 ID |
-| PUT | `/{serviceId}` | 添加一个没有实例的服务 |
-| DELETE | `/{serviceId}` | 删除服务及其实例索引 |
-| GET | `/{serviceId}/instances` | 存活实例 |
-| PUT | `/{serviceId}/instances` | 注册实例（请求体见下） |
-| DELETE | `/{serviceId}/instances/{instanceId}` | 注销实例 |
-| PUT | `/{serviceId}/instances/{instanceId}/metadata` | 替换实例元数据（请求体为字符串映射） |
-| GET | `/{serviceId}/lb` | 按加权随机选出一个实例 |
-| GET | `/stats` | 每个服务的实例数 |
-
-注册实例：
+**资源**由共享的元数据和一个按类型区分的 spec 组成，使用 proto3 JSON。空字段会被省略，revision 这样的 64 位数字是字符串。
 
 ```json
-{ "schema": "http", "host": "10.0.0.5", "port": 8080, "weight": 1, "isEphemeral": false, "metadata": { "zone": "a" } }
+{
+  "meta": {
+    "namespace": "prod",
+    "name": "app.yaml",
+    "revision": "42",
+    "createRevision": "7",
+    "updatedAt": "2026-08-18T01:00:00Z",
+    "updatedBy": "serviceaccount:admin"
+  },
+  "config": {"format": "CONFIG_FORMAT_YAML", "content": "a: 1", "sha256": "..."}
+}
 ```
 
-通过 API 注册的临时实例若无人续约，会在 TTL 后过期；无法续约的端点请注册为固定实例（`"isEphemeral": false`）。
+**名称**：`{name}` 是一个路径段，所以 Config 名称中的 `/` 要写成 `%2F`。
 
-## 统计
+**写入**替换整个对象，只读字段会被忽略。
 
-| 方法 | 路径 | 说明 |
+| 请求头 | 含义 |
+|---|---|
+| `If-Match: "42"` | 仅当它仍在 revision 42 |
+| `If-None-Match: *` | 仅当它不存在 |
+
+`GET` 和 `PUT` 把 revision 作为 `ETag` 返回。`PUT` 的内容与现有相同时返回 `{"changed": false}`，不创建 revision。
+
+**列表**分页返回：把 `nextPageToken` 作为 `pageToken` 传回，直到它为空。`pageSize` 默认 500，最大 1000，对象较大时一页可能更少。响应中的 `revision` 和 `epoch` 可用于从列表结束的位置开始 Watch。
+
+**读取自己的写入**：副本可能稍有落后。`?minRevision=42` 会等到它达到这个 revision，3 秒后返回 `504`。
+
+**错误**带有不随版本变化的原因：
+
+```json
+{
+  "status": "ABORTED",
+  "message": "The revision does not match.",
+  "detail": {"reason": "ERROR_REASON_REVISION_CONFLICT"}
+}
+```
+
+| 原因 | HTTP |
+|---|---|
+| `RESOURCE_NOT_FOUND`、`NAMESPACE_NOT_FOUND` | 404 |
+| `INVALID_ARGUMENT` | 400，违规项在 `detail` 中 |
+| `UNAUTHENTICATED` | 401 |
+| `PERMISSION_DENIED` | 403 |
+| `REVISION_CONFLICT`、`NAMESPACE_NOT_EMPTY` | 409 |
+| `LEASE_NOT_FOUND` | 412 |
+| `WATCH_QUOTA_EXCEEDED` | 429 |
+| `STORE_UNAVAILABLE`、`REVISION_REGRESSION` | 503 |
+| `MIN_REVISION_TIMEOUT` | 504 |
+
+## 接口
+
+### Config
+
+| 方法 | 路径 | |
 |---|---|---|
-| GET | `/v1/namespaces/{namespace}/stat` | 命名空间、配置、服务（总数与有实例的数量）和实例的数量 |
-| GET | `/v1/namespaces/{namespace}/stat/topology` | 消费者及其依赖的服务 |
+| GET | `/v1/namespaces/{ns}/configs` | 列表。`?labelSelector=a=1,b=2` |
+| GET、PUT、DELETE | `/v1/namespaces/{ns}/configs/{name}` | |
+| GET | `/v1/namespaces/{ns}/configs/{name}/history` | 新的在前。`?limit=&pageToken=` |
+| POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{"toRevision": "41"}`。把那份内容写成新 revision，也能恢复已删除的 Config。 |
+| POST | `/v1/namespaces/{ns}/configs:import` | 请求体是 zip 文件；每个条目的路径是 Config 名称 |
+| GET | `/v1/namespaces/{ns}/configs:export` | zip 文件 |
 
-服务统计每 10 秒刷新一次，由通过 Redis 选出的一个服务器实例执行。
+### Instance
 
-## 用户、角色与审计
-
-| 方法 | 路径 | 说明 |
+| 方法 | 路径 | |
 |---|---|---|
-| GET | `/v1/users` | 用户及其角色与锁定状态 |
-| POST | `/v1/users/{username}` | 创建（`{"password": "…"}`） |
-| DELETE | `/v1/users/{username}` | 删除 |
-| PATCH | `/v1/users/{username}/password` | 修改密码（`{"oldPassword", "newPassword"}`） |
-| PATCH | `/v1/users/{username}/role` | 替换角色（请求体：`["role", …]`） |
-| PUT | `/v1/users/{username}/lock` | 锁定 |
-| DELETE | `/v1/users/{username}/unlock` | 解锁 |
-| GET | `/v1/roles` | 角色列表 |
-| PUT | `/v1/roles/{roleName}` | 创建或替换（`{"desc", "resourceActionBind": [{"namespace", "action": "r\|w\|rw"}]}`） |
-| GET | `/v1/roles/{roleName}/bind` | 角色授权的命名空间 |
-| DELETE | `/v1/roles/{roleName}` | 删除 |
-| GET | `/v1/audit-log?offset&limit&query&from&to&successful` | 审计条目，最新在前；`from` / `to` 为毫秒时间戳 |
-| GET | `/v1/audit-log/export?query&from&to&successful` | 匹配条目导出为 CSV |
+| GET | `/v1/namespaces/{ns}/instances` | 列表。`?service=order&labelSelector=` |
+| GET、PUT、DELETE | `/v1/namespaces/{ns}/instances/{name}` | 没有 `meta.lease` 时会一直保留，直到被删除 |
+
+租约只通过 gRPC 提供：应用使用[客户端](./sdk.md)。
+
+### Watch
+
+`GET /v1/namespaces/{ns}/watch?kind=KIND_CONFIG&name=&service=&fromRevision=&fromEpoch=`
+
+Server-sent events，每个 `data:` 行是一条 proto3 JSON 消息：
+
+| 消息 | 含义 |
+|---|---|
+| `snapshot` | `fromRevision` 为 0 时的当前状态，带有用于续传的 `epoch`。 |
+| `events` | 一个 revision 的变化 |
+| `progress` | 书签，空闲时每 10 秒一次 |
+| `gone` | 你的位置已失效：不带位置重新开始 |
+| `canceled` | 流结束，并给出原因 |
+
+较大的快照和 revision 会分成多条消息，用 `more` 标记。`EventSource` 无法发送 token：请像 Dashboard 那样使用 `fetch` 和流读取器。
+
+### 视图
+
+由 server 内存计算，只读。
+
+| 路径 | |
+|---|---|
+| `/v1/namespaces/{ns}/views/services` | 服务及其实例数 |
+| `/v1/namespaces/{ns}/views/topology` | 谁依赖谁 |
+| `/v1/namespaces/{ns}/views/stats` | 服务、实例和 Config 的数量 |
+
+### 全局对象
+
+| 方法 | 路径 | |
+|---|---|---|
+| GET | `/v1/namespaces` | |
+| GET、PUT、DELETE | `/v1/namespaces/{name}` | 只有空的 namespace 才能删除 |
+| GET | `/v1/serviceaccounts` | |
+| GET、PUT、DELETE | `/v1/serviceaccounts/{name}` | 请求体中的 `tokens` 被忽略 |
+| POST | `/v1/serviceaccounts/{name}/tokens` | 只返回一次明文。`{"expiresAt": "..."}` 可选。 |
+| DELETE | `/v1/serviceaccounts/{name}/tokens/{tokenId}` | |
+| GET | `/v1/roles` | |
+| GET、PUT、DELETE | `/v1/roles/{name}` | |
+| GET | `/v1/rolebindings` | |
+| GET、PUT、DELETE | `/v1/rolebindings/{name}` | |
+
+### 身份
+
+| 路径 | |
+|---|---|
+| `/v1/me` | 你是谁，以及你的有效规则 |
+| `/v1/auth/config` | 如何登录。不需要 token，只含公开值。 |
+
+### 运维
+
+| 路径 | |
+|---|---|
+| `/actuator/health/liveness`、`/actuator/health/readiness` | 探针 |
+| `/actuator/prometheus` | [指标](./deployment.md#可观测性) |

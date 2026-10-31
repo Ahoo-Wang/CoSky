@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitepress'
+import { MermaidMarkdown } from 'vitepress-plugin-mermaid'
 import { en } from './config/en'
 import { zh } from './config/zh'
 
@@ -8,7 +9,7 @@ export default defineConfig({
   base: '/',
   lastUpdated: true,
   cleanUrls: true,
-  ignoreDeadLinks: true,
+  ignoreDeadLinks: [/localhost/],
   sitemap: {
     hostname: 'https://cosky.ahoo.me',
   },
@@ -28,5 +29,15 @@ export default defineConfig({
   locales: {
     root: { ...en },
     zh: { ...zh },
+  },
+  markdown: {
+    config(md) {
+      md.use(MermaidMarkdown)
+    },
+  },
+  vite: {
+    optimizeDeps: {
+      include: ['mermaid'],
+    },
   },
 })

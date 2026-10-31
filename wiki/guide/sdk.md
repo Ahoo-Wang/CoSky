@@ -1,102 +1,117 @@
 ---
 title: Using the SDK
-description: Use CoSky's configuration and discovery services directly, without the Spring Cloud starters.
+description: The Kotlin client without Spring, its snapshots and connection states, and clients for other languages.
 ---
 
 # Using the SDK
 
-The Spring Cloud starters wire everything for you. Use the SDK directly when you are not on Spring Cloud, or need finer control: managing configs from a tool, registering an instance on behalf of another process, or watching a config.
-
-All APIs are reactive (Project Reactor `Mono` / `Flux`) and take the namespace explicitly. Namespaces must not be blank or contain `:`; wrap them in a hash tag (e.g. `{dev}`) when Redis runs in cluster mode.
-
-## Dependencies
+`cosky-client` is a coroutine client with no dependency on Spring or Redis. The starter is built on it. It needs JDK 21 or later.
 
 ```kotlin
-dependencies {
-    implementation(platform("me.ahoo.cosky:cosky-bom:6.2.0"))
-    implementation(platform("me.ahoo.cosky:cosky-dependencies:6.2.0"))
-    implementation("me.ahoo.cosky:cosky-config")     // configuration
-    implementation("me.ahoo.cosky:cosky-discovery")  // service discovery
-}
+implementation("me.ahoo.cosky:cosky-client:8.0.0")
 ```
 
-Both build on Spring Data Redis with Lettuce:
-
 ```kotlin
-val connectionFactory = LettuceConnectionFactory("localhost", 6379).apply { afterPropertiesSet() }
-val redisTemplate = ReactiveStringRedisTemplate(connectionFactory)
-// Shared by every cache that follows changes.
-val listenerContainer = ReactiveRedisMessageListenerContainer(connectionFactory)
-```
-
-## Configuration
-
-`RedisConfigService` reads and writes Redis directly; `RedisConsistencyConfigService` adds the local cache kept current by change events, and is what applications should read through.
-
-```kotlin
-val redisConfigService = RedisConfigService(redisTemplate)
-val configService = RedisConsistencyConfigService(
-    delegate = redisConfigService,
-    configEventListenerContainer = RedisConfigEventListenerContainer(listenerContainer),
+val client = CoSkyClient(
+    CoSkyClientOptions(
+        endpoints = listOf("cosky-0.internal:9090", "cosky-1.internal:9090"),
+        token = System.getenv("COSKY_TOKEN"),
+        clientName = "order-service",
+    ),
 )
-
-configService.setConfig("{dev}", "order-service.yaml", "greeting: hello").block()
-configService.getConfig("{dev}", "order-service.yaml").block()?.data      // served from memory after the first read
-
-// The current snapshot, then one snapshot per change, after the cache is updated.
-configService.watchConfig("{dev}", "order-service.yaml")
-    .subscribe { snapshot -> println("v${snapshot.version}: ${snapshot.value?.data}") }
-
-configService.getConfigVersions("{dev}", "order-service.yaml").collectList().block()
-configService.rollback("{dev}", "order-service.yaml", targetVersion = 1).block()
-
-configService.close()   // stops listening when you are done
+val prod = client.namespace("prod")
 ```
 
-## Service discovery
-
-### Registering and renewing
+## Reading Configs
 
 ```kotlin
-val registry = RedisServiceRegistry(RegistryProperties(instanceTtl = Duration.ofSeconds(60)), redisTemplate)
-val renewal = RenewInstanceService(RenewProperties(period = Duration.ofSeconds(10)), registry)
+// Once, waiting for the first view.
+val config: Resource? = prod.configs.load("order-service.yaml")
 
-val instance = Instance.asInstance(serviceId = "order-service", schema = "http", host = "10.0.0.5", port = 8080)
-    .asServiceInstance(weight = 2, metadata = mapOf("zone" to "a"))
-
-registry.register("{dev}", instance).block()
-renewal.start()        // renews every registered ephemeral instance and reaps expired ones
-
-registry.setMetadata("{dev}", instance.serviceId, instance.instanceId, "zone", "b").block()   // one key
-registry.setMetadata("{dev}", instance.serviceId, instance.instanceId, mapOf("zone" to "b")).block() // replace all
-
-renewal.stop()
-registry.deregister("{dev}", instance).block()
+// Always current, from memory.
+val current: StateFlow<Resource?> = prod.configs.watch("order-service.yaml")
+current.collect { apply(it?.config?.content) }
 ```
 
-Register a fixed instance with `asServiceInstance(isEphemeral = false)`; it is never renewed nor expired.
-
-### Discovering
+## Finding instances
 
 ```kotlin
-val discovery = ConsistencyRedisServiceDiscovery(
-    delegate = RedisServiceDiscovery(redisTemplate),
-    serviceEventListenerContainer = RedisServiceEventListenerContainer(listenerContainer),
-    instanceEventListenerContainer = RedisInstanceEventListenerContainer(listenerContainer),
+val instances: StateFlow<List<Resource>> = prod.instances.watch("payment")
+val services: Set<String> = prod.instances.services()
+
+val balancer = prod.loadBalancer("payment")
+val chosen: Resource? = balancer.choose()
+```
+
+`choose()` picks at random in proportion to weight, allocates nothing and does not suspend. It returns `null` when no instance can be chosen.
+
+## Registering
+
+```kotlin
+val registration = prod.instances.register(
+    service = "order-service",
+    endpoint = endpoint {
+        scheme = "http"
+        host = "10.0.0.7"
+        port = 8080
+    },
+    metadata = mapOf("zone" to "az1"),
+    weight = 2,
 )
-
-discovery.getServices("{dev}").block()                       // List<String>
-discovery.getInstances("{dev}", "order-service").block()     // List<ServiceInstance>, expired ones excluded
-
-val loadBalancer = BinaryWeightRandomLoadBalancer(discovery)
-loadBalancer.choose("{dev}", "order-service").block()        // weighted random choice
-
-discovery.close()
+// ...
+registration.close()
 ```
 
-Each call returns an immutable snapshot; an unchanged snapshot is the same list instance, so caching derived data per snapshot is cheap.
+The client keeps the lease alive, and registers everything again if the lease is lost. Closing the last registration ends the lease.
 
-## See also
+## Closing
 
-- [Architecture](./architecture.md) for the data model, events and consistency guarantees.
-- The tests under `cosky-config` and `cosky-discovery` exercise every API against Redis.
+`client.close()` revokes its leases within 3 seconds. After that the server expires them.
+
+## Connection states
+
+`client.connectionState` is a `StateFlow`:
+
+| State | Means |
+|---|---|
+| `CONNECTING` | No server has answered yet. |
+| `SYNCED` | Following a server. |
+| `DEGRADED` | Not connected: serving what is known, from memory or a snapshot. |
+| `CLOSED` | Closed. |
+
+Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn.
+
+## Snapshots
+
+The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume.
+
+Snapshots are not encrypted. The directory is `0700` and the files `0600`. `snapshotIncludeConfig = false` keeps Config contents off the disk, and `snapshotDir = null` turns snapshots off.
+
+## TLS
+
+```kotlin
+CoSkyClientOptions(
+    endpoints = listOf("cosky.internal:9090"),
+    tls = true,
+    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem"), // for a private CA
+)
+```
+
+See [Security](./security.md#tls). For anything else, `channelFactory` builds the gRPC channel yourself.
+
+## Writing
+
+The client reads, registers and renews. To manage resources from code, use the generated gRPC stubs in `cosky-api`:
+
+```kotlin
+val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
+resources.put(putRequest { resource = /* ... */ })
+```
+
+## Java
+
+`cosky-client` exposes coroutines, which are awkward from Java. A Java facade is planned for 8.1. Until then, Java applications use the Spring Boot starter, which needs no Kotlin in your code.
+
+## Other languages
+
+Nothing in the client is privileged: everything goes through the public protocol. The protos are in `api/src/main/proto`, and `./gradlew :api:generateOpenApi` writes the OpenAPI document to `api/build/openapi/cosky.yaml`. A conforming client has to follow what the [design](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md) says about Watch positions and lease renewal, and `conformance-test` holds the suite the Kotlin client passes.

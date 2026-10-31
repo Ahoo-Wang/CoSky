@@ -1,46 +1,37 @@
 ---
 title: 控制台
-description: REST API 服务器提供的 CoSky Web 控制台导览。
+description: Web 控制台能做什么、如何登录，以及它如何保持最新。
 ---
 
 # 控制台
 
-REST API 服务器在 `http://<服务器>:8080` 提供 Web 控制台。用 CoSky 用户登录（见[安全](./security.md)）；每个页面都作用于顶部选中的命名空间，并且只显示你的角色授权可见的内容。
+server 在 8080 端口的 `/` 提供 Dashboard。它只使用公开的 [REST API](./rest-api.md)，所以能做的事情 `curl` 都能做，你的[角色](./security.md#谁能做什么)同样适用。操作被拒绝时会显示 server 给出的原因。
 
-| 页面 | 用途 |
+![Dashboard](/dashboard-dashboard.png)
+
+## 登录
+
+粘贴 ServiceAccount token，或者在 server [提供 OIDC](./security.md#oidc) 时点击 OIDC 按钮。token 保存在当前浏览器标签页中，关闭标签页就消失。`cosky.auth.enabled: false` 的 server 不要求登录。
+
+## 页面
+
+页头的 namespace 选择器决定每个页面显示的内容。
+
+| 页面 | 作用 |
 |---|---|
-| **Home** | 命名空间、配置、服务和实例的数量，以及服务拓扑 |
-| **Config** | 创建、编辑、删除配置；浏览带差异对比的历史并回滚；导入导出 zip |
-| **Service** | 浏览服务与实例，注册固定实例，编辑元数据，注销实例 |
-| **Namespace** | 添加和删除命名空间 |
-| **User** | 创建用户、绑定角色、锁定、解锁、修改密码 |
-| **Role** | 定义角色及其授权的命名空间 |
-| **Audit Log** | 查询谁做了什么，按时间和结果筛选，导出 CSV |
+| **Dashboard** | 服务、实例、Config 和 namespace 的数量，以及谁 watch 谁的拓扑图 |
+| **Configuration** | 创建、编辑、删除、导入和导出 Config；把任意 revision 与当前版本比较，并回滚 |
+| **Service** | 服务及其实例，已挂租约或固定；添加、编辑和删除实例 |
+| **Namespace** | 创建和删除 namespace。只有空的才能删除，当前选中的也不能删除。 |
+| **Service Account** | 账号及其 token。新 token 只显示一次，请当时复制。 |
+| **Role** 和 **Role Binding** | 谁能做什么，在哪里 |
 
-![Home](/dashboard-dashboard.png)
+![Configuration](/dashboard-config.png)
 
-## 配置
+## 保持最新
 
-![配置](/dashboard-config.png)
+Configuration 和 Service 页面通过 server-sent events 流实时跟随变化，不需要刷新页面。流断开或长时间静默时会重新打开。首页每 30 秒读取一次数量，不单独占用连接：通过 HTTP/1.1 时，浏览器对每个 server 允许的连接很少。
 
-保存配置会产生新版本，所有使用它的应用在毫秒内收到。历史记录可以把任意版本与当前内容对比并回滚；见[配置管理](./configuration.md#版本与回滚)。
+## 安全地编辑
 
-![回滚](/dashboard-config-rollback.png)
-
-## 服务
-
-![服务](/dashboard-service.png)
-
-应用注册的实例会自动出现和消失。在这里添加的固定实例会一直保留，直到被删除；见[服务发现](./service-discovery.md)。
-
-![拓扑](/dashboard-topology.png)
-
-## 用户、角色与审计
-
-![角色](/dashboard-role.png)
-
-![审计日志](/dashboard-audit-log.png)
-
-## 开发控制台
-
-控制台是 [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/main/dashboard) 下的 React 应用；其 README 介绍了开发服务器、测试以及 API 客户端生成。
+编辑会记住开始时的 revision。如果此间有人改动了这个对象，保存会失败并显示 server 给出的原因，不会有任何改动，重新加载后再试即可。

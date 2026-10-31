@@ -5,75 +5,59 @@ description: What CoSky is, how it works, when it fits, and where to go next.
 
 # Overview
 
-CoSky provides **configuration management** and **service discovery** for Spring Cloud microservices, using only **Redis** as infrastructure. There is no registry cluster to run: applications talk to Redis directly through the CoSky starters, and an optional REST API server adds a web dashboard, users and permissions.
+CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server. Redis is the one piece of infrastructure it needs.
 
 ## How it works
 
 ```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
 graph LR
     subgraph App["Each application"]
-        style App fill:#161b22,stroke:#30363d,color:#e6edf3
-        STARTER["CoSky starters"] --> CACHE["Local cache"]
+        STARTER["Starter or client"] --> VIEW["Local view"]
     end
-    subgraph Ops["Optional"]
-        style Ops fill:#161b22,stroke:#30363d,color:#e6edf3
-        SERVER["REST API server<br>+ dashboard"]
-    end
+    SERVER["CoSky server<br>+ Dashboard"]
     REDIS[("Redis")]
-    STARTER -- "writes: Lua scripts" --> REDIS
-    REDIS -- "changes: Pub/Sub" --> CACHE
+    STARTER -- "writes, leases: gRPC" --> SERVER
+    SERVER -- "changes: Watch" --> VIEW
     SERVER --> REDIS
-    style STARTER fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style CACHE fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style SERVER fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
-    style REDIS fill:#2d333b,stroke:#6d5dfc,color:#e6edf3
 ```
 
-- **Writes** (registering an instance, saving a config) are single Lua scripts, so they are atomic.
-- **Reads** are served from a local cache in each application, so they cost no network round trip.
-- **Changes** reach every cache through Redis Pub/Sub; a periodic resync covers messages lost while disconnected.
+- **Writes** go through the server, which applies each one atomically and gives the namespace a new revision.
+- **Reads** come from a view in each application's memory, so they cost no network round trip.
+- **Changes** reach every view over a Watch stream. A client that was away resumes from the revision it last saw.
+- **Everything is a resource**: a Config, an Instance, a Namespace, a Role. They share one API, over gRPC and REST.
 
-[Architecture](./architecture.md) explains the data model and the consistency guarantees in detail.
+[Architecture](./architecture.md) explains the data model and the consistency guarantees.
 
 ## Features
 
 | Area | What you get |
 |---|---|
-| Configuration | Spring Cloud property source with live refresh, YAML / properties, versions with rollback, import and export (Nacos-compatible zip) |
-| Service discovery | Spring Cloud `DiscoveryClient` and service registry, ephemeral instances with automatic expiry, metadata and status, weighted load balancing, service topology |
-| Operations | REST API server with a web dashboard, JWT authentication, namespace-scoped roles, audit log, statistics |
-| Isolation | Namespaces separate environments or tenants in one Redis |
+| Configuration | Spring Boot `spring.config.import` with live refresh; YAML, JSON, properties and text; revisions with rollback; zip import and export |
+| Service discovery | Spring Cloud `DiscoveryClient`, `ServiceRegistry` and LoadBalancer; instances under a lease; metadata and weights; fixed instances |
+| Resilience | Local views keep serving through an outage; a snapshot on disk survives a restart; mass expiry protection; several server replicas |
+| Security | ServiceAccount tokens and OIDC on every call, data plane included; roles scoped to namespaces and name prefixes; TLS; a structured audit log |
+| Operations | One image with the Dashboard; Kustomize manifests; Prometheus metrics; OpenTelemetry traces; topology of who watches whom |
 
 ## When CoSky fits
 
-CoSky is a good fit when you already run Redis, use Spring Cloud, and want discovery and configuration without operating another cluster.
+- You already run Redis, and would rather not add a consensus system to your stack.
+- A namespace holds up to about 50,000 instances and 10,000 Configs, the size [measured](./performance.md).
+- You want Spring Cloud integration, or Kotlin, or can generate a gRPC or REST client from its protos and OpenAPI document.
 
-Consider an alternative when you need:
+## When it does not
 
-- **DNS-based discovery** or non-JVM clients without HTTP access to the REST API: CoSky clients are JVM libraries.
-- **Health checks performed by the registry** (TCP/HTTP probes): CoSky instances prove liveness by renewing; a hung process that keeps renewing stays registered.
-- **Strong consistency for reads**: application reads come from a local cache that is updated asynchronously (typically within milliseconds).
-
-| | CoSky | Nacos | Consul | Eureka |
-|---|---|---|---|---|
-| Infrastructure | Redis | Nacos cluster + MySQL | Consul cluster | Eureka servers |
-| Configuration | ✅ | ✅ | ✅ (KV) | ❌ |
-| Discovery | ✅ | ✅ | ✅ | ✅ |
-| Health check | Client renewal | Client beat, TCP/HTTP | TCP/HTTP/gRPC | Client beat |
-| DNS interface | ❌ | ✅ | ✅ | ❌ |
-| Spring Cloud | ✅ | ✅ | ✅ | ✅ |
+- Your data must survive any single failure without loss. Redis replication is asynchronous, so a failover can lose the last writes. CoSky notices and recovers, as [Architecture](./architecture.md) describes, but it cannot bring them back. Use a Raft-based system instead.
+- You need health checks run by the server. Instances stay alive by renewing a lease, and CoSky does not probe them.
+- You need a client for another language off the shelf. Only Kotlin has one; other languages use the protos.
 
 ## Where to go next
 
-| I want to… | Read |
+| Goal | Page |
 |---|---|
-| Try CoSky in a Spring Boot app | [Getting Started](./getting-started.md) |
-| Load and refresh configuration | [Configuration](./configuration.md) |
-| Register and discover services | [Service Discovery](./service-discovery.md) |
-| Use CoSky without Spring | [Using the SDK](./sdk.md) |
-| Run the REST API server and dashboard | [Deployment](./deployment.md), [Security](./security.md), [Dashboard](./dashboard.md) |
-| Upgrade from 5.x | [Upgrading to 6.0](./upgrade-6.md) |
+| Run it in five minutes | [Getting Started](./getting-started.md) |
+| Serve Spring properties | [Configuration](./configuration.md) |
+| Register and find services | [Service Discovery](./service-discovery.md) |
+| Use it without Spring | [Using the SDK](./sdk.md) |
+| Run it in production | [Deployment](./deployment.md), [Security](./security.md) |
+| Move from CoSky 6.x | [Moving from 6.x](./upgrade-8.md) |
 | Look up a property or an endpoint | [Configuration Properties](./properties.md), [REST API](./rest-api.md) |
-| Understand the design | [Architecture](./architecture.md), [Performance](./performance.md) |
-| Contribute | [Internals](./internals.md) and [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |

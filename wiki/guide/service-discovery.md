@@ -1,93 +1,81 @@
 ---
 title: Service Discovery
-description: How applications register, stay registered, expire and discover each other, with metadata, status, load balancing and topology.
+description: Register instances under a lease, find them through Spring Cloud, and understand what happens when things fail.
 ---
 
 # Service Discovery
 
-This guide is for application developers using the discovery starter. Setup is covered in [Getting Started](./getting-started.md).
+An **Instance** is one running copy of a service: a service name, an endpoint, a weight and metadata. A service is simply the group of Instances that share a name.
 
-## Registration
+## Registering
 
-With the discovery starter on the classpath, an application registers itself once its web server has started, and deregisters on graceful shutdown. Its instance is described by:
+With the starter, an application registers once its web server is ready, and removes itself on shutdown.
 
-| Field | Property (`spring.cloud.cosky.discovery.registry.*`) | Default |
-|---|---|---|
-| Service id | `service-id` | `spring.application.name` |
-| Host | `host` | first non-loopback IP address |
-| Port | `port` | the web server port |
-| Scheme | `schema` | `http` |
-| Weight | `weight` | `1` |
-| Metadata | `metadata.<key>` | none |
-| Status | `initial-status` | `UP` (stored as metadata `instance_status`) |
-
-The instance id is `<serviceId>@<scheme>#<host>#<port>`, so an instance re-registering from the same address replaces itself.
-
-`spring.cloud.service-registry.auto-registration.enabled=false` keeps an application discoverable-only: it discovers others without registering.
-
-## Staying registered: ephemeral instances
-
-By default an instance is **ephemeral**: it lives for a TTL and must keep renewing it.
-
-```mermaid
-%%{init: {'theme':'dark', 'themeVariables': {'primaryColor':'#2d333b','primaryBorderColor':'#6d5dfc','primaryTextColor':'#e6edf3','lineColor':'#8b949e','secondaryColor':'#161b22','tertiaryColor':'#161b22'}}}%%
-stateDiagram-v2
-    [*] --> Registered: register
-    Registered --> Registered: renew every 10s (TTL 60s)
-    Registered --> [*]: deregister on shutdown
-    Registered --> Expired: no renewal for 60s
-    Expired --> [*]: removed, "expired" event
-    Expired --> Registered: renewal finds it gone and registers again
+```yaml
+spring:
+  application:
+    name: order-service
+cosky:
+  registry:
+    enabled: true
+    weight: 1
+    metadata:
+      zone: az1
 ```
 
-- `renew.period` (10s) must stay well below `ttl` (60s), so that a few missed renewals do not expire a healthy instance.
-- An expired instance is removed and announced by any registered CoSky client in the namespace; no server needs to run.
-- If an instance expired anyway, for example during a network partition, its next renewal registers it again with the metadata set since it first registered.
-- Consumers never receive an instance whose TTL has passed, even before it is removed.
+- The service is `spring.application.name`, which must be a DNS-style name: lowercase letters, digits, `-` and `.`, up to 63 characters. `OrderService` is refused.
+- A separate management port is not registered.
+- `spring.cloud.service-registry.auto-registration.enabled: false` turns registering off.
 
-**Fixed instances** (`is-ephemeral: false`) never expire and are not renewed. Use them for endpoints that cannot run the client, such as a database proxy registered through the [REST API](./rest-api.md); remove them explicitly.
+## Leases
 
-Liveness is proven by renewing only: CoSky does not probe instances. A process that hangs but keeps its renewal thread alive stays registered; combine CoSky with health-aware routing or circuit breakers where that matters.
+A process holds one lease per namespace, however many instances it registers, and renews it every third of its TTL (30 seconds by default). When renewals stop, its instances go.
 
-## Discovering services
+| Event | What happens |
+|---|---|
+| Clean shutdown | The lease is revoked within 3 seconds, and the instances go at once. |
+| Crash | The lease expires, and the instances go a third of the TTL later: 40 seconds by default. |
+| Lease lost, such as after a Redis failover | The client notices, waits up to 5 seconds so that not everyone returns at once, and registers everything again. |
+| Client reconnects | It renews at once, without waiting for the next period. |
 
-Applications discover through Spring Cloud's standard APIs, backed by a local cache that change events keep current:
+Allowed TTLs are 5 to 300 seconds.
 
-```kotlin
-@Autowired lateinit var discoveryClient: DiscoveryClient          // or ReactiveDiscoveryClient
+## Finding services
 
-discoveryClient.services                                          // service ids in the namespace
-discoveryClient.getInstances("order-service")                     // live instances
+`DiscoveryClient` and `ReactiveDiscoveryClient` read the local view. The first read of a service waits up to `cosky.discovery.load-timeout` (5 seconds), so that "not known yet" is not mistaken for "empty". Afterwards, a read costs no network round trip.
+
+Add `spring-cloud-starter-loadbalancer`, and `@LoadBalanced` clients get their instances from CoSky, with Spring Cloud's own algorithms choosing among them.
+
+## Weights
+
+A weight of `0` keeps an instance registered but takes it out of rotation, which is how to drain one: load balancers leave it out, while `DiscoveryClient` still lists it. The Kotlin client's load balancer picks at random in proportion to weight. Spring Cloud LoadBalancer's default round robin treats every other weight alike.
+
+## Fixed instances
+
+An Instance without a lease stays until someone deletes it. Use this for something that cannot register itself, such as a database:
+
+```bash
+curl -X PUT localhost:8080/v1/namespaces/prod/instances/orders-db \
+  -H 'Content-Type: application/json' \
+  -d '{"instance":{"service":"orders-db","endpoint":{"scheme":"tcp","host":"10.0.0.5","port":3306}}}'
 ```
 
-With `spring-cloud-starter-loadbalancer`, `@LoadBalanced` `WebClient` / `RestClient` and OpenFeign resolve `http://order-service/...` through CoSky.
+The Dashboard marks each instance **Leased** or **Fixed**. Nothing checks whether a fixed instance is alive.
 
-Discovery is scoped to the application's namespace. Lookups are answered from memory; the first lookup of a service loads it from Redis and subscribes to its changes.
+## When things fail
 
-## Metadata and status
+CoSky favours keeping a stale instance over dropping a live one, and callers are expected to retry and use circuit breakers.
 
-Metadata is a string map attached to an instance, e.g. a zone or a version. Set it at registration with `registry.metadata.*`, edit it in the dashboard, or at runtime through the [SDK](./sdk.md#service-discovery).
+| Failure | What applications see |
+|---|---|
+| Server unreachable | Reads keep serving the last view, and the health indicator stays `UP` with `connection: DEGRADED`, because a restart would not help. |
+| Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
+| Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
+| More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |
+| Redis fails over and loses recent writes | Every replica notices the revision going backwards, and clients start over from a fresh snapshot. Writes that were lost stay lost. |
 
-Spring Cloud's `ServiceRegistry.setStatus` (for example through the `/actuator/serviceregistry` endpoint) stores the status as the `instance_status` metadata.
+These all have settings under [`cosky.lease`](./properties.md#server). A process that really crashed during such a pause stays listed for up to 5 minutes longer.
 
-Spring Cloud discovery returns only instances whose status is `UP`, or that have no status (such as fixed instances registered through the REST API). Setting an instance to `OUT_OF_SERVICE` therefore takes it out of rotation without deregistering it, and setting it back to `UP` returns it. Set `spring.cloud.cosky.discovery.filter-only-up-instances=false` to receive every instance.
+## Who calls whom
 
-## Load balancing and weights
-
-| Client | Algorithm | Uses weights |
-|---|---|---|
-| Spring Cloud LoadBalancer (default) | Round robin | ❌ |
-| Spring Cloud LoadBalancer with `spring.cloud.loadbalancer.configurations=weighted` | Weighted | ✅ |
-| CoSky `LoadBalancer` bean (`BinaryWeightRandomLoadBalancer`) | Weighted random | ✅ |
-
-CoSky exposes each instance's weight as the `weight` metadata of Spring Cloud instances, which is where Spring Cloud LoadBalancer's weighted configuration reads it. Code using the CoSky API directly can inject CoSky's `LoadBalancer` and call `choose(namespace, serviceId)`. The SDK also provides `RandomLoadBalancer` (ignores weights) and the `ArrayWeightRandomLoadBalancer` / `TreeWeightRandomLoadBalancer` variants, which choose by weight like the default with different memory and lookup trade-offs.
-
-## Service topology
-
-Each application records itself as a consumer of the services it discovers, and the dashboard draws the resulting dependency graph. Turn it off with `spring.cloud.cosky.discovery.topology-enabled=false`. A discovered service from another namespace appears as `<namespace>.<serviceId>`.
-
-## See also
-
-- [Configuration Properties](./properties.md#service-discovery) for every property.
-- [Using the SDK](./sdk.md#service-discovery) to register and discover without Spring.
-- [Architecture](./architecture.md#service-discovery) for the data model and expiry mechanics.
+A client that watches a service counts as consuming it. The topology on the [Dashboard](./dashboard.md) and at `/views/topology` shows these edges, under the name in `spring.application.name`, or the signed-in subject without one. They expire 90 seconds after the last replica saw the watch, so a stopped consumer disappears by itself.

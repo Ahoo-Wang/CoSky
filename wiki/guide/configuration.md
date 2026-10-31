@@ -1,70 +1,93 @@
 ---
 title: Configuration
-description: Load configuration from CoSky into Spring, refresh it live, and manage versions, rollback, import and export.
+description: Serve Spring properties from CoSky, refresh them live, and keep their revisions.
 ---
 
 # Configuration
 
-This guide is for application developers using the config starter, and for whoever manages configs in the dashboard. Setup is covered in [Getting Started](./getting-started.md).
+A **Config** is a named document in a namespace: a name, a format and its content, up to 1 MiB.
 
-## Which config an application loads
+| Field | Rules |
+|---|---|
+| Name | Letters, digits, `.`, `_`, `-` and `/`, up to 253 characters. `shared/datasource.yaml` is one name. |
+| Format | `YAML`, `JSON`, `PROPERTIES` or `TEXT`, declared with the Config. Only importing a zip file guesses it, from the file extension. |
+| Content | UTF-8. The server keeps its SHA-256, which you can compare and cannot set. |
 
-At startup the starter loads one config, identified by a **namespace** and a **config id**:
+## Loading into Spring
 
-| | Property | Default |
-|---|---|---|
-| Namespace | `spring.cloud.cosky.namespace` | `cosky-{default}` |
-| Config id | `spring.cloud.cosky.config.config-id` | `${spring.application.name}.${file-extension}` |
-| Default extension | `spring.cloud.cosky.config.file-extension` | `yaml` |
+```yaml
+spring:
+  config:
+    import: "optional:cosky:order-service.yaml,cosky:shared/datasource.yaml"
+cosky:
+  endpoints: cosky.internal:9090
+  token: ${COSKY_TOKEN}
+  namespace: prod
+```
 
-These properties belong in `bootstrap.yaml`, and the application needs `spring-cloud-starter-bootstrap` (see [Getting Started](./getting-started.md#_2-add-the-dependencies)).
-
-- **Format** follows the extension of the config id: `.yaml` / `.yml`, `.properties` or `.xml`. A config id without an extension uses `file-extension`.
-- **Multi-document YAML** (`---`) is supported; a later document overrides an earlier one.
-- **Precedence**: properties from CoSky override `application.yaml` and other local sources, as with any Spring Cloud bootstrap property source.
-- **Missing config**: the application starts with a warning and no CoSky properties.
-- **Redis unreachable**: loading waits up to `spring.cloud.cosky.config.timeout` (2s).
-
-Several services can share settings by pointing `config-id` at the same config.
+- `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it.
+- YAML and JSON are parsed as YAML, and properties as properties. A TEXT Config becomes one property named after the Config.
+- `cosky.config.load-timeout` (5 seconds) limits how long an import waits for the server.
 
 ## Live refresh
 
-When a config changes, every application using it receives the change through Redis Pub/Sub, typically within milliseconds, and the starter publishes Spring Cloud's `RefreshEvent`. What updates depends on how a value is read:
+With `spring-cloud-context` on the classpath, a change to an imported Config publishes a Spring Cloud `RefreshEvent`, so beans in `@RefreshScope` and `@ConfigurationProperties` beans see it. This holds for a Config that did not exist at start as well. Turn it off with `cosky.config.refresh.enabled: false`.
 
-| How the value is read | Updated on change |
-|---|---|
-| `@ConfigurationProperties` beans | ✅ rebound |
-| `@Value` in a `@RefreshScope` bean | ✅ the bean is recreated on next use |
-| `@Value` in a regular singleton | ❌ keeps the startup value |
-| `Environment.getProperty(...)` | ✅ |
+The application compares against the revision it loaded, so a change made between loading and watching still counts.
 
-The refresh event is published only after the local cache holds the new value, so a refreshed bean never reads the previous version. If an application misses a message (for example during a Redis reconnection), its cache resyncs within 5 minutes.
+## Writing
 
-## Versions and rollback
-
-Every save that changes the content creates a new version; saving identical content does nothing. CoSky keeps the **latest 10 versions** of each config and can roll back to any of them; rolling back saves the old content as a new version, so it can be undone too. A removed config can also be rolled back.
-
-In the dashboard, **Config → History** lists versions with a diff against the current content. Through the API:
+Use the [Dashboard](./dashboard.md) or the [REST API](./rest-api.md). A write replaces the whole Config:
 
 ```bash
-GET  /v1/namespaces/{namespace}/configs/{configId}/versions             # list versions
-GET  /v1/namespaces/{namespace}/configs/{configId}/versions/{version}   # content of a version
-PUT  /v1/namespaces/{namespace}/configs/{configId}/to/{targetVersion}   # roll back
+curl -X PUT localhost:8080/v1/namespaces/prod/configs/shared%2Fdatasource.yaml \
+  -H "Authorization: Bearer $COSKY_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'If-Match: "42"' \
+  -d '{"config":{"format":"CONFIG_FORMAT_YAML","content":"url: jdbc:mysql://db/orders"}}'
 ```
+
+| Header | Means |
+|---|---|
+| `If-Match: "42"` | Only if it is still at revision 42. Otherwise `409`, and nothing changes. |
+| `If-None-Match: *` | Only if it does not exist. |
+| Neither | Write regardless. |
+
+The Dashboard always sends the first two, so nobody overwrites a change they did not see. Writing the same content changes nothing: there is no new revision and no event.
+
+A `/` in a name is encoded as `%2F` in the path, because a name is one path segment.
+
+## History and rollback
+
+Each Config keeps its last 20 revisions, newest first:
+
+```bash
+curl localhost:8080/v1/namespaces/prod/configs/app.yaml/history
+```
+
+Rolling back writes the content of an earlier revision as a new one, so the history only grows:
+
+```bash
+curl -X POST localhost:8080/v1/namespaces/prod/configs/app.yaml:rollback \
+  -H 'Content-Type: application/json' -d '{"toRevision":"41"}'
+```
+
+A deleted Config keeps its history until it is created again or its namespace is deleted, and a rollback brings it back.
 
 ## Import and export
 
-- **Export** (`GET /v1/namespaces/{namespace}/configs/export`) downloads every config of a namespace as a zip, one file per config.
-- **Import** (`POST /v1/namespaces/{namespace}/configs`, multipart field `importZip`) creates a config per file. `policy=skip` (default) keeps existing configs, `policy=overwrite` replaces them.
-- **From Nacos**: a Nacos export zip imports as is. The `DEFAULT_GROUP/` prefix is dropped and other `/` become `-`.
-- **Limits**: 10 MiB per zip, 64 MiB once unzipped. Directories and hidden files are skipped.
+A zip file moves many Configs at once. Each entry path is a Config name, and its extension decides the format.
 
-## Turning it off
+```bash
+curl -o configs.zip localhost:8080/v1/namespaces/prod/configs:export
+```
 
-`spring.cloud.cosky.config.enabled=false` disables the config starter; `spring.cloud.cosky.enabled=false` disables CoSky entirely.
+```bash
+curl -X POST localhost:8080/v1/namespaces/staging/configs:import --data-binary @configs.zip
+```
 
-## See also
+An import overwrites Configs of the same name, and holds at most 10,000 entries.
 
-- [Configuration Properties](./properties.md) for every property.
-- [Using the SDK](./sdk.md#configuration) to read and watch configs without Spring.
-- [Architecture](./architecture.md#consistency-model) for how the cache stays consistent.
+## Keeping secrets
+
+Config content is not encrypted, on the server or in the [snapshots](./sdk.md#snapshots) clients keep on disk. Turn snapshots of Configs off with `cosky.snapshot.include-config: false`, and keep real secrets in a system made for them.
