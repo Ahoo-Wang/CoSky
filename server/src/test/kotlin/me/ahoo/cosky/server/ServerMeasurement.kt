@@ -36,6 +36,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Rough numbers for the targets of design §7.10, reported rather than asserted. Run with `COSKY_MEASURE=true` and a
@@ -96,7 +97,7 @@ class ServerMeasurement {
             val sessions = List(WATCHES) { index ->
                 launch {
                     val request = create.toBuilder().setWatchId(index.toLong()).build()
-                    WatchSession(request, cache, MAX_MESSAGE_BYTES) { response ->
+                    WatchSession(request, cache, MAX_MESSAGE_BYTES, 3.seconds) { response ->
                         if (response.hasEvents() || response.hasSnapshot()) {
                             delivered.incrementAndGet()
                         }

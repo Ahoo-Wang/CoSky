@@ -319,6 +319,45 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `recent changes are whole revisions up to a revision, oldest first`() = scenario { store ->
+        store.apply(namespace, List(2) { Mutation.Put(config("c$it")) }, ACTOR)
+        store.put(config("d"))
+        store.put(config("e"))
+        val recent = store.recentChanges(namespace, 2, 100)
+        recent.map { it.revision }.assert().containsExactly(1L, 2L)
+        recent.map { it.changes.size }.assert().containsExactly(2, 1)
+    }
+
+    @Test
+    fun `recent changes stay within the limit without cutting a revision`() = scenario { store ->
+        repeat(2) { batch ->
+            store.apply(namespace, List(2) { Mutation.Put(config("c$batch$it")) }, ACTOR)
+        }
+        store.recentChanges(namespace, 2, 3).map { it.revision }.assert().containsExactly(2L)
+        store.recentChanges(namespace, 2, 4).map { it.revision }.assert().containsExactly(1L, 2L)
+        store.recentChanges(namespace, 2, 1).assert().isEmpty()
+    }
+
+    @Test
+    fun `recent changes survive a trimmed log`() = scenario(StoreOptions(logSize = 10)) { store ->
+        repeat(300) { batch ->
+            store.apply(namespace, List(3) { Mutation.Put(config("c$it", content = "$batch")) }, ACTOR)
+        }
+        val current = position(store)
+        val recent = store.recentChanges(namespace, current.revision, 1000)
+        recent.map { it.changes.size }.toSet().assert().containsExactly(3)
+        recent.last().revision.assert().isEqualTo(current.revision)
+        // They can seed a window: a client may resume from just before the oldest of them.
+        store.changes(namespace, current.copy(revision = recent.first().revision - 1)).first().revision
+            .assert().isEqualTo(recent.first().revision)
+    }
+
+    @Test
+    fun `recent changes of a namespace that does not exist are empty`() = scenario { store ->
+        store.recentChanges("missing", 10, 10).assert().isEmpty()
+    }
+
+    @Test
     fun `a position outside the window is gone`() = scenario(StoreOptions(logSize = 10)) { store ->
         val start = position(store)
         repeat(300) { store.put(config(content = "$it")) }

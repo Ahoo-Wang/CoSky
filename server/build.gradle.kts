@@ -20,6 +20,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-grpc-server")
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable")
     testImplementation(project(":test"))
+    testImplementation("io.grpc:grpc-inprocess")
 }
 
 // The server runs on JDK 25 and compiles to Java 21 like every other module (design D27).

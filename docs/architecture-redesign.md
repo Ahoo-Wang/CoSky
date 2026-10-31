@@ -490,6 +490,8 @@ interface Store {
     fun versions(namespace: String): Flow<ObjectVersion>                     // 只读 name → revision,用于反熵
     /** 有序、可续传;超出窗口抛 RevisionGoneException,`from` 不在当前时间线上抛 TimelineDivergedException;namespace 不再是 active 时结束。 */
     fun changes(namespace: String, from: Position): Flow<ChangeBatch>
+    /** 日志中截至 `until` 的最新完整 revision,最多 `limit` 个事件,用于预填窗口(D29)。 */
+    suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch>
     suspend fun history(key: ResourceKey, limit: Int): List<Resource>
 
     suspend fun grantLease(namespace: String, ttl: Duration, owner: String): GrantResult
@@ -666,7 +668,8 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - 所有 Get/List/Watch 由 Watch Cache 服务,只有写操作打到 Redis。
 - `min_revision`:缓存 revision 未达到时挂起等待(默认最多 3 秒),实现跨副本的"读己之写"。
 - 客户端 `from_epoch` 不一致或 `from_revision` 早于窗口 → 返回 `gone`,客户端重新 List 后从新位置 Watch。
-- `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `gone`,超过 `read.min-revision-timeout` 则以 `UNAVAILABLE` 结束整条流,客户端换端点重连。
+- `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `gone`。超过 `read.min-revision-timeout` 后读一次 Store:Store 有这个位置,说明只是本副本落后,以 `UNAVAILABLE` 结束整条流,客户端换端点重连;Store 也没有,说明这个位置来自无人发现的被丢弃时间线(§6.4 的残余风险),发 `gone`,否则客户端会一直重连。
+- 重新加载期间 watcher 只是等待,不会被结束。新视图的 epoch 不变且位置仍在窗口内就继续,所以一次 Store 读取失败不会让所有客户端重新 List。namespace 不再是 active 时,watcher 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - `MAXLEN ~` 可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
 - 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。
 
@@ -685,7 +688,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 | `OK` | 时间线连续 | 应用后续事件 |
 | `EPOCH` | 其他副本已更换 epoch,或 epoch 已丢失 | 重新加载,向 watcher 发送 `gone` |
 | `DIVERGED` | 本副本发现时间线分叉 | 按 §6.4 处理 |
-| `GONE` | 落后超出 Stream 窗口 | 重新加载,向 watcher 发送 `gone` |
+| `GONE` | 落后超出 Stream 窗口 | 重新加载,落在新窗口之外的 watcher 收到 `gone` |
 
 **反熵(D19)**:增量路径上的任何缺陷都不应永久生效。server 每 `anti-entropy-interval`(默认 5 分钟)扫描 `ver`,与缓存比较 name → revision,
 扫描期间有变更的 name 跳过,其余不一致按分叉处理(§6.4)。客户端的低频重建见 §7.5。
@@ -836,7 +839,7 @@ registration.close()                                                            
 - **顺序**:同一 namespace 内按 revision 全序;同一 revision 的事件作为一个整体应用,过大时分成多条 `Events`,以 `more` 标记(过滤后为空则不发送)。
 - **投递**:单条流内恰好一次;跨重连至少一次,客户端丢弃 `revision ≤ 已应用 revision` 的批次即可去重。
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
-  `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `gone`;`r` 大于当前 revision → 等副本追上,超时以 `UNAVAILABLE` 结束流(D29)。
+  `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `gone`;`r` 大于当前 revision → 等副本追上,超时后 Store 有这个位置则以 `UNAVAILABLE` 结束流,否则 `gone`(D29)。
 - **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `gone` 结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
 - **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`)。

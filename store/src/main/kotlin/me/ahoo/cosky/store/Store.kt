@@ -60,6 +60,12 @@ interface Store {
     fun changes(namespace: String, from: Position): Flow<ChangeBatch>
 
     /**
+     * What the log still holds up to revision [until], oldest first: the newest whole revisions, [limit] changes at
+     * most. A replica seeds its window with them, so that clients can resume on it right after it loads (§6.1).
+     */
+    suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch>
+
+    /**
      * Revisions of a Config, newest first, surviving its deletion; [limit] 0 returns all that are retained.
      */
     suspend fun history(key: ResourceKey, limit: Int): List<Resource>
