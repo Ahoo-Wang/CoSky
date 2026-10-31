@@ -149,7 +149,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W2a store + 一致性 | 协调会话 | #1008 | ✅ 已合并 |
 | W2b client + starter | 协调会话 | #1013 与本 PR | ✅ 已合并 |
 | W2c 贯通验证 | 协调会话 | #1010 与本 PR | ✅ 已合并;结果见设计文档 §7.10 |
-| W3a server | 协调会话 | #1016、#1018、#1019 与本 PR | 进行中:Watch 窗口、资源 API、gRPC 鉴权、Views、拓扑、反熵已完成;还差 REST(含 token 端点、OIDC、SSE)和指标 |
+| W3a server | 协调会话 | #1016、#1018、#1019、#1020 与本 PR | 进行中:Watch 窗口、资源 API、鉴权(含 OIDC)、Views、拓扑、反熵、REST(含 token 端点、SSE、回滚、导入导出)已完成;还差指标、就绪探针和开发模式 |
 | W3b store-redis | 协调会话 | 本 PR | ✅ 已合并:D31 的启动检查与兼容性矩阵 |
 | W4a 端到端 + 示例 + 部署 | — | — | 未开始 |
 | W4b Dashboard | — | — | 未开始 |

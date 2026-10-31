@@ -144,6 +144,20 @@ class ResourceService(
         }
     }
 
+    /**
+     * Puts the content of an earlier revision again, which also recreates a deleted Config (design §4.5, §7.1).
+     *
+     * @param expectedRevision as for a Put, of the current object.
+     */
+    suspend fun rollback(key: ResourceKey, toRevision: Long, expectedRevision: Long, caller: Caller): PutResponse {
+        requireValid(validator.validate(key))
+        requireAllowed(permissionOf(caller.principal, Verb.VERB_GET, key.kind, key.namespace), key.name)
+        val earlier = store.history(key, 0).firstOrNull { it.meta.revision == toRevision }
+            ?: throw CoSkyException.resourceNotFound(key)
+        val request = PutRequest.newBuilder().setResource(earlier).setExpectedRevision(expectedRevision).build()
+        return put(request, caller)
+    }
+
     suspend fun history(request: HistoryRequest, caller: Caller): HistoryResponse {
         requireValid(validator.validate(request))
         val key = request.key

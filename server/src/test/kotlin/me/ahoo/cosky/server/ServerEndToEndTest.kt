@@ -44,6 +44,12 @@ import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.context.annotation.Bean
 import org.testcontainers.containers.Network
+import java.net.ServerSocket
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpRequest.BodyPublishers
+import java.net.http.HttpResponse.BodyHandlers
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
@@ -94,6 +100,43 @@ class ServerEndToEndTest {
                 server.resources.get(request).meta.updatedBy.assert().isEqualTo("serviceaccount:admin")
                 val anonymous = runCatching { server.anonymousResources.get(request) }.exceptionOrNull()
                 (anonymous as StatusException).status.code.assert().isEqualTo(Status.Code.UNAUTHENTICATED)
+            }
+        }
+    }
+
+    @Test
+    fun `the REST API works over a real port, with a large config and an encoded name`() = withRedis { redis ->
+        val httpPort = ServerSocket(0).use { it.localPort }
+        val web = properties(redis) + mapOf(
+            "spring.main.web-application-type" to "reactive",
+            "server.port" to httpPort,
+        )
+        RunningServer(web).use { server ->
+            scenario {
+                server.createNamespace("rest")
+                val content = "x".repeat(1024 * 1024 - 1)
+                val http = HttpClient.newHttpClient()
+                val uri = URI("http://localhost:$httpPort/v1/namespaces/rest/configs/shared%2Fa.txt")
+                val put = http.send(
+                    HttpRequest.newBuilder(uri)
+                        .header("Content-Type", "application/json")
+                        .PUT(
+                            BodyPublishers.ofString(
+                                """{"config":{"format":"CONFIG_FORMAT_TEXT","content":"$content"}}"""
+                            )
+                        )
+                        .build(),
+                    BodyHandlers.ofString(),
+                )
+                put.statusCode().assert().isEqualTo(200)
+                val revision = put.headers().firstValue("ETag").get().trim('"')
+                val get = http.send(
+                    HttpRequest.newBuilder(URI("$uri?minRevision=$revision")).build(),
+                    BodyHandlers.ofString(),
+                )
+                get.statusCode().assert().isEqualTo(200)
+                get.body().assert().contains("shared/a.txt")
+                (get.body().length > content.length).assert().isTrue()
             }
         }
     }
