@@ -17,7 +17,7 @@ links it with `Fixes #<number>`, so the issue closes when the change is merged.
 
 | Tool | Version | Used for |
 |---|---|---|
-| JDK | 21 | Gradle build (toolchain 21) |
+| JDK | 21 and 25 | Gradle build (toolchain 21); the server's tests run on 25 |
 | Docker | Any recent version | Integration tests (Testcontainers) |
 | Node.js + pnpm | Node 22.12+, pnpm 10+ | `dashboard/` and `wiki/` only |
 

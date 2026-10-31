@@ -47,7 +47,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `conformance-test` | Store SPI conformance suite; the protocol suite follows in W3a | ✅ |
 | `client` | Coroutine client: List/Watch, leases, local snapshots, load balancing | planned (W2b) |
 | `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | planned (W2b) |
-| `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | planned (W3a) |
+| `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | minimal, from W2c; the rest in W3a |
 | `store-redis` | Redis Store (the only module with Lua) | ✅ |
 | `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
 | `test` | Shared test utilities | ✅ |

@@ -2,9 +2,6 @@
 # libraries
 spring-boot = "4.1.0"
 spring-cloud = "2025.1.2"
-cosid = "3.2.0"
-simba = "4.3.0"
-cosec = "6.0.0"
 guava = "33.5.0-jre"
 kotlin-logging = "8.0.4"
 commons-io = "2.21.0"
@@ -13,9 +10,10 @@ junit = "6.0.3"
 fluent-assert = "0.2.8"
 mockk = "1.14.9"
 jmh = "1.37"
-# Aligned with the versions Spring Boot 4.1 (and Spring gRPC 1.1) manage, so the platform and the catalog agree.
+# Aligned with what Spring gRPC 1.1 is built on: its POM asks for gRPC 1.81 while Boot 4.1 manages 1.80, and a mix of
+# the two fails at runtime with AbstractMethodError.
 protobuf = "4.34.2"
-grpc-java = "1.80.0"
+grpc-java = "1.81.0"
 grpc-kotlin = "1.5.0"
 kotlinx-coroutines = "1.10.2"
 testcontainers = "2.0.5"
@@ -32,9 +30,6 @@ protobuf-plugin = "0.10.0"
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
 spring-cloud-dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "spring-cloud" }
-cosid-bom = { module = "me.ahoo.cosid:cosid-bom", version.ref = "cosid" }
-simba-bom = { module = "me.ahoo.simba:simba-bom", version.ref = "simba" }
-cosec-bom = { module = "me.ahoo.cosec:cosec-bom", version.ref = "cosec" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
