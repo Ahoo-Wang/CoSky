@@ -58,4 +58,4 @@ CoSky provides configuration management and service discovery for microservices,
 | NFR-4 | **Bounded storage**: config history and the audit log are trimmed to fixed sizes. | `RedisConfigServiceTest.historyIsTrimmedToHistorySize`, `AuditLogRetentionTest` |
 | NFR-5 | **Security by default**: the server refuses to start without a JWT secret, and users get no namespace access unless granted. | `JwtSecretValidatorTest`, `RestApiIntegrationTest` |
 | NFR-6 | **Compatibility**: plain Redis, standalone or cluster (a namespace must carry a hash tag), with no Redis Functions or modules; Java 17+. | Integration tests against Redis in CI, [Architecture](./architecture.md#data-model) |
-| NFR-7 | **Quality gates**: every change passes static analysis, license checks and at least 90% line / 70% branch coverage. | `./gradlew check` in CI, see [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
+| NFR-7 | **Quality gates**: every change passes static analysis, license checks and at least 90% line / 70% branch coverage. | `./gradlew check` in CI, see [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md) |

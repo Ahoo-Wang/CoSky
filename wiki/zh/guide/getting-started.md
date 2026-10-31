@@ -142,4 +142,4 @@ class GreetingController(@Value("\${greeting}") private val greeting: String) {
 - [配置管理](./configuration.md)：格式、刷新、版本与回滚。
 - [服务发现](./service-discovery.md)：元数据、状态、过期与负载均衡。
 - [部署](./deployment.md)：在生产环境运行服务器。
-- [示例](https://github.com/Ahoo-Wang/CoSky/tree/main/examples)包含一个服务提供者和一个 Feign 消费者。
+- [示例](https://github.com/Ahoo-Wang/CoSky/tree/v6/examples)包含一个服务提供者和一个 Feign 消费者。

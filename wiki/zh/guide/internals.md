@@ -5,7 +5,7 @@ description: 面向贡献者的代码地图、代码所守护的不变量，以�
 
 # 内部实现
 
-本页面向贡献者。流程（环境、规范、测试、PR、发版）见 [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md)；设计见[架构](./architecture.md)。
+本页面向贡献者。流程（环境、规范、测试、PR、发版）见 [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md)；设计见[架构](./architecture.md)。
 
 ## 代码在哪里
 

@@ -11,13 +11,13 @@
 # limitations under the License.
 #
 
-# Creates the GitHub release when a version bump reaches main, then starts the publishing workflows.
+# Creates the GitHub release when a version bump reaches v6, then starts the publishing workflows.
 # A release or tag created with GITHUB_TOKEN does not trigger other workflows, so they are dispatched explicitly
 # (workflow_dispatch is exempt from that rule). Releases created by hand still trigger them as before.
 name: Release
 on:
   push:
-    branches: [ main ]
+    branches: [ v6 ]
     paths: [ gradle.properties ]
 permissions:
   contents: write
@@ -46,7 +46,13 @@ jobs:
             exit 0
           fi
 
-          previous="$(gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null || true)"
+          # 6.x stops being the latest release when 8.0 is out; gh release view only knows the latest one.
+          latest=(--latest=false)
+          if gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null | grep -q '^v6\.'; then
+            latest=(--latest)
+          fi
+          previous="$(gh release list --repo "$REPO" --limit 100 --json tagName -q '.[].tagName' 2> /dev/null \
+            | grep -m1 '^v6\.' || true)"
           args=(-f tag_name="$tag" -f target_commitish="$GITHUB_SHA")
           if [[ -n "$previous" ]]; then
             args+=(-f previous_tag_name="$previous")
@@ -57,6 +63,6 @@ jobs:
           intro=".github/release-notes/${tag}.md"
           { if [[ -f "$intro" ]]; then cat "$intro"; echo; fi; cat generated-notes.md; } > release-notes.md
 
-          gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" --title "$tag" --notes-file release-notes.md --latest
+          gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" --title "$tag" --notes-file release-notes.md "${latest[@]}"
           gh workflow run package-deploy.yml --repo "$REPO" --ref "$tag"
           gh workflow run docker-deploy.yml --repo "$REPO" --ref "$tag"

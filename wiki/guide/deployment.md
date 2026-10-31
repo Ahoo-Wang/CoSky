@@ -57,7 +57,7 @@ The image runs as a non-root user and defines a health check on `/actuator/healt
 
 ## Kubernetes
 
-The repository provides manifests in [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/main/k8s/deployment): `cosky.yml` for a standalone Redis, `cosky-cluster.yml` for Redis Cluster, and `cosky-service.yaml` exposing port 80.
+The repository provides manifests in [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/v6/k8s/deployment): `cosky.yml` for a standalone Redis, `cosky-cluster.yml` for Redis Cluster, and `cosky-service.yaml` exposing port 80.
 
 ```bash
 kubectl create secret generic cosky-secret --from-literal=security-key="$(openssl rand -base64 32)"

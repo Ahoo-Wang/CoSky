@@ -56,7 +56,7 @@ Pages are organized by what the reader wants to do, not by code module. Each pag
 - **Start with the reader**: the first paragraph says who the page is for and what it lets them do.
 - **Verify against the code**: every property, default, endpoint and behavior is checked in the source before it is written.
 - **Frontmatter**: every page has `title` and `description` (the description also feeds `llms.txt`).
-- **Source links** point to files (`https://github.com/Ahoo-Wang/CoSky/blob/main/<path>`), never to line numbers, which go stale with every change.
+- **Source links** point to files (`https://github.com/Ahoo-Wang/CoSky/blob/v6/<path>`), never to line numbers, which go stale with every change.
 - **Diagrams** only where they explain a mechanism that prose cannot. Use dark-mode colors (fills `#2d333b`, borders `#6d5dfc`, text `#e6edf3`), `<br>` not `<br/>`, and `autonumber` in every `sequenceDiagram`.
 - **Cross-references**: relative Markdown links between pages; anchors use VitePress slugs.
 - **i18n**: English is the default (root). Every page exists in `zh/guide/` with the same name and structure.

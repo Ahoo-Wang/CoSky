@@ -57,7 +57,7 @@ volumes:
 
 ## Kubernetes
 
-仓库在 [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/main/k8s/deployment) 中提供清单：`cosky.yml` 用于单机 Redis，`cosky-cluster.yml` 用于 Redis Cluster，`cosky-service.yaml` 暴露 80 端口。
+仓库在 [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/v6/k8s/deployment) 中提供清单：`cosky.yml` 用于单机 Redis，`cosky-cluster.yml` 用于 Redis Cluster，`cosky-service.yaml` 暴露 80 端口。
 
 ```bash
 kubectl create secret generic cosky-secret --from-literal=security-key="$(openssl rand -base64 32)"

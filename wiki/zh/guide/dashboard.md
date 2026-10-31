@@ -43,4 +43,4 @@ REST API 服务器在 `http://<服务器>:8080` 提供 Web 控制台。用 CoSky
 
 ## 开发控制台
 
-控制台是 [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/main/dashboard) 下的 React 应用；其 README 介绍了开发服务器、测试以及 API 客户端生成。
+控制台是 [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/dashboard) 下的 React 应用；其 README 介绍了开发服务器、测试以及 API 客户端生成。

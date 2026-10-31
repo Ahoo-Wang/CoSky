@@ -49,23 +49,25 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 
 ## Branches and commits
 
-- `main` is always releasable. Work happens on short-lived branches created from `main`, e.g. `fix/renew-metadata`
-  or `feat/config-search`, and comes back through a pull request.
+- `v6` maintains 6.x and takes bug fixes only; everything else goes to [`main`](https://github.com/Ahoo-Wang/CoSky/tree/main).
+  If the bug also exists on `main`, fix it there too.
+- `v6` is always releasable. Work happens on short-lived branches created from `v6`, e.g. `fix/renew-metadata`,
+  and comes back through a pull request.
 - Commit messages and pull request titles follow [Conventional Commits](https://www.conventionalcommits.org):
   `type(scope)!: summary`, where `type` is one of `feat`, `fix`, `perf`, `docs`, `refactor`, `test`, `build`, `ci`,
   `chore`, and `!` marks a breaking change. The title determines the release notes category.
 - Keep a pull request focused on one concern; split unrelated changes.
-- Pull requests are squash-merged, keeping `main` linear with one commit per pull request.
+- Pull requests are squash-merged, keeping `v6` linear with one commit per pull request.
 
 ## Code review
 
-- `main` is protected: every change goes through a pull request, and code owners
+- `v6` is protected: every change goes through a pull request, and code owners
   ([CODEOWNERS](.github/CODEOWNERS)) are requested for review automatically.
 - The pull request template lists what reviewers check: tests, documentation and compatibility.
 - The build (`Integration Test`: tests, static analysis, license headers, coverage floor) and the `REST API Test`
   must pass before merging; CodeQL and Codecov report on every pull request too.
 - Review conversations must be resolved, by a change or an answer, before merging.
-- History stays linear: no force pushes to `main`, and pull requests are squash-merged.
+- History stays linear: no force pushes to `v6`, and pull requests are squash-merged.
 
 ## Releases and versioning
 

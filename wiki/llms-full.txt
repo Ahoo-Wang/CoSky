@@ -72,7 +72,7 @@ Consider an alternative when you need:
 | Upgrade from 5.x | [Upgrading to 6.0](./upgrade-6.md) |
 | Look up a property or an endpoint | [Configuration Properties](./properties.md), [REST API](./rest-api.md) |
 | Understand the design | [Architecture](./architecture.md), [Performance](./performance.md) |
-| Contribute | [Internals](./internals.md) and [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
+| Contribute | [Internals](./internals.md) and [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md) |
 </doc>
 
 <doc title="Getting Started" path="guide/getting-started.md">
@@ -215,7 +215,7 @@ Start the application, then:
 - [Configuration](./configuration.md): formats, refresh, versions and rollback.
 - [Service Discovery](./service-discovery.md): metadata, status, expiry and load balancing.
 - [Deployment](./deployment.md): run the server in production.
-- The [examples](https://github.com/Ahoo-Wang/CoSky/tree/main/examples) contain a provider and a Feign consumer.
+- The [examples](https://github.com/Ahoo-Wang/CoSky/tree/v6/examples) contain a provider and a Feign consumer.
 </doc>
 
 <doc title="Configuration" path="guide/configuration.md">
@@ -532,7 +532,7 @@ The image runs as a non-root user and defines a health check on `/actuator/healt
 
 ## Kubernetes
 
-The repository provides manifests in [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/main/k8s/deployment): `cosky.yml` for a standalone Redis, `cosky-cluster.yml` for Redis Cluster, and `cosky-service.yaml` exposing port 80.
+The repository provides manifests in [`k8s/deployment`](https://github.com/Ahoo-Wang/CoSky/tree/v6/k8s/deployment): `cosky.yml` for a standalone Redis, `cosky-cluster.yml` for Redis Cluster, and `cosky-service.yaml` exposing port 80.
 
 ```bash
 kubectl create secret generic cosky-secret --from-literal=security-key="$(openssl rand -base64 32)"
@@ -669,7 +669,7 @@ After 10 failed attempts a user is locked out, and the lock lifts 15 minutes aft
 
 The bundled policy allows without sign-in: `OPTIONS` requests, the dashboard's static files, Swagger UI, `/actuator/health`, and sign-in / token refresh. It allows any signed-in user to call `GET /v1/namespaces` and `GET /v1/namespaces/current`, and grants everything to the `admin` role and to `cosky`.
 
-To change it, save a [CoSec policy](https://github.com/Ahoo-Wang/CoSec) as the config `cosky-policy.json` in the `cosky-{system}` namespace, starting from the [bundled one](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/cosky-policy.json). Every server instance applies it as soon as it is saved; a policy that does not parse is rejected with an error in the log and the previous one stays in force.
+To change it, save a [CoSec policy](https://github.com/Ahoo-Wang/CoSec) as the config `cosky-policy.json` in the `cosky-{system}` namespace, starting from the [bundled one](https://github.com/Ahoo-Wang/CoSky/blob/v6/cosky-rest-api/src/main/resources/cosky-policy.json). Every server instance applies it as soon as it is saved; a policy that does not parse is rejected with an error in the log and the previous one stays in force.
 
 ## Audit log
 
@@ -728,7 +728,7 @@ Instances registered by applications appear and disappear on their own. Fixed in
 
 ## Developing the dashboard
 
-The dashboard is a React application in [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/main/dashboard); its README describes the development server, tests and the API client generation.
+The dashboard is a React application in [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/dashboard); its README describes the development server, tests and the API client generation.
 </doc>
 
 <doc title="Upgrading to 6.0" path="guide/upgrade-6.md">
@@ -1023,7 +1023,7 @@ CoSky provides configuration management and service discovery for microservices,
 | NFR-4 | **Bounded storage**: config history and the audit log are trimmed to fixed sizes. | `RedisConfigServiceTest.historyIsTrimmedToHistorySize`, `AuditLogRetentionTest` |
 | NFR-5 | **Security by default**: the server refuses to start without a JWT secret, and users get no namespace access unless granted. | `JwtSecretValidatorTest`, `RestApiIntegrationTest` |
 | NFR-6 | **Compatibility**: plain Redis, standalone or cluster (a namespace must carry a hash tag), with no Redis Functions or modules; Java 17+. | Integration tests against Redis in CI, [Architecture](./architecture.md#data-model) |
-| NFR-7 | **Quality gates**: every change passes static analysis, license checks and at least 90% line / 70% branch coverage. | `./gradlew check` in CI, see [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
+| NFR-7 | **Quality gates**: every change passes static analysis, license checks and at least 90% line / 70% branch coverage. | `./gradlew check` in CI, see [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md) |
 </doc>
 
 <doc title="Architecture" path="guide/architecture.md">
@@ -1171,7 +1171,7 @@ Applications read configs and instances from a **local cache**, so a read costs 
 
 ## Results
 
-JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.1.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh).
+JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.1.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/v6/docs/jmh).
 
 | Operation | Through | Throughput |
 |---|---|---|
@@ -1206,13 +1206,13 @@ With Redis running on `localhost:6379`:
 
 Results are written to `<module>/build/results/jmh/results.json`. Options: `-PjmhThreads`, `-PjmhIncludes`, `-PjmhExcludes`, `-PjmhMode` (default `thrpt`).
 
-The [benchmark workflow](https://github.com/Ahoo-Wang/CoSky/blob/main/.github/workflows/benchmark-test.yml) runs both suites on every push, which makes regressions visible between commits.
+The [benchmark workflow](https://github.com/Ahoo-Wang/CoSky/blob/v6/.github/workflows/benchmark-test.yml) runs both suites on every push, which makes regressions visible between commits.
 </doc>
 
 <doc title="Internals" path="guide/internals.md">
 # Internals
 
-This page is for contributors. The process (setup, conventions, tests, pull requests, releases) is in [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md); the design is in [Architecture](./architecture.md).
+This page is for contributors. The process (setup, conventions, tests, pull requests, releases) is in [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md); the design is in [Architecture](./architecture.md).
 
 ## Where things live
 

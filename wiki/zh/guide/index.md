@@ -76,4 +76,4 @@ graph LR
 | 从 5.x 升级 | [升级到 6.0](./upgrade-6.md) |
 | 查属性或接口 | [配置属性](./properties.md)、[REST API](./rest-api.md) |
 | 理解设计 | [架构](./architecture.md)、[性能](./performance.md) |
-| 参与贡献 | [内部实现](./internals.md) 与 [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
+| 参与贡献 | [内部实现](./internals.md) 与 [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md) |

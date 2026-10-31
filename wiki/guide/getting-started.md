@@ -142,4 +142,4 @@ Start the application, then:
 - [Configuration](./configuration.md): formats, refresh, versions and rollback.
 - [Service Discovery](./service-discovery.md): metadata, status, expiry and load balancing.
 - [Deployment](./deployment.md): run the server in production.
-- The [examples](https://github.com/Ahoo-Wang/CoSky/tree/main/examples) contain a provider and a Feign consumer.
+- The [examples](https://github.com/Ahoo-Wang/CoSky/tree/v6/examples) contain a provider and a Feign consumer.

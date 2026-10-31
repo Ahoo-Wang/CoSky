@@ -65,7 +65,8 @@ COSKY_SECURITY_KEY=$(openssl rand -base64 32) ./gradlew :cosky-rest-api:run
 
 ## Git Workflow
 
-- Main branch: `main`; short-lived branches, squash-merged pull requests (see CONTRIBUTING.md)
+- This branch, `v6`, maintains 6.x and takes bug fixes only; development is on `main`
+- Short-lived branches, squash-merged pull requests into `v6` (see CONTRIBUTING.md)
 - Commits and pull request titles: Conventional Commits (`type(scope)!: summary`); the title drives labels and
   release notes
 - CI: GitHub Actions (build & tests, REST API smoke test, CodeQL, codecov, benchmark, labeler, Docker deploy)

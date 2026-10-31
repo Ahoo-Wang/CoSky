@@ -57,7 +57,7 @@ description: CoSky REST API 服务器的用户、角色、安全策略、令牌�
 
 内置策略允许未登录访问：`OPTIONS` 请求、控制台静态文件、Swagger UI、`/actuator/health`，以及登录和令牌刷新。允许任何已登录用户调用 `GET /v1/namespaces` 和 `GET /v1/namespaces/current`，并把全部权限授予 `admin` 角色和 `cosky`。
 
-要修改它，把一个 [CoSec 策略](https://github.com/Ahoo-Wang/CoSec)保存为 `cosky-{system}` 命名空间中的配置 `cosky-policy.json`，可以从[内置策略](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/cosky-policy.json)开始改。保存后每个服务器实例立即生效；无法解析的策略会被拒绝并在日志中报错，原有策略继续生效。
+要修改它，把一个 [CoSec 策略](https://github.com/Ahoo-Wang/CoSec)保存为 `cosky-{system}` 命名空间中的配置 `cosky-policy.json`，可以从[内置策略](https://github.com/Ahoo-Wang/CoSky/blob/v6/cosky-rest-api/src/main/resources/cosky-policy.json)开始改。保存后每个服务器实例立即生效；无法解析的策略会被拒绝并在日志中报错，原有策略继续生效。
 
 ## 审计日志
 

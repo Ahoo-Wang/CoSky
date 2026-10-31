@@ -57,7 +57,7 @@ After 10 failed attempts a user is locked out, and the lock lifts 15 minutes aft
 
 The bundled policy allows without sign-in: `OPTIONS` requests, the dashboard's static files, Swagger UI, `/actuator/health`, and sign-in / token refresh. It allows any signed-in user to call `GET /v1/namespaces` and `GET /v1/namespaces/current`, and grants everything to the `admin` role and to `cosky`.
 
-To change it, save a [CoSec policy](https://github.com/Ahoo-Wang/CoSec) as the config `cosky-policy.json` in the `cosky-{system}` namespace, starting from the [bundled one](https://github.com/Ahoo-Wang/CoSky/blob/main/cosky-rest-api/src/main/resources/cosky-policy.json). Every server instance applies it as soon as it is saved; a policy that does not parse is rejected with an error in the log and the previous one stays in force.
+To change it, save a [CoSec policy](https://github.com/Ahoo-Wang/CoSec) as the config `cosky-policy.json` in the `cosky-{system}` namespace, starting from the [bundled one](https://github.com/Ahoo-Wang/CoSky/blob/v6/cosky-rest-api/src/main/resources/cosky-policy.json). Every server instance applies it as soon as it is saved; a policy that does not parse is rejected with an error in the log and the previous one stays in force.
 
 ## Audit log
 

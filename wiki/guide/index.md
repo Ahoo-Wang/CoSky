@@ -76,4 +76,4 @@ Consider an alternative when you need:
 | Upgrade from 5.x | [Upgrading to 6.0](./upgrade-6.md) |
 | Look up a property or an endpoint | [Configuration Properties](./properties.md), [REST API](./rest-api.md) |
 | Understand the design | [Architecture](./architecture.md), [Performance](./performance.md) |
-| Contribute | [Internals](./internals.md) and [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md) |
+| Contribute | [Internals](./internals.md) and [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md) |

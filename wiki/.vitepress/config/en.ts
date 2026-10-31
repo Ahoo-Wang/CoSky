@@ -69,7 +69,7 @@ export const en: DefaultTheme.Config = {
       copyright: 'Copyright 2021-present Ahoo Wang',
     },
     editLink: {
-      pattern: 'https://github.com/Ahoo-Wang/CoSky/edit/main/wiki/:path',
+      pattern: 'https://github.com/Ahoo-Wang/CoSky/edit/v6/wiki/:path',
       text: 'Edit this page on GitHub',
     },
     search: {

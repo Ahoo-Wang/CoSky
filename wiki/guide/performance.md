@@ -9,7 +9,7 @@ Applications read configs and instances from a **local cache**, so a read costs 
 
 ## Results
 
-JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.1.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh).
+JMH throughput, 8 threads, against Redis on the same machine (Apple M4 Pro, JDK 17.0.20, Redis 8.10, JMH 1.37), measured on CoSky 6.1.0. Raw results: [`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/v6/docs/jmh).
 
 | Operation | Through | Throughput |
 |---|---|---|
@@ -44,4 +44,4 @@ With Redis running on `localhost:6379`:
 
 Results are written to `<module>/build/results/jmh/results.json`. Options: `-PjmhThreads`, `-PjmhIncludes`, `-PjmhExcludes`, `-PjmhMode` (default `thrpt`).
 
-The [benchmark workflow](https://github.com/Ahoo-Wang/CoSky/blob/main/.github/workflows/benchmark-test.yml) runs both suites on every push, which makes regressions visible between commits.
+The [benchmark workflow](https://github.com/Ahoo-Wang/CoSky/blob/v6/.github/workflows/benchmark-test.yml) runs both suites on every push, which makes regressions visible between commits.

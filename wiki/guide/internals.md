@@ -5,7 +5,7 @@ description: A map of the codebase for contributors, the invariants it protects,
 
 # Internals
 
-This page is for contributors. The process (setup, conventions, tests, pull requests, releases) is in [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md); the design is in [Architecture](./architecture.md).
+This page is for contributors. The process (setup, conventions, tests, pull requests, releases) is in [CONTRIBUTING.md](https://github.com/Ahoo-Wang/CoSky/blob/v6/CONTRIBUTING.md); the design is in [Architecture](./architecture.md).
 
 ## Where things live
 

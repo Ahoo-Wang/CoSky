@@ -16,7 +16,7 @@
 name: Integration Test
 on:
   push:
-    branches: [ main ]
+    branches: [ v6 ]
   pull_request:
 permissions:
   contents: read

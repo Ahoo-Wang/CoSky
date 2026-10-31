@@ -8,11 +8,14 @@
 [![GitHub release](https://img.shields.io/github/release/Ahoo-Wang/CoSky.svg)](https://github.com/Ahoo-Wang/CoSky/releases)
 [![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-core)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9e31358946b645abb283e83b10e85e2d)](https://www.codacy.com/gh/Ahoo-Wang/CoSky/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Ahoo-Wang/CoSky&amp;utm_campaign=Badge_Grade)
-[![codecov](https://codecov.io/gh/Ahoo-Wang/CoSky/branch/main/graph/badge.svg?token=N114DHHBUI)](https://codecov.io/gh/Ahoo-Wang/CoSky)
+[![codecov](https://codecov.io/gh/Ahoo-Wang/CoSky/branch/v6/graph/badge.svg?token=N114DHHBUI)](https://codecov.io/gh/Ahoo-Wang/CoSky)
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Ahoo-Wang/CoSky)
 
 > **[中文文档](https://cosky.ahoo.me/zh/)** | [English Documentation](https://cosky.ahoo.me/) | [English README](README.md)
+
+> [!IMPORTANT]
+> 这是 6.x 的维护分支，只修复 BUG。CoSky 8.0 在 [`main`](https://github.com/Ahoo-Wang/CoSky/tree/main) 分支上开发。
 
 CoSky 为 Spring Cloud 微服务提供**配置管理**与**服务发现**，基础设施只需要 **Redis**。没有需要运维的注册中心集群：应用直接访问你已经在运行的 Redis；可选的 REST API 服务器提供 Web 控制台、用户与权限管理。
 

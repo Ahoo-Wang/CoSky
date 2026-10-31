@@ -43,4 +43,4 @@ Instances registered by applications appear and disappear on their own. Fixed in
 
 ## Developing the dashboard
 
-The dashboard is a React application in [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/main/dashboard); its README describes the development server, tests and the API client generation.
+The dashboard is a React application in [`dashboard/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/dashboard); its README describes the development server, tests and the API client generation.

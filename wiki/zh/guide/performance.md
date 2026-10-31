@@ -9,7 +9,7 @@ description: CoSky 的读写速度、测量方法，以及如何复现基准测�
 
 ## 结果
 
-JMH 吞吐量，8 线程，Redis 与测试同机（Apple M4 Pro、JDK 17.0.20、Redis 8.10、JMH 1.37），测试对象为 CoSky 6.1.0。原始结果：[`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/main/docs/jmh)。
+JMH 吞吐量，8 线程，Redis 与测试同机（Apple M4 Pro、JDK 17.0.20、Redis 8.10、JMH 1.37），测试对象为 CoSky 6.1.0。原始结果：[`docs/jmh`](https://github.com/Ahoo-Wang/CoSky/tree/v6/docs/jmh)。
 
 | 操作 | 途径 | 吞吐量 |
 |---|---|---|
@@ -44,4 +44,4 @@ JMH 吞吐量，8 线程，Redis 与测试同机（Apple M4 Pro、JDK 17.0.20、
 
 结果写入 `<模块>/build/results/jmh/results.json`。可选参数：`-PjmhThreads`、`-PjmhIncludes`、`-PjmhExcludes`、`-PjmhMode`（默认 `thrpt`）。
 
-[基准测试工作流](https://github.com/Ahoo-Wang/CoSky/blob/main/.github/workflows/benchmark-test.yml)在每次推送时运行这两组测试，便于发现提交之间的性能回退。
+[基准测试工作流](https://github.com/Ahoo-Wang/CoSky/blob/v6/.github/workflows/benchmark-test.yml)在每次推送时运行这两组测试，便于发现提交之间的性能回退。
