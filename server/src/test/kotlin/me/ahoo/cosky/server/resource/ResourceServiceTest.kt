@@ -43,6 +43,7 @@ import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.Principal
+import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -251,6 +252,19 @@ class ResourceServiceTest {
         errorOf { put(config("a", "b"), expected = -1) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
         errorOf { put(config("a", "b"), expected = 99) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
         put(config("a", "b"), expected = created.revision).changed.assert().isTrue()
+    }
+
+    @Test
+    fun `the hash of a Config is the server's to state, in every revision`() = scenario {
+        val forged = config("a", "first").toBuilder().apply { configBuilder.sha256 = "forged" }.build()
+        val first = put(forged)
+        val hash = Tokens.sha256Hex("first")
+        resources.get(get("a", first.revision), CALLER).config.sha256.assert().isEqualTo(hash)
+
+        put(config("a", "second"))
+        val rolledBack = resources.rollback(configKey("a"), first.revision, 0, CALLER)
+
+        resources.get(get("a", rolledBack.revision), CALLER).config.sha256.assert().isEqualTo(hash)
     }
 
     @Test

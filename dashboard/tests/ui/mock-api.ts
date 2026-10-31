@@ -42,8 +42,10 @@ export interface MockApi {
     /** A provider that answers wrongly, to see the page refuse it. */
     providerAnswer?: 'wrong-state' | 'wrong-nonce' | 'denied';
     requests: RecordedRequest[];
-    /** Lets the next open Watch stream report changes, and end. */
-    releaseWatch: () => void;
+    /** Such requests take this long. */
+    slow?: {path: RegExp; milliseconds: number};
+    /** Lets every open Watch stream say this, and end. */
+    releaseWatch: (message?: Json) => void;
     put: (path: string, resource: Stored) => void;
     remove: (path: string) => void;
 }
@@ -54,6 +56,18 @@ const updated = {updatedAt: '2026-08-18T01:00:00Z', updatedBy: 'serviceaccount:a
 
 async function json(route: Route, body: unknown, status = 200) {
     await route.fulfill({status, contentType: 'application/json', body: JSON.stringify(body)});
+}
+
+/**
+ * One object per page, so that everything that lists has to read every page, as a server's byte limit can demand.
+ */
+function pageOf(items: Stored[], field: string, url: URL): Json {
+    const offset = Number(url.searchParams.get('pageToken') ?? 0);
+    const next = offset + 1;
+    return {
+        ...(items.length ? {[field]: items.slice(offset, next)} : {}),
+        ...(next < items.length ? {nextPageToken: String(next)} : {}),
+    };
 }
 
 const failure = (route: Route, status: number, message: string) =>
@@ -73,7 +87,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
     const objects = new Map<string, Stored>();
     const history = new Map<string, Stored[]>();
     const issued = new Set<string>([TOKEN]);
-    const pendingWatches: Array<() => void> = [];
+    const pendingWatches: Array<(message: Json) => void> = [];
 
     const store = (path: string, resource: Stored) => {
         const name = path.replace(/^.*\/(?:configs|instances|namespaces|serviceaccounts|roles|rolebindings)\//, '');
@@ -90,7 +104,8 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         oidc: options.oidc ?? false,
         empty: options.empty ?? false,
         requests: [],
-        releaseWatch: () => pendingWatches.splice(0).forEach(release => release()),
+        releaseWatch: (message = {events: {revision: nextRevision(), events: []}}) =>
+            pendingWatches.splice(0).forEach(release => release(message)),
         put: store,
         remove: path => objects.delete(path),
     };
@@ -182,6 +197,9 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             await failure(route, mockApi.failing.status, mockApi.failing.message);
             return;
         }
+        if (mockApi.slow?.path.test(path)) {
+            await new Promise(resolve => setTimeout(resolve, mockApi.slow?.milliseconds));
+        }
         if (path === '/v1/me') {
             await json(route, mockApi.auth
                 ? {subject: {type: 'TYPE_SERVICE_ACCOUNT', name: 'admin'}, rules: []}
@@ -192,11 +210,11 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         const watch = path.match(/^\/v1\/namespaces\/([^/]+)\/watch$/);
         if (watch) {
             // Holds until released, like a stream with nothing to say.
-            await new Promise<void>(resolve => pendingWatches.push(resolve));
+            const message = await new Promise<Json>(resolve => pendingWatches.push(resolve));
             await route.fulfill({
                 status: 200,
                 contentType: 'text/event-stream',
-                body: `data: ${JSON.stringify({watchId: '0', events: {revision: nextRevision(), events: []}})}\n\n`,
+                body: `data: ${JSON.stringify({watchId: '0', ...message})}\n\n`,
             }).catch(() => undefined);
             return;
         }
@@ -226,7 +244,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         }
         const historyPath = path.match(/^(.*\/configs\/.+)\/history$/);
         if (historyPath) {
-            await json(route, {revisions: history.get(historyPath[1]) ?? []});
+            await json(route, pageOf(history.get(historyPath[1]) ?? [], 'revisions', url));
             return;
         }
         const rollback = path.match(/^(.*\/configs\/.+):rollback$/);
@@ -267,7 +285,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             if (isList) {
                 const service = url.searchParams.get('service');
                 const items = collectionOf(path).filter(item => !service || serviceOf(item) === service);
-                await json(route, items.length ? {items, revision: String(revision), epoch: 'e'} : {epoch: 'e'});
+                await json(route, {...pageOf(items, 'items', url), revision: String(revision), epoch: 'e'});
             } else if (existing) {
                 await json(route, existing);
             } else {

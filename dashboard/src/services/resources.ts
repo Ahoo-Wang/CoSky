@@ -245,7 +245,6 @@ export const configs = {
     }),
     importArchive: (namespace: string, archive: File) => configsClient.importConfigs({
         urlParams: {path: {namespace}},
-        headers: {'Content-Type': 'application/zip'},
         body: archive,
     }),
     async exportArchive(namespace: string): Promise<Blob> {

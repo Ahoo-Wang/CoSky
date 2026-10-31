@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {createHash} from 'node:crypto';
 import {expect, test} from '@playwright/test';
 import type {APIRequestContext, Locator, Page} from '@playwright/test';
 
@@ -85,7 +86,7 @@ test('a namespace can be created, and what happens in it shows up by itself', as
     await expect(row(page, 'from-elsewhere.txt')).toBeVisible();
 });
 
-test('a Config goes through its whole life', async ({page}) => {
+test('a Config goes through its whole life', async ({page, request}) => {
     await signIn(page);
     await selectNamespace(page);
     await page.getByRole('link', {name: 'Configuration'}).click();
@@ -96,6 +97,8 @@ test('a Config goes through its whole life', async ({page}) => {
     await page.getByRole('button', {name: 'Submit'}).click();
     await expect(toast(page, 'Config saved')).toBeVisible();
     await expect(row(page, 'shared/application.yaml')).toContainText('YAML');
+    const stored = await request.get(`/v1/namespaces/${namespace}/configs/shared%2Fapplication.yaml`, {headers: authorization});
+    expect((await stored.json()).config.sha256).toBe(createHash('sha256').update('version: one').digest('hex'));
 
     await row(page, 'shared/application.yaml').getByRole('button', {name: 'Edit'}).click();
     await expect(page.locator('.monaco-editor:visible .view-lines').last()).toContainText('one');

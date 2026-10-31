@@ -36,6 +36,7 @@ import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
+import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.auth.authorizedName
 import me.ahoo.cosky.server.watch.NamespaceView
 import me.ahoo.cosky.server.watch.WatchCache
@@ -120,7 +121,7 @@ class ResourceService(
             if (key.kind == Kind.KIND_NAMESPACE) {
                 store.createNamespace(key.name)
             }
-            val write = withStoredTokens(request)
+            val write = withStoredTokens(withContentHash(request))
             val applied = apply(
                 key,
                 Mutation.Put(write.resource, write.expectedRevision),
@@ -223,6 +224,20 @@ class ResourceService(
      * Tokens are not for writing: a ServiceAccount keeps the ones it has, whatever the request says (design §7.8). The
      * compare-and-set keeps a token created meanwhile from being lost.
      */
+    /**
+     * The hash of a Config is the server's to state, whatever the request says (design §7.1).
+     */
+    private fun withContentHash(request: PutRequest): PutRequest {
+        val resource = request.resource
+        if (!resource.hasConfig()) {
+            return request
+        }
+        val sha256 = Tokens.sha256Hex(resource.config.content)
+        return request.toBuilder()
+            .setResource(resource.toBuilder().apply { configBuilder.setSha256(sha256) })
+            .build()
+    }
+
     private suspend fun withStoredTokens(request: PutRequest): PutRequest {
         val resource = request.resource
         if (!resource.hasServiceAccount()) {

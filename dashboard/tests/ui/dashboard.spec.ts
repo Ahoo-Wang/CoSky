@@ -18,8 +18,9 @@ import type {MockApi} from './mock-api';
 
 const browserErrors = new WeakMap<Page, string[]>();
 
-// What a failed request or an expected refusal prints is not a defect of the page.
-const EXPECTED_ERROR = /Failed to load resource/;
+// What a failed request prints is not a defect of the page. Nor is what Monaco 0.55 sometimes reports as a diff editor
+// closes: the history test goes on to open another one, and to use it.
+const EXPECTED_ERROR = /Failed to load resource|AbstractContextKeyService has been disposed/;
 
 test.beforeEach(async ({page}) => {
     const errors: string[] = [];
@@ -27,7 +28,9 @@ test.beforeEach(async ({page}) => {
     page.on('console', message => {
         if (message.type() === 'error' && !EXPECTED_ERROR.test(message.text())) errors.push(message.text());
     });
-    page.on('pageerror', error => errors.push(error.message));
+    page.on('pageerror', error => {
+        if (!EXPECTED_ERROR.test(error.message)) errors.push(error.message);
+    });
 });
 
 test.afterEach(async ({page}) => {
@@ -307,10 +310,10 @@ test.describe('configuration', () => {
 
         await version('cccc3333').getByRole('button', {name: 'Diff'}).click();
         await expect(page.getByRole('button', {name: /Roll back to revision/})).toBeDisabled();
-        // Monaco reports an error when a diff editor is closed before it has finished opening.
         await expect(page.locator('.monaco-diff-editor .view-lines').first()).toBeVisible();
         await page.keyboard.press('Escape');
 
+        const oldVersion = await version('aaaa1111').innerText();
         await version('aaaa1111').getByRole('button', {name: 'Diff'}).click();
         const rollback = page.getByRole('button', {name: /Roll back to revision/});
         await expect(rollback).toBeEnabled();
@@ -318,7 +321,7 @@ test.describe('configuration', () => {
 
         await expect(toast(page, 'Rolled back')).toBeVisible();
         const post = lastRequest(api, 'POST', '/v1/namespaces/default/configs/application.yaml:rollback');
-        expect(JSON.parse(post?.body ?? '').toRevision).toMatch(/^\d+$/);
+        expect(oldVersion).toContain(JSON.parse(post?.body ?? '').toRevision);
     });
 
     test('import sends the archive itself, and export gives one back', async ({page}) => {
@@ -362,6 +365,53 @@ test.describe('configuration', () => {
 
         await expect(row(page, 'from-elsewhere.txt')).toBeVisible();
         await expect(row(page, 'application.yaml')).toBeVisible();
+    });
+
+    test('a snapshot covers whatever was missed while no stream was open', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        api.put('/v1/namespaces/default/configs/missed.txt', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_TEXT', content: 'x', sha256: 'y'},
+        });
+        api.releaseWatch({snapshot: {epoch: 'e'}});
+
+        await expect(row(page, 'missed.txt')).toBeVisible();
+    });
+
+    test('a stream the server canceled stays closed', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const watches = () => api.requests.filter(request => request.path === '/v1/namespaces/default/watch').length;
+        await expect.poll(watches).toBeGreaterThan(0);
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        const opened = watches();
+
+        api.releaseWatch({canceled: {reason: 'ERROR_REASON_PERMISSION_DENIED'}});
+        await page.waitForTimeout(2_000);
+
+        expect(watches()).toBe(opened);
+    });
+
+    test('reading again keeps what is on screen until the answer arrives', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+        const lists = () => api.requests.filter(request => request.path === '/v1/namespaces/default/configs').length;
+        const before = lists();
+        api.slow = {path: /^\/v1\/namespaces\/default\/configs$/, milliseconds: 1_500};
+
+        api.releaseWatch();
+        await expect.poll(lists).toBeGreaterThan(before);
+
+        await expect(row(page, 'application.yaml')).toBeVisible({timeout: 300});
     });
 
     test('a stream that goes silent is opened again', async ({page}) => {
