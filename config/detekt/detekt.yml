@@ -14,6 +14,19 @@ style:
     active: false
   MagicNumber:
     ignorePropertyDeclaration: true
+  ForbiddenImport:
+    # Core layers are coroutines-only; Reactor may appear only in the adapter layers listed in `excludes`
+    # (design D9, §3.2). The excluded modules are matched by path, so the rule covers them as soon as they exist.
+    active: true
+    imports:
+      - value: 'reactor.*'
+        reason: 'Use suspend/Flow/StateFlow; Reactor is allowed only in store-redis, spring-boot-starter and server adapters.'
+      - value: 'kotlinx.coroutines.reactor.*'
+        reason: 'The Reactor bridge belongs to the adapter layers (store-redis, spring-boot-starter, server adapters).'
+    excludes:
+      - '**/store-redis/src/**'
+      - '**/spring-boot-starter/src/**'
+      - '**/server/src/*/kotlin/**/adapter/**'
   WildcardImport:
     excludeImports:
       - java.util.*

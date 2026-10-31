@@ -13,26 +13,7 @@
 
 rootProject.name = "CoSky"
 
-include(":cosky-core")
-include(":cosky-config")
-include(":cosky-discovery")
-include(":cosky-bom")
-include(":cosky-dependencies")
-include(":cosky-spring-cloud-core")
-include(":cosky-spring-cloud-starter-config")
-include(":cosky-spring-cloud-starter-discovery")
-include(":cosky-rest-api")
-// TODO
-// include(":cosky-mirror")
-include(":cosky-test")
+include(":bom")
+include(":dependencies")
+include(":test")
 include(":code-coverage-report")
-
-include(":cosky-service-provider")
-project(":cosky-service-provider").projectDir = file("examples/cosky-service-provider")
-
-include(":cosky-service-provider-api")
-project(":cosky-service-provider-api").projectDir = file("examples/cosky-service-provider-api")
-
-include(":cosky-service-consumer")
-project(":cosky-service-consumer").projectDir = file("examples/cosky-service-consumer")
-

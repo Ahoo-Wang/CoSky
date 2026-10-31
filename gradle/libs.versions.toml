@@ -13,12 +13,22 @@ junit = "6.0.3"
 fluent-assert = "0.2.8"
 mockk = "1.14.9"
 jmh = "1.37"
+# Aligned with the versions Spring Boot 4.1 (and Spring gRPC 1.1) manage, so the platform and the catalog agree.
+protobuf = "4.34.2"
+grpc-java = "1.80.0"
+grpc-kotlin = "1.5.0"
+kotlinx-coroutines = "1.10.2"
+testcontainers = "2.0.5"
+kotlinx-collections-immutable = "0.5.2"
+buf = "1.75.0"
+snakeyaml = "2.6"
 # plugins
 detekt = "1.23.8"
 dokka = "2.2.0"
 kotlin = "2.4.10"
 publish-Plugin = "2.0.0"
 jmh-plugin = "0.7.3"
+protobuf-plugin = "0.10.0"
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
 spring-cloud-dependencies = { module = "org.springframework.cloud:spring-cloud-dependencies", version.ref = "spring-cloud" }
@@ -35,6 +45,26 @@ mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
+protobuf-bom = { module = "com.google.protobuf:protobuf-bom", version.ref = "protobuf" }
+protobuf-java = { module = "com.google.protobuf:protobuf-java", version.ref = "protobuf" }
+protobuf-kotlin = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobuf" }
+protobuf-java-util = { module = "com.google.protobuf:protobuf-java-util", version.ref = "protobuf" }
+protobuf-protoc = { module = "com.google.protobuf:protoc", version.ref = "protobuf" }
+grpc-bom = { module = "io.grpc:grpc-bom", version.ref = "grpc-java" }
+grpc-protobuf = { module = "io.grpc:grpc-protobuf", version.ref = "grpc-java" }
+grpc-stub = { module = "io.grpc:grpc-stub", version.ref = "grpc-java" }
+grpc-inprocess = { module = "io.grpc:grpc-inprocess", version.ref = "grpc-java" }
+grpc-protoc-gen-java = { module = "io.grpc:protoc-gen-grpc-java", version.ref = "grpc-java" }
+grpc-kotlin-stub = { module = "io.grpc:grpc-kotlin-stub", version.ref = "grpc-kotlin" }
+grpc-protoc-gen-kotlin = { module = "io.grpc:protoc-gen-grpc-kotlin", version.ref = "grpc-kotlin" }
+kotlinx-coroutines-bom = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-bom", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-reactive = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-reactive", version.ref = "kotlinx-coroutines" }
+kotlinx-collections-immutable = { module = "org.jetbrains.kotlinx:kotlinx-collections-immutable", version.ref = "kotlinx-collections-immutable" }
+testcontainers-bom = { module = "org.testcontainers:testcontainers-bom", version.ref = "testcontainers" }
+buf = { module = "build.buf:buf", version.ref = "buf" }
+snakeyaml = { module = "org.yaml:snakeyaml", version.ref = "snakeyaml" }
 [plugins]
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
@@ -42,4 +72,5 @@ kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-spring = { id = "org.jetbrains.kotlin.plugin.spring", version.ref = "kotlin" }
 publish = { id = "io.github.gradle-nexus.publish-plugin", version.ref = "publish-Plugin" }
 jmh = { id = "me.champeau.jmh", version.ref = "jmh-plugin" }
+protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 

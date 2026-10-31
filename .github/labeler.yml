@@ -12,18 +12,19 @@
 #
 
 # Area labels, applied from the files a pull request changes (see .github/workflows/labeler.yml).
+# The 8.0 modules map onto the existing labels; the client serves both configuration and discovery.
 core:
   - changed-files:
-      - any-glob-to-any-file: ['cosky-core/**', 'cosky-spring-cloud-core/**']
+      - any-glob-to-any-file: ['api/**', 'store/**', 'store-redis/**', 'conformance-test/**', 'test/**']
 config:
   - changed-files:
-      - any-glob-to-any-file: ['cosky-config/**', 'cosky-spring-cloud-starter-config/**']
+      - any-glob-to-any-file: ['client/**', 'spring-boot-starter/**']
 discovery:
   - changed-files:
-      - any-glob-to-any-file: ['cosky-discovery/**', 'cosky-spring-cloud-starter-discovery/**']
+      - any-glob-to-any-file: ['client/**', 'spring-boot-starter/**']
 rest-api:
   - changed-files:
-      - any-glob-to-any-file: ['cosky-rest-api/**']
+      - any-glob-to-any-file: ['server/**']
 dashboard:
   - changed-files:
       - any-glob-to-any-file: ['dashboard/**']
@@ -32,7 +33,7 @@ documentation:
       - any-glob-to-any-file: ['wiki/**', 'docs/**', '**/*.md', 'llms.txt']
 dependencies:
   - changed-files:
-      - any-glob-to-any-file: ['gradle/libs.versions.toml', 'cosky-dependencies/**', '**/pnpm-lock.yaml', '**/pnpm-workspace.yaml']
+      - any-glob-to-any-file: ['gradle/libs.versions.toml', 'dependencies/**', '**/pnpm-lock.yaml', '**/pnpm-workspace.yaml']
 ci:
   - changed-files:
       - any-glob-to-any-file: ['.github/**']
