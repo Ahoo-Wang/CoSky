@@ -91,7 +91,10 @@ class ServerEndToEndTest {
         )
         RunningServer(secured, token = token.plaintext).use { server ->
             scenario {
-                server.createNamespace("secured")
+                // A server just started says so until its access rules have loaded, which readiness also waits for.
+                while (runCatching { server.createNamespace("secured") }.isFailure) {
+                    delay(SETTLE)
+                }
                 server.putConfig("secured", "a", "1")
                 val request = getRequest {
                     key = RunningServer.config("secured", "a", "1").key

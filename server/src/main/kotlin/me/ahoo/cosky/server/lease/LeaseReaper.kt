@@ -127,14 +127,36 @@ class LeaseReaper(
     }
 
     private suspend fun reap(namespace: String, now: Instant) {
+        val started = clock.instant()
         if (isProtected(namespace, now)) {
             return
         }
-        store.expiredLeases(namespace, options.maxPerTick).forEach { lease ->
+        val expired = store.expiredLeases(namespace, options.maxPerTick)
+        if (hung(started)) {
+            return
+        }
+        expired.forEach { lease ->
+            val before = clock.instant()
             if (store.expireLease(namespace, lease, ACTOR, force = false)) {
                 metrics.leaseExpired()
             }
+            if (hung(before)) {
+                return
+            }
         }
+    }
+
+    /**
+     * The store can hang in the middle of a tick as well as between two. What it then answers is what expired during
+     * the outage, which is exactly what must not be acted on, so this has to be noticed here too.
+     */
+    private fun hung(since: Instant): Boolean {
+        val now = clock.instant()
+        val hung = Duration.between(since, now) > options.interval.multipliedBy(STALL_INTERVALS)
+        if (hung) {
+            lastFailure = now
+        }
+        return hung
     }
 
     private suspend fun isProtected(namespace: String, now: Instant): Boolean {
