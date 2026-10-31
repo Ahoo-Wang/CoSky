@@ -53,6 +53,8 @@ import kotlin.time.Duration.Companion.seconds
  *
  * @param earliest the oldest position a watcher can resume from.
  * @param window the revisions after [earliest], [windowEvents] changes in total (design D29).
+ * @param instancesByService what most reads ask for: a watch of one service must not scan the whole namespace, since
+ * a replica answers one per client and service when it starts.
  */
 data class NamespaceView(
     val epoch: String,
@@ -61,6 +63,8 @@ data class NamespaceView(
     val objects: PersistentMap<ResourceKey, Resource>,
     val window: PersistentList<ChangeBatch>,
     val windowEvents: Int = window.sumOf { it.changes.size },
+    private val instancesByService: PersistentMap<String, PersistentMap<ResourceKey, Resource>> =
+        indexByService(objects.values),
 ) {
     /**
      * The namespace is not active, or does not exist.
@@ -68,14 +72,26 @@ data class NamespaceView(
     val isClosed: Boolean
         get() = this === CLOSED
 
+    /**
+     * The Instances of [service], in no particular order.
+     */
+    fun instancesOf(service: String): Collection<Resource> = instancesByService[service]?.values.orEmpty()
+
     fun applying(batch: ChangeBatch, windowSize: Int): NamespaceView {
-        val applied = batch.changes.fold(objects) { current, change ->
+        var applied = objects
+        var index = instancesByService
+        batch.changes.forEach { change ->
             val key = change.resource.key
-            when {
-                // Loading may have read this object after the change already; replaying it must not move it back.
-                (current[key]?.meta?.revision ?: 0) >= batch.revision -> current
-                change.type == ChangeType.PUT -> current.putting(key, change.resource)
-                else -> current.removing(key)
+            val current = applied[key]
+            // Loading may have read this object after the change already; replaying it must not move it back.
+            if ((current?.meta?.revision ?: 0) < batch.revision) {
+                current?.let { index = index.without(it) }
+                if (change.type == ChangeType.PUT) {
+                    applied = applied.putting(key, change.resource)
+                    index = index.with(change.resource)
+                } else {
+                    applied = applied.removing(key)
+                }
             }
         }
         var trimmed = window.adding(batch)
@@ -91,10 +107,38 @@ data class NamespaceView(
             objects = applied,
             window = trimmed,
             windowEvents = events,
+            instancesByService = index,
         )
     }
 
     companion object {
+        private fun indexByService(
+            objects: Collection<Resource>,
+        ): PersistentMap<String, PersistentMap<ResourceKey, Resource>> =
+            objects.fold(persistentHashMapOf()) { index, resource -> index.with(resource) }
+
+        private fun PersistentMap<String, PersistentMap<ResourceKey, Resource>>.with(
+            resource: Resource,
+        ): PersistentMap<String, PersistentMap<ResourceKey, Resource>> {
+            if (!resource.hasInstance()) {
+                return this
+            }
+            val service = resource.instance.service
+            val instances = this[service] ?: persistentHashMapOf()
+            return putting(service, instances.putting(resource.key, resource))
+        }
+
+        private fun PersistentMap<String, PersistentMap<ResourceKey, Resource>>.without(
+            resource: Resource,
+        ): PersistentMap<String, PersistentMap<ResourceKey, Resource>> {
+            if (!resource.hasInstance()) {
+                return this
+            }
+            val service = resource.instance.service
+            val instances = this[service]?.removing(resource.key) ?: return this
+            return if (instances.isEmpty()) removing(service) else putting(service, instances)
+        }
+
         /**
          * Every wait for a revision ends on it, and it holds nothing.
          */

@@ -40,6 +40,7 @@ import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.configSpec
+import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.store.Change
@@ -346,6 +347,55 @@ class WatchSessionTest {
         val applied = view.applying(ChangeBatch(4, listOf(Change(ChangeType.PUT, older))), WINDOW)
         applied.objects.getValue(newer.key).meta.revision.assert().isEqualTo(5)
         applied.revision.assert().isEqualTo(4)
+    }
+
+    @Test
+    fun `the instances of a service follow every change`() {
+        fun instance(name: String, service: String, revision: Long) = resource {
+            meta = objectMeta {
+                namespace = NAMESPACE
+                this.name = name
+                this.revision = revision
+            }
+            instance = instanceSpec { this.service = service }
+        }
+        fun names(view: NamespaceView, service: String) = view.instancesOf(service).map { it.meta.name }.sorted()
+        fun put(view: NamespaceView, revision: Long, resource: Resource) =
+            view.applying(ChangeBatch(revision, listOf(Change(ChangeType.PUT, resource))), WINDOW)
+
+        val existing = instance("a", "order", 1)
+        val loaded = NamespaceView("e", 1, 1, persistentHashMapOf(existing.key to existing), persistentListOf())
+        names(loaded, "order").assert().containsExactly("a")
+
+        val added = put(loaded, 2, instance("b", "order", 2))
+        names(added, "order").assert().containsExactly("a", "b")
+
+        val moved = put(added, 3, instance("a", "payment", 3))
+        names(moved, "order").assert().containsExactly("b")
+        names(moved, "payment").assert().containsExactly("a")
+
+        val stale = put(moved, 3, instance("a", "order", 3))
+        names(stale, "payment").assert().containsExactly("a")
+
+        val deleted = moved.applying(
+            ChangeBatch(4, listOf(Change(ChangeType.DELETE, instance("b", "order", 4)))),
+            WINDOW,
+        )
+        deleted.instancesOf("order").assert().isEmpty()
+        deleted.instancesOf("never").assert().isEmpty()
+
+        val withConfig = put(deleted, 5, config("c"))
+        withConfig.instancesOf("").assert().isEmpty()
+    }
+
+    @Test
+    fun `a watch of one object finds it, and finds nothing for one that is not there`() = scenario {
+        put("wanted")
+        caughtUpTo(1)
+        watch(create(name = "wanted")) { it.hasSnapshot() }
+            .single().snapshot.itemsList.map { it.meta.name }.assert().containsExactly("wanted")
+        watch(create(name = "absent")) { it.hasSnapshot() }
+            .single().snapshot.itemsList.assert().isEmpty()
     }
 
     @Test
