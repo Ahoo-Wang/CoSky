@@ -21,6 +21,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.client.CoSkyClient
+import me.ahoo.cosky.client.effectiveWeight
 import me.ahoo.cosky.spring.CoSkyProperties
 import org.springframework.cloud.client.DefaultServiceInstance
 import org.springframework.cloud.client.ServiceInstance
@@ -81,7 +82,7 @@ class CoSkyReactiveDiscoveryClient(client: CoSkyClient, private val properties: 
 
 /**
  * Pushes every change of a service's view to Spring Cloud LoadBalancer, which owns the balancing algorithm
- * (design §7.7).
+ * (design §7.7). A drained instance stays out of its list, as it does for the client's own balancer.
  */
 class CoSkyServiceInstanceListSupplier(private val service: String, client: CoSkyClient, properties: CoSkyProperties) :
     ServiceInstanceListSupplier {
@@ -90,5 +91,6 @@ class CoSkyServiceInstanceListSupplier(private val service: String, client: CoSk
     override fun getServiceId(): String = service
 
     override fun get(): Flux<List<ServiceInstance>> =
-        view.map { instances -> instances.map { it.toServiceInstance() } }.asFlux(VirtualThreads.dispatcher)
+        view.map { instances -> instances.filter { it.effectiveWeight > 0 }.map { it.toServiceInstance() } }
+            .asFlux(VirtualThreads.dispatcher)
 }
