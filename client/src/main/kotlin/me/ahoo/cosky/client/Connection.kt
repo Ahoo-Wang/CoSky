@@ -43,7 +43,13 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
      */
     fun rotate(failed: Channel) {
         val previous = synchronized(lock) {
-            if (failed !== decorated || options.endpoints.size == 1) {
+            if (failed !== decorated) {
+                return
+            }
+            if (options.endpoints.size == 1) {
+                // A channel backs off by itself, up to two minutes, far past the TTL of a lease. The caller's backoff
+                // is the one that should decide (design §7.5).
+                raw.resetConnectBackoff()
                 return
             }
             val old = raw

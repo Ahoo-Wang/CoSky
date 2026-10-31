@@ -7,6 +7,10 @@ spring:
   grpc:
     server:
       port: 9090
+      shutdown:
+        # Watches and keep-alives never finish by themselves, so a shutdown would always wait this long. Clients
+        # reconnect to another replica when it ends them.
+        grace-period: 5s
   http:
     codecs:
       # A Config of 1 MiB, or an archive of them.

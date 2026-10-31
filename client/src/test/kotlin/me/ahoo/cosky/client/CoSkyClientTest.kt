@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.StatusException
 import io.grpc.inprocess.InProcessChannelBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -341,6 +342,29 @@ class CoSkyClientTest {
         restored.map { it.meta.lease }.toSet().single().assert().isNotEqualTo(lost)
         restored.first { it.meta.name == "a" }.instance.metadataMap.assert().containsEntry("zone", "az1")
         restored.first { it.meta.name == "a" }.instance.weight.assert().isEqualTo(3)
+    }
+
+    @Test
+    fun `closing still finishes when the server is out of reach`() = scenario {
+        val client = client()
+        client.namespace(NAMESPACE).instances.register("order", ENDPOINT)
+        server.stop()
+        client.close()
+        client.connectionState.value.assert().isEqualTo(ConnectionState.CLOSED)
+    }
+
+    @Test
+    fun `a registration that cannot be closed stays, and keeps being renewed`() = scenario {
+        val client = client(leaseTtl = 6.seconds)
+        val registration = client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
+        server.stop()
+        (runCatching { registration.close() }.exceptionOrNull() is StatusException).assert().isTrue()
+        server.start()
+        // It is still registered, so closing can be tried again, and it now succeeds.
+        eventually {
+            runCatching { registration.close() }.isSuccess
+        }
+        instancesOnServer().assert().isEmpty()
     }
 
     @Test

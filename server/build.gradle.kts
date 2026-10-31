@@ -32,6 +32,7 @@ dependencies {
     testImplementation(project(":conformance-test"))
     testImplementation(project(":client"))
     testImplementation("io.grpc:grpc-inprocess")
+    testImplementation("org.testcontainers:testcontainers-toxiproxy")
 }
 
 // The server runs on JDK 25 and compiles to Java 21 like every other module (design D27).
