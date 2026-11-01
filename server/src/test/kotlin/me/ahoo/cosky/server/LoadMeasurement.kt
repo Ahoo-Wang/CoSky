@@ -67,13 +67,33 @@ class LoadMeasurement {
     private val watchesPerConnection = env("COSKY_LOAD_WATCHES_PER_CONNECTION", 20)
     private val instances = env("COSKY_LOAD_INSTANCES", 50_000)
     private val configs = env("COSKY_LOAD_CONFIGS", 10_000)
+    private val propagationWrites = env("COSKY_LOAD_PROPAGATION_WRITES", PROPAGATION_WRITES)
+    private val propagationPause = env("COSKY_LOAD_PROPAGATION_PAUSE_MS", DEFAULT_PROPAGATION_PAUSE_MS).milliseconds
     private val http = HttpClient.newHttpClient()
 
     private fun env(name: String, default: Int): Int = System.getenv(name)?.toInt() ?: default
 
     private fun report(line: String) = println("MEASURE $line")
 
-    private inner class ServerProcess(redis: RedisContainer, private val heap: String = "6g") : AutoCloseable {
+    /**
+     * A Redis of its own, or `COSKY_LOAD_REDIS_URI`: inside a container, the ports of another one may not be reachable.
+     */
+    private suspend fun withRedis(block: suspend (uri: String) -> Unit) {
+        val given = System.getenv("COSKY_LOAD_REDIS_URI")
+        if (given != null) {
+            block(given)
+            return
+        }
+        RedisContainer().use { redis ->
+            redis.start()
+            block("redis://${redis.host}:${redis.getMappedPort(RedisContainer.REDIS_PORT)}")
+        }
+    }
+
+    private inner class ServerProcess(
+        redisUri: String,
+        private val heap: String = System.getenv("COSKY_LOAD_SERVER_HEAP") ?: "6g",
+    ) : AutoCloseable {
         val httpPort = ServerSocket(0).use { it.localPort }
         val grpcPort = ServerSocket(0).use { it.localPort }
         private val process: Process = ProcessBuilder(
@@ -86,7 +106,7 @@ class LoadMeasurement {
             "--server.port=$httpPort",
             "--spring.grpc.server.port=$grpcPort",
             "--cosky.auth.enabled=false",
-            "--cosky.store.redis.uri=redis://${redis.host}:${redis.getMappedPort(RedisContainer.REDIS_PORT)}",
+            "--cosky.store.redis.uri=$redisUri",
             "--logging.level.root=WARN",
             "--cosky.watch.window=${env("COSKY_LOAD_WINDOW", DEFAULT_WINDOW)}",
         )
@@ -251,8 +271,7 @@ class LoadMeasurement {
     @Suppress("LongMethod") // One measurement after another, in order, is clearer than split up.
     @Test
     fun `the targets of design 7 10`() = runBlocking<Unit>(Dispatchers.Default) {
-        RedisContainer().use { redis ->
-            redis.start()
+        withRedis { redis ->
             ServerProcess(redis).use { server ->
                 report("server ready in ${server.awaitReady()}ms")
                 val writeChannel = channel(server.grpcPort)
@@ -311,16 +330,16 @@ class LoadMeasurement {
                 )
 
                 // --- propagation: each write reaches every connection, through a watch among many ---
-                repeat(PROPAGATION_WRITES) { index ->
+                repeat(propagationWrites) { index ->
                     val written = instance("propagating", "service-0", System.nanoTime())
                         .toBuilder().apply { metaBuilder.putLabels("write", index.toString()) }.build()
                     resources.put(PutRequest.newBuilder().setResource(written).build())
-                    delay(PROPAGATION_PAUSE)
+                    delay(propagationPause)
                 }
                 delay(PROPAGATION_SETTLE)
                 val samples = delivered.toList()
                 report(
-                    "propagation expected=${connections * PROPAGATION_WRITES} " +
+                    "propagation expected=${connections * propagationWrites} pause=$propagationPause " +
                         percentiles(samples.ifEmpty { listOf(-1L) }),
                 )
                 report(
@@ -347,8 +366,7 @@ class LoadMeasurement {
      */
     @Test
     fun `the window through a rolling restart`() = runBlocking<Unit>(Dispatchers.Default) {
-        RedisContainer().use { redis ->
-            redis.start()
+        withRedis { redis ->
             val rates = System.getenv("COSKY_LOAD_RATES")?.split(",")?.map { it.toInt() }
                 ?: listOf(WINDOW_SLOW_RATE, WINDOW_FAST_RATE)
             rates.forEach { rate -> rollingRestart(redis, rate) }
@@ -356,7 +374,7 @@ class LoadMeasurement {
     }
 
     @Suppress("LongMethod") // One scenario, in order.
-    private suspend fun rollingRestart(redis: RedisContainer, rate: Int) = coroutineScope {
+    private suspend fun rollingRestart(redis: String, rate: Int) = coroutineScope {
         val first = ServerProcess(redis, "2g")
         val second = ServerProcess(redis, "2g")
         first.awaitReady()
@@ -430,6 +448,7 @@ class LoadMeasurement {
         const val WRITERS = 16
         const val OPEN_TIMEOUT_SECONDS = 600L
         const val PROPAGATION_WRITES = 100
+        const val DEFAULT_PROPAGATION_PAUSE_MS = 200
         const val P50 = 0.5
         const val P95 = 0.95
         const val P99 = 0.99
@@ -444,7 +463,6 @@ class LoadMeasurement {
         const val TICKS_PER_SECOND = 10
         const val MILLIS_PER_TICK = 100L
         const val MILLIS_PER_SECOND = 1000
-        val PROPAGATION_PAUSE = 200.milliseconds
         val PROPAGATION_SETTLE = 5.seconds
         val WINDOW_WARM_UP = 5.seconds
         val WINDOW_AFTER_KILL = 15.seconds
