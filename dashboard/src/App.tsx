@@ -11,13 +11,17 @@
  * limitations under the License.
  */
 
+import {useEffect} from 'react';
 import {HashRouter} from 'react-router-dom';
 import '@/services/fetcher';
 import {AppRoutes} from "@/AppRoutes";
 import {ErrorBoundary} from "@/components/error/ErrorBoundary";
 import {Toaster} from "@/components/ui/sonner";
+import {startRenewing} from "@/security/renewal";
 
 function App() {
+    useEffect(() => startRenewing(), []);
+
     return (
         <ErrorBoundary>
             <HashRouter>

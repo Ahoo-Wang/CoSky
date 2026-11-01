@@ -15,6 +15,7 @@ package me.ahoo.cosky.server.auth
 
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Subject
+import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2Error
 import org.springframework.security.oauth2.core.OAuth2TokenValidator
@@ -22,9 +23,13 @@ import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
 import org.springframework.security.oauth2.jwt.BadJwtException
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
+import org.springframework.security.oauth2.jwt.JwtDecoderInitializationException
 import org.springframework.security.oauth2.jwt.JwtException
 import org.springframework.security.oauth2.jwt.JwtValidators
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import org.springframework.security.oauth2.jwt.SupplierJwtDecoder
+import org.springframework.web.client.RestTemplate
+import java.time.Duration
 
 /**
  * Verifies the OIDC ID token of a person (design §6.3, §7.8): the server is only a resource server, and the Dashboard
@@ -47,10 +52,37 @@ class OidcAuthenticator(private val decoder: JwtDecoder, private val groupsClaim
     }
 
     companion object {
-        fun create(issuer: String, audience: String, groupsClaim: String): OidcAuthenticator {
-            val decoder = NimbusJwtDecoder.withIssuerLocation(issuer).build()
-            decoder.setJwtValidator(validator(issuer, audience))
-            return OidcAuthenticator(decoder, groupsClaim)
+        private val PROVIDER_TIMEOUT = Duration.ofSeconds(5)
+
+        /**
+         * Finds the provider on first use rather than here: only people sign in through it, so its being away must not
+         * keep a server from starting and serving applications, which come with tokens of their own.
+         */
+        fun create(
+            issuer: String,
+            audience: String,
+            groupsClaim: String,
+            timeout: Duration = PROVIDER_TIMEOUT,
+        ): OidcAuthenticator {
+            val requests = SimpleClientHttpRequestFactory().apply {
+                setConnectTimeout(timeout)
+                setReadTimeout(timeout)
+            }
+            val decoder = SupplierJwtDecoder {
+                NimbusJwtDecoder.withIssuerLocation(issuer).restOperations(RestTemplate(requests)).build().apply {
+                    setJwtValidator(validator(issuer, audience))
+                }
+            }
+            return OidcAuthenticator(
+                { token ->
+                    try {
+                        decoder.decode(token)
+                    } catch (e: JwtDecoderInitializationException) {
+                        throw JwtException("The provider cannot be found.", e)
+                    }
+                },
+                groupsClaim,
+            )
         }
 
         /**

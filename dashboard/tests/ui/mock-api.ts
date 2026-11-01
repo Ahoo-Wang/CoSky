@@ -41,6 +41,12 @@ export interface MockApi {
     failing?: {method: string; path: RegExp; status: number; message: string};
     /** A provider that answers wrongly, to see the page refuse it. */
     providerAnswer?: 'wrong-state' | 'wrong-nonce' | 'denied';
+    /** How long an ID token lasts. */
+    idTokenSeconds: number;
+    /** What the provider does about refresh tokens: refusing them comes after giving one. */
+    refreshTokens: 'given' | 'not-given' | 'refused';
+    /** An account nobody has given a role yet. */
+    noRules: boolean;
     requests: RecordedRequest[];
     /** Such requests take this long. */
     slow?: {path: RegExp; milliseconds: number};
@@ -102,6 +108,9 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
     const mockApi: MockApi = {
         auth: options.auth ?? true,
         oidc: options.oidc ?? false,
+        idTokenSeconds: 300,
+        refreshTokens: 'given',
+        noRules: false,
         empty: options.empty ?? false,
         requests: [],
         releaseWatch: (message = {events: {revision: nextRevision(), events: []}}) =>
@@ -202,7 +211,12 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         }
         if (path === '/v1/me') {
             await json(route, mockApi.auth
-                ? {subject: {type: 'TYPE_SERVICE_ACCOUNT', name: 'admin'}, rules: []}
+                ? mockApi.noRules
+                    ? {subject: {type: 'TYPE_USER', name: 'ada-id'}, groups: ['devs'], rules: []}
+                    : {
+                        subject: {type: 'TYPE_SERVICE_ACCOUNT', name: 'admin'},
+                        rules: [{kinds: ['KIND_NAMESPACE'], namespaces: ['*'], verbs: ['VERB_GET']}],
+                    }
                 : {subject: {name: 'anonymous'}});
             return;
         }
@@ -318,6 +332,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
     // An identity provider, checking PKCE as a real one does.
     let challenge = '';
     let nonce = '';
+    let renewals = 0;
     await page.route(`${ISSUER}/**`, async route => {
         const url = new URL(route.request().url());
         if (url.pathname === '/.well-known/openid-configuration') {
@@ -328,6 +343,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
                 body: JSON.stringify({
                     authorization_endpoint: `${ISSUER}/authorize`,
                     token_endpoint: `${ISSUER}/token`,
+                    end_session_endpoint: `${ISSUER}/logout`,
                 }),
             });
             return;
@@ -348,13 +364,32 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             await route.fulfill({status: 302, headers: {Location: back.toString()}});
             return;
         }
+        if (url.pathname === '/logout') {
+            const back = url.searchParams.get('post_logout_redirect_uri') as string;
+            await route.fulfill({status: 302, headers: {Location: back}});
+            return;
+        }
         const form = new URLSearchParams(route.request().postData() ?? '');
-        const verified = form.get('code') === 'the-code'
-            && form.get('grant_type') === 'authorization_code'
-            && challengeOf(form.get('code_verifier') ?? '') === challenge;
+        const renewal = form.get('grant_type') === 'refresh_token';
+        const verified = renewal
+            ? form.get('refresh_token') === `refresh-${renewals}` && mockApi.refreshTokens === 'given'
+            : form.get('code') === 'the-code'
+                && form.get('grant_type') === 'authorization_code'
+                && challengeOf(form.get('code_verifier') ?? '') === challenge;
+        if (renewal && verified) {
+            renewals++;
+        }
+        const now = Math.floor(Date.now() / 1000);
         const idToken = [
             encode({alg: 'none'}),
-            encode({sub: 'ada', nonce: mockApi.providerAnswer === 'wrong-nonce' ? 'someone-elses' : nonce}),
+            encode({
+                sub: 'ada-id',
+                preferred_username: 'ada',
+                iat: now,
+                exp: now + mockApi.idTokenSeconds,
+                renewal: renewals,
+                nonce: mockApi.providerAnswer === 'wrong-nonce' ? 'someone-elses' : nonce,
+            }),
             '',
         ].join('.');
         issued.add(idToken);
@@ -362,7 +397,9 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             status: verified ? 200 : 400,
             contentType: 'application/json',
             headers: {'Access-Control-Allow-Origin': '*'},
-            body: JSON.stringify(verified ? {id_token: idToken} : {error: 'invalid_grant'}),
+            body: JSON.stringify(verified
+                ? {id_token: idToken, ...(mockApi.refreshTokens === 'not-given' ? {} : {refresh_token: `refresh-${renewals}`})}
+                : {error: 'invalid_grant'}),
         });
     });
 

@@ -137,6 +137,77 @@ test.describe('signing in', () => {
         await expect.poll(() => lastRequest(api, 'GET', '/v1/me')?.headers.authorization).toMatch(/^Bearer ey/);
     });
 
+    const signInWithOidc = async (page: Page) => {
+        await page.goto('/#/login');
+        await page.getByRole('button', {name: 'Sign in with idp.example'}).click();
+        await page.waitForURL('**/#/home');
+    };
+
+    test('an ID token about to expire is renewed, and the page someone is on stays as it is', async ({page}) => {
+        const api = await installApiMock(page, {oidc: true});
+        api.idTokenSeconds = 3;
+        await signInWithOidc(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await page.getByLabel('Name', {exact: true}).fill('in-progress.yaml');
+        const before = lastRequest(api, 'GET', '/v1/me')?.headers.authorization;
+        const askedWhoAmI = api.requests.filter(request => request.path === '/v1/me').length;
+
+        await expect.poll(
+            () => page.evaluate(() => sessionStorage.getItem('cosky.token')),
+            {timeout: 5_000},
+        ).not.toBe(before?.replace('Bearer ', ''));
+
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('in-progress.yaml');
+        expect(page.url()).toContain('/config');
+        // It is still the same person, and a failure to ask again would take down the page.
+        expect(api.requests.filter(request => request.path === '/v1/me')).toHaveLength(askedWhoAmI);
+    });
+
+    test('a provider that gives no refresh token leaves the token to expire', async ({page}) => {
+        const api = await installApiMock(page, {oidc: true});
+        api.refreshTokens = 'not-given';
+        api.idTokenSeconds = 2;
+        await signInWithOidc(page);
+        const token = await page.evaluate(() => sessionStorage.getItem('cosky.token'));
+
+        await page.waitForTimeout(2_500);
+
+        expect(await page.evaluate(() => sessionStorage.getItem('cosky.token'))).toBe(token);
+    });
+
+    test('signing out ends the session at the provider too', async ({page}) => {
+        await installApiMock(page, {oidc: true});
+        await signInWithOidc(page);
+        const token = await page.evaluate(() => sessionStorage.getItem('cosky.token'));
+
+        const logout = page.waitForRequest(request => request.url().includes('/logout'));
+        await page.locator('[data-slot="account-menu-trigger"]').click();
+        await page.getByRole('menuitem', {name: 'Sign out'}).click();
+        const url = new URL((await logout).url());
+
+        expect(url.searchParams.get('id_token_hint')).toBe(token);
+        expect(url.searchParams.get('client_id')).toBe('dashboard');
+        await page.waitForURL('**/#/login');
+        expect(await page.evaluate(() => Object.keys(sessionStorage))).not.toContain('cosky.oidc.signIn');
+    });
+
+    test('a person shows up by name rather than by id', async ({page}) => {
+        await installApiMock(page, {oidc: true});
+        await signInWithOidc(page);
+        await expect(page.locator('[data-slot="account-menu-trigger"]')).toContainText('ada');
+        await expect(page.locator('[data-slot="account-menu-trigger"]')).not.toContainText('admin');
+    });
+
+    test('an account with no role is told so, with what to bind', async ({page}) => {
+        const api = await installApiMock(page, {oidc: true});
+        api.noRules = true;
+        await signInWithOidc(page);
+        const notice = page.getByRole('alert').filter({hasText: 'no permissions'});
+        await expect(notice).toContainText('ada-id');
+        await expect(notice).toContainText('devs');
+    });
+
     for (const [answer, message] of [
         ['wrong-state', 'does not belong to this sign-in'],
         ['wrong-nonce', 'does not belong to this sign-in'],

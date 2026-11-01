@@ -23,11 +23,14 @@ import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.springframework.security.oauth2.jwt.JwtException
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
+import java.net.ServerSocket
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPublicKey
+import java.time.Duration
 import java.time.Instant
 import java.util.Date
 
@@ -75,6 +78,30 @@ class OidcAuthenticatorTest {
         val unreachable = OidcAuthenticator({ throw JwtException("Couldn't retrieve the keys.") }, "groups")
         val failure = runCatching { unreachable.authenticate(token()) }.exceptionOrNull() as CoSkyException
         failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+    }
+
+    @Test
+    fun `a provider that is away does not stop it being created, and tokens then wait for the provider`() {
+        val port = ServerSocket(0).use { it.localPort }
+        val away = OidcAuthenticator.create("http://127.0.0.1:$port/realms/gone", AUDIENCE, "groups")
+        val failure = runCatching { away.authenticate(token()) }.exceptionOrNull() as CoSkyException
+        failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+    }
+
+    @Test
+    fun `a provider that never answers does not hold a call for long`() {
+        ServerSocket(0).use { silent ->
+            val slow = OidcAuthenticator.create(
+                "http://127.0.0.1:${silent.localPort}/realms/slow",
+                AUDIENCE,
+                "groups",
+                Duration.ofMillis(200),
+            )
+            val failure = assertTimeoutPreemptively<CoSkyException>(Duration.ofSeconds(5)) {
+                runCatching { slow.authenticate(token()) }.exceptionOrNull() as CoSkyException
+            }
+            failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+        }
     }
 
     @Test
