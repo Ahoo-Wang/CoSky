@@ -8,7 +8,7 @@ description: The Kotlin client without Spring, its snapshots and connection stat
 `cosky-client` is a coroutine client with no dependency on Spring or Redis. The starter is built on it. It needs JDK 21 or later.
 
 ```kotlin
-implementation("me.ahoo.cosky:cosky-client:8.0.0")
+implementation("me.ahoo.cosky:cosky-client:8.0.0-alpha.1")
 ```
 
 ```kotlin

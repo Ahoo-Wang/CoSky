@@ -62,8 +62,8 @@ graph LR
 <doc title="Getting Started" path="guide/getting-started.md">
 # Getting Started
 
-::: warning 8.0 has not been released yet
-The image and artifacts on this page are not published yet, and `ahoowang/cosky` is still 6.x. The documentation for 6.x is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+::: warning 8.0 is in alpha
+`8.0.0-alpha.1` is a preview with no compatibility promise: its API, wire format and Redis keys may still change. `ahoowang/cosky:latest` is still 6.x, whose documentation is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 :::
 
 This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
@@ -71,7 +71,7 @@ This takes a server in development mode and a Spring Boot 4 application. [Requir
 ## 1. Start a server
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.1 --dev
 ```
 
 `--dev` needs no Redis and no sign-in. Nothing survives a restart, so never run it for real: [Deployment](./deployment.md) shows how. Port 9090 serves applications over gRPC. Port 8080 serves the REST API and the Dashboard, at <http://localhost:8080>.
@@ -82,17 +82,21 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky --dev
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-alpha.1"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context") // for live refresh
 }
 ```
 
+In Kotlin, add the `kotlin("plugin.spring")` Gradle plugin as well: the bean in `@RefreshScope` below has to be open.
+
 ## 3. Configure the application
 
 ```yaml
 # application.yaml
+server:
+  port: 8081 # 8080 is the CoSky server
 spring:
   application:
     name: provider
@@ -130,7 +134,7 @@ class HelloController(@Value("\${example.greeting:Hello}") private val greeting:
 
 ## 5. Find it from another application
 
-Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name, and call the provider by its service name:
+Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name and port, and call the provider by its service name:
 
 ```kotlin
 @Bean
@@ -195,9 +199,11 @@ cosky:
   namespace: prod
 ```
 
-- `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it.
+- Only `default` exists at first. Create any other namespace before using it: `curl -X PUT localhost:8080/v1/namespaces/prod -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{"namespace":{}}'`.
+- `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it. When the server refuses, the start fails at once, and the log says why.
 - YAML and JSON are parsed as YAML, and properties as properties. A TEXT Config becomes one property named after the Config.
 - `cosky.config.load-timeout` (5 seconds) limits how long an import waits for the server.
+- An import connects with what is known of `cosky.*` when its file is read, so keep these settings in the same file or in the environment. Spring reads `application.yaml` before `application-prod.yaml`, whose settings do not reach an import in the former.
 
 ## Live refresh
 
@@ -303,13 +309,15 @@ Allowed TTLs are 5 to 300 seconds.
 
 ## Finding services
 
-`DiscoveryClient` and `ReactiveDiscoveryClient` read the local view. The first read of a service waits up to `cosky.discovery.load-timeout` (5 seconds), so that "not known yet" is not mistaken for "empty". Afterwards, a read costs no network round trip.
+`DiscoveryClient` and `ReactiveDiscoveryClient` read the local view. The first read of a service waits up to `cosky.discovery.load-timeout` (5 seconds), so that "not known yet" is not mistaken for "empty". If the server refuses, for lack of permission or because the namespace does not exist, the read throws a `CoSkyException` at once. Afterwards, a read costs no network round trip.
 
 Add `spring-cloud-starter-loadbalancer`, and `@LoadBalanced` clients get their instances from CoSky, with Spring Cloud's own algorithms choosing among them.
 
 ## Weights
 
 A weight of `0` keeps an instance registered but takes it out of rotation, which is how to drain one: load balancers leave it out, while `DiscoveryClient` still lists it. The Kotlin client's load balancer picks at random in proportion to weight. Spring Cloud LoadBalancer's default round robin treats every other weight alike.
+
+An operator can set it on an instance an application registered. It lasts until the application registers again, after restarting or losing its lease.
 
 ## Fixed instances
 
@@ -348,7 +356,7 @@ A client that watches a service counts as consuming it. The topology on the [Das
 `cosky-client` is a coroutine client with no dependency on Spring or Redis. The starter is built on it. It needs JDK 21 or later.
 
 ```kotlin
-implementation("me.ahoo.cosky:cosky-client:8.0.0")
+implementation("me.ahoo.cosky:cosky-client:8.0.0-alpha.1")
 ```
 
 ```kotlin
@@ -372,6 +380,8 @@ val config: Resource? = prod.configs.load("order-service.yaml")
 val current: StateFlow<Resource?> = prod.configs.watch("order-service.yaml")
 current.collect { apply(it?.config?.content) }
 ```
+
+`load` throws a `CoSkyException` when the server refuses the watch, such as for lack of permission or because the namespace does not exist, unless a snapshot knows better. The watch keeps trying, so a later `load` works once that changes.
 
 ## Finding instances
 
@@ -473,13 +483,28 @@ CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noevicti
 
 Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
 
+If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token, so leave that token set. The rest is gone: other namespaces, Configs, Roles and RoleBindings. Create them again, or import a [zip export](./configuration.md#import-and-export) you kept. Applications go on serving what they know until their namespace exists again, then follow what is there and register themselves.
+
 ## Docker
 
 ```bash
-docker run -d --name cosky -p 8080:8080 -p 9090:9090 \
+docker network create cosky
+```
+
+```bash
+docker run -d --name redis --network cosky redis:7.4
+```
+
+```bash
+export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
+echo "$COSKY_BOOTSTRAP_TOKEN"
+```
+
+```bash
+docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
-  -e COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)" \
-  ahoowang/cosky
+  -e COSKY_BOOTSTRAP_TOKEN \
+  ahoowang/cosky:8.0.0-alpha.1
 ```
 
 Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
@@ -506,6 +531,8 @@ For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overla
 
 Probes use `/actuator/health/liveness` and `/actuator/health/readiness`. A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
 
+A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it.
+
 ## Rolling updates
 
 On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does.
@@ -521,6 +548,7 @@ Metrics are at `/actuator/prometheus`:
 | Metric | Watch for |
 |---|---|
 | `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
+| `cosky_cache_revision{namespace}` | Replicas that disagree for long: one of them is cut off from Redis |
 | `cosky_store_apply_seconds` | Write latency |
 | `cosky_watch_active` | Watches on this replica |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
@@ -563,6 +591,10 @@ On its first start, a server without any role binding turns `COSKY_BOOTSTRAP_TOK
 export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
 ```
 
+- The server reads it only while no role binding exists. After that another value does nothing, so removing it changes nothing either.
+- Without it, a server with no role binding starts and logs a warning, and nobody can sign in.
+- To replace a lost token, run one server on the same Redis with `--cosky.auth.enabled=false`, where nobody else can reach it. Create a token with `POST /v1/serviceaccounts/admin/tokens`, revoke the lost one, and stop that server.
+
 ### OIDC
 
 ```yaml
@@ -580,7 +612,15 @@ The Dashboard signs in through the authorization code flow with PKCE, so registe
 
 ## Who may do what
 
-A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces.
+A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces. Three roles are built in, and a Role cannot take their names:
+
+| Role | Allows |
+|---|---|
+| `admin` | Everything |
+| `viewer` | Reading and watching everything |
+| `client` | Reading and watching Configs, and reading, watching and writing Instances |
+
+Your own roles look like this:
 
 ```json
 {
@@ -650,6 +690,18 @@ cosky:
 
 Mutual TLS is not supported yet: a client proves who it is with its token.
 
+With TLS on, port 8080 speaks only HTTPS, while the image's health check and the probes in `k8s/base` use HTTP. Give them a plain port of their own:
+
+```yaml
+management:
+  server:
+    port: 8081
+    ssl:
+      enabled: false
+```
+
+Then point the probes at it, and the container's check too: `docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`.
+
 ## Audit
 
 Each write and each failed sign-in is one JSON line in the log, with the time, subject, verb, kind, namespace, name, revision, outcome and remote address. Config contents and tokens never appear. The server keeps no audit data of its own: collect the lines with your log system, which also decides how long they stay.
@@ -659,6 +711,8 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 - Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
 - Anyone who can reach Redis can read and change everything, past all of the above.
 - Instance metadata is visible to anyone allowed to read the instance.
+- `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
+- gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.
 </doc>
 
 <doc title="Dashboard" path="guide/dashboard.md">
@@ -716,6 +770,8 @@ If some services must call each other across generations during a move, run the 
 | Service names | Anything | DNS-style names, lowercase |
 | Config formats | Guessed from the extension | Declared with the Config |
 | Staying alive | Each instance's own TTL | One lease per process |
+| Applications without a web server | Registered, given `registry.port` | Do not register by themselves: call the client's `instances.register` |
+| Taking an instance out of rotation | `ServiceRegistry.setStatus` | A weight of `0` |
 | People | Users with passwords | OIDC, or ServiceAccount tokens |
 | Permissions | Read or write per namespace | Roles down to kinds, verbs and name prefixes |
 | Audit | A page in the Dashboard | JSON lines in the log |
@@ -734,13 +790,17 @@ If some services must call each other across generations during a move, run the 
 
 Revisions and timestamps start anew. A Config removed in 6.x has no current version, and does not arrive.
 
-## Building the tool
+## Getting the tool
+
+Each [release](https://github.com/Ahoo-Wang/CoSky/releases) carries `cosky-migrate` as a zip file. Unpack it, and run `bin/cosky-migrate` with JDK 21 or later.
+
+To build it instead, with JDK 21 installed:
 
 ```bash
 ./gradlew :migration:installDist
 ```
 
-The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`, and needs JDK 21 or later.
+The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`.
 
 ## The cutover
 
@@ -907,7 +967,7 @@ The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the fu
 
 ## Conventions
 
-**Authentication**: `Authorization: Bearer <token>`, on everything except `GET /v1/auth/config`.
+**Authentication**: `Authorization: Bearer <token>`, on everything except `GET /v1/auth/config` and [Actuator](./security.md#what-is-not-protected).
 
 **Resources** have shared metadata and one kind-specific spec, in proto3 JSON. Empty fields are left out, and 64-bit numbers such as revisions are strings.
 
@@ -1015,9 +1075,9 @@ Computed from the server's memory, read-only.
 | Method | Path | |
 |---|---|---|
 | GET | `/v1/namespaces` | |
-| GET, PUT, DELETE | `/v1/namespaces/{name}` | Only an empty namespace can be deleted |
+| GET, PUT, DELETE | `/v1/namespaces/{name}` | The smallest body is `{"namespace":{}}`. Only an empty namespace can be deleted. |
 | GET | `/v1/serviceaccounts` | |
-| GET, PUT, DELETE | `/v1/serviceaccounts/{name}` | `tokens` in the body is ignored |
+| GET, PUT, DELETE | `/v1/serviceaccounts/{name}` | The smallest body is `{"serviceAccount":{}}`. `tokens` in the body is ignored. |
 | POST | `/v1/serviceaccounts/{name}/tokens` | Returns the plaintext once. `{"expiresAt": "..."}` is optional. |
 | DELETE | `/v1/serviceaccounts/{name}/tokens/{tokenId}` | |
 | GET | `/v1/roles` | |
@@ -1048,6 +1108,7 @@ Computed from the server's memory, read-only.
 | Server | JDK 25 | The image includes it |
 | Client and starter | JDK 21 or later | |
 | `cosky-migrate` | JDK 21 or later | |
+| Building from source | JDK 21 and JDK 25 | Gradle does not download them |
 | Spring Boot | 4.1 | For the starter |
 | Spring Cloud | 2025.1 | Declares Spring Boot 4.0, so set `spring.cloud.compatibility-verifier.enabled: false` until 2026.0 |
 | Redis | 7.0 or later, with `maxmemory-policy noeviction` | The server checks both at start, and refuses to run otherwise |
@@ -1061,7 +1122,7 @@ Every pull request runs against Redis 7.0, Redis 7.4 and Valkey 8, on a single n
 
 | Library | Version |
 |---|---|
-| Kotlin | 2.x, compiled to Java 21 |
+| Kotlin | 2.4, compiled to Java 21. Compiling against it takes Kotlin 2.3 or later. |
 | gRPC | 1.81 |
 | Protobuf | 4.34 |
 | Spring gRPC | 1.1 |
@@ -1245,7 +1306,7 @@ Two rules hold this together. Nothing but the server touches the Store, and clie
 ./gradlew build
 ```
 
-The server's tests need JDK 25 and Docker, and Gradle provides the JDKs. `./gradlew :server:run --args='--dev'` starts a server in memory.
+Building needs JDK 21, and the server's tests and `:server:run` need JDK 25, and Docker for the tests. Install both JDKs: Gradle does not download them. `./gradlew :server:run --args='--dev'` starts a server in memory.
 
 The server bundles the Dashboard when `dashboard/dist` exists:
 
