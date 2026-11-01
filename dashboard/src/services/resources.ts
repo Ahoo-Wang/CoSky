@@ -238,11 +238,18 @@ export const configs = {
         } while (pageToken);
         return versions;
     },
-    rollback: (namespace: string, name: string, toRevision: string) => configsClient.rollbackConfig({
-        urlParams: {path: {namespace, name}},
-        headers: {'Content-Type': 'application/json'},
-        body: {toRevision},
-    }),
+    /**
+     * @param currentRevision what the user compared it with, so that a later change is not overwritten unseen.
+     */
+    rollback: (namespace: string, name: string, toRevision: string, currentRevision?: string) =>
+        configsClient.rollbackConfig({
+            urlParams: {path: {namespace, name}},
+            headers: {
+                'Content-Type': 'application/json',
+                ...(currentRevision ? {'If-Match': `"${currentRevision}"`} : {}),
+            },
+            body: {toRevision},
+        }),
     importArchive: (namespace: string, archive: File) => configsClient.importConfigs({
         urlParams: {path: {namespace}},
         body: archive,
@@ -310,15 +317,26 @@ export const serviceAccounts = {
 export const roles = {
     list: (abortController?: AbortController) =>
         listAll(request => rolesClient.listRoles(request), {}, roleOf, {abortController}),
-    put: (name: string, spec: {description: string; rules: RoleRule[]}, revision?: string) =>
-        rolesClient.putRole(putRequest({name}, {role: spec}, revision)),
+    /**
+     * @param existing what it replaces, whose revision and labels carry over.
+     */
+    put: (name: string, spec: {description: string; rules: RoleRule[]}, existing?: RoleResource) =>
+        rolesClient.putRole(putRequest({name}, {meta: {labels: existing?.labels}, role: spec}, existing?.revision)),
     delete: (name: string) => rolesClient.deleteRole({urlParams: {path: {name}}}),
 };
 
 export const roleBindings = {
     list: (abortController?: AbortController) =>
         listAll(request => roleBindingsClient.listRoleBindings(request), {}, roleBindingOf, {abortController}),
-    put: (name: string, spec: {role: string; subjects: RoleBindingSubject[]; namespaces: string[]}, revision?: string) =>
-        roleBindingsClient.putRoleBinding(putRequest({name}, {roleBinding: spec}, revision)),
+    /**
+     * @param existing what it replaces, whose revision and labels carry over.
+     */
+    put: (
+        name: string,
+        spec: {role: string; subjects: RoleBindingSubject[]; namespaces: string[]},
+        existing?: RoleBindingResource,
+    ) => roleBindingsClient.putRoleBinding(
+        putRequest({name}, {meta: {labels: existing?.labels}, roleBinding: spec}, existing?.revision),
+    ),
     delete: (name: string) => roleBindingsClient.deleteRoleBinding({urlParams: {path: {name}}}),
 };

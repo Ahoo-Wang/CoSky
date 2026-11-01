@@ -82,7 +82,7 @@ export function RoleEditor({existing, onSuccess, onCancel}: RoleEditorProps) {
                     namespaces: splitList(rule.namespaces),
                     names: splitList(rule.names),
                 })),
-            }, existing?.revision),
+            }, existing),
             {success: 'Role saved', failure: 'Failed to save role'},
         );
         setSaving(false);

@@ -93,6 +93,7 @@ test.describe('signing in', () => {
         await page.getByRole('link', {name: 'Configuration'}).click();
 
         await page.waitForURL('**/#/login');
+        await expect(toast(page, 'no longer valid')).toBeVisible();
     });
 
     test('a server that cannot be reached offers to try again, and keeps the token', async ({page}) => {
@@ -322,6 +323,8 @@ test.describe('configuration', () => {
         await expect(toast(page, 'Rolled back')).toBeVisible();
         const post = lastRequest(api, 'POST', '/v1/namespaces/default/configs/application.yaml:rollback');
         expect(oldVersion).toContain(JSON.parse(post?.body ?? '').toRevision);
+        // What it was compared with: a later change is not to be overwritten unseen.
+        expect(post?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
     test('import sends the archive itself, and export gives one back', async ({page}) => {
@@ -414,6 +417,71 @@ test.describe('configuration', () => {
         await expect(row(page, 'application.yaml')).toBeVisible({timeout: 300});
     });
 
+    test('another namespace starts empty, so that nothing is acted on in the wrong one', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+
+        // Longer than the assertion below waits, so that it can only be about the time before the answer.
+        api.slow = {path: /^\/v1\/namespaces\/prod\/configs$/, milliseconds: 20_000};
+        await page.getByRole('combobox', {name: 'Select Namespace'}).click();
+        await page.getByRole('option', {name: 'prod', exact: true}).click();
+
+        await expect(page.getByRole('main')).toContainText('prod');
+        await expect(page.getByRole('row').filter({hasText: 'application.yaml'})).toHaveCount(0);
+    });
+
+    test('a subject bound to some namespaces can choose them, though it may not list them', async ({page}) => {
+        const api = await installApiMock(page);
+        await page.route('**/v1/me', route => route.fulfill({
+            json: {
+                subject: {type: 'TYPE_SERVICE_ACCOUNT', name: 'order'},
+                rules: [
+                    {kinds: ['KIND_CONFIG'], verbs: ['VERB_GET'], namespaces: ['prod', 'staging']},
+                    {kinds: ['KIND_INSTANCE'], verbs: ['VERB_GET'], namespaces: ['*', 'prod']},
+                ],
+            },
+        }));
+        api.failing = {method: 'GET', path: /^\/v1\/namespaces$/, status: 403, message: 'Not for this subject.'};
+        await login(page);
+
+        await page.getByRole('combobox', {name: 'Select Namespace'}).click();
+        await expect(page.getByRole('option', {name: 'prod', exact: true})).toBeVisible();
+        await expect(page.getByRole('option', {name: 'staging', exact: true})).toBeVisible();
+        await expect(page.getByRole('option', {name: '*', exact: true})).toHaveCount(0);
+    });
+
+    test('a stream that never answers is opened again', async ({page}) => {
+        await installApiMock(page);
+        await page.addInitScript(() => {
+            const original = window.fetch;
+            const counted = window as unknown as {watches: number};
+            counted.watches = 0;
+            window.fetch = (input, init) => {
+                if (!String(input).includes('/watch')) return original(input, init);
+                // What fetch does with a signal already aborted: no request goes out.
+                if (init?.signal?.aborted) return Promise.reject(new DOMException('Aborted', 'AbortError'));
+                counted.watches++;
+                return new Promise(() => {});
+            };
+        });
+        await page.clock.install();
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const watches = () => page.evaluate(() => (window as unknown as {watches: number}).watches);
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        const opened = await watches();
+        expect(opened).toBeGreaterThan(0);
+
+        // The fetcher gives up after 2 minutes, and the page tries again a second later.
+        await page.clock.runFor(120_000);
+        await page.clock.runFor(2_000);
+        await page.clock.runFor(2_000);
+
+        await expect.poll(watches).toBeGreaterThan(opened);
+    });
+
     test('a stream that goes silent is opened again', async ({page}) => {
         await installApiMock(page);
         // A stream that answers once and then says nothing, which a route cannot do.
@@ -495,7 +563,8 @@ test.describe('services', () => {
 
         await expect(toast(page, 'Instance saved')).toBeVisible();
         await expect(row(page, 'billing')).toContainText('1');
-        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/instances/10.0.0.9-8081');
+        // The name the client would give this endpoint.
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/instances/billing-10.0.0.9-8081');
         expect(put?.headers['if-none-match']).toBe('*');
         const body = JSON.parse(put?.body ?? '');
         expect(body.instance).toEqual({
@@ -612,6 +681,32 @@ test.describe('security', () => {
         await row(page, 'admin').getByRole('button', {name: 'New token'}).click();
 
         await expect(toast(page, 'Failed to create token: At most 2 tokens.')).toBeVisible();
+    });
+
+    test('editing a role or a role binding keeps the labels it does not show', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/roles/reader', {
+            meta: {labels: {team: 'core'}},
+            role: {description: 'Reads', rules: [{kinds: ['KIND_CONFIG'], verbs: ['VERB_GET'], namespaces: ['*']}]},
+        });
+        api.put('/v1/rolebindings/people', {
+            meta: {labels: {team: 'core'}},
+            roleBinding: {role: 'reader', subjects: [{type: 'TYPE_USER', name: 'alice'}], namespaces: ['*']},
+        });
+        await login(page);
+
+        await page.goto('/#/role');
+        await row(page, 'reader').getByRole('button', {name: 'Edit'}).click();
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Role saved')).toBeVisible();
+        expect(JSON.parse(lastRequest(api, 'PUT', '/v1/roles/reader')?.body ?? '').meta.labels).toEqual({team: 'core'});
+
+        await page.goto('/#/role-binding');
+        await row(page, 'people').getByRole('button', {name: 'Edit'}).click();
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Role binding saved')).toBeVisible();
+        expect(JSON.parse(lastRequest(api, 'PUT', '/v1/rolebindings/people')?.body ?? '').meta.labels)
+            .toEqual({team: 'core'});
     });
 
     test('a role holds rules of kinds, verbs, namespaces and names', async ({page}) => {
