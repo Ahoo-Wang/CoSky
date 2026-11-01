@@ -11,6 +11,11 @@ spring:
         # Watches and keep-alives never finish by themselves, so a shutdown would always wait this long. Clients
         # reconnect to another replica when it ends them.
         grace-period: 5s
+      keepalive:
+        permit:
+          # Clients ping every 15 seconds to notice a server that is silently gone. gRPC ends the connections of those
+          # it finds pinging more often than this, 5 minutes by default.
+          time: 10s
   http:
     codecs:
       # A Config of 1 MiB, or an archive of them.

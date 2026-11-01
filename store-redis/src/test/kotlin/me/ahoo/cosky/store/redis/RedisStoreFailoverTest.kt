@@ -14,7 +14,12 @@
 package me.ahoo.cosky.store.redis
 
 import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisCommandTimeoutException
 import io.lettuce.core.RedisURI
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.codec.ByteArrayCodec
+import io.lettuce.core.codec.RedisCodec
+import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.internal.HostAndPort
 import io.lettuce.core.resource.ClientResources
 import io.lettuce.core.resource.DnsResolvers
@@ -37,6 +42,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
+import java.lang.reflect.Proxy
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -167,6 +174,53 @@ class RedisStoreFailoverTest {
             val failure = follower.await() as TimelineDivergedException
             failure.current.epoch.assert().isNotEqualTo(start.epoch)
             failure.current.revision.assert().isGreaterThanOrEqualTo(1)
+        }
+    }
+
+    /**
+     * What a failover usually looks like from here: reads fail while it happens, and work again on the new primary.
+     */
+    @Test
+    fun `reads failing during a failover do not hide it`() = runBlocking<Unit> {
+        withTimeout(TIMEOUT) {
+            val start = store.createNamespace(NAMESPACE)
+            put("kept")
+            put("lost")
+            val failing = AtomicBoolean()
+            val connection = client.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
+            val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
+            val flaky = Proxy.newProxyInstance(
+                RedisClusterAsyncCommands::class.java.classLoader,
+                arrayOf(RedisClusterAsyncCommands::class.java),
+            ) { _, method, args ->
+                if (failing.get()) {
+                    throw RedisCommandTimeoutException("The primary is gone.")
+                }
+                method.invoke(commands, *args.orEmpty())
+            } as RedisClusterAsyncCommands<String, ByteArray>
+            val hints = client.connectPubSub(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
+            val following = RedisStore(flaky, hints, tailPollInterval = 50.milliseconds)
+            val caughtUp = CompletableDeferred<Unit>()
+            val follower = async {
+                runCatching {
+                    following.changes(NAMESPACE, start).collect {
+                        if (it.revision == 3L) {
+                            caughtUp.complete(Unit)
+                        }
+                    }
+                }.exceptionOrNull()
+            }
+            failOverLosing {
+                put("lost as well")
+                caughtUp.await()
+                failing.set(true)
+                delay(200.milliseconds)
+            }
+            failing.set(false)
+            val failure = follower.await() as TimelineDivergedException
+            failure.current.epoch.assert().isNotEqualTo(start.epoch)
+            following.close()
+            connection.close()
         }
     }
 

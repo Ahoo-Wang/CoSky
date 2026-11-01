@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.server.resource
 
+import me.ahoo.cosky.api.configFormatOf
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.DeleteRequest
@@ -28,6 +29,7 @@ import me.ahoo.cosky.api.v1.PutResponse
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Verb
+import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.api.validation.requireValid
@@ -116,7 +118,7 @@ class ResourceService(
     suspend fun put(request: PutRequest, caller: Caller): PutResponse {
         requireValid(validator.validate(request))
         val key = request.resource.key
-        return audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
+        return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
             authorizePut(request.resource, key, caller.principal)
             if (key.kind == Kind.KIND_NAMESPACE) {
                 store.createNamespace(key.name)
@@ -135,7 +137,7 @@ class ResourceService(
     suspend fun delete(request: DeleteRequest, caller: Caller): DeleteResponse {
         requireValid(validator.validate(request))
         val key = request.key
-        return audited(caller, Verb.VERB_DELETE, key, DeleteResponse::getRevision) {
+        return audit.audited(caller, Verb.VERB_DELETE, key, DeleteResponse::getRevision) {
             authorizeDelete(key, caller.principal)
             if (key.kind == Kind.KIND_NAMESPACE) {
                 dropNamespace(key, request.expectedRevision)
@@ -158,6 +160,22 @@ class ResourceService(
             ?: throw CoSkyException.resourceNotFound(key)
         val request = PutRequest.newBuilder().setResource(earlier).setExpectedRevision(expectedRevision).build()
         return put(request, caller)
+    }
+
+    /**
+     * Writes one entry of an archive, which holds nothing but the content: what else a Config has already stays.
+     */
+    suspend fun importConfig(namespace: String, name: String, content: String, caller: Caller): PutResponse {
+        val key = ResourceKey.newBuilder().setNamespace(namespace).setKind(Kind.KIND_CONFIG).setName(name).build()
+        val existing = viewOf(namespace, 0).objects[key]
+        val resource = Resource.newBuilder().apply {
+            metaBuilder.setNamespace(namespace).setName(name).putAllLabels(existing?.meta?.labelsMap.orEmpty())
+            config = configSpec {
+                format = existing?.config?.format ?: configFormatOf(name)
+                this.content = content
+            }
+        }.build()
+        return put(PutRequest.newBuilder().setResource(resource).build(), caller)
     }
 
     suspend fun history(request: HistoryRequest, caller: Caller): HistoryResponse {
@@ -193,7 +211,8 @@ class ResourceService(
 
     /**
      * For an Instance both the new and any existing service count, or an account could take over another service's
-     * instance. A lease is only for its owner (design §7.8).
+     * instance. Attaching one to a lease is only for the lease's owner (design §7.8); keeping it on the lease it is on
+     * is not attaching, or an operator could not drain an instance an application registered.
      */
     private suspend fun authorizePut(resource: Resource, key: ResourceKey, principal: Principal) {
         val permission = permissionOf(principal, Verb.VERB_PUT, key.kind, key.namespace)
@@ -201,9 +220,10 @@ class ResourceService(
         if (key.kind != Kind.KIND_INSTANCE) {
             return
         }
-        viewOf(key.namespace, 0).objects[key]?.let { requireAllowed(permission, it.authorizedName) }
+        val existing = viewOf(key.namespace, 0).objects[key]
+        existing?.let { requireAllowed(permission, it.authorizedName) }
         val lease = resource.meta.lease
-        if (lease != 0L && principal != Principal.ANONYMOUS) {
+        if (lease != 0L && lease != existing?.meta?.lease && principal != Principal.ANONYMOUS) {
             val owner = store.leaseOwners(key.namespace, listOf(lease))[lease]
             if (owner != null && owner != principal.id) {
                 throw CoSkyException.permissionDenied("Lease $lease belongs to another subject.")
@@ -221,10 +241,6 @@ class ResourceService(
     }
 
     /**
-     * Tokens are not for writing: a ServiceAccount keeps the ones it has, whatever the request says (design §7.8). The
-     * compare-and-set keeps a token created meanwhile from being lost.
-     */
-    /**
      * The hash of a Config is the server's to state, whatever the request says (design §7.1).
      */
     private fun withContentHash(request: PutRequest): PutRequest {
@@ -238,6 +254,10 @@ class ResourceService(
             .build()
     }
 
+    /**
+     * Tokens are not for writing: a ServiceAccount keeps the ones it has, whatever the request says (design §7.8). The
+     * compare-and-set keeps a token created meanwhile from being lost.
+     */
     private suspend fun withStoredTokens(request: PutRequest): PutRequest {
         val resource = request.resource
         if (!resource.hasServiceAccount()) {
@@ -254,30 +274,6 @@ class ResourceService(
                 },
             )
             .build()
-    }
-
-    /**
-     * Records the write and how it ended, in the audit log (design §7.8).
-     */
-    private inline fun <T> audited(
-        caller: Caller,
-        verb: Verb,
-        key: ResourceKey,
-        revisionOf: (T) -> Long,
-        block: () -> T,
-    ): T {
-        val response = try {
-            block()
-        } catch (e: CoSkyException) {
-            record(caller, verb, key, null, e.errorCode.grpcCode.name)
-            throw e
-        }
-        record(caller, verb, key, revisionOf(response), RESULT_OK)
-        return response
-    }
-
-    private fun record(caller: Caller, verb: Verb, key: ResourceKey, revision: Long?, result: String) {
-        audit.record(caller.principal.id, verb, key.kind, key.namespace, key.name, revision, result, caller.remote)
     }
 
     /**
@@ -323,9 +319,5 @@ class ResourceService(
         is ApplyResult.LeaseNotFound -> throw CoSkyException.leaseNotFound(key.namespace, result.lease)
         ApplyResult.NamespaceNotActive -> throw CoSkyException.namespaceNotFound(key.namespace)
         ApplyResult.BatchTooLarge -> error("A single mutation cannot exceed the batch limit.")
-    }
-
-    private companion object {
-        const val RESULT_OK = "OK"
     }
 }

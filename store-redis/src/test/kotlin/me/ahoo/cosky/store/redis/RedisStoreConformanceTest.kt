@@ -16,12 +16,20 @@ package me.ahoo.cosky.store.redis
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.ScriptOutputType
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.codec.ByteArrayCodec
+import io.lettuce.core.codec.RedisCodec
+import io.lettuce.core.codec.StringCodec
 import kotlinx.coroutines.future.await
+import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
 import me.ahoo.cosky.test.conformance.StoreConformanceTest
+import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Test
 import org.testcontainers.containers.GenericContainer
+import java.util.UUID
 
 class RedisStoreConformanceTest : StoreConformanceTest() {
     private val stores = mutableListOf<RedisStore>()
@@ -50,6 +58,28 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
             arrayOf(keys.revision, keys.log),
             revision.toString(),
         ).await()
+    }
+
+    /**
+     * Two replicas apart have nothing to wait on, so this is the step they race on: what another replica started
+     * removing must not take the epoch and log of the namespace created since.
+     */
+    @Test
+    fun `removing data stops at a namespace that is active again`() = runBlocking<Unit> {
+        val keys = RedisKeys("removal-${UUID.randomUUID()}")
+        val connection = CLIENT.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
+        val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
+        val remove = RedisScript("namespace_remove")
+        commands.set(keys.epoch, "epoch".arg()).await()
+
+        commands.set(keys.state, "active".arg()).await()
+        remove.run<Long>(commands, ScriptOutputType.INTEGER, listOf(keys.state, keys.epoch), emptyList())
+        commands.exists(keys.epoch).await().assert().isEqualTo(1)
+
+        commands.set(keys.state, "terminating".arg()).await()
+        remove.run<Long>(commands, ScriptOutputType.INTEGER, listOf(keys.state, keys.epoch), emptyList())
+        commands.exists(keys.epoch).await().assert().isEqualTo(0)
+        connection.close()
     }
 
     @AfterEach

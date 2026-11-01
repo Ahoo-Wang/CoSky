@@ -74,7 +74,7 @@ class LeaseReaper(
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 lastFailure = clock.instant()
-                leaderSince = null
+                stepDown()
                 log.warn("A reaper tick failed.", e)
             }
             delay(options.interval.toKotlinDuration())
@@ -87,7 +87,7 @@ class LeaseReaper(
         noteStall(now)
         lastTick = now
         if (!acquired) {
-            leaderSince = null
+            stepDown()
             return
         }
         if (leaderSince == null) {
@@ -104,6 +104,16 @@ class LeaseReaper(
             }
             reap(namespace, now)
         }
+    }
+
+    /**
+     * What it knew as leader says nothing later on: an old pause would count against the next mass expiry, whose time
+     * limit it would seem to have used up already (design D20).
+     */
+    private fun stepDown() {
+        leaderSince = null
+        pausedSince.keys.forEach { metrics.leaseProtection(it, false) }
+        pausedSince.clear()
     }
 
     /**

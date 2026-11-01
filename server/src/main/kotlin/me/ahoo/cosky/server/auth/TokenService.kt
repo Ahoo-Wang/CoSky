@@ -24,6 +24,7 @@ import me.ahoo.cosky.api.v1.ViolationCode
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.api.validation.Violation
+import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
@@ -44,6 +45,7 @@ class TokenService(
     private val limits: Limits = Limits.DEFAULT,
     private val timeout: Duration = 3.seconds,
     private val clock: Clock = Clock.systemUTC(),
+    private val audit: AuditLogger = AuditLogger(),
 ) {
     /**
      * @param token its plaintext, which is never available again.
@@ -51,33 +53,51 @@ class TokenService(
     data class CreatedToken(val token: ParsedToken, val expiresAt: Instant?)
 
     suspend fun create(account: String, expiresAt: Instant?, caller: Caller): CreatedToken {
-        requirePermission(account, caller)
         val token = Tokens.generate()
         val ref = TokenRef.newBuilder().setId(token.id).setSha256(Tokens.sha256Hex(token.secret))
         expiresAt?.let { ref.setExpiresAt(Timestamps.fromMillis(it.toEpochMilli())) }
-        update(account, caller) { current ->
-            // An expired token is dead weight: it should not stand in the way of rotation.
-            val valid = current.filterNot { it.hasExpiresAt() && clock.instant().epochSecond >= it.expiresAt.seconds }
-            if (valid.size >= limits.maxTokens) {
-                throw CoSkyException.invalidArgument(
-                    listOf(
-                        Violation(
-                            "tokens",
-                            ViolationCode.VIOLATION_CODE_TOO_MANY,
-                            "An account holds at most ${limits.maxTokens} valid tokens; revoke one first.",
+        audit.audited(caller, Verb.VERB_PUT, tokenKey(account, token.id), { it }) {
+            requirePermission(account, caller)
+            update(account, caller) { current ->
+                // An expired token is dead weight: it should not stand in the way of rotation.
+                val valid = current.filterNot {
+                    it.hasExpiresAt() && clock.instant().epochSecond >= it.expiresAt.seconds
+                }
+                if (valid.size >= limits.maxTokens) {
+                    throw CoSkyException.invalidArgument(
+                        listOf(
+                            Violation(
+                                "tokens",
+                                ViolationCode.VIOLATION_CODE_TOO_MANY,
+                                "An account holds at most ${limits.maxTokens} valid tokens; revoke one first.",
+                            ),
                         ),
-                    ),
-                )
+                    )
+                }
+                valid + ref.build()
             }
-            valid + ref.build()
         }
         return CreatedToken(token, expiresAt)
     }
 
     suspend fun revoke(account: String, tokenId: String, caller: Caller) {
-        requirePermission(account, caller)
-        update(account, caller) { current -> current.filterNot { it.id == tokenId } }
+        audit.audited(caller, Verb.VERB_DELETE, tokenKey(account, tokenId), { it }) {
+            requirePermission(account, caller)
+            update(account, caller) { current -> current.filterNot { it.id == tokenId } }
+        }
     }
+
+    /**
+     * What the audit log names: the id of a token says which one it was, and only the secret is secret.
+     */
+    private fun tokenKey(account: String, tokenId: String): ResourceKey =
+        accountKey(account).toBuilder().setName("$account/tokens/$tokenId").build()
+
+    private fun accountKey(account: String): ResourceKey = ResourceKey.newBuilder()
+        .setNamespace(NamingRules.SYSTEM_NAMESPACE)
+        .setKind(Kind.KIND_SERVICE_ACCOUNT)
+        .setName(account)
+        .build()
 
     private fun requirePermission(account: String, caller: Caller) {
         val permission = authorizer.permission(
@@ -91,26 +111,33 @@ class TokenService(
         }
     }
 
-    private suspend fun update(account: String, caller: Caller, change: (List<TokenRef>) -> List<TokenRef>) {
-        val key = ResourceKey.newBuilder()
-            .setNamespace(NamingRules.SYSTEM_NAMESPACE)
-            .setKind(Kind.KIND_SERVICE_ACCOUNT)
-            .setName(account)
-            .build()
+    /**
+     * @return the revision it wrote.
+     */
+    private suspend fun update(account: String, caller: Caller, change: (List<TokenRef>) -> List<TokenRef>): Long {
+        val key = accountKey(account)
         var minRevision = 0L
         repeat(ATTEMPTS) {
-            val current = caches.viewAt(NamingRules.SYSTEM_NAMESPACE, minRevision, timeout).objects[key]
-                ?: throw CoSkyException.resourceNotFound(key)
+            val current = currentOf(key, minRevision)
             val updated = withTokens(current, change(current.serviceAccount.tokensList))
             val mutation = Mutation.Put(updated, current.meta.revision)
             when (val result = store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(mutation), caller.principal.id)) {
-                is ApplyResult.Applied -> return
+                is ApplyResult.Applied -> return result.revision
                 is ApplyResult.Conflict -> minRevision = result.currentRevision ?: 0
-                else -> error("Updating the tokens of $account failed: $result.")
+                else -> throw failureOf(account, result)
             }
         }
         throw CoSkyException.revisionConflict(key, 0, minRevision)
     }
+
+    private fun failureOf(account: String, result: ApplyResult): Exception = when (result) {
+        ApplyResult.NamespaceNotActive -> CoSkyException.namespaceNotFound(NamingRules.SYSTEM_NAMESPACE)
+        else -> IllegalStateException("Updating the tokens of $account failed: $result.")
+    }
+
+    private suspend fun currentOf(key: ResourceKey, minRevision: Long): Resource =
+        caches.viewAt(NamingRules.SYSTEM_NAMESPACE, minRevision, timeout).objects[key]
+            ?: throw CoSkyException.resourceNotFound(key)
 
     private fun withTokens(account: Resource, tokens: List<TokenRef>): Resource = account.toBuilder()
         .apply { serviceAccountBuilder.clearTokens().addAllTokens(tokens) }

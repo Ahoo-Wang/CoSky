@@ -161,8 +161,8 @@ class CoSkyServerApplication : DisposableBean {
     }
 
     @Bean
-    fun tokenService(store: Store, caches: WatchCache, authorizer: Authorizer): TokenService =
-        TokenService(store, caches, authorizer)
+    fun tokenService(store: Store, caches: WatchCache, authorizer: Authorizer, audit: AuditLogger): TokenService =
+        TokenService(store, caches, authorizer, audit = audit)
 
     @Bean
     fun restRoutes(

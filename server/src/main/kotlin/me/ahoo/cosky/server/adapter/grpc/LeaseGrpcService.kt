@@ -66,8 +66,9 @@ class LeaseGrpcService(
 
     override fun keepAlive(requests: Flow<KeepAliveRequest>): Flow<KeepAliveResponse> = flow {
         val principal = AuthContext.caller().principal
-        // Only the first renewal of a lease on a stream goes to the store for its owner (design §7.8).
-        val owned = HashSet<Long>()
+        // Only the first renewal of a lease on a stream goes to the store for its owner (design §7.8). An id means
+        // something within its namespace only.
+        val owned = HashSet<Pair<String, Long>>()
         requests.collect { request ->
             emit(
                 grpcCall {
@@ -75,9 +76,9 @@ class LeaseGrpcService(
                     if (!authorizer.isValid(principal)) {
                         throw CoSkyException.unauthenticated("The token is no longer valid.")
                     }
-                    if (request.lease !in owned) {
-                        requireOwner(request.namespace, request.lease, principal)
-                        owned += request.lease
+                    val lease = request.namespace to request.lease
+                    if (lease !in owned && requireOwner(request.namespace, request.lease, principal)) {
+                        owned += lease
                     }
                     val renewal = store.keepAlive(request.namespace, listOf(request.lease))[request.lease]
                     KeepAliveResponse.newBuilder()
@@ -100,14 +101,17 @@ class LeaseGrpcService(
 
     /**
      * A lease that no longer exists passes: that is what the response says, and it reveals nothing.
+     *
+     * @return whether the lease is known to be this subject's, which an id nobody holds yet is not.
      */
-    private suspend fun requireOwner(namespace: String, lease: Long, principal: Principal) {
+    private suspend fun requireOwner(namespace: String, lease: Long, principal: Principal): Boolean {
         if (principal == Principal.ANONYMOUS) {
-            return
+            return true
         }
         val owner = store.leaseOwners(namespace, listOf(lease))[lease]
         if (owner != null && owner != principal.id) {
             throw CoSkyException.permissionDenied("Lease $lease belongs to another subject.")
         }
+        return owner != null
     }
 }

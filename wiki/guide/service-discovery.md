@@ -50,6 +50,8 @@ Add `spring-cloud-starter-loadbalancer`, and `@LoadBalanced` clients get their i
 
 A weight of `0` keeps an instance registered but takes it out of rotation, which is how to drain one: load balancers leave it out, while `DiscoveryClient` still lists it. The Kotlin client's load balancer picks at random in proportion to weight. Spring Cloud LoadBalancer's default round robin treats every other weight alike.
 
+An operator can set it on an instance an application registered. It lasts until the application registers again, after restarting or losing its lease.
+
 ## Fixed instances
 
 An Instance without a lease stays until someone deletes it. Use this for something that cannot register itself, such as a database:

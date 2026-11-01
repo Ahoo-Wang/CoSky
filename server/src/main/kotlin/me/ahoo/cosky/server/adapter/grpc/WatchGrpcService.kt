@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.server.adapter.grpc
 
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.delay
@@ -23,11 +24,13 @@ import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Verb
+import me.ahoo.cosky.api.v1.ViolationCode
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.Validator
+import me.ahoo.cosky.api.validation.Violation
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Permission
@@ -117,6 +120,9 @@ class WatchGrpcService(
 
             permission == Permission.None -> send(WatchSession.canceled(create.watchId, denied(principal, create)))
 
+            // The one it would replace would go on, out of reach of Cancel, the quota and a change of permissions.
+            create.watchId in watches -> send(WatchSession.canceled(create.watchId, inUse(create.watchId)))
+
             watches.size >= properties.watch.maxPerStream -> send(
                 WatchSession.canceled(create.watchId, CoSkyException.watchQuotaExceeded(properties.watch.maxPerStream)),
             )
@@ -131,15 +137,27 @@ class WatchGrpcService(
                     caches.metrics,
                 ) { send(it) }
                 val edge = recordTopology(create, consumer)
-                val job = launch {
+                // Starts once it is on record, since it can end at once and take itself off.
+                val job = launch(start = CoroutineStart.LAZY) {
                     grpcCall { session.run() }
                     watches.remove(create.watchId)
                 }
                 job.invokeOnCompletion { edge?.close() }
                 watches[create.watchId] = ActiveWatch(create, permission, session, job)
+                job.start()
             }
         }
     }
+
+    private fun inUse(watchId: Long): CoSkyException = CoSkyException.invalidArgument(
+        listOf(
+            Violation(
+                "create.watch_id",
+                ViolationCode.VIOLATION_CODE_NOT_ALLOWED,
+                "Watch $watchId is still active on this stream.",
+            ),
+        ),
+    )
 
     /**
      * Only a watch of one service says what its client depends on: one of the whole kind does not (design §6.3).

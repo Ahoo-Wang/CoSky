@@ -38,7 +38,7 @@ class AccessControl(
     private val clock: Clock = Clock.systemUTC(),
     private val oidc: OidcAuthenticator? = null,
 ) : Authorizer {
-    private class Snapshot(val revision: Long, val model: AccessModel)
+    private class Snapshot(val epoch: String, val revision: Long, val model: AccessModel)
 
     private val current = AtomicReference<Snapshot?>()
 
@@ -46,7 +46,7 @@ class AccessControl(
         get() = caches.of(NamingRules.SYSTEM_NAMESPACE)
 
     override val changes: Flow<Unit>
-        get() = system.views.filterNotNull().distinctUntilChangedBy { it.revision }.map { }
+        get() = system.views.filterNotNull().distinctUntilChangedBy { it.epoch to it.revision }.map { }
 
     /**
      * @param plaintext a ServiceAccount token or, where OIDC is configured, an ID token.
@@ -90,11 +90,12 @@ class AccessControl(
 
     private fun modelOf(view: NamespaceView): AccessModel {
         val cached = current.get()
-        if (cached != null && cached.revision == view.revision) {
+        // A revision only means something within its epoch: a timeline that was replaced can hold the same number.
+        if (cached != null && cached.epoch == view.epoch && cached.revision == view.revision) {
             return cached.model
         }
         val model = AccessModel(view.objects.values)
-        current.set(Snapshot(view.revision, model))
+        current.set(Snapshot(view.epoch, view.revision, model))
         return model
     }
 }

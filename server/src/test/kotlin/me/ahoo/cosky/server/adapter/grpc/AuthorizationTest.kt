@@ -28,12 +28,14 @@ import io.grpc.inprocess.InProcessServerBuilder
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -74,6 +76,7 @@ import me.ahoo.cosky.server.auth.ParsedToken
 import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -82,6 +85,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.channels.Channel as Queue
 
 /**
  * Authentication and authorization through the real services and the interceptor.
@@ -392,6 +396,58 @@ class AuthorizationTest {
     }
 
     @Test
+    fun `an id means a lease within its namespace only`() = scenario {
+        val first = account("first", "client")
+        val grant = GrantRequest.newBuilder().setNamespace(NAMESPACE).setTtlSeconds(60).build()
+        val lease = first.leases.grant(grant).lease
+        store.createNamespace(OTHER_NAMESPACE)
+        val others = store.grantLease(OTHER_NAMESPACE, 60.seconds, "serviceaccount:someone") as GrantResult.Granted
+        others.lease.id.assert().isEqualTo(lease)
+
+        val renewals = flowOf(renewal(NAMESPACE, lease), renewal(OTHER_NAMESPACE, lease))
+        codeOf { first.leases.keepAlive(renewals).toList() }.assert().isEqualTo(Status.Code.PERMISSION_DENIED)
+    }
+
+    @Test
+    fun `renewing an id nobody holds yet does not make it yours`() = scenario {
+        val first = account("first", "client")
+        val second = account("second", "client")
+        val grant = GrantRequest.newBuilder().setNamespace(NAMESPACE).setTtlSeconds(60).build()
+        val next = first.leases.grant(grant).lease + 1
+        val requests = Queue<KeepAliveRequest>(Queue.UNLIMITED)
+        val answers = Queue<Unit>(Queue.UNLIMITED)
+        val renewing = async {
+            codeOf { first.leases.keepAlive(requests.receiveAsFlow()).collect { answers.send(Unit) } }
+        }
+        requests.send(renewal(NAMESPACE, next))
+        answers.receive()
+        second.leases.grant(grant).lease.assert().isEqualTo(next)
+        requests.send(renewal(NAMESPACE, next))
+        renewing.await().assert().isEqualTo(Status.Code.PERMISSION_DENIED)
+    }
+
+    @Test
+    fun `whoever may write an instance can change it on the lease it is on`() = scenario {
+        val owner = account("owner", "client")
+        val operator = account("operator", "client")
+        val grant = GrantRequest.newBuilder().setNamespace(NAMESPACE).setTtlSeconds(60).build()
+        val lease = owner.leases.grant(grant).lease
+        val written = owner.resources.put(put(instance("order-1", "order", lease))).revision
+        caches.of(NAMESPACE).views.first { it != null && it.revision >= written }
+
+        operator.resources.put(put(instance("order-1", "order", lease)))
+
+        // Moving one onto a lease remains the owner's.
+        val free = operator.resources.put(put(instance("order-2", "order"))).revision
+        caches.of(NAMESPACE).views.first { it != null && it.revision >= free }
+        codeOf { operator.resources.put(put(instance("order-2", "order", lease))) }
+            .assert().isEqualTo(Status.Code.PERMISSION_DENIED)
+    }
+
+    private fun renewal(namespace: String, lease: Long): KeepAliveRequest =
+        KeepAliveRequest.newBuilder().setNamespace(namespace).setLease(lease).build()
+
+    @Test
     fun `granting a lease takes the right to write instances`() = scenario {
         val viewer = account("eye", "viewer")
         codeOf { viewer.leases.grant(GrantRequest.newBuilder().setNamespace(NAMESPACE).setTtlSeconds(60).build()) }
@@ -459,5 +515,6 @@ class AuthorizationTest {
 
     private companion object {
         const val NAMESPACE = "prod"
+        const val OTHER_NAMESPACE = "other"
     }
 }

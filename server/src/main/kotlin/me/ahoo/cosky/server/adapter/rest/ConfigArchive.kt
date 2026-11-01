@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.flow
 import me.ahoo.cosky.api.v1.Resource
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.nio.charset.CharacterCodingException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipException
 import java.util.zip.ZipInputStream
@@ -27,36 +28,54 @@ import java.util.zip.ZipOutputStream
  * The zip format of Config import and export (design §4.5): each entry path is a Config name.
  */
 internal object ConfigArchive {
-    private const val MAX_ENTRIES = 10_000
+    const val MAX_ENTRIES = 10_000
+    private val SIGNATURE = "PK".encodeToByteArray()
 
     /**
-     * @param maxEntryBytes what one entry may unpack to, so that a small archive cannot exhaust the memory.
-     * @return name to content.
+     * Unpacks one entry at a time as [block] asks for it, so that a small archive cannot exhaust the memory, and a
+     * caller who may not write gets no further than the first entry.
+     *
+     * @param maxEntryBytes what one entry may unpack to.
+     * @param block gets name to content.
      */
-    fun read(archive: ByteArray, maxEntryBytes: Int): List<Pair<String, ByteArray>> = try {
-        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
-            generateSequence { zip.nextEntry }
-                .filterNot { it.isDirectory }
-                .mapIndexed { index, entry -> readEntry(zip, entry, index, maxEntryBytes) }
-                .toList()
+    inline fun <T> read(archive: ByteArray, maxEntryBytes: Int, block: (Sequence<Pair<String, String>>) -> T): T {
+        // ZipInputStream takes anything else for an archive without entries.
+        if (!isZip(archive)) {
+            throw ProtoJson.invalidBody("This is not a zip archive.")
         }
-    } catch (@Suppress("SwallowedException") e: ZipException) {
-        throw ProtoJson.invalidBody("This is not a zip archive: ${e.message}")
+        return try {
+            ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+                block(
+                    generateSequence { zip.nextEntry }
+                        .filterNot { it.isDirectory }
+                        .mapIndexed { index, entry -> readEntry(zip, entry, index, maxEntryBytes) },
+                )
+            }
+        } catch (@Suppress("SwallowedException") e: ZipException) {
+            throw ProtoJson.invalidBody("This is not a zip archive: ${e.message}")
+        }
     }
 
-    private fun readEntry(
-        zip: ZipInputStream,
-        entry: ZipEntry,
-        index: Int,
-        maxEntryBytes: Int,
-    ): Pair<String, ByteArray> {
+    fun isZip(archive: ByteArray): Boolean =
+        archive.size >= SIGNATURE.size && SIGNATURE.indices.all { archive[it] == SIGNATURE[it] }
+
+    fun readEntry(zip: ZipInputStream, entry: ZipEntry, index: Int, maxEntryBytes: Int): Pair<String, String> {
         val content = zip.readNBytes(maxEntryBytes + 1)
         val problem = when {
             index >= MAX_ENTRIES -> "An archive holds at most $MAX_ENTRIES Configs."
             content.size > maxEntryBytes -> "${entry.name} is larger than $maxEntryBytes bytes."
-            else -> return entry.name to content
+            else -> return entry.name to textOf(entry, content)
         }
         throw ProtoJson.invalidBody(problem)
+    }
+
+    /**
+     * Rather than replacing what is not UTF-8, which would lose it without anyone noticing.
+     */
+    private fun textOf(entry: ZipEntry, content: ByteArray): String = try {
+        content.decodeToString(throwOnInvalidSequence = true)
+    } catch (@Suppress("SwallowedException") e: CharacterCodingException) {
+        throw ProtoJson.invalidBody("${entry.name} is not UTF-8 text.")
     }
 
     /**

@@ -24,7 +24,6 @@ import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import me.ahoo.cosky.api.VirtualThreads
-import me.ahoo.cosky.api.configFormatOf
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.DeleteRequest
@@ -42,7 +41,6 @@ import me.ahoo.cosky.api.v1.TopologyRequest
 import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
-import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.api.validation.Validator
@@ -269,30 +267,23 @@ class RestRoutes(
 
     private suspend fun importConfigs(request: ServerRequest): ServerResponse {
         val namespace = request.pathVariable(NAMESPACE)
+        val caller = callerOf(request)
         val items = JsonArray()
-        ConfigArchive.read(request.awaitBody<ByteArray>(), limits.maxConfigContentBytes).forEach { (name, content) ->
-            val put = PutRequest.newBuilder().setResource(configOf(namespace, name, content)).build()
-            val response = resources.put(put, callerOf(request))
-            items.add(
-                JsonObject().apply {
-                    addProperty("name", name)
-                    addProperty("revision", response.revision.toString())
-                    addProperty("changed", response.changed)
-                },
-            )
+        ConfigArchive.read(request.awaitBody<ByteArray>(), limits.maxConfigContentBytes) { entries ->
+            entries.forEach { (name, content) ->
+                val response = resources.importConfig(namespace, name, content, caller)
+                items.add(
+                    JsonObject().apply {
+                        addProperty("name", name)
+                        addProperty("revision", response.revision.toString())
+                        addProperty("changed", response.changed)
+                    },
+                )
+            }
         }
         val body = JsonObject().apply { add("items", items) }
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValueAndAwait(body.toString())
     }
-
-    private fun configOf(namespace: String, name: String, content: ByteArray): Resource =
-        Resource.newBuilder().apply {
-            metaBuilder.setNamespace(namespace).setName(name)
-            config = configSpec {
-                format = configFormatOf(name)
-                this.content = content.decodeToString()
-            }
-        }.build()
 
     private suspend fun exportConfigs(request: ServerRequest): ServerResponse {
         val namespace = request.pathVariable(NAMESPACE)
@@ -376,13 +367,23 @@ class RestRoutes(
         permission: Permission,
     ) {
         authorizer.changes.collect {
+            val valid = authorizer.isValid(principal)
             val now = authorizer.permission(principal, Verb.VERB_WATCH, create.kind, create.namespace)
-            if (!authorizer.isValid(principal) || now != permission) {
+            if (!valid || now != permission) {
                 send(
-                    if (now == Permission.None || !authorizer.isValid(principal)) {
-                        WatchSession.canceled(create.watchId, CoSkyException.permissionDenied("Access was withdrawn."))
-                    } else {
-                        WatchSession.gone(create.watchId, 0)
+                    when {
+                        !valid -> WatchSession.canceled(
+                            create.watchId,
+                            CoSkyException.unauthenticated("The token is no longer valid."),
+                        )
+
+                        now == Permission.None ->
+                            WatchSession.canceled(
+                                create.watchId,
+                                CoSkyException.permissionDenied("Access was withdrawn."),
+                            )
+
+                        else -> WatchSession.gone(create.watchId, 0)
                     },
                 )
                 close()
