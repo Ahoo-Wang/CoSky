@@ -38,12 +38,31 @@ cosky:
     oidc:
       issuer: https://idp.example.com/realms/main
       client-id: cosky-dashboard
-      scopes: [openid, profile, groups]   # 有些提供方要显式申请才返回分组
 ```
 
 server 用提供方的密钥检查签名、签发者、受众和有效期。`sub` 成为 `USER` 名称，`groups` 声明（见 `groups-claim`）成为 `GROUP` 名称。token 的受众必须是 `audience`，没有设置时是 client。
 
-Dashboard 通过授权码 + PKCE 流程登录，所以请把 `cosky-dashboard` 注册为公开客户端，把 Dashboard 的地址作为重定向 URI，并允许这个来源调用提供方的 token 端点。`GET /v1/auth/config` 在登录之前把这些公开值告诉页面，除此之外不含任何内容。
+Dashboard 通过带 PKCE 的授权码流程登录，所以要把 `cosky-dashboard` 注册为公开客户端，并把 Dashboard 的地址设为重定向 URI 和退出登录后的返回地址。提供方必须允许这个来源调用它的 token 端点，浏览器和 server 也必须能通过同一个地址访问签发者。`GET /v1/auth/config` 在登录前把这些公开值提供给页面，不包含其他内容。
+
+`scopes` 默认是 `openid` 和 `profile`。只有提供方确实有某个 scope 时才添加，因为它会拒绝不认识的 scope。有些提供方要求某个 scope 才返回分组，有些要求 `offline_access` 才发放 refresh token。
+
+- **保持登录。** Dashboard 在 ID token 到期前用 refresh token 续期。如果提供方不发放 refresh token，token 到期后就要重新登录，默认配置的 Keycloak 上是 5 分钟。refresh token 和 ID token 一样保存在标签页中，随标签页结束。
+- **退出登录**时，如果提供方提供 `end_session_endpoint`，也会结束提供方的会话，下次登录会要求输入密码。
+- **提供方不可用时**，server 仍能启动，应用继续使用自己的 token 工作。已登录的用户在 ID token 到期前不受影响，新的登录会失败：server 返回 `UNAVAILABLE`，而不是认为 token 无效。请保留一个 ServiceAccount token，以便在此期间登录。
+
+### Keycloak
+
+以下配置在 Keycloak 26 上实测过。其他提供方遵循同样的标准，但都没有实测过。
+
+1. 创建客户端 `cosky-dashboard`，关闭 client authentication，开启 standard flow。把 valid redirect URIs 设为 `https://cosky.example.com/*`，web origins 设为 `https://cosky.example.com`。
+2. 在客户端专属的 scope 中添加 **Group Membership** mapper：token claim name 设为 `groups`，关闭 **Full group path**，开启 **Add to ID token**。如果开启 full path，分组名称会是 `/devs`。
+3. 把角色绑定到分组。用户的 `sub` 是一串不透明的 id，所以绑定分组更方便。还没有角色的用户会在 Dashboard 中看到自己的 `sub` 和所属的分组，可以转告管理员。
+
+```bash
+curl -X PUT localhost:8080/v1/rolebindings/devs-view \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"roleBinding":{"role":"viewer","subjects":[{"type":"TYPE_GROUP","name":"devs"}],"namespaces":["*"]}}'
+```
 
 ## 谁能做什么
 
