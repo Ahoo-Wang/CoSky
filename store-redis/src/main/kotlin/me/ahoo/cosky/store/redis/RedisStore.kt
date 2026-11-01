@@ -18,6 +18,7 @@ import io.lettuce.core.MapScanCursor
 import io.lettuce.core.Range
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisCommandExecutionException
+import io.lettuce.core.RedisException
 import io.lettuce.core.ScanArgs
 import io.lettuce.core.ScanCursor
 import io.lettuce.core.ScriptOutputType
@@ -30,6 +31,7 @@ import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -204,14 +206,23 @@ class RedisStore(
         val hint = hintsOf(namespace)
         var applied = from.revision
         var appliedMeta = ""
+        var readSize = TAIL_BATCH_SIZE
         while (true) {
             val seenHint = hint.value
-            val reply = TAIL.run<List<Any?>>(
-                commands,
-                ScriptOutputType.MULTI,
-                listOf(keys.state, keys.epoch, keys.revision, keys.log),
-                listOf(from.epoch.arg(), applied.arg(), appliedMeta.arg(), TAIL_BATCH_SIZE.arg()),
-            )
+            // A failover shows up as reads that fail. They must not end this: the position kept here is what finds the
+            // writes it lost (design §6.4).
+            val reply = try {
+                TAIL.run<List<Any?>>(
+                    commands,
+                    ScriptOutputType.MULTI,
+                    listOf(keys.state, keys.epoch, keys.revision, keys.log),
+                    listOf(from.epoch.arg(), applied.arg(), appliedMeta.arg(), readSize.arg()),
+                )
+            } catch (e: RedisException) {
+                log.warn("Reading the log of namespace {} failed; trying again: {}", namespace, e.message)
+                delay(tailPollInterval)
+                continue
+            }
             when (reply[0].asText()) {
                 "NOT_ACTIVE" -> return@flow
                 "EPOCH" -> throw TimelineDivergedException(Position(reply[1].asText(), reply[2].asText().toLong()))
@@ -219,16 +230,21 @@ class RedisStore(
                 "GONE" -> throw RevisionGoneException(reply[1].asText().toLong())
             }
             appliedMeta = reply[2].asText()
-            val entries = completeRevisions(reply.last().asList().map { logEntryOf(it) })
-            entries.groupBy { it.revision }.forEach { (revision, group) ->
+            val read = reply.last().asList().map { logEntryOf(it) }
+            val revisions = completeRevisions(read, readSize).groupBy { it.revision }
+            revisions.forEach { (revision, group) ->
                 emit(ChangeBatch(revision, group.map { it.change }))
             }
-            entries.lastOrNull()?.let {
-                applied = it.revision
-                appliedMeta = it.meta
+            revisions.entries.lastOrNull()?.let { (revision, group) ->
+                applied = revision
+                // What tail.lua compares: the entries of a revision differ, by when each object was created (§5.2).
+                appliedMeta = group.first().meta
             }
-            if (entries.isEmpty()) {
-                withTimeoutOrNull(tailPollInterval) { hint.first { it != seenHint } }
+            when {
+                revisions.isNotEmpty() -> readSize = TAIL_BATCH_SIZE
+                // One revision is larger than a read: a lease takes all its Instances along, however many.
+                read.size >= readSize -> readSize *= 2
+                else -> withTimeoutOrNull(tailPollInterval) { hint.first { it != seenHint } }
             }
         }
     }
@@ -435,7 +451,8 @@ class RedisStore(
     }
 
     /**
-     * Removes everything but the state, which stays as a tombstone. Each step can run again if this one is interrupted.
+     * Removes everything but the state, which stays as a tombstone. Each step can run again if this one is interrupted,
+     * and none touches a namespace that has been created again by another replica in the meantime.
      */
     private suspend fun removeData(namespace: String) {
         val keys = RedisKeys(namespace)
@@ -453,7 +470,7 @@ class RedisStore(
             keys.topology,
         )
         (history + objects + fixed + keys.historyIndex).chunked(REMOVE_BATCH_SIZE).forEach {
-            commands.unlink(*it.toTypedArray()).await()
+            NAMESPACE_REMOVE.run<Long>(commands, ScriptOutputType.INTEGER, listOf(keys.state) + it, emptyList())
         }
     }
 
@@ -492,8 +509,8 @@ class RedisStore(
     /**
      * A full read may cut a revision in two; the rest of it comes with the next read, so batches stay whole.
      */
-    private fun completeRevisions(entries: List<LogEntry>): List<LogEntry> {
-        if (entries.size < TAIL_BATCH_SIZE) {
+    private fun completeRevisions(entries: List<LogEntry>, readSize: Int): List<LogEntry> {
+        if (entries.size < readSize) {
             return entries
         }
         val last = entries.last().revision
@@ -527,7 +544,7 @@ class RedisStore(
         private const val REMOVE_BATCH_SIZE = 100
         private const val TO_THE_END = -1L
 
-        /** Above the largest batch, so a read always holds at least one whole revision. */
+        /** What a read starts with: above the largest batch of an apply, though an expiring lease can exceed it. */
         private const val TAIL_BATCH_SIZE = 1000
 
         private val CODEC: RedisCodec<String, ByteArray> = RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE)
@@ -547,6 +564,7 @@ class RedisStore(
         private val NAMESPACE_CREATE = RedisScript("namespace_create")
         private const val EDGE_SEPARATOR = "\u0000"
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
+        private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
 
         fun standalone(
             client: RedisClient,

@@ -32,6 +32,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toKotlinDuration
 
 class LeaseReaperTest {
     private val clock = MutableClock()
@@ -191,6 +192,26 @@ class LeaseReaperTest {
         tickEverySecond(31)
         repeat(4) { register("i$it", ttlSeconds = 2) }
         tickEverySecond(10)
+        instances().size.assert().isEqualTo(4)
+        reaper.paused.assert().containsExactly(NAMESPACE)
+    }
+
+    @Test
+    fun `a pause does not outlive leadership, so the next mass expiry pauses anew`() = scenario {
+        tickEverySecond(31)
+        repeat(4) { register("i$it", ttlSeconds = 2) }
+        tickEverySecond(10)
+        reaper.paused.assert().containsExactly(NAMESPACE)
+
+        clock.advance(options.lockTtl.plusSeconds(1))
+        store.tryLock(LeaseReaper.LOCK, "another", options.lockTtl.toKotlinDuration()).assert().isTrue()
+        reaper.tick()
+        reaper.paused.assert().isEmpty()
+
+        // Longer than a pause lasts: one kept from before would count as used up, and the reaper would go ahead.
+        clock.advance(options.protectionMaxDuration)
+        store.unlock(LeaseReaper.LOCK, "another")
+        tickEverySecond(31)
         instances().size.assert().isEqualTo(4)
         reaper.paused.assert().containsExactly(NAMESPACE)
     }

@@ -168,6 +168,11 @@ class NamespaceCache(
     private val state = MutableStateFlow<NamespaceView?>(null)
 
     /**
+     * How far this cache got, which outlives a reload: watchers are at most this far.
+     */
+    private var followed: Position? = null
+
+    /**
      * Null while loading. A watcher waits that out: what ends it is the next view, if its position is no longer valid
      * there. So a failed read of the store does not make every client List again.
      */
@@ -264,11 +269,20 @@ class NamespaceCache(
     private suspend fun followOnce(): Boolean {
         state.value = null
         val position = store.position(namespace) ?: return false
+        if (wentBack(position)) {
+            isDiverged = true
+            metrics.revisionRegression()
+            log.error("Namespace {} went back from {} to {}; replacing the epoch.", namespace, followed, position)
+            store.rotateEpoch(namespace, position.epoch)
+            return true
+        }
         state.value = load(position)
         isDiverged = false
+        followed = position
         return try {
             store.changes(namespace, position).collect { batch ->
                 state.update { it?.applying(batch, windowSize) }
+                followed = Position(position.epoch, batch.revision)
                 val writtenAt = batch.changes.first().resource.meta.updatedAt
                 val lag = System.currentTimeMillis() - Timestamps.toMillis(writtenAt)
                 metrics.cacheApplied(namespace, batch.revision, maxOf(lag, 0))
@@ -283,6 +297,15 @@ class NamespaceCache(
             log.warn("Namespace {} fell behind the log, oldest position {}; loading it again.", namespace, e.earliest)
             true
         }
+    }
+
+    /**
+     * A read that failed ended the tail, whose job it is to notice this (design §6.4). Loading the lower position under
+     * the same epoch would leave watchers ahead of it, skipping the revisions that get reused.
+     */
+    private fun wentBack(position: Position): Boolean {
+        val previous = followed ?: return false
+        return previous.epoch == position.epoch && position.revision < previous.revision
     }
 
     private suspend fun load(position: Position): NamespaceView {

@@ -591,6 +591,7 @@ sealed interface ApplyResult {
 | `tail.lua` | 一次原子读:比较 epoch → 比较 `rev` 与已应用 revision → 比较已应用 revision 的日志条目 → 返回后续事件(§6.1、§6.4) |
 | `read_batch.lua` | 全量读取的一批:`HSCAN ver` 后在同一脚本内 `HGET obj`,对象与元数据总是匹配,也避免大 Hash 的 `HGETALL` 阻塞 Redis |
 | `epoch_rotate.lua` | 比较并更换 epoch,多个副本同时发现分叉时只有一个生效 |
+| `namespace_remove.lua` | 删除一批 namespace 数据;namespace 已被其他副本重新创建时什么也不做 |
 | `lease_query.lua` | 用 Redis `TIME` 统计租约总数与到期数,并列出可以回收的租约,即到期已超过 TTL 三分之一的(D32) |
 | `lock_acquire.lua` / `lock_release.lua` | `tryLock` / `unlock`:比较 owner 后续约或释放 |
 | `topology_record.lua` | 校验 `state = active` → `ZADD topology <TIME+retention> edge` → `ZREMRANGEBYSCORE` 清理已到期的边;**不改 revision、不写日志** |
@@ -767,6 +768,9 @@ Redis 主从切换或重启可能丢失最后约 1 秒的写入。此后 `rev` �
 
 - `rev` 小于已应用 revision:发生了回退,尚未涨回;
 - 已应用 revision 的日志条目与记录的 `m` 不同:回退后已经涨回。`m` 包含写入时间,不同时间线上几乎不可能相同。
+
+读取失败不结束跟随:故障切换通常先表现为读取失败,跟随方保留已应用的位置并重试,切换完成后上面两条检查才有依据。
+其他原因导致重新加载时,如果同一 epoch 下的 `rev` 比已应用的小,同样算分叉。
 
 任一成立即为分叉,发现分叉的 server:
 
@@ -982,7 +986,7 @@ cosky:
   Instance 按服务授权,否则账号可以冒充其他服务注册:Put 校验新对象的 `spec.service`,覆盖已有对象时还校验旧对象的;Delete 校验现有对象。
   List / Watch 整个 kind 时按规则过滤结果,不拒绝请求。
 - **Views**:需要对应 namespace 的 `INSTANCE` `GET` 权限,且规则的 `names` 为空,因为视图是全量数据。
-- **租约**:Lease 不是资源。Grant 需要该 namespace 的 `INSTANCE` `PUT` 权限,调用者记为所有者;KeepAlive、Revoke,以及把 Instance 挂到租约上都只允许所有者,否则 `PERMISSION_DENIED`。
+- **租约**:Lease 不是资源。Grant 需要该 namespace 的 `INSTANCE` `PUT` 权限,调用者记为所有者;KeepAlive、Revoke,以及把 Instance 挂到租约上都只允许所有者,否则 `PERMISSION_DENIED`;Instance 留在原租约上不算挂载,有写权限即可修改,这样运维才能摘流应用注册的实例。
   `ObjectMeta.lease` 对读者可见,所以安全性不依赖 id 保密。管理员清理实例用 Delete。server 在一条 KeepAlive 流内缓存校验结果,只有首次访问存储。
 
   按服务隔离的自定义 Role 示例(RoleBinding 再用 `namespaces = ["prod"]` 限定范围):

@@ -21,16 +21,20 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.WatchRequest
+import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.objectMeta
@@ -106,6 +110,59 @@ class WatchGrpcServiceTest {
             channel.shutdownNow()
             server.shutdownNow()
             scope.cancel()
+        }
+    }
+
+    @Test
+    fun `a watch id still in use is refused, and the watch it names carries on`() = runBlocking<Unit> {
+        val store = MemoryStore()
+        val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+        val caches = WatchCache(store, WINDOW, scope)
+        val name = UUID.randomUUID().toString()
+        val server = InProcessServerBuilder.forName(name)
+            .addService(WatchGrpcService(caches, CoSkyProperties()))
+            .build()
+            .start()
+        val channel = InProcessChannelBuilder.forName(name).build()
+        try {
+            store.createNamespace(NAMESPACE)
+            val create = WatchRequest.newBuilder().apply {
+                createBuilder.setWatchId(1).setNamespace(NAMESPACE).setKind(Kind.KIND_CONFIG)
+            }.build()
+            val cancel = WatchRequest.newBuilder().apply { cancelBuilder.setWatchId(1) }.build()
+            val requests = Channel<WatchRequest>(Channel.UNLIMITED)
+            withTimeout(10.seconds) {
+                val responses = WatchServiceGrpcKt.WatchServiceCoroutineStub(channel)
+                    .watch(requests.receiveAsFlow())
+                    .produceIn(this)
+                requests.send(create)
+                responses.receive().payloadCase.assert().isEqualTo(WatchResponse.PayloadCase.SNAPSHOT)
+                requests.send(create)
+                responses.receive().payloadCase.assert().isEqualTo(WatchResponse.PayloadCase.CANCELED)
+
+                store.apply(NAMESPACE, listOf(Mutation.Put(config())), "test")
+                responses.receive().payloadCase.assert().isEqualTo(WatchResponse.PayloadCase.EVENTS)
+
+                requests.send(cancel)
+                requests.send(create)
+                responses.receive().payloadCase.assert().isEqualTo(WatchResponse.PayloadCase.SNAPSHOT)
+                responses.cancel()
+            }
+        } finally {
+            channel.shutdownNow()
+            server.shutdownNow()
+            scope.cancel()
+        }
+    }
+
+    private fun config() = resource {
+        meta = objectMeta {
+            namespace = NAMESPACE
+            name = "a"
+        }
+        config = configSpec {
+            format = ConfigFormat.CONFIG_FORMAT_TEXT
+            content = "a"
         }
     }
 

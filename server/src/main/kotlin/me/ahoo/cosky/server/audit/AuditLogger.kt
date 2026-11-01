@@ -13,8 +13,11 @@
 
 package me.ahoo.cosky.server.audit
 
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
+import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Verb
+import me.ahoo.cosky.server.auth.Caller
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -23,6 +26,25 @@ import java.time.Clock
  * The server stores nothing.
  */
 class AuditLogger(private val clock: Clock = Clock.systemUTC()) {
+    /**
+     * Records a write and how it ended (design §7.8).
+     */
+    inline fun <T> audited(caller: Caller, verb: Verb, key: ResourceKey, revisionOf: (T) -> Long, write: () -> T): T {
+        val response = try {
+            write()
+        } catch (e: CoSkyException) {
+            record(caller, verb, key, null, e.errorCode.grpcCode.name)
+            throw e
+        }
+        record(caller, verb, key, revisionOf(response), RESULT_OK)
+        return response
+    }
+
+    @PublishedApi
+    internal fun record(caller: Caller, verb: Verb, key: ResourceKey, revision: Long?, result: String) {
+        record(caller.principal.id, verb, key.kind, key.namespace, key.name, revision, result, caller.remote)
+    }
+
     /**
      * @param result `OK`, or the gRPC code of the failure.
      */
@@ -70,7 +92,10 @@ class AuditLogger(private val clock: Clock = Clock.systemUTC()) {
         }
     }
 
-    private companion object {
-        val LOG = LoggerFactory.getLogger("cosky.audit")
+    companion object {
+        private val LOG = LoggerFactory.getLogger("cosky.audit")
+
+        @PublishedApi
+        internal const val RESULT_OK = "OK"
     }
 }

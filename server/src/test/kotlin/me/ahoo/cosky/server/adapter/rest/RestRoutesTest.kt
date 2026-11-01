@@ -261,19 +261,56 @@ class RestRoutesTest {
         entries.assert().isEqualTo(mapOf("a.yaml" to "x: 1", "b/c.json" to "{}"))
     }
 
+    private fun archiveOf(vararg entries: Pair<String, ByteArray>): ByteArray = ByteArrayOutputStream().also { bytes ->
+        ZipOutputStream(bytes).use { zip ->
+            entries.forEach { (name, content) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(content)
+                zip.closeEntry()
+            }
+        }
+    }.toByteArray()
+
+    private fun WebTestClient.import(archive: ByteArray) = post().uri("/v1/namespaces/$NAMESPACE/configs:import")
+        .contentType(MediaType.parseMediaType("application/zip"))
+        .bodyValue(archive)
+        .exchange()
+
     @Test
     fun `garbage is not an archive, and a huge entry is refused`() {
         val client = client()
-        val uri = "/v1/namespaces/$NAMESPACE/configs:import"
-        val zip = MediaType.parseMediaType("application/zip")
-        val huge = ByteArrayOutputStream().also { bytes ->
-            ZipOutputStream(bytes).use {
-                it.putNextEntry(ZipEntry("huge.txt"))
-                it.write(ByteArray(2 * 1024 * 1024))
-                it.closeEntry()
-            }
-        }.toByteArray()
-        client.post().uri(uri).contentType(zip).bodyValue(huge).exchange().expectStatus().isBadRequest
+        client.import("this is no zip".encodeToByteArray()).expectStatus().isBadRequest
+        client.import(archiveOf("huge.txt" to ByteArray(2 * 1024 * 1024))).expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `an empty archive imports nothing`() {
+        client().import(archiveOf()).expectStatus().isOk.json().getAsJsonArray("items").size().assert().isEqualTo(0)
+    }
+
+    @Test
+    fun `an entry that is not utf-8 is refused rather than damaged`() {
+        val gbk = "你好".toByteArray(charset("GBK"))
+        client().import(archiveOf("a.txt" to gbk)).expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `an archive is unpacked as far as it is used`() {
+        val archive = archiveOf("small.txt" to "a".encodeToByteArray(), "huge.txt" to ByteArray(1024))
+        ConfigArchive.read(archive, 16) { it.first().first }.assert().isEqualTo("small.txt")
+    }
+
+    @Test
+    fun `importing changes the content, and leaves the rest of a config as it is`() {
+        val client = client()
+        val labeled = """{"meta":{"labels":{"team":"core"}},"config":{"format":"CONFIG_FORMAT_YAML","content":"a"}}"""
+        client.putConfig("a", labeled).expectStatus().isOk
+        val revision = client.import(archiveOf("a" to "b: 1".encodeToByteArray())).expectStatus().isOk
+            .json().getAsJsonArray("items").single().asJsonObject["revision"].asLong
+        val config = get(client, "a", revision).expectStatus().isOk.json()
+        config.getAsJsonObject("config")["content"].asString.assert().isEqualTo("b: 1")
+        config.getAsJsonObject("config")["format"].asString.assert().isEqualTo("CONFIG_FORMAT_YAML")
+        config.getAsJsonObject("meta").getAsJsonObject("labels")["team"].asString.assert().isEqualTo("core")
     }
 
     @Test

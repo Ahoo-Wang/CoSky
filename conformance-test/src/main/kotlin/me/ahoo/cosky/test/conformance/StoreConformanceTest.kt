@@ -623,6 +623,32 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `instances attached at different revisions leave together, and the timeline goes on`() = scenario { store ->
+        val lease = store.grant()
+        store.put(instance("order-1", lease = lease))
+        store.put(instance("order-2", lease = lease))
+        val start = position(store)
+        store.expireLease(namespace, lease, ACTOR, force = true).assert().isTrue()
+        store.put(config())
+        val batches = store.changes(namespace, start).take(2).toList()
+        batches.map { it.revision }.assert().containsExactly(start.revision + 1, start.revision + 2)
+        batches.first().changes.map { it.resource.meta.name }.assert().containsExactlyInAnyOrder("order-1", "order-2")
+    }
+
+    @Test
+    fun `a lease takes any number of instances along in one revision`() = scenario { store ->
+        val lease = store.grant()
+        (1..LARGE_LEASE).chunked(Limits.DEFAULT.maxBatchOperations).forEach { names ->
+            store.apply(namespace, names.map { Mutation.Put(instance("order-$it", lease = lease)) }, ACTOR)
+        }
+        val start = position(store)
+        store.expireLease(namespace, lease, ACTOR, force = true).assert().isTrue()
+        val batch = store.changes(namespace, start).first()
+        batch.revision.assert().isEqualTo(start.revision + 1)
+        batch.changes.size.assert().isEqualTo(LARGE_LEASE)
+    }
+
+    @Test
     fun `a lease without instances leaves no revision`() = scenario { store ->
         val lease = store.grant()
         store.expireLease(namespace, lease, ACTOR, force = true).assert().isTrue()
@@ -986,6 +1012,7 @@ abstract class StoreConformanceTest {
         const val ACTOR = "conformance"
         const val CONFIG_NAME = "application.yaml"
         const val MISSING_LEASE = 9_000_000L
+        const val LARGE_LEASE = 2_500
         val SHORT_TTL = 50.milliseconds
         val READY_TTL = 900.milliseconds
         val READY_MARGIN = 50.milliseconds
