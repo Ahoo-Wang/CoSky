@@ -28,6 +28,7 @@ cosky:
 - `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it.
 - YAML and JSON are parsed as YAML, and properties as properties. A TEXT Config becomes one property named after the Config.
 - `cosky.config.load-timeout` (5 seconds) limits how long an import waits for the server.
+- An import connects with what is known of `cosky.*` when its file is read, so keep these settings in the same file or in the environment. Spring reads `application.yaml` before `application-prod.yaml`, whose settings do not reach an import in the former.
 
 ## Live refresh
 

@@ -290,6 +290,37 @@ class FaultInjectionTest {
         }
     }
 
+    /**
+     * Nothing closes the connection here, as when a node loses power: only the client's pings can tell.
+     */
+    @Test
+    fun `a server that goes silent is noticed, and the client moves to the next endpoint`() = scenario {
+        val running = startServer()
+        running.createNamespace(NAMESPACE)
+        Testcontainers.exposeHostPorts(serverPort)
+        val proxy = proxy("silent-$id", "host.testcontainers.internal:$serverPort")
+        val client = CoSkyClient(
+            CoSkyClientOptions(
+                endpoints = listOf("${TOXIPROXY.host}:${mappedPort(proxy)}", "localhost:$serverPort"),
+                snapshotDir = null,
+                reconnectMin = 50.milliseconds,
+                reconnectMax = 500.milliseconds,
+                keepAliveTime = 10.seconds,
+                keepAliveTimeout = 2.seconds,
+            ),
+        ).also { clients += it }
+        val view = client.namespace(NAMESPACE).configs.watch("a")
+        running.putConfig(NAMESPACE, "a", "before")
+        view.first { it?.config?.content == "before" }
+
+        proxy.toxics().timeout("silent-down", ToxicDirection.DOWNSTREAM, 0)
+        proxy.toxics().timeout("silent-up", ToxicDirection.UPSTREAM, 0)
+        running.putConfig(NAMESPACE, "a", "after")
+
+        view.first { it?.config?.content == "after" }
+        proxy.delete()
+    }
+
     // --- partitions ---
 
     @Test

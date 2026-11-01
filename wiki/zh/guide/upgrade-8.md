@@ -22,6 +22,8 @@ CoSky 8.0 是一套新系统，6.x 的任何东西都不会自动延续。6.x �
 | 服务名 | 任意 | DNS 风格的小写名称 |
 | Config 格式 | 按扩展名推断 | 随 Config 声明 |
 | 保持存活 | 每个实例自己的 TTL | 每个进程一个租约 |
+| 没有 Web 服务器的应用 | 设置 `registry.port` 后会注册 | 不会自动注册，需调用客户端的 `instances.register` |
+| 让实例停止接收流量 | `ServiceRegistry.setStatus` | 把权重设为 `0` |
 | 人员 | 带密码的用户 | OIDC 或 ServiceAccount token |
 | 权限 | 按 namespace 读或写 | 角色可细到类型、动作和名称前缀 |
 | 审计 | Dashboard 中的页面 | 日志中的 JSON 行 |

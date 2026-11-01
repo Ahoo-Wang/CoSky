@@ -18,6 +18,7 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.TlsChannelCredentials
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -33,6 +34,10 @@ import kotlin.time.Duration.Companion.seconds
  * could miss (§6.4); ±20% jitter is added.
  * @param leaseTtl TTL of the lease; renewed every third of it.
  * @param closeTimeout how long closing waits to revoke leases, after which the server expires them.
+ * @param callTimeout how long a call waits for its answer. Streams have none.
+ * @param keepAliveTime how often an open connection is pinged, which is what notices a server that is silently gone. A
+ * server ends the connections of clients pinging more often than `spring.grpc.server.keepalive.permit.time`.
+ * @param keepAliveTimeout how long a ping waits for its answer before the connection counts as dead.
  * @param tls connects over TLS. Without it the token crosses the network in the clear.
  * @param tlsTrustedCertificates a PEM file of the certificates to trust, for a private CA. The JVM's trust store
  * decides otherwise.
@@ -51,19 +56,31 @@ data class CoSkyClientOptions(
     val reRegisterJitter: Duration = 5.seconds,
     val leaseTtl: Duration = 30.seconds,
     val closeTimeout: Duration = 3.seconds,
+    val callTimeout: Duration = 10.seconds,
+    val keepAliveTime: Duration = 15.seconds,
+    val keepAliveTimeout: Duration = 5.seconds,
     val tls: Boolean = false,
     val tlsTrustedCertificates: Path? = null,
     val channelFactory: (String) -> ManagedChannel = { endpoint ->
-        if (tls) {
+        val channel = if (tls) {
             val credentials = TlsChannelCredentials.newBuilder()
             tlsTrustedCertificates?.let { credentials.trustManager(it.toFile()) }
-            Grpc.newChannelBuilder(endpoint, credentials.build()).build()
+            Grpc.newChannelBuilder(endpoint, credentials.build())
         } else {
-            ManagedChannelBuilder.forTarget(endpoint).usePlaintext().build()
+            ManagedChannelBuilder.forTarget(endpoint).usePlaintext()
         }
+        channel
+            .keepAliveTime(keepAliveTime.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+            .keepAliveTimeout(keepAliveTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+            .build()
     },
 ) {
     init {
         require(endpoints.isNotEmpty()) { "At least one endpoint is required." }
     }
+
+    /**
+     * Leaves the token out, since options end up in messages and logs.
+     */
+    override fun toString(): String = "CoSkyClientOptions(endpoints=$endpoints, clientName=$clientName, tls=$tls)"
 }

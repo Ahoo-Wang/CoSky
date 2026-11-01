@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.migration
 
+import me.ahoo.cosky.api.v1.ConfigFormat
 import java.nio.file.Path
 
 /**
@@ -23,6 +24,7 @@ internal class UsageException(message: String) : RuntimeException(message)
 /**
  * @param source the Redis URI of 6.x; comma separated seed nodes when [cluster].
  * @param namespaces 6.x namespace to 8.0 namespace; null leaves it out.
+ * @param defaultFormat of a Config whose name has no extension, which 6.x left to `file-extension`, by default yaml.
  */
 internal data class Options(
     val source: String,
@@ -33,6 +35,7 @@ internal data class Options(
     val dryRun: Boolean = false,
     val namespaces: Map<String, String?> = emptyMap(),
     val report: Path = Path.of(DEFAULT_REPORT),
+    val defaultFormat: ConfigFormat = ConfigFormat.CONFIG_FORMAT_YAML,
 ) {
     companion object {
         const val DEFAULT_REPORT = "cosky-migration-report.md"
@@ -52,6 +55,8 @@ internal data class Options(
               --dry-run             Read both sides and report, writing nothing to 8.0.
               --namespace <a>=<b>   Import 6.x namespace a into 8.0 namespace b; an empty b leaves a out. Repeatable.
               --report <path>       Where to write the report; $DEFAULT_REPORT by default.
+              --default-format <f>  The format of a Config whose name has no extension: yaml, which 6.x assumed unless
+                                    told otherwise by file-extension, properties, json or text.
               --help                Show this.
 
             Stop writing to 6.x first. A run that was interrupted continues when started again.
@@ -72,7 +77,9 @@ internal data class Options(
             while (arguments.hasNext()) {
                 when (val argument = arguments.next()) {
                     "--cluster", "--history", "--dry-run" -> flags += argument
-                    "--source", "--target", "--report" -> values[argument] = arguments.valueOf(argument)
+                    "--source", "--target", "--report", "--default-format" ->
+                        values[argument] = arguments.valueOf(argument)
+
                     "--namespace" -> namespaces += namespaceMapping(arguments.valueOf(argument))
                     else -> usage("Unknown argument $argument.")
                 }
@@ -87,7 +94,16 @@ internal data class Options(
                 dryRun = "--dry-run" in flags,
                 namespaces = namespaces,
                 report = Path.of(values["--report"] ?: DEFAULT_REPORT),
+                defaultFormat = formatOf(values["--default-format"] ?: "yaml"),
             )
+        }
+
+        private fun formatOf(value: String): ConfigFormat = when (value) {
+            "yaml" -> ConfigFormat.CONFIG_FORMAT_YAML
+            "properties" -> ConfigFormat.CONFIG_FORMAT_PROPERTIES
+            "json" -> ConfigFormat.CONFIG_FORMAT_JSON
+            "text" -> ConfigFormat.CONFIG_FORMAT_TEXT
+            else -> usage("--default-format is yaml, properties, json or text, not $value.")
         }
 
         private fun usage(problem: String): Nothing = throw UsageException(problem)

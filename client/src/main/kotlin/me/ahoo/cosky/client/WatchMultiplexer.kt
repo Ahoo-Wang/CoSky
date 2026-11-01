@@ -99,7 +99,10 @@ internal class WatchMultiplexer(
         val outgoing = RequestQueue<WatchRequest>(RequestQueue.UNLIMITED)
         requests = outgoing
         byId.clear()
-        watches.values.forEach { create(outgoing, it) }
+        watches.values.forEach {
+            it.discardPartial()
+            create(outgoing, it)
+        }
         WatchServiceGrpcKt.WatchServiceCoroutineStub(channel).watch(outgoing.receiveAsFlow()).collect { response ->
             backoff.reset()
             connectionState.value = ConnectionState.SYNCED

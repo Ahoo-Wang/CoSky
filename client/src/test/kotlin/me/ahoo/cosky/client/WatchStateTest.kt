@@ -77,6 +77,14 @@ class WatchStateTest {
     }
 
     @Test
+    fun `what a broken stream left of a snapshot does not reach the next one`() {
+        state.apply(snapshot("deleted since", more = true)).assert().isFalse()
+        state.discardPartial()
+        state.apply(snapshot("kept")).assert().isTrue()
+        names().assert().containsExactly("kept")
+    }
+
+    @Test
     fun `a revision in chunks takes effect with the last one`() {
         state.apply(snapshot("a"))
         state.apply(put(2, "b", more = true)).assert().isFalse()

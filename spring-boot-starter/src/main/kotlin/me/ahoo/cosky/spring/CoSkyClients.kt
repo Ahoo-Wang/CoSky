@@ -19,30 +19,45 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Configuration loads before the context exists and runs again on every refresh, while the context needs the same
- * client afterwards. So the client is shared here by its settings, and closed once with the context.
+ * client afterwards. So the client is shared here by what connects it, and closed once with the context. Other settings
+ * may well differ between the two: an imported Config can hold them too.
  */
 internal object CoSkyClients {
-    private val clients = ConcurrentHashMap<CoSkyProperties, CoSkyClient>()
-    private val imported = ConcurrentHashMap<CoSkyProperties, MutableMap<String, Long>>()
+    private data class Connection(
+        val endpoints: List<String>,
+        val token: String?,
+        val tls: CoSkyProperties.Tls,
+        val snapshot: CoSkyProperties.Snapshot,
+    )
+
+    private data class Imports(val connection: Connection, val namespace: String)
+
+    private val CoSkyProperties.connection: Connection
+        get() = Connection(endpoints, token, tls, snapshot)
+
+    private val clients = ConcurrentHashMap<Connection, CoSkyClient>()
+    private val imported = ConcurrentHashMap<Imports, MutableMap<String, Long>>()
 
     /**
      * @param applicationName `spring.application.name`, which names this client in the server's topology view.
      */
     fun shared(properties: CoSkyProperties, applicationName: String?): CoSkyClient =
-        clients.computeIfAbsent(properties) { CoSkyClient(it.toOptions(applicationName)) }
+        clients.computeIfAbsent(properties.connection) { CoSkyClient(properties.toOptions(applicationName)) }
 
     /**
      * Remembers a Config this application loaded and the revision it saw, so that a change to it can trigger a refresh.
      */
     fun markImported(properties: CoSkyProperties, config: String, revision: Long) {
-        imported.computeIfAbsent(properties) { ConcurrentHashMap() }[config] = revision
+        imported.computeIfAbsent(Imports(properties.connection, properties.namespace)) { ConcurrentHashMap() }[config] =
+            revision
     }
 
-    fun importedBy(properties: CoSkyProperties): Map<String, Long> = imported[properties].orEmpty()
+    fun importedBy(properties: CoSkyProperties): Map<String, Long> =
+        imported[Imports(properties.connection, properties.namespace)].orEmpty()
 
     fun close(properties: CoSkyProperties) {
-        imported.remove(properties)
-        clients.remove(properties)?.close()
+        imported.keys.removeIf { it.connection == properties.connection }
+        clients.remove(properties.connection)?.close()
     }
 }
 

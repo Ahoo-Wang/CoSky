@@ -109,10 +109,13 @@ internal class Migration(
             this.name = name
         }
         config = configSpec {
-            format = configFormatOf(name)
+            format = formatOf(name)
             this.content = content
         }
     }
+
+    private fun formatOf(name: String) =
+        if ('.' in name.substringAfterLast('/')) configFormatOf(name) else options.defaultFormat
 
     private companion object {
         const val NOT_FOUND = -1

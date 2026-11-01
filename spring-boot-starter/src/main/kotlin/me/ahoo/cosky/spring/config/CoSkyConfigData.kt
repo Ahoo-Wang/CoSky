@@ -45,7 +45,12 @@ data class CoSkyConfigDataResource(
     val config: String,
     val properties: CoSkyProperties,
     val applicationName: String?,
-) : ConfigDataResource()
+) : ConfigDataResource() {
+    /**
+     * What Spring reports it by. The rest holds the token.
+     */
+    override fun toString(): String = "$PREFIX$config"
+}
 
 class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDataResource> {
     override fun isResolvable(context: ConfigDataLocationResolverContext, location: ConfigDataLocation): Boolean =
@@ -84,12 +89,27 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
         val content = ByteArrayResource(config.config.contentBytes.toByteArray())
         val sourceName = "$PREFIX$name"
         return when (config.config.format) {
-            ConfigFormat.CONFIG_FORMAT_PROPERTIES -> PropertiesPropertySourceLoader().load(sourceName, content)
+            ConfigFormat.CONFIG_FORMAT_PROPERTIES ->
+                PropertiesPropertySourceLoader().load(sourceName, ByteArrayResource(escaped(config.config.content)))
+
             // JSON is a subset of YAML, so one parser serves both.
             ConfigFormat.CONFIG_FORMAT_YAML, ConfigFormat.CONFIG_FORMAT_JSON ->
                 YamlPropertySourceLoader().load(sourceName, content)
 
             else -> listOf(MapPropertySource(sourceName, mapOf(name to config.config.content)))
         }
+    }
+
+    /**
+     * The loader reads ISO-8859-1, as is the tradition of `.properties` files, so everything else goes in as an escape.
+     */
+    private fun escaped(content: String): ByteArray = buildString(content.length) {
+        content.forEach { char ->
+            if (char.code < FIRST_NON_ASCII) append(char) else append("\\u%04x".format(char.code))
+        }
+    }.encodeToByteArray()
+
+    private companion object {
+        const val FIRST_NON_ASCII = 128
     }
 }

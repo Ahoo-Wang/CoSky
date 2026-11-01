@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.spring.discovery
 
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.reactor.asFlux
 import kotlinx.coroutines.reactor.mono
@@ -84,13 +86,23 @@ class CoSkyReactiveDiscoveryClient(client: CoSkyClient, private val properties: 
  * Pushes every change of a service's view to Spring Cloud LoadBalancer, which owns the balancing algorithm
  * (design §7.7). A drained instance stays out of its list, as it does for the client's own balancer.
  */
-class CoSkyServiceInstanceListSupplier(private val service: String, client: CoSkyClient, properties: CoSkyProperties) :
-    ServiceInstanceListSupplier {
-    private val view = client.namespace(properties.namespace).instances.watch(service)
+class CoSkyServiceInstanceListSupplier(
+    private val service: String,
+    client: CoSkyClient,
+    private val properties: CoSkyProperties,
+) : ServiceInstanceListSupplier {
+    private val instances = client.namespace(properties.namespace).instances
+    private val view = instances.watch(service)
 
     override fun getServiceId(): String = service
 
-    override fun get(): Flux<List<ServiceInstance>> =
-        view.map { instances -> instances.filter { it.effectiveWeight > 0 }.map { it.toServiceInstance() } }
-            .asFlux(VirtualThreads.dispatcher)
+    /**
+     * A balancer goes by the first list, so that one waits for the view to be known, as [CoSkyDiscoveryClient] does:
+     * the first call of an application must not take an unknown service for an empty one.
+     */
+    override fun get(): Flux<List<ServiceInstance>> = flow {
+        withTimeoutOrNull(properties.discoveryLoadTimeout) { instances.load(service) }?.let { emit(it) }
+        emitAll(view)
+    }.map { resources -> resources.filter { it.effectiveWeight > 0 }.map { it.toServiceInstance() } }
+        .asFlux(VirtualThreads.dispatcher)
 }
