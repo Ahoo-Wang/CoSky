@@ -6,7 +6,7 @@ description: 运行一个 CoSky server，把 Config 提供给 Spring Boot 应用
 # 快速开始
 
 ::: warning 8.0 处于 alpha 阶段
-`8.0.0-alpha.1` 是预览版，不作兼容性承诺：API、协议和 Redis 键都可能变化。`ahoowang/cosky:latest` 目前仍是 6.x，它的文档在 [`v6` 分支](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide)中。
+`8.0.0-alpha.2` 是预览版，不作兼容性承诺：API、协议和 Redis 键都可能变化。`ahoowang/cosky:latest` 目前仍是 6.x，它的文档在 [`v6` 分支](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide)中。
 :::
 
 你需要一个开发模式的 server 和一个 Spring Boot 4 应用。版本要求见[需求](./requirements.md)。
@@ -14,7 +14,7 @@ description: 运行一个 CoSky server，把 Config 提供给 Spring Boot 应用
 ## 1. 启动 server
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.1 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.2 --dev
 ```
 
 `--dev` 不需要 Redis，也不需要登录。重启后什么都不会保留，所以不要用于生产环境，正式部署见[部署](./deployment.md)。9090 端口通过 gRPC 服务应用；8080 端口提供 REST API 和 Dashboard，地址是 <http://localhost:8080>。
@@ -25,7 +25,7 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.1 --dev
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-alpha.1"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-alpha.2"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context") // 用于实时刷新

@@ -6,7 +6,7 @@ description: Run a CoSky server, serve a Config to a Spring Boot application, an
 # Getting Started
 
 ::: warning 8.0 is in alpha
-`8.0.0-alpha.1` is a preview with no compatibility promise: its API, wire format and Redis keys may still change. `ahoowang/cosky:latest` is still 6.x, whose documentation is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+`8.0.0-alpha.2` is a preview with no compatibility promise: its API, wire format and Redis keys may still change. `ahoowang/cosky:latest` is still 6.x, whose documentation is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 :::
 
 This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
@@ -14,7 +14,7 @@ This takes a server in development mode and a Spring Boot 4 application. [Requir
 ## 1. Start a server
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.1 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.2 --dev
 ```
 
 `--dev` needs no Redis and no sign-in. Nothing survives a restart, so never run it for real: [Deployment](./deployment.md) shows how. Port 9090 serves applications over gRPC. Port 8080 serves the REST API and the Dashboard, at <http://localhost:8080>.
@@ -25,7 +25,7 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.1 --dev
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-alpha.1"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-alpha.2"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context") // for live refresh
