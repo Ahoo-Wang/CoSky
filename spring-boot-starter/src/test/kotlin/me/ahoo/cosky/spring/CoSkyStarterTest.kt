@@ -13,6 +13,9 @@
 
 package me.ahoo.cosky.spring
 
+import ch.qos.logback.classic.Logger
+import ch.qos.logback.classic.spi.ILoggingEvent
+import ch.qos.logback.core.read.ListAppender
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
@@ -34,6 +37,7 @@ import me.ahoo.test.asserts.assertThrownBy
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import org.slf4j.LoggerFactory
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.availability.AvailabilityChangeEvent
@@ -412,6 +416,24 @@ class CoSkyStarterTest {
         context.close()
         contexts.remove(context)
         eventually { server.instances().isEmpty() }
+    }
+
+    @Test
+    fun `leaving finds the client still open`() = runBlocking<Unit> {
+        val context = application(web = true)
+        eventually { server.instances().isNotEmpty() }
+        // Only now: Spring Boot takes away what was added to the logging before it started.
+        val logger = LoggerFactory.getLogger(CoSkyServiceRegistry::class.java) as Logger
+        val warnings = ListAppender<ILoggingEvent>().apply { start() }
+        logger.addAppender(warnings)
+        try {
+            context.close()
+            contexts.remove(context)
+        } finally {
+            logger.detachAppender(warnings)
+        }
+        server.instances().assert().isEmpty()
+        warnings.list.map { it.formattedMessage }.assert().isEmpty()
     }
 
     @Test
