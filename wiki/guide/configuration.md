@@ -25,6 +25,7 @@ cosky:
   namespace: prod
 ```
 
+- Only `default` exists at first. Create any other namespace before using it: `curl -X PUT localhost:8080/v1/namespaces/prod -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{"namespace":{}}'`.
 - `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it.
 - YAML and JSON are parsed as YAML, and properties as properties. A TEXT Config becomes one property named after the Config.
 - `cosky.config.load-timeout` (5 seconds) limits how long an import waits for the server.

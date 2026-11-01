@@ -683,6 +683,19 @@ test.describe('security', () => {
         await expect(toast(page, 'Failed to create token: At most 2 tokens.')).toBeVisible();
     });
 
+    test('a role binding can give the built-in roles, which are not among those listed', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Role Binding'}).click();
+
+        await page.getByRole('button', {name: 'Add Role Binding'}).click();
+        await page.getByRole('combobox', {name: 'Role'}).click();
+        await expect(page.getByRole('option', {name: 'viewer', exact: true})).toBeVisible();
+        await expect(page.getByRole('option', {name: 'client', exact: true})).toBeVisible();
+        await expect(page.getByRole('option', {name: 'admin', exact: true})).toHaveCount(1);
+    });
+
     test('editing a role or a role binding keeps the labels it does not show', async ({page}) => {
         const api = await installApiMock(page);
         api.put('/v1/roles/reader', {

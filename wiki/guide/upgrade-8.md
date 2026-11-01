@@ -42,13 +42,17 @@ If some services must call each other across generations during a move, run the 
 
 Revisions and timestamps start anew. A Config removed in 6.x has no current version, and does not arrive.
 
-## Building the tool
+## Getting the tool
+
+Each [release](https://github.com/Ahoo-Wang/CoSky/releases) carries `cosky-migrate` as a zip file. Unpack it, and run `bin/cosky-migrate` with JDK 21 or later.
+
+To build it instead, with JDK 21 installed:
 
 ```bash
 ./gradlew :migration:installDist
 ```
 
-The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`, and needs JDK 21 or later.
+The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`.
 
 ## The cutover
 

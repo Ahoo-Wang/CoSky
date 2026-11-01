@@ -26,6 +26,10 @@ On its first start, a server without any role binding turns `COSKY_BOOTSTRAP_TOK
 export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
 ```
 
+- The server reads it only while no role binding exists. After that another value does nothing, so removing it changes nothing either.
+- Without it, a server with no role binding starts and logs a warning, and nobody can sign in.
+- To replace a lost token, run one server on the same Redis with `--cosky.auth.enabled=false`, where nobody else can reach it. Create a token with `POST /v1/serviceaccounts/admin/tokens`, revoke the lost one, and stop that server.
+
 ### OIDC
 
 ```yaml
@@ -43,7 +47,15 @@ The Dashboard signs in through the authorization code flow with PKCE, so registe
 
 ## Who may do what
 
-A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces.
+A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces. Three roles are built in, and a Role cannot take their names:
+
+| Role | Allows |
+|---|---|
+| `admin` | Everything |
+| `viewer` | Reading and watching everything |
+| `client` | Reading and watching Configs, and reading, watching and writing Instances |
+
+Your own roles look like this:
 
 ```json
 {
@@ -113,6 +125,18 @@ cosky:
 
 Mutual TLS is not supported yet: a client proves who it is with its token.
 
+With TLS on, port 8080 speaks only HTTPS, while the image's health check and the probes in `k8s/base` use HTTP. Give them a plain port of their own:
+
+```yaml
+management:
+  server:
+    port: 8081
+    ssl:
+      enabled: false
+```
+
+Then point the probes at it, and the container's check too: `docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`.
+
 ## Audit
 
 Each write and each failed sign-in is one JSON line in the log, with the time, subject, verb, kind, namespace, name, revision, outcome and remote address. Config contents and tokens never appear. The server keeps no audit data of its own: collect the lines with your log system, which also decides how long they stay.
@@ -122,3 +146,5 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 - Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
 - Anyone who can reach Redis can read and change everything, past all of the above.
 - Instance metadata is visible to anyone allowed to read the instance.
+- `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
+- gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.

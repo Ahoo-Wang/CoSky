@@ -10,6 +10,7 @@ description: CoSky 需要并经过测试的版本。
 | Server | JDK 25 | 镜像已包含 |
 | 客户端和 starter | JDK 21 或更高 | |
 | `cosky-migrate` | JDK 21 或更高 | |
+| 从源码构建 | JDK 21 和 JDK 25 | Gradle 不会下载它们 |
 | Spring Boot | 4.1 | starter 需要 |
 | Spring Cloud | 2025.1 | 声明的是 Spring Boot 4.0，所以在 2026.0 之前请设置 `spring.cloud.compatibility-verifier.enabled: false` |
 | Redis | 7.0 或更高，`maxmemory-policy noeviction` | server 启动时检查这两项，不满足就拒绝运行 |
@@ -23,7 +24,7 @@ description: CoSky 需要并经过测试的版本。
 
 | 库 | 版本 |
 |---|---|
-| Kotlin | 2.x，编译到 Java 21 |
+| Kotlin | 2.4，编译到 Java 21。基于它编译需要 Kotlin 2.3 或更高版本。 |
 | gRPC | 1.81 |
 | Protobuf | 4.34 |
 | Spring gRPC | 1.1 |

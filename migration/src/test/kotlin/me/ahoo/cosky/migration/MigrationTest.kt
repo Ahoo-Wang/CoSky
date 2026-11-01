@@ -282,6 +282,7 @@ class MigrationTest {
         six.saveRole("developer", "Writes the Configs", mapOf(source to "rw", "gone" to "r", "*" to "w"))
         six.saveRole("reader", "", mapOf(source to "r"))
         six.saveRole("Not_Legal", "", emptyMap())
+        six.saveRole("viewer", "", emptyMap())
         six.addUser("ada", "secret-hash", "developer", "removed")
         six.addUser("root", "secret-hash")
 
@@ -300,6 +301,7 @@ class MigrationTest {
             .contains("`*`: w | namespaces `*`, verbs PUT, DELETE")
             .contains("`gone`: r |  | This namespace did not migrate.")
             .contains("Needs a new name")
+            .contains("8.0 has a built-in role of this name")
             .contains("| `ada` | `developer`, `removed` | Granted nothing by removed: no such role. |")
             .contains("| `root` |  | No roles.")
             .doesNotContain("secret")

@@ -7,6 +7,9 @@ spring:
   grpc:
     server:
       port: 9090
+      # It answers without a token, unlike the services it describes.
+      reflection:
+        enabled: false
       shutdown:
         # Watches and keep-alives never finish by themselves, so a shutdown would always wait this long. Clients
         # reconnect to another replica when it ends them.

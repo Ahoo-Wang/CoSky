@@ -73,6 +73,9 @@ class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDa
 class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
     override fun load(context: ConfigDataLoaderContext, resource: CoSkyConfigDataResource): ConfigData {
         val properties = resource.properties
+        if (!properties.enabled) {
+            return ConfigData.EMPTY
+        }
         val namespace = CoSkyClients.shared(properties, resource.applicationName).namespace(properties.namespace)
         val config = runBlocking(VirtualThreads.dispatcher) {
             withTimeoutOrNull(properties.configLoadTimeout) { namespace.configs.load(resource.config) }

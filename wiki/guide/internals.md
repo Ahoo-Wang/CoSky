@@ -31,7 +31,7 @@ Two rules hold this together. Nothing but the server touches the Store, and clie
 ./gradlew build
 ```
 
-The server's tests need JDK 25 and Docker, and Gradle provides the JDKs. `./gradlew :server:run --args='--dev'` starts a server in memory.
+Building needs JDK 21, and the server's tests and `:server:run` need JDK 25, and Docker for the tests. Install both JDKs: Gradle does not download them. `./gradlew :server:run --args='--dev'` starts a server in memory.
 
 The server bundles the Dashboard when `dashboard/dist` exists:
 

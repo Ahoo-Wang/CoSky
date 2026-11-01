@@ -10,6 +10,7 @@ description: The versions CoSky needs and is tested with.
 | Server | JDK 25 | The image includes it |
 | Client and starter | JDK 21 or later | |
 | `cosky-migrate` | JDK 21 or later | |
+| Building from source | JDK 21 and JDK 25 | Gradle does not download them |
 | Spring Boot | 4.1 | For the starter |
 | Spring Cloud | 2025.1 | Declares Spring Boot 4.0, so set `spring.cloud.compatibility-verifier.enabled: false` until 2026.0 |
 | Redis | 7.0 or later, with `maxmemory-policy noeviction` | The server checks both at start, and refuses to run otherwise |
@@ -23,7 +24,7 @@ Every pull request runs against Redis 7.0, Redis 7.4 and Valkey 8, on a single n
 
 | Library | Version |
 |---|---|
-| Kotlin | 2.x, compiled to Java 21 |
+| Kotlin | 2.4, compiled to Java 21. Compiling against it takes Kotlin 2.3 or later. |
 | gRPC | 1.81 |
 | Protobuf | 4.34 |
 | Spring gRPC | 1.1 |

@@ -42,13 +42,17 @@ CoSky 8.0 是一套新系统，6.x 的任何东西都不会自动延续。6.x �
 
 revision 和时间戳重新开始。在 6.x 中已删除的 Config 没有当前版本，不会迁移。
 
-## 构建工具
+## 获取工具
+
+每个[发布版本](https://github.com/Ahoo-Wang/CoSky/releases)都带有 `cosky-migrate` 的 zip 包。解压后用 JDK 21 或更高版本运行 `bin/cosky-migrate`。
+
+也可以自行构建，需要安装 JDK 21：
 
 ```bash
 ./gradlew :migration:installDist
 ```
 
-工具位于 `migration/build/install/cosky-migrate/bin/cosky-migrate`，需要 JDK 21 或更高版本。
+工具位于 `migration/build/install/cosky-migrate/bin/cosky-migrate`。
 
 ## 切换步骤
 

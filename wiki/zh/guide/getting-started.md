@@ -32,10 +32,14 @@ dependencies {
 }
 ```
 
+使用 Kotlin 时还要加上 Gradle 插件 `kotlin("plugin.spring")`：下文 `@RefreshScope` 中的 bean 必须是 open 的。
+
 ## 3. 配置应用
 
 ```yaml
 # application.yaml
+server:
+  port: 8081 # 8080 是 CoSky server 占用的
 spring:
   application:
     name: provider
@@ -73,7 +77,7 @@ class HelloController(@Value("\${example.greeting:Hello}") private val greeting:
 
 ## 5. 从另一个应用找到它
 
-在第二个应用中加入 `spring-cloud-starter-loadbalancer`，使用相同的配置和自己的名称，然后按服务名调用 provider：
+在第二个应用中加入 `spring-cloud-starter-loadbalancer`，使用相同的配置和自己的名称、端口，然后按服务名调用 provider：
 
 ```kotlin
 @Bean

@@ -221,7 +221,13 @@ internal class MigrationReport(
     }
 
     private fun roleRows(role: SourceRole, mapping: NamespaceMapping): List<List<String>> {
-        val note = if (NamingRules.GLOBAL_NAME.matches(role.name)) "" else "Needs a new name: 8.0 refuses this one."
+        val note = when {
+            role.name in NamingRules.BUILT_IN_ROLES ->
+                "8.0 has a built-in role of this name, which a Role cannot replace. Use that, or rename this one."
+
+            NamingRules.GLOBAL_NAME.matches(role.name) -> ""
+            else -> "Needs a new name: 8.0 refuses this one."
+        }
         if (role.grants.isEmpty()) {
             return listOf(listOf(code(role.name), role.description, "none", "", note))
         }

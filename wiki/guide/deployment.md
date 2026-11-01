@@ -21,9 +21,22 @@ Redis replication is asynchronous, so a failover can lose the last writes. To na
 ## Docker
 
 ```bash
-docker run -d --name cosky -p 8080:8080 -p 9090:9090 \
+docker network create cosky
+```
+
+```bash
+docker run -d --name redis --network cosky redis:7.4
+```
+
+```bash
+export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
+echo "$COSKY_BOOTSTRAP_TOKEN"
+```
+
+```bash
+docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
-  -e COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)" \
+  -e COSKY_BOOTSTRAP_TOKEN \
   ahoowang/cosky
 ```
 

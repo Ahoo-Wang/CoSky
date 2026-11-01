@@ -57,6 +57,8 @@ dependencies {
 Point it at the server:
 
 ```yaml
+server:
+  port: 8081 # 8080 is the CoSky server
 spring:
   application:
     name: order-service          # registers as order-service

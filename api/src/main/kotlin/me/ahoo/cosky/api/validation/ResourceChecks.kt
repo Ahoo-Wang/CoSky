@@ -56,7 +56,11 @@ internal class ResourceChecks(private val checks: FieldChecks, private val limit
             Kind.KIND_CONFIG -> config(path(field, "config"), resource.config)
             Kind.KIND_INSTANCE -> instance(path(field, "instance"), resource.instance)
             Kind.KIND_SERVICE_ACCOUNT -> serviceAccount(path(field, "service_account"), resource.serviceAccount)
-            Kind.KIND_ROLE -> role(path(field, "role"), resource.role)
+            Kind.KIND_ROLE -> {
+                builtInRole(path(field, "meta.name"), resource.meta.name)
+                role(path(field, "role"), resource.role)
+            }
+
             Kind.KIND_ROLE_BINDING -> roleBinding(path(field, "role_binding"), resource.roleBinding)
             else -> Unit
         }
@@ -157,6 +161,12 @@ internal class ResourceChecks(private val checks: FieldChecks, private val limit
                 ViolationCode.VIOLATION_CODE_TOO_MANY,
                 "At most ${limits.maxTokens} tokens are allowed."
             )
+        }
+    }
+
+    private fun builtInRole(field: String, name: String) {
+        if (name in NamingRules.BUILT_IN_ROLES) {
+            checks.add(field, ViolationCode.VIOLATION_CODE_RESERVED_NAME, "$name is a built-in role.")
         }
     }
 

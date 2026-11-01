@@ -5,13 +5,15 @@ applications move together: there is no bridge and no period where both run.
 
 It imports Configs, and reports what cannot be imported. Instances, users and roles do not migrate.
 
-## Build
+## Get it
+
+Each [release](https://github.com/Ahoo-Wang/CoSky/releases) carries it as a zip file; run `bin/cosky-migrate` with JDK 21 or later. To build it instead, with JDK 21 installed:
 
 ```bash
 ./gradlew :migration:installDist
 ```
 
-The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`, and needs JDK 21 or later.
+The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`.
 
 ## Cutover
 
@@ -25,8 +27,7 @@ The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`, a
    Rename the services it lists, and name any namespace 8.0 cannot accept with `--namespace <6.x>=<8.0>`. The default
    namespace of 6.x, `cosky-{default}`, goes to `default`. A namespace 6.x never listed has to be named this way too.
 3. Rebuild the roles and subjects from the report on 8.0.
-4. Stop writing Configs to 6.x, and import. `--history` also brings the versions 6.x still holds; 8.0 keeps its newest
-   `cosky.config.history-size` of them.
+4. Stop writing Configs to 6.x, and import. `--history` also brings the versions 6.x still holds; 8.0 keeps its newest 20.
 
    ```bash
    COSKY_TOKEN=<token> cosky-migrate --source redis://<6.x-redis> --target http://<8.0-server> --history
