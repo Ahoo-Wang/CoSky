@@ -18,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -629,8 +630,11 @@ abstract class StoreConformanceTest {
         store.put(instance("order-2", lease = lease))
         val start = position(store)
         store.expireLease(namespace, lease, ACTOR, force = true).assert().isTrue()
-        store.put(config())
-        val batches = store.changes(namespace, start).take(2).toList()
+        // Written only now, so that the next read has to go on from the revision they left in.
+        val batches = store.changes(namespace, start)
+            .onEach { if (it.revision == start.revision + 1) store.put(config()) }
+            .take(2)
+            .toList()
         batches.map { it.revision }.assert().containsExactly(start.revision + 1, start.revision + 2)
         batches.first().changes.map { it.resource.meta.name }.assert().containsExactlyInAnyOrder("order-1", "order-2")
     }
