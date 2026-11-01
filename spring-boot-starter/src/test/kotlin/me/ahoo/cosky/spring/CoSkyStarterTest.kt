@@ -23,6 +23,7 @@ import me.ahoo.cosky.client.ConnectionState
 import me.ahoo.cosky.spring.config.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.discovery.CoSkyDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyReactiveDiscoveryClient
+import me.ahoo.cosky.spring.discovery.CoSkyServiceInstanceListSupplier
 import me.ahoo.cosky.spring.registry.CoSkyAutoServiceRegistration
 import me.ahoo.cosky.spring.registry.CoSkyRegistration
 import me.ahoo.cosky.spring.registry.CoSkyServiceRegistry
@@ -334,9 +335,16 @@ class CoSkyStarterTest {
     @Test
     fun `a balancer's first list does not take an unknown service for an empty one`() {
         server.put(TestCoSkyServer.instance("order-1", "order"))
-        val factory = application().getBean(LoadBalancerClientFactory::class.java)
-        val supplier = checkNotNull(factory.getInstance("order", ServiceInstanceListSupplier::class.java))
-        supplier.get().blockFirst().orEmpty().map { it.instanceId }.assert().containsExactly("order-1")
+        val properties = CoSkyProperties(
+            endpoints = listOf(server.endpoint),
+            namespace = TestCoSkyServer.NAMESPACE,
+            snapshot = CoSkyProperties.Snapshot(enabled = false),
+        )
+        // Asked as soon as the watch starts, before any answer can have arrived.
+        CoSkyClient(properties.toOptions()).use { client ->
+            val supplier = CoSkyServiceInstanceListSupplier("order", client, properties)
+            supplier.get().blockFirst().orEmpty().map { it.instanceId }.assert().containsExactly("order-1")
+        }
     }
 
     @Test
