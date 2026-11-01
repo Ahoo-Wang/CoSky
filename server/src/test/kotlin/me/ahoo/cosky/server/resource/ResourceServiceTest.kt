@@ -116,6 +116,12 @@ class ResourceServiceTest {
         this.namespace = namespaceSpec {}
     }
 
+    private fun instanceKey(name: String): ResourceKey = resourceKey {
+        namespace = NAMESPACE
+        kind = Kind.KIND_INSTANCE
+        this.name = name
+    }
+
     private fun configKey(name: String): ResourceKey = resourceKey {
         namespace = NAMESPACE
         kind = Kind.KIND_CONFIG
@@ -243,22 +249,70 @@ class ResourceServiceTest {
     }
 
     @Test
-    fun `a replica that is behind does not bring back a revoked token`() = scenario {
-        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+    fun `an instance stays in its service, and can change anything else`() = scenario {
+        val created = put(instance("a", "order")).revision
+        caches.viewAt(NAMESPACE, created, SHORT_TIMEOUT)
+        val moved = runCatching { put(instance("a", "payment")) }.exceptionOrNull() as CoSkyException
+        moved.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
+        moved.detail.badRequest.violationsList.single().field.assert().isEqualTo("resource.instance.service")
+
+        val drained = put(instance("a", "order").toBuilder().apply { instanceBuilder.setWeight(0) }.build())
+        drained.changed.assert().isTrue()
+        val stored = caches.viewAt(NAMESPACE, drained.revision, SHORT_TIMEOUT).objects.getValue(instanceKey("a"))
+        stored.instance.service.assert().isEqualTo("order")
+        stored.meta.createRevision.assert().isEqualTo(created)
+    }
+
+    @Test
+    fun `another service can use the name once the instance is gone`() = scenario {
+        put(instance("a", "order"))
+        val request = DeleteRequest.newBuilder().setKey(instanceKey("a")).build()
+        caches.viewAt(NAMESPACE, resources.delete(request, CALLER).revision, SHORT_TIMEOUT)
+        put(instance("a", "payment")).changed.assert().isTrue()
+    }
+
+    @Test
+    fun `a replica that is behind judges an instance at the revision the write expects`() = scenario {
+        val (replica, following) = replicaThatFollows()
+        val order = applied(NAMESPACE, instance("a", "order"), Mutation.NO_CHECK)
+        replica.caches.viewAt(NAMESPACE, order, SHORT_TIMEOUT)
+
+        following.value = false
+        val payment = applied(NAMESPACE, instance("a", "payment"), order)
+        errorOf {
+            replica.resources.put(
+                putRequest {
+                    resource = instance("a", "order")
+                    expectedRevision = payment
+                },
+                CALLER,
+            )
+        }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
+    }
+
+    private class Replica(val resources: ResourceService, val caches: WatchCache)
+
+    private fun replicaThatFollows(): Pair<Replica, MutableStateFlow<Boolean>> {
         val following = MutableStateFlow(true)
         val behind = object : Store by store {
             override fun changes(namespace: String, from: Position): Flow<ChangeBatch> =
                 store.changes(namespace, from).onEach { following.first { it } }
         }
-        val replicaCaches = WatchCache(behind, WINDOW, scope)
-        val replica = ResourceService(behind, replicaCaches, minRevisionTimeout = SHORT_TIMEOUT)
-        val two = applied(account("kept", "revoked"), Mutation.NO_CHECK)
-        replicaCaches.viewAt(NamingRules.SYSTEM_NAMESPACE, two, SHORT_TIMEOUT)
+        val caches = WatchCache(behind, WINDOW, scope)
+        return Replica(ResourceService(behind, caches, minRevisionTimeout = SHORT_TIMEOUT), caches) to following
+    }
+
+    @Test
+    fun `a replica that is behind does not bring back a revoked token`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val (replica, following) = replicaThatFollows()
+        val two = applied(NamingRules.SYSTEM_NAMESPACE, account("kept", "revoked"), Mutation.NO_CHECK)
+        replica.caches.viewAt(NamingRules.SYSTEM_NAMESPACE, two, SHORT_TIMEOUT)
 
         following.value = false
-        val one = applied(account("kept"), two)
+        val one = applied(NamingRules.SYSTEM_NAMESPACE, account("kept"), two)
         errorOf {
-            replica.put(
+            replica.resources.put(
                 putRequest {
                     resource = account()
                     expectedRevision = one
@@ -281,10 +335,9 @@ class ResourceServiceTest {
         }
     }
 
-    private suspend fun applied(resource: Resource, expected: Long): Long {
+    private suspend fun applied(namespace: String, resource: Resource, expected: Long): Long {
         val mutation = Mutation.Put(resource, expected)
-        val result = store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(mutation), "test") as ApplyResult.Applied
-        return result.revision
+        return (store.apply(namespace, listOf(mutation), "test") as ApplyResult.Applied).revision
     }
 
     @Test

@@ -82,7 +82,7 @@ The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the fu
 | Method | Path | |
 |---|---|---|
 | GET | `/v1/namespaces/{ns}/instances` | List. `?service=order&labelSelector=` |
-| GET, PUT, DELETE | `/v1/namespaces/{ns}/instances/{name}` | Without `meta.lease`, it stays until deleted |
+| GET, PUT, DELETE | `/v1/namespaces/{ns}/instances/{name}` | Without `meta.lease`, it stays until deleted. The service cannot change |
 
 Leases are gRPC only: applications use the [client](./sdk.md).
 

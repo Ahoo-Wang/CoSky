@@ -331,6 +331,10 @@ curl -X PUT localhost:8080/v1/namespaces/prod/instances/orders-db \
 
 The Dashboard marks each instance **Leased** or **Fixed**. Nothing checks whether a fixed instance is alive.
 
+## Moving an instance to another service
+
+An instance stays in the service it was created in. A write with another service is refused with `INVALID_ARGUMENT` (HTTP 400): delete the instance, then create it again. The default instance name holds the service, so this only comes up with a name of your own. An application registering under such a name for a new service is refused until the old registration is gone, which takes at most its lease's TTL if the old process did not stop cleanly.
+
 ## When things fail
 
 CoSky favours keeping a stale instance over dropping a live one, and callers are expected to retry and use circuit breakers.
@@ -1040,7 +1044,7 @@ The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the fu
 | Method | Path | |
 |---|---|---|
 | GET | `/v1/namespaces/{ns}/instances` | List. `?service=order&labelSelector=` |
-| GET, PUT, DELETE | `/v1/namespaces/{ns}/instances/{name}` | Without `meta.lease`, it stays until deleted |
+| GET, PUT, DELETE | `/v1/namespaces/{ns}/instances/{name}` | Without `meta.lease`, it stays until deleted. The service cannot change |
 
 Leases are gRPC only: applications use the [client](./sdk.md).
 

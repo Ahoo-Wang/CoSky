@@ -74,6 +74,7 @@ Redis (只有 server 可访问)
 | D32 | 回收时机 | **租约到期后再等 TTL 的三分之一才回收**;到期数不变,用于判断大比例到期 | 客户端每 TTL/3 续期一次,同一次分区切断的租约会在这段时间内陆续到期。若到期即回收,比例永远到不了门槛,D20 的暂停在真实分区时不起作用(W4a 故障注入发现)。等这一段,回收器在删除任何实例之前就能看到全部到期的租约。代价是死实例晚一点摘除:默认从 30 秒变成 40 秒(§6.2) |
 | D33 | 6.x 迁移 | **整体切换,不做共存**:停止 6.x 写入,用 `cosky-migrate` 导入 Config,应用一起升级到 8.0 并重新注册;不提供桥接。server、client、starter 里没有 6.x 的任何痕迹,6.x 的键结构只有 `migration/` 模块知道 | 两代客户端互相看不见(6.x 直连 Redis,8.0 走 gRPC),分批升级只能靠同步进程。它要维护、要防回环、要翻译租约和权限的语义差异,换来的只是一段过渡期。代价是一次切换,由升级方承担;架构和代码保持干净 |
 | D34 | Dashboard 登录配置 | **匿名接口 `GET /v1/auth/config`**:只返回 OIDC 的公开参数(`issuer`、`clientId`、`scopes`),未配置时为空;是否需要登录看 `GET /v1/me` 是否返回 401。独立部署的 Dashboard 经同源反向代理访问 server,server 不提供 CORS | 登录前浏览器拿不到任何配置。写进前端构建变量要按环境重新构建镜像,违背 D11;注入 `index.html` 则独立部署拿不到 |
+| D35 | Instance 的服务 | **`spec.service` 创建后不可改,换服务要先删除再创建** | 按服务过滤的 watch 只看新对象,收不到旧服务的删除事件,否则旧服务的 watcher 要到下一次低频重建才发现实例已离开;由 server 合成删除事件要在所有路径上保留旧值,代价大于收益 |
 
 ---
 
@@ -254,7 +255,7 @@ message Endpoint {
 }
 
 message InstanceSpec {
-  string service = 1;
+  string service = 1;                         // 创建后不可改(§7.1)
   Endpoint endpoint = 2;
   optional int32 weight = 3;                  // 未设置 = 1(由 server 填充);0 = 摘流量但保留注册
   map<string, string> metadata = 4;           // 用户数据,与系统字段物理隔离;≤ 64 项
@@ -821,6 +822,7 @@ registration.close()                                                            
 - **创建 / 更新**由 `expected_revision` 区分:`-1` 仅创建,`>0` CAS 更新,`0` 不校验(upsert)。
 - **无变化写入**:内容(确定性序列化后的对象字节)与当前一致时返回 `changed = false`,不推进 revision,不产生事件。
 - **删除后重建**:`create_revision` 重新开始;Config 历史在删除后**保留**到 Config 被重建或 namespace 被删除,可通过 rollback 从历史恢复(恢复即重建)。8.0 不做 TTL,历史量受"出现过的 name 数 × `history-size`"限制。
+- **Instance 的服务不可变(D35)**:Put 不能改变已有 Instance 的 `spec.service`,否则返回 `INVALID_ARGUMENT`;要换服务,先删除再创建。校验读副本的视图,有 `expected_revision` 时读到该 revision;不带 `expected_revision` 的写入在副本落后的瞬间可能漏过,后果是旧服务的 watcher 到下一次低频重建才发现实例已离开。
 - **Instance 与租约**:租约必须属于同一 namespace,且在写入时未到期;允许把实例从一个租约迁到另一个,或改为不挂租约,旧租约随后到期不影响该实例。
 - **labels 选择器**:仅支持等值匹配,多个条件为 AND。
 
