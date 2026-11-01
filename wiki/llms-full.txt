@@ -1267,11 +1267,13 @@ Measured through real gRPC and serialization, with the server in a JVM of its ow
 | 50,000 instances and 10,000 Configs in a namespace | Written in 7 seconds at 64 concurrent writers. A second replica loaded them and was ready in 2 to 3.5 seconds. | Met |
 | About 1 KB per instance | 86 MB for 60,000 objects, about 1.5 KB each, with the index by service and the event window | Slightly over |
 | Write p99 under 20 ms | 2 ms at about 12,000 writes per second with 16 writers; 8 ms at most. Without a real network. | Met, to be measured again in one data center |
-| 20,000 connections and 100,000 watches on a replica | 5,000 connections and 100,000 watches all succeeded, in 8 seconds. Of 15,000 and 105,000, 14,890 connections and 104,230 watches succeeded, in 12 seconds. | **20,000 not reached**: the laptop ran out of ephemeral ports. The cause of the 110 failed connections was not found. |
-| Propagation p99 under 500 ms | 190 ms to 5,000 connections, 412 ms at most. About 750 ms to 15,000. | Met at 5,000, **missed at 15,000** |
+| 20,000 connections and 100,000 watches on a replica | All succeeded, in 7 seconds, and the heap grew by about 370 MB. | Met |
+| Propagation p99 under 500 ms | With every write going to every connection: 89 ms to 5,000 connections, 135 ms to 10,000, and 171 to 525 ms to 20,000 in 6 runs of 7. The other run reached 5.8 seconds, and we do not know why. | **Borderline at 20,000** |
 | `choose()` and reading a Config allocate nothing | `choose()` 24 to 58 million operations per second, reading a Config about 1,500 million, at about 0 bytes each | Met |
 
 The missed propagation target is the worst case: every connection watches the same service, and the generator receives every copy on the same machine. In real traffic, an event goes only to those who depend on that service.
+
+The connection figures come from a Linux container on the same laptop, because on macOS a client runs out of ports at about 16,000 connections. That is what stopped earlier runs at about 15,000. The load generator and the server still share 10 cores.
 
 ## The event window
 
@@ -1310,7 +1312,7 @@ It restarted on that log in 4 seconds, and took 100 more writes. [Sizing](./depl
 COSKY_MEASURE=load COSKY_MEASURE_HEAP=4g ./gradlew :server:test --tests '*LoadMeasurement*'
 ```
 
-`COSKY_LOAD_CONNECTIONS`, `COSKY_LOAD_WATCHES_PER_CONNECTION`, `COSKY_LOAD_RATES`, `COSKY_LOAD_WINDOW` and `COSKY_LOAD_WINDOW_CLIENTS` set the shape. The hot paths of the client are JMH benchmarks:
+`COSKY_LOAD_CONNECTIONS`, `COSKY_LOAD_WATCHES_PER_CONNECTION`, `COSKY_LOAD_PROPAGATION_PAUSE_MS`, `COSKY_LOAD_RATES`, `COSKY_LOAD_WINDOW` and `COSKY_LOAD_WINDOW_CLIENTS` set the shape. `COSKY_LOAD_SERVER_HEAP` sizes the server, and `COSKY_LOAD_REDIS_URI` uses a Redis you started, which a run inside a container needs. The hot paths of the client are JMH benchmarks:
 
 ```bash
 ./gradlew :client:jmh

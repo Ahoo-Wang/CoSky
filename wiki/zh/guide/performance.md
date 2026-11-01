@@ -14,11 +14,13 @@ description: CoSky 8.0 的目标、测量结果，以及没有测量的部分。
 | 单 namespace 50,000 实例和 10,000 Config | 64 个并发写入者 7 秒写完。第二个副本加载后 2 到 3.5 秒就绪。 | 达到 |
 | 每个实例约 1 KB | 60,000 个对象占 86 MB，每个约 1.5 KB，含按服务的索引和事件窗口 | 略超 |
 | 写入 p99 低于 20 毫秒 | 16 个写入者约 12,000 次/秒时为 2 毫秒，最大 8 毫秒。没有真实网络。 | 达到，须在同机房复测 |
-| 单副本 20,000 连接和 100,000 watch | 5,000 连接和 100,000 watch 全部成功，用时 8 秒。15,000 和 105,000 中，14,890 个连接和 104,230 个 watch 成功，用时 12 秒。 | **未达到 20,000**：笔记本的临时端口耗尽。110 个失败连接的原因没有找到。 |
-| 传播 p99 低于 500 毫秒 | 到 5,000 个连接为 190 毫秒，最大 412 毫秒。到 15,000 个约 750 毫秒。 | 5,000 时达到，**15,000 时未达到** |
+| 单副本 20,000 连接和 100,000 watch | 全部成功，用时 7 秒，堆增加约 370 MB。 | 达到 |
+| 传播 p99 低于 500 毫秒 | 每次写入都投递到所有连接时：5,000 连接 89 ms，10,000 连接 135 ms，20,000 连接在 7 次运行中有 6 次为 171 到 525 ms，另外 1 次达到 5.8 秒，原因不明。 | **20,000 时勉强** |
 | `choose()` 和读 Config 不分配内存 | `choose()` 每秒 2,400 万到 5,800 万次，读 Config 每秒约 15 亿次，每次约 0 字节 | 达到 |
 
 未达标的传播目标是最坏情况：所有连接都 watch 同一个服务，压测端还要在同一台机器上收下每一份。真实流量中，一个事件只发给依赖该服务的客户端。
+
+这些连接数据来自同一台笔记本上的 Linux 容器。在 macOS 上，客户端大约 16,000 个连接就会用完端口，这正是之前的运行停在约 15,000 的原因。压测端和 server 仍然共用 10 个核。
 
 ## 事件窗口
 
@@ -57,7 +59,7 @@ server 使用 512 MB 堆，反复写同一个 1 MB 的 Config：
 COSKY_MEASURE=load COSKY_MEASURE_HEAP=4g ./gradlew :server:test --tests '*LoadMeasurement*'
 ```
 
-`COSKY_LOAD_CONNECTIONS`、`COSKY_LOAD_WATCHES_PER_CONNECTION`、`COSKY_LOAD_RATES`、`COSKY_LOAD_WINDOW` 和 `COSKY_LOAD_WINDOW_CLIENTS` 控制规模。客户端的热路径是 JMH 基准：
+`COSKY_LOAD_CONNECTIONS`、`COSKY_LOAD_WATCHES_PER_CONNECTION`、`COSKY_LOAD_PROPAGATION_PAUSE_MS`、`COSKY_LOAD_RATES`、`COSKY_LOAD_WINDOW` 和 `COSKY_LOAD_WINDOW_CLIENTS` 控制规模。`COSKY_LOAD_SERVER_HEAP` 设置 server 的堆，`COSKY_LOAD_REDIS_URI` 使用你自己启动的 Redis，在容器内运行时需要它。客户端的热路径是 JMH 基准：
 
 ```bash
 ./gradlew :client:jmh
