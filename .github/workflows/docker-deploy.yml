@@ -107,6 +107,47 @@ jobs:
           status="$(docker inspect cosky --format '{{.State.ExitCode}}')"
           test "$status" = 143 -o "$status" = 0
 
+      # Rendering manifests says little: this is what finds a probe, a user id or a shutdown that does not work.
+      - name: Deploy the image on a real Kubernetes cluster
+        run: |
+          docker run -d --name k3s --privileged --cgroupns=host -p 16443:6443 rancher/k3s:v1.31.4-k3s1 \
+            server --disable=traefik --disable=metrics-server --disable=servicelb --write-kubeconfig-mode=644
+          for _ in $(seq 1 60); do
+            docker exec k3s test -f /etc/rancher/k3s/k3s.yaml && break
+            sleep 2
+          done
+          docker exec k3s cat /etc/rancher/k3s/k3s.yaml | sed 's/:6443/:16443/' > "$RUNNER_TEMP/kubeconfig"
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          for _ in $(seq 1 60); do
+            kubectl get nodes 2>/dev/null | grep -q ' Ready ' && break
+            sleep 2
+          done
+          image="$(kubectl kustomize k8s/base | sed -n 's/.*image: //p')"
+          docker tag cosky-server:test "$image"
+          docker save "$image" | docker exec -i k3s ctr images import -
+          # The server exits if it cannot reach Redis at start, so what it needs comes first.
+          kubectl -n kube-system rollout status deployment/coredns --timeout=180s
+          kubectl create deployment redis --image=redis:7.4-alpine --port=6379
+          kubectl expose deployment redis --port=6379
+          kubectl rollout status deployment/redis --timeout=180s
+          token="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
+          kubectl create secret generic cosky-redis --from-literal=uri=redis://redis:6379
+          kubectl create secret generic cosky-auth --from-literal=bootstrap-token="$token"
+          kubectl apply -k k8s/base
+          kubectl rollout status deployment/cosky --timeout=240s
+          test "$(kubectl get pods -l app=cosky -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}')" = "0 0 0"
+          kubectl port-forward service/cosky 18080:8080 &
+          forward=$!
+          sleep 3
+          curl -sf http://localhost:18080/actuator/health/readiness
+          curl -sf -H "Authorization: Bearer $token" http://localhost:18080/v1/namespaces/default/configs
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18080/v1/namespaces/default/configs)" = 401
+          kill "$forward"
+          # A rolling update has to finish, and leave every replica ready.
+          kubectl rollout restart deployment/cosky
+          kubectl rollout status deployment/cosky --timeout=120s
+          docker rm -f k3s
+
       - name: Test the Dashboard the image hosts, against the image
         working-directory: dashboard
         run: |

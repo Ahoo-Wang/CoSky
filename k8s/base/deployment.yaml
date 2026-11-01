@@ -24,8 +24,8 @@ spec:
         prometheus.io/port: "8080"
         prometheus.io/path: /actuator/prometheus
     spec:
-      # The gRPC grace period is 5 seconds, and the rest is for the JVM to stop.
-      terminationGracePeriodSeconds: 20
+      # 5 seconds of preStop, 5 of the gRPC grace period, and the rest is for the JVM to stop.
+      terminationGracePeriodSeconds: 25
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -82,6 +82,12 @@ spec:
               memory: 1Gi
             limits:
               memory: 2Gi
+          # A stopping pod and the Service learn of it at the same moment, so connections keep arriving for a moment.
+          # Without this wait, a rolling update reset a few of them.
+          lifecycle:
+            preStop:
+              exec:
+                command: [sleep, "5"]
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

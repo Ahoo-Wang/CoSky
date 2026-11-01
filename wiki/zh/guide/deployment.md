@@ -18,7 +18,7 @@ CoSky 需要 **Redis 7.0 或更高版本，或 Valkey 8**，并且 `maxmemory-po
 
 Redis 复制是异步的，故障切换可能丢失最后的写入。为了缩小这个窗口，请在主节点上设置 `min-replicas-to-write 1`。CoSky 能发现丢失的时间线并恢复，详见[架构](./architecture.md#redis-丢失写入时)，客户端也会重新注册。但故障切换前刚写入的 Config 可能已经丢失。
 
-如果 Redis 丢失了全部数据，server 会在大约 30 秒内自行按首次启动的方式重建：系统 namespace、`default`，以及由 bootstrap token 生成的管理员，所以不要移除这个 token。其余内容都已丢失：其他 namespace、Config、Role 和 RoleBinding。需要重新创建，或者导入你保存的 [zip 导出](./configuration.md#导入与导出)。应用会继续提供已知的数据，直到它的 namespace 重新存在，然后跟随其中的内容，并重新注册自己。
+如果 Redis 丢失了全部数据，server 会在大约 30 秒内自行按首次启动的方式重建：系统 namespace、`default`，以及由 bootstrap token 生成的管理员，所以不要移除这个 token。其余内容都已丢失：其他 namespace、Config、Role、RoleBinding，以及 ServiceAccount 和它们的 token。需要重新创建，或者导入你保存的 Config [zip 导出](./configuration.md#导入与导出)。开启鉴权时，应用会继续提供已知的数据，但在拿到新 token 之前都不会重新注册。关闭鉴权时，等它的 namespace 重新存在后，应用会跟随其中的内容，并重新注册自己。
 
 ## Docker
 
@@ -70,7 +70,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 ## 滚动更新
 
-关闭时，副本最多等 5 秒就结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
+在 Kubernetes 中，停止的副本先等 5 秒，让 Service 不再把连接发给它。然后最多再等 5 秒结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
 
 ## 单独部署 Dashboard
 
