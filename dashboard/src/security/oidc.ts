@@ -183,13 +183,13 @@ export async function renewIdToken(): Promise<string | null> {
             client_id: signIn.clientId,
         }),
     });
-    if (!response.ok) {
-        remember({...signIn, refreshToken: undefined});
+    const tokens = response.ok ? await response.json() as TokenResponse : null;
+    // Whoever it was may have signed out while this was on its way, and then nothing of it should come back.
+    if (!signInOfThisTab()) {
         return null;
     }
-    const {id_token: idToken, refresh_token: refreshToken} = await response.json() as TokenResponse;
-    remember({...signIn, refreshToken: refreshToken ?? signIn.refreshToken});
-    return idToken ?? null;
+    remember({...signIn, refreshToken: tokens ? tokens.refresh_token ?? signIn.refreshToken : undefined});
+    return tokens?.id_token ?? null;
 }
 
 /**
@@ -219,10 +219,18 @@ export function signOut(): void {
 }
 
 /**
- * The claims of [token] if it is an ID token rather than a ServiceAccount token.
+ * The claims of [token] if it is an ID token rather than a ServiceAccount token. Anyone can paste anything into the
+ * sign-in page, and it is for the server to refuse that.
  */
 export function idTokenClaims(token: string | null): Record<string, unknown> | null {
-    return token?.split('.').length === JWT_PARTS ? claimsOf(token) : null;
+    if (token?.split('.').length !== JWT_PARTS) {
+        return null;
+    }
+    try {
+        return claimsOf(token);
+    } catch {
+        return null;
+    }
 }
 
 /**

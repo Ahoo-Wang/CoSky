@@ -192,6 +192,17 @@ test.describe('signing in', () => {
         expect(await page.evaluate(() => Object.keys(sessionStorage))).not.toContain('cosky.oidc.signIn');
     });
 
+    test('pasting something that only looks like an ID token is refused like any other', async ({page}) => {
+        await installApiMock(page);
+        await page.goto('/#/login');
+        await page.getByLabel('Token', {exact: true}).fill('not.an.idtoken');
+        await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+
+        await expect(toast(page, 'Sign-in failed')).toBeVisible();
+        expect(await page.evaluate(() => sessionStorage.getItem('cosky.token'))).toBeNull();
+        await expect(page.getByRole('button', {name: 'Sign In', exact: true})).toBeEnabled();
+    });
+
     test('a person shows up by name rather than by id', async ({page}) => {
         await installApiMock(page, {oidc: true});
         await signInWithOidc(page);

@@ -82,6 +82,27 @@ test.describe('a request after a sleep', () => {
         expect(requests).toHaveLength(0);
     });
 
+    test('signing out while a new token is on its way stays signed out', async () => {
+        signedIn(idToken(-5), 'refresh');
+        const answered = globalThis.fetch;
+        let answer: (() => void) | undefined;
+        globalThis.fetch = (async (input: string, init: RequestInit) => {
+            await new Promise<void>(resolve => {
+                answer = resolve;
+            });
+            return answered(input, init);
+        }) as typeof fetch;
+
+        const renewing = currentToken();
+        await expect.poll(() => answer).toBeDefined();
+        session.signOut();
+        answer?.();
+        await renewing;
+
+        expect(session.token()).toBeNull();
+        expect(sessionStorage.getItem(OIDC_SIGN_IN_KEY)).toBeNull();
+    });
+
     test('many requests at once renew once', async () => {
         signedIn(idToken(-5), 'refresh');
         const tokens = await Promise.all([currentToken(), currentToken(), currentToken()]);
