@@ -35,8 +35,12 @@ internal object CoSkyClients {
     private val CoSkyProperties.connection: Connection
         get() = Connection(endpoints, token, tls, snapshot)
 
+    private val CoSkyProperties.imports: Imports
+        get() = Imports(connection, namespace)
+
     private val clients = ConcurrentHashMap<Connection, CoSkyClient>()
-    private val imported = ConcurrentHashMap<Imports, MutableMap<String, Long>>()
+    private val imported = ConcurrentHashMap<Imports, MutableMap<String, Resource>>()
+    private val sources = ConcurrentHashMap<Pair<Imports, String>, Set<String>>()
 
     /**
      * @param applicationName `spring.application.name`, which names this client in the server's topology view.
@@ -45,23 +49,31 @@ internal object CoSkyClients {
         clients.computeIfAbsent(properties.connection) { CoSkyClient(properties.toOptions(applicationName)) }
 
     /**
-     * Remembers a Config this application loaded and the revision it saw, so that a change to it can trigger a refresh.
+     * Remembers a Config this application loaded and what it saw, so that a change to it can trigger a refresh once the
+     * context exists.
      */
-    fun markImported(properties: CoSkyProperties, config: String, revision: Long) {
-        imported.computeIfAbsent(Imports(properties.connection, properties.namespace)) { ConcurrentHashMap() }[config] =
-            revision
+    fun markImported(properties: CoSkyProperties, config: String, seen: Resource?) {
+        imported.computeIfAbsent(properties.imports) { ConcurrentHashMap() }[config] = seen.orNone()
     }
 
-    fun importedBy(properties: CoSkyProperties): Map<String, Long> =
-        imported[Imports(properties.connection, properties.namespace)].orEmpty()
+    fun importedBy(properties: CoSkyProperties): Map<String, Resource> = imported[properties.imports].orEmpty()
+
+    /**
+     * Remembers the property sources a Config makes up now.
+     *
+     * @return those it made up before.
+     */
+    fun replaceSources(properties: CoSkyProperties, config: String, names: Set<String>): Set<String> =
+        sources.put(properties.imports to config, names).orEmpty()
 
     fun close(properties: CoSkyProperties) {
         imported.keys.removeIf { it.connection == properties.connection }
+        sources.keys.removeIf { (imports, _) -> imports.connection == properties.connection }
         clients.remove(properties.connection)?.close()
     }
 }
 
 /**
- * The revision of a Config, 0 when there is none.
+ * Something to compare a Config with, whether or not it exists.
  */
-internal fun Resource?.revisionOrZero(): Long = this?.meta?.revision ?: 0
+internal fun Resource?.orNone(): Resource = this ?: Resource.getDefaultInstance()

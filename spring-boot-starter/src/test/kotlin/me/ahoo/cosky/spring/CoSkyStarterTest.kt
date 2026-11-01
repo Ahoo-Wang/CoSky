@@ -59,8 +59,10 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.event.ContextRefreshedEvent
 import org.springframework.core.env.MapPropertySource
 import org.springframework.core.env.StandardEnvironment
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.writeText
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -89,6 +91,7 @@ class CoSkyStarterTest {
             "--cosky.namespace=${TestCoSkyServer.NAMESPACE}",
         ),
         listener: ApplicationListener<ContextRefreshedEvent> = ApplicationListener {},
+        snapshots: Path? = null,
     ): ConfigurableApplicationContext {
         val common = listOf(
             "--spring.application.name=order",
@@ -96,7 +99,7 @@ class CoSkyStarterTest {
             "--spring.main.web-application-type=${if (web) "reactive" else "none"}",
             "--spring.cloud.compatibility-verifier.enabled=false",
             "--server.port=0",
-            "--cosky.snapshot.enabled=false",
+            snapshots?.let { "--cosky.snapshot.dir=$it" } ?: "--cosky.snapshot.enabled=false",
             "--cosky.config.load-timeout=3s",
             "--cosky.discovery.load-timeout=3s",
         )
@@ -265,6 +268,89 @@ class CoSkyStarterTest {
     }
 
     @Test
+    fun `another config under a revision seen before still counts as a change`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        val properties = context.getBean(CoSkyProperties::class.java)
+        val client = context.getBean(CoSkyClient::class.java)
+        val current = client.namespace(TestCoSkyServer.NAMESPACE).configs.load("order.yaml")
+        // As after a Redis that lost writes: the same revision, and other content.
+        val other = current?.toBuilder()?.apply { configBuilder.content = "order:\n  limit: 20" }?.build()
+        CoSkyClients.markImported(properties, "order.yaml", other)
+        val events = CopyOnWriteArrayList<Any>()
+        val refresher = CoSkyConfigRefresher(client, properties) { events += it }
+        refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.ACCEPTING_TRAFFIC))
+        eventually { events.isNotEmpty() }
+        refresher.destroy()
+    }
+
+    @Test
+    fun `an optional config that goes away takes its values along`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val context = application("--spring.config.import=optional:cosky:order.yaml")
+        context.environment.getProperty("order.limit").assert().isEqualTo("10")
+
+        server.delete("order.yaml")
+        eventually { context.environment.getProperty("order.limit") == null }
+
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+        eventually { context.environment.getProperty("order.limit") == "20" }
+    }
+
+    @Test
+    fun `a required config that goes away keeps its values, having nothing to fall back on`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+
+        server.delete("order.yaml")
+        delay(1.seconds)
+        context.environment.getProperty("order.limit").assert().isEqualTo("10")
+
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+        eventually { context.environment.getProperty("order.limit") == "20" }
+    }
+
+    @Test
+    fun `a value that leaves a config leaves the application`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10\n  name: orders"))
+        val context = application("--spring.config.import=optional:cosky:order.yaml")
+        context.environment.getProperty("order.name").assert().isEqualTo("orders")
+
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        eventually { context.environment.getProperty("order.name") == null }
+    }
+
+    @Test
+    fun `a config left with no content, or with fewer documents, leaves nothing behind`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "first: 1\n---\nsecond: 2"))
+        val context = application("--spring.config.import=optional:cosky:order.yaml")
+        context.environment.getProperty("second").assert().isEqualTo("2")
+
+        server.put(TestCoSkyServer.config("order.yaml", "first: 1"))
+        eventually { context.environment.getProperty("second") == null }
+        context.environment.getProperty("first").assert().isEqualTo("1")
+
+        server.put(TestCoSkyServer.config("order.yaml", "# nothing left"))
+        eventually { context.environment.getProperty("first") == null }
+    }
+
+    @Test
+    fun `an application starting from an old snapshot ends up with what the server says`() = runBlocking<Unit> {
+        val snapshots = Files.createTempDirectory("cosky")
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        val first = application("--spring.config.import=optional:cosky:order.yaml", snapshots = snapshots)
+        first.environment.getProperty("order.limit").assert().isEqualTo("10")
+        eventually { Files.walk(snapshots).use { paths -> paths.anyMatch { it.isRegularFile() } } }
+        first.close()
+        contexts.remove(first)
+
+        server.delete("order.yaml")
+        val second = application("--spring.config.import=optional:cosky:order.yaml", snapshots = snapshots)
+
+        eventually { second.environment.getProperty("order.limit") == null }
+    }
+
+    @Test
     fun `an optional config that appears later is picked up`() = runBlocking<Unit> {
         val context = application("--spring.config.import=optional:cosky:late.yaml")
         context.environment.getProperty("late.value").assert().isNull()
@@ -287,8 +373,8 @@ class CoSkyStarterTest {
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
         val context = application("--spring.config.import=cosky:order.yaml")
         val properties = context.getBean(CoSkyProperties::class.java)
-        // Stands in for that gap: this refresher starts from a revision older than the one the view is at.
-        CoSkyClients.markImported(properties, "order.yaml", 0)
+        // Stands in for that gap: this refresher starts from something other than what the view holds.
+        CoSkyClients.markImported(properties, "order.yaml", null)
         val events = CopyOnWriteArrayList<Any>()
         val refresher = CoSkyConfigRefresher(context.getBean(CoSkyClient::class.java), properties) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.REFUSING_TRAFFIC))

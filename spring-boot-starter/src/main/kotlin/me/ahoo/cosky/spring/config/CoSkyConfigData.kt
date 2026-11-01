@@ -21,7 +21,6 @@ import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.spring.CoSkyClients
 import me.ahoo.cosky.spring.CoSkyProperties
-import me.ahoo.cosky.spring.revisionOrZero
 import org.springframework.boot.context.config.ConfigData
 import org.springframework.boot.context.config.ConfigDataLoader
 import org.springframework.boot.context.config.ConfigDataLoaderContext
@@ -46,6 +45,7 @@ data class CoSkyConfigDataResource(
     val config: String,
     val properties: CoSkyProperties,
     val applicationName: String?,
+    val optional: Boolean = false,
 ) : ConfigDataResource() {
     /**
      * What Spring reports it by. The rest holds the token.
@@ -63,7 +63,8 @@ class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDa
     ): List<CoSkyConfigDataResource> {
         val properties = context.binder.bindOrCreate(CoSkyProperties.PREFIX, Bindable.of(CoSkyProperties::class.java))
         val applicationName = context.binder.bind("spring.application.name", String::class.java).orElse(null)
-        return listOf(CoSkyConfigDataResource(location.getNonPrefixedValue(PREFIX), properties, applicationName))
+        val config = location.getNonPrefixedValue(PREFIX)
+        return listOf(CoSkyConfigDataResource(config, properties, applicationName, location.isOptional))
     }
 }
 
@@ -88,11 +89,19 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
             null
         }
         // Also when there is nothing: an optional Config that appears later is a change too.
-        CoSkyClients.markImported(properties, resource.config, config.revisionOrZero())
-        if (config == null) {
+        CoSkyClients.markImported(properties, resource.config, config)
+        // A required Config that goes away leaves what it held so far: there is nothing to fall back on.
+        if (config == null && !resource.optional) {
             throw ConfigDataResourceNotFoundException(resource, refusal)
         }
-        return ConfigData(parse(resource.config, config))
+        val current = config?.let { parse(resource.config, it) }.orEmpty()
+        val names = current.mapTo(HashSet()) { it.name }
+        val gone = CoSkyClients.replaceSources(properties, resource.config, names) - names
+        if (config == null && gone.isEmpty()) {
+            throw ConfigDataResourceNotFoundException(resource, refusal)
+        }
+        // A refresh only adds and replaces property sources, so what no longer exists has to be replaced by nothing.
+        return ConfigData(current + gone.map { MapPropertySource(it, emptyMap()) })
     }
 
     private fun parse(name: String, config: Resource): List<PropertySource<*>> {
