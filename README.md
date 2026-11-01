@@ -15,7 +15,7 @@
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
 > [!IMPORTANT]
-> **8.0 has not been released yet.** The artifacts and image below are not published, and `ahoowang/cosky` is still 6.x. The latest release is 6.x, maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only; its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+> **8.0 is in alpha.** `8.0.0-alpha.1` is a preview with no compatibility promise: its API, wire format and Redis keys may still change, so don't run it for real yet. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 
 CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 
@@ -39,7 +39,7 @@ CoSky provides **configuration management** and **service discovery** for micros
 Start a server. `--dev` needs no Redis and no sign-in, and keeps nothing:
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-alpha.1 --dev
 ```
 
 Add the starter to a Spring Boot 4 application:
@@ -48,7 +48,7 @@ Add the starter to a Spring Boot 4 application:
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-alpha.1"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.cloud:spring-cloud-context")
 }

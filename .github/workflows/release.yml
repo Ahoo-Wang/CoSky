@@ -20,6 +20,8 @@ on:
   push:
     branches: [ main ]
     paths: [ gradle.properties ]
+  # For a version already on main, which no bump of gradle.properties will start.
+  workflow_dispatch:
 permissions:
   contents: write
   actions: write
@@ -38,8 +40,7 @@ jobs:
         run: |
           version="$(sed -n 's/^version=//p' gradle.properties)"
           tag="v${version}"
-          # Alpha versions are not published: their API still changes (roadmap section 1).
-          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(beta|rc)\.[0-9]+)?$ ]]; then
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$ ]]; then
             echo "Version '$version' is not a release version, nothing to do."
             exit 0
           fi

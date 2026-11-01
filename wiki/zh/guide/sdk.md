@@ -8,7 +8,7 @@ description: 不依赖 Spring 使用 Kotlin 客户端，了解快照和连接状
 `cosky-client` 是一个协程客户端，不依赖 Spring 或 Redis，starter 就构建在它之上。需要 JDK 21 或更高版本。
 
 ```kotlin
-implementation("me.ahoo.cosky:cosky-client:8.0.0")
+implementation("me.ahoo.cosky:cosky-client:8.0.0-alpha.1")
 ```
 
 ```kotlin

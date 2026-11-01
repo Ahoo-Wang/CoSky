@@ -39,7 +39,7 @@ echo "$COSKY_BOOTSTRAP_TOKEN"
 docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
   -e COSKY_BOOTSTRAP_TOKEN \
-  ahoowang/cosky
+  ahoowang/cosky:8.0.0-alpha.1
 ```
 
 请保存这个 token，它是新安装实例的管理员，详见[安全](./security.md#第一个-token)。使用 Redis Cluster 时，加上 `-e COSKY_STORE_REDIS_CLUSTER=true`。
