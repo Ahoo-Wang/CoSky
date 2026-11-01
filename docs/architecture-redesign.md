@@ -76,6 +76,7 @@ Redis (只有 server 可访问)
 | D34 | Dashboard 登录配置 | **匿名接口 `GET /v1/auth/config`**:只返回 OIDC 的公开参数(`issuer`、`clientId`、`scopes`),未配置时为空;是否需要登录看 `GET /v1/me` 是否返回 401。独立部署的 Dashboard 经同源反向代理访问 server,server 不提供 CORS | 登录前浏览器拿不到任何配置。写进前端构建变量要按环境重新构建镜像,违背 D11;注入 `index.html` 则独立部署拿不到 |
 | D35 | Instance 的服务 | **`spec.service` 创建后不可改,换服务要先删除再创建** | 按服务过滤的 watch 只看新对象,收不到旧服务的删除事件,否则旧服务的 watcher 要到下一次低频重建才发现实例已离开;由 server 合成删除事件要在所有路径上保留旧值,代价大于收益 |
 | D36 | Watch 窗口的字节上限 | **内存窗口同时受事件数和字节数限制**(`cosky.watch.window-bytes`,每个 namespace 默认 64 MB),预填窗口时同样受限;读日志每次最多 128 条;**Redis Stream 仍只按事件数限制**,上限在 beta 前设计 | 事件数对大 Config 没有意义:10,000 个 1 MB 的事件是 10 GB,远超堆,而写入失败时看不出原因。掉出窗口只是重新 List,代价低。默认值高于 10,000 个实例事件的大小,以服务发现为主的负载不受影响 |
+| D37 | 人员的登录会话 | **Dashboard 用 refresh token 在 ID token 到期前续期,退出时结束服务商的会话;server 首次用到时才连接服务商** | ID token 可能只有 5 分钟(Keycloak 默认),没有续期时人会反复被踢出并丢失编辑;退出时不结束服务商的会话,再次登录不需要密码;启动时依赖服务商,会让人员登录用的系统成为应用配置和服务发现的依赖。refresh token 存在 sessionStorage,与 ID token 暴露面相同,随标签页结束 |
 
 ---
 
@@ -985,7 +986,7 @@ cosky:
 
 - **Token 格式**:`cosky_<tokenId>_<secret>`,`secret` 为 32 字节随机数的 base62。按 `tokenId` 查找,常量时间比较 `sha256(secret)`。
 - **Token 管理**:`POST /v1/serviceaccounts/{name}/tokens` 创建并**只返回一次明文**;`DELETE …/tokens/{id}` 吊销。每个账号最多 2 个有效 token,用于轮换。
-- **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);取不到密钥时返回 `UNAVAILABLE`,不算 token 无效;Dashboard 在浏览器内完成授权码 + PKCE。
+- **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);取不到密钥时返回 `UNAVAILABLE`,不算 token 无效;Dashboard 在浏览器内完成授权码 + PKCE,到期前用 refresh token 续期,退出时结束服务商的会话(D37)。server 首次用到时才连接服务商,连接和读取各限 5 秒。
 - **授权判定(D24)**:请求 `(subject, verb, kind, namespace, name)` 命中任一绑定角色的任一规则即放行。
   规则生效的 namespace 是 `Rule.namespaces` 与 `RoleBinding.namespaces` 的交集;全局对象的 namespace 为 `_system`。
 - **`Rule.names`**:为空匹配全部;否则是精确值或以 `*` 结尾的前缀,比较 Config 名、Instance 的 `spec.service`、其他 kind 的对象名。

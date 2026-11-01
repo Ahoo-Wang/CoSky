@@ -11,8 +11,16 @@
  * limitations under the License.
  */
 
+import {OIDC_SIGN_IN_KEY, session} from './session';
+
 const PENDING_KEY = 'cosky.oidc.pending';
 const RANDOM_BYTES = 32;
+const JWT_PARTS = 3;
+
+interface TokenResponse {
+    id_token?: string;
+    refresh_token?: string;
+}
 
 export interface OidcClient {
     issuer: string;
@@ -29,7 +37,20 @@ interface PendingSignIn {
     verifier: string;
     clientId: string;
     tokenEndpoint: string;
+    endSessionEndpoint?: string;
     redirectUri: string;
+}
+
+/**
+ * What a finished sign-in needs later on. The refresh token is only there if the provider gave one, and is no more
+ * exposed here than the ID token next to it: both end with the tab.
+ */
+interface SignIn {
+    clientId: string;
+    tokenEndpoint: string;
+    endSessionEndpoint?: string;
+    redirectUri: string;
+    refreshToken?: string;
 }
 
 function base64Url(bytes: Uint8Array): string {
@@ -65,13 +86,18 @@ export async function beginSignIn(client: OidcClient): Promise<void> {
     if (!discovery.ok) {
         throw new Error(`The provider answered ${discovery.status}.`);
     }
-    const provider = await discovery.json() as {authorization_endpoint: string; token_endpoint: string};
+    const provider = await discovery.json() as {
+        authorization_endpoint: string;
+        token_endpoint: string;
+        end_session_endpoint?: string;
+    };
     const pending: PendingSignIn = {
         state: randomValue(),
         nonce: randomValue(),
         verifier: randomValue(),
         clientId: client.clientId,
         tokenEndpoint: provider.token_endpoint,
+        endSessionEndpoint: provider.end_session_endpoint,
         redirectUri: window.location.origin + window.location.pathname,
     };
     const url = new URL(provider.authorization_endpoint);
@@ -125,12 +151,94 @@ export async function completeSignIn(): Promise<string | null> {
     if (!response.ok) {
         throw new Error(`The provider answered ${response.status}.`);
     }
-    const {id_token: idToken} = await response.json() as {id_token?: string};
+    const {id_token: idToken, refresh_token: refreshToken} = await response.json() as TokenResponse;
     if (!idToken) {
         throw new Error('The provider gave no ID token.');
     }
     if (claimsOf(idToken).nonce !== pending.nonce) {
         throw new Error('The ID token does not belong to this sign-in.');
     }
+    const {clientId, tokenEndpoint, endSessionEndpoint, redirectUri} = pending;
+    remember({clientId, tokenEndpoint, endSessionEndpoint, redirectUri, refreshToken});
     return idToken;
+}
+
+/**
+ * Asks for a newer ID token. A provider may not give refresh tokens, or stop honoring one, and then the token in use
+ * lasts until it expires.
+ *
+ * @return the ID token, or null when there is none to be had.
+ */
+export async function renewIdToken(): Promise<string | null> {
+    const signIn = signInOfThisTab();
+    if (!signIn?.refreshToken) {
+        return null;
+    }
+    const response = await fetch(signIn.tokenEndpoint, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            refresh_token: signIn.refreshToken,
+            client_id: signIn.clientId,
+        }),
+    });
+    if (!response.ok) {
+        remember({...signIn, refreshToken: undefined});
+        return null;
+    }
+    const {id_token: idToken, refresh_token: refreshToken} = await response.json() as TokenResponse;
+    remember({...signIn, refreshToken: refreshToken ?? signIn.refreshToken});
+    return idToken ?? null;
+}
+
+/**
+ * Whether [renewIdToken] has anything to go on.
+ */
+export function canRenew(): boolean {
+    return !!signInOfThisTab()?.refreshToken;
+}
+
+/**
+ * Signs out here and at the provider. Otherwise the next sign-in would pass without a password, which on a shared
+ * computer means passing as someone else.
+ */
+export function signOut(): void {
+    const token = session.token();
+    const signIn = signInOfThisTab();
+    session.signOut();
+    if (token && signIn?.endSessionEndpoint) {
+        const url = new URL(signIn.endSessionEndpoint);
+        url.search = new URLSearchParams({
+            id_token_hint: token,
+            client_id: signIn.clientId,
+            post_logout_redirect_uri: signIn.redirectUri,
+        }).toString();
+        window.location.assign(url);
+    }
+}
+
+/**
+ * The claims of [token] if it is an ID token rather than a ServiceAccount token.
+ */
+export function idTokenClaims(token: string | null): Record<string, unknown> | null {
+    return token?.split('.').length === JWT_PARTS ? claimsOf(token) : null;
+}
+
+/**
+ * What to call the person: `sub` is what the server goes by, and on many providers that is an opaque id.
+ */
+export function displayNameOf(token: string | null): string | null {
+    const claims = idTokenClaims(token);
+    const name = [claims?.preferred_username, claims?.name, claims?.email].find(value => typeof value === 'string');
+    return (name as string | undefined) ?? null;
+}
+
+function signInOfThisTab(): SignIn | null {
+    const stored = sessionStorage.getItem(OIDC_SIGN_IN_KEY);
+    return stored ? JSON.parse(stored) as SignIn : null;
+}
+
+function remember(signIn: SignIn): void {
+    sessionStorage.setItem(OIDC_SIGN_IN_KEY, JSON.stringify(signIn));
 }

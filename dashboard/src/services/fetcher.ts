@@ -13,6 +13,7 @@
 
 import {fetcher} from '@ahoo-wang/fetcher';
 import {toast} from 'sonner';
+import {currentToken} from '@/security/renewal';
 import {session} from '@/security/session';
 
 const UNAUTHORIZED = 401;
@@ -22,8 +23,8 @@ fetcher.timeout = 1000 * 60 * 2;
 fetcher.interceptors.request.use({
     name: 'cosky-token',
     order: 0,
-    intercept(exchange) {
-        const token = session.token();
+    async intercept(exchange) {
+        const token = await currentToken();
         if (token) {
             exchange.ensureRequestHeaders()['Authorization'] = `Bearer ${token}`;
         }

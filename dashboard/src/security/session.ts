@@ -13,6 +13,13 @@
 
 const TOKEN_KEY = 'cosky.token';
 
+/**
+ * What an OIDC sign-in needs later on, which ends with it.
+ */
+export const OIDC_SIGN_IN_KEY = 'cosky.oidc.signIn';
+
+let signIns = 0;
+
 const listeners = new Set<() => void>();
 
 const changed = () => listeners.forEach(listener => listener());
@@ -25,12 +32,27 @@ export const session = {
     token(): string | null {
         return sessionStorage.getItem(TOKEN_KEY);
     },
+    /**
+     * Changes when someone else may be signed in, unlike the token, which also changes when it is renewed.
+     */
+    signIns(): number {
+        return signIns;
+    },
     signIn(token: string) {
         sessionStorage.setItem(TOKEN_KEY, token);
+        signIns++;
         changed();
+    },
+    /**
+     * A newer token for whoever is signed in: nothing that goes by who that is has to start over.
+     */
+    renew(token: string) {
+        sessionStorage.setItem(TOKEN_KEY, token);
     },
     signOut() {
         sessionStorage.removeItem(TOKEN_KEY);
+        sessionStorage.removeItem(OIDC_SIGN_IN_KEY);
+        signIns++;
         changed();
     },
     subscribe(listener: () => void): () => void {

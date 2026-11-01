@@ -23,7 +23,10 @@ import {cn} from '@/lib/utils';
 import {AccountMenu} from '@/components/layout/AccountMenu';
 import {CommandSearch} from '@/components/layout/CommandSearch';
 import {CurrentNamespaceSelector} from '@/components/layout/CurrentNamespaceSelector';
+import {NoPermissions} from '@/components/security/NoPermissions';
+import {useMe} from '@/contexts/MeContext';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
+import {session} from '@/security/session';
 import {ShellPanel, SidebarContent} from '@/components/layout/Sidebar';
 
 const iconLinkClass = 'grid size-[34px] place-items-center rounded-[8px] text-shell-foreground hover:bg-shell-overlay hover:text-white max-[960px]:hidden [&_svg]:w-[18px]';
@@ -39,6 +42,9 @@ export function AuthenticatedLayout() {
     const location = useLocation();
     const {currentNamespace} = useCurrentNamespaceContext();
     const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || window.location.host;
+    const me = useMe();
+    // Without a token the server has no auth, and says nothing of what is allowed.
+    const allowsNothing = !!session.token() && !me.rules?.length;
 
     return (
         <>
@@ -88,7 +94,7 @@ export function AuthenticatedLayout() {
                     <main className="min-w-0 flex-1 px-9 pt-[34px] pb-7 max-[960px]:px-5 max-[960px]:py-6">
                         {/* A page starts over in another namespace: rows from the last one would act on this one. */}
                         <ErrorBoundary key={currentNamespace}>
-                            <Outlet/>
+                            {allowsNothing ? <NoPermissions/> : <Outlet/>}
                         </ErrorBoundary>
                     </main>
                 </div>

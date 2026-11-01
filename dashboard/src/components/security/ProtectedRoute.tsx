@@ -29,9 +29,10 @@ const UNAUTHORIZED = 401;
  * Lets through whoever the server accepts, which without auth is everyone (design D34).
  */
 export function ProtectedRoute({children}: {children: ReactNode}) {
-    const token = useSyncExternalStore(session.subscribe, session.token);
-    const {result: me, error, execute: retry} = useQuery<string | null, MeResponse>({
-        query: token,
+    // Not by the token: renewing that must not take down the page someone is working on.
+    const signIns = useSyncExternalStore(session.subscribe, session.signIns);
+    const {result: me, error, execute: retry} = useQuery<number, MeResponse>({
+        query: signIns,
         execute: (_, __, abortController) => identityClient.getMe({abortController}),
     });
     if (error instanceof ExchangeError && error.exchange.response?.status === UNAUTHORIZED) {

@@ -38,12 +38,31 @@ cosky:
     oidc:
       issuer: https://idp.example.com/realms/main
       client-id: cosky-dashboard
-      scopes: [openid, profile, groups]   # some providers send groups only when asked
 ```
 
 The server checks signature, issuer, audience and expiry against the provider's keys. `sub` becomes the `USER` name, and the `groups` claim (see `groups-claim`) the `GROUP` names. The token's audience must be `audience`, or the client when that is not set.
 
-The Dashboard signs in through the authorization code flow with PKCE, so register `cosky-dashboard` as a public client, with the Dashboard's address as its redirect URI. The provider must allow that origin to call its token endpoint. `GET /v1/auth/config` gives the page these public values before anyone has signed in, and holds nothing else.
+The Dashboard signs in through the authorization code flow with PKCE, so register `cosky-dashboard` as a public client, with the Dashboard's address as its redirect URI and as the address to return to after signing out. The provider must allow that origin to call its token endpoint, and browsers and the server must reach the issuer at the same address. `GET /v1/auth/config` gives the page these public values before anyone has signed in, and holds nothing else.
+
+`scopes` defaults to `openid` and `profile`. Add a scope only if your provider has it, because it refuses a request for one it does not know. Some providers ask for one to send groups, and some for `offline_access` to give a refresh token.
+
+- **Staying signed in.** The Dashboard renews the ID token before it expires, using the refresh token. A provider that gives none leaves people to sign in again when the token expires, which takes 5 minutes on a default Keycloak. The refresh token stays in the tab, next to the ID token, and ends with it.
+- **Signing out** also ends the session at the provider, so that the next sign-in asks for a password, if the provider has an `end_session_endpoint`.
+- **When the provider is away,** servers still start, and applications carry on with their tokens. People already signed in carry on until their ID token expires, and new sign-ins fail: the server answers `UNAVAILABLE` rather than calling the token invalid. Keep a ServiceAccount token to get in meanwhile.
+
+### Keycloak
+
+This was tried with Keycloak 26. Other providers follow the same standard, but none has been tried.
+
+1. Create the client `cosky-dashboard`, with client authentication off and the standard flow on. Set its valid redirect URIs to `https://cosky.example.com/*` and its web origins to `https://cosky.example.com`.
+2. In the client's dedicated scope, add a **Group Membership** mapper with the token claim name `groups`, **Full group path** off, and **Add to ID token** on. With the full path on, a group's name is `/devs`.
+3. Bind a role to the group. A person's `sub` is an opaque id, so groups are easier. Someone with no role yet sees their `sub` and groups in the Dashboard, to pass on to you.
+
+```bash
+curl -X PUT localhost:8080/v1/rolebindings/devs-view \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"roleBinding":{"role":"viewer","subjects":[{"type":"TYPE_GROUP","name":"devs"}],"namespaces":["*"]}}'
+```
 
 ## Who may do what
 

@@ -24,6 +24,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {useMe} from '@/contexts/MeContext';
+import {displayNameOf, signOut} from '@/security/oidc';
 import {session} from '@/security/session';
 
 /**
@@ -32,7 +33,7 @@ import {session} from '@/security/session';
 export function AccountMenu() {
     const me = useMe();
     const token = useSyncExternalStore(session.subscribe, session.token);
-    const name = me.subject?.name || 'anonymous';
+    const name = displayNameOf(token) || me.subject?.name || 'anonymous';
 
     return (
         <DropdownMenu>
@@ -57,7 +58,7 @@ export function AccountMenu() {
                     {token && (
                         <>
                             <DropdownMenuSeparator/>
-                            <DropdownMenuItem variant="destructive" onClick={() => session.signOut()}>
+                            <DropdownMenuItem variant="destructive" onClick={signOut}>
                                 <LogOut/> Sign out
                             </DropdownMenuItem>
                         </>
