@@ -33,11 +33,12 @@ class WatchCache(
     private val scope: CoroutineScope,
     private val antiEntropyInterval: Duration = 5.minutes,
     val metrics: CoSkyMetrics = CoSkyMetrics(),
+    private val windowBytes: Long = Long.MAX_VALUE,
 ) {
     private val caches = ConcurrentHashMap<String, NamespaceCache>()
 
     fun of(namespace: String): NamespaceCache = caches.computeIfAbsent(namespace) {
-        NamespaceCache(namespace, store, windowSize, antiEntropyInterval, metrics).also { cache ->
+        NamespaceCache(namespace, store, windowSize, antiEntropyInterval, metrics, windowBytes).also { cache ->
             scope.launch {
                 cache.run()
                 caches.remove(namespace, cache)

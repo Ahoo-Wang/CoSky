@@ -61,10 +61,16 @@ interface Store {
     fun changes(namespace: String, from: Position): Flow<ChangeBatch>
 
     /**
-     * What the log still holds up to revision [until], oldest first: the newest whole revisions, [limit] changes at
-     * most. A replica seeds its window with them, so that clients can resume on it right after it loads (§6.1).
+     * What the log still holds up to revision [until], oldest first: the newest whole revisions, at most [limit]
+     * changes and [maxBytes] in all. A replica seeds its window with them, so that clients can resume on it right after
+     * it loads (§6.1, D29, D36).
      */
-    suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch>
+    suspend fun recentChanges(
+        namespace: String,
+        until: Long,
+        limit: Int,
+        maxBytes: Long = Long.MAX_VALUE,
+    ): List<ChangeBatch>
 
     /**
      * Replaces the epoch if it is still [expected], for a difference found outside a [changes] flow (§6.1). Whoever

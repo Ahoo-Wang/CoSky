@@ -70,7 +70,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 ## 滚动更新
 
-关闭时，副本最多等 5 秒就结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`。
+关闭时，副本最多等 5 秒就结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
 
 ## 单独部署 Dashboard
 
@@ -100,3 +100,9 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 ## 容量规划
 
 测量结果见[性能](./performance.md)。作为起点，512 MB 堆可以轻松容纳 10,000 个对象的 namespace，内存按每个对象约 1.5 KB 增长。镜像设置了 `-XX:MaxRAMPercentage=75` 和紧凑对象头，所以给容器的内存应该是期望的堆大小再加四分之一。
+
+大 Config 需要单独考虑，因为为续传保留的内容包括 Config 的内容：
+
+- **副本**：除了所有对象之外，每个 namespace 最多保留 `cosky.watch.window-bytes`（64 MB）的近期变更。超出后，落后的客户端会读取一份新的快照。
+- **Redis**：没有这个限制，它保留每个 namespace 最近 `cosky.watch.window` 个变更，以及每个 Config 最近 20 个 revision。把一个 1 MB 的 Config 写 800 次占用了 825 MB。请按大 Config 的变更频率规划 Redis，或者调小 `cosky.watch.window`。达到 `maxmemory` 后写入会失败，不会淘汰任何数据。
+

@@ -184,7 +184,9 @@ R1 分页与分块(D23)、R2 授权范围(D24)、R3 namespace 生命周期(D25)�
 
 维护者决定:Instance 的 `spec.service` 创建后不可改(D35),在 `8.0.0-alpha.1` 之后生效。
 
-待决定:Watch 窗口和 Redis 日志只按事件数限制,大量大 Config 快速写入时可能耗尽堆内存。建议先给 server 的视图窗口加字节上限,Redis Stream 的上限在 beta 前设计。
+维护者决定:Watch 窗口加字节上限(D36),在 `8.0.0-alpha.1` 之后生效。
+
+beta 前要设计:Redis Stream 仍只按事件数限制,大 Config 频繁写入时占用的 Redis 内存可达 `MAXLEN` × Config 大小。
 
 ## 7. 风险
 

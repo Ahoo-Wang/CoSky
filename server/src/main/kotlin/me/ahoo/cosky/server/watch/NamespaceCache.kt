@@ -52,7 +52,7 @@ import kotlin.time.Duration.Companion.seconds
  * One complete revision of a namespace, immutable, so that reads need no lock and always see a consistent state.
  *
  * @param earliest the oldest position a watcher can resume from.
- * @param window the revisions after [earliest], [windowEvents] changes in total (design D29).
+ * @param window the revisions after [earliest], [windowEvents] changes and [windowBytes] in total (design D29, D36).
  * @param instancesByService what most reads ask for: a watch of one service must not scan the whole namespace, since
  * a replica answers one per client and service when it starts.
  */
@@ -63,6 +63,7 @@ data class NamespaceView(
     val objects: PersistentMap<ResourceKey, Resource>,
     val window: PersistentList<ChangeBatch>,
     val windowEvents: Int = window.sumOf { it.changes.size },
+    val windowBytes: Long = window.sumOf { it.serializedSize },
     private val instancesByService: PersistentMap<String, PersistentMap<ResourceKey, Resource>> =
         indexByService(objects.values),
 ) {
@@ -77,7 +78,7 @@ data class NamespaceView(
      */
     fun instancesOf(service: String): Collection<Resource> = instancesByService[service]?.values.orEmpty()
 
-    fun applying(batch: ChangeBatch, windowSize: Int): NamespaceView {
+    fun applying(batch: ChangeBatch, windowSize: Int, maxWindowBytes: Long = Long.MAX_VALUE): NamespaceView {
         var applied = objects
         var index = instancesByService
         batch.changes.forEach { change ->
@@ -96,9 +97,11 @@ data class NamespaceView(
         }
         var trimmed = window.adding(batch)
         var events = windowEvents + batch.changes.size
+        var bytes = windowBytes + batch.serializedSize
         // Whole revisions leave, the oldest first; the newest stays however large it is.
-        while (events > windowSize && trimmed.size > 1) {
+        while ((events > windowSize || bytes > maxWindowBytes) && trimmed.size > 1) {
             events -= trimmed.first().changes.size
+            bytes -= trimmed.first().serializedSize
             trimmed = trimmed.removingAt(0)
         }
         return copy(
@@ -107,6 +110,7 @@ data class NamespaceView(
             objects = applied,
             window = trimmed,
             windowEvents = events,
+            windowBytes = bytes,
             instancesByService = index,
         )
     }
@@ -164,6 +168,7 @@ class NamespaceCache(
     private val windowSize: Int,
     private val antiEntropyInterval: Duration = 5.minutes,
     private val metrics: CoSkyMetrics = CoSkyMetrics(),
+    private val windowBytes: Long = Long.MAX_VALUE,
 ) {
     private val state = MutableStateFlow<NamespaceView?>(null)
 
@@ -281,7 +286,7 @@ class NamespaceCache(
         followed = position
         return try {
             store.changes(namespace, position).collect { batch ->
-                state.update { it?.applying(batch, windowSize) }
+                state.update { it?.applying(batch, windowSize, windowBytes) }
                 followed = Position(position.epoch, batch.revision)
                 val writtenAt = batch.changes.first().resource.meta.updatedAt
                 val lag = System.currentTimeMillis() - Timestamps.toMillis(writtenAt)
@@ -313,7 +318,7 @@ class NamespaceCache(
             all[resource.key] = resource
             all
         }
-        val recent = store.recentChanges(namespace, position.revision, windowSize)
+        val recent = store.recentChanges(namespace, position.revision, windowSize, windowBytes)
         return NamespaceView(
             epoch = position.epoch,
             revision = position.revision,

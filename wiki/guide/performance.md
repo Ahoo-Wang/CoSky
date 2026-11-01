@@ -33,6 +33,17 @@ A replica was killed under load, and 100 clients reconnected to another one, all
 
 So `gone` appears only when delivery cannot keep up, around 160,000 per second. The default stays at 10,000, and `cosky_watch_gone_total` after a rolling update shows whether yours should be larger.
 
+## Large Configs
+
+A server with 512 MB of heap, with one 1 MB Config written over and over:
+
+| Version | Writes | Heap | Redis |
+|---|---|---|---|
+| Without a limit in bytes | Started failing after about 500 | Reached 510 MB | 509 MB, after 484 |
+| With the default 64 MB | All 800 succeeded | Steady at about 120 MB | 825 MB, after 800 |
+
+It restarted on that log in 4 seconds, and took 100 more writes. [Sizing](./deployment.md#sizing) covers what this means for Redis.
+
 ## Not measured
 
 - A real network, or a real data center.

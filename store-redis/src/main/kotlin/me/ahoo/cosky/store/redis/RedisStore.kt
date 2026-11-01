@@ -254,24 +254,36 @@ class RedisStore(
         }
     }
 
-    override suspend fun recentChanges(namespace: String, until: Long, limit: Int): List<ChangeBatch> {
+    override suspend fun recentChanges(
+        namespace: String,
+        until: Long,
+        limit: Int,
+        maxBytes: Long,
+    ): List<ChangeBatch> {
         val log = RedisKeys(namespace).log
         val newestFirst = mutableListOf<StreamMessage<String, ByteArray>>()
         var upper = Range.Boundary.including(until.toString())
+        var bytes = 0L
         do {
             val count = minOf(limit - newestFirst.size, TAIL_BATCH_SIZE).toLong()
             val page = commands.xrevrange(log, Range.from(Range.Boundary.unbounded(), upper), Limit.from(count)).await()
             newestFirst += page
+            bytes += page.sumOf { message -> message.body.values.sumOf { it.size.toLong() } }
             page.lastOrNull()?.let { upper = Range.Boundary.excluding(it.id) }
-        } while (page.size.toLong() == count && newestFirst.size < limit)
+        } while (page.size.toLong() == count && newestFirst.size < limit && bytes < maxBytes)
         val oldest = newestFirst.lastOrNull() ?: return emptyList()
         // The limit or a trim may have cut through the oldest revision, and part of a revision is of no use.
         val cut = oldest.id.substringBefore('-').takeIf { oldest.id.substringAfter('-') != "0" }
+        var remaining = maxBytes
         return newestFirst.asReversed()
             .dropWhile { it.id.substringBefore('-') == cut }
             .map { logEntryOf(it.id, it.body) }
             .groupBy { it.revision }
             .map { (revision, entries) -> ChangeBatch(revision, entries.map { it.change }) }
+            .takeLastWhile { batch ->
+                remaining -= batch.serializedSize
+                remaining >= 0
+            }
     }
 
     override suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration) {
@@ -549,8 +561,11 @@ class RedisStore(
         private const val REMOVE_BATCH_SIZE = 100
         private const val TO_THE_END = -1L
 
-        /** What a read starts with: above the largest batch of an apply, though an expiring lease can exceed it. */
-        private const val TAIL_BATCH_SIZE = 1000
+        /**
+         * What a read of the log starts with: above the largest batch of an apply, though an expiring lease can exceed
+         * that, and few enough that a read of the largest Configs stays near 128 MiB (design D36).
+         */
+        private const val TAIL_BATCH_SIZE = 128
 
         private val CODEC: RedisCodec<String, ByteArray> = RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE)
 

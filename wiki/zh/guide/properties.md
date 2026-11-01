@@ -35,6 +35,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | 属性 | 默认值 | 含义 |
 |---|---|---|
 | `cosky.watch.window` | `10000` | 为续传保留的事件数，也是存储日志的长度。应不小于峰值事件速率乘以最长重连间隔。 |
+| `cosky.watch.window-bytes` | `64MB` | 副本在内存中为这些事件保留的上限，每个 namespace 一份。不限制存储日志。 |
 | `cosky.watch.progress-interval` | `10s` | 向空闲 watch 发送书签的间隔 |
 | `cosky.watch.max-per-stream` | `1000` | 一条流上的 watch 数 |
 | `cosky.watch.anti-entropy-interval` | `5m` | 副本把视图与存储比较的间隔 |
