@@ -17,7 +17,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
+import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.ConnectionState
 import me.ahoo.cosky.spring.config.CoSkyConfigRefresher
@@ -151,6 +153,23 @@ class CoSkyStarterTest {
     fun `a missing required config stops the application`() {
         val failure = runCatching { application("--spring.config.import=cosky:missing.yaml") }.exceptionOrNull()
         failure.assert().isInstanceOf(ConfigDataResourceNotFoundException::class.java)
+    }
+
+    private fun nowhere() = listOf("--cosky.endpoints=${server.endpoint}", "--cosky.namespace=nowhere")
+
+    @Test
+    fun `a required config the server refuses says why`() {
+        val failure = runCatching {
+            application("--spring.config.import=cosky:a.yaml", connection = nowhere())
+        }.exceptionOrNull()
+        failure.assert().isInstanceOf(ConfigDataResourceNotFoundException::class.java)
+        (failure?.cause as CoSkyException).reason.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND)
+    }
+
+    @Test
+    fun `an optional config the server refuses is fine`() {
+        val context = application("--spring.config.import=optional:cosky:a.yaml", connection = nowhere())
+        context.environment.getProperty("anything").assert().isNull()
     }
 
     @Test

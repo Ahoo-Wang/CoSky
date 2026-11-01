@@ -561,7 +561,7 @@ sealed interface ApplyResult {
 | `cosky:{ns}:lease:ttl` | Hash | lease id → TTL(ms),续期时据此计算新的到期时间 |
 | `cosky:{ns}:lease:owner` | Hash | lease id → 授予它的主体(§7.8) |
 | `cosky:{ns}:lease:attach` | Sorted Set | member = Instance name,score = lease id |
-| `cosky:{ns}:lease:seq` | String | 租约 id 生成器;id 小于 2^53,作为 score 不丢精度 |
+| `cosky:{ns}:lease:seq` | String | 租约 id 的序号;id = 秒级时间 × 2^20 + 序号,序号丢失后也不会重复客户端还持有的 id;小于 2^53,作为 score 不丢精度 |
 | `cosky:{ns}:topology` | Sorted Set | member = `<consumer>\0<producer>`,score = 到期时间(ms,Redis `TIME`);软状态(D30) |
 | `cosky:leader:reaper` | String | 回收 Leader 锁,`SET NX PX` |
 
@@ -579,6 +579,7 @@ sealed interface ApplyResult {
   内存实现按消息语义比较,行为相同。
 - **Stream ID 即 revision**:`XRANGE log <rev+1>-0 +` 就是"从 revision 续传";一次原子批写共享同一 revision,用 `seq` 区分。
 - 时钟统一使用 Redis `TIME`,server 副本之间不依赖本机时钟。
+- **连接**:Linux 上设置 `TCP_USER_TIMEOUT`(30 秒)。Redis 主机静默消失时没有 RST,有命令在途时 keepalive 也不起作用,否则连接要重传很多分钟才断开。这要求 epoll,所以 server 同时带 x86 和 arm64 的 Netty 原生库。
 
 ### 5.2 脚本(所有键都在 `KEYS` 中显式声明)
 
@@ -848,7 +849,7 @@ registration.close()                                                            
   2. `Store.dropNamespace`:清理全部键,只留 `state` 作为墓碑;
   3. 删除 `_system` 中的 Namespace 对象,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续。
-- **数据丢失**:`_system` 中有对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。
+- **数据丢失**:`_system` 中有对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。`_system` 自身没有 `state`,说明整个 store 丢了数据:Reaper Leader 按首次启动重建 `_system`、`default` 和 bootstrap 管理员,其他 namespace 和对象无法恢复。
 - 删除后重建的 namespace revision 从 1 重新开始,epoch 也是新的随机值;客户端携带旧 `from_epoch` 时一律返回 `gone`,
   即使 `from_revision` 落在新 namespace 的范围之内。
 
@@ -904,6 +905,7 @@ me.ahoo.cosky.server
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新 Put(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
 - **分块**:收齐 `Snapshot` 与 `Events` 的全部分块后再更新 `StateFlow`,订阅者不会看到半个 revision。
+- **被拒绝的 Watch**:收到 `canceled` 后每 5 秒重试,因为权限和 namespace 都可能变化。视图还未知时 `load()` 立即抛出该错误,不必等到超时;有快照时继续用快照服务。
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。
 - **关闭**:`close()` 在 3 秒内 Revoke 租约,超时则放弃,由 server 到期回收。
 - **负载均衡**:`weight = 0` 的实例不参与选择;无可用实例时 `choose()` 返回 `null`。
@@ -979,7 +981,7 @@ cosky:
 
 - **Token 格式**:`cosky_<tokenId>_<secret>`,`secret` 为 32 字节随机数的 base62。按 `tokenId` 查找,常量时间比较 `sha256(secret)`。
 - **Token 管理**:`POST /v1/serviceaccounts/{name}/tokens` 创建并**只返回一次明文**;`DELETE …/tokens/{id}` 吊销。每个账号最多 2 个有效 token,用于轮换。
-- **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);Dashboard 在浏览器内完成授权码 + PKCE。
+- **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);取不到密钥时返回 `UNAVAILABLE`,不算 token 无效;Dashboard 在浏览器内完成授权码 + PKCE。
 - **授权判定(D24)**:请求 `(subject, verb, kind, namespace, name)` 命中任一绑定角色的任一规则即放行。
   规则生效的 namespace 是 `Rule.namespaces` 与 `RoleBinding.namespaces` 的交集;全局对象的 namespace 为 `_system`。
 - **`Rule.names`**:为空匹配全部;否则是精确值或以 `*` 结尾的前缀,比较 Config 名、Instance 的 `spec.service`、其他 kind 的对象名。
@@ -1018,7 +1020,7 @@ cosky:
 | `cosky_anti_entropy_drift_total{namespace}` | Counter | 反熵发现不一致(§6.1) |
 | `cosky_auth_failures_total{reason}` | Counter | |
 
-- 就绪探针:全部 namespace 完成初始加载后才就绪。
+- 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠比较各副本的 `cosky_cache_revision` 发现。
 - 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。
 - 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
 - 客户端暴露连接状态、watch 延迟、快照年龄、低频重建发现差异的指标。

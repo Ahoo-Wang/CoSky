@@ -50,8 +50,12 @@ class AuthBootstrap(private val store: Store) {
             ),
             ACTOR,
         )
-        check(result is ApplyResult.Applied) { "Bootstrapping failed: $result." }
-        log.info("Created ServiceAccount {} from the bootstrap token.", ADMIN)
+        when (result) {
+            is ApplyResult.Applied -> log.info("Created ServiceAccount {} from the bootstrap token.", ADMIN)
+            // Replicas start together, and only one of them gets to write this.
+            is ApplyResult.Conflict -> log.info("ServiceAccount {} exists already; not using the token.", ADMIN)
+            else -> error("Bootstrapping failed: $result.")
+        }
     }
 
     private fun account(token: ParsedToken) = resource {

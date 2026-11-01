@@ -42,7 +42,7 @@ Allowed TTLs are 5 to 300 seconds.
 
 ## Finding services
 
-`DiscoveryClient` and `ReactiveDiscoveryClient` read the local view. The first read of a service waits up to `cosky.discovery.load-timeout` (5 seconds), so that "not known yet" is not mistaken for "empty". Afterwards, a read costs no network round trip.
+`DiscoveryClient` and `ReactiveDiscoveryClient` read the local view. The first read of a service waits up to `cosky.discovery.load-timeout` (5 seconds), so that "not known yet" is not mistaken for "empty". If the server refuses, for lack of permission or because the namespace does not exist, the read throws a `CoSkyException` at once. Afterwards, a read costs no network round trip.
 
 Add `spring-cloud-starter-loadbalancer`, and `@LoadBalanced` clients get their instances from CoSky, with Spring Cloud's own algorithms choosing among them.
 

@@ -21,6 +21,7 @@ import io.grpc.protobuf.StatusProto
 import me.ahoo.cosky.api.v1.ErrorDetail
 import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.ViolationCode
+import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.validation.Fixtures
 import me.ahoo.cosky.api.validation.Violation
 import me.ahoo.test.asserts.assert
@@ -152,4 +153,16 @@ class CoSkyExceptionTest {
     private fun statusWith(detail: Any) = StatusProto.toStatusRuntimeException(
         RpcStatus.newBuilder().setCode(Status.Code.INTERNAL.value()).addDetails(detail).build(),
     )
+
+    @Test
+    fun `a canceled watch carries the error across`() {
+        val error = CoSkyException.from(CoSkyException.permissionDenied("not for you").toWatchCanceled())
+        error?.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_PERMISSION_DENIED)
+        error?.message.assert().isEqualTo("not for you")
+    }
+
+    @Test
+    fun `a canceled watch without a known reason carries nothing`() {
+        CoSkyException.from(WatchResponse.Canceled.getDefaultInstance()).assert().isNull()
+    }
 }

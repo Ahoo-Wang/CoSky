@@ -33,6 +33,8 @@ val current: StateFlow<Resource?> = prod.configs.watch("order-service.yaml")
 current.collect { apply(it?.config?.content) }
 ```
 
+`load` throws a `CoSkyException` when the server refuses the watch, such as for lack of permission or because the namespace does not exist, unless a snapshot knows better. The watch keeps trying, so a later `load` works once that changes.
+
 ## Finding instances
 
 ```kotlin

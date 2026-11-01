@@ -18,6 +18,8 @@ CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noevicti
 
 Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
 
+If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token, so leave that token set. The rest is gone: other namespaces, Configs, Roles and RoleBindings. Create them again, or import a [zip export](./configuration.md#import-and-export) you kept. Applications go on serving what they know until their namespace exists again, then follow what is there and register themselves.
+
 ## Docker
 
 ```bash
@@ -64,6 +66,8 @@ For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overla
 
 Probes use `/actuator/health/liveness` and `/actuator/health/readiness`. A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
 
+A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it.
+
 ## Rolling updates
 
 On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does.
@@ -79,6 +83,7 @@ Metrics are at `/actuator/prometheus`:
 | Metric | Watch for |
 |---|---|
 | `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
+| `cosky_cache_revision{namespace}` | Replicas that disagree for long: one of them is cut off from Redis |
 | `cosky_store_apply_seconds` | Write latency |
 | `cosky_watch_active` | Watches on this replica |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |

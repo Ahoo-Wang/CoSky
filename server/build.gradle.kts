@@ -23,6 +23,9 @@ application {
 
 dependencies {
     implementation(project(":store-redis"))
+    // Lettuce notices a vanished Redis host through epoll. Reactor Netty only brings the x86 library, and the image is
+    // built for arm64 too.
+    runtimeOnly("io.netty:netty-transport-native-epoll::linux-aarch_64")
     implementation("org.springframework.boot:spring-boot-starter-grpc-server")
     implementation("org.jetbrains.kotlinx:kotlinx-collections-immutable")
     // Spring needs it to find primary constructors and apply default values; only tests had it by accident.

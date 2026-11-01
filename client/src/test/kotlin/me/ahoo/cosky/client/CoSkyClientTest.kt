@@ -27,8 +27,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Endpoint
+import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.GrantRequest
 import me.ahoo.cosky.api.v1.GrantResponse
 import me.ahoo.cosky.api.v1.LeaseServiceGrpcKt
@@ -146,6 +148,17 @@ class CoSkyClientTest {
     }
 
     // --- views ---
+
+    @Test
+    fun `a watch the server refuses says why, and recovers once that changes`() = scenario {
+        val configs = client().namespace("elsewhere").configs
+        val refused = runCatching { configs.load(CONFIG) }.exceptionOrNull() as CoSkyException
+        refused.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND)
+        server.store.createNamespace("elsewhere")
+        while (runCatching { configs.load(CONFIG) }.isFailure) {
+            delay(10.milliseconds)
+        }
+    }
 
     @Test
     fun `a config view follows writes and deletes`() = scenario {

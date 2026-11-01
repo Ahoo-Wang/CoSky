@@ -19,7 +19,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
@@ -105,10 +104,12 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
             /**
              * Waits until the view is known, then reads it: null really means the Config does not exist, as far as the
              * server or a snapshot can tell.
+             *
+             * @throws CoSkyException if the server refuses, say for lack of permission, and no snapshot knows better.
              */
             suspend fun load(config: String): Resource? {
                 val state = stateOf(config)
-                state.known.first { it }
+                state.awaitKnown()
                 return state.view.value[config]
             }
 
@@ -127,10 +128,12 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
 
             /**
              * Waits until the view of a service is known, then reads it.
+             *
+             * @throws CoSkyException if the server refuses, say for lack of permission, and no snapshot knows better.
              */
             suspend fun load(service: String): List<Resource> {
                 val state = stateOf(service)
-                state.known.first { it }
+                state.awaitKnown()
                 return sorted(state.view.value)
             }
 
@@ -140,7 +143,7 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
              */
             suspend fun services(): Set<String> {
                 val state = watches.watch(WatchKey(name, Kind.KIND_INSTANCE))
-                state.known.first { it }
+                state.awaitKnown()
                 return state.view.value.values.mapTo(sortedSetOf()) { it.instance.service }
             }
 

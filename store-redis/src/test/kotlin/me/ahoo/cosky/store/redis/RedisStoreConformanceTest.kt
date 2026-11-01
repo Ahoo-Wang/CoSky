@@ -20,8 +20,10 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.codec.ByteArrayCodec
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
 import me.ahoo.cosky.test.conformance.StoreConformanceTest
@@ -30,6 +32,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.GenericContainer
 import java.util.UUID
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class RedisStoreConformanceTest : StoreConformanceTest() {
     private val stores = mutableListOf<RedisStore>()
@@ -58,6 +62,20 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
             arrayOf(keys.revision, keys.log),
             revision.toString(),
         ).await()
+    }
+
+    @Test
+    fun `a lease id is not given out again when redis loses the sequence`() = runBlocking<Unit> {
+        val namespace = "leases-${UUID.randomUUID()}"
+        val store = newStore(StoreOptions())
+        store.createNamespace(namespace)
+        val first = (store.grantLease(namespace, 30.seconds, "test") as GrantResult.Granted).lease.id
+        CONNECTION.async().del(RedisKeys(namespace).leaseSequence).await()
+        delay(1100.milliseconds)
+        val second = (store.grantLease(namespace, 30.seconds, "test") as GrantResult.Granted).lease.id
+        second.assert().isGreaterThan(first)
+        second.assert().isLessThan(1L shl 53)
+        store.keepAlive(namespace, listOf(second))[second].assert().isNotNull()
     }
 
     /**

@@ -23,6 +23,7 @@ import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import org.springframework.security.oauth2.jwt.JwtException
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
 import java.security.KeyPair
 import java.security.KeyPairGenerator
@@ -67,6 +68,13 @@ class OidcAuthenticatorTest {
         val principal = authenticator.authenticate(token())
         principal.assert().isEqualTo(Principal(Subject.Type.TYPE_USER, "ann", setOf("devs")))
         principal.id.assert().isEqualTo("user:ann")
+    }
+
+    @Test
+    fun `a provider out of reach is not a bad token`() {
+        val unreachable = OidcAuthenticator({ throw JwtException("Couldn't retrieve the keys.") }, "groups")
+        val failure = runCatching { unreachable.authenticate(token()) }.exceptionOrNull() as CoSkyException
+        failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
     }
 
     @Test

@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
@@ -123,6 +124,7 @@ internal class WatchMultiplexer(
 
     private fun retryLater(outgoing: RequestQueue<WatchRequest>, response: WatchResponse, watch: WatchState) {
         log.warn("Watch {} was canceled: {}", watch.key, response.canceled.message)
+        CoSkyException.from(response.canceled)?.let { watch.refused(it) }
         byId.remove(response.watchId)
         scope.launch {
             delay(CANCELED_RETRY)

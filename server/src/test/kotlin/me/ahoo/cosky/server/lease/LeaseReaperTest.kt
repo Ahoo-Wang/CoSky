@@ -124,19 +124,14 @@ class LeaseReaperTest {
     /**
      * The worst moment for a store to hang: when it answers, what it says has expired only did during the outage.
      */
-    private suspend fun midTickHang(hangingStore: (hang: () -> Unit) -> Store) {
+    private suspend fun midTickHang(hangingReaper: (hang: () -> Unit) -> LeaseReaper) {
         var hanging = false
-        val reaper = LeaseReaper(
-            hangingStore {
-                if (hanging) {
-                    clock.advance(Duration.ofSeconds(TTL + 10))
-                    hanging = false
-                }
-            },
-            { listOf(NAMESPACE) },
-            options,
-            clock,
-        )
+        val reaper = hangingReaper {
+            if (hanging) {
+                clock.advance(Duration.ofSeconds(TTL + 10))
+                hanging = false
+            }
+        }
         repeat(31) {
             reaper.tick()
             clock.advance(Duration.ofSeconds(1))
@@ -155,27 +150,61 @@ class LeaseReaperTest {
         store.keepAlive(NAMESPACE, listOf(lease))
     }
 
+    private fun reaperOn(store: Store) = LeaseReaper(store, { listOf(NAMESPACE) }, options, clock)
+
     @Test
     fun `a store hanging while it lists what expired does not lead to reaping`() = scenario {
         midTickHang { hang ->
-            object : Store by store {
-                override suspend fun expiredLeases(namespace: String, limit: Int): List<Long> {
-                    hang()
-                    return store.expiredLeases(namespace, limit)
-                }
-            }
+            reaperOn(
+                object : Store by store {
+                    override suspend fun expiredLeases(namespace: String, limit: Int): List<Long> {
+                        hang()
+                        return store.expiredLeases(namespace, limit)
+                    }
+                },
+            )
         }
     }
 
     @Test
     fun `a store hanging while it counts leases does not lead to reaping`() = scenario {
         midTickHang { hang ->
-            object : Store by store {
-                override suspend fun leaseStats(namespace: String): LeaseStats {
+            reaperOn(
+                object : Store by store {
+                    override suspend fun leaseStats(namespace: String): LeaseStats {
+                        hang()
+                        return store.leaseStats(namespace)
+                    }
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `maintenance hanging does not lead to reaping`() = scenario {
+        midTickHang { hang ->
+            LeaseReaper(
+                store,
+                { listOf(NAMESPACE) },
+                options.copy(maintenanceInterval = Duration.ZERO),
+                clock,
+                maintenance = { hang() },
+            )
+        }
+    }
+
+    @Test
+    fun `listing the namespaces hanging does not lead to reaping`() = scenario {
+        midTickHang { hang ->
+            LeaseReaper(
+                store,
+                {
                     hang()
-                    return store.leaseStats(namespace)
-                }
-            }
+                    listOf(NAMESPACE)
+                },
+                options,
+                clock,
+            )
         }
     }
 

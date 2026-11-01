@@ -97,7 +97,12 @@ class LeaseReaper(
         if (inGrace(now)) {
             return
         }
-        namespaces().forEach { namespace ->
+        val namespaces = namespaces()
+        // This is also what finds the store having hung during the maintenance.
+        if (hung(now)) {
+            return
+        }
+        namespaces.forEach { namespace ->
             // Finding the store hung while reaping one namespace is a reason not to go on to the next.
             if (inGrace(clock.instant())) {
                 return
