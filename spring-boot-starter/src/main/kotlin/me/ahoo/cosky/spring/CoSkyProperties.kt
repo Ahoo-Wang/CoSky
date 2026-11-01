@@ -75,6 +75,11 @@ data class CoSkyProperties(
     val discoveryLoadTimeout: kotlin.time.Duration
         get() = discovery.loadTimeout.toKotlinDuration()
 
+    /**
+     * Leaves the token out, since Spring puts these in messages, such as that of a Config it cannot find.
+     */
+    override fun toString(): String = "CoSkyProperties(endpoints=$endpoints, namespace=$namespace)"
+
     companion object {
         const val PREFIX = "cosky"
     }

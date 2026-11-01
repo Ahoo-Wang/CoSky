@@ -27,21 +27,28 @@ import me.ahoo.cosky.spring.CoSkyProperties
 import me.ahoo.cosky.spring.revisionOrZero
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
-import org.springframework.beans.factory.SmartInitializingSingleton
+import org.springframework.boot.availability.AvailabilityChangeEvent
+import org.springframework.boot.availability.ReadinessState
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.context.ApplicationListener
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Publishes a Spring Cloud [RefreshEvent] when a Config this application imported changes. The refresh then runs the
  * imports again, which reads the new content from the same client.
+ *
+ * Starts when the application accepts traffic: Spring Cloud drops a [RefreshEvent] until it is ready, and that event
+ * comes just before this one. What changed since the load then counts as a change, by its revision.
  */
 class CoSkyConfigRefresher(
     private val client: CoSkyClient,
     private val properties: CoSkyProperties,
     private val publisher: ApplicationEventPublisher,
-) : SmartInitializingSingleton, DisposableBean {
+) : ApplicationListener<AvailabilityChangeEvent<ReadinessState>>, DisposableBean {
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+    private val started = AtomicBoolean()
 
     /**
      * A platform thread, unlike everything else here: the imports block inside the synchronized
@@ -51,11 +58,13 @@ class CoSkyConfigRefresher(
         Thread(it, "cosky-config-refresh").apply { isDaemon = true }
     }.asCoroutineDispatcher()
 
-    override fun afterSingletonsInstantiated() {
+    override fun onApplicationEvent(event: AvailabilityChangeEvent<ReadinessState>) {
+        if (event.state != ReadinessState.ACCEPTING_TRAFFIC || !started.compareAndSet(false, true)) {
+            return
+        }
         val configs = client.namespace(properties.namespace).configs
         CoSkyClients.importedBy(properties).forEach { (config, loaded) ->
             scope.launch {
-                // By revision, so that a change between the load and this point counts too.
                 configs.watch(config).dropWhile { it.revisionOrZero() == loaded }.collect { refresh(config) }
             }
         }

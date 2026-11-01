@@ -13,18 +13,29 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.Status
 import io.grpc.StatusException
 import io.grpc.inprocess.InProcessChannelBuilder
+import io.grpc.inprocess.InProcessServerBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Endpoint
+import me.ahoo.cosky.api.v1.GrantRequest
+import me.ahoo.cosky.api.v1.GrantResponse
+import me.ahoo.cosky.api.v1.LeaseServiceGrpcKt
 import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.WatchRequest
+import me.ahoo.cosky.api.v1.WatchResponse
+import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
@@ -39,6 +50,8 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
 import kotlin.time.Duration
@@ -73,6 +86,7 @@ class CoSkyClientTest {
         leaseTtl: Duration = 30.seconds,
         resync: Duration = 30.minutes,
         endpoints: List<String> = listOf("only"),
+        callTimeout: Duration = 10.seconds,
         serverName: (String) -> String = { server.name },
     ): CoSkyClient = CoSkyClient(
         CoSkyClientOptions(
@@ -87,6 +101,7 @@ class CoSkyClientTest {
             reconnectMax = 100.milliseconds,
             reRegisterJitter = Duration.ZERO,
             leaseTtl = leaseTtl,
+            callTimeout = callTimeout,
             channelFactory = { InProcessChannelBuilder.forName(serverName(it)).build() },
         ),
     ).also { clients += it }
@@ -365,6 +380,97 @@ class CoSkyClientTest {
             runCatching { registration.close() }.isSuccess
         }
         instancesOnServer().assert().isEmpty()
+    }
+
+    @Test
+    fun `a registration made while the server is away goes out once one answers`() = scenario {
+        server.stop()
+        val registration = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+            .register("order", ENDPOINT, instanceName = "order-1")
+        server.start()
+        eventually { instancesOnServer().isNotEmpty() }
+        instancesOnServer().single().meta.lease.assert().isGreaterThan(0)
+        registration.close()
+        instancesOnServer().assert().isEmpty()
+    }
+
+    @Test
+    fun `a registration closed before the server came back leaves nothing behind`() = scenario {
+        server.stop()
+        val registration = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+            .register("order", ENDPOINT, instanceName = "order-1")
+        server.start()
+        eventually { runCatching { registration.close() }.isSuccess }
+        delay(500.milliseconds)
+        instancesOnServer().assert().isEmpty()
+    }
+
+    @Test
+    fun `a registration the server refuses is an error, and is not tried again`() = scenario {
+        val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        val failure = runCatching { instances.register("Not A Service!", ENDPOINT, instanceName = "bad") }
+        (failure.exceptionOrNull() as StatusException).status.code.assert().isEqualTo(Status.Code.INVALID_ARGUMENT)
+    }
+
+    @Test
+    fun `a server that never answers does not hold up a registration`() = scenario {
+        val name = UUID.randomUUID().toString()
+        val silent = InProcessServerBuilder.forName(name)
+            .addService(
+                object : LeaseServiceGrpcKt.LeaseServiceCoroutineImplBase() {
+                    override suspend fun grant(request: GrantRequest): GrantResponse = awaitCancellation()
+                },
+            )
+            .build()
+            .start()
+        try {
+            client(callTimeout = 100.milliseconds, serverName = { name }).namespace(NAMESPACE).instances
+                .register("order", ENDPOINT)
+        } finally {
+            silent.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `a snapshot cut short by a broken stream leaves nothing of it behind`() = scenario {
+        val name = UUID.randomUUID().toString()
+        val streams = AtomicInteger()
+        val fake = InProcessServerBuilder.forName(name)
+            .addService(
+                object : WatchServiceGrpcKt.WatchServiceCoroutineImplBase() {
+                    override fun watch(requests: Flow<WatchRequest>): Flow<WatchResponse> = flow {
+                        val watch = requests.first().create.watchId
+                        val broken = streams.incrementAndGet() == 1
+                        emit(snapshotOf(watch, if (broken) "deleted-since" else "kept", more = broken))
+                        if (broken) {
+                            throw StatusException(Status.UNAVAILABLE)
+                        }
+                        awaitCancellation()
+                    }
+                },
+            )
+            .build()
+            .start()
+        try {
+            val instances = client(serverName = { name }).namespace(NAMESPACE).instances.load("order")
+            instances.map { it.meta.name }.assert().containsExactly("kept")
+        } finally {
+            fake.shutdownNow()
+        }
+    }
+
+    private fun snapshotOf(watch: Long, instanceName: String, more: Boolean): WatchResponse =
+        WatchResponse.newBuilder().setWatchId(watch).setSnapshot(
+            WatchResponse.Snapshot.newBuilder()
+                .addItems(instance(instanceName))
+                .setRevision(1)
+                .setEpoch("e")
+                .setMore(more),
+        ).build()
+
+    @Test
+    fun `options say nothing of the token`() {
+        CoSkyClientOptions(listOf("a:1"), token = "cosky_id_secret").toString().assert().doesNotContain("secret")
     }
 
     @Test

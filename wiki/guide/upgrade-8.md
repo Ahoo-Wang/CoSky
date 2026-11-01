@@ -22,6 +22,8 @@ If some services must call each other across generations during a move, run the 
 | Service names | Anything | DNS-style names, lowercase |
 | Config formats | Guessed from the extension | Declared with the Config |
 | Staying alive | Each instance's own TTL | One lease per process |
+| Applications without a web server | Registered, given `registry.port` | Do not register by themselves: call the client's `instances.register` |
+| Taking an instance out of rotation | `ServiceRegistry.setStatus` | A weight of `0` |
 | People | Users with passwords | OIDC, or ServiceAccount tokens |
 | Permissions | Read or write per namespace | Roles down to kinds, verbs and name prefixes |
 | Audit | A page in the Dashboard | JSON lines in the log |

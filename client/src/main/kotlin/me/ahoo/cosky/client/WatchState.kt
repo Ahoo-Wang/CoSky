@@ -25,7 +25,8 @@ internal data class WatchKey(val namespace: String, val kind: Kind, val name: St
 
 /**
  * The local view of one watch. It applies whole revisions only, and keeps serving the old view while a new one arrives
- * (design §7.5). One coroutine at a time applies responses.
+ * (design §7.5). Responses arrive on the stream's coroutine while a periodic resync can start the watch over from
+ * another, hence the synchronization.
  */
 internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     private val objects = MutableStateFlow(snapshot?.itemsList.orEmpty().associateBy { it.meta.name })
@@ -71,11 +72,21 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     /**
      * Forgets the position, so that the next watch starts from a snapshot; the view stays until that arrives.
      */
+    @Synchronized
     fun startOver() {
         resyncEpoch = epoch
         resyncRevision = revision
         epoch = ""
         revision = 0
+        discardPartial()
+    }
+
+    /**
+     * Forgets what a broken stream delivered only part of. The next stream sends it whole, and an object in an old part
+     * may have been deleted since: nothing would remove it again.
+     */
+    @Synchronized
+    fun discardPartial() {
         pendingSnapshot = mutableListOf()
         pendingEvents = mutableListOf()
     }
@@ -85,6 +96,7 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
      *
      * @return whether the view or the position changed.
      */
+    @Synchronized
     fun apply(response: WatchResponse): Boolean = when (response.payloadCase) {
         WatchResponse.PayloadCase.SNAPSHOT -> applySnapshot(response.snapshot)
         WatchResponse.PayloadCase.EVENTS -> applyEvents(response.events)

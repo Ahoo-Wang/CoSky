@@ -135,7 +135,7 @@ class CoSkyAutoConfiguration {
                 CoSkyRegistration(
                     service = environment.getRequiredProperty("spring.application.name"),
                     host = inetUtils.findFirstNonLoopbackHostInfo().ipAddress,
-                    secure = environment.getProperty("server.ssl.enabled", Boolean::class.java, false),
+                    secure = environment.servesTls(),
                     metadata = properties.registry.metadata,
                 ),
             )
@@ -149,6 +149,13 @@ class CoSkyAutoConfiguration {
         fun coSkyHealthIndicator(client: CoSkyClient): CoSkyHealthIndicator = CoSkyHealthIndicator(client)
     }
 }
+
+/**
+ * `server.ssl.enabled` defaults to true once anything else under `server.ssl` is set.
+ */
+internal fun Environment.servesTls(): Boolean =
+    getProperty("server.ssl.enabled", Boolean::class.java)
+        ?: listOf("server.ssl.bundle", "server.ssl.key-store", "server.ssl.certificate").any { containsProperty(it) }
 
 /**
  * Runs in the child context Spring Cloud LoadBalancer creates per service, whose name it puts in the environment. It

@@ -13,7 +13,9 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.Status
 import io.grpc.StatusException
+import io.grpc.stub.AbstractStub
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,6 +38,7 @@ import me.ahoo.cosky.api.v1.ResourceServiceGrpcKt
 import me.ahoo.cosky.api.v1.RevokeRequest
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 /**
@@ -58,13 +61,25 @@ internal class LeaseKeeper(
     @Volatile
     private var lease = 0L
 
+    /**
+     * @throws StatusException when the server refuses it. A server out of reach is no reason to fail: the registration
+     * is remembered, and goes out as soon as one answers (design §7.5).
+     */
     suspend fun register(resource: Resource) {
         mutex.withLock {
-            if (lease == 0L) {
-                lease = grant()
-            }
             registrations[resource.meta.name] = resource
-            put(resource)
+            try {
+                if (lease == 0L) {
+                    lease = grant()
+                }
+                put(resource)
+            } catch (e: StatusException) {
+                if (e.status.code !in OUT_OF_REACH) {
+                    registrations.remove(resource.meta.name)
+                    throw e
+                }
+                log.warn("Could not register {} yet, and keeps trying: {}", resource.meta.name, e.status)
+            }
             if (renewal == null) {
                 renewal = scope.launch { keepRenewing() }
             }
@@ -75,7 +90,7 @@ internal class LeaseKeeper(
         mutex.withLock {
             // In this order: if the server cannot be reached the registration stays, and with it the renewals of an
             // Instance that is still there.
-            resources().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
+            resources().timed().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
             registrations.remove(name)
             if (registrations.isEmpty()) {
                 revoke()
@@ -97,8 +112,11 @@ internal class LeaseKeeper(
     private suspend fun revoke() {
         renewal?.cancel()
         renewal = null
-        leases().revoke(RevokeRequest.newBuilder().setNamespace(namespace).setLease(lease).build())
-        lease = 0
+        // None was ever granted if the server has been away since the first registration.
+        if (lease != 0L) {
+            leases().timed().revoke(RevokeRequest.newBuilder().setNamespace(namespace).setLease(lease).build())
+            lease = 0
+        }
     }
 
     private suspend fun keepRenewing() {
@@ -106,6 +124,9 @@ internal class LeaseKeeper(
         while (true) {
             val channel = connection.channel()
             try {
+                if (lease == 0L) {
+                    restore()
+                }
                 renewOnStream(backoff)
             } catch (e: CancellationException) {
                 throw e
@@ -160,7 +181,7 @@ internal class LeaseKeeper(
         log.warn("Put back the registrations in namespace {}, since lease {} had lost some.", namespace, lease)
     }
 
-    private suspend fun grant(): Long = leases().grant(
+    private suspend fun grant(): Long = leases().timed().grant(
         GrantRequest.newBuilder()
             .setNamespace(namespace)
             .setTtlSeconds(options.leaseTtl.inWholeSeconds.toInt())
@@ -169,13 +190,13 @@ internal class LeaseKeeper(
 
     private suspend fun put(resource: Resource) {
         try {
-            resources().put(putRequest(resource))
+            resources().timed().put(putRequest(resource))
         } catch (e: StatusException) {
             if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_LEASE_NOT_FOUND) {
                 throw e
             }
             lease = grant()
-            resources().put(putRequest(resource))
+            resources().timed().put(putRequest(resource))
         }
     }
 
@@ -193,8 +214,15 @@ internal class LeaseKeeper(
 
     private fun resources() = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(connection.channel())
 
+    /**
+     * For a single call: a server that accepts it and never answers must not hold up everything behind the mutex.
+     */
+    private fun <S : AbstractStub<S>> S.timed(): S =
+        withDeadlineAfter(options.callTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+
     private companion object {
         val log = LoggerFactory.getLogger(LeaseKeeper::class.java)
         const val RENEWALS_PER_TTL = 3
+        val OUT_OF_REACH = setOf(Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED)
     }
 }

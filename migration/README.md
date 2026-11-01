@@ -40,7 +40,8 @@ The tool is then at `migration/build/install/cosky-migrate/bin/cosky-migrate`, a
 - Running it again continues an interrupted run and changes nothing else. A Config whose content on 8.0 matches no
   version left in 6.x was edited there, so it stays and is reported. To import it anyway, delete it on 8.0 first.
 - A Config removed in 6.x has no current version and does not arrive. Revisions and timestamps start anew on 8.0.
-- The format of a Config comes from the extension of its name; anything else is text.
+- The format of a Config comes from the extension of its name, and an unknown extension is text. A name without one is
+  YAML, which is what 6.x assumed unless `file-extension` said otherwise; `--default-format` changes that.
 - The report holds names, addresses and permissions, never the content of a Config, a password or a metadata value.
   The tool does not read password hashes at all.
 - Exit code 0 means everything arrived, 1 that some Configs need attention, and 2 that it could not run or stopped early.

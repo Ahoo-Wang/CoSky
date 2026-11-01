@@ -28,6 +28,7 @@ cosky:
 - `cosky:` 不带 `optional:` 时，Config 加载失败会让应用启动失败，包括连不上任何 server 且没有快照的情况。
 - YAML 和 JSON 按 YAML 解析，properties 按 properties 解析。TEXT 类型的 Config 成为一个以 Config 名命名的属性。
 - `cosky.config.load-timeout`（5 秒）限制一次导入等待 server 的时间。
+- 导入时使用读取到该文件为止已知的 `cosky.*` 连接，所以这些设置要放在同一个文件或环境变量中。Spring 先读 `application.yaml`，再读 `application-prod.yaml`，后者的设置对前者中的导入不起作用。
 
 ## 实时刷新
 

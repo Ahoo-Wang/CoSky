@@ -115,6 +115,27 @@ class MigrationTest {
     }
 
     @Test
+    fun `a name without an extension is read as 6x read it`() {
+        six.setConfig(source, "order-service", "a: 1")
+        six.setConfig(source, "dir/legacy.xml", "<a/>")
+
+        run().assert().isEqualTo(EXIT_DONE)
+
+        target.config(namespace, "order-service")?.config?.format.assert().isEqualTo(ConfigFormat.CONFIG_FORMAT_YAML)
+        target.config(namespace, "dir/legacy.xml")?.config?.format.assert().isEqualTo(ConfigFormat.CONFIG_FORMAT_TEXT)
+    }
+
+    @Test
+    fun `the format of a name without an extension can be chosen`() {
+        six.setConfig(source, "order-service", "a=1")
+
+        run("--default-format", "properties").assert().isEqualTo(EXIT_DONE)
+
+        target.config(namespace, "order-service")?.config?.format
+            .assert().isEqualTo(ConfigFormat.CONFIG_FORMAT_PROPERTIES)
+    }
+
+    @Test
     fun `the history arrives oldest first, without a content repeated`() {
         six.setConfig(source, "app.txt", "1")
         six.setConfig(source, "app.txt", "2")
