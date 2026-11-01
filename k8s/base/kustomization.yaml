@@ -18,4 +18,4 @@ resources:
 
 images:
   - name: ahoowang/cosky
-    newTag: 8.0.0-alpha.1
+    newTag: 8.0.0-alpha.2
