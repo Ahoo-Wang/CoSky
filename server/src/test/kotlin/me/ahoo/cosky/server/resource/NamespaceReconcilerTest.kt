@@ -19,6 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.kind
@@ -27,6 +28,7 @@ import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
+import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
@@ -41,7 +43,8 @@ class NamespaceReconcilerTest {
     private val store = MemoryStore()
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val caches = WatchCache(store, 64, scope)
-    private val reconciler = NamespaceReconciler(store, caches)
+    private val auth = CoSkyProperties.Auth(bootstrapToken = "cosky_abc_def")
+    private val reconciler = NamespaceReconciler(store, caches, StoreBootstrap(store, auth))
 
     @AfterEach
     fun stop() {
@@ -88,6 +91,16 @@ class NamespaceReconcilerTest {
         eventually {
             caches.of(NamingRules.SYSTEM_NAMESPACE).awaitView().objects.values.none { it.meta.name == NAME }
         }
+    }
+
+    @Test
+    fun `a store that lost everything is set up as on a first start`() = runBlocking<Unit> {
+        store.namespaceState(NamingRules.SYSTEM_NAMESPACE).assert().isNull()
+        reconciler.reconcile()
+        store.namespaceState(NamingRules.SYSTEM_NAMESPACE).assert().isEqualTo(NamespaceState.ACTIVE)
+        store.namespaceState("default").assert().isEqualTo(NamespaceState.ACTIVE)
+        store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().map { it.kind }
+            .assert().contains(Kind.KIND_NAMESPACE, Kind.KIND_SERVICE_ACCOUNT, Kind.KIND_ROLE_BINDING)
     }
 
     @Test

@@ -221,6 +221,24 @@ class FaultInjectionTest {
         eventually { instances().singleOrNull()?.meta?.lease == lease }
     }
 
+    @Test
+    fun `a redis that lost everything is set up again without a restart`() = scenario {
+        startServer().createNamespace(NAMESPACE)
+        running.putConfig(NAMESPACE, "a", "before")
+
+        redis.execInContainer("redis-cli", "FLUSHALL")
+
+        eventually {
+            running.createNamespace(NAMESPACE)
+            running.putConfig(NAMESPACE, "a", "after")
+            true
+        }
+        eventually {
+            val request = ListRequest.newBuilder().setNamespace("_system").setKind(Kind.KIND_NAMESPACE).build()
+            running.resources.list(request).itemsList.any { it.meta.name == "default" }
+        }
+    }
+
     // --- servers ---
 
     @Test

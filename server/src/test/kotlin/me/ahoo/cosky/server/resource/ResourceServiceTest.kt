@@ -17,6 +17,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.VirtualThreads
@@ -33,19 +38,27 @@ import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Subject
+import me.ahoo.cosky.api.v1.TokenRef
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
+import me.ahoo.cosky.api.v1.putRequest
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.resourceKey
+import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.store.ApplyResult
+import me.ahoo.cosky.store.ChangeBatch
+import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
+import me.ahoo.cosky.store.Position
+import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -227,6 +240,51 @@ class ResourceServiceTest {
             val second = capped.list(list().setPageToken(first.nextPageToken).build(), CALLER)
             second.itemsList.map { it.meta.name }.assert().containsExactly("c1")
         }
+    }
+
+    @Test
+    fun `a replica that is behind does not bring back a revoked token`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val following = MutableStateFlow(true)
+        val behind = object : Store by store {
+            override fun changes(namespace: String, from: Position): Flow<ChangeBatch> =
+                store.changes(namespace, from).onEach { following.first { it } }
+        }
+        val replicaCaches = WatchCache(behind, WINDOW, scope)
+        val replica = ResourceService(behind, replicaCaches, minRevisionTimeout = SHORT_TIMEOUT)
+        val two = applied(account("kept", "revoked"), Mutation.NO_CHECK)
+        replicaCaches.viewAt(NamingRules.SYSTEM_NAMESPACE, two, SHORT_TIMEOUT)
+
+        following.value = false
+        val one = applied(account("kept"), two)
+        errorOf {
+            replica.put(
+                putRequest {
+                    resource = account()
+                    expectedRevision = one
+                },
+                CALLER
+            )
+        }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
+
+        store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().single().serviceAccount.tokensList.map { it.id }
+            .assert().containsExactly("kept")
+    }
+
+    private fun account(vararg tokens: String): Resource = resource {
+        meta = objectMeta {
+            namespace = NamingRules.SYSTEM_NAMESPACE
+            name = "app"
+        }
+        serviceAccount = serviceAccountSpec {
+            tokens.forEach { this.tokens += TokenRef.newBuilder().setId(it).setSha256("00").build() }
+        }
+    }
+
+    private suspend fun applied(resource: Resource, expected: Long): Long {
+        val mutation = Mutation.Put(resource, expected)
+        val result = store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(mutation), "test") as ApplyResult.Applied
+        return result.revision
     }
 
     @Test

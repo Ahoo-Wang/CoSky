@@ -22,21 +22,16 @@ import io.micrometer.core.instrument.MeterRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Kind
-import me.ahoo.cosky.api.v1.namespaceSpec
-import me.ahoo.cosky.api.v1.objectMeta
-import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.adapter.grpc.AuthInterceptor
 import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
 import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
-import me.ahoo.cosky.server.auth.AuthBootstrap
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.OidcAuthenticator
 import me.ahoo.cosky.server.auth.TokenService
@@ -46,10 +41,10 @@ import me.ahoo.cosky.server.observe.MeteredStore
 import me.ahoo.cosky.server.observe.ReadinessIndicator
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
+import me.ahoo.cosky.server.resource.StoreBootstrap
 import me.ahoo.cosky.server.view.TopologyRecorder
 import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
-import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -215,9 +210,14 @@ class CoSkyServerApplication : DisposableBean {
     )
 
     @Bean
+    fun storeBootstrap(store: Store, properties: CoSkyProperties): StoreBootstrap =
+        StoreBootstrap(store, properties.auth)
+
+    @Bean
     fun leaseReaper(
         store: Store,
         caches: WatchCache,
+        bootstrap: StoreBootstrap,
         properties: CoSkyProperties,
         metrics: CoSkyMetrics,
     ): LeaseReaper {
@@ -238,47 +238,22 @@ class CoSkyServerApplication : DisposableBean {
                 protectionMinLeases = lease.protectionMinLeases,
                 protectionMaxDuration = lease.protectionMaxDuration,
             ),
-            maintenance = NamespaceReconciler(store, caches)::reconcile,
+            maintenance = NamespaceReconciler(store, caches, bootstrap)::reconcile,
             metrics = metrics,
         )
     }
 
     @Bean
     fun bootstrap(
-        store: Store,
+        bootstrap: StoreBootstrap,
         caches: WatchCache,
         reaper: LeaseReaper,
         topology: TopologyRecorder,
-        properties: CoSkyProperties,
     ): ApplicationRunner = ApplicationRunner {
-        runBlocking(VirtualThreads.dispatcher) {
-            createInitialNamespaces(store)
-            if (properties.auth.enabled) {
-                AuthBootstrap(store).run(properties.auth.bootstrapToken)
-            }
-        }
+        runBlocking(VirtualThreads.dispatcher) { bootstrap.run() }
         caches.of(NamingRules.SYSTEM_NAMESPACE)
         scope.launch { reaper.run() }
         scope.launch { topology.run() }
-    }
-
-    /**
-     * `default` exists from the first start on (design §7.2), but it stays deleted if someone deletes it.
-     */
-    private suspend fun createInitialNamespaces(store: Store) {
-        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
-        if (store.readAll(NamingRules.SYSTEM_NAMESPACE).firstOrNull { it.hasNamespace() } != null) {
-            return
-        }
-        store.createNamespace(DEFAULT_NAMESPACE)
-        val namespace = resource {
-            meta = objectMeta {
-                namespace = NamingRules.SYSTEM_NAMESPACE
-                name = DEFAULT_NAMESPACE
-            }
-            this.namespace = namespaceSpec {}
-        }
-        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(namespace)), LeaseReaper.ACTOR)
     }
 
     override fun destroy() {
@@ -286,7 +261,6 @@ class CoSkyServerApplication : DisposableBean {
     }
 
     private companion object {
-        const val DEFAULT_NAMESPACE = "default"
         val log = LoggerFactory.getLogger(CoSkyServerApplication::class.java)
     }
 }

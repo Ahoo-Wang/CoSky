@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.ClientOptions
 import io.lettuce.core.Limit
 import io.lettuce.core.MapScanCursor
 import io.lettuce.core.Range
@@ -22,7 +23,9 @@ import io.lettuce.core.RedisException
 import io.lettuce.core.ScanArgs
 import io.lettuce.core.ScanCursor
 import io.lettuce.core.ScriptOutputType
+import io.lettuce.core.SocketOptions
 import io.lettuce.core.StreamMessage
+import io.lettuce.core.cluster.ClusterClientOptions
 import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -31,6 +34,7 @@ import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import io.lettuce.core.resource.EpollProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 /**
  * A [Store] on Redis (design §5). Works on Standalone, Sentinel and Cluster: every command stays within one
@@ -563,6 +568,7 @@ class RedisStore(
         private val TOPOLOGY_READ = RedisScript("topology_read")
         private val NAMESPACE_CREATE = RedisScript("namespace_create")
         private const val EDGE_SEPARATOR = "\u0000"
+        private val TCP_USER_TIMEOUT = 30.seconds.toJavaDuration()
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
         private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
 
@@ -570,22 +576,49 @@ class RedisStore(
             client: RedisClient,
             options: StoreOptions = StoreOptions(),
             tailPollInterval: Duration = 1.seconds,
-        ): RedisStore = RedisStore(
-            client.connect(CODEC).async() as RedisClusterAsyncCommands<String, ByteArray>,
-            client.connectPubSub(CODEC),
-            options,
-            tailPollInterval,
-        )
+        ): RedisStore {
+            client.options = clientOptions()
+            return RedisStore(
+                client.connect(CODEC).async() as RedisClusterAsyncCommands<String, ByteArray>,
+                client.connectPubSub(CODEC),
+                options,
+                tailPollInterval,
+            )
+        }
 
         fun cluster(
             client: RedisClusterClient,
             options: StoreOptions = StoreOptions(),
             tailPollInterval: Duration = 1.seconds,
-        ): RedisStore = RedisStore(
-            client.connect(CODEC).async(),
-            client.connectPubSub(CODEC),
-            options,
-            tailPollInterval,
-        )
+        ): RedisStore {
+            client.setOptions(clusterClientOptions())
+            return RedisStore(
+                client.connect(CODEC).async(),
+                client.connectPubSub(CODEC),
+                options,
+                tailPollInterval,
+            )
+        }
+
+        /**
+         * A host that vanishes sends no reset, and while commands wait for an answer keep-alive stays out of it, so the
+         * system would go on retransmitting for many minutes with every command timing out. This gives up within half
+         * a minute, and the client connects again, by then to whatever took over. Only Linux with epoll can do this,
+         * which covers where it matters.
+         */
+        private fun socketOptions(): SocketOptions = SocketOptions.builder()
+            .apply {
+                if (EpollProvider.isAvailable()) {
+                    tcpUserTimeout(
+                        SocketOptions.TcpUserTimeoutOptions.builder().enable().tcpUserTimeout(TCP_USER_TIMEOUT).build(),
+                    )
+                }
+            }
+            .build()
+
+        internal fun clientOptions(): ClientOptions = ClientOptions.builder().socketOptions(socketOptions()).build()
+
+        internal fun clusterClientOptions(): ClusterClientOptions =
+            ClusterClientOptions.builder().socketOptions(socketOptions()).build()
     }
 }

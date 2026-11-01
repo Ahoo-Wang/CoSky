@@ -26,7 +26,7 @@ cosky:
 ```
 
 - Only `default` exists at first. Create any other namespace before using it: `curl -X PUT localhost:8080/v1/namespaces/prod -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{"namespace":{}}'`.
-- `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it.
+- `cosky:` without `optional:` fails the start when the Config cannot be loaded, including when no server can be reached and no snapshot holds it. When the server refuses, the start fails at once, and the log says why.
 - YAML and JSON are parsed as YAML, and properties as properties. A TEXT Config becomes one property named after the Config.
 - `cosky.config.load-timeout` (5 seconds) limits how long an import waits for the server.
 - An import connects with what is known of `cosky.*` when its file is read, so keep these settings in the same file or in the environment. Spring reads `application.yaml` before `application-prod.yaml`, whose settings do not reach an import in the former.

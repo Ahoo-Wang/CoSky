@@ -15,6 +15,9 @@ package me.ahoo.cosky.client
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import me.ahoo.cosky.api.v1.Resource
@@ -35,6 +38,7 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     private var resyncEpoch = ""
     private var resyncRevision = -1L
     private val knownState = MutableStateFlow(snapshot != null)
+    private val refusal = MutableStateFlow<CoSkyException?>(null)
 
     /**
      * Whether the view reflects a server, now or as saved in a snapshot. Until then an empty view only means not
@@ -42,6 +46,26 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
      */
     val known: StateFlow<Boolean>
         get() = knownState
+
+    /**
+     * Waits until the view is known. A server refusing the watch is an answer too, as long as nothing else is known:
+     * waiting on would only turn the reason into a timeout.
+     *
+     * @throws CoSkyException what the server refused it with.
+     */
+    suspend fun awaitKnown() {
+        knownState.combine(refusal) { known, refused -> known || refused != null }.first { it }
+        if (!knownState.value) {
+            refusal.value?.let { throw it }
+        }
+    }
+
+    /**
+     * The server ended this watch. It is tried again, since permissions and namespaces change.
+     */
+    fun refused(error: CoSkyException) {
+        refusal.value = error
+    }
 
     @Volatile
     var epoch: String = snapshot?.epoch.orEmpty()
@@ -117,6 +141,7 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         objects.value = fresh
         epoch = snapshot.epoch
         revision = snapshot.revision
+        refusal.value = null
         knownState.value = true
         return true
     }
@@ -132,13 +157,15 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         if (events.revision <= revision) {
             return false
         }
-        objects.value = batch.fold(objects.value) { current, event ->
+        val applied = objects.value.toMutableMap()
+        batch.forEach { event ->
             val name = event.resource.meta.name
             when (event.type) {
-                WatchResponse.Event.Type.TYPE_DELETE -> current - name
-                else -> current + (name to event.resource)
+                WatchResponse.Event.Type.TYPE_DELETE -> applied.remove(name)
+                else -> applied[name] = event.resource
             }
         }
+        objects.value = applied
         revision = events.revision
         return true
     }

@@ -16,6 +16,7 @@ package me.ahoo.cosky.spring.config
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.VirtualThreads
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.spring.CoSkyClients
@@ -77,13 +78,19 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
             return ConfigData.EMPTY
         }
         val namespace = CoSkyClients.shared(properties, resource.applicationName).namespace(properties.namespace)
-        val config = runBlocking(VirtualThreads.dispatcher) {
-            withTimeoutOrNull(properties.configLoadTimeout) { namespace.configs.load(resource.config) }
+        var refusal: CoSkyException? = null
+        val config = try {
+            runBlocking(VirtualThreads.dispatcher) {
+                withTimeoutOrNull(properties.configLoadTimeout) { namespace.configs.load(resource.config) }
+            }
+        } catch (e: CoSkyException) {
+            refusal = e
+            null
         }
         // Also when there is nothing: an optional Config that appears later is a change too.
         CoSkyClients.markImported(properties, resource.config, config.revisionOrZero())
         if (config == null) {
-            throw ConfigDataResourceNotFoundException(resource)
+            throw ConfigDataResourceNotFoundException(resource, refusal)
         }
         return ConfigData(parse(resource.config, config))
     }

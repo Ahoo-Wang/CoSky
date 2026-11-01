@@ -26,19 +26,23 @@ import kotlin.time.Duration
  * only sees its own watchers, and an edge expires unless some replica keeps refreshing it.
  */
 class TopologyRecorder(private val store: Store, private val flushInterval: Duration) {
-    private val live = ConcurrentHashMap<String, ConcurrentHashMap<TopologyEdge, Int>>()
+    private val live = ConcurrentHashMap<String, Map<TopologyEdge, Int>>()
 
     /**
      * @return closes when the watch ends.
      */
     fun watching(namespace: String, consumer: String, producer: String): AutoCloseable {
-        val edges = live.computeIfAbsent(namespace) { ConcurrentHashMap() }
         val edge = TopologyEdge.newBuilder().setConsumer(consumer).setProducer(producer).build()
-        edges.merge(edge, 1, Int::plus)
-        return AutoCloseable { edges.computeIfPresent(edge) { _, count -> (count - 1).takeIf { it > 0 } } }
+        live.compute(namespace) { _, edges -> edges.orEmpty().let { it + (edge to (it[edge] ?: 0) + 1) } }
+        return AutoCloseable {
+            live.computeIfPresent(namespace) { _, edges ->
+                val count = edges[edge] ?: 0
+                (if (count > 1) edges + (edge to count - 1) else edges - edge).ifEmpty { null }
+            }
+        }
     }
 
-    fun hasEdges(namespace: String): Boolean = live[namespace].orEmpty().isNotEmpty()
+    fun hasEdges(namespace: String): Boolean = live.containsKey(namespace)
 
     suspend fun run() {
         while (true) {
@@ -55,9 +59,7 @@ class TopologyRecorder(private val store: Store, private val flushInterval: Dura
 
     suspend fun flush() {
         live.forEach { (namespace, edges) ->
-            if (edges.isNotEmpty()) {
-                store.recordTopology(namespace, edges.keys.toList(), flushInterval * RETAINED_INTERVALS)
-            }
+            store.recordTopology(namespace, edges.keys.toList(), flushInterval * RETAINED_INTERVALS)
         }
     }
 

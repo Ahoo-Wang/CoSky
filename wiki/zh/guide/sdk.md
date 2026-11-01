@@ -33,6 +33,8 @@ val current: StateFlow<Resource?> = prod.configs.watch("order-service.yaml")
 current.collect { apply(it?.config?.content) }
 ```
 
+server 拒绝 watch 时，比如没有权限或 namespace 不存在，`load` 会抛出 `CoSkyException`，除非快照中已有数据。watch 会继续重试，情况变化后再次 `load` 就能成功。
+
 ## 查找实例
 
 ```kotlin

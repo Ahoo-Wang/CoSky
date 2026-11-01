@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2Error
 import org.springframework.security.oauth2.core.OAuth2TokenValidator
 import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult
+import org.springframework.security.oauth2.jwt.BadJwtException
 import org.springframework.security.oauth2.jwt.Jwt
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.security.oauth2.jwt.JwtException
@@ -31,13 +32,18 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder
  */
 class OidcAuthenticator(private val decoder: JwtDecoder, private val groupsClaim: String) {
     fun authenticate(token: String): Principal {
-        val jwt = try {
-            decoder.decode(token)
-        } catch (@Suppress("SwallowedException") e: JwtException) {
-            throw CoSkyException.unauthenticated("The token is not valid: ${e.message}")
-        }
+        val jwt = decode(token)
         val subject = jwt.subject ?: throw CoSkyException.unauthenticated("The token names no subject.")
         return Principal(Subject.Type.TYPE_USER, subject, jwt.getClaimAsStringList(groupsClaim).orEmpty().toSet())
+    }
+
+    private fun decode(token: String): Jwt = try {
+        decoder.decode(token)
+    } catch (@Suppress("SwallowedException") e: BadJwtException) {
+        throw CoSkyException.unauthenticated("The token is not valid: ${e.message}")
+    } catch (e: JwtException) {
+        // The provider's keys could not be fetched, which says nothing about the token.
+        throw CoSkyException.storeUnavailable("The identity provider cannot be reached.", e)
     }
 
     companion object {

@@ -160,6 +160,15 @@ class CoSkyException(
             }
         }
 
+        /**
+         * Recovers the CoSky error from a canceled watch; null when it carries no known reason.
+         */
+        fun from(canceled: WatchResponse.Canceled): CoSkyException? = try {
+            CoSkyException(canceled.detail, canceled.message)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+
         private fun detail(reason: ErrorReason): ErrorDetail.Builder = ErrorDetail.newBuilder().setReason(reason)
 
         private fun namespaceRef(namespace: String): NamespaceRef = NamespaceRef.newBuilder()

@@ -42,7 +42,7 @@ cosky:
 
 ## 查找服务
 
-`DiscoveryClient` 和 `ReactiveDiscoveryClient` 读取本地视图。首次读取一个服务时最多等待 `cosky.discovery.load-timeout`（5 秒），避免把"还不知道"当成"没有实例"。之后的读取不需要网络往返。
+`DiscoveryClient` 和 `ReactiveDiscoveryClient` 读取本地视图。首次读取一个服务时最多等待 `cosky.discovery.load-timeout`（5 秒），避免把"还不知道"当成"没有实例"。如果 server 拒绝（没有权限或 namespace 不存在），读取会立即抛出 `CoSkyException`。之后的读取不需要网络往返。
 
 加入 `spring-cloud-starter-loadbalancer` 后，`@LoadBalanced` 客户端从 CoSky 获取实例，由 Spring Cloud 自己的算法选择。
 

@@ -28,8 +28,17 @@ import org.slf4j.LoggerFactory
  * The object is written after the namespace is created and deleted after it is dropped, so any difference that lasts
  * means a deletion was interrupted, or the shard lost its data.
  */
-class NamespaceReconciler(private val store: Store, private val caches: WatchCache) {
+class NamespaceReconciler(
+    private val store: Store,
+    private val caches: WatchCache,
+    private val bootstrap: StoreBootstrap,
+) {
     suspend fun reconcile() {
+        if (store.namespaceState(NamingRules.SYSTEM_NAMESPACE) == null) {
+            log.error("The system namespace has no state: the store lost its data. Setting it up as on a first start.")
+            bootstrap.run()
+            return
+        }
         caches.of(NamingRules.SYSTEM_NAMESPACE).awaitView().objects.values
             .filter { it.kind == Kind.KIND_NAMESPACE }
             .forEach { namespace ->

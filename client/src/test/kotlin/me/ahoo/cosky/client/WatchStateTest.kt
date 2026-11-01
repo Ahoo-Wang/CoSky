@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.client
 
+import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import me.ahoo.cosky.api.v1.Resource
@@ -48,6 +50,24 @@ class WatchStateTest {
         events(revision, WatchResponse.Event.Type.TYPE_PUT, name, more)
 
     private fun names(): Set<String> = state.view.value.keys
+
+    @Test
+    fun `a refused watch is an answer until something is known`() = runBlocking<Unit> {
+        val refusal = CoSkyException.permissionDenied("not for you")
+        state.refused(refusal)
+        runCatching { state.awaitKnown() }.exceptionOrNull().assert().isSameAs(refusal)
+        state.apply(snapshot("a"))
+        state.awaitKnown()
+        state.refused(refusal)
+        state.awaitKnown()
+    }
+
+    @Test
+    fun `a snapshot on disk outweighs a refusal`() = runBlocking<Unit> {
+        val restored = WatchState(WatchKey("prod", Kind.KIND_CONFIG), ListResponse.getDefaultInstance())
+        restored.refused(CoSkyException.permissionDenied("not for you"))
+        restored.awaitKnown()
+    }
 
     @Test
     fun `a new watch knows nothing`() {
