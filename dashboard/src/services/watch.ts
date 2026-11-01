@@ -57,9 +57,11 @@ async function readOrSilence<T>(reader: ReadableStreamDefaultReader<T>): Promise
  */
 export async function followChanges({namespace, kind, service, signal, onChange}: FollowOptions): Promise<void> {
     let retry = MIN_RETRY_MS;
-    const abortController = new AbortController();
-    signal.addEventListener('abort', () => abortController.abort(), {once: true});
     while (!signal.aborted) {
+        // One per attempt: the fetcher's timeout aborts the one it is given, and that one would fail every later attempt.
+        const abortController = new AbortController();
+        const abort = () => abortController.abort();
+        signal.addEventListener('abort', abort, {once: true});
         try {
             const stream = await watchClient.watch({
                 urlParams: {path: {namespace}, query: {kind, ...(service ? {service} : {})}},
@@ -80,6 +82,8 @@ export async function followChanges({namespace, kind, service, signal, onChange}
             await reader.cancel();
         } catch {
             // Told apart by the loop: an abort ends it, and anything else opens the stream again.
+        } finally {
+            signal.removeEventListener('abort', abort);
         }
         await delay(retry, signal);
         retry = Math.min(retry * 2, MAX_RETRY_MS);

@@ -23,6 +23,7 @@ import {cn} from '@/lib/utils';
 import {AccountMenu} from '@/components/layout/AccountMenu';
 import {CommandSearch} from '@/components/layout/CommandSearch';
 import {CurrentNamespaceSelector} from '@/components/layout/CurrentNamespaceSelector';
+import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {ShellPanel, SidebarContent} from '@/components/layout/Sidebar';
 
 const iconLinkClass = 'grid size-[34px] place-items-center rounded-[8px] text-shell-foreground hover:bg-shell-overlay hover:text-white max-[960px]:hidden [&_svg]:w-[18px]';
@@ -36,6 +37,7 @@ export function AuthenticatedLayout() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
     const location = useLocation();
+    const {currentNamespace} = useCurrentNamespaceContext();
     const environmentName = import.meta.env.VITE_ENVIRONMENT_NAME?.trim() || window.location.host;
 
     return (
@@ -84,7 +86,8 @@ export function AuthenticatedLayout() {
                         </div>
                     </header>
                     <main className="min-w-0 flex-1 px-9 pt-[34px] pb-7 max-[960px]:px-5 max-[960px]:py-6">
-                        <ErrorBoundary>
+                        {/* A page starts over in another namespace: rows from the last one would act on this one. */}
+                        <ErrorBoundary key={currentNamespace}>
                             <Outlet/>
                         </ErrorBoundary>
                     </main>

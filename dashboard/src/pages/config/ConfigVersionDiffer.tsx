@@ -38,7 +38,7 @@ export function ConfigVersionDiffer({namespace, name, version, onSuccess}: Confi
 
     const handleRollback = async () => {
         const rolledBack = await runAction(
-            () => configs.rollback(namespace, name, version.revision),
+            () => configs.rollback(namespace, name, version.revision, current?.revision),
             {success: 'Rolled back', failure: 'Failed to roll back'},
         );
         if (rolledBack) {

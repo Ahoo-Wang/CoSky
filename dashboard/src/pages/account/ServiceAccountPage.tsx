@@ -45,16 +45,19 @@ export function ServiceAccountPage() {
     const {openDrawer, closeDrawer} = useDrawer();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
+    const [creating, setCreating] = useState(false);
     const {result, loading, error, execute: loadAccounts} = useQuery<null, ServiceAccountResource[]>({
         initialQuery: null,
         execute: (_, __, abortController) => serviceAccounts.list(abortController),
     });
 
     const handleCreate = async () => {
+        setCreating(true);
         const created = await runAction(
             () => serviceAccounts.create(name.trim(), description),
             {success: 'Service account added', failure: 'Failed to add service account'},
         );
+        setCreating(false);
         if (created) {
             setName('');
             setDescription('');
@@ -165,7 +168,7 @@ export function ServiceAccountPage() {
                                required aria-label="Service account name" className="w-48"/>
                         <Input value={description} onChange={event => setDescription(event.target.value)}
                                placeholder="Description" aria-label="Service account description" className="w-56"/>
-                        <Button type="submit"><Plus/>Add Service Account</Button>
+                        <Button type="submit" loading={creating}><Plus/>Add Service Account</Button>
                     </form>
                 }
             />

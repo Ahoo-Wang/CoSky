@@ -64,7 +64,7 @@ export function RoleBindingEditor({existing, roleNames, onSuccess, onCancel}: Ro
                 role,
                 subjects: subjects.map(({type, name: subjectName}) => ({type, name: subjectName.trim()})),
                 namespaces: splitList(namespaces),
-            }, existing?.revision),
+            }, existing),
             {success: 'Role binding saved', failure: 'Failed to save role binding'},
         );
         setSaving(false);

@@ -42,8 +42,8 @@ export function ServicePage() {
         },
     });
     useWatchRefresh(currentNamespace, Kind.KIND_INSTANCE, () => {
-        loadServices();
         setChanges(count => count + 1);
+        return loadServices();
     });
 
     const handleAddInstance = (service?: string) => {

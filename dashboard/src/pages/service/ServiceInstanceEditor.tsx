@@ -22,8 +22,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {Separator} from '@/components/ui/separator';
 import {runAction} from '@/lib/actions';
-
-const ILLEGAL_NAME_CHARACTER = /[^A-Za-z0-9._-]/g;
+import {defaultInstanceName} from '@/pages/service/instanceName';
 
 interface ServiceInstanceEditorProps {
     namespace: string;
@@ -63,7 +62,7 @@ export function ServiceInstanceEditor({namespace, service, existing, onSuccess, 
             return;
         }
         const name = existing?.name ?? (values.name.trim()
-            || `${values.host}-${values.port}`.replace(ILLEGAL_NAME_CHARACTER, '-'));
+            || defaultInstanceName(service ?? values.service, values.host, values.port));
         setSaving(true);
         const saved = await runAction(
             () => instances.put(namespace, name, {

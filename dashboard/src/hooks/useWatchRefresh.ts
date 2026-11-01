@@ -13,14 +13,17 @@
 
 import {useEffect, useRef} from 'react';
 import type {Kind} from '@/generated';
+import {coalesceReads} from '@/lib/coalesceReads';
 import {followChanges} from '@/services/watch';
 
 const SETTLE_MS = 200;
 
 /**
  * Reads again when the objects of a kind change on the server. Changes that arrive together cause one read.
+ *
+ * @param refresh may return a promise of its end, which the next read waits for.
  */
-export function useWatchRefresh(namespace: string, kind: Kind, refresh: () => void, service?: string) {
+export function useWatchRefresh(namespace: string, kind: Kind, refresh: () => unknown, service?: string) {
     const latestRefresh = useRef(refresh);
     useEffect(() => {
         latestRefresh.current = refresh;
@@ -28,14 +31,10 @@ export function useWatchRefresh(namespace: string, kind: Kind, refresh: () => vo
 
     useEffect(() => {
         const controller = new AbortController();
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        const onChange = () => {
-            clearTimeout(timer);
-            timer = setTimeout(() => latestRefresh.current(), SETTLE_MS);
-        };
-        void followChanges({namespace, kind, service, signal: controller.signal, onChange});
+        const reads = coalesceReads(() => latestRefresh.current(), SETTLE_MS);
+        void followChanges({namespace, kind, service, signal: controller.signal, onChange: reads.onChange});
         return () => {
-            clearTimeout(timer);
+            reads.stop();
             controller.abort();
         };
     }, [namespace, kind, service]);

@@ -12,6 +12,7 @@
  */
 
 import {fetcher} from '@ahoo-wang/fetcher';
+import {toast} from 'sonner';
 import {session} from '@/security/session';
 
 const UNAUTHORIZED = 401;
@@ -36,6 +37,7 @@ fetcher.interceptors.error.use({
     intercept(exchange) {
         if (exchange.response?.status === UNAUTHORIZED && session.token()) {
             session.signOut();
+            toast.error('Your sign-in is no longer valid. Please sign in again.');
         }
     },
 });
