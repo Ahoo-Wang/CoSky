@@ -276,6 +276,8 @@ class CoSkyStarterTest {
             "--spring.config.import=cosky:order.yaml",
             listener = ApplicationListener {
                 server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+                // Stays not ready for as long as the change takes to arrive.
+                Thread.sleep(1_000)
             },
         )
         eventually { context.environment.getProperty("order.limit") == "20" }
