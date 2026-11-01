@@ -70,7 +70,7 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 
 ## Rolling updates
 
-On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does.
+On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
 ## The Dashboard on its own
 
@@ -100,3 +100,9 @@ Metrics are at `/actuator/prometheus`:
 ## Sizing
 
 [Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so give the container what the heap should be, plus a quarter.
+
+Large Configs need their own thought, because what is kept for resuming includes their content:
+
+- **A replica** keeps at most `cosky.watch.window-bytes` (64 MB) of recent changes per namespace, on top of every object. Past that, a client that fell behind reads a fresh snapshot.
+- **Redis** has no such limit: it keeps the last `cosky.watch.window` changes of each namespace, and the last 20 revisions of each Config. Writing a 1 MB Config 800 times took 825 MB. Size Redis for how often your large Configs change, or lower `cosky.watch.window`. At `maxmemory`, writes fail rather than anything being evicted.
+

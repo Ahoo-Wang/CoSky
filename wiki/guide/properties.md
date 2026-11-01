@@ -35,6 +35,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.watch.window` | `10000` | Events kept for resuming, and in the store's log. Should be at least the peak event rate times the longest reconnection gap. |
+| `cosky.watch.window-bytes` | `64MB` | The most a replica keeps of those events in memory, per namespace. It does not limit the store's log. |
 | `cosky.watch.progress-interval` | `10s` | Bookmarks sent on idle watches |
 | `cosky.watch.max-per-stream` | `1000` | Watches on one stream |
 | `cosky.watch.anti-entropy-interval` | `5m` | How often a replica compares its view with the store |

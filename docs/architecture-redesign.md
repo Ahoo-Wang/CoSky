@@ -75,6 +75,7 @@ Redis (只有 server 可访问)
 | D33 | 6.x 迁移 | **整体切换,不做共存**:停止 6.x 写入,用 `cosky-migrate` 导入 Config,应用一起升级到 8.0 并重新注册;不提供桥接。server、client、starter 里没有 6.x 的任何痕迹,6.x 的键结构只有 `migration/` 模块知道 | 两代客户端互相看不见(6.x 直连 Redis,8.0 走 gRPC),分批升级只能靠同步进程。它要维护、要防回环、要翻译租约和权限的语义差异,换来的只是一段过渡期。代价是一次切换,由升级方承担;架构和代码保持干净 |
 | D34 | Dashboard 登录配置 | **匿名接口 `GET /v1/auth/config`**:只返回 OIDC 的公开参数(`issuer`、`clientId`、`scopes`),未配置时为空;是否需要登录看 `GET /v1/me` 是否返回 401。独立部署的 Dashboard 经同源反向代理访问 server,server 不提供 CORS | 登录前浏览器拿不到任何配置。写进前端构建变量要按环境重新构建镜像,违背 D11;注入 `index.html` 则独立部署拿不到 |
 | D35 | Instance 的服务 | **`spec.service` 创建后不可改,换服务要先删除再创建** | 按服务过滤的 watch 只看新对象,收不到旧服务的删除事件,否则旧服务的 watcher 要到下一次低频重建才发现实例已离开;由 server 合成删除事件要在所有路径上保留旧值,代价大于收益 |
+| D36 | Watch 窗口的字节上限 | **内存窗口同时受事件数和字节数限制**(`cosky.watch.window-bytes`,每个 namespace 默认 64 MB),预填窗口时同样受限;读日志每次最多 128 条;**Redis Stream 仍只按事件数限制**,上限在 beta 前设计 | 事件数对大 Config 没有意义:10,000 个 1 MB 的事件是 10 GB,远超堆,而写入失败时看不出原因。掉出窗口只是重新 List,代价低。默认值高于 10,000 个实例事件的大小,以服务发现为主的负载不受影响 |
 
 ---
 
@@ -673,7 +674,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 
 内存结构(每 namespace):
   objects: kind → name → Resource
-  window:  最近 N 个事件的环形缓冲(N 与 Stream MAXLEN 相同;按事件计数,整批淘汰)
+  window:  最近的 revision,最多 N 个事件(与 Stream MAXLEN 相同)和 window-bytes 字节(D36),整批淘汰,最新的 revision 总是保留
   epoch:   当前时间线
   revision: 已应用的最大 revision
 ```
@@ -926,6 +927,7 @@ me.ahoo.cosky.server
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` / `scopes` | — / — / — / `groups` / `openid,profile` | 不配置则不启用 OIDC;`scopes` 是 Dashboard 登录时申请的范围,有些提供方要显式申请才返回分组 |
 | `cosky.watch.window` | `10000` | 事件窗口,按事件计数,与 Stream `MAXLEN` 相同;应不小于 峰值事件速率 × 最长重连间隙(D29) |
 | `cosky.view.topology-flush-interval` | `30s` | 拓扑边的写入间隔,保留 3 倍间隔(D30) |
+| `cosky.watch.window-bytes` | `64MB` | 内存窗口的字节上限,每个 namespace 一份,不影响 Stream(D36) |
 | `cosky.watch.progress-interval` | `10s` | |
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
@@ -1075,6 +1077,15 @@ W4a 实测(`LoadMeasurement`、`HotPathBenchmark`):**经过真实 gRPC 和序列
 | 约 1,500 / 秒 | 50,000 | 100 | 约 15 万 | 0 |
 
 `gone` 只在投递跟不上时出现:每秒 16 万次投递时,位置落后超过 10,000 个事件(约 6 秒)。它的代价只是重新 List 这一个 service,所以默认值保持 10,000;事件窗口可通过 `cosky_watch_gone_total` 观察,需要时调大。
+
+**大 Config(D36)**:server 使用 512 MB 堆,连续写同一个 1 MB 的 Config。
+
+| 版本 | 写入 | 堆 | Redis |
+|---|---|---|---|
+| 没有字节上限 | 约 500 次后开始失败 | 达到 510 MB | 509 MB(484 次) |
+| 64 MB 上限 | 800 次全部成功 | 稳定在约 120 MB | 825 MB(800 次) |
+
+重启后 4 秒就绪,窗口从同一份日志预填,之后继续写入 100 次全部成功。Redis 的占用不受此限制,随写入次数增长,直到 Stream 达到 `MAXLEN`。
 
 压测也发现并修复了一个缺陷:一个 watch 的初始快照曾要扫描整个 namespace,6 万个对象时 10 分钟建不完 10 万个 watch。现在按 service 建索引,索引约占 5 MB。
 

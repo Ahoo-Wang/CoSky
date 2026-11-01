@@ -539,7 +539,7 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 
 ## Rolling updates
 
-On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does.
+On shutdown a replica ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
 ## The Dashboard on its own
 
@@ -569,6 +569,11 @@ Metrics are at `/actuator/prometheus`:
 ## Sizing
 
 [Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so give the container what the heap should be, plus a quarter.
+
+Large Configs need their own thought, because what is kept for resuming includes their content:
+
+- **A replica** keeps at most `cosky.watch.window-bytes` (64 MB) of recent changes per namespace, on top of every object. Past that, a client that fell behind reads a fresh snapshot.
+- **Redis** has no such limit: it keeps the last `cosky.watch.window` changes of each namespace, and the last 20 revisions of each Config. Writing a 1 MB Config 800 times took 825 MB. Size Redis for how often your large Configs change, or lower `cosky.watch.window`. At `maxmemory`, writes fail rather than anything being evicted.
 </doc>
 
 <doc title="Security" path="guide/security.md">
@@ -895,6 +900,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.watch.window` | `10000` | Events kept for resuming, and in the store's log. Should be at least the peak event rate times the longest reconnection gap. |
+| `cosky.watch.window-bytes` | `64MB` | The most a replica keeps of those events in memory, per namespace. It does not limit the store's log. |
 | `cosky.watch.progress-interval` | `10s` | Bookmarks sent on idle watches |
 | `cosky.watch.max-per-stream` | `1000` | Watches on one stream |
 | `cosky.watch.anti-entropy-interval` | `5m` | How often a replica compares its view with the store |
@@ -1260,6 +1266,17 @@ A replica was killed under load, and 100 clients reconnected to another one, all
 | About 1,500 | 50,000 | 100 | About 150,000 | 0 |
 
 So `gone` appears only when delivery cannot keep up, around 160,000 per second. The default stays at 10,000, and `cosky_watch_gone_total` after a rolling update shows whether yours should be larger.
+
+## Large Configs
+
+A server with 512 MB of heap, with one 1 MB Config written over and over:
+
+| Version | Writes | Heap | Redis |
+|---|---|---|---|
+| Without a limit in bytes | Started failing after about 500 | Reached 510 MB | 509 MB, after 484 |
+| With the default 64 MB | All 800 succeeded | Steady at about 120 MB | 825 MB, after 800 |
+
+It restarted on that log in 4 seconds, and took 100 more writes. [Sizing](./deployment.md#sizing) covers what this means for Redis.
 
 ## Not measured
 
