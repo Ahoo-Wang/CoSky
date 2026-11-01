@@ -38,7 +38,13 @@ data class Change(val type: ChangeType, val resource: Resource)
 /**
  * The changes of one revision, which take effect together.
  */
-data class ChangeBatch(val revision: Long, val changes: List<Change>)
+data class ChangeBatch(val revision: Long, val changes: List<Change>) {
+    /**
+     * The room it takes, near enough: what limits how many of these a reader holds in memory (design D36).
+     */
+    val serializedSize: Long
+        get() = changes.sumOf { it.resource.serializedSize.toLong() }
+}
 
 data class Lease(val id: Long, val ttl: Duration)
 

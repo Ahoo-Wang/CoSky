@@ -342,6 +342,17 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `recent changes stay within their bytes without cutting a revision`() = scenario { store ->
+        repeat(3) { batch ->
+            store.apply(namespace, List(2) { Mutation.Put(config("c$batch$it", "x".repeat(1000))) }, ACTOR)
+        }
+        val size = store.recentChanges(namespace, 3, 100).last().serializedSize
+        store.recentChanges(namespace, 3, 100, size * 2).map { it.revision }.assert().containsExactly(2L, 3L)
+        store.recentChanges(namespace, 3, 100, size * 2 - 1).map { it.revision }.assert().containsExactly(3L)
+        store.recentChanges(namespace, 3, 100, size - 1).assert().isEmpty()
+    }
+
+    @Test
     fun `recent changes survive a trimmed log`() = scenario(StoreOptions(logSize = 10)) { store ->
         repeat(300) { batch ->
             store.apply(namespace, List(3) { Mutation.Put(config("c$it", content = "$batch")) }, ACTOR)

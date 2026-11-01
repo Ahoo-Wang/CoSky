@@ -79,15 +79,17 @@ internal data class NamespaceData(
 
     fun writeIdAt(target: Long): Long? = log.lastOrNull { it.revision == target }?.writeId
 
-    fun recentChanges(until: Long, limit: Int): List<ChangeBatch> {
+    fun recentChanges(until: Long, limit: Int, maxBytes: Long): List<ChangeBatch> {
         var remaining = limit
+        var remainingBytes = maxBytes
         return log.takeWhile { it.revision <= until }
             .groupBy { it.revision }
             .map { (revision, entries) -> ChangeBatch(revision, entries.map { it.change }) }
             .asReversed()
             .takeWhile { batch ->
                 remaining -= batch.changes.size
-                remaining >= 0
+                remainingBytes -= batch.serializedSize
+                remaining >= 0 && remainingBytes >= 0
             }
             .asReversed()
     }

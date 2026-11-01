@@ -126,6 +126,7 @@ class CoSkyServerApplication : DisposableBean {
         scope,
         properties.watch.antiEntropyInterval.toKotlinDuration(),
         metrics,
+        properties.watch.windowBytes.toBytes(),
     )
 
     @Bean("coSkyReadiness")

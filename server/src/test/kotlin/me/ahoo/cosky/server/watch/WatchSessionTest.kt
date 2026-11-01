@@ -419,6 +419,39 @@ class WatchSessionTest {
     }
 
     @Test
+    fun `the window counts bytes too, and the newest revision stays however large`() {
+        fun batch(revision: Long, size: Int) =
+            ChangeBatch(revision, listOf(Change(ChangeType.PUT, config("c", "x".repeat(size)))))
+        val limit = batch(0, 1000).serializedSize * 2
+        val empty = NamespaceView("e", 0, 0, persistentHashMapOf(), persistentListOf())
+
+        val full = empty.applying(batch(1, 1000), WINDOW, limit).applying(batch(2, 1000), WINDOW, limit)
+        full.window.map { it.revision }.assert().containsExactly(1L, 2L)
+        full.windowBytes.assert().isEqualTo(limit)
+
+        val trimmed = full.applying(batch(3, 1000), WINDOW, limit)
+        trimmed.window.map { it.revision }.assert().containsExactly(2L, 3L)
+        trimmed.windowBytes.assert().isEqualTo(limit)
+        trimmed.earliest.assert().isEqualTo(1)
+
+        val oversized = trimmed.applying(batch(4, 10_000), WINDOW, limit)
+        oversized.window.map { it.revision }.assert().containsExactly(4L)
+        oversized.earliest.assert().isEqualTo(3)
+    }
+
+    @Test
+    fun `a replica that loads keeps the window within its bytes too`() = scenario {
+        repeat(3) { put("c$it", "x".repeat(1000)) }
+        val size = caughtUpTo(3).window.last().serializedSize
+        val loading = NamespaceCache(NAMESPACE, store, WINDOW, windowBytes = size * 2)
+        val running = launch { loading.run() }
+        val view = loading.awaitView()
+        running.cancel()
+        view.window.map { it.revision }.assert().containsExactly(2L, 3L)
+        view.earliest.assert().isEqualTo(1)
+    }
+
+    @Test
     fun `no difference from the store leaves the epoch alone`() = scenario {
         put("a")
         val view = caughtUpTo(1)
