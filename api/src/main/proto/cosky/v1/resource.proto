@@ -87,7 +87,7 @@ message Endpoint {
 }
 
 message InstanceSpec {
-  string service = 1;
+  string service = 1; // cannot change once the Instance exists (§7.1)
   Endpoint endpoint = 2;
   optional int32 weight = 3; // unset = 1 (filled by the server); 0 = drained but still registered
   map<string, string> metadata = 4; // user data, kept apart from system fields; <= 64 entries

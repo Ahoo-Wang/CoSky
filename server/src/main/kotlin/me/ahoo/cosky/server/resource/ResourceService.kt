@@ -29,9 +29,11 @@ import me.ahoo.cosky.api.v1.PutResponse
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Verb
+import me.ahoo.cosky.api.v1.ViolationCode
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.Validator
+import me.ahoo.cosky.api.validation.Violation
 import me.ahoo.cosky.api.validation.requireValid
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.Authorizer
@@ -119,7 +121,7 @@ class ResourceService(
         requireValid(validator.validate(request))
         val key = request.resource.key
         return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
-            authorizePut(request.resource, key, caller.principal)
+            authorizePut(request, key, caller.principal)
             if (key.kind == Kind.KIND_NAMESPACE) {
                 store.createNamespace(key.name)
             }
@@ -211,17 +213,30 @@ class ResourceService(
 
     /**
      * For an Instance both the new and any existing service count, or an account could take over another service's
-     * instance. Attaching one to a lease is only for the lease's owner (design §7.8); keeping it on the lease it is on
-     * is not attaching, or an operator could not drain an instance an application registered.
+     * instance, and only after that does it matter that the service cannot change (design §7.1). Attaching one to a
+     * lease is only for the lease's owner (design §7.8); keeping it on the lease it is on is not attaching, or an
+     * operator could not drain an instance an application registered.
      */
-    private suspend fun authorizePut(resource: Resource, key: ResourceKey, principal: Principal) {
+    private suspend fun authorizePut(request: PutRequest, key: ResourceKey, principal: Principal) {
+        val resource = request.resource
         val permission = permissionOf(principal, Verb.VERB_PUT, key.kind, key.namespace)
         requireAllowed(permission, resource.authorizedName)
         if (key.kind != Kind.KIND_INSTANCE) {
             return
         }
-        val existing = viewOf(key.namespace, 0).objects[key]
+        val existing = viewOf(key.namespace, request.expectedRevision.coerceAtLeast(0)).objects[key]
         existing?.let { requireAllowed(permission, it.authorizedName) }
+        if (existing != null && existing.instance.service != resource.instance.service) {
+            throw CoSkyException.invalidArgument(
+                listOf(
+                    Violation(
+                        "resource.instance.service",
+                        ViolationCode.VIOLATION_CODE_NOT_ALLOWED,
+                        "An Instance stays in its service: delete it, then create it again.",
+                    ),
+                ),
+            )
+        }
         val lease = resource.meta.lease
         if (lease != 0L && lease != existing?.meta?.lease && principal != Principal.ANONYMOUS) {
             val owner = store.leaseOwners(key.namespace, listOf(lease))[lease]

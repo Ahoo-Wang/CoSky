@@ -82,7 +82,7 @@ description: REST API 的接口及其共同约定。
 | 方法 | 路径 | |
 |---|---|---|
 | GET | `/v1/namespaces/{ns}/instances` | 列表。`?service=order&labelSelector=` |
-| GET、PUT、DELETE | `/v1/namespaces/{ns}/instances/{name}` | 没有 `meta.lease` 时会一直保留，直到被删除 |
+| GET、PUT、DELETE | `/v1/namespaces/{ns}/instances/{name}` | 没有 `meta.lease` 时会一直保留，直到被删除。服务不可修改 |
 
 租约只通过 gRPC 提供：应用使用[客户端](./sdk.md)。
 
