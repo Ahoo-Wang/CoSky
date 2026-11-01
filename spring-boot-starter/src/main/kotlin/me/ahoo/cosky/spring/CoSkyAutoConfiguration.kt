@@ -41,6 +41,7 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 
@@ -56,8 +57,13 @@ class CoSkyAutoConfiguration {
         const val APPLICATION_NAME = "spring.application.name"
     }
 
+    /**
+     * Spring destroys what uses the client before the client, so depending on the closer keeps the connection open for
+     * all of them, such as a registration leaving on shutdown.
+     */
     @Bean(destroyMethod = "")
     @ConditionalOnMissingBean
+    @DependsOn("coSkyClientCloser")
     fun coSkyClient(properties: CoSkyProperties, environment: Environment): CoSkyClient =
         CoSkyClients.shared(properties, environment.getProperty(APPLICATION_NAME))
 
