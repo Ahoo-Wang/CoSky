@@ -219,10 +219,18 @@ export function signOut(): void {
 }
 
 /**
- * The claims of [token] if it is an ID token rather than a ServiceAccount token.
+ * The claims of [token] if it is an ID token rather than a ServiceAccount token. Anyone can paste anything into the
+ * sign-in page, and it is for the server to refuse that.
  */
 export function idTokenClaims(token: string | null): Record<string, unknown> | null {
-    return token?.split('.').length === JWT_PARTS ? claimsOf(token) : null;
+    if (token?.split('.').length !== JWT_PARTS) {
+        return null;
+    }
+    try {
+        return claimsOf(token);
+    } catch {
+        return null;
+    }
 }
 
 /**
