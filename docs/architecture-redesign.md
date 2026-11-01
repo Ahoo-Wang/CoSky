@@ -751,7 +751,7 @@ client                         server                         Redis
   `sub` → `USER`、`groups` claim → `GROUP`。未配置 OIDC 时,Dashboard 使用 ServiceAccount token 登录。
 - **Bootstrap**:首次启动若 `_system` 中无任何 RoleBinding,读取环境变量 `COSKY_BOOTSTRAP_TOKEN`
   创建 `admin` ServiceAccount 并绑定内置 `admin` 角色(`namespaces = ["*"]`)。
-- **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(Config GET/WATCH,Instance 全部)。
+- **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(Config GET/WATCH,Instance 全部)。Role 不能使用这些名称,否则写入成功却被内置角色覆盖。
   内置角色的规则对所有 namespace 生效,由 RoleBinding 的 `namespaces` 限定范围;按服务隔离时用自定义 Role(§7.8)。
 - **审计**:每个 revision 的 `updated_by` + Config 历史即变更追溯;每次写入和认证事件另输出一行结构化审计日志(§7.8),
   由运维的日志系统收集,server 不存储审计数据。

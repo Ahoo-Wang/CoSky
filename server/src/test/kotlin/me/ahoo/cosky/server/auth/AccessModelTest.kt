@@ -22,6 +22,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.roleBindingSpec
 import me.ahoo.cosky.api.v1.roleSpec
+import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
@@ -61,6 +62,13 @@ class AccessModelTest {
 
     private fun AccessModel.config(verb: Verb = Verb.VERB_GET, namespace: String = "prod"): Permission =
         permission(account, verb, Kind.KIND_CONFIG, namespace)
+
+    @Test
+    fun `the names validation reserves are the roles that are built in`() {
+        NamingRules.BUILT_IN_ROLES.forEach { name ->
+            AccessModel(listOf(binding(name, subject = subject()))).rulesOf(account).assert().isNotEmpty()
+        }
+    }
 
     @Test
     fun `nothing is granted without a binding`() {

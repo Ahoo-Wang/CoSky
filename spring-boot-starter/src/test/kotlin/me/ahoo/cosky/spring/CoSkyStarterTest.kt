@@ -154,6 +154,16 @@ class CoSkyStarterTest {
     }
 
     @Test
+    fun `turned off, it does not connect for an import either`() {
+        val context = application(
+            "--cosky.enabled=false",
+            "--spring.config.import=cosky:missing.yaml",
+            connection = listOf("--cosky.endpoints=localhost:1"),
+        )
+        context.environment.getProperty("order.limit").assert().isNull()
+    }
+
+    @Test
     fun `a config that cannot be found does not give away the token`() {
         val failure = runCatching {
             application("--cosky.token=cosky_id_secret", "--spring.config.import=cosky:missing.yaml")

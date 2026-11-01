@@ -9,7 +9,7 @@ description: REST API 的接口及其共同约定。
 
 ## 约定
 
-**认证**：`Authorization: Bearer <token>`，`GET /v1/auth/config` 除外。
+**认证**：`Authorization: Bearer <token>`，`GET /v1/auth/config` 和 [Actuator](./security.md#没有保护的内容) 除外。
 
 **资源**由共享的元数据和一个按类型区分的 spec 组成，使用 proto3 JSON。空字段会被省略，revision 这样的 64 位数字是字符串。
 
@@ -117,9 +117,9 @@ Server-sent events，每个 `data:` 行是一条 proto3 JSON 消息：
 | 方法 | 路径 | |
 |---|---|---|
 | GET | `/v1/namespaces` | |
-| GET、PUT、DELETE | `/v1/namespaces/{name}` | 只有空的 namespace 才能删除 |
+| GET、PUT、DELETE | `/v1/namespaces/{name}` | 最简单的请求体是 `{"namespace":{}}`。只有空的 namespace 才能删除。 |
 | GET | `/v1/serviceaccounts` | |
-| GET、PUT、DELETE | `/v1/serviceaccounts/{name}` | 请求体中的 `tokens` 被忽略 |
+| GET、PUT、DELETE | `/v1/serviceaccounts/{name}` | 最简单的请求体是 `{"serviceAccount":{}}`。请求体中的 `tokens` 被忽略。 |
 | POST | `/v1/serviceaccounts/{name}/tokens` | 只返回一次明文。`{"expiresAt": "..."}` 可选。 |
 | DELETE | `/v1/serviceaccounts/{name}/tokens/{tokenId}` | |
 | GET | `/v1/roles` | |

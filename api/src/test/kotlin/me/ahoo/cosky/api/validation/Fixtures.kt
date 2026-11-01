@@ -85,7 +85,7 @@ object Fixtures {
     val role: Resource = resource {
         meta = objectMeta {
             namespace = SYSTEM
-            name = "client"
+            name = "reader"
         }
         role = roleSpec {
             rules += rule {

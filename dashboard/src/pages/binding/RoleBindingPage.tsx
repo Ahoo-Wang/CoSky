@@ -27,6 +27,9 @@ import type {DataTableColumn} from '@/components/ui/data-table';
 import {runAction} from '@/lib/actions';
 import {enumLabel} from '@/lib/utils';
 
+/** Every server has these, and they are not among the Roles it lists. */
+const BUILT_IN_ROLES = ['admin', 'viewer', 'client'];
+
 export function RoleBindingPage() {
     const {openDrawer, closeDrawer} = useDrawer();
     const {result, loading, error, execute: loadBindings} = useQuery<null, RoleBindingResource[]>({
@@ -42,7 +45,7 @@ export function RoleBindingPage() {
         openDrawer(
             <RoleBindingEditor
                 existing={binding}
-                roleNames={availableRoles.map(role => role.name)}
+                roleNames={[...new Set([...BUILT_IN_ROLES, ...availableRoles.map(role => role.name)])]}
                 onSuccess={() => {
                     closeDrawer();
                     loadBindings();

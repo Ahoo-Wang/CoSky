@@ -25,6 +25,7 @@ cosky:
   namespace: prod
 ```
 
+- 一开始只有 `default`。使用其他 namespace 之前要先创建：`curl -X PUT localhost:8080/v1/namespaces/prod -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{"namespace":{}}'`。
 - `cosky:` 不带 `optional:` 时，Config 加载失败会让应用启动失败，包括连不上任何 server 且没有快照的情况。
 - YAML 和 JSON 按 YAML 解析，properties 按 properties 解析。TEXT 类型的 Config 成为一个以 Config 名命名的属性。
 - `cosky.config.load-timeout`（5 秒）限制一次导入等待 server 的时间。

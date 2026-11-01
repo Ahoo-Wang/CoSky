@@ -57,6 +57,8 @@ dependencies {
 连接 server：
 
 ```yaml
+server:
+  port: 8081 # 8080 是 CoSky server 占用的
 spring:
   application:
     name: order-service          # 注册为 order-service

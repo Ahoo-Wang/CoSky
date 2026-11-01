@@ -9,7 +9,7 @@ spec:
     app: cosky
   ports:
     - name: rest
-      port: 80
+      port: 8080
       protocol: TCP
       targetPort: http
     # A client keeps one long-lived connection: give it several addresses, or the service of each replica, to spread

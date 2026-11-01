@@ -9,7 +9,7 @@ The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the fu
 
 ## Conventions
 
-**Authentication**: `Authorization: Bearer <token>`, on everything except `GET /v1/auth/config`.
+**Authentication**: `Authorization: Bearer <token>`, on everything except `GET /v1/auth/config` and [Actuator](./security.md#what-is-not-protected).
 
 **Resources** have shared metadata and one kind-specific spec, in proto3 JSON. Empty fields are left out, and 64-bit numbers such as revisions are strings.
 
@@ -117,9 +117,9 @@ Computed from the server's memory, read-only.
 | Method | Path | |
 |---|---|---|
 | GET | `/v1/namespaces` | |
-| GET, PUT, DELETE | `/v1/namespaces/{name}` | Only an empty namespace can be deleted |
+| GET, PUT, DELETE | `/v1/namespaces/{name}` | The smallest body is `{"namespace":{}}`. Only an empty namespace can be deleted. |
 | GET | `/v1/serviceaccounts` | |
-| GET, PUT, DELETE | `/v1/serviceaccounts/{name}` | `tokens` in the body is ignored |
+| GET, PUT, DELETE | `/v1/serviceaccounts/{name}` | The smallest body is `{"serviceAccount":{}}`. `tokens` in the body is ignored. |
 | POST | `/v1/serviceaccounts/{name}/tokens` | Returns the plaintext once. `{"expiresAt": "..."}` is optional. |
 | DELETE | `/v1/serviceaccounts/{name}/tokens/{tokenId}` | |
 | GET | `/v1/roles` | |

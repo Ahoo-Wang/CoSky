@@ -32,10 +32,14 @@ dependencies {
 }
 ```
 
+In Kotlin, add the `kotlin("plugin.spring")` Gradle plugin as well: the bean in `@RefreshScope` below has to be open.
+
 ## 3. Configure the application
 
 ```yaml
 # application.yaml
+server:
+  port: 8081 # 8080 is the CoSky server
 spring:
   application:
     name: provider
@@ -73,7 +77,7 @@ class HelloController(@Value("\${example.greeting:Hello}") private val greeting:
 
 ## 5. Find it from another application
 
-Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name, and call the provider by its service name:
+Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name and port, and call the provider by its service name:
 
 ```kotlin
 @Bean

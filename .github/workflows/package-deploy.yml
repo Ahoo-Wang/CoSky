@@ -22,7 +22,7 @@ jobs:
   github-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
     steps:
       - name: Checkout
@@ -43,6 +43,13 @@ jobs:
           SIGNING_KEYID: ${{ secrets.SIGNING_KEYID }}
           SIGNING_SECRETKEY: ${{ secrets.SIGNING_SECRETKEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+
+      - name: Attach cosky-migrate to the release
+        run: |
+          ./gradlew :migration:distZip
+          gh release upload "$GITHUB_REF_NAME" migration/build/distributions/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
   central-deploy:
     runs-on: ubuntu-latest
     steps:

@@ -31,7 +31,7 @@ description: 仓库如何组织和测试，供开发 CoSky 本身的人参考。
 ./gradlew build
 ```
 
-server 的测试需要 JDK 25 和 Docker，JDK 由 Gradle 提供。`./gradlew :server:run --args='--dev'` 启动一个内存模式的 server。
+构建需要 JDK 21，server 的测试和 `:server:run` 需要 JDK 25，测试还需要 Docker。两个 JDK 都要自行安装：Gradle 不会下载它们。`./gradlew :server:run --args='--dev'` 启动一个内存模式的 server。
 
 `dashboard/dist` 存在时，server 会把 Dashboard 打包进去：
 
