@@ -49,6 +49,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
@@ -260,8 +261,15 @@ class CoSkyClientTest {
 
     // --- snapshots ---
 
-    private fun snapshotFiles(): List<Path> = Files.walk(snapshots).use { paths ->
-        paths.filter { it.isRegularFile() }.toList()
+    /**
+     * A write goes through a temporary file, which may be gone by the time the walk gets to it.
+     */
+    private fun snapshotFiles(): List<Path> = try {
+        Files.walk(snapshots).use { paths ->
+            paths.filter { it.isRegularFile() && it.name.endsWith(".pb") }.toList()
+        }
+    } catch (_: UncheckedIOException) {
+        snapshotFiles()
     }
 
     @Test
