@@ -88,7 +88,7 @@ class CoSkyServerApplication : DisposableBean {
         resources: ObjectProvider<ClientResources>,
         metrics: CoSkyMetrics,
     ): Store {
-        val options = StoreOptions(logSize = properties.watch.window)
+        val options = StoreOptions(logSize = properties.watch.window, logBytes = properties.watch.windowBytes.toBytes())
         return when (properties.store.type) {
             CoSkyProperties.MEMORY -> {
                 log.warn("The store is in memory: nothing survives this process. Use it for development only.")

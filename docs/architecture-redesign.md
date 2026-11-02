@@ -68,15 +68,16 @@ Redis (只有 server 可访问)
 | D26 | 本地快照 | **定位为同盘重启的兜底**,k8s 中须挂持久卷才有效;路径含 `serverKey`;不加密,权限 `0600`,可关闭 Config 落盘 | 容器默认没有持久卷,不能承诺新进程可用旧视图;客户端没有地方安全存放密钥(§7.5、§9) |
 | D27 | JVM 版本 | **基线 Java 21**,所有模块编译为 Java 21 字节码;**server 运行在 JDK 25** | 库的基线决定用户必须升级到哪个版本;server 是我们自己发布的镜像,可以直接用最新 LTS,紧凑对象头(JEP 519)等改进正好能减少 Watch Cache 的内存。server 不使用 Java 21 之后的 API,以便与其他模块保持同一工具链 |
 | D28 | 虚拟线程 | **协程仍是编程模型(D9),虚拟线程是默认执行载体**:server 的请求处理与业务协程、所有阻塞操作都跑在虚拟线程上,不用 `Dispatchers.IO` 和平台线程池 | 协程负责结构化并发和取消,虚拟线程让偶发的阻塞不再占用平台线程,不必区分哪段代码可能阻塞(§3.2、§7.4)。Lettuce 的 Netty 事件循环不变,它本身不阻塞 |
-| D29 | Watch 窗口 | **副本落后不是 `gone`**:同一 epoch 下 `from_revision` 大于副本 revision 时先挂起等它追上,最多 `read.min-revision-timeout`,超时以 `UNAVAILABLE` 结束流;副本加载时用 Stream 预填窗口;内存窗口与 Stream 都按事件计数,默认 10,000 | 客户端的位置本身有效,发 `gone` 会把滚动重启变成一次集中重新 List。窗口只需覆盖重连间隙:5 万实例 10 分钟滚动约 170 事件/秒,窗口能撑约 60 秒;W4a 实测约 1,600 事件/秒时,只有投递达到每秒 16 万次才出现 `gone`,默认值保持 10,000(§6.1、§7.3、§7.10) |
+| D29 | Watch 窗口 | **副本落后不是 `gone`**:同一 epoch 下 `from_revision` 大于副本 revision 时先挂起等它追上,最多 `read.min-revision-timeout`,超时以 `UNAVAILABLE` 结束流;副本加载时用 Stream 预填窗口;内存窗口与 Stream 默认最多 10,000 个事件(字节上限见 D36、D38) | 客户端的位置本身有效,发 `gone` 会把滚动重启变成一次集中重新 List。窗口只需覆盖重连间隙:5 万实例 10 分钟滚动约 170 事件/秒,窗口能撑约 60 秒;W4a 实测约 1,600 事件/秒时,只有投递达到每秒 16 万次才出现 `gone`,默认值保持 10,000(§6.1、§7.3、§7.10) |
 | D30 | 拓扑 | **边作为软状态写入 Redis**:每个副本每 30 秒写一次,不经过 `rev` 和日志,不产生 Watch 事件,90 秒未刷新即失效;consumer 优先取客户端名,其次取认证主体 | 每个副本只见到自己的 watcher。向各副本扇出查询需要成员发现,只显示本副本数据会误导,推迟到 8.1 又比 6.x 少一项功能;多个应用共用 token 时,只靠主体分不开它们(§5.1、§6.3) |
 | D31 | Redis 前提 | **启动时检查,不满足则拒绝启动**:淘汰策略必须是 `noeviction`,版本不低于 7.0;**不使用 `WAIT`**,改为建议 `min-replicas-to-write`;`KeepAliveResponse.attached_count` 让客户端发现丢失的注册并重新 Put | 淘汰会悄悄删数据。`WAIT` 在 Cluster 下要路由到键所在节点,也消除不了丢写。租约还在而实例已丢时续期一直成功,客户端需要一个信号;相比每个实例 Watch 自己(2 万注册就多 2 万 watcher),这个计数不增加扇出负担(§5.3、§6.2) |
 | D32 | 回收时机 | **租约到期后再等 TTL 的三分之一才回收**;到期数不变,用于判断大比例到期 | 客户端每 TTL/3 续期一次,同一次分区切断的租约会在这段时间内陆续到期。若到期即回收,比例永远到不了门槛,D20 的暂停在真实分区时不起作用(W4a 故障注入发现)。等这一段,回收器在删除任何实例之前就能看到全部到期的租约。代价是死实例晚一点摘除:默认从 30 秒变成 40 秒(§6.2) |
 | D33 | 6.x 迁移 | **整体切换,不做共存**:停止 6.x 写入,用 `cosky-migrate` 导入 Config,应用一起升级到 8.0 并重新注册;不提供桥接。server、client、starter 里没有 6.x 的任何痕迹,6.x 的键结构只有 `migration/` 模块知道 | 两代客户端互相看不见(6.x 直连 Redis,8.0 走 gRPC),分批升级只能靠同步进程。它要维护、要防回环、要翻译租约和权限的语义差异,换来的只是一段过渡期。代价是一次切换,由升级方承担;架构和代码保持干净 |
 | D34 | Dashboard 登录配置 | **匿名接口 `GET /v1/auth/config`**:只返回 OIDC 的公开参数(`issuer`、`clientId`、`scopes`),未配置时为空;是否需要登录看 `GET /v1/me` 是否返回 401。独立部署的 Dashboard 经同源反向代理访问 server,server 不提供 CORS | 登录前浏览器拿不到任何配置。写进前端构建变量要按环境重新构建镜像,违背 D11;注入 `index.html` 则独立部署拿不到 |
 | D35 | Instance 的服务 | **`spec.service` 创建后不可改,换服务要先删除再创建** | 按服务过滤的 watch 只看新对象,收不到旧服务的删除事件,否则旧服务的 watcher 要到下一次低频重建才发现实例已离开;由 server 合成删除事件要在所有路径上保留旧值,代价大于收益 |
-| D36 | Watch 窗口的字节上限 | **内存窗口同时受事件数和字节数限制**(`cosky.watch.window-bytes`,每个 namespace 默认 64 MB),预填窗口时同样受限;读日志每次最多 128 条;**Redis Stream 仍只按事件数限制**,上限在 beta 前设计 | 事件数对大 Config 没有意义:10,000 个 1 MB 的事件是 10 GB,远超堆,而写入失败时看不出原因。掉出窗口只是重新 List,代价低。默认值高于 10,000 个实例事件的大小,以服务发现为主的负载不受影响 |
+| D36 | Watch 窗口的字节上限 | **内存窗口同时受事件数和字节数限制**(`cosky.watch.window-bytes`,每个 namespace 默认 64 MB),预填窗口时同样受限;读日志每次最多 128 条;Redis 日志的字节上限见 D38 | 事件数对大 Config 没有意义:10,000 个 1 MB 的事件是 10 GB,远超堆,而写入失败时看不出原因。掉出窗口只是重新 List,代价低。默认值高于 10,000 个实例事件的大小,以服务发现为主的负载不受影响 |
 | D37 | 人员的登录会话 | **Dashboard 用 refresh token 在 ID token 到期前续期,退出时结束服务商的会话;server 首次用到时才连接服务商** | ID token 可能只有 5 分钟(Keycloak 默认),没有续期时人会反复被踢出并丢失编辑;退出时不结束服务商的会话,再次登录不需要密码;启动时依赖服务商,会让人员登录用的系统成为应用配置和服务发现的依赖。refresh token 存在 sessionStorage,与 ID token 暴露面相同,随标签页结束 |
+| D38 | Redis 日志的字节上限 | **写日志的脚本自己裁剪**:`log:bytes` 记录日志的字节数,与日志在同一个脚本内更新;每次写入后从最旧的条目删起,直到条数和字节数都不超限,刚写入的 revision 总是保留;上限与内存窗口相同(`cosky.watch.window` 与 `window-bytes`)。**不再使用 `MAXLEN`** | `MAXLEN` 只按条数,也不告诉脚本删掉了多少字节,计数会漂移。1 MB 的 Config 写 800 次曾占用 825 MB。一次写入最多多删若干条,调低上限时逐步裁剪,不会长时间阻塞 Redis |
 
 ---
 
@@ -557,7 +558,8 @@ sealed interface ApplyResult {
 | `cosky:{ns}:rev` | String | namespace revision,INCR 递增 |
 | `cosky:{ns}:obj:<kind>` | Hash | name → 资源 protobuf 字节(确定性序列化,meta 中只读字段除外) |
 | `cosky:{ns}:ver:<kind>` | Hash | name → 元数据 `<revision>:<create_revision>:<created_ms>:<updated_ms>:<actor>` |
-| `cosky:{ns}:log` | Stream | 变更日志;ID = `<revision>-<seq>`;字段 `t`(P/D)、`k`(kind)、`n`(name)、`m`(元数据)、`o`(对象字节);`MAXLEN ~ 10000` |
+| `cosky:{ns}:log` | Stream | 变更日志;ID = `<revision>-<seq>`;字段 `t`(P/D)、`k`(kind)、`n`(name)、`m`(元数据)、`o`(对象字节);由脚本裁剪,默认最多 10,000 条、64 MB(D38) |
+| `cosky:{ns}:log:bytes` | String | 日志当前的字节数,与日志在同一个脚本内更新(D38) |
 | `cosky:{ns}:hist:config:<name>` | Sorted Set | score = revision,member = `<元数据>\0<对象字节>`;保留最近 20 个 |
 | `cosky:{ns}:hist:idx` | Set | 有历史的 Config name,`dropNamespace` 据此枚举,不需要 SCAN |
 | `cosky:{ns}:lease` | Sorted Set | lease id → 到期时间(ms,Redis `TIME`) |
@@ -588,7 +590,7 @@ sealed interface ApplyResult {
 
 | 脚本 | 作用 |
 |---|---|
-| `apply.lua` | 通用原子批写:校验 `state = active` → 逐项校验 CAS 与租约 → 内容不变的项跳过 → 若有变化则 `INCR rev` → `HSET/HDEL obj/ver` → 维护 `lease:attach` → Config 写历史并 `SADD hist:idx` → `XADD log`(每项一条,`MAXLEN ~`)→ `PUBLISH cosky:hint` → 返回新 revision 或冲突明细 |
+| `apply.lua` | 通用原子批写:校验 `state = active` → 逐项校验 CAS 与租约 → 内容不变的项跳过 → 若有变化则 `INCR rev` → `HSET/HDEL obj/ver` → 维护 `lease:attach` → Config 写历史并 `SADD hist:idx` → `XADD log`(每项一条)并裁剪(D38)→ `PUBLISH cosky:hint` → 返回新 revision 或冲突明细 |
 | `lease_grant.lua` | 校验 `state = active` → 生成 id,`ZADD lease <TIME+ttl> id`,`HSET lease:ttl id ttl`,`HSET lease:owner id owner` |
 | `lease_keepalive.lua` | 批量:读 `lease:ttl`,存在则 `ZADD lease <TIME+ttl> id` 并用 `ZCOUNT lease:attach id id` 返回挂载实例数(D31),不存在返回 0;已到期但未回收的租约同样续期(到期只表示可以回收);**不改 revision、不写日志** |
 | `lease_expire.lua` | 对单个租约:确认 `score ≤ TIME` → `ZRANGEBYSCORE lease:attach id id` 取挂载实例 → 有实例则等价于一次 apply 删除它们 → 清理 `lease:attach`、`lease:ttl`、`lease:owner`、`lease`。Revoke 复用此脚本(跳过到期检查);`actor` 到期回收时为 `system`,Revoke 时为调用者 |
@@ -628,7 +630,7 @@ for i, op in ipairs(changed) do
              if op.lease ~= 0 then ZADD lease:attach op.lease name else ZREM lease:attach name end
              Config 时 ZADD hist rev (m.."\0"..o) + ZREMRANGEBYRANK 截断 + SADD hist:idx name
   if DELETE: o = HGET obj name; HDEL obj/ver name; ZREM lease:attach name
-  XADD log MAXLEN ~ 10000 (rev.."-"..(i-1)) t P|D k kind n name m m o o
+  XADD log (rev.."-"..(i-1)) t P|D k kind n name m m o o; INCRBY log:bytes <字节数>
 end
 PUBLISH cosky:hint namespace                        -- 只是提示,丢失由轮询兜底
 return {"OK", rev, #changed}
@@ -675,7 +677,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 
 内存结构(每 namespace):
   objects: kind → name → Resource
-  window:  最近的 revision,最多 N 个事件(与 Stream MAXLEN 相同)和 window-bytes 字节(D36),整批淘汰,最新的 revision 总是保留
+  window:  最近的 revision,最多 N 个事件和 window-bytes 字节,与日志的上限相同(D36、D38),整批淘汰,最新的 revision 总是保留
   epoch:   当前时间线
   revision: 已应用的最大 revision
 ```
@@ -685,7 +687,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - 客户端 `from_epoch` 不一致或 `from_revision` 早于窗口 → 返回 `gone`,客户端重新 List 后从新位置 Watch。
 - `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `gone`。超过 `read.min-revision-timeout` 后读一次 Store:Store 有这个位置,说明只是本副本落后,以 `UNAVAILABLE` 结束整条流,客户端换端点重连;Store 也没有,说明这个位置来自无人发现的被丢弃时间线(§6.4 的残余风险),发 `gone`,否则客户端会一直重连。
 - 重新加载期间 watcher 只是等待,不会被结束。新视图的 epoch 不变且位置仍在窗口内就继续,所以一次 Store 读取失败不会让所有客户端重新 List。namespace 不再是 active 时,watcher 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
-- `MAXLEN ~` 可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
+- 裁剪可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
 - 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。
 
 **追尾(D21)**:不使用 `XREAD`。Cluster 下跨 slot 的多键 `XREAD` 直接报 `CROSSSLOT`,每 namespace 一条阻塞连接又会让连接数随 namespace 增长。
@@ -926,9 +928,9 @@ me.ahoo.cosky.server
 | `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发 |
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount;格式同普通 token |
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` / `scopes` | — / — / — / `groups` / `openid,profile` | 不配置则不启用 OIDC;`scopes` 是 Dashboard 登录时申请的范围,有些提供方要显式申请才返回分组 |
-| `cosky.watch.window` | `10000` | 事件窗口,按事件计数,与 Stream `MAXLEN` 相同;应不小于 峰值事件速率 × 最长重连间隙(D29) |
+| `cosky.watch.window` | `10000` | 事件窗口,按事件计数,同时是日志的条数上限;应不小于 峰值事件速率 × 最长重连间隙(D29) |
 | `cosky.view.topology-flush-interval` | `30s` | 拓扑边的写入间隔,保留 3 倍间隔(D30) |
-| `cosky.watch.window-bytes` | `64MB` | 内存窗口的字节上限,每个 namespace 一份,不影响 Stream(D36) |
+| `cosky.watch.window-bytes` | `64MB` | 内存窗口和日志的字节上限,每个 namespace 一份(D36、D38) |
 | `cosky.watch.progress-interval` | `10s` | |
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
@@ -1084,9 +1086,10 @@ W4a 实测(`LoadMeasurement`、`HotPathBenchmark`):**经过真实 gRPC 和序列
 | 版本 | 写入 | 堆 | Redis |
 |---|---|---|---|
 | 没有字节上限 | 约 500 次后开始失败 | 达到 510 MB | 509 MB(484 次) |
-| 64 MB 上限 | 800 次全部成功 | 稳定在约 120 MB | 825 MB(800 次) |
+| 内存窗口 64 MB(D36) | 800 次全部成功 | 稳定在约 120 MB | 825 MB(800 次) |
+| 日志也限 64 MB(D38) | 800 次全部成功 | 稳定在约 120 MB | 92 MB(800 次) |
 
-重启后 4 秒就绪,窗口从同一份日志预填,之后继续写入 100 次全部成功。Redis 的占用不受此限制,随写入次数增长,直到 Stream 达到 `MAXLEN`。
+Redis 剩下的是 64 MB 日志和这个 Config 的 20 个历史版本。重启后 4 秒就绪,窗口从同一份日志预填。裁剪对写入速率没有可见影响:交替运行时,16 个写者分别为约 11,400 和 9,600 次/秒(裁剪)、11,500 和 10,400 次/秒(`MAXLEN`)。
 
 压测也发现并修复了一个缺陷:一个 watch 的初始快照曾要扫描整个 namespace,6 万个对象时 10 分钟建不完 10 万个 watch。现在按 service 建索引,索引约占 5 MB。
 
@@ -1129,7 +1132,7 @@ W4a 实测(`LoadMeasurement`、`HotPathBenchmark`):**经过真实 gRPC 和序列
 | 引入服务端,多一跳 | 写延迟多一个 RTT,部署多一个组件 | 读走本地快照;server 无状态可水平扩容;提供单镜像 + Helm |
 | server 成为关键路径 | server 全挂时不能注册 / 改配置;没有持久快照的新进程启动失败 | 运行中进程继续用内存视图;快照目录持久化时新进程可用旧视图(§7.5);server 多副本;恢复时由回收保护避免清空实例(§6.2) |
 | 回收保护 | 真实的大面积崩溃时,死实例最多多保留 5 分钟 | 调用方重试与熔断;指标告警;阈值可配置 |
-| Pub/Sub → Stream | Stream 占内存 | `MAXLEN ~ 10000` + `gone` 重新 List |
+| Pub/Sub → Stream | Stream 占内存 | 按条数和字节数裁剪(D38) + `gone` 重新 List |
 | 提示 + 兜底轮询 | Redis 负载随 副本数 × namespace 数 增长 | 正常靠提示驱动;轮询是非阻塞小脚本,间隔可调 |
 | namespace 绑定单分片 | 单 namespace 吞吐受限于单 Redis 分片 | 显式约束;读压力由 Watch Cache 吸收 |
 | Redis 持久性 | 主从切换可能丢约 1 秒写入 | AOF + epoch 与分叉检测 + 低频反熵;未来可加 PostgreSQL Store |

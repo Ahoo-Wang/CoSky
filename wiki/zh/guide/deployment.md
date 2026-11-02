@@ -104,5 +104,4 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 大 Config 需要单独考虑，因为为续传保留的内容包括 Config 的内容：
 
 - **副本**：除了所有对象之外，每个 namespace 最多保留 `cosky.watch.window-bytes`（64 MB）的近期变更。超出后，落后的客户端会读取一份新的快照。
-- **Redis**：没有这个限制，它保留每个 namespace 最近 `cosky.watch.window` 个变更，以及每个 Config 最近 20 个 revision。把一个 1 MB 的 Config 写 800 次占用了 825 MB。请按大 Config 的变更频率规划 Redis，或者调小 `cosky.watch.window`。达到 `maxmemory` 后写入会失败，不会淘汰任何数据。
-
+- **Redis**：日志同样受这个上限约束，此外还保存每个 Config 最近 20 个 revision 和所有对象。把一个 1 MB 的 Config 写 800 次占用了 92 MB：64 MB 日志和 20 MB 历史。达到 `maxmemory` 后写入会失败，不会淘汰任何数据。

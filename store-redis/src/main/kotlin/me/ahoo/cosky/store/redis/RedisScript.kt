@@ -22,13 +22,15 @@ import java.security.MessageDigest
 /**
  * A Lua script from the classpath, run by digest; it is loaded when a node does not have it yet, as after a failover.
  */
-internal class RedisScript(name: String) {
-    private val source: ByteArray = checkNotNull(
-        RedisScript::class.java.getResourceAsStream("/cosky/store/redis/$name.lua"),
-    ) { "Script $name is missing." }.use { it.readBytes() }
+internal class RedisScript(name: String, vararg includes: String) {
+    private val source: ByteArray = (includes.toList() + name).map(::read).reduce(ByteArray::plus)
 
     private val digest: String = MessageDigest.getInstance("SHA-1").digest(source)
         .joinToString("") { "%02x".format(it) }
+
+    private fun read(script: String): ByteArray = checkNotNull(
+        RedisScript::class.java.getResourceAsStream("/cosky/store/redis/$script.lua"),
+    ) { "Script $script is missing." }.use { it.readBytes() }
 
     suspend fun <T : Any> run(
         commands: RedisClusterAsyncCommands<String, ByteArray>,

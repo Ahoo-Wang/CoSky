@@ -97,10 +97,17 @@ class TimelineDivergedException(val current: Position) :
     RuntimeException("The timeline diverged; current position is $current.")
 
 /**
- * @param logSize entries of the change log to retain, trimmed by whole revisions.
+ * @param logSize entries of the change log to retain.
+ * @param logBytes the same in bytes, which large Configs reach long before [logSize] (design D38). The revision just
+ * written stays however large it is.
  */
-data class StoreOptions(val logSize: Int = DEFAULT_LOG_SIZE, val limits: Limits = Limits.DEFAULT) {
+data class StoreOptions(
+    val logSize: Int = DEFAULT_LOG_SIZE,
+    val limits: Limits = Limits.DEFAULT,
+    val logBytes: Long = DEFAULT_LOG_BYTES,
+) {
     companion object {
         const val DEFAULT_LOG_SIZE = 10_000
+        const val DEFAULT_LOG_BYTES = 64L * 1024 * 1024
     }
 }

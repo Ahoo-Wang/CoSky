@@ -67,7 +67,7 @@ data class CoSkyProperties(
 
     /**
      * @param window changes kept in memory for resuming, per namespace, and in the store's log.
-     * @param windowBytes the same in bytes, for the memory only: large Configs reach this long before [window] (D36).
+     * @param windowBytes the same in bytes: large Configs reach this long before [window] (design D36, D38).
      */
     data class Watch(
         val window: Int = 10_000,

@@ -6,8 +6,8 @@
 -- specific language governing permissions and limitations under the License.
 
 -- Removes a lease and, in one revision, the Instances attached to it. Revoke sets force.
--- KEYS: rev, log, lease, lease:ttl, lease:owner, lease:attach, obj:instance, ver:instance
--- ARGV: namespace, actor, lease, force, log_size
+-- KEYS: rev, log, lease, lease:ttl, lease:owner, lease:attach, obj:instance, ver:instance, log:bytes
+-- ARGV: namespace, actor, lease, force, log_size, log_bytes
 local t = redis.call('TIME')
 local now = t[1] .. string.format('%03d', math.floor(tonumber(t[2]) / 1000))
 local expiry = redis.call('ZSCORE', KEYS[3], ARGV[3])
@@ -25,10 +25,10 @@ if #names > 0 then
     local o = redis.call('HGET', KEYS[7], name)
     redis.call('HDEL', KEYS[7], name)
     redis.call('HDEL', KEYS[8], name)
-    redis.call('XADD', KEYS[2], 'MAXLEN', '~', ARGV[5], rev .. '-' .. (i - 1),
-      't', 'D', 'k', 'instance', 'n', name,
+    logAdd(KEYS[2], KEYS[9], rev .. '-' .. (i - 1), 't', 'D', 'k', 'instance', 'n', name,
       'm', rev .. ':' .. c .. ':' .. cm .. ':' .. now .. ':' .. ARGV[2], 'o', o)
   end
+  logTrim(KEYS[2], KEYS[9], tonumber(ARGV[5]), tonumber(ARGV[6]), rev, #names)
   redis.call('ZREMRANGEBYSCORE', KEYS[6], ARGV[3], ARGV[3])
   redis.call('PUBLISH', 'cosky:hint', ARGV[1])
 end

@@ -104,5 +104,4 @@ Metrics are at `/actuator/prometheus`:
 Large Configs need their own thought, because what is kept for resuming includes their content:
 
 - **A replica** keeps at most `cosky.watch.window-bytes` (64 MB) of recent changes per namespace, on top of every object. Past that, a client that fell behind reads a fresh snapshot.
-- **Redis** has no such limit: it keeps the last `cosky.watch.window` changes of each namespace, and the last 20 revisions of each Config. Writing a 1 MB Config 800 times took 825 MB. Size Redis for how often your large Configs change, or lower `cosky.watch.window`. At `maxmemory`, writes fail rather than anything being evicted.
-
+- **Redis** keeps the same in its log, plus the last 20 revisions of each Config and every object. Writing one 1 MB Config 800 times took 92 MB: 64 MB of log and 20 MB of history. At `maxmemory`, writes fail rather than anything being evicted.

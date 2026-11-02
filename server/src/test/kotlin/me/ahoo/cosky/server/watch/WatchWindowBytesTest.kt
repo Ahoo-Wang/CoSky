@@ -19,6 +19,7 @@ import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListRequest
 import me.ahoo.cosky.server.RunningServer
+import me.ahoo.cosky.store.Store
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.seconds
@@ -44,6 +45,9 @@ class WatchWindowBytesTest {
                 val epoch = server.resources.list(request).epoch
                 val first = server.watch(NAMESPACE, Kind.KIND_CONFIG, fromRevision = 1, fromEpoch = epoch).first()
                 first.hasGone().assert().isTrue()
+                // The store's log holds to the same limit.
+                server.bean(Store::class.java).recentChanges(NAMESPACE, 3, 100).map { it.revision }
+                    .assert().containsExactly(3L)
             }
         }
     }
