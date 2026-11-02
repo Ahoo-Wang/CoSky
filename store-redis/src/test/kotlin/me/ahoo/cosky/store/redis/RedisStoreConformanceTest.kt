@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.Range
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.ScriptOutputType
@@ -23,9 +24,17 @@ import io.lettuce.core.codec.StringCodec
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.configSpec
+import me.ahoo.cosky.api.v1.endpoint
+import me.ahoo.cosky.api.v1.instanceSpec
+import me.ahoo.cosky.api.v1.objectMeta
+import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.store.GrantResult
+import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
+import me.ahoo.cosky.store.key
 import me.ahoo.cosky.test.conformance.StoreConformanceTest
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -76,6 +85,90 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
         second.assert().isGreaterThan(first)
         second.assert().isLessThan(1L shl 53)
         store.keepAlive(namespace, listOf(second))[second].assert().isNotNull()
+    }
+
+    @Test
+    fun `the count of the log's bytes stays true through writes, deletes, expiries and trimming`() = runBlocking<Unit> {
+        val namespace = "counted-${UUID.randomUUID()}"
+        val keys = RedisKeys(namespace)
+        val store = newStore(StoreOptions(logSize = 40, logBytes = 30_000))
+        store.createNamespace(namespace)
+        val lease = (store.grantLease(namespace, 30.seconds, "test") as GrantResult.Granted).lease.id
+        repeat(60) {
+            val content = "$it".padEnd(1000)
+            store.apply(namespace, listOf(Mutation.Put(config(namespace, "a", content))), "test")
+            store.apply(namespace, listOf(Mutation.Put(instance(namespace, "i$it", lease))), "test")
+            if (it % 5 == 0) {
+                store.apply(namespace, listOf(Mutation.Delete(config(namespace, "a", content).key)), "test")
+            }
+        }
+        store.expireLease(namespace, lease, "test", force = true)
+
+        val connection = CLIENT.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
+        val commands = connection.async()
+        val entries = commands.xrange(keys.log, Range.unbounded()).await()
+        val actual = entries.sumOf { entry ->
+            entry.body.entries.sumOf { (field, value) -> field.length + value.size }.toLong()
+        }
+        commands.get(keys.logBytes).await().decodeToString().toLong().assert().isEqualTo(actual)
+        store.apply(namespace, listOf(Mutation.Delete(config(namespace, "a", "").key)), "test")
+        store.terminateNamespace(namespace)
+        store.dropNamespace(namespace)
+        commands.exists(keys.logBytes).await().assert().isEqualTo(0L)
+        connection.close()
+    }
+
+    @Test
+    fun `an expiring lease keeps the log within its limits too`() = runBlocking<Unit> {
+        val namespace = "expired-${UUID.randomUUID()}"
+        val store = newStore(StoreOptions(logSize = 10))
+        store.createNamespace(namespace)
+        val lease = (store.grantLease(namespace, 30.seconds, "test") as GrantResult.Granted).lease.id
+        repeat(8) { store.apply(namespace, listOf(Mutation.Put(instance(namespace, "i$it", lease))), "test") }
+
+        store.expireLease(namespace, lease, "test", force = true)
+
+        CONNECTION.async().xlen(RedisKeys(namespace).log).await().assert().isEqualTo(10)
+    }
+
+    @Test
+    fun `a log far over a lowered limit goes down over a few writes`() = runBlocking<Unit> {
+        val namespace = "lowered-${UUID.randomUUID()}"
+        val keys = RedisKeys(namespace)
+        val generous = newStore(StoreOptions())
+        generous.createNamespace(namespace)
+        repeat(500) { generous.apply(namespace, listOf(Mutation.Put(config(namespace, "a", "$it"))), "test") }
+        val strict = newStore(StoreOptions(logSize = 10))
+
+        strict.apply(namespace, listOf(Mutation.Put(config(namespace, "a", "one"))), "test")
+        CONNECTION.async().xlen(keys.log).await().assert().isGreaterThan(400)
+
+        repeat(10) { strict.apply(namespace, listOf(Mutation.Put(config(namespace, "a", "$it!"))), "test") }
+        CONNECTION.async().xlen(keys.log).await().assert().isEqualTo(10)
+    }
+
+    private fun config(namespace: String, name: String, content: String): Resource = resource {
+        meta = objectMeta {
+            this.namespace = namespace
+            this.name = name
+        }
+        config = configSpec { this.content = content }
+    }
+
+    private fun instance(namespace: String, name: String, lease: Long): Resource = resource {
+        meta = objectMeta {
+            this.namespace = namespace
+            this.name = name
+            this.lease = lease
+        }
+        instance = instanceSpec {
+            service = "order"
+            endpoint = endpoint {
+                scheme = "http"
+                host = "10.0.0.1"
+                port = 8080
+            }
+        }
     }
 
     /**

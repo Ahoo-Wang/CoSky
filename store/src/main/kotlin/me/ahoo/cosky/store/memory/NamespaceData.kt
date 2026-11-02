@@ -41,9 +41,12 @@ internal data class LeaseRecord(val expiresAt: Instant, val ttl: Duration, val o
  * One change in the log. [writeId] tells apart revisions with the same number on different timelines, as the metadata
  * in a Redis log entry does.
  */
-internal data class LogEntry(val revision: Long, val writeId: Long, val change: Change)
+internal data class LogEntry(val revision: Long, val writeId: Long, val change: Change) {
+    val bytes: Long
+        get() = change.resource.serializedSize.toLong()
+}
 
-internal data class Settings(val logSize: Int, val historySize: Int, val keepRevisions: Int)
+internal data class Settings(val logSize: Int, val logBytes: Long, val historySize: Int, val keepRevisions: Int)
 
 /**
  * What one commit stamps on the objects it writes.
@@ -60,6 +63,7 @@ internal data class NamespaceData(
     val state: NamespaceState,
     val objects: PersistentMap<ResourceKey, Resource> = persistentHashMapOf(),
     val log: PersistentList<LogEntry> = persistentListOf(),
+    val logBytes: Long = 0,
     val history: PersistentMap<ResourceKey, PersistentList<Resource>> = persistentHashMapOf(),
     val leases: PersistentMap<Long, LeaseRecord> = persistentHashMapOf(),
     /** Instance name to lease: an Instance holds at most one lease. */
@@ -170,11 +174,8 @@ internal data class NamespaceData(
 
     private inline fun commit(settings: Settings, block: NamespaceData.(Long) -> NamespaceData): NamespaceData {
         val nextRevision = revision + 1
-        val changed = copy(revision = nextRevision).block(nextRevision)
-        return changed.copy(
-            log = trimmed(changed.log, settings.logSize),
-            ancestors = keeping(settings.keepRevisions),
-        )
+        val changed = copy(revision = nextRevision).block(nextRevision).trimmingLog(settings)
+        return changed.copy(ancestors = keeping(settings.keepRevisions))
     }
 
     private fun keeping(keepRevisions: Int): PersistentList<NamespaceData> {
@@ -188,9 +189,11 @@ internal data class NamespaceData(
         val key = resource.key
         val stored = resource.stamped(nextRevision, objects[key], write)
         val lease = stored.meta.lease
+        val entry = LogEntry(nextRevision, write.id, Change(ChangeType.PUT, stored))
         return copy(
             objects = objects.putting(key, stored),
-            log = log.adding(LogEntry(nextRevision, write.id, Change(ChangeType.PUT, stored))),
+            log = log.adding(entry),
+            logBytes = logBytes + entry.bytes,
             history = when (key.kind) {
                 Kind.KIND_CONFIG -> history.putting(key, prepended(history[key], stored, settings.historySize))
                 else -> history
@@ -211,9 +214,11 @@ internal data class NamespaceData(
                 .setUpdatedAt(write.now.toTimestamp())
                 .setUpdatedBy(write.actor)
         }.build()
+        val entry = LogEntry(nextRevision, write.id, Change(ChangeType.DELETE, last))
         return copy(
             objects = objects.removing(key),
-            log = log.adding(LogEntry(nextRevision, write.id, Change(ChangeType.DELETE, last))),
+            log = log.adding(entry),
+            logBytes = logBytes + entry.bytes,
             attachments = if (key.kind == Kind.KIND_INSTANCE) attachments.removing(key.name) else attachments,
         )
     }
@@ -263,15 +268,17 @@ private fun prepended(
     (listOf(stored) + existing.orEmpty()).take(historySize).toPersistentList()
 
 /**
- * Drops the oldest revisions, whole, while over [logSize]; the newest revision always stays.
+ * Drops the oldest revisions, whole, while over a limit; the newest revision always stays.
  */
-private fun trimmed(log: PersistentList<LogEntry>, logSize: Int): PersistentList<LogEntry> {
+private fun NamespaceData.trimmingLog(settings: Settings): NamespaceData {
     var current = log
-    while (current.size > logSize && current.first().revision != current.last().revision) {
+    var bytes = logBytes
+    while ((current.size > settings.logSize || bytes > settings.logBytes) && current.first().revision != revision) {
         val oldest = current.first().revision
+        bytes -= current.takeWhile { it.revision == oldest }.sumOf { it.bytes }
         current = current.removingAll { it.revision == oldest }
     }
-    return current
+    return copy(log = current, logBytes = bytes)
 }
 
 private fun Resource.stamped(nextRevision: Long, current: Resource?, write: Write): Resource = toBuilder().apply {

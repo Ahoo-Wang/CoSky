@@ -26,6 +26,7 @@ internal class RedisKeys(namespace: String) {
     val epoch = "$prefix:epoch"
     val revision = "$prefix:rev"
     val log = "$prefix:log"
+    val logBytes = "$prefix:log:bytes"
     val lease = "$prefix:lease"
     val leaseTtl = "$prefix:lease:ttl"
     val leaseOwner = "$prefix:lease:owner"

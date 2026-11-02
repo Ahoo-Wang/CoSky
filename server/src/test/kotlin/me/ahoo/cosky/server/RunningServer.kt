@@ -81,6 +81,8 @@ internal class RunningServer(
     }
     private val signedIn = credentials?.let { ClientInterceptors.intercept(channel, it) } ?: channel
 
+    fun <T : Any> bean(type: Class<T>): T = context.getBean(type)
+
     val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(signedIn)
     val leases = LeaseServiceGrpcKt.LeaseServiceCoroutineStub(signedIn)
     val watches = WatchServiceGrpcKt.WatchServiceCoroutineStub(signedIn)

@@ -382,6 +382,35 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `the log is limited in bytes, and what falls out of it is gone`() = scenario(
+        StoreOptions(logBytes = 20_000),
+    ) { store ->
+        val start = position(store)
+        repeat(100) { store.put(config(content = "$it".padEnd(1000))) }
+        val current = position(store)
+
+        val gone = thrownBy<RevisionGoneException> { store.changes(namespace, start).first() }
+        store.changes(namespace, start.copy(revision = gone.earliest)).first().revision
+            .assert().isEqualTo(gone.earliest + 1)
+        val kept = store.recentChanges(namespace, current.revision, 1000)
+        kept.last().revision.assert().isEqualTo(current.revision)
+        kept.size.assert().isBetween(10, 20)
+    }
+
+    @Test
+    fun `the newest revision stays in the log however large it is`() = scenario(
+        StoreOptions(logBytes = 100),
+    ) { store ->
+        repeat(3) { store.put(config(content = "$it".padEnd(1000))) }
+        val current = position(store)
+
+        store.recentChanges(namespace, current.revision, 1000).map { it.revision }
+            .assert().containsExactly(current.revision)
+        val resuming = async { store.changes(namespace, current.copy(revision = current.revision - 1)).first() }
+        resuming.await().revision.assert().isEqualTo(current.revision)
+    }
+
+    @Test
     fun `the current position is never gone`() = scenario(StoreOptions(logSize = 10)) { store ->
         repeat(300) { store.put(config(content = "$it")) }
         val current = position(store)

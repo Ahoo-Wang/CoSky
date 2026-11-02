@@ -61,7 +61,7 @@ class MemoryStore(
     private val clock: Clock = Clock.systemUTC(),
     keepRevisions: Int = 0,
 ) : Store {
-    private val settings = Settings(options.logSize, options.limits.configHistorySize, keepRevisions)
+    private val settings = Settings(options.logSize, options.logBytes, options.limits.configHistorySize, keepRevisions)
     private val namespaces = ConcurrentHashMap<String, MutableStateFlow<NamespaceData?>>()
     private val locks = ConcurrentHashMap<String, LockRecord>()
     private val writeIds = AtomicLong()

@@ -6,8 +6,8 @@
 -- specific language governing permissions and limitations under the License.
 
 -- Applies a batch atomically (design §5.2). A revision's log entries are <revision>-<seq>.
--- KEYS: state, rev, log, lease, lease:attach, hist:idx, then per op: obj, ver, hist
--- ARGV: namespace, actor, n_ops, log_size, history_size, then per op: type, kind, name, expected_rev, bytes, lease
+-- KEYS: state, rev, log, lease, lease:attach, hist:idx, log:bytes, then per op: obj, ver, hist
+-- ARGV: namespace, actor, n_ops, log_size, history_size, log_bytes, then per op: type, kind, name, expected_rev, bytes, lease
 if redis.call('GET', KEYS[1]) ~= 'active' then
   return {'NAMESPACE_NOT_ACTIVE'}
 end
@@ -21,8 +21,8 @@ end
 local n = tonumber(ARGV[3])
 local changed = {}
 for i = 1, n do
-  local a = 5 + (i - 1) * 6
-  local k = 6 + (i - 1) * 3
+  local a = 6 + (i - 1) * 6
+  local k = 7 + (i - 1) * 3
   local op = {type = ARGV[a + 1], kind = ARGV[a + 2], name = ARGV[a + 3], expected = tonumber(ARGV[a + 4]),
               bytes = ARGV[a + 5], lease = ARGV[a + 6], obj = KEYS[k + 1], ver = KEYS[k + 2], hist = KEYS[k + 3]}
   op.cur = parse(redis.call('HGET', op.ver, op.name))
@@ -74,8 +74,8 @@ for i, op in ipairs(changed) do
       redis.call('ZREM', KEYS[5], op.name)
     end
   end
-  redis.call('XADD', KEYS[3], 'MAXLEN', '~', ARGV[4], rev .. '-' .. (i - 1),
-    't', op.type, 'k', op.kind, 'n', op.name, 'm', m, 'o', o)
+  logAdd(KEYS[3], KEYS[7], rev .. '-' .. (i - 1), 't', op.type, 'k', op.kind, 'n', op.name, 'm', m, 'o', o)
 end
+logTrim(KEYS[3], KEYS[7], tonumber(ARGV[4]), tonumber(ARGV[6]), rev, #changed)
 redis.call('PUBLISH', 'cosky:hint', ARGV[1])
 return {'OK', rev, tostring(#changed)}

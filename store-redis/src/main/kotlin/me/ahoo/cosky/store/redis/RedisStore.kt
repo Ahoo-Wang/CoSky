@@ -104,6 +104,7 @@ class RedisStore(
             keys.lease,
             keys.leaseAttach,
             keys.historyIndex,
+            keys.logBytes,
         )
         val args = mutableListOf(
             namespace.arg(),
@@ -111,6 +112,7 @@ class RedisStore(
             mutations.size.arg(),
             options.logSize.arg(),
             options.limits.configHistorySize.arg(),
+            options.logBytes.arg(),
         )
         mutations.forEach { mutation ->
             scriptKeys += keys.objects(mutation.key.kind)
@@ -408,8 +410,16 @@ class RedisStore(
                 keys.leaseAttach,
                 keys.objects(Kind.KIND_INSTANCE),
                 keys.versions(Kind.KIND_INSTANCE),
+                keys.logBytes,
             ),
-            listOf(namespace.arg(), actor.arg(), lease.arg(), (if (force) 1 else 0).arg(), options.logSize.arg()),
+            listOf(
+                namespace.arg(),
+                actor.arg(),
+                lease.arg(),
+                (if (force) 1 else 0).arg(),
+                options.logSize.arg(),
+                options.logBytes.arg(),
+            ),
         )
         return reply[0].asText() == "EXPIRED"
     }
@@ -479,6 +489,7 @@ class RedisStore(
             keys.epoch,
             keys.revision,
             keys.log,
+            keys.logBytes,
             keys.lease,
             keys.leaseTtl,
             keys.leaseOwner,
@@ -569,13 +580,13 @@ class RedisStore(
 
         private val CODEC: RedisCodec<String, ByteArray> = RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE)
 
-        private val APPLY = RedisScript("apply")
+        private val APPLY = RedisScript("apply", "log")
         private val TAIL = RedisScript("tail")
         private val READ_BATCH = RedisScript("read_batch")
         private val EPOCH_ROTATE = RedisScript("epoch_rotate")
         private val LEASE_GRANT = RedisScript("lease_grant")
         private val LEASE_KEEPALIVE = RedisScript("lease_keepalive")
-        private val LEASE_EXPIRE = RedisScript("lease_expire")
+        private val LEASE_EXPIRE = RedisScript("lease_expire", "log")
         private val LEASE_QUERY = RedisScript("lease_query")
         private val LOCK_ACQUIRE = RedisScript("lock_acquire")
         private val LOCK_RELEASE = RedisScript("lock_release")
