@@ -575,7 +575,7 @@ Metrics are at `/actuator/prometheus`:
 Large Configs need their own thought, because what is kept for resuming includes their content:
 
 - **A replica** keeps at most `cosky.watch.window-bytes` (64 MB) of recent changes per namespace, on top of every object. Past that, a client that fell behind reads a fresh snapshot.
-- **Redis** has no such limit: it keeps the last `cosky.watch.window` changes of each namespace, and the last 20 revisions of each Config. Writing a 1 MB Config 800 times took 825 MB. Size Redis for how often your large Configs change, or lower `cosky.watch.window`. At `maxmemory`, writes fail rather than anything being evicted.
+- **Redis** keeps the same in its log, plus the last 20 revisions of each Config and every object. Writing one 1 MB Config 800 times took 92 MB: 64 MB of log and 20 MB of history. At `maxmemory`, writes fail rather than anything being evicted.
 </doc>
 
 <doc title="Security" path="guide/security.md">
@@ -921,7 +921,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.watch.window` | `10000` | Events kept for resuming, and in the store's log. Should be at least the peak event rate times the longest reconnection gap. |
-| `cosky.watch.window-bytes` | `64MB` | The most a replica keeps of those events in memory, per namespace. It does not limit the store's log. |
+| `cosky.watch.window-bytes` | `64MB` | The same in bytes, per namespace, in memory and in the store's log. |
 | `cosky.watch.progress-interval` | `10s` | Bookmarks sent on idle watches |
 | `cosky.watch.max-per-stream` | `1000` | Watches on one stream |
 | `cosky.watch.anti-entropy-interval` | `5m` | How often a replica compares its view with the store |
@@ -1294,12 +1294,13 @@ So `gone` appears only when delivery cannot keep up, around 160,000 per second. 
 
 A server with 512 MB of heap, with one 1 MB Config written over and over:
 
-| Version | Writes | Heap | Redis |
+| Limit in bytes | Writes | Heap | Redis |
 |---|---|---|---|
-| Without a limit in bytes | Started failing after about 500 | Reached 510 MB | 509 MB, after 484 |
-| With the default 64 MB | All 800 succeeded | Steady at about 120 MB | 825 MB, after 800 |
+| None | Started failing after about 500 | Reached 510 MB | 509 MB, after 484 |
+| 64 MB, in memory only | All 800 succeeded | Steady at about 120 MB | 825 MB, after 800 |
+| 64 MB, in memory and in the log | All 800 succeeded | Steady at about 120 MB | 92 MB, after 800 |
 
-It restarted on that log in 4 seconds, and took 100 more writes. [Sizing](./deployment.md#sizing) covers what this means for Redis.
+It restarted on that log in 4 seconds, and took 50 more writes. Trimming the log made no visible difference to write speed: in alternating runs, 16 writers reached about 11,400 and 9,600 writes per second, against 11,500 and 10,400 before.
 
 ## Not measured
 

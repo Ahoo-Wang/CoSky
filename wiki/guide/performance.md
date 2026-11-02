@@ -39,12 +39,13 @@ So `gone` appears only when delivery cannot keep up, around 160,000 per second. 
 
 A server with 512 MB of heap, with one 1 MB Config written over and over:
 
-| Version | Writes | Heap | Redis |
+| Limit in bytes | Writes | Heap | Redis |
 |---|---|---|---|
-| Without a limit in bytes | Started failing after about 500 | Reached 510 MB | 509 MB, after 484 |
-| With the default 64 MB | All 800 succeeded | Steady at about 120 MB | 825 MB, after 800 |
+| None | Started failing after about 500 | Reached 510 MB | 509 MB, after 484 |
+| 64 MB, in memory only | All 800 succeeded | Steady at about 120 MB | 825 MB, after 800 |
+| 64 MB, in memory and in the log | All 800 succeeded | Steady at about 120 MB | 92 MB, after 800 |
 
-It restarted on that log in 4 seconds, and took 100 more writes. [Sizing](./deployment.md#sizing) covers what this means for Redis.
+It restarted on that log in 4 seconds, and took 50 more writes. Trimming the log made no visible difference to write speed: in alternating runs, 16 writers reached about 11,400 and 9,600 writes per second, against 11,500 and 10,400 before.
 
 ## Not measured
 

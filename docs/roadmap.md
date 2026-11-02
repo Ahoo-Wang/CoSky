@@ -188,7 +188,7 @@ R1 分页与分块(D23)、R2 授权范围(D24)、R3 namespace 生命周期(D25)�
 
 用 Keycloak 实测 OIDC 后修复(D37):server 不再依赖服务商才能启动,Dashboard 续期 ID token,退出时结束服务商的会话。
 
-beta 前要设计:Redis Stream 仍只按事件数限制,大 Config 频繁写入时占用的 Redis 内存可达 `MAXLEN` × Config 大小。
+维护者决定:Redis 日志也加字节上限(D38),不再使用 `MAXLEN`,在 `8.0.0-alpha.2` 之后生效。
 
 ## 7. 风险
 
