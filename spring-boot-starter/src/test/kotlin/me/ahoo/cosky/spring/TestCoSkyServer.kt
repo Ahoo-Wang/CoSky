@@ -23,12 +23,14 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.ConfigFormat
+import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.endpoint
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
+import me.ahoo.cosky.api.v1.resourceKey
 import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
 import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
@@ -72,6 +74,15 @@ internal class TestCoSkyServer : AutoCloseable {
 
     fun put(resource: Resource): Unit = runBlocking {
         store.apply(NAMESPACE, listOf(Mutation.Put(resource)), "test")
+    }
+
+    fun delete(config: String): Unit = runBlocking {
+        val key = resourceKey {
+            namespace = NAMESPACE
+            kind = Kind.KIND_CONFIG
+            name = config
+        }
+        store.apply(NAMESPACE, listOf(Mutation.Delete(key)), "test")
     }
 
     fun instances(): List<Resource> = runBlocking {

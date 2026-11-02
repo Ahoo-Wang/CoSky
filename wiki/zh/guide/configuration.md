@@ -35,7 +35,9 @@ cosky:
 
 classpath 中有 `spring-cloud-context` 时，被导入的 Config 发生变化会发布 Spring Cloud 的 `RefreshEvent`，`@RefreshScope` 中的 bean 和 `@ConfigurationProperties` bean 都能看到新值。启动时还不存在的 Config 也一样。用 `cosky.config.refresh.enabled: false` 可以关闭。
 
-应用以加载时看到的 revision 为基准比较，所以加载之后、开始监听之前的变化也不会漏掉。
+应用以加载时看到的内容为基准比较，所以加载之后、开始监听之前的变化也不会漏掉。
+
+`optional:` 的 Config 被删除时，它的值会在这次刷新中从应用里消失。必选的 Config 会保留最后的值并记录警告，因为没有可以回退的值，等 Config 恢复后再继续跟随。应用从与 server 不一致的[快照](./sdk.md#快照)启动时也是如此：先使用快照中的内容，连接后再跟随 server。
 
 ## 写入
 

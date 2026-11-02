@@ -24,7 +24,7 @@ import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.CoSkyClients
 import me.ahoo.cosky.spring.CoSkyProperties
-import me.ahoo.cosky.spring.revisionOrZero
+import me.ahoo.cosky.spring.orNone
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.boot.availability.AvailabilityChangeEvent
@@ -40,7 +40,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * imports again, which reads the new content from the same client.
  *
  * Starts when the application accepts traffic: Spring Cloud drops a [RefreshEvent] until it is ready, and that event
- * comes just before this one. What changed since the load then counts as a change, by its revision.
+ * comes just before this one. What differs from the load then counts as a change. By the whole Config and not its
+ * revision, which a Redis that lost writes hands out a second time.
  */
 class CoSkyConfigRefresher(
     private val client: CoSkyClient,
@@ -65,7 +66,7 @@ class CoSkyConfigRefresher(
         val configs = client.namespace(properties.namespace).configs
         CoSkyClients.importedBy(properties).forEach { (config, loaded) ->
             scope.launch {
-                configs.watch(config).dropWhile { it.revisionOrZero() == loaded }.collect { refresh(config) }
+                configs.watch(config).dropWhile { it.orNone() == loaded }.collect { refresh(config) }
             }
         }
     }

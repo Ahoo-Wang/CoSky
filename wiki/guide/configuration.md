@@ -35,7 +35,9 @@ cosky:
 
 With `spring-cloud-context` on the classpath, a change to an imported Config publishes a Spring Cloud `RefreshEvent`, so beans in `@RefreshScope` and `@ConfigurationProperties` beans see it. This holds for a Config that did not exist at start as well. Turn it off with `cosky.config.refresh.enabled: false`.
 
-The application compares against the revision it loaded, so a change made between loading and watching still counts.
+The application compares against what it loaded, so a change made between loading and watching still counts.
+
+When an `optional:` Config is deleted, its values leave the application on that refresh. A required one keeps its last values and logs a warning, because there is nothing to fall back on, and picks up again when the Config comes back. This also holds for an application starting from a [snapshot](./sdk.md#snapshots) that the server no longer agrees with: it starts with what the snapshot holds, then follows the server once connected.
 
 ## Writing
 
