@@ -14,6 +14,7 @@
 import {useMe} from "@/contexts/MeContext";
 import {useNamespacesContext} from "@/contexts/namespace/NamespacesContext";
 import type {MeResponse} from "@/generated";
+import {SYSTEM_NAMESPACE} from "@/services/resources";
 import {OptionsSelect} from "@/components/ui/options-select";
 import type {OptionsSelectProps} from "@/components/ui/options-select";
 
@@ -22,13 +23,13 @@ import type {OptionsSelectProps} from "@/components/ui/options-select";
  */
 const namespacesInRules = (rules: Partial<MeResponse>['rules'] = []) =>
     [...new Set(rules.flatMap(rule => rule?.namespaces ?? []))]
-        .filter(namespace => namespace !== '*' && namespace !== '_system')
+        .filter(namespace => namespace !== '*' && namespace !== SYSTEM_NAMESPACE)
         .sort();
 
 export type NamespaceSelectorProps = Omit<OptionsSelectProps, 'options'>;
 
 export function NamespaceSelector(props: NamespaceSelectorProps) {
-    const {namespaces, loading} = useNamespacesContext();
+    const {namespaces, loading, refresh} = useNamespacesContext();
     const me = useMe();
     const names = namespaces.length > 0 ? namespaces.map(namespace => namespace.name) : namespacesInRules(me.rules);
     const availableNamespaces = props.value && !names.includes(props.value)
@@ -40,7 +41,10 @@ export function NamespaceSelector(props: NamespaceSelectorProps) {
     }))
     return (
         <OptionsSelect
-            disabled={loading || props.disabled}
+            // A read while the list is open keeps what it shows, so only the first one has nothing to choose from.
+            disabled={(loading && names.length === 0) || props.disabled}
+            // One read per opening, so that a namespace added elsewhere shows up without a stream of its own.
+            onOpenChange={open => open && refresh()}
             options={options}
             placeholder="Select Namespace"
             {...props}

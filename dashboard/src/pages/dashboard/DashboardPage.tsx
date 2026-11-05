@@ -27,7 +27,7 @@ const REFRESH_MS = 30_000;
 
 export function DashboardPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {namespaces} = useNamespacesContext();
+    const {namespaces, refresh: loadNamespaces} = useNamespacesContext();
     const topologyDialogRef = useRef<HTMLDialogElement>(null);
     const [topologyDialogOpen, setTopologyDialogOpen] = useState(false);
     const [lastUpdated, setLastUpdated] = useState<{namespace: string; at: Date}>();
@@ -40,9 +40,12 @@ export function DashboardPage() {
 
     // Counts need no stream of their own: browsers allow few connections per server over HTTP/1.1.
     useEffect(() => {
-        const interval = window.setInterval(loadStats, REFRESH_MS);
+        const interval = window.setInterval(() => {
+            loadStats();
+            loadNamespaces();
+        }, REFRESH_MS);
         return () => window.clearInterval(interval);
-    }, [loadStats]);
+    }, [loadStats, loadNamespaces]);
 
     const metrics = [
         {label: 'Services', value: stats?.serviceCount ?? 0, icon: Cloud, tone: 'bg-emerald-50 text-emerald-600'},

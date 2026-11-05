@@ -27,6 +27,7 @@ interface Stored extends Json {
 export interface RecordedRequest {
     method: string;
     path: string;
+    query: URLSearchParams;
     headers: Record<string, string>;
     body: string | null;
     bytes: Buffer | null;
@@ -192,7 +193,9 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         const path = decodeURIComponent(url.pathname);
         const method = request.method();
         const headers = await request.allHeaders();
-        mockApi.requests.push({method, path, headers, body: request.postData(), bytes: request.postDataBuffer()});
+        mockApi.requests.push({
+            method, path, query: url.searchParams, headers, body: request.postData(), bytes: request.postDataBuffer(),
+        });
 
         if (path === '/v1/auth/config') {
             await json(route, mockApi.oidc ? {oidc: {issuer: ISSUER, clientId: 'dashboard', scopes: ['openid', 'groups']}} : {});
