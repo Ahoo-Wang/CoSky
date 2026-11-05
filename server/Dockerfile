@@ -35,8 +35,10 @@ EXPOSE 8080 9090
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD curl -f http://localhost:8080/actuator/health/liveness || exit 1
 
-# Compact object headers save about 9% of memory on the Watch Cache (design 7.10).
-ENV JAVA_OPTS="-XX:+UseCompactObjectHeaders -XX:MaxRAMPercentage=75"
+# Compact object headers save about 9% of memory on the Watch Cache (design 7.10). Netty loads its epoll transport,
+# which sets the TCP user timeout, through a restricted method that a later JDK refuses unless native access is enabled.
+# Protobuf still reads arrays through sun.misc.Unsafe, which JDK 25 warns about at every start.
+ENV JAVA_OPTS="-XX:+UseCompactObjectHeaders -XX:MaxRAMPercentage=75 --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow"
 
 USER appuser
 STOPSIGNAL SIGTERM
