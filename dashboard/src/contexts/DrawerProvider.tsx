@@ -12,6 +12,7 @@
  */
 
 import React, {type ReactNode, useState} from "react";
+import {useLocation} from "react-router-dom";
 import {DrawerContext} from "@/contexts/DrawerContext";
 import type {DrawerOptions} from "@/contexts/DrawerContext";
 import {Sheet, SheetContent, SheetHeader, SheetTitle} from "@/components/ui/sheet";
@@ -20,6 +21,14 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
     const [open, setOpen] = useState(false);
     const [content, setContent] = useState<ReactNode>(null);
     const [options, setOptions] = useState<DrawerOptions>({});
+    const {key: location} = useLocation();
+    const [shownAt, setShownAt] = useState(location);
+
+    // What it shows belongs to the page it was opened on, which going back or following a link leaves.
+    if (shownAt !== location) {
+        setShownAt(location);
+        setOpen(false);
+    }
 
     const openDrawer = (drawerContent: ReactNode, drawerOptions: DrawerOptions = {}) => {
         setContent(drawerContent);

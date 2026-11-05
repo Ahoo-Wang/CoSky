@@ -308,6 +308,20 @@ test.describe('the shell', () => {
 });
 
 test.describe('configuration', () => {
+    test('going back closes the editor along with the page it belongs to', async ({page}) => {
+        await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+
+        await page.goBack();
+
+        await page.waitForURL('**/#/home');
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+    });
+
     test('a new Config is created only if it does not exist, in the format its name suggests', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -725,6 +739,59 @@ test.describe('namespaces', () => {
         await confirm(page, row(page, 'staging').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Namespace deleted')).toBeVisible();
         await expect(page.getByRole('row').filter({hasText: 'staging'})).toHaveCount(0);
+    });
+
+    test('the list follows namespaces added elsewhere', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Namespace'}).click();
+        await expect(row(page, 'prod')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/_system/watch')?.query.get('kind'))
+            .toBe('KIND_NAMESPACE');
+
+        api.put('/v1/namespaces/staging', {meta: {}, namespace: {description: 'Rehearsals'}});
+        api.releaseWatch();
+
+        await expect(row(page, 'staging')).toContainText('Rehearsals');
+    });
+
+    test('the selector reads the namespaces again each time it opens', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+
+        api.put('/v1/namespaces/staging', {meta: {}, namespace: {}});
+        await page.getByRole('combobox', {name: 'Select Namespace'}).click();
+
+        await expect(page.getByRole('option', {name: 'staging', exact: true})).toBeVisible();
+    });
+
+    test('a namespace can be chosen while the selector reads them again', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+
+        // Longer than the assertion below waits, so that it can only be about the list as it was.
+        api.slow = {path: /^\/v1\/namespaces$/, milliseconds: 20_000};
+        await page.getByRole('combobox', {name: 'Select Namespace'}).click();
+        await page.getByRole('option', {name: 'prod', exact: true}).click();
+
+        await expect(page.getByRole('combobox', {name: 'Select Namespace'})).toContainText('prod', {timeout: 5_000});
+    });
+
+    test('the overview counts namespaces added elsewhere along with everything else', async ({page}) => {
+        const api = await installApiMock(page);
+        await page.clock.install();
+        await login(page);
+        const count = page.getByText('Namespaces', {exact: true}).locator('..');
+        await expect(count).toContainText('2');
+
+        api.put('/v1/namespaces/staging', {meta: {}, namespace: {}});
+        await page.clock.runFor(30_000);
+
+        await expect(count).toContainText('3');
     });
 });
 

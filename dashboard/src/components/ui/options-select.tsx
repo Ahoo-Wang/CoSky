@@ -30,6 +30,7 @@ export interface OptionsSelectProps {
     value?: string;
     defaultValue?: string;
     onChange?: (value: string) => void;
+    onOpenChange?: (open: boolean) => void;
     placeholder?: string;
     disabled?: boolean;
     className?: string;
@@ -44,6 +45,7 @@ export function OptionsSelect({
     value,
     defaultValue,
     onChange,
+    onOpenChange,
     placeholder = 'Select an option',
     disabled,
     className,
@@ -61,6 +63,7 @@ export function OptionsSelect({
                 onValueChange={next => {
                     if (next !== null) onChange?.(next);
                 }}
+                onOpenChange={open => onOpenChange?.(open)}
                 disabled={disabled}
             >
                 <SelectTrigger className={cn('w-full', triggerClassName)} aria-label={ariaLabel ?? placeholder}

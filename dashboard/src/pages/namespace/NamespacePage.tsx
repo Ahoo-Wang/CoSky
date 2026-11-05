@@ -12,9 +12,11 @@
  */
 
 import {Trash2} from 'lucide-react';
+import {Kind} from '@/generated';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
-import {namespaces as namespacesApi} from '@/services/resources';
+import {useWatchRefresh} from '@/hooks/useWatchRefresh';
+import {namespaces as namespacesApi, SYSTEM_NAMESPACE} from '@/services/resources';
 import type {NamespaceResource} from '@/services/resources';
 import {AddNamespaceForm} from '@/pages/namespace/AddNamespaceForm';
 import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
@@ -27,6 +29,7 @@ import {runAction} from '@/lib/actions';
 export function NamespacePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const {namespaces, loading, error, refresh} = useNamespacesContext();
+    useWatchRefresh(SYSTEM_NAMESPACE, Kind.KIND_NAMESPACE, refresh);
 
     const handleDelete = async (name: string) => {
         const deleted = await runAction(

@@ -200,6 +200,9 @@ const putRequest = (path: Record<string, string>, body: WireResource, revision?:
     body: body as Resource,
 });
 
+/** Where Namespaces and the other global kinds live, and so where their changes are watched. */
+export const SYSTEM_NAMESPACE = '_system';
+
 export const namespaces = {
     list: (abortController?: AbortController) =>
         listAll(request => namespacesClient.listNamespaces(request), {}, namespaceOf, {abortController}),
