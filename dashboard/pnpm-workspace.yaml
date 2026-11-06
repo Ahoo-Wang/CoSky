@@ -2,6 +2,6 @@ packages:
   - .
 
 overrides:
-  dompurify: ^3.4.13
+  dompurify: ^3.4.17
   esbuild: ^0.28.1
   js-yaml: ^4.3.2

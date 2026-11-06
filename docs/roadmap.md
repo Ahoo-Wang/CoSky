@@ -187,7 +187,7 @@ M0–M4 已完成,没有未决的设计问题。下一步:做完本机能做的�
 - Renovate 有一批大版本升级等批准(如 TypeScript 7、Node 24、pnpm 12、GitHub Actions)。#931 里的 simba、cosec、cosid `main` 已不用,可能来自 v6 分支。
 - `@ahoo-wang/fetcher-generator` 被标为已弃用,Dashboard 的 `generate` 脚本依赖它。
 - #5(2021 年询问掉线告警)还开着。
-- GitHub 推送时提示默认分支有 19 个依赖漏洞(1 严重、6 高、7 中、5 低),还没有逐个核对。
+- 依赖告警已核对:19 个都在 Dashboard 的锁文件里,没有一个进入生产包。Monaco 0.55.1 自带的 DOMPurify 3.2.7 不在严重告警的范围内,更新的 Monaco 自带 3.4.x 反而在,所以先不升级 Monaco。`deepmerge` 还没有修复版本。
 
 ## 6. 设计问题
 
