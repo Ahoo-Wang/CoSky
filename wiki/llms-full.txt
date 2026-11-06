@@ -543,6 +543,8 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 
 In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
+Draining a node stops its replica the same way. The PodDisruptionBudget lets one replica go at a time, so draining two nodes at once waits for the first replacement to be ready. On a k3s cluster of four nodes, draining each node in turn and then two at once failed no write, no read of a Config in an application and no registration.
+
 ## The Dashboard on its own
 
 The image serves the Dashboard at `/`. To host it elsewhere, put it behind a reverse proxy that also forwards `/v1` to the server: the page expects the API on its own origin, and the server has no CORS.

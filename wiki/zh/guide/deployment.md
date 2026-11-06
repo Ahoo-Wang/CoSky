@@ -72,6 +72,8 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 在 Kubernetes 中，停止的副本先等 5 秒，让 Service 不再把连接发给它。然后最多再等 5 秒结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
 
+腾空（drain）节点时，其上的副本也按同样的方式停止。PodDisruptionBudget 一次只让一个副本离开，所以同时腾空两个节点时，会等第一个替代副本就绪。在四个节点的 k3s 集群上，依次腾空每个节点、再同时腾空两个，写入、应用读取 Config 和注册都没有失败。
+
 ## 单独部署 Dashboard
 
 镜像在 `/` 提供 Dashboard。要托管在别处，请把它放在反向代理后面，并把 `/v1` 也转发给 server：页面要求 API 与它同源，server 不提供 CORS。
