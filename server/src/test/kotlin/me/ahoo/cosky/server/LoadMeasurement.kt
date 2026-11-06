@@ -51,6 +51,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse.BodyHandlers
+import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -154,8 +155,12 @@ class LoadMeasurement {
         }
     }
 
+    /**
+     * Callbacks run on the transport's threads: they only record, and the default executor would start a thread for
+     * each busy stream, hundreds of them competing with the server for the same cores.
+     */
     private fun channel(port: Int): ManagedChannel =
-        ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
+        ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().directExecutor().build()
 
     private fun instance(name: String, service: String, sentAt: Long = 0): Resource = resource {
         meta = objectMeta {
@@ -189,6 +194,26 @@ class LoadMeasurement {
         val sorted = samples.sorted()
         fun at(share: Double) = sorted[((sorted.size - 1) * share).toInt()]
         return "n=${sorted.size} p50=${at(P50)}ms p95=${at(P95)}ms p99=${at(P99)}ms max=${sorted.last()}ms"
+    }
+
+    /**
+     * The writes that reached some connection late, and when: one write late everywhere points at the server or Redis,
+     * deliveries late across writes at the same moment at a pause, which the GC logs of both JVMs can then confirm.
+     * A delivery counts from before the Put, so a slow Put makes every delivery of its write late.
+     */
+    private fun reportSlowWrites(samples: List<Delivery>, putMillis: LongArray) {
+        samples.groupBy { it.write }
+            .mapValues { (_, deliveries) -> deliveries.filter { it.millis >= SLOW_MILLIS } }
+            .filterValues { it.isNotEmpty() }
+            .toSortedMap()
+            .forEach { (write, slow) ->
+                val first = slow.minBy { it.at }
+                report(
+                    "slow write=$write put=${putMillis.getOrNull(write)}ms deliveries=${slow.size} " +
+                        "max=${slow.maxOf { it.millis }}ms " +
+                        "first at ${Instant.ofEpochMilli(first.at)}",
+                )
+            }
     }
 
     private suspend fun putAll(resources: ResourceServiceGrpcKt.ResourceServiceCoroutineStub, items: List<Resource>) =
@@ -227,7 +252,7 @@ class LoadMeasurement {
      */
     private fun openWatches(
         channels: List<ManagedChannel>,
-        delivered: ConcurrentLinkedQueue<Long>,
+        delivered: ConcurrentLinkedQueue<Delivery>,
         snapshots: AtomicInteger,
         failures: ConcurrentLinkedQueue<String>,
     ): List<StreamObserver<WatchRequest>> = channels.map { channel ->
@@ -237,10 +262,12 @@ class LoadMeasurement {
                     response.hasSnapshot() -> snapshots.incrementAndGet()
                     response.hasEvents() -> {
                         val now = System.nanoTime()
+                        val at = System.currentTimeMillis()
                         response.events.eventsList.forEach {
                             val sentAt = it.resource.instance.metadataMap["sent-at"]?.toLongOrNull() ?: 0
                             if (sentAt != 0L) {
-                                delivered += TimeUnit.NANOSECONDS.toMillis(now - sentAt)
+                                val write = it.resource.meta.labelsMap["write"]?.toInt() ?: -1
+                                delivered += Delivery(write, TimeUnit.NANOSECONDS.toMillis(now - sentAt), at)
                             }
                         }
                     }
@@ -306,7 +333,7 @@ class LoadMeasurement {
 
                 // --- connections and watches ---
                 val opening = System.nanoTime()
-                val delivered = ConcurrentLinkedQueue<Long>()
+                val delivered = ConcurrentLinkedQueue<Delivery>()
                 val snapshots = AtomicInteger()
                 val channels = List(connections) { channel(server.grpcPort) }
                 val failures = ConcurrentLinkedQueue<String>()
@@ -330,18 +357,22 @@ class LoadMeasurement {
                 )
 
                 // --- propagation: each write reaches every connection, through a watch among many ---
+                val putMillis = LongArray(propagationWrites)
                 repeat(propagationWrites) { index ->
-                    val written = instance("propagating", "service-0", System.nanoTime())
+                    val sentAt = System.nanoTime()
+                    val written = instance("propagating", "service-0", sentAt)
                         .toBuilder().apply { metaBuilder.putLabels("write", index.toString()) }.build()
                     resources.put(PutRequest.newBuilder().setResource(written).build())
+                    putMillis[index] = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - sentAt)
                     delay(propagationPause)
                 }
                 delay(PROPAGATION_SETTLE)
                 val samples = delivered.toList()
                 report(
                     "propagation expected=${connections * propagationWrites} pause=$propagationPause " +
-                        percentiles(samples.ifEmpty { listOf(-1L) }),
+                        percentiles(samples.map { it.millis }.ifEmpty { listOf(-1L) }),
                 )
+                reportSlowWrites(samples, putMillis)
                 report(
                     "server gone=${server.metric(
                         "cosky_watch_gone_total"
@@ -438,6 +469,11 @@ class LoadMeasurement {
         second.close()
     }
 
+    /**
+     * @param at the wall clock, to set against GC logs.
+     */
+    private data class Delivery(val write: Int, val millis: Long, val at: Long)
+
     private companion object {
         const val NAMESPACE = "load"
         const val SERVICES = 2_000
@@ -455,6 +491,7 @@ class LoadMeasurement {
         const val NANOS_PER_SECOND = 1e9
         const val MICROS_PER_MILLI = 1000
         const val FAILURE_LENGTH = 90
+        const val SLOW_MILLIS = 1_000L
         const val WINDOW_CLIENTS = 100
         const val DEFAULT_WINDOW = 10_000
         const val WINDOW_SLOW_RATE = 170
