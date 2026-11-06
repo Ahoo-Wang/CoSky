@@ -26,6 +26,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import kotlin.concurrent.thread
 
 class WatchStateTest {
     private val state = WatchState(WatchKey("prod", Kind.KIND_CONFIG), null)
@@ -226,6 +227,27 @@ class WatchStateTest {
     }
 
     @Test
+    fun `a snapshot taken while revisions arrive holds the objects of its own revision`() {
+        val names = List(OBJECTS) { "config-$it" }
+        state.apply(snapshotOf(*names.map { version(it, 1) }.toTypedArray(), revision = 1))
+        val applying = thread {
+            (2L..REVISIONS).forEach { revision ->
+                state.apply(change(revision, *names.map { TYPE_PUT to version(it, revision) }.toTypedArray()))
+            }
+        }
+        val torn = mutableListOf<Long>()
+        while (applying.isAlive) {
+            val saved = state.toSnapshot()
+            if (saved.itemsList.any { it.meta.revision != saved.revision }) {
+                torn += saved.revision
+            }
+        }
+        applying.join()
+        torn.assert().isEmpty()
+        state.toSnapshot().itemsList.assert().allMatch { it.meta.revision == REVISIONS }
+    }
+
+    @Test
     fun `a bookmark only moves forward`() {
         state.apply(snapshot("a", revision = 5))
         state.apply(WatchResponse.newBuilder().setProgress(9).build()).assert().isTrue()
@@ -270,5 +292,10 @@ class WatchStateTest {
         state.startOver()
         state.apply(snapshot("b", revision = 6))
         state.drift.get().assert().isEqualTo(0)
+    }
+
+    private companion object {
+        const val OBJECTS = 256
+        const val REVISIONS = 1_000L
     }
 }

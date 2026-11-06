@@ -87,11 +87,19 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     val hasPosition: Boolean
         get() = epoch.isNotEmpty()
 
-    fun toSnapshot(): ListResponse = ListResponse.newBuilder()
-        .addAllItems(objects.value.values)
-        .setEpoch(epoch)
-        .setRevision(revision)
-        .build()
+    /**
+     * The view and its position from one moment, as [apply] leaves them: objects older than the position would make a
+     * restart resume past changes they lack. Only references are taken under the lock, since a view never changes once
+     * published.
+     */
+    fun toSnapshot(): ListResponse {
+        val snapshot = ListResponse.newBuilder()
+        val items = synchronized(this) {
+            snapshot.setEpoch(epoch).setRevision(revision)
+            objects.value.values
+        }
+        return snapshot.addAllItems(items).build()
+    }
 
     /**
      * Forgets the position, so that the next watch starts from a snapshot; the view stays until that arrives.
