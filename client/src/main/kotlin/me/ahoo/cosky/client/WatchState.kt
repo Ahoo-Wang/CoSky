@@ -160,9 +160,13 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         val applied = objects.value.toMutableMap()
         batch.forEach { event ->
             val name = event.resource.meta.name
-            when (event.type) {
-                WatchResponse.Event.Type.TYPE_DELETE -> applied.remove(name)
-                else -> applied[name] = event.resource
+            // A snapshot may hold objects newer than its own revision (design §6.1), and the events after it replay
+            // what they already have: applying those would move an object back for a while (§4.6).
+            if ((applied[name]?.meta?.revision ?: 0) < events.revision) {
+                when (event.type) {
+                    WatchResponse.Event.Type.TYPE_DELETE -> applied.remove(name)
+                    else -> applied[name] = event.resource
+                }
             }
         }
         objects.value = applied
