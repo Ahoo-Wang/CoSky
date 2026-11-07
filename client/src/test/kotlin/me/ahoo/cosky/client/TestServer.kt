@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.Metadata
 import io.grpc.Server
@@ -36,6 +37,7 @@ import me.ahoo.cosky.store.memory.MemoryStore
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The real server code on an in-process transport and a memory store, which a test can stop and start while the store
@@ -51,6 +53,13 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
      * The Creates of every watch stream, in the order they arrived.
      */
     val watchStreams = CopyOnWriteArrayList<List<WatchRequest.Create>>()
+
+    /** How many renewal streams were opened. */
+    val renewalStreams = AtomicInteger()
+
+    /** Off, renewals still renew the lease, but their answers go nowhere, as on a stream a proxy has dropped. */
+    @Volatile
+    var answerRenewals = true
     private var scope = newScope()
     private var server: Server? = null
 
@@ -58,7 +67,7 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
         val caches = WatchCache(store, WINDOW, scope)
         server = InProcessServerBuilder.forName(name)
             .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
-            .addService(LeaseGrpcService(store))
+            .addService(ServerInterceptors.intercept(LeaseGrpcService(store), silencing))
             .addService(ServerInterceptors.intercept(WatchGrpcService(caches, properties), recordingCreates))
             .build()
             .start()
@@ -97,6 +106,27 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
                     super.onMessage(message)
                 }
             }
+        }
+    }
+
+    private val silencing = object : ServerInterceptor {
+        override fun <Req, Resp> interceptCall(
+            call: ServerCall<Req, Resp>,
+            headers: Metadata,
+            next: ServerCallHandler<Req, Resp>,
+        ): ServerCall.Listener<Req> {
+            if (call.methodDescriptor.bareMethodName != "KeepAlive") {
+                return next.startCall(call, headers)
+            }
+            renewalStreams.incrementAndGet()
+            val silenced = object : SimpleForwardingServerCall<Req, Resp>(call) {
+                override fun sendMessage(message: Resp) {
+                    if (answerRenewals) {
+                        super.sendMessage(message)
+                    }
+                }
+            }
+            return next.startCall(silenced, headers)
         }
     }
 

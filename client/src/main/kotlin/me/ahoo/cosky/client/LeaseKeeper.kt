@@ -19,16 +19,20 @@ import io.grpc.stub.AbstractStub
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.DeleteRequest
 import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.GrantRequest
 import me.ahoo.cosky.api.v1.KeepAliveRequest
+import me.ahoo.cosky.api.v1.KeepAliveResponse
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.LeaseServiceGrpcKt
 import me.ahoo.cosky.api.v1.PutRequest
@@ -160,7 +164,7 @@ internal class LeaseKeeper(
         }
     }
 
-    private suspend fun renewOnStream(backoff: Backoff) {
+    private suspend fun renewOnStream(backoff: Backoff): Unit = coroutineScope {
         val renewals = flow {
             while (true) {
                 // The first renewal goes out right after connecting, without waiting for the next period (design §6.2).
@@ -168,12 +172,23 @@ internal class LeaseKeeper(
                 delay(options.leaseTtl / RENEWALS_PER_TTL)
             }
         }
-        leases().keepAlive(renewals).collect { response ->
+        val responses = Channel<KeepAliveResponse>()
+        launch {
+            leases().keepAlive(renewals).collect { responses.send(it) }
+            responses.close()
+        }
+        // Every renewal is answered, so a stream that answers none for a period and a call's time is gone, whatever its
+        // transport says: waiting on would let the lease run out unnoticed. Only the wait counts, not handling one.
+        val silence = options.leaseTtl / RENEWALS_PER_TTL + options.callTimeout
+        while (true) {
+            val response = withTimeoutOrNull(silence) { responses.receiveCatching() }
+                ?: throw StatusException(Status.DEADLINE_EXCEEDED.withDescription("No renewal answered in $silence."))
+            val answered = response.getOrNull() ?: break
             backoff.reset()
             when {
-                response.lease != lease -> Unit
-                response.ttlSeconds == 0 -> restore()
-                else -> catchUp(response.attachedCount)
+                answered.lease != lease -> Unit
+                answered.ttlSeconds == 0 -> restore()
+                else -> catchUp(answered.attachedCount)
             }
         }
     }
