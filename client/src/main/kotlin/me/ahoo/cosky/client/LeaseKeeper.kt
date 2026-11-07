@@ -60,11 +60,15 @@ internal class LeaseKeeper(
     /** Every registration as last made: what to restore should the lease be lost. */
     private val registrations = ConcurrentHashMap<String, Resource>()
 
-    /**
-     * What the server last accepted under each name. A registration that differs from it was made while no server
-     * answered, so it has not reached one, or not for certain, and goes out as soon as one answers.
-     */
+    /** What the server last accepted under each name: what a registration it refuses later gives way to. */
     private val confirmed = ConcurrentHashMap<String, Resource>()
+
+    /**
+     * Names whose latest registration was made while no server answered, so it has not reached one, or not for certain,
+     * and goes out as soon as one answers. Comparing it with what was confirmed would not do: it may hold just that,
+     * and still have to go out, since an operator may have changed the Instance in between.
+     */
+    private val pending = ConcurrentHashMap.newKeySet<String>()
 
     private var renewal: Job? = null
 
@@ -85,6 +89,7 @@ internal class LeaseKeeper(
                 }
                 put(resource)
                 confirmed[name] = resource
+                pending.remove(name)
             } catch (e: StatusException) {
                 if (e.status.code !in OUT_OF_REACH) {
                     // The server keeps what an earlier registration of this name put there, so the client keeps it
@@ -93,6 +98,7 @@ internal class LeaseKeeper(
                     throw e
                 }
                 log.warn("Could not register {} yet, and keeps trying: {}", name, e.status)
+                pending.add(name)
             }
             if (renewal == null) {
                 renewal = scope.launch { keepRenewing() }
@@ -107,6 +113,7 @@ internal class LeaseKeeper(
             resources().timed().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
             registrations.remove(name)
             confirmed.remove(name)
+            pending.remove(name)
             if (registrations.isEmpty()) {
                 revoke()
             }
@@ -203,12 +210,11 @@ internal class LeaseKeeper(
      * the server would have taken then had it answered.
      */
     private suspend fun putUnconfirmed() {
-        if (registrations.all { (name, resource) -> confirmed[name] == resource }) {
+        if (pending.isEmpty()) {
             return
         }
         mutex.withLock {
-            registrations.filter { (name, resource) -> confirmed[name] != resource }
-                .forEach { (name, resource) -> send(name, resource) }
+            pending.toList().forEach { name -> registrations[name]?.let { send(name, it) } }
         }
     }
 
@@ -220,6 +226,7 @@ internal class LeaseKeeper(
         try {
             put(resource)
             confirmed[name] = resource
+            pending.remove(name)
         } catch (e: StatusException) {
             val previous = confirmed[name]
             if (e.status.code in OUT_OF_REACH || previous == resource) {
@@ -227,6 +234,7 @@ internal class LeaseKeeper(
             }
             log.error("The server refused {}, registered while it was out of reach: {}", name, e.status)
             if (previous == null) registrations.remove(name) else registrations[name] = previous
+            pending.remove(name)
         }
     }
 

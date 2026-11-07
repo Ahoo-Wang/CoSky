@@ -916,7 +916,7 @@ me.ahoo.cosky.server
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新创建缺失的实例(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
-  server 不可达时注册照常返回,同名替换也一样:客户端记下 server 尚未确认的注册,续期恢复后重新 Put,不从 `attached_count` 推断;这时才被拒绝的注册退回到它要替换的那一个。
+  server 不可达时注册照常返回,同名替换也一样:客户端按名字记下 server 尚未确认的那次注册,续期恢复后重新 Put;不靠比较内容判断,因为它可能与之前确认的相同,而管理员已改过该实例(#1124)。这不从 `attached_count` 推断;这时才被拒绝的注册退回到它要替换的那一个。
 - **分块**:收齐 `Snapshot` 与 `Events` 的全部分块后再更新 `StateFlow`,订阅者不会看到半个 revision。
 - **被拒绝的 Watch**:收到 `canceled` 后每 5 秒重试,因为权限和 namespace 都可能变化。视图还未知时 `load()` 立即抛出该错误,不必等到超时;有快照时继续用快照服务。
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。
