@@ -352,7 +352,8 @@ class ResourceServiceTest {
         val first = resources.list(list().setPageSize(1).setMinRevision(revision).build(), CALLER)
         val next = list().setPageSize(1).setPageToken(first.nextPageToken).build()
 
-        errorOf { replica.resources.list(next, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
+        errorOf { replica.resources.list(next, CALLER) }
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
         following.value = true
         replica.resources.list(next, CALLER).itemsList.map { it.meta.name }.assert().containsExactly("b")
     }
@@ -534,7 +535,8 @@ class ResourceServiceTest {
         errorOf { replica.resources.delete(request, CALLER) }
             .assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
         following.value = true
-        errorOf { replica.resources.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+        errorOf { replica.resources.delete(request, CALLER) }
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
 
         store.namespaceState("orders").assert().isEqualTo(NamespaceState.ACTIVE)
         store.history(removed.key, 0).assert().hasSize(1)

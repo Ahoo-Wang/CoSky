@@ -49,7 +49,8 @@ class StoreLifecycleTest {
 
         fun others(): Int = connection.sync().clientList().lines().count { it.isNotBlank() } - 1
 
-        fun lettuceThreads(): Int = Thread.getAllStackTraces().keys.count { it.isAlive && it.name.startsWith("lettuce") }
+        fun lettuceThreads(): Int =
+            Thread.getAllStackTraces().keys.count { it.isAlive && it.name.startsWith("lettuce") }
 
         fun await(expected: Int, count: () -> Int) {
             val deadline = System.nanoTime() + WAIT_NANOS

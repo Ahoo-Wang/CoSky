@@ -188,14 +188,15 @@ class MigrationTest {
         histories.forEach { (name, contents) -> contents.forEach { six.setConfig(source, name, it) } }
         target.createNamespace(namespace, "")
         // Interrupted after each write but the last, every Config on its own.
-        val stopped = histories.flatMap { (name, contents) -> (1 until contents.size).map { Triple(name, contents, it) } }
-            .mapIndexed { index, (name, contents, written) ->
-                val copy = "$index-$name"
-                contents.forEach { six.setConfig(source, copy, it) }
-                var revision: Long? = null
-                contents.take(written).forEach { revision = target.putConfig(namespace, copy, text(it), revision) }
-                copy to contents
-            }
+        val stopped = histories.flatMap { (name, contents) ->
+            (1 until contents.size).map { written -> Triple(name, contents, written) }
+        }.mapIndexed { index, (name, contents, written) ->
+            val copy = "$index-$name"
+            contents.forEach { six.setConfig(source, copy, it) }
+            var revision: Long? = null
+            contents.take(written).forEach { revision = target.putConfig(namespace, copy, text(it), revision) }
+            copy to contents
+        }
 
         run("--history").assert().isEqualTo(EXIT_DONE)
 
@@ -436,6 +437,7 @@ class MigrationTest {
     private companion object {
         const val REDIS_PORT = 6379
         const val ONE_MIB = 1024 * 1024
+
         /** How many versions of a Config the server keeps, by default. */
         const val HISTORY_KEPT = 20
         const val READY_ATTEMPTS = 100
