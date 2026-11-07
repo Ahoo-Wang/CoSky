@@ -564,6 +564,34 @@ test.describe('configuration', () => {
         await closed();
     });
 
+    test('a comparison that cannot read the current version says why, and offers to try again', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        const version = page.getByRole('row').filter({hasText: 'aaaa1111'}).last();
+        await expect(version).toBeVisible();
+        const current = /configs\/application\.yaml$/;
+        api.failing = {method: 'GET', path: current, status: 503, message: 'Current unavailable.'};
+
+        await version.getByRole('button', {name: 'Diff'}).click();
+
+        const drawer = page.getByRole('dialog');
+        const rollback = drawer.getByRole('button', {name: /Roll back to revision/});
+        await expect(drawer.getByRole('alert')).toContainText('Failed to load the current version: Current unavailable.');
+        await expect(rollback).toHaveCount(0);
+
+        api.failing = {method: 'GET', path: current, status: 404, message: 'It was deleted.'};
+        await drawer.getByRole('button', {name: 'Retry'}).click();
+        await expect(drawer.getByRole('alert')).toContainText('It was deleted.');
+        await expect(rollback).toHaveCount(0);
+
+        api.failing = undefined;
+        await drawer.getByRole('button', {name: 'Retry'}).click();
+        await expect(rollback).toBeEnabled();
+        await expect(drawer.getByRole('alert')).toHaveCount(0);
+    });
+
     test('an expanded history follows its Config, and drops the versions the server no longer keeps', async ({page}) => {
         const api = await installApiMock(page);
         api.historySize = 2;

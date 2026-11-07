@@ -19,11 +19,12 @@ import dayjs from 'dayjs';
 import {configs} from '@/services/resources';
 import type {ConfigResource} from '@/services/resources';
 import {editorLanguage} from '@/pages/config/formats';
+import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DefinitionList} from '@/components/ui/definition-list';
 import {Separator} from '@/components/ui/separator';
 import {Skeleton} from '@/components/ui/skeleton';
-import {runAction} from '@/lib/actions';
+import {errorReason, runAction} from '@/lib/actions';
 
 export interface ConfigVersionDifferProps {
     namespace: string;
@@ -33,9 +34,11 @@ export interface ConfigVersionDifferProps {
 }
 
 export function ConfigVersionDiffer({namespace, name, version, onSuccess}: ConfigVersionDifferProps) {
-    const {result: current} = useQuery<string, ConfigResource>({
+    const [reason, setReason] = useState<string>();
+    const {result: current, error, execute: reload} = useQuery<string, ConfigResource>({
         query: name,
         execute: (query, _, abortController) => configs.get(namespace, query, abortController),
+        onError: async failure => setReason(await errorReason(failure)),
     });
     const [diffEditor, setDiffEditor] = useState<MonacoDiffEditor>();
 
@@ -63,6 +66,15 @@ export function ConfigVersionDiffer({namespace, name, version, onSuccess}: Confi
         }
     };
 
+    if (error) {
+        return (
+            <div role="alert" className="space-y-4 rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm">
+                <p>Failed to load the current version{reason ? `: ${reason}` : '.'}</p>
+                <p>Nothing can be compared or rolled back until it loads.</p>
+                <Button variant="outline" onClick={() => reload()}>Retry</Button>
+            </div>
+        );
+    }
     if (!current) {
         return <Skeleton className="h-96 w-full"/>;
     }
