@@ -29,6 +29,7 @@ import me.ahoo.cosky.spring.config.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.discovery.CoSkyDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyReactiveDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyServiceInstanceListSupplier
+import me.ahoo.cosky.spring.discovery.toServiceInstance
 import me.ahoo.cosky.spring.registry.CoSkyAutoServiceRegistration
 import me.ahoo.cosky.spring.registry.CoSkyRegistration
 import me.ahoo.cosky.spring.registry.CoSkyServiceRegistry
@@ -453,6 +454,24 @@ class CoSkyStarterTest {
     }
 
     @Test
+    fun `a discovered instance has a uri of its host and port, an IPv6 host in brackets`() {
+        fun assertUri(scheme: String, host: String, port: Int, uri: String) {
+            val instance = TestCoSkyServer.instance("order-1", "order").toBuilder()
+                .apply { instanceBuilder.endpointBuilder.setScheme(scheme).setHost(host).setPort(port) }
+                .build()
+                .toServiceInstance()
+            instance.host.assert().isEqualTo(host)
+            instance.uri.toString().assert().isEqualTo(uri)
+            instance.uri.host.assert().isNotNull()
+            instance.uri.port.assert().isEqualTo(port)
+        }
+        assertUri("http", "10.0.0.1", 8080, "http://10.0.0.1:8080")
+        assertUri("https", "order.example.com", 8443, "https://order.example.com:8443")
+        assertUri("http", "2001:db8::1", 8080, "http://[2001:db8::1]:8080")
+        assertUri("grpcs", "::ffff:192.0.2.1", 443, "https://[::ffff:192.0.2.1]:443")
+    }
+
+    @Test
     fun `reactive discovery reads the same`() = runBlocking<Unit> {
         server.put(TestCoSkyServer.instance("order-1", "order"))
         val discovery = application().getBean(CoSkyReactiveDiscoveryClient::class.java)
@@ -589,6 +608,25 @@ class CoSkyStarterTest {
         registration.uri.toString().assert().isEqualTo("https://10.0.0.1:8443")
         assertThrownBy<UnsupportedOperationException> { registry.setStatus(registration, "UP") }
         assertThrownBy<UnsupportedOperationException> { registry.getStatus<String>(registration) }
+    }
+
+    @Test
+    fun `a registration has a uri of its host and port, an IPv6 host in brackets`() {
+        fun assertUri(host: String, secure: Boolean, port: Int, uri: String) {
+            val registration = CoSkyRegistration("order", host, secure, metadata = emptyMap())
+            registration.setPort(port)
+            registration.host.assert().isEqualTo(host)
+            registration.uri.toString().assert().isEqualTo(uri)
+            registration.uri.host.assert().isNotNull()
+            registration.uri.port.assert().isEqualTo(port)
+        }
+        assertUri("10.0.0.1", secure = false, 8080, "http://10.0.0.1:8080")
+        assertUri("order.example.com", secure = true, 8443, "https://order.example.com:8443")
+        assertUri("2001:db8::1", secure = false, 8080, "http://[2001:db8::1]:8080")
+        assertUri("2001:db8::1", secure = true, 8443, "https://[2001:db8::1]:8443")
+        // Until the web server has started, the port is the scheme's, as Spring has it.
+        CoSkyRegistration("order", "2001:db8::1", secure = true, metadata = emptyMap()).uri.toString()
+            .assert().isEqualTo("https://[2001:db8::1]:443")
     }
 
     // --- the rest ---
