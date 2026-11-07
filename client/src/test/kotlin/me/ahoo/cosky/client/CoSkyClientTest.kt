@@ -338,10 +338,19 @@ class CoSkyClientTest {
     @Test
     fun `a registration appears on the server with a default name`() = scenario {
         val registration = client().namespace(NAMESPACE).instances.register("order", ENDPOINT)
-        registration.instanceName.assert().isEqualTo("order-10.0.0.1-8080")
+        registration.instanceName.assert().isEqualTo("order_10.0.0.1_8080")
         val stored = instancesOnServer().single()
         stored.instance.service.assert().isEqualTo("order")
         stored.meta.lease.assert().isGreaterThan(0)
+    }
+
+    @Test
+    fun `endpoints whose service and host hold a dash keep apart under their default names`() = scenario {
+        val instances = client().namespace(NAMESPACE).instances
+        val first = instances.register("billing-api", endpoint(host = "node"))
+        val second = instances.register("billing", endpoint(host = "api-node"))
+        first.instanceName.assert().isNotEqualTo(second.instanceName)
+        instancesOnServer().map { it.instance.service }.assert().containsExactlyInAnyOrder("billing-api", "billing")
     }
 
     @Test

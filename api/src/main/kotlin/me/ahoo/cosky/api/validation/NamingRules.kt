@@ -84,7 +84,12 @@ object NamingRules {
     fun isInstanceName(value: String): Boolean = INSTANCE_NAME.matches(value) && value !in DOT_SEGMENTS
 
     /**
-     * Default Instance name `<service>-<host>-<port>`, with characters the Instance name rule rejects replaced by `-`.
+     * Default Instance name `<service>_<host>_<port>`, with characters the Instance name rule rejects replaced by `_`.
+     *
+     * No legal service, host or port holds a `_`, so the first and the last one keep the three apart, and two endpoints
+     * never share a name. A `-` could not: services and hosts hold it too, and `billing-api` on `node` was named like
+     * `billing` on `api-node`. The one character of a legal host that a name rejects is the `:` of an IPv6 literal,
+     * and as a `_` it still sets the host apart from every other.
      *
      * A legal service and host can be longer than [MAX_INSTANCE_NAME_LENGTH] together. Cutting such a name at the
      * limit would drop the port, and two endpoints of one host would share a name, the second registration silently
@@ -92,11 +97,11 @@ object NamingRules {
      * loses the end of the host instead. The Dashboard derives the same names (`instanceName.ts`).
      */
     fun defaultInstanceName(service: String, host: String, port: Int): String {
-        val name = "$service-$host-$port".replace(INSTANCE_NAME_ILLEGAL, "-")
+        val name = "${service}_${host}_$port".replace(INSTANCE_NAME_ILLEGAL, "_")
         if (name.length <= MAX_INSTANCE_NAME_LENGTH) {
             return name
         }
-        val tail = "-${digestOf(name)}-$port"
+        val tail = "_${digestOf(name)}_$port"
         return name.take(MAX_INSTANCE_NAME_LENGTH - tail.length) + tail
     }
 

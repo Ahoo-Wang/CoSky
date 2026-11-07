@@ -15,6 +15,7 @@ package me.ahoo.cosky.api.validation
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class NamingRulesTest {
@@ -78,7 +79,7 @@ class NamingRulesTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["a", "order-10.0.0.1-8080", "Order_1.x"])
+    @ValueSource(strings = ["a", "order_10.0.0.1_8080", "Order_1.x"])
     fun `instance name accepts its characters`(value: String) {
         NamingRules.INSTANCE_NAME.matches(value).assert().isTrue()
     }
@@ -115,14 +116,32 @@ class NamingRulesTest {
         NamingRules.isNamespace(NamingRules.SYSTEM_NAMESPACE).assert().isFalse()
     }
 
-    @Test
-    fun `default instance name joins service host and port`() {
-        NamingRules.defaultInstanceName("order", "10.0.0.1", 8080).assert().isEqualTo("order-10.0.0.1-8080")
+    @ParameterizedTest
+    @CsvSource(
+        "order, 10.0.0.1, 8080, order_10.0.0.1_8080",
+        "billing-api, node, 8080, billing-api_node_8080",
+        "billing, api-node, 8080, billing_api-node_8080",
+        "order, fe80::1, 80, order_fe80__1_80",
+        "order, fe80--1, 80, order_fe80--1_80",
+        "order, ::ffff:192.0.2.1, 443, order___ffff_192.0.2.1_443",
+    )
+    fun `default instance name joins service host and port`(service: String, host: String, port: Int, name: String) {
+        // The Dashboard derives the same names: instanceName.spec.ts pins these very cases.
+        NamingRules.defaultInstanceName(service, host, port).assert().isEqualTo(name)
     }
 
     @Test
-    fun `default instance name replaces illegal characters`() {
-        NamingRules.defaultInstanceName("order", "fe80::1%eth0", 8080).assert().isEqualTo("order-fe80--1-eth0-8080")
+    fun `no two endpoints share a default instance name, wherever their fields hold a dash or a colon`() {
+        val services = listOf("a", "a-b", "a.b", "b", "b-c")
+        val hosts = listOf("b", "b-c", "a-b", "c", "1.2.3.4", "fe80::1", "fe80--1", "fe80::1:0", "fe80--1-0")
+        val endpoints = services.flatMap { service ->
+            hosts.flatMap { host -> listOf(80, 8080).map { port -> Triple(service, host, port) } }
+        }
+        services.assert().allMatch { NamingRules.isService(it) }
+        hosts.assert().allMatch { HostRules.isHost(it) }
+        val names = endpoints.map { (service, host, port) -> NamingRules.defaultInstanceName(service, host, port) }
+        names.toSet().size.assert().isEqualTo(endpoints.size)
+        names.assert().allMatch { NamingRules.isInstanceName(it) }
     }
 
     @Test
@@ -139,8 +158,8 @@ class NamingRulesTest {
         val first = NamingRules.defaultInstanceName(service, host, 8080)
         val second = NamingRules.defaultInstanceName(service, host, 8081)
         first.assert().isNotEqualTo(second)
-        first.assert().endsWith("-8080")
-        second.assert().endsWith("-8081")
+        first.assert().endsWith("_8080")
+        second.assert().endsWith("_8081")
         NamingRules.isInstanceName(first).assert().isTrue()
         NamingRules.isInstanceName(second).assert().isTrue()
     }
@@ -163,8 +182,8 @@ class NamingRulesTest {
         host.length.assert().isEqualTo(HostRules.MAX_HOSTNAME_LENGTH)
         val name = NamingRules.defaultInstanceName(service, host, 65535)
         // The Dashboard derives the same name: instanceName.spec.ts expects this very digest.
-        val tail = "-c5a373bad08bbaa6-65535"
-        name.assert().isEqualTo("$service-$host".take(NamingRules.MAX_INSTANCE_NAME_LENGTH - tail.length) + tail)
+        val tail = "_db994d6a48b26506_65535"
+        name.assert().isEqualTo("${service}_$host".take(NamingRules.MAX_INSTANCE_NAME_LENGTH - tail.length) + tail)
         NamingRules.isInstanceName(name).assert().isTrue()
     }
 }
