@@ -11,7 +11,9 @@
  * limitations under the License.
  */
 
+import {useLayoutEffect, useState} from 'react';
 import {DiffEditor} from '@monaco-editor/react';
+import type {MonacoDiffEditor} from '@monaco-editor/react';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import dayjs from 'dayjs';
 import {configs} from '@/services/resources';
@@ -35,6 +37,21 @@ export function ConfigVersionDiffer({namespace, name, version, onSuccess}: Confi
         query: name,
         execute: (query, _, abortController) => configs.get(namespace, query, abortController),
     });
+    const [diffEditor, setDiffEditor] = useState<MonacoDiffEditor>();
+
+    // Monaco holds on to every model until it is disposed. Left to the DiffEditor, its two would be disposed while the
+    // diff still shows them, which Monaco reports as a bug; so it keeps them, and they are disposed here once the diff
+    // has let go of them. The cleanup of a layout effect runs as the drawer closes, before the DiffEditor's own.
+    useLayoutEffect(() => {
+        if (!diffEditor) return;
+        // onMount hands the editor over with the two models it compares.
+        const {original, modified} = diffEditor.getModel()!;
+        return () => {
+            diffEditor.setModel(null);
+            original.dispose();
+            modified.dispose();
+        };
+    }, [diffEditor]);
 
     const handleRollback = async () => {
         const rolledBack = await runAction(
@@ -69,6 +86,7 @@ export function ConfigVersionDiffer({namespace, name, version, onSuccess}: Confi
                 modified={current.content}
                 keepCurrentOriginalModel
                 keepCurrentModifiedModel
+                onMount={setDiffEditor}
                 options={{readOnly: true, minimap: {enabled: false}}}
             />
             <Separator/>

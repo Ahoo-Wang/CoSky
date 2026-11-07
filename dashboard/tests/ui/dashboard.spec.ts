@@ -523,6 +523,47 @@ test.describe('configuration', () => {
         expect(post?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
+    test('a comparison leaves none of the content it compared behind, however it is closed', async ({page}) => {
+        // Monaco offers its API to a page that asks for it, so that the models it holds can be counted.
+        await page.addInitScript(() => Object.assign(window, {MonacoEnvironment: {globalAPI: true}}));
+        await installApiMock(page);
+        await login(page);
+        const models = () => page.evaluate(() =>
+            (window as unknown as {monaco: {editor: {getModels: () => unknown[]}}}).monaco.editor.getModels().length);
+        const version = (sha256: string) => page.getByRole('row').filter({hasText: sha256}).last();
+        const rollback = page.getByRole('button', {name: /Roll back to revision/});
+        const compare = async () => {
+            await version('aaaa1111').getByRole('button', {name: 'Diff'}).click();
+            await expect(rollback).toBeEnabled();
+            // The models counted are the ones the comparison holds.
+            await expect.poll(models).toBe(2);
+        };
+        const closed = async () => {
+            await expect(page.getByRole('dialog')).toHaveCount(0);
+            await expect.poll(models).toBe(0);
+        };
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        await expect(version('aaaa1111')).toBeVisible();
+        expect(await models()).toBe(0);
+
+        for (let times = 0; times < 2; times++) {
+            await compare();
+            await page.keyboard.press('Escape');
+            await closed();
+        }
+
+        await compare();
+        await confirm(page, rollback);
+        await expect(toast(page, 'Rolled back')).toBeVisible();
+        await closed();
+
+        await compare();
+        await page.goBack();
+        await page.waitForURL('**/#/home');
+        await closed();
+    });
+
     test('an expanded history follows its Config, and drops the versions the server no longer keeps', async ({page}) => {
         const api = await installApiMock(page);
         api.historySize = 2;
