@@ -139,6 +139,9 @@ class CoSkyClientTest {
         server.store.apply(NAMESPACE, listOf(Mutation.Put(resource)), "test")
     }
 
+    private fun endpoint(host: String = ENDPOINT.host, port: Int = ENDPOINT.port): Endpoint =
+        ENDPOINT.toBuilder().setHost(host).setPort(port).build()
+
     private suspend fun instancesOnServer(): List<Resource> =
         server.store.readAll(NAMESPACE).toList().filter { it.hasInstance() }
 
@@ -342,6 +345,17 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `endpoints of a long host keep apart under their default names`() = scenario {
+        val instances = client().namespace(NAMESPACE).instances
+        val service = "s".repeat(63)
+        val host = List(3) { "h".repeat(63) }.joinToString(".")
+        val first = instances.register(service, endpoint(host = host, port = 8080))
+        val second = instances.register(service, endpoint(host = host, port = 8081))
+        first.instanceName.assert().isNotEqualTo(second.instanceName)
+        instancesOnServer().map { it.instance.endpoint.port }.assert().containsExactlyInAnyOrder(8080, 8081)
+    }
+
+    @Test
     fun `registrations share one lease, and closing the last revokes it`() = scenario {
         val instances = client().namespace(NAMESPACE).instances
         val first = instances.register("order", ENDPOINT, instanceName = "a")
@@ -429,9 +443,30 @@ class CoSkyClientTest {
     @Test
     fun `a registration the server refuses is an error, and is not tried again`() = scenario {
         val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        val kept = instances.register("order", ENDPOINT, instanceName = "kept")
         val failure = runCatching { instances.register("Not A Service!", ENDPOINT, instanceName = "bad") }
         (failure.exceptionOrNull() as StatusException).status.code.assert().isEqualTo(Status.Code.INVALID_ARGUMENT)
+        // Forgotten, it does not hold on to the lease once the last registration is closed.
+        kept.close()
+        server.store.leaseStats(NAMESPACE).total.assert().isEqualTo(0)
     }
+
+    @Test
+    fun `a refused replacement keeps the registration it would have replaced, and restores it with the lease`() =
+        scenario {
+            val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+            instances.register("order", ENDPOINT, instanceName = "a")
+            val failure = runCatching { instances.register("order", endpoint(port = 0), instanceName = "a") }
+            (failure.exceptionOrNull() as StatusException).status.code.assert().isEqualTo(Status.Code.INVALID_ARGUMENT)
+            val lost = instancesOnServer().single()
+            lost.instance.endpoint.port.assert().isEqualTo(ENDPOINT.port)
+            server.store.expireLease(NAMESPACE, lost.meta.lease, "test", force = true)
+
+            eventually { instancesOnServer().isNotEmpty() }
+            val restored = instancesOnServer().single()
+            restored.meta.lease.assert().isNotEqualTo(lost.meta.lease)
+            restored.instance.endpoint.port.assert().isEqualTo(ENDPOINT.port)
+        }
 
     @Test
     fun `a server that never answers does not hold up a registration`() = scenario {
@@ -510,6 +545,25 @@ class CoSkyClientTest {
         server.store.apply(NAMESPACE, listOf(Mutation.Delete(lost.key)), "test")
         eventually { instancesOnServer().isNotEmpty() }
         instancesOnServer().single().meta.lease.assert().isEqualTo(lease)
+    }
+
+    @Test
+    fun `putting back a lost instance leaves the others as an operator changed them`() = scenario {
+        val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        instances.register("order", ENDPOINT, instanceName = "a", weight = 1)
+        instances.register("order", ENDPOINT, instanceName = "b", weight = 1)
+        val registered = instancesOnServer().associateBy { it.meta.name }
+        // Drained the way design §6.2 says to take out a running instance: it keeps its lease.
+        write(registered.getValue("a").toBuilder().apply { instanceBuilder.weight = 0 }.build())
+        server.store.apply(NAMESPACE, listOf(Mutation.Delete(registered.getValue("b").key)), "test")
+
+        eventually { instancesOnServer().size == 2 }
+        // Registering waits for the put-back to finish, since both take the same lock.
+        instances.register("order", ENDPOINT, instanceName = "c")
+        val drained = instancesOnServer().single { it.meta.name == "a" }
+        drained.instance.hasWeight().assert().isTrue()
+        drained.instance.weight.assert().isEqualTo(0)
+        drained.meta.lease.assert().isEqualTo(registered.getValue("a").meta.lease)
     }
 
     @Test

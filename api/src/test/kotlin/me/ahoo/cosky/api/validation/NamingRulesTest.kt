@@ -131,4 +131,40 @@ class NamingRulesTest {
         name.length.assert().isEqualTo(NamingRules.MAX_INSTANCE_NAME_LENGTH)
         NamingRules.INSTANCE_NAME.matches(name).assert().isTrue()
     }
+
+    @Test
+    fun `a default instance name cut short keeps the port, so endpoints of one host stay apart`() {
+        val service = "s".repeat(NamingRules.MAX_SERVICE_LENGTH)
+        val host = List(3) { "h".repeat(63) }.joinToString(".")
+        val first = NamingRules.defaultInstanceName(service, host, 8080)
+        val second = NamingRules.defaultInstanceName(service, host, 8081)
+        first.assert().isNotEqualTo(second)
+        first.assert().endsWith("-8080")
+        second.assert().endsWith("-8081")
+        NamingRules.isInstanceName(first).assert().isTrue()
+        NamingRules.isInstanceName(second).assert().isTrue()
+    }
+
+    @Test
+    fun `hosts that differ only where the default instance name is cut still get different names`() {
+        val service = "s".repeat(NamingRules.MAX_SERVICE_LENGTH)
+        val domain = List(3) { "h".repeat(63) }.joinToString(".")
+        val first = NamingRules.defaultInstanceName(service, "$domain.a", 8080)
+        val second = NamingRules.defaultInstanceName(service, "$domain.b", 8080)
+        first.assert().isNotEqualTo(second)
+        first.length.assert().isEqualTo(NamingRules.MAX_INSTANCE_NAME_LENGTH)
+    }
+
+    @Test
+    fun `the longest legal service, host and port make a legal default instance name`() {
+        val service = "s".repeat(NamingRules.MAX_SERVICE_LENGTH)
+        val host = (List(3) { "h".repeat(63) } + "h".repeat(61)).joinToString(".")
+        HostRules.isHostname(host).assert().isTrue()
+        host.length.assert().isEqualTo(HostRules.MAX_HOSTNAME_LENGTH)
+        val name = NamingRules.defaultInstanceName(service, host, 65535)
+        // The Dashboard derives the same name: instanceName.spec.ts expects this very digest.
+        val tail = "-c5a373bad08bbaa6-65535"
+        name.assert().isEqualTo("$service-$host".take(NamingRules.MAX_INSTANCE_NAME_LENGTH - tail.length) + tail)
+        NamingRules.isInstanceName(name).assert().isTrue()
+    }
 }
