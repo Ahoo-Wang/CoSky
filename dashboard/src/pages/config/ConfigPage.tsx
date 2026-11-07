@@ -19,6 +19,7 @@ import {saveAs} from 'file-saver';
 import dayjs from 'dayjs';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {useRowReads} from '@/hooks/useRowReads';
 import {useWatchRefresh} from '@/hooks/useWatchRefresh';
 import {configs, Kind} from '@/services/resources';
 import type {ConfigResource} from '@/services/resources';
@@ -43,7 +44,9 @@ export function ConfigPage() {
         query: currentNamespace,
         execute: (namespace, _, abortController) => configs.list(namespace, abortController),
     });
-    useWatchRefresh(currentNamespace, Kind.KIND_CONFIG, loadConfigs);
+    // An expanded history changes with its Config, so it reads along with the list.
+    const {read: loadAll, follow} = useRowReads(loadConfigs);
+    useWatchRefresh(currentNamespace, Kind.KIND_CONFIG, loadAll);
 
     const handleExport = async () => {
         setExporting(true);
@@ -62,7 +65,7 @@ export function ConfigPage() {
                     name={config?.name}
                     onSuccess={() => {
                         close();
-                        loadConfigs();
+                        loadAll();
                     }}
                     onCancel={close}
                 />
@@ -78,7 +81,7 @@ export function ConfigPage() {
                     namespace={currentNamespace}
                     onSuccess={() => {
                         close();
-                        loadConfigs();
+                        loadAll();
                     }}
                     onCancel={close}
                 />
@@ -161,7 +164,9 @@ export function ConfigPage() {
                     error={error}
                     onRetry={loadConfigs}
                     expandable={{
-                        render: config => <ConfigVersionTable namespace={currentNamespace} name={config.name}/>,
+                        render: config => (
+                            <ConfigVersionTable namespace={currentNamespace} name={config.name} follow={follow}/>
+                        ),
                     }}
                     search={{placeholder: 'Search configurations...', getValue: config => config.name}}
                     emptyMessage="No configurations in this namespace yet."

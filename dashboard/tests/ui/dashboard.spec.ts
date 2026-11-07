@@ -479,6 +479,35 @@ test.describe('configuration', () => {
         expect(post?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
+    test('an expanded history follows its Config, and drops the versions the server no longer keeps', async ({page}) => {
+        const api = await installApiMock(page);
+        api.historySize = 2;
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        const version = (sha256: string) => page.getByRole('row').filter({hasText: sha256});
+        await expect(version('aaaa1111').last()).toBeVisible();
+        await expect(version('cccc3333').last()).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        api.put('/v1/namespaces/default/configs/application.yaml', {
+            meta: {labels: {team: 'core'}},
+            config: {format: 'CONFIG_FORMAT_YAML', content: 'server:\n  port: 7070\n', sha256: 'gggg7777hhhh8888'},
+        });
+        api.releaseWatch();
+        await expect(version('gggg7777').last()).toBeVisible();
+        await expect(version('aaaa1111')).toHaveCount(0);
+
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('7070');
+        await typeInMonaco(page, 'server:\n  port: 1');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await expect(version('cccc3333')).toHaveCount(0);
+        await expect(version('gggg7777').last()).toBeVisible();
+    });
+
     test('import sends the archive itself, and export gives one back', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);

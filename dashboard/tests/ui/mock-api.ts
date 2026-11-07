@@ -48,6 +48,8 @@ export interface MockApi {
     refreshTokens: 'given' | 'not-given' | 'refused';
     /** An account nobody has given a role yet. */
     noRules: boolean;
+    /** How many versions of a Config are kept, like the server's history-size. */
+    historySize: number;
     requests: RecordedRequest[];
     /** Such requests take this long. */
     slow?: {path: RegExp; milliseconds: number};
@@ -104,7 +106,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         const stored = {...resource, meta: {...updated, ...resource.meta, name, revision: nextRevision()}};
         objects.set(path, stored);
         if (path.includes('/configs/')) {
-            history.set(path, [stored, ...(history.get(path) ?? [])]);
+            history.set(path, [stored, ...(history.get(path) ?? [])].slice(0, mockApi.historySize));
         }
         return stored;
     };
@@ -115,6 +117,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         idTokenSeconds: 300,
         refreshTokens: 'given',
         noRules: false,
+        historySize: 20,
         empty: options.empty ?? false,
         requests: [],
         hold: (method, path) => {

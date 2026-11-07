@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {useEffect} from 'react';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {History} from 'lucide-react';
 import dayjs from 'dayjs';
@@ -25,14 +26,17 @@ import type {DataTableColumn} from '@/components/ui/data-table';
 interface ConfigVersionTableProps {
     namespace: string;
     name: string;
+    /** Makes these versions read along with the page whenever it reads again; returns what stops it. */
+    follow: (read: () => Promise<unknown>) => () => void;
 }
 
-export function ConfigVersionTable({namespace, name}: ConfigVersionTableProps) {
+export function ConfigVersionTable({namespace, name, follow}: ConfigVersionTableProps) {
     const {openDrawer} = useDrawer();
     const {result: versions, loading, error, execute: loadVersions} = useQuery<string, ConfigResource[]>({
         query: `${namespace}/${name}`,
         execute: (_, __, abortController) => configs.history(namespace, name, abortController),
     });
+    useEffect(() => follow(loadVersions), [follow, loadVersions]);
 
     const handleDiff = (version: ConfigResource) => {
         openDrawer(
