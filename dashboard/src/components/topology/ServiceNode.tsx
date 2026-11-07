@@ -15,7 +15,7 @@ import { memo } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import { Handle, Position } from '@xyflow/react';
 import type {ServiceNodeData} from '@/components/topology/topologies';
-import {NODE_TYPE_COLORS} from '@/components/topology/topologies';
+import {LABEL_LINES, NODE_TYPE_COLORS, NODE_WIDTH} from '@/components/topology/topologies';
 import {Circle, Database, Play, Zap} from 'lucide-react';
 
 export const ServiceNode = memo(({ data, selected }: NodeProps) => {
@@ -49,7 +49,7 @@ export const ServiceNode = memo(({ data, selected }: NodeProps) => {
                 boxShadow: selected
                     ? `0 0 0 3px ${colors.backgroundColor}24, 0 8px 20px rgba(26, 24, 55, 0.14)`
                     : '0 4px 12px rgba(26, 24, 55, 0.08)',
-                minWidth: '158px',
+                width: NODE_WIDTH,
                 transition: 'all 0.2s ease',
                 cursor: 'pointer',
             }}
@@ -82,13 +82,20 @@ export const ServiceNode = memo(({ data, selected }: NodeProps) => {
                     {getIcon()}
                 </span>
                 
-                {/* Label with word wrap support */}
-                <div style={{ 
+                {/* A name breaks anywhere rather than widen the node, and one longer than its lines ends in an
+                    ellipsis, with all of it in the title */}
+                <div title={label} style={{
                     flex: 1,
+                    minWidth: 0,
                     fontSize: '13px',
                     fontWeight: 600,
-                    wordWrap: 'break-word',
-                    lineHeight: '1.4'
+                    textAlign: 'center',
+                    overflowWrap: 'anywhere',
+                    lineHeight: '1.4',
+                    display: '-webkit-box',
+                    WebkitBoxOrient: 'vertical',
+                    WebkitLineClamp: LABEL_LINES,
+                    overflow: 'hidden',
                 }}>
                     {label}
                 </div>

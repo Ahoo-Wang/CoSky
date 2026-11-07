@@ -28,9 +28,14 @@ interface ConfigVersionTableProps {
     name: string;
     /** Makes these versions read along with the page whenever it reads again; returns what stops it. */
     follow: (read: () => Promise<unknown>) => () => void;
+    /**
+     * Called once a rollback made here is done, for the page to read again along with these versions: the Config's
+     * row changes too, whether or not the Watch is there to say so.
+     */
+    onChange: () => void;
 }
 
-export function ConfigVersionTable({namespace, name, follow}: ConfigVersionTableProps) {
+export function ConfigVersionTable({namespace, name, follow, onChange}: ConfigVersionTableProps) {
     const {openDrawer} = useDrawer();
     const {result: versions, loading, error, execute: loadVersions} = useQuery<string, ConfigResource[]>({
         query: `${namespace}/${name}`,
@@ -47,7 +52,7 @@ export function ConfigVersionTable({namespace, name, follow}: ConfigVersionTable
                     version={version}
                     onSuccess={() => {
                         close();
-                        loadVersions();
+                        onChange();
                     }}
                 />
             ),

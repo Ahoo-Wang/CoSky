@@ -305,6 +305,48 @@ test.describe('the shell', () => {
         await expect(edge(card, 'order', 'billing')).toHaveCount(0);
     });
 
+    test('the longest service names stay inside their nodes, which stay clear of one another', async ({page}) => {
+        const api = await installApiMock(page);
+        // 63 characters, as many as a service name may have, some of them as wide as letters get; and a short one
+        // in a second row, under them.
+        const long = `service-${'n'.repeat(55)}`;
+        const wide = Array.from({length: 5}, (_, index) => `${'m'.repeat(61)}-${index}`);
+        const sources = [long, ...wide, 'short'];
+        api.topology = sources.map(consumer => ({consumer, producer: 'database'}));
+        await login(page);
+        const card = page.locator('[data-slot="card"]').filter({hasText: 'Service Topology'});
+        const node = (name: string) => card.getByRole('group', {name, exact: true});
+        await expect(node('database')).toBeVisible();
+        await expect(node(long).getByTitle(long)).toBeVisible();
+
+        type Box = {x: number; y: number; width: number; height: number};
+        const within = (inner: Box, outer: Box) => inner.x >= outer.x && inner.y >= outer.y &&
+            inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height;
+        const apart = (a: Box, b: Box) => a.x + a.width <= b.x || b.x + b.width <= a.x ||
+            a.y + a.height <= b.y || b.y + b.height <= a.y;
+        // Measured again should the graph still be fitting itself into view.
+        await expect(async () => {
+            const boxes = new Map<string, Box>();
+            for (const name of [...sources, 'database']) {
+                const box = (await node(name).boundingBox())!;
+                const label = (await node(name).getByText(name, {exact: true}).boundingBox())!;
+                expect(within(label, box), `the name of ${name} inside its node`).toBe(true);
+                boxes.set(name, box);
+            }
+            const names = [...boxes.keys()];
+            for (const [index, name] of names.entries()) {
+                for (const other of names.slice(index + 1)) {
+                    expect(apart(boxes.get(name)!, boxes.get(other)!), `${name} clear of ${other}`).toBe(true);
+                }
+            }
+            const database = boxes.get('database')!;
+            for (const source of sources) {
+                const box = boxes.get(source)!;
+                expect(database.y, `database below ${source}`).toBeGreaterThan(box.y + box.height);
+            }
+        }).toPass({timeout: 5_000});
+    });
+
     test('command search reaches every page, and its keys stay out of the way', async ({page}) => {
         await installApiMock(page);
         await login(page);
@@ -521,6 +563,30 @@ test.describe('configuration', () => {
         expect(oldVersion).toContain(JSON.parse(post?.body ?? '').toRevision);
         // What it was compared with: a later change is not to be overwritten unseen.
         expect(post?.headers['if-match']).toMatch(/^"\d+"$/);
+    });
+
+    test('a rollback shows in the list and the history, though the Watch is down', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/namespaces/default/configs/application.yaml', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_JSON', content: '{"port":7070}', sha256: 'gggg7777hhhh8888'},
+        });
+        api.failing = {method: 'GET', path: /\/watch$/, status: 503, message: 'Unavailable.'};
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const format = (name: string) => row(page, 'application.yaml').getByRole('cell', {name, exact: true});
+        await expect(format('JSON')).toBeVisible();
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        const history = page.getByRole('table').last();
+        const version = (sha256: string) => history.getByRole('row').filter({hasText: sha256});
+        await expect(version('aaaa1111')).toHaveCount(1);
+
+        await version('aaaa1111').getByRole('button', {name: 'Diff'}).click();
+        await confirm(page, page.getByRole('button', {name: /Roll back to revision/}));
+
+        await expect(toast(page, 'Rolled back')).toBeVisible();
+        await expect(format('YAML')).toBeVisible();
+        await expect(version('aaaa1111')).toHaveCount(2);
     });
 
     test('a comparison leaves none of the content it compared behind, however it is closed', async ({page}) => {
@@ -892,6 +958,32 @@ test.describe('services', () => {
         await confirm(page, row(page, 'order-1').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Instance deleted')).toBeVisible();
         expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+    });
+
+    test('a delete counts the service again, and its last instance removes it, though the Watch is down', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/namespaces/default/instances/database-2', {
+            meta: {},
+            instance: {service: 'database', endpoint: {scheme: 'tcp', host: '10.0.0.3', port: 3306}},
+        });
+        api.failing = {method: 'GET', path: /\/watch$/, status: 503, message: 'Unavailable.'};
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        const count = (service: string, instances: string) =>
+            row(page, service).getByRole('cell', {name: instances, exact: true});
+        // The expanded instances sit in a row of the services, after it: the last row holding a name is the instance's.
+        const instance = (name: string) => page.getByRole('row').filter({hasText: name}).last();
+        await expect(count('database', '2')).toBeVisible();
+        await row(page, 'database').getByRole('button', {name: /expand/i}).click();
+
+        await confirm(page, instance('database-2').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Instance deleted')).toBeVisible();
+        await expect(count('database', '1')).toBeVisible();
+        await expect(page.getByRole('row').filter({hasText: 'database-2'})).toHaveCount(0);
+
+        await confirm(page, instance('database-1').getByRole('button', {name: 'Delete'}));
+        await expect(page.getByRole('row').filter({hasText: 'database'})).toHaveCount(0);
+        await expect(count('order', '1')).toBeVisible();
     });
 
     test('an edit that ends after its editor was closed leaves the editor opened again alone', async ({page}) => {

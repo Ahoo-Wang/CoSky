@@ -35,7 +35,7 @@ import {Skeleton} from "@/components/ui/skeleton";
 import '@xyflow/react/dist/style.css';
 
 const nodeTypes = {
-    default: ServiceNode,
+    service: ServiceNode,
 };
 
 interface TopologyProps {
@@ -111,6 +111,8 @@ export function Topology({consumers, error, onRetry}: TopologyProps) {
                         ...node.style,
                         boxShadow: `0 0 10px 3px ${HIGHLIGHT_COLOR}cc`,
                         border: `2px solid ${HIGHLIGHT_COLOR}`,
+                        // Around the rounded box of the ServiceNode itself.
+                        borderRadius: 12,
                     },
                 };
             }

@@ -32,9 +32,14 @@ export interface ServiceInstanceTableProps {
     service: string;
     /** Makes these instances read along with the page whenever it reads again; returns what stops it. */
     follow: (read: () => Promise<unknown>) => () => void;
+    /**
+     * Called once a change made here is done, for the page to read again along with these instances: a delete changes
+     * the service's count, or removes the service, whether or not the Watch is there to say so.
+     */
+    onChange: () => void;
 }
 
-export function ServiceInstanceTable({namespace, service, follow}: ServiceInstanceTableProps) {
+export function ServiceInstanceTable({namespace, service, follow, onChange}: ServiceInstanceTableProps) {
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadInstances} = useQuery<string, InstanceResource[]>({
         query: `${namespace}/${service}`,
@@ -51,7 +56,7 @@ export function ServiceInstanceTable({namespace, service, follow}: ServiceInstan
                     existing={instance}
                     onSuccess={() => {
                         close();
-                        loadInstances();
+                        onChange();
                     }}
                     onCancel={close}
                 />
@@ -66,7 +71,7 @@ export function ServiceInstanceTable({namespace, service, follow}: ServiceInstan
             {success: 'Instance deleted', failure: 'Failed to delete instance'},
         );
         if (deleted) {
-            loadInstances();
+            onChange();
         }
     };
 
