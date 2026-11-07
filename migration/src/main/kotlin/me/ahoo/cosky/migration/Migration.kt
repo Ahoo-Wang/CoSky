@@ -61,19 +61,17 @@ internal class Migration(
     }
 
     private fun migrateConfig(from: String, to: String, name: String): ConfigResult? {
-        // 8.0 makes no revision of a content it already has, so neither does a version that repeats the one before.
-        val versions = source.versions(from, name).fold(listOf<String>()) { kept, content ->
-            if (kept.lastOrNull() == content) kept else kept + content
-        }.map { configOf(to, name, it) }
+        val versions = source.versions(from, name).map { configOf(to, name, it) }
         val current = versions.lastOrNull() ?: return null
         problemOf(current)?.let { return ConfigResult(name, ConfigStatus.INVALID, it) }
+        val steps = stepsOf(versions)
         return try {
             val existing = target.config(to, name)
-            when (val reached = existing?.let { reachedOf(to, name, versions, it) }) {
-                versions.lastIndex -> ConfigResult(name, ConfigStatus.UNCHANGED)
+            when (val reached = existing?.let { reachedOf(to, name, steps, it) }) {
+                steps.lastIndex -> ConfigResult(name, ConfigStatus.UNCHANGED)
                 NOT_FOUND -> ConfigResult(name, ConfigStatus.CONFLICT, NOT_FROM_SIX)
                 AMBIGUOUS -> ConfigResult(name, ConfigStatus.CONFLICT, AMBIGUOUS_HISTORY)
-                else -> write(to, name, versions.drop((reached ?: NOT_FOUND) + 1), existing)
+                else -> write(to, name, steps.drop((reached ?: NOT_FOUND) + 1), existing)
             }
         } catch (@Suppress("SwallowedException") e: RevisionConflictException) {
             ConfigResult(name, ConfigStatus.CONFLICT, CHANGED_DURING_RUN)
@@ -83,13 +81,37 @@ internal class Migration(
     }
 
     /**
-     * How far along the versions of 6.x the Config on 8.0 already is, which is what an interrupted run left behind.
-     * Contents repeat when a Config went back to an earlier value: then the history on 8.0 tells where it stands, and
-     * what it cannot tell is reported, since a wrong guess would leave versions out for good. Without the history only
-     * the current version counts, wherever its content appeared before.
+     * The versions of 6.x as a run with the history writes them, oldest first, the current one last. An old version 8.0
+     * refuses is left out, since only the current one is worth stopping for. 8.0 makes no revision of a content it
+     * already has, so a version that repeats the step before is no step of its own, even when one left out stood
+     * between them.
      */
-    private fun reachedOf(to: String, name: String, versions: List<Resource>, found: Resource): Int {
-        val candidates = versions.indices.filter { versions[it].config.content == found.config.content }
+    private fun stepsOf(versions: List<Resource>): List<Step> = buildList {
+        var leftOut = 0
+        versions.forEach { version ->
+            if (problemOf(version) != null) {
+                leftOut++
+            } else {
+                val last = lastOrNull()
+                if (last?.content == version.config.content) {
+                    set(lastIndex, Step(last.version, last.leftOut + leftOut))
+                } else {
+                    add(Step(version, leftOut))
+                }
+                leftOut = 0
+            }
+        }
+    }
+
+    /**
+     * How far along its [steps] the Config on 8.0 already is, which is what an interrupted run left behind. Steps, not
+     * the versions of 6.x, since 8.0 never has those a run leaves out. Contents repeat when a Config went back to an
+     * earlier value: then the history on 8.0 tells where it stands, and what it cannot tell is reported, since a wrong
+     * guess would leave versions out for good. Without the history only the current version counts, wherever its
+     * content appeared before.
+     */
+    private fun reachedOf(to: String, name: String, steps: List<Step>, found: Resource): Int {
+        val candidates = steps.indices.filter { steps[it].content == found.config.content }
         if (!options.history || candidates.size <= 1) {
             return candidates.lastOrNull() ?: NOT_FOUND
         }
@@ -98,24 +120,23 @@ internal class Migration(
         val complete = written.firstOrNull()?.meta?.let { it.revision == it.createRevision } ?: false
         val contents = written.map { it.config.content }
         val fitting = candidates.filter { end ->
-            val before = versions.take(end + 1).map { it.config.content }
+            val before = steps.take(end + 1).map { it.content }
             if (complete) before == contents else before.takeLast(contents.size) == contents
         }
         return fitting.singleOrNull() ?: if (fitting.isEmpty()) NOT_FOUND else AMBIGUOUS
     }
 
     /**
-     * @param pending the versions it does not have yet, of which only the last one is the current one.
+     * @param pending the steps it has not written yet, of which only the last one is the current version.
      */
-    private fun write(to: String, name: String, pending: List<Resource>, existing: Resource?): ConfigResult {
+    private fun write(to: String, name: String, pending: List<Step>, existing: Resource?): ConfigResult {
         val wanted = if (options.history) pending else pending.takeLast(1)
-        // A version too large for 8.0 is only worth stopping for if it is the current one, checked by now.
-        val writable = wanted.filter { problemOf(it) == null }
         var revision = existing?.meta?.revision
         if (!options.dryRun) {
-            writable.forEach { revision = target.putConfig(to, name, it, revision) }
+            wanted.forEach { revision = target.putConfig(to, name, it.version, revision) }
         }
-        val refused = wanted.size - writable.size
+        // Without the history no old version is wanted, so none is left out for being too large.
+        val refused = if (options.history) pending.sumOf { it.leftOut } else 0
         return ConfigResult(
             name,
             if (existing == null) ConfigStatus.CREATED else ConfigStatus.UPDATED,
@@ -140,6 +161,15 @@ internal class Migration(
 
     private fun formatOf(name: String) =
         if ('.' in name.substringAfterLast('/')) configFormatOf(name) else options.defaultFormat
+
+    /**
+     * One version a run writes, and how many old versions 8.0 refuses were left out on the way to it from the step
+     * before, or between it and a repeat of its content.
+     */
+    private class Step(val version: Resource, val leftOut: Int) {
+        val content: String
+            get() = version.config.content
+    }
 
     private companion object {
         const val NOT_FOUND = -1

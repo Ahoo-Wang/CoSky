@@ -204,6 +204,37 @@ class MigrationTest {
     }
 
     @Test
+    fun `an interrupted run continues where it stopped, though it left out a version 8_0 refuses`() {
+        val tooLarge = "x".repeat(ONE_MIB + 1)
+        // What 6.x holds, and what arrives of it: never the version too large, nor a content repeated once it is gone.
+        val histories = mapOf(
+            "between.txt" to (listOf("A", tooLarge, "B", "A", "C") to listOf("A", "B", "A", "C")),
+            "current.txt" to (listOf("A", tooLarge, "B", "A") to listOf("A", "B", "A")),
+            "repeated.txt" to (listOf("A", "B", tooLarge, "B", "A") to listOf("A", "B", "A")),
+        )
+        target.createNamespace(namespace, "")
+        // Interrupted at every write boundary, from before the first to after the last, every Config on its own.
+        val stopped = histories.flatMap { (name, history) ->
+            val (versions, arriving) = history
+            (0..arriving.size).map { written ->
+                val copy = "$written-$name"
+                versions.forEach { six.setConfig(source, copy, it) }
+                var revision: Long? = null
+                arriving.take(written).forEach { revision = target.putConfig(namespace, copy, text(it), revision) }
+                copy to arriving
+            }
+        }
+
+        run("--history").assert().isEqualTo(EXIT_DONE)
+
+        stopped.forEach { (name, arriving) -> historyOf(name).assert().isEqualTo(arriving.reversed()) }
+        // A run says what it left out itself, and a run that continues after it does not say it again.
+        report.assert().contains("`0-between.txt` | 1 old versions 8.0 refuses were left out")
+            .contains("`0-repeated.txt` | 1 old versions 8.0 refuses were left out")
+            .doesNotContain("`2-between.txt` |")
+    }
+
+    @Test
     fun `running it again changes nothing, though 6x kept a content twice in a row`() {
         // Removed and set again: 6.x keeps the same content as two versions, 8.0 as one.
         listOf("1", "2").forEach { six.setConfig(source, "app.txt", it) }
