@@ -90,7 +90,7 @@ builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().
 
 ## 6. 看一看
 
-打开 <http://localhost:8080> 的 [Dashboard](./dashboard.md)。实例显示在 **Service** 下，旁边标着 **Leased**；首页的拓扑图显示谁在调用谁。
+打开 <http://localhost:8080> 的 [Dashboard](./dashboard.md)。实例显示在 **Service** 下，旁边标着 **Leased**；首页的拓扑图显示谁在调用谁。服务端每 30 秒记录一次拓扑（[`cosky.view.topology-flush-interval`](./properties.md)），所以 consumer 启动后最多半分钟才出现在那里和下面的结果中：
 
 ```bash
 curl localhost:8080/v1/namespaces/default/views/topology
