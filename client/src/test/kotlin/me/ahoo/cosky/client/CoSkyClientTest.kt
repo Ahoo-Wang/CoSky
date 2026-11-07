@@ -441,6 +441,37 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `a replacement made while the server is away goes out once one answers`() = scenario {
+        val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        instances.register("order", endpoint(port = 8080), instanceName = "a")
+        val lease = instancesOnServer().single().meta.lease
+        server.stop()
+        instances.register("order", endpoint(port = 8081), instanceName = "a")
+        server.start()
+        // The lease outlives the outage and keeps its one instance, so neither losing it nor a short count says so.
+        eventually { instancesOnServer().single().instance.endpoint.port == 8081 }
+        instancesOnServer().single().meta.lease.assert().isEqualTo(lease)
+    }
+
+    @Test
+    fun `a replacement refused once the server is back gives way to the registration it would have replaced`() =
+        scenario {
+            val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+            instances.register("order", ENDPOINT, instanceName = "a")
+            val lost = instancesOnServer().single().meta.lease
+            server.stop()
+            // No server is there to refuse it yet.
+            instances.register("order", endpoint(port = 0), instanceName = "a")
+            server.start()
+            server.store.expireLease(NAMESPACE, lost, "test", force = true)
+
+            eventually { instancesOnServer().isNotEmpty() }
+            val restored = instancesOnServer().single()
+            restored.meta.lease.assert().isNotEqualTo(lost)
+            restored.instance.endpoint.port.assert().isEqualTo(ENDPOINT.port)
+        }
+
+    @Test
     fun `a registration the server refuses is an error, and is not tried again`() = scenario {
         val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
         val kept = instances.register("order", ENDPOINT, instanceName = "kept")
