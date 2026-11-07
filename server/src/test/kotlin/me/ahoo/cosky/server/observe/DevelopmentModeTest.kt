@@ -21,7 +21,6 @@ import me.ahoo.cosky.server.RunningServer
 import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -35,11 +34,9 @@ import kotlin.time.Duration.Companion.seconds
 class DevelopmentModeTest {
     @Test
     fun `the server runs on the memory store, and reports its health and metrics`() = runBlocking<Unit> {
-        val port = ServerSocket(0).use { it.localPort }
         val properties = mapOf(
             "cosky.store.type" to "memory",
             "cosky.auth.enabled" to "false",
-            "server.port" to port,
         )
         RunningServer(properties).use { server ->
             withTimeout(30.seconds) {
@@ -53,7 +50,7 @@ class DevelopmentModeTest {
 
                 val http = HttpClient.newHttpClient()
                 fun get(path: String) = http.send(
-                    HttpRequest.newBuilder(URI("http://localhost:$port$path")).build(),
+                    HttpRequest.newBuilder(URI("http://localhost:${server.httpPort}$path")).build(),
                     BodyHandlers.ofString(),
                 )
                 // Asking starts the loading of a namespace nobody has asked for yet, like default.
