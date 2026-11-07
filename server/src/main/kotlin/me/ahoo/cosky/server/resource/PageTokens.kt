@@ -26,14 +26,24 @@ import java.util.Base64
  */
 internal data class ListPageToken(val epoch: String, val revision: Long, val after: String)
 
+/**
+ * Where a History continues (design §4.6). The limit is for all pages together, so the token carries what is left of
+ * it: versions written since the first page must not use it up.
+ *
+ * @param before the revision of the last version on the previous page.
+ * @param remaining versions still to come at most.
+ */
+internal data class HistoryPageToken(val before: Long, val remaining: Int)
+
 internal object PageTokens {
     private const val SEPARATOR = '\n'
     private const val LIST_FIELDS = 3
+    private const val HISTORY_FIELDS = 2
     private const val FIELD = "page_token"
 
-    fun encode(token: ListPageToken): String = Base64.getUrlEncoder().withoutPadding().encodeToString(
-        listOf(token.epoch, token.revision, token.after).joinToString(SEPARATOR.toString()).encodeToByteArray(),
-    )
+    fun encode(token: ListPageToken): String = encoded(token.epoch, token.revision, token.after)
+
+    fun encode(token: HistoryPageToken): String = encoded(token.before, token.remaining)
 
     /**
      * @return null for the first page.
@@ -42,9 +52,7 @@ internal object PageTokens {
         if (value.isEmpty()) {
             return null
         }
-        val fields = runCatching { Base64.getUrlDecoder().decode(value).decodeToString() }
-            .getOrElse { throw invalid("This is not a page token of a List.") }
-            .split(SEPARATOR)
+        val fields = decoded(value, "a List")
         val revision = fields.getOrNull(1)?.toLongOrNull()
         if (fields.size != LIST_FIELDS || revision == null) {
             throw invalid("This is not a page token of a List.")
@@ -53,14 +61,29 @@ internal object PageTokens {
     }
 
     /**
-     * @return the revision to continue before; every revision is before the first page's.
+     * @return null for the first page.
      */
-    fun history(value: String): Long {
+    fun history(value: String): HistoryPageToken? {
         if (value.isEmpty()) {
-            return Long.MAX_VALUE
+            return null
         }
-        return value.toLongOrNull() ?: throw invalid("This is not a page token of a History.")
+        val fields = decoded(value, "a History")
+        val before = fields.first().toLongOrNull()
+        val remaining = fields.getOrNull(1)?.toIntOrNull()?.takeIf { it > 0 }
+        if (fields.size != HISTORY_FIELDS || before == null || remaining == null) {
+            throw invalid("This is not a page token of a History.")
+        }
+        return HistoryPageToken(before, remaining)
     }
+
+    private fun encoded(vararg fields: Any): String = Base64.getUrlEncoder().withoutPadding().encodeToString(
+        fields.joinToString(SEPARATOR.toString()).encodeToByteArray(),
+    )
+
+    private fun decoded(value: String, of: String): List<String> =
+        runCatching { Base64.getUrlDecoder().decode(value).decodeToString() }
+            .getOrElse { throw invalid("This is not a page token of $of.") }
+            .split(SEPARATOR)
 
     fun invalid(description: String): CoSkyException = CoSkyException.invalidArgument(
         listOf(Violation(FIELD, ViolationCode.VIOLATION_CODE_INVALID_FORMAT, description)),

@@ -475,7 +475,7 @@ gRPC 默认单条消息上限 4 MiB,而一个 namespace 的全量可达 50 MB。
 | 响应 | 方式 | 一致性 |
 |---|---|---|
 | List | `page_size` + `page_token`;一页可能因字节上限少于 `page_size` | 见下 |
-| History | `page_token`;`limit` 仍是总条数 | 按 revision 倒序,游标是 revision |
+| History | `page_token`;`limit` 仍是总条数 | 按 revision 倒序;token 携带游标(上一页最后一个 revision)和 `limit` 剩下的条数,翻页期间写入的新版本不占名额 |
 | Watch `Snapshot` | `more = true` 表示还有分块,最后一块之前不发事件 | 所有分块来自同一个不可变快照 |
 | Watch `Events` | `more = true` 表示同一 revision 还有事件,客户端收齐后原子应用 | 同一 revision |
 

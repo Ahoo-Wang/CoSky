@@ -199,13 +199,21 @@ class ResourceService(
         requireValid(validator.validate(request))
         val key = request.key
         requireAllowed(permissionOf(caller.principal, Verb.VERB_GET, key.kind, key.namespace), key.name)
-        val before = PageTokens.history(request.pageToken)
         val limit = request.limit.takeIf { it in 1..limits.configHistorySize } ?: limits.configHistorySize
-        val remaining = store.history(request.key, limit).filter { it.meta.revision < before }
+        val page = PageTokens.history(request.pageToken) ?: HistoryPageToken(Long.MAX_VALUE, limit)
+        // From the cursor on rather than the newest few: versions written since the first page are the newest, and
+        // would push out as many of those still to come (design §4.6). A Config keeps no more than history-size.
+        val remaining = store.history(key, 0).filter { it.meta.revision < page.before }.take(page.remaining)
         val items = remaining.chunkedByBytes(limits.maxMessageBytes) { it.serializedSize }.firstOrNull().orEmpty()
         return HistoryResponse.newBuilder()
             .addAllRevisions(items)
-            .setNextPageToken(if (remaining.size > items.size) items.last().meta.revision.toString() else "")
+            .setNextPageToken(
+                if (remaining.size > items.size) {
+                    PageTokens.encode(HistoryPageToken(items.last().meta.revision, page.remaining - items.size))
+                } else {
+                    ""
+                },
+            )
             .build()
     }
 
