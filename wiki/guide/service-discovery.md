@@ -50,7 +50,7 @@ Add `spring-cloud-starter-loadbalancer`, and `@LoadBalanced` clients get their i
 
 A weight of `0` keeps an instance registered but takes it out of rotation, which is how to drain one: load balancers leave it out, while `DiscoveryClient` still lists it. The Kotlin client's load balancer picks at random in proportion to weight. Spring Cloud LoadBalancer's default round robin treats every other weight alike.
 
-An operator can set it on an instance an application registered. It lasts until the application registers again, after restarting or losing its lease.
+An operator can set it on an instance an application registered. It lasts until the application registers again, after restarting or losing its lease, and so do metadata an operator changed: the application then registers what it was given. To keep an instance drained through those, set its own weight, `cosky.registry.weight: 0` with the starter.
 
 ## Fixed instances
 
