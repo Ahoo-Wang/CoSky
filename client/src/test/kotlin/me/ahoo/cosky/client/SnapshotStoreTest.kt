@@ -24,6 +24,7 @@ import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
+import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -48,6 +49,8 @@ class SnapshotStoreTest {
     fun stop() {
         scope.cancel()
     }
+
+    private fun config(name: String) = WatchKey("prod", Kind.KIND_CONFIG, name = name)
 
     private fun instances(service: String, namespace: String = "prod") =
         WatchKey(namespace, Kind.KIND_INSTANCE, service = service)
@@ -77,6 +80,19 @@ class SnapshotStoreTest {
         val keys = (1..ROUNDS).flatMap { round -> List(WATCHES) { instances("service-$it", "prod-$round") } }
         save(keys)
         keys.map { loaded(it) }.assert().isEqualTo(keys.map { it.service })
+    }
+
+    @Test
+    fun `every config name the protocol allows gets a snapshot of its own`() {
+        val names = listOf(
+            "a".repeat(NamingRules.MAX_CONFIG_NAME_LENGTH),
+            "a/".repeat(NamingRules.MAX_CONFIG_NAME_LENGTH / 2) + "a",
+            "order.yaml",
+            "Order.yaml",
+        )
+        names.assert().allMatch { NamingRules.isConfigName(it) }
+        save(names.map { config(it) })
+        names.map { loaded(config(it)) }.assert().isEqualTo(names)
     }
 
     private companion object {
