@@ -20,10 +20,16 @@ import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceC
 import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
 import {viewsClient} from '@/services/clients';
 import {Topology} from '@/components/topology/Topology';
+import {toConsumers} from '@/components/topology/topologies';
 import {Button} from '@/components/ui/button';
 import {Card, CardAction, CardContent, CardHeader, CardTitle} from '@/components/ui/card';
 
 const REFRESH_MS = 30_000;
+
+interface TopologyReading {
+    namespace: string;
+    consumers: Record<string, string[]>;
+}
 
 export function DashboardPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
@@ -37,15 +43,33 @@ export function DashboardPage() {
             viewsClient.viewStats({urlParams: {path: {namespace}}, abortController}),
         onSuccess: () => setLastUpdated({namespace: currentNamespace, at: new Date()}),
     });
+    const {result: topology, error: topologyError, execute: loadTopology} = useQuery<string, TopologyReading>({
+        query: currentNamespace,
+        execute: async (namespace, _, abortController) => {
+            const view = await viewsClient.viewTopology({urlParams: {path: {namespace}}, abortController});
+            return {namespace, consumers: toConsumers(view.edges ?? [])};
+        },
+    });
 
-    // Counts need no stream of their own: browsers allow few connections per server over HTTP/1.1.
+    // Counts and the topology need no stream of their own: browsers allow few connections per server over HTTP/1.1.
     useEffect(() => {
         const interval = window.setInterval(() => {
             loadStats();
+            loadTopology();
             loadNamespaces();
         }, REFRESH_MS);
         return () => window.clearInterval(interval);
-    }, [loadStats, loadNamespaces]);
+    }, [loadStats, loadTopology, loadNamespaces]);
+
+    // The page and the fullscreen graph show the same reading, which follows the counts. The previous namespace's
+    // reading is not shown while the current one's is on its way.
+    const topologyGraph = (
+        <Topology
+            consumers={topology?.namespace === currentNamespace ? topology.consumers : undefined}
+            error={topologyError}
+            onRetry={loadTopology}
+        />
+    );
 
     const metrics = [
         {label: 'Services', value: stats?.serviceCount ?? 0, icon: Cloud, tone: 'bg-emerald-50 text-emerald-600'},
@@ -102,7 +126,7 @@ export function DashboardPage() {
                     </CardAction>
                 </CardHeader>
                 <CardContent className="h-[360px] px-3 sm:h-[520px] xl:h-[660px]">
-                    <Topology/>
+                    {topologyGraph}
                 </CardContent>
             </Card>
 
@@ -124,7 +148,7 @@ export function DashboardPage() {
                         </form>
                     </div>
                     <div className="min-h-0 flex-1 p-3">
-                        {topologyDialogOpen && <Topology/>}
+                        {topologyDialogOpen && topologyGraph}
                     </div>
                 </div>
             </dialog>

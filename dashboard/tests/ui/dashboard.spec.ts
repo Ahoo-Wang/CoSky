@@ -261,6 +261,50 @@ test.describe('the shell', () => {
         await expect(page.getByText('Instances', {exact: true}).locator('..')).toContainText('0');
     });
 
+    test('the topology follows along with the counts, and the fullscreen graph shows what the page does', async ({page}) => {
+        const api = await installApiMock(page);
+        await page.clock.install();
+        await login(page);
+        const card = page.locator('[data-slot="card"]').filter({hasText: 'Service Topology'});
+        const fullscreen = page.getByRole('dialog', {name: 'Service Topology'});
+        const edge = (scope: Locator, from: string, to: string) =>
+            scope.getByRole('group', {name: `Edge from ${from} to ${to}`, exact: true});
+        const topologyReads = () => api.requests.filter(request => request.path.endsWith('/views/topology')).length;
+        // Attached rather than visible: a straight edge between services one above the other has no width.
+        await expect(edge(card, 'order', 'database')).toBeAttached();
+        const search = card.getByPlaceholder('Search nodes...');
+        await search.fill('order');
+
+        const read = topologyReads();
+        await page.clock.runFor(30_000);
+
+        // The same relationships read again leave the graph as it is, with what was searched for.
+        await expect.poll(topologyReads).toBeGreaterThan(read);
+        await page.waitForTimeout(500);
+        await expect(search).toHaveValue('order');
+        api.topology = [{consumer: 'gateway', producer: 'order'}, {consumer: 'order', producer: 'billing'}];
+        await page.clock.runFor(30_000);
+
+        await expect(edge(card, 'order', 'billing')).toBeAttached();
+        await expect(edge(card, 'order', 'database')).toHaveCount(0);
+
+        const reads = topologyReads();
+        await page.getByRole('button', {name: 'Open topology fullscreen'}).click();
+        await expect(edge(fullscreen, 'order', 'billing')).toBeAttached();
+        await expect(edge(fullscreen, 'order', 'database')).toHaveCount(0);
+        expect(topologyReads()).toBe(reads);
+
+        api.topology = [{consumer: 'gateway', producer: 'payment'}];
+        await page.clock.runFor(30_000);
+
+        await expect(edge(fullscreen, 'gateway', 'payment')).toBeAttached();
+        await expect(edge(fullscreen, 'order', 'billing')).toHaveCount(0);
+        await page.getByRole('button', {name: 'Close topology fullscreen'}).click();
+        await expect(fullscreen).toHaveCount(0);
+        await expect(edge(card, 'gateway', 'payment')).toBeAttached();
+        await expect(edge(card, 'order', 'billing')).toHaveCount(0);
+    });
+
     test('command search reaches every page, and its keys stay out of the way', async ({page}) => {
         await installApiMock(page);
         await login(page);

@@ -50,6 +50,8 @@ export interface MockApi {
     noRules: boolean;
     /** How many versions of a Config are kept, like the server's history-size. */
     historySize: number;
+    /** The relationships the topology view answers with. */
+    topology: Array<{consumer: string; producer: string}>;
     requests: RecordedRequest[];
     /** Such requests take this long. */
     slow?: {path: RegExp; milliseconds: number};
@@ -118,6 +120,11 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         refreshTokens: 'given',
         noRules: false,
         historySize: 20,
+        topology: options.empty ? [] : [
+            {consumer: 'gateway', producer: 'order'},
+            {consumer: 'gateway', producer: 'user'},
+            {consumer: 'order', producer: 'database'},
+        ],
         empty: options.empty ?? false,
         requests: [],
         hold: (method, path) => {
@@ -260,13 +267,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
                 const services = servicesIn(namespace);
                 await json(route, services.length ? {services} : {});
             } else if (name === 'topology') {
-                await json(route, mockApi.empty ? {} : {
-                    edges: [
-                        {consumer: 'gateway', producer: 'order'},
-                        {consumer: 'gateway', producer: 'user'},
-                        {consumer: 'order', producer: 'database'},
-                    ],
-                });
+                await json(route, mockApi.topology.length ? {edges: mockApi.topology} : {});
             } else {
                 const instances = collectionOf(`/v1/namespaces/${namespace}/instances`);
                 await json(route, {
