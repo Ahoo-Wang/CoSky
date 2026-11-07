@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.ForwardingServerCallListener.SimpleForwardingServerCallListener
 import io.grpc.Metadata
 import io.grpc.Server
 import io.grpc.ServerCall
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import me.ahoo.cosky.api.VirtualThreads
+import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
@@ -39,11 +41,16 @@ import java.util.concurrent.TimeUnit
  * The real server code on an in-process transport and a memory store, which a test can stop and start while the store
  * stays. Tests get real protocol behavior rather than a fake's assumptions about it.
  */
-internal class TestServer : AutoCloseable {
+internal class TestServer(private val properties: CoSkyProperties = CoSkyProperties()) : AutoCloseable {
     val name = "cosky-${UUID.randomUUID()}"
     val store = MemoryStore(keepRevisions = 64)
     val authorizations = CopyOnWriteArrayList<String>()
     val clientNames = CopyOnWriteArrayList<String>()
+
+    /**
+     * The Creates of every watch stream, in the order they arrived.
+     */
+    val watchStreams = CopyOnWriteArrayList<List<WatchRequest.Create>>()
     private var scope = newScope()
     private var server: Server? = null
 
@@ -52,7 +59,7 @@ internal class TestServer : AutoCloseable {
         server = InProcessServerBuilder.forName(name)
             .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
             .addService(LeaseGrpcService(store))
-            .addService(WatchGrpcService(caches, CoSkyProperties()))
+            .addService(ServerInterceptors.intercept(WatchGrpcService(caches, properties), recordingCreates))
             .build()
             .start()
     }
@@ -74,6 +81,22 @@ internal class TestServer : AutoCloseable {
             headers.get(CLIENT_NAME)?.let { clientNames += it }
             headers.get(AUTHORIZATION)?.let { authorizations += it }
             return next.startCall(call, headers)
+        }
+    }
+
+    private val recordingCreates = object : ServerInterceptor {
+        override fun <Req, Resp> interceptCall(
+            call: ServerCall<Req, Resp>,
+            headers: Metadata,
+            next: ServerCallHandler<Req, Resp>,
+        ): ServerCall.Listener<Req> {
+            val creates = CopyOnWriteArrayList<WatchRequest.Create>().also { watchStreams += it }
+            return object : SimpleForwardingServerCallListener<Req>(next.startCall(call, headers)) {
+                override fun onMessage(message: Req) {
+                    (message as WatchRequest).takeIf { it.hasCreate() }?.let { creates += it.create }
+                    super.onMessage(message)
+                }
+            }
         }
     }
 

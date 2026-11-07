@@ -49,6 +49,13 @@ internal class WatchMultiplexer(
     private val started = AtomicBoolean()
     private val connectionState = MutableStateFlow(ConnectionState.CONNECTING)
 
+    /**
+     * Held while a new stream takes over and creates every watch, and while a watch is added: a watch added in
+     * between would otherwise be created twice on the stream, by both. The second one takes up the server's quota for
+     * nothing, and near it keeps a real watch out.
+     */
+    private val lock = Any()
+
     @Volatile
     private var requests: RequestQueue<WatchRequest>? = null
 
@@ -59,18 +66,27 @@ internal class WatchMultiplexer(
      * The same key always shares one watch, which lives as long as the client.
      */
     fun watch(key: WatchKey): WatchState {
-        val watch = watches.computeIfAbsent(key) { newKey ->
-            val snapshot = snapshots.load(newKey)
-            if (snapshot != null) {
-                connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
-            }
-            WatchState(newKey, snapshot).also { created -> requests?.let { create(it, created) } }
-        }
+        val watch = watches[key] ?: add(key)
         if (started.compareAndSet(false, true)) {
             scope.launch { run() }
             scope.launch { resync() }
         }
         return watch
+    }
+
+    /**
+     * Reads the snapshot before taking the lock, since that reads a file. Losing a race only wastes the read.
+     */
+    private fun add(key: WatchKey): WatchState {
+        val snapshot = snapshots.load(key)
+        return synchronized(lock) {
+            watches.getOrPut(key) {
+                if (snapshot != null) {
+                    connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
+                }
+                WatchState(key, snapshot).also { created -> requests?.let { create(it, created) } }
+            }
+        }
     }
 
     fun close() {
@@ -98,11 +114,13 @@ internal class WatchMultiplexer(
 
     private suspend fun followStream(channel: Channel, backoff: Backoff) {
         val outgoing = RequestQueue<WatchRequest>(RequestQueue.UNLIMITED)
-        requests = outgoing
-        byId.clear()
-        watches.values.forEach {
-            it.discardPartial()
-            create(outgoing, it)
+        synchronized(lock) {
+            requests = outgoing
+            byId.clear()
+            watches.values.forEach {
+                it.discardPartial()
+                create(outgoing, it)
+            }
         }
         WatchServiceGrpcKt.WatchServiceCoroutineStub(channel).watch(outgoing.receiveAsFlow()).collect { response ->
             backoff.reset()

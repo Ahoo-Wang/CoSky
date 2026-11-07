@@ -26,11 +26,21 @@ class ConnectionTest {
         var backoffResets = 0
         var shutDown = false
 
+        /**
+         * Runs while the channel shuts down, which is when the connection has let go of its lock.
+         */
+        var onShutdown: () -> Unit = {}
+
         override fun resetConnectBackoff() {
             backoffResets += 1
         }
 
-        override fun shutdown(): ManagedChannel = apply { shutDown = true }
+        override fun shutdown(): ManagedChannel = apply {
+            if (!shutDown) {
+                shutDown = true
+                onShutdown()
+            }
+        }
 
         override fun isShutdown(): Boolean = shutDown
 
@@ -85,5 +95,36 @@ class ConnectionTest {
         connection.rotate(stale)
         connection.channel().assert().isSameAs(current)
         channels.size.assert().isEqualTo(2)
+    }
+
+    @Test
+    fun `failures noticed while closing open no channel that would stay open`() {
+        val connection = connection("first", "second")
+        val failed = connection.channel()
+        // The watch stream and the keep-alive both notice, after closing has taken the channel and before it is done.
+        channels.single().onShutdown = { repeat(2) { connection.rotate(failed) } }
+        connection.close()
+        channels.size.assert().isEqualTo(1)
+        channels.single().isShutdown.assert().isTrue()
+    }
+
+    @Test
+    fun `closing while a failure moves on shuts down the channel it moved on to`() {
+        val connection = connection("first", "second")
+        val failed = connection.channel()
+        channels.single().onShutdown = { connection.close() }
+        connection.rotate(failed)
+        channels.map { it.isShutdown }.assert().containsExactly(true, true)
+    }
+
+    @Test
+    fun `closing again changes nothing, and neither does a failure after it`() {
+        val connection = connection("first", "second")
+        val channel = connection.channel()
+        connection.close()
+        connection.close()
+        connection.rotate(channel)
+        channels.size.assert().isEqualTo(1)
+        channels.single().isShutdown.assert().isTrue()
     }
 }
