@@ -31,7 +31,7 @@ import {enumLabel} from '@/lib/utils';
 const BUILT_IN_ROLES = ['admin', 'viewer', 'client'];
 
 export function RoleBindingPage() {
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadBindings} = useQuery<null, RoleBindingResource[]>({
         initialQuery: null,
         execute: (_, __, abortController) => roleBindings.list(abortController),
@@ -43,15 +43,17 @@ export function RoleBindingPage() {
 
     const handleEdit = (binding?: RoleBindingResource) => {
         openDrawer(
-            <RoleBindingEditor
-                existing={binding}
-                roleNames={[...new Set([...BUILT_IN_ROLES, ...availableRoles.map(role => role.name)])]}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadBindings();
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <RoleBindingEditor
+                    existing={binding}
+                    roleNames={[...new Set([...BUILT_IN_ROLES, ...availableRoles.map(role => role.name)])]}
+                    onSuccess={() => {
+                        close();
+                        loadBindings();
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: binding ? `Edit ${binding.name}` : 'Add Role Binding', width: 'min(720px, 92vw)'},
         );
     };

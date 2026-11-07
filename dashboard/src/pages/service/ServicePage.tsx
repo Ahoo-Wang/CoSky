@@ -11,13 +11,13 @@
  * limitations under the License.
  */
 
-import {useState} from 'react';
 import {Plus} from 'lucide-react';
 import '@/monacoConfig';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import type {ServiceSummary} from '@/generated';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {useRowReads} from '@/hooks/useRowReads';
 import {useWatchRefresh} from '@/hooks/useWatchRefresh';
 import {viewsClient} from '@/services/clients';
 import {Kind} from '@/services/resources';
@@ -31,9 +31,7 @@ import type {DataTableColumn} from '@/components/ui/data-table';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {openDrawer, closeDrawer} = useDrawer();
-    // One stream per page, whatever is expanded: browsers allow few connections per server over HTTP/1.1.
-    const [changes, setChanges] = useState(0);
+    const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadServices} = useQuery<string, ServiceSummary[]>({
         query: currentNamespace,
         execute: async (namespace, _, abortController) => {
@@ -41,23 +39,23 @@ export function ServicePage() {
             return view.services ?? [];
         },
     });
-    useWatchRefresh(currentNamespace, Kind.KIND_INSTANCE, () => {
-        setChanges(count => count + 1);
-        return loadServices();
-    });
+    // One stream per page, whatever is expanded: browsers allow few connections per server over HTTP/1.1.
+    const {read: loadAll, follow} = useRowReads(loadServices);
+    useWatchRefresh(currentNamespace, Kind.KIND_INSTANCE, loadAll);
 
     const handleAddInstance = (service?: string) => {
         openDrawer(
-            <ServiceInstanceEditor
-                namespace={currentNamespace}
-                service={service}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadServices();
-                    setChanges(count => count + 1);
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <ServiceInstanceEditor
+                    namespace={currentNamespace}
+                    service={service}
+                    onSuccess={() => {
+                        close();
+                        loadAll();
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: service ? `Add an instance of ${service}` : 'Add Instance'},
         );
     };
@@ -107,7 +105,7 @@ export function ServicePage() {
                             <ServiceInstanceTable
                                 namespace={currentNamespace}
                                 service={summary.service}
-                                changes={changes}
+                                follow={follow}
                             />
                         ),
                     }}

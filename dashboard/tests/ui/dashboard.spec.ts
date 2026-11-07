@@ -322,6 +322,62 @@ test.describe('configuration', () => {
         await expect(page.getByRole('dialog')).toHaveCount(0);
     });
 
+    test('a save that ends after its editor was closed leaves a newer draft open', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('9090');
+        await typeInMonaco(page, 'server:\n  port: 1');
+        const answer = api.hold('PUT', /configs\/application\.yaml$/);
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect.poll(() => lastRequest(api, 'PUT', '/v1/namespaces/default/configs/application.yaml')).toBeTruthy();
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await page.getByLabel('Name', {exact: true}).fill('new-unsaved-draft.yaml');
+        await typeInMonaco(page, 'draft: true');
+        answer();
+
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('new-unsaved-draft.yaml');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(row(page, 'new-unsaved-draft.yaml')).toBeVisible();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/configs/new-unsaved-draft.yaml');
+        expect(JSON.parse(put?.body ?? '')).toMatchObject({config: {content: 'draft: true'}});
+    });
+
+    test('an import that ends after its page was left leaves the editor opened since alone', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await page.getByRole('button', {name: 'Import'}).click();
+        await page.locator('input[type="file"]').setInputFiles({
+            name: 'configs.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from('PK-archive'),
+        });
+        const answer = api.hold('POST', /configs:import$/);
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect.poll(() => lastRequest(api, 'POST', '/v1/namespaces/default/configs:import')).toBeTruthy();
+        await page.goBack();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Role', exact: true}).click();
+        await page.getByRole('button', {name: 'Add Role'}).click();
+        await page.getByLabel('Name', {exact: true}).fill('reader');
+        answer();
+
+        await expect(toast(page, 'Configs imported')).toBeVisible();
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('reader');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Role saved')).toBeVisible();
+        await expect(row(page, 'reader')).toBeVisible();
+    });
+
     test('a new Config is created only if it does not exist, in the format its name suggests', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -421,6 +477,35 @@ test.describe('configuration', () => {
         expect(oldVersion).toContain(JSON.parse(post?.body ?? '').toRevision);
         // What it was compared with: a later change is not to be overwritten unseen.
         expect(post?.headers['if-match']).toMatch(/^"\d+"$/);
+    });
+
+    test('an expanded history follows its Config, and drops the versions the server no longer keeps', async ({page}) => {
+        const api = await installApiMock(page);
+        api.historySize = 2;
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        const version = (sha256: string) => page.getByRole('row').filter({hasText: sha256});
+        await expect(version('aaaa1111').last()).toBeVisible();
+        await expect(version('cccc3333').last()).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        api.put('/v1/namespaces/default/configs/application.yaml', {
+            meta: {labels: {team: 'core'}},
+            config: {format: 'CONFIG_FORMAT_YAML', content: 'server:\n  port: 7070\n', sha256: 'gggg7777hhhh8888'},
+        });
+        api.releaseWatch();
+        await expect(version('gggg7777').last()).toBeVisible();
+        await expect(version('aaaa1111')).toHaveCount(0);
+
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('7070');
+        await typeInMonaco(page, 'server:\n  port: 1');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await expect(version('cccc3333')).toHaveCount(0);
+        await expect(version('gggg7777').last()).toBeVisible();
     });
 
     test('import sends the archive itself, and export gives one back', async ({page}) => {
@@ -696,6 +781,30 @@ test.describe('services', () => {
         expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
     });
 
+    test('an edit that ends after its editor was closed leaves the editor opened again alone', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
+        await row(page, 'order-1').getByRole('button', {name: 'Edit'}).click();
+        await page.getByLabel('Weight', {exact: true}).fill('5');
+        const answer = api.hold('PUT', /instances\/order-1$/);
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect.poll(() => lastRequest(api, 'PUT', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await row(page, 'order-1').getByRole('button', {name: 'Edit'}).click();
+        await page.getByLabel('Weight', {exact: true}).fill('7');
+        answer();
+
+        await expect(toast(page, 'Instance saved')).toBeVisible();
+        await expect(page.getByLabel('Weight', {exact: true})).toHaveValue('7');
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await expect(row(page, 'order-1')).toContainText('5');
+    });
+
     test('an instance added to a listed service needs no service name, and the page follows changes', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -714,6 +823,37 @@ test.describe('services', () => {
         await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
         api.releaseWatch();
         await expect(row(page, 'order-2')).toBeVisible();
+    });
+
+    test('an expanded service keeps up with instances that change sooner than they can be read', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/namespaces/default/instances/order-2', {
+            meta: {},
+            instance: {service: 'order', endpoint: {scheme: 'http', host: '10.0.0.3', port: 8080}},
+        });
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
+        await expect(row(page, 'order-1')).toContainText('"zone":"east"');
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        // Each of its two pages takes longer than the Watch takes to say that something changed again.
+        api.slow = {path: /^\/v1\/namespaces\/default\/instances$/, milliseconds: 1_500};
+        api.put('/v1/namespaces/default/instances/order-1', {
+            meta: {lease: '42', labels: {pool: 'a'}},
+            instance: {
+                service: 'order',
+                endpoint: {scheme: 'http', host: '10.0.0.1', port: 8080},
+                weight: 2,
+                metadata: {zone: 'west'},
+            },
+        });
+        const changes = setInterval(() => api.releaseWatch(), 200);
+        try {
+            await expect(row(page, 'order-1')).toContainText('"zone":"west"', {timeout: 10_000});
+        } finally {
+            clearInterval(changes);
+        }
     });
 });
 

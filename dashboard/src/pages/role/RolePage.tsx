@@ -26,7 +26,7 @@ import type {DataTableColumn} from '@/components/ui/data-table';
 import {runAction} from '@/lib/actions';
 
 export function RolePage() {
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadRoles} = useQuery<null, RoleResource[]>({
         initialQuery: null,
         execute: (_, __, abortController) => roles.list(abortController),
@@ -34,14 +34,16 @@ export function RolePage() {
 
     const handleEdit = (role?: RoleResource) => {
         openDrawer(
-            <RoleEditor
-                existing={role}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadRoles();
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <RoleEditor
+                    existing={role}
+                    onSuccess={() => {
+                        close();
+                        loadRoles();
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: role ? `Edit ${role.name}` : 'Add Role', width: 'min(880px, 92vw)'},
         );
     };
