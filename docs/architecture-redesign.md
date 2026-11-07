@@ -308,7 +308,7 @@ message RoleBindingSpec {
 | namespace | `^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$` | 不含 `{ } :`,哈希标签安全;`_system` 为保留名 |
 | Config name | `^[A-Za-z0-9._/-]{1,253}$`,且按 `/` 切分后**不得有空段、`.` 或 `..`**(即不得以 `/` 开头或结尾、不得含 `//`) | 允许路径式命名;REST 路径中的 `/` 须编码为 `%2F`(§4.5) |
 | service | `^[a-z0-9]([-a-z0-9.]{0,61}[a-z0-9])?$` | DNS 风格 |
-| Instance name | `^[A-Za-z0-9._-]{1,253}$`,且不得为 `.` 或 `..` | 默认 `<service>-<host>-<port>`(非法字符替换为 `-`);超过 253 字符时截去 host 的末尾,在端口前加上完整名称的 64 位 FNV-1a 摘要,端口不丢,不同端点不会同名;客户端可自定义 |
+| Instance name | `^[A-Za-z0-9._-]{1,253}$`,且不得为 `.` 或 `..` | 默认 `<service>_<host>_<port>`,非法字符替换为 `_`(合法 host 中只有 IPv6 的 `:`):合法的 service、host、端口都不含 `_`,第一个和最后一个 `_` 分开三段,host 中的 `_` 只能来自 `:`,所以不同端点不会同名(`-` 做不到,service 与 host 自身都含 `-`);超过 253 字符时截去 host 的末尾,在端口前加上完整名称的 64 位 FNV-1a 摘要,端口不丢;客户端可自定义 |
 | ServiceAccount / Role / RoleBinding name | 同 service:`^[a-z0-9]([-a-z0-9.]{0,61}[a-z0-9])?$` | DNS 风格,≤ 63 |
 | label / metadata key | `^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$` | 长度见 §7.1 |
 | Endpoint host | 合法 RFC 1123 主机名、IPv4 或 IPv6 字面量 | IPv6 不带方括号 |
@@ -911,6 +911,7 @@ me.ahoo.cosky.server
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新创建缺失的实例(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
+  server 不可达时注册照常返回,同名替换也一样:客户端记下 server 尚未确认的注册,续期恢复后重新 Put,不从 `attached_count` 推断;这时才被拒绝的注册退回到它要替换的那一个。
 - **分块**:收齐 `Snapshot` 与 `Events` 的全部分块后再更新 `StateFlow`,订阅者不会看到半个 revision。
 - **被拒绝的 Watch**:收到 `canceled` 后每 5 秒重试,因为权限和 namespace 都可能变化。视图还未知时 `load()` 立即抛出该错误,不必等到超时;有快照时继续用快照服务。
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。

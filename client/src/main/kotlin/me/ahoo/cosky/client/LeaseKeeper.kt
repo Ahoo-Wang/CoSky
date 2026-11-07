@@ -56,7 +56,16 @@ internal class LeaseKeeper(
     private val scope: CoroutineScope,
 ) {
     private val mutex = Mutex()
+
+    /** Every registration as last made: what to restore should the lease be lost. */
     private val registrations = ConcurrentHashMap<String, Resource>()
+
+    /**
+     * What the server last accepted under each name. A registration that differs from it was made while no server
+     * answered, so it has not reached one, or not for certain, and goes out as soon as one answers.
+     */
+    private val confirmed = ConcurrentHashMap<String, Resource>()
+
     private var renewal: Job? = null
 
     @Volatile
@@ -75,6 +84,7 @@ internal class LeaseKeeper(
                     lease = grant()
                 }
                 put(resource)
+                confirmed[name] = resource
             } catch (e: StatusException) {
                 if (e.status.code !in OUT_OF_REACH) {
                     // The server keeps what an earlier registration of this name put there, so the client keeps it
@@ -96,6 +106,7 @@ internal class LeaseKeeper(
             // Instance that is still there.
             resources().timed().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
             registrations.remove(name)
+            confirmed.remove(name)
             if (registrations.isEmpty()) {
                 revoke()
             }
@@ -155,8 +166,19 @@ internal class LeaseKeeper(
             when {
                 response.lease != lease -> Unit
                 response.ttlSeconds == 0 -> restore()
-                response.attachedCount < registrations.size -> putBack()
+                else -> catchUp(response.attachedCount)
             }
+        }
+    }
+
+    /**
+     * Brings a lease that is still there up to date. The count may predate what was just sent, which is harmless:
+     * putting back creates only what is missing.
+     */
+    private suspend fun catchUp(attachedCount: Int) {
+        putUnconfirmed()
+        if (attachedCount < registrations.size) {
+            putBack()
         }
     }
 
@@ -168,9 +190,44 @@ internal class LeaseKeeper(
         delay(options.reRegisterJitter * Random.nextDouble())
         mutex.withLock {
             lease = grant()
-            registrations.values.forEach { put(it) }
+            // One refused gives way to the registration it would have replaced, which the next renewal finds missing.
+            registrations.toList().forEach { (name, resource) -> send(name, resource) }
         }
         log.info("Restored {} registrations in namespace {} with lease {}.", registrations.size, namespace, lease)
+    }
+
+    /**
+     * Sends what the server has not confirmed. Mostly there is nothing, which needs no lock to see.
+     *
+     * Unlike putting back, this replaces what the server holds: it is a registration the application made later, which
+     * the server would have taken then had it answered.
+     */
+    private suspend fun putUnconfirmed() {
+        if (registrations.all { (name, resource) -> confirmed[name] == resource }) {
+            return
+        }
+        mutex.withLock {
+            registrations.filter { (name, resource) -> confirmed[name] != resource }
+                .forEach { (name, resource) -> send(name, resource) }
+        }
+    }
+
+    /**
+     * Puts a registration and remembers that the server has it. One the server refuses, having never accepted it, gives
+     * way to the registration it would have replaced, as in [register], rather than being sent again and again.
+     */
+    private suspend fun send(name: String, resource: Resource) {
+        try {
+            put(resource)
+            confirmed[name] = resource
+        } catch (e: StatusException) {
+            val previous = confirmed[name]
+            if (e.status.code in OUT_OF_REACH || previous == resource) {
+                throw e
+            }
+            log.error("The server refused {}, registered while it was out of reach: {}", name, e.status)
+            if (previous == null) registrations.remove(name) else registrations[name] = previous
+        }
     }
 
     /**

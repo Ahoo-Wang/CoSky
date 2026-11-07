@@ -858,7 +858,7 @@ test.describe('services', () => {
         await expect(toast(page, 'Instance saved')).toBeVisible();
         await expect(row(page, 'billing')).toContainText('1');
         // The name the client would give this endpoint.
-        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/instances/billing-10.0.0.9-8081');
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/instances/billing_10.0.0.9_8081');
         expect(put?.headers['if-none-match']).toBe('*');
         const body = JSON.parse(put?.body ?? '');
         expect(body.instance).toEqual({

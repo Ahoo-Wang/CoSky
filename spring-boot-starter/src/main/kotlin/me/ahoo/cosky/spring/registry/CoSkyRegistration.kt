@@ -19,9 +19,9 @@ import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.CoSkyProperties
+import me.ahoo.cosky.spring.discovery.toUri
 import org.slf4j.LoggerFactory
 import org.springframework.boot.web.server.context.WebServerInitializedEvent
-import org.springframework.cloud.client.ServiceInstance
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
 import org.springframework.cloud.client.serviceregistry.Registration
@@ -33,6 +33,8 @@ import me.ahoo.cosky.client.Registration as ClientRegistration
 
 /**
  * This application as an instance of its service. The port is known only once the web server has started.
+ *
+ * The host is as the protocol has it, an IPv6 one without brackets; the URI has them.
  */
 class CoSkyRegistration(
     private val service: String,
@@ -54,7 +56,7 @@ class CoSkyRegistration(
 
     override fun isSecure(): Boolean = secure
 
-    override fun getUri(): URI = ServiceInstance.createUri(this)
+    override fun getUri(): URI = toUri()
 
     override fun getMetadata(): Map<String, String> = metadata
 

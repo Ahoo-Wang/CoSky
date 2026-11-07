@@ -17,9 +17,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import me.ahoo.cosky.api.v1.objectMeta
@@ -30,7 +32,9 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CountDownLatch
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 class SnapshotStoreTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -58,10 +62,10 @@ class SnapshotStoreTest {
     /**
      * A view that names its watch, to tell whose snapshot comes back.
      */
-    private fun viewOf(key: WatchKey): ListResponse = ListResponse.newBuilder()
+    private fun viewOf(key: WatchKey, revision: Long = 1): ListResponse = ListResponse.newBuilder()
         .addItems(resource { meta = objectMeta { name = key.name.ifEmpty { key.service } } })
         .setEpoch("e")
-        .setRevision(1)
+        .setRevision(revision)
         .build()
 
     /**
@@ -69,10 +73,12 @@ class SnapshotStoreTest {
      */
     private fun save(keys: List<WatchKey>) = runBlocking {
         keys.forEach { key -> store.schedule(key) { viewOf(key) } }
-        scope.coroutineContext.job.children.toList().joinAll()
+        awaitJobs()
     }
 
     private fun loaded(key: WatchKey): String? = store.load(key)?.itemsList?.single()?.meta?.name
+
+    private suspend fun awaitJobs() = scope.coroutineContext.job.children.toList().joinAll()
 
     @Test
     fun `snapshots written at once all land, though the directory they share is not there yet`() {
@@ -95,7 +101,31 @@ class SnapshotStoreTest {
         names.map { loaded(config(it)) }.assert().isEqualTo(names)
     }
 
+    @Test
+    fun `an earlier write still under way does not replace a later one`() = runBlocking<Unit> {
+        val key = instances("order")
+        val reading = CountDownLatch(1)
+        val resume = CountDownLatch(1)
+        store.schedule(key) {
+            reading.countDown()
+            resume.await()
+            viewOf(key, revision = 1)
+        }
+        reading.await()
+        store.schedule(key) { viewOf(key, revision = 2) }
+        // Gives the later write every chance to land first, which is how the earlier one came to replace it.
+        withTimeoutOrNull(LATER_WRITE_TIME) {
+            while (store.load(key)?.revision != 2L) {
+                delay(10.milliseconds)
+            }
+        }
+        resume.countDown()
+        awaitJobs()
+        store.load(key)?.revision.assert().isEqualTo(2L)
+    }
+
     private companion object {
+        val LATER_WRITE_TIME = 500.milliseconds
         const val ROUNDS = 8
         const val WATCHES = 32
     }

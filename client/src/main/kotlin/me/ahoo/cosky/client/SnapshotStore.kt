@@ -17,6 +17,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import org.slf4j.LoggerFactory
@@ -38,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap
 internal class SnapshotStore(private val options: CoSkyClientOptions, private val scope: CoroutineScope) {
     private val root: Path? = options.snapshotDir?.resolve(serverKey(options))
     private val pending = ConcurrentHashMap<WatchKey, Job>()
+    private val writing = ConcurrentHashMap<WatchKey, Mutex>()
 
     fun load(key: WatchKey): ListResponse? {
         val path = pathOf(key) ?: return null
@@ -51,6 +54,10 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
 
     /**
      * Writes once the view has been quiet for a moment, so a burst of changes costs one write.
+     *
+     * Cancelling cannot stop a write that is already reading the view or on disk, so the writes of one watch take
+     * turns: a later one reads the view only once the earlier one is done, and renames last, so the file never goes
+     * back to an older view. The lock is this store's own: applying a view never waits on the disk.
      */
     fun schedule(key: WatchKey, read: () -> ListResponse) {
         if (pathOf(key) == null) {
@@ -60,7 +67,7 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
             key,
             scope.launch {
                 delay(options.snapshotDebounce)
-                write(key, read())
+                writing.computeIfAbsent(key) { Mutex() }.withLock { write(key, read()) }
             },
         )?.cancel()
     }

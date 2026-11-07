@@ -30,15 +30,16 @@ const digestOf = (value: string) => {
 };
 
 /**
- * As the client names an instance (`NamingRules.defaultInstanceName`), so that one endpoint has one name. A name that
- * is too long keeps its port, and a digest of the whole name before it, so that two endpoints of a long host do not
- * share one.
+ * As the client names an instance (`NamingRules.defaultInstanceName`), so that one endpoint has one name. No service,
+ * host or port holds a `_`, so the first and the last one keep the three apart; the `:` of an IPv6 host becomes one
+ * too, which still sets it apart from every other host. A name that is too long keeps its port, and a digest of the
+ * whole name before it, so that two endpoints of a long host do not share one.
  */
 export const defaultInstanceName = (service: string, host: string, port: string | number) => {
-    const name = `${service}-${host}-${port}`.replace(ILLEGAL_NAME_CHARACTER, '-');
+    const name = `${service}_${host}_${port}`.replace(ILLEGAL_NAME_CHARACTER, '_');
     if (name.length <= MAX_NAME_LENGTH) {
         return name;
     }
-    const tail = `-${digestOf(name)}-${port}`.replace(ILLEGAL_NAME_CHARACTER, '-');
+    const tail = `_${digestOf(name)}_${port}`.replace(ILLEGAL_NAME_CHARACTER, '_');
     return name.slice(0, MAX_NAME_LENGTH - tail.length) + tail;
 };

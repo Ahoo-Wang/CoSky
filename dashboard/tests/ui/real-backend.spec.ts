@@ -145,20 +145,20 @@ test('a fixed instance is added, changed and removed', async ({page}) => {
     await expect(toast(page, 'Instance saved')).toBeVisible();
 
     await row(page, 'database').getByRole('button', {name: /expand/i}).click();
-    await expect(row(page, '10.0.0.9-3306')).toContainText('Fixed');
-    await expect(row(page, '10.0.0.9-3306')).toContainText('"zone":"east"');
+    await expect(row(page, '10.0.0.9_3306')).toContainText('Fixed');
+    await expect(row(page, '10.0.0.9_3306')).toContainText('"zone":"east"');
 
-    await row(page, '10.0.0.9-3306').getByRole('button', {name: 'Edit'}).click();
+    await row(page, '10.0.0.9_3306').getByRole('button', {name: 'Edit'}).click();
     await page.getByLabel('Weight', {exact: true}).fill('7');
     await page.getByRole('button', {name: 'Submit'}).click();
-    await expect(row(page, '10.0.0.9-3306')).toContainText('7');
+    await expect(row(page, '10.0.0.9_3306')).toContainText('7');
 
     await page.getByRole('link', {name: 'Dashboard'}).click();
     await expect(page.getByText('Instances', {exact: true}).locator('..')).toContainText('1');
 
     await page.getByRole('link', {name: 'Service', exact: true}).click();
     await row(page, 'database').getByRole('button', {name: /expand/i}).click();
-    await confirm(page, row(page, '10.0.0.9-3306').getByRole('button', {name: 'Delete'}));
+    await confirm(page, row(page, '10.0.0.9_3306').getByRole('button', {name: 'Delete'}));
     await expect(page.getByRole('main')).toContainText('No services registered in this namespace yet.');
 });
 

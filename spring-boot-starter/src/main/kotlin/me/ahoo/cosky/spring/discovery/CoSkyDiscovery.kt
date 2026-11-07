@@ -31,13 +31,16 @@ import org.springframework.cloud.client.discovery.DiscoveryClient
 import org.springframework.cloud.client.discovery.ReactiveDiscoveryClient
 import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier
 import reactor.core.publisher.Flux
+import java.net.URI
 
 private const val DESCRIPTION = "CoSky"
 private const val SECURE_SCHEMES = "https,grpcs,wss"
+private const val HTTP_PORT = 80
+private const val HTTPS_PORT = 443
 
 internal fun Resource.toServiceInstance(): ServiceInstance {
     val endpoint = instance.endpoint
-    return DefaultServiceInstance(
+    return CoSkyServiceInstance(
         meta.name,
         instance.service,
         endpoint.host,
@@ -45,6 +48,31 @@ internal fun Resource.toServiceInstance(): ServiceInstance {
         endpoint.scheme in SECURE_SCHEMES.split(","),
         instance.metadataMap,
     )
+}
+
+/**
+ * The URI [ServiceInstance.createUri] makes, but with an IPv6 host in brackets: Spring writes the host as it is, and
+ * `http://2001:db8::1:8080` has neither a host nor a port. [ServiceInstance.getHost] stays as the protocol has it.
+ */
+internal fun ServiceInstance.toUri(): URI {
+    val (scheme, defaultPort) = if (isSecure) "https" to HTTPS_PORT else "http" to HTTP_PORT
+    // Unlike parsing one, building a URI from its parts puts an IPv6 host in brackets. A port that is not known yet
+    // is the scheme's, as Spring has it.
+    return URI(scheme, null, host, port.takeIf { it > 0 } ?: defaultPort, null, null, null)
+}
+
+/**
+ * Spring's own instance, except for its URI: see [toUri].
+ */
+private class CoSkyServiceInstance(
+    instanceId: String,
+    serviceId: String,
+    host: String,
+    port: Int,
+    secure: Boolean,
+    metadata: Map<String, String>,
+) : DefaultServiceInstance(instanceId, serviceId, host, port, secure, metadata) {
+    override fun getUri(): URI = toUri()
 }
 
 /**
