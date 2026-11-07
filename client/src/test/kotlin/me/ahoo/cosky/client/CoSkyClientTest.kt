@@ -463,6 +463,22 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `a registration made while the server is away goes out once it is back, though it repeats an earlier one`() =
+        scenario {
+            val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+            instances.register("order", ENDPOINT, instanceName = "a", weight = 1)
+            val registered = instancesOnServer().single()
+            write(registered.toBuilder().apply { instanceBuilder.weight = 0 }.build())
+            server.stop()
+            // Registering again ends an operator's drain (design §6.2), even with what the server accepted before.
+            instances.register("order", ENDPOINT, instanceName = "a", weight = 1)
+            server.start()
+
+            eventually { instancesOnServer().singleOrNull()?.instance?.weight == 1 }
+            instancesOnServer().single().meta.lease.assert().isEqualTo(registered.meta.lease)
+        }
+
+    @Test
     fun `a replacement refused once the server is back gives way to the registration it would have replaced`() =
         scenario {
             val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
