@@ -59,12 +59,14 @@ internal object CoSkyClients {
     fun importedBy(properties: CoSkyProperties): Map<String, Resource> = imported[properties.imports].orEmpty()
 
     /**
-     * Remembers the property sources a Config makes up now.
+     * Remembers the property sources a Config makes up now, along with all it made up before. None is forgotten: a
+     * refresh that fails keeps the Environment as it was, old sources included, and a load cannot tell whether its
+     * refresh will.
      *
-     * @return those it made up before.
+     * @return every property source the Config has made up.
      */
-    fun replaceSources(properties: CoSkyProperties, config: String, names: Set<String>): Set<String> =
-        sources.put(properties.imports to config, names).orEmpty()
+    fun addSources(properties: CoSkyProperties, config: String, names: Set<String>): Set<String> =
+        sources.merge(properties.imports to config, names) { before, now -> before + now }.orEmpty()
 
     fun close(properties: CoSkyProperties) {
         imported.keys.removeIf { it.connection == properties.connection }

@@ -96,11 +96,12 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
         }
         val current = config?.let { parse(resource.config, it) }.orEmpty()
         val names = current.mapTo(HashSet()) { it.name }
-        val gone = CoSkyClients.replaceSources(properties, resource.config, names) - names
+        val gone = CoSkyClients.addSources(properties, resource.config, names) - names
         if (config == null && gone.isEmpty()) {
             throw ConfigDataResourceNotFoundException(resource, refusal)
         }
         // A refresh only adds and replaces property sources, so what no longer exists has to be replaced by nothing.
+        // Every time, since a refresh that failed kept what it should have replaced.
         return ConfigData(current + gone.map { MapPropertySource(it, emptyMap()) })
     }
 
