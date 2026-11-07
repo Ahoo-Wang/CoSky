@@ -725,7 +725,7 @@ client                         server                         Redis
   │                            │  逐个 lease_expire.lua ─────▶ │  DELETE 事件
 ```
 
-- KeepAlive 返回 `ttl_seconds = 0`(租约已过期被回收)时,客户端重新 Grant 并重新注册其全部实例。
+- KeepAlive 返回 `ttl_seconds = 0`(租约已过期被回收)时,客户端重新 Grant 并重新注册其全部实例。回收已删除这些实例,管理员对它们的修改(如 `weight = 0` 摘流、metadata)随之消失,重新注册用的是应用自己的值:客户端不跟踪服务端的管理修改,服务端也不另存覆盖值(#1093)。要在重启和租约丢失后仍保持摘流,应修改应用自己的注册权重(starter 的 `cosky.registry.weight`)。
 - KeepAlive 响应带 `attached_count`,即挂在该租约上的实例数(D31)。主从切换可能丢失最近的 Put,而更早的租约还在,续期一直成功。客户端发现它少于本地注册数时以 `expected_revision = -1` 重新创建本地注册,不重新 Grant:只有缺失的实例被创建,仍在的保持原样,包括管理员之后的修改,所以并发注册造成的误判也无害。
   这也意味着手工删除存活进程的 Instance 会被恢复:要摘除仍在运行的实例,把 `weight` 设为 0。
 - 存储不可用时 KeepAlive 流以 `UNAVAILABLE` 结束,**不代表租约丢失**:客户端保留注册信息,重连成功后立即续期,不等下一周期。
