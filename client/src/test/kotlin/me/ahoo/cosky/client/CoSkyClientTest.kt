@@ -139,6 +139,9 @@ class CoSkyClientTest {
         server.store.apply(NAMESPACE, listOf(Mutation.Put(resource)), "test")
     }
 
+    private fun endpoint(host: String = ENDPOINT.host, port: Int = ENDPOINT.port): Endpoint =
+        ENDPOINT.toBuilder().setHost(host).setPort(port).build()
+
     private suspend fun instancesOnServer(): List<Resource> =
         server.store.readAll(NAMESPACE).toList().filter { it.hasInstance() }
 
@@ -339,6 +342,17 @@ class CoSkyClientTest {
         val stored = instancesOnServer().single()
         stored.instance.service.assert().isEqualTo("order")
         stored.meta.lease.assert().isGreaterThan(0)
+    }
+
+    @Test
+    fun `endpoints of a long host keep apart under their default names`() = scenario {
+        val instances = client().namespace(NAMESPACE).instances
+        val service = "s".repeat(63)
+        val host = List(3) { "h".repeat(63) }.joinToString(".")
+        val first = instances.register(service, endpoint(host = host, port = 8080))
+        val second = instances.register(service, endpoint(host = host, port = 8081))
+        first.instanceName.assert().isNotEqualTo(second.instanceName)
+        instancesOnServer().map { it.instance.endpoint.port }.assert().containsExactlyInAnyOrder(8080, 8081)
     }
 
     @Test

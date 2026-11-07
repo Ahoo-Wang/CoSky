@@ -308,7 +308,7 @@ message RoleBindingSpec {
 | namespace | `^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$` | 不含 `{ } :`,哈希标签安全;`_system` 为保留名 |
 | Config name | `^[A-Za-z0-9._/-]{1,253}$`,且按 `/` 切分后**不得有空段、`.` 或 `..`**(即不得以 `/` 开头或结尾、不得含 `//`) | 允许路径式命名;REST 路径中的 `/` 须编码为 `%2F`(§4.5) |
 | service | `^[a-z0-9]([-a-z0-9.]{0,61}[a-z0-9])?$` | DNS 风格 |
-| Instance name | `^[A-Za-z0-9._-]{1,253}$`,且不得为 `.` 或 `..` | 默认 `<service>-<host>-<port>`(非法字符替换为 `-`),客户端可自定义 |
+| Instance name | `^[A-Za-z0-9._-]{1,253}$`,且不得为 `.` 或 `..` | 默认 `<service>-<host>-<port>`(非法字符替换为 `-`);超过 253 字符时截去 host 的末尾,在端口前加上完整名称的 64 位 FNV-1a 摘要,端口不丢,不同端点不会同名;客户端可自定义 |
 | ServiceAccount / Role / RoleBinding name | 同 service:`^[a-z0-9]([-a-z0-9.]{0,61}[a-z0-9])?$` | DNS 风格,≤ 63 |
 | label / metadata key | `^[A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?$` | 长度见 §7.1 |
 | Endpoint host | 合法 RFC 1123 主机名、IPv4 或 IPv6 字面量 | IPv6 不带方括号 |
