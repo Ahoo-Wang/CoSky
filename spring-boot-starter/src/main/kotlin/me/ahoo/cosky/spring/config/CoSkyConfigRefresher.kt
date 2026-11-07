@@ -21,8 +21,7 @@ import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.ahoo.cosky.api.VirtualThreads
-import me.ahoo.cosky.client.CoSkyClient
-import me.ahoo.cosky.spring.CoSkyClients
+import me.ahoo.cosky.spring.CoSkyApplicationClient
 import me.ahoo.cosky.spring.CoSkyProperties
 import me.ahoo.cosky.spring.orNone
 import org.slf4j.LoggerFactory
@@ -44,7 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * revision, which a Redis that lost writes hands out a second time.
  */
 class CoSkyConfigRefresher(
-    private val client: CoSkyClient,
+    private val application: CoSkyApplicationClient,
     private val properties: CoSkyProperties,
     private val publisher: ApplicationEventPublisher,
 ) : ApplicationListener<AvailabilityChangeEvent<ReadinessState>>, DisposableBean {
@@ -63,8 +62,8 @@ class CoSkyConfigRefresher(
         if (event.state != ReadinessState.ACCEPTING_TRAFFIC || !started.compareAndSet(false, true)) {
             return
         }
-        val configs = client.namespace(properties.namespace).configs
-        CoSkyClients.importedBy(properties).forEach { (config, loaded) ->
+        val configs = application.client.namespace(properties.namespace).configs
+        application.importedBy(properties.namespace).forEach { (config, loaded) ->
             scope.launch {
                 configs.watch(config).dropWhile { it.orNone() == loaded }.collect { refresh(config) }
             }

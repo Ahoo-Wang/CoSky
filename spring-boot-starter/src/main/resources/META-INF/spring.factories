@@ -2,3 +2,5 @@ org.springframework.boot.context.config.ConfigDataLocationResolver=\
 me.ahoo.cosky.spring.config.CoSkyConfigDataLocationResolver
 org.springframework.boot.context.config.ConfigDataLoader=\
 me.ahoo.cosky.spring.config.CoSkyConfigDataLoader
+org.springframework.boot.SpringApplicationRunListener=\
+me.ahoo.cosky.spring.CoSkyClientRunListener

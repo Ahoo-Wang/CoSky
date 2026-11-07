@@ -21,7 +21,6 @@ import me.ahoo.cosky.spring.discovery.CoSkyServiceInstanceListSupplier
 import me.ahoo.cosky.spring.registry.CoSkyAutoServiceRegistration
 import me.ahoo.cosky.spring.registry.CoSkyRegistration
 import me.ahoo.cosky.spring.registry.CoSkyServiceRegistry
-import org.springframework.beans.factory.DisposableBean
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
@@ -41,7 +40,6 @@ import org.springframework.context.ApplicationContext
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.DependsOn
 import org.springframework.context.annotation.Import
 import org.springframework.core.env.Environment
 
@@ -58,19 +56,20 @@ class CoSkyAutoConfiguration {
     }
 
     /**
-     * Spring destroys what uses the client before the client, so depending on the closer keeps the connection open for
-     * all of them, such as a registration leaving on shutdown.
+     * Unless an import created it already, and handed it over to this context.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    fun coSkyApplicationClient(properties: CoSkyProperties, environment: Environment): CoSkyApplicationClient =
+        CoSkyApplicationClient(properties, environment.getProperty(APPLICATION_NAME))
+
+    /**
+     * Closed by the application client, which Spring destroys after what depends on it, and so after everything that
+     * uses the client, such as a registration leaving on shutdown.
      */
     @Bean(destroyMethod = "")
     @ConditionalOnMissingBean
-    @DependsOn("coSkyClientCloser")
-    fun coSkyClient(properties: CoSkyProperties, environment: Environment): CoSkyClient =
-        CoSkyClients.shared(properties, environment.getProperty(APPLICATION_NAME))
-
-    @Bean
-    fun coSkyClientCloser(properties: CoSkyProperties): DisposableBean = DisposableBean {
-        CoSkyClients.close(properties)
-    }
+    fun coSkyClient(application: CoSkyApplicationClient): CoSkyClient = application.client
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(RefreshEvent::class)
@@ -82,10 +81,10 @@ class CoSkyAutoConfiguration {
     class Refresh {
         @Bean
         fun coSkyConfigRefresher(
-            client: CoSkyClient,
+            application: CoSkyApplicationClient,
             properties: CoSkyProperties,
             publisher: ApplicationEventPublisher,
-        ): CoSkyConfigRefresher = CoSkyConfigRefresher(client, properties, publisher)
+        ): CoSkyConfigRefresher = CoSkyConfigRefresher(application, properties, publisher)
     }
 
     @Configuration(proxyBeanMethods = false)

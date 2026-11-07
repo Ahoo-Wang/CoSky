@@ -88,6 +88,7 @@ class CoSkyStarterTest {
     private fun application(
         vararg arguments: String,
         web: Boolean = false,
+        name: String = "order",
         connection: List<String> = listOf(
             "--cosky.endpoints=${server.endpoint}",
             "--cosky.namespace=${TestCoSkyServer.NAMESPACE}",
@@ -96,7 +97,7 @@ class CoSkyStarterTest {
         snapshots: Path? = null,
     ): ConfigurableApplicationContext {
         val common = listOf(
-            "--spring.application.name=order",
+            "--spring.application.name=$name",
             "--spring.grpc.server.enabled=false",
             "--spring.main.web-application-type=${if (web) "reactive" else "none"}",
             "--spring.cloud.compatibility-verifier.enabled=false",
@@ -274,13 +275,13 @@ class CoSkyStarterTest {
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
         val context = application("--spring.config.import=cosky:order.yaml")
         val properties = context.getBean(CoSkyProperties::class.java)
-        val client = context.getBean(CoSkyClient::class.java)
-        val current = client.namespace(TestCoSkyServer.NAMESPACE).configs.load("order.yaml")
+        val application = context.getBean(CoSkyApplicationClient::class.java)
+        val current = application.client.namespace(TestCoSkyServer.NAMESPACE).configs.load("order.yaml")
         // As after a Redis that lost writes: the same revision, and other content.
         val other = current?.toBuilder()?.apply { configBuilder.content = "order:\n  limit: 20" }?.build()
-        CoSkyClients.markImported(properties, "order.yaml", other)
+        application.markImported(TestCoSkyServer.NAMESPACE, "order.yaml", other)
         val events = CopyOnWriteArrayList<Any>()
-        val refresher = CoSkyConfigRefresher(client, properties) { events += it }
+        val refresher = CoSkyConfigRefresher(application, properties) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.ACCEPTING_TRAFFIC))
         eventually { events.isNotEmpty() }
         refresher.destroy()
@@ -405,10 +406,11 @@ class CoSkyStarterTest {
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
         val context = application("--spring.config.import=cosky:order.yaml")
         val properties = context.getBean(CoSkyProperties::class.java)
+        val application = context.getBean(CoSkyApplicationClient::class.java)
         // Stands in for that gap: this refresher starts from something other than what the view holds.
-        CoSkyClients.markImported(properties, "order.yaml", null)
+        application.markImported(TestCoSkyServer.NAMESPACE, "order.yaml", null)
         val events = CopyOnWriteArrayList<Any>()
-        val refresher = CoSkyConfigRefresher(context.getBean(CoSkyClient::class.java), properties) { events += it }
+        val refresher = CoSkyConfigRefresher(application, properties) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.REFUSING_TRAFFIC))
         delay(200.milliseconds)
         events.assert().isEmpty()
@@ -654,9 +656,88 @@ class CoSkyStarterTest {
     fun `configuration loading and the context share one client`() {
         server.put(TestCoSkyServer.config("order.yaml", "a: 1"))
         val context = application("--spring.config.import=cosky:order.yaml")
-        // Clients are shared by their settings: the context finds what loading did under the settings it bound itself.
-        CoSkyClients.importedBy(context.getBean(CoSkyProperties::class.java)).keys.assert()
-            .containsExactly("order.yaml")
+        // The import created it, along with what it loaded, and the context took it over.
+        val application = context.getBean(CoSkyApplicationClient::class.java)
+        application.importedBy(TestCoSkyServer.NAMESPACE).keys.assert().containsExactly("order.yaml")
+        context.getBean(CoSkyClient::class.java).assert().isSameAs(application.client)
+    }
+
+    @Test
+    fun `a refresh loads through the application's client`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        // Refreshing by hand, to know when it has run.
+        val context = application("--cosky.config.refresh.enabled=false", "--spring.config.import=cosky:order.yaml")
+        val connections = server.connections
+        connections.assert().hasSize(1)
+
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+        val configs = context.getBean(CoSkyClient::class.java).namespace(TestCoSkyServer.NAMESPACE).configs
+        eventually { configs.watch("order.yaml").value?.config?.content == "order:\n  limit: 20" }
+        context.getBean(ContextRefresher::class.java).refresh()
+
+        context.environment.getProperty("order.limit").assert().isEqualTo("20")
+        server.connections.assert().isEqualTo(connections)
+    }
+
+    @Test
+    fun `applications in one JVM have a client each, so closing one leaves the other be`() = runBlocking<Unit> {
+        // One gets its client from an import, the other from the auto-configuration.
+        val order = application("--spring.config.import=optional:cosky:order.yaml", web = true)
+        val payment = application(web = true, name = "payment")
+        eventually { server.instances().size == 2 }
+        order.getBean(CoSkyDiscoveryClient::class.java).getInstances("payment")
+        payment.getBean(CoSkyDiscoveryClient::class.java).getInstances("stock")
+        server.topology.flush()
+        server.store.topology(TestCoSkyServer.NAMESPACE).map { it.consumer to it.producer }.assert()
+            .containsExactlyInAnyOrder("order" to "payment", "payment" to "stock")
+
+        order.close()
+        contexts.remove(order)
+
+        server.instances().map { it.instance.service }.assert().containsExactly("payment")
+        server.put(TestCoSkyServer.instance("stock-1", "stock"))
+        val discovery = payment.getBean(CoSkyDiscoveryClient::class.java)
+        eventually { discovery.getInstances("stock").isNotEmpty() }
+    }
+
+    @Test
+    fun `applications in one JVM refresh for what they imported themselves`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        server.put(TestCoSkyServer.config("payment.yaml", "payment:\n  limit: 10"))
+        val order = application("--spring.config.import=cosky:order.yaml")
+        val payment = application("--spring.config.import=cosky:payment.yaml", name = "payment")
+
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
+        eventually { order.environment.getProperty("order.limit") == "20" }
+        delay(200.milliseconds)
+        payment.getBean(Application::class.java).refreshes.assert().isEmpty()
+    }
+
+    @Test
+    fun `the client an import created closes with the context`() = runBlocking<Unit> {
+        val context = application("--spring.config.import=optional:cosky:order.yaml")
+        server.connections.assert().hasSize(1)
+
+        context.close()
+        contexts.remove(context)
+        eventually { server.connections.isEmpty() }
+    }
+
+    @Test
+    fun `an application that fails to start leaves no client behind`() = runBlocking<Unit> {
+        // Before its context exists, which would take the client over.
+        val failure = runCatching { application("--spring.config.import=cosky:missing.yaml") }.exceptionOrNull()
+        failure.assert().isInstanceOf(ConfigDataResourceNotFoundException::class.java)
+        eventually { server.connections.isEmpty() }
+
+        // And after.
+        runCatching {
+            application(
+                "--spring.config.import=optional:cosky:order.yaml",
+                listener = ApplicationListener { throw IllegalStateException("refused") },
+            )
+        }.exceptionOrNull()?.message.assert().isEqualTo("refused")
+        eventually { server.connections.isEmpty() }
     }
 
     @Test
