@@ -14,11 +14,15 @@
 package me.ahoo.cosky.server.observe
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -37,6 +41,7 @@ import me.ahoo.cosky.server.watch.NamespaceCache
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchSession
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -168,12 +173,28 @@ class ObservabilityTest {
 
     @Test
     fun `a replica is ready once every namespace has loaded`() = scenario {
-        val caches = WatchCache(store, WINDOW, scope)
+        // On the memory store orders could finish loading before readiness is first asked. Held, it is loading then.
+        val loadable = CompletableDeferred<Unit>()
+        val held = object : Store by store {
+            override fun readAll(namespace: String): Flow<Resource> = flow {
+                if (namespace == "orders") {
+                    loadable.await()
+                }
+                emitAll(store.readAll(namespace))
+            }
+        }
+        val caches = WatchCache(held, WINDOW, scope)
         val readiness = ReadinessIndicator(caches)
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
         store.createNamespace("orders")
         store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(namespaceObject("orders"))), "test")
-        readiness.health().status.assert().isEqualTo(Status.OUT_OF_SERVICE)
+        // Then orders is all that is left to load.
+        caches.of(NamingRules.SYSTEM_NAMESPACE).views.first { it != null }
+
+        val loading = readiness.health()
+        loading.status.assert().isEqualTo(Status.OUT_OF_SERVICE)
+        loading.details["loading"].assert().isEqualTo(listOf("orders"))
+        loadable.complete(Unit)
         while (readiness.health().status != Status.UP) {
             delay(10.milliseconds)
         }

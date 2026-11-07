@@ -44,7 +44,6 @@ import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import org.springframework.context.annotation.Bean
 import org.testcontainers.containers.Network
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -109,17 +108,13 @@ class ServerEndToEndTest {
 
     @Test
     fun `the REST API works over a real port, with a large config and an encoded name`() = withRedis { redis ->
-        val httpPort = ServerSocket(0).use { it.localPort }
-        val web = properties(redis) + mapOf(
-            "spring.main.web-application-type" to "reactive",
-            "server.port" to httpPort,
-        )
+        val web = properties(redis) + ("spring.main.web-application-type" to "reactive")
         RunningServer(web).use { server ->
             scenario {
                 server.createNamespace("rest")
                 val content = "x".repeat(1024 * 1024 - 1)
                 val http = HttpClient.newHttpClient()
-                val uri = URI("http://localhost:$httpPort/v1/namespaces/rest/configs/shared%2Fa.txt")
+                val uri = URI("http://localhost:${server.httpPort}/v1/namespaces/rest/configs/shared%2Fa.txt")
                 val put = http.send(
                     HttpRequest.newBuilder(uri)
                         .header("Content-Type", "application/json")

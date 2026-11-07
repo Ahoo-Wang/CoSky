@@ -16,7 +16,6 @@ package me.ahoo.cosky.server
 import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -35,15 +34,14 @@ class DashboardHostingTest {
 
     @Test
     fun `the page loads without signing in, and the API still asks for it`() {
-        val port = ServerSocket(0).use { it.localPort }
         val secured = mapOf(
-            "server.port" to port,
             "cosky.store.type" to CoSkyProperties.MEMORY,
             "cosky.auth.enabled" to "true",
             "cosky.auth.bootstrap-token" to Tokens.generate().plaintext,
         )
 
-        RunningServer(secured).use {
+        RunningServer(secured).use { server ->
+            val port = server.httpPort
             val page = get(port, "/")
             page.statusCode().assert().isEqualTo(OK)
             page.body().assert().contains("Dashboard under test")

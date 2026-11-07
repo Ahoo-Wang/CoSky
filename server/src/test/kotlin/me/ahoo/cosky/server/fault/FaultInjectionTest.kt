@@ -37,6 +37,7 @@ import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.CoSkyClientOptions
 import me.ahoo.cosky.server.RedisContainer
 import me.ahoo.cosky.server.RunningServer
+import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -44,7 +45,6 @@ import org.junit.jupiter.api.Test
 import org.testcontainers.Testcontainers
 import org.testcontainers.containers.Network
 import org.testcontainers.toxiproxy.ToxiproxyContainer
-import java.net.ServerSocket
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -64,7 +64,6 @@ class FaultInjectionTest {
         .withNetworkAliases(redisAlias)
         .also { it.start() }
     private val redisProxy = proxy("redis-$id", "$redisAlias:${RedisContainer.REDIS_PORT}")
-    private val serverPort = ServerSocket(0).use { it.localPort }
     private val clients = mutableListOf<CoSkyClient>()
     private var server: RunningServer? = null
 
@@ -78,6 +77,14 @@ class FaultInjectionTest {
 
     private fun mappedPort(proxy: Proxy): Int = TOXIPROXY.getMappedPort(proxy.listen.substringAfterLast(':').toInt())
 
+    /**
+     * Where a proxy finds [server]: on this host, as seen from the container Toxiproxy runs in.
+     */
+    private fun upstreamOf(server: RunningServer): String {
+        Testcontainers.exposeHostPorts(server.grpcPort)
+        return "host.testcontainers.internal:${server.grpcPort}"
+    }
+
     private fun properties(grace: Duration, protectionMinLeases: Int): Map<String, Any> = mapOf(
         "spring.main.web-application-type" to "none",
         "cosky.store.redis.uri" to "redis://${TOXIPROXY.host}:${mappedPort(redisProxy)}",
@@ -90,9 +97,9 @@ class FaultInjectionTest {
     )
 
     private fun startServer(grace: Duration = GRACE, protectionMinLeases: Int = NO_PROTECTION): RunningServer =
-        RunningServer(properties(grace, protectionMinLeases), port = serverPort).also { server = it }
+        RunningServer(properties(grace, protectionMinLeases)).also { server = it }
 
-    private fun client(endpoint: String = "localhost:$serverPort"): CoSkyClient = CoSkyClient(
+    private fun client(endpoint: String = "localhost:${running.grpcPort}"): CoSkyClient = CoSkyClient(
         CoSkyClientOptions(
             endpoints = listOf(endpoint),
             snapshotDir = null,
@@ -107,8 +114,7 @@ class FaultInjectionTest {
      * A client that reaches the server through a proxy, which a test can then cut.
      */
     private fun clientBehindProxy(): Pair<CoSkyClient, Proxy> {
-        Testcontainers.exposeHostPorts(serverPort)
-        val proxy = proxy("server-$id-${clients.size}", "host.testcontainers.internal:$serverPort")
+        val proxy = proxy("server-$id-${clients.size}", upstreamOf(running))
         return client("${TOXIPROXY.host}:${mappedPort(proxy)}") to proxy
     }
 
@@ -118,9 +124,20 @@ class FaultInjectionTest {
         }
     }
 
-    private suspend fun instances(): List<Resource> = running.resources.list(
-        ListRequest.newBuilder().setNamespace(NAMESPACE).setKind(Kind.KIND_INSTANCE).build(),
-    ).itemsList
+    /**
+     * The instances as of now. Without a revision a read gets the server's view, which can still be without a write
+     * that already returned, such as a registration. The store's latest revision has every such write, and the server
+     * waits for its view to get there.
+     */
+    private suspend fun instances(): List<Resource> {
+        val latest = running.bean(Store::class.java).position(NAMESPACE)?.revision ?: 0
+        val request = ListRequest.newBuilder()
+            .setNamespace(NAMESPACE)
+            .setKind(Kind.KIND_INSTANCE)
+            .setMinRevision(latest)
+            .build()
+        return running.resources.list(request).itemsList
+    }
 
     private suspend fun eventually(condition: suspend () -> Boolean) {
         while (!runCatching { condition() }.getOrDefault(false)) {
@@ -253,6 +270,8 @@ class FaultInjectionTest {
         running.close()
         delay(LONGER_THAN_TTL)
         startServer()
+        // On a port of its own: the address the client knows now leads there, as a load balancer's would.
+        clientProxy.setUpstream(upstreamOf(running))
         // The new server leads the reaper by now, and the client is not back yet.
         delay(WITHIN_GRACE)
         clientProxy.enable()
@@ -277,14 +296,13 @@ class FaultInjectionTest {
 
     @Test
     fun `with one of two servers killed, a client carries on with the other`() = scenario {
-        val secondPort = ServerSocket(0).use { it.localPort }
         val first = startServer()
         first.createNamespace(NAMESPACE)
-        val second = RunningServer(properties(GRACE, NO_PROTECTION), port = secondPort)
+        val second = RunningServer(properties(GRACE, NO_PROTECTION))
         try {
             val client = CoSkyClient(
                 CoSkyClientOptions(
-                    endpoints = listOf("localhost:$serverPort", "localhost:$secondPort"),
+                    endpoints = listOf("localhost:${first.grpcPort}", "localhost:${second.grpcPort}"),
                     snapshotDir = null,
                     reconnectMin = 50.milliseconds,
                     reconnectMax = 500.milliseconds,
@@ -315,11 +333,10 @@ class FaultInjectionTest {
     fun `a server that goes silent is noticed, and the client moves to the next endpoint`() = scenario {
         val running = startServer()
         running.createNamespace(NAMESPACE)
-        Testcontainers.exposeHostPorts(serverPort)
-        val proxy = proxy("silent-$id", "host.testcontainers.internal:$serverPort")
+        val proxy = proxy("silent-$id", upstreamOf(running))
         val client = CoSkyClient(
             CoSkyClientOptions(
-                endpoints = listOf("${TOXIPROXY.host}:${mappedPort(proxy)}", "localhost:$serverPort"),
+                endpoints = listOf("${TOXIPROXY.host}:${mappedPort(proxy)}", "localhost:${running.grpcPort}"),
                 snapshotDir = null,
                 reconnectMin = 50.milliseconds,
                 reconnectMax = 500.milliseconds,

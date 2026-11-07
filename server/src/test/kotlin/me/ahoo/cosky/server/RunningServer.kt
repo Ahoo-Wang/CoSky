@@ -39,8 +39,8 @@ import me.ahoo.cosky.api.v1.putRequest
 import me.ahoo.cosky.api.v1.resource
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.context.ConfigurableApplicationContext
+import org.springframework.grpc.server.lifecycle.GrpcServerLifecycle
 import org.testcontainers.containers.GenericContainer
-import java.net.ServerSocket
 import java.util.concurrent.CopyOnWriteArrayList
 
 internal class RedisContainer(vararg command: String) : GenericContainer<RedisContainer>("redis:7.4-alpine") {
@@ -57,20 +57,35 @@ internal class RedisContainer(vararg command: String) : GenericContainer<RedisCo
 }
 
 /**
- * A real server on a real port, and a real client, as nothing but the protocol connects them (design §0).
+ * A real server on real ports, and a real client, as nothing but the protocol connects them (design §0).
+ *
+ * Both ports are 0 unless given: the system then picks free ones as the server binds them. A port found free beforehand
+ * can be taken by another process before the server binds it, which then fails to start.
+ *
+ * @param port the gRPC port to bind. A restart passes the [grpcPort] of the server before, where its clients come back.
  */
 internal class RunningServer(
     properties: Map<String, Any>,
     vararg sources: Class<*>,
     token: String? = null,
-    private val port: Int = ServerSocket(0).use { it.localPort },
+    port: Int = 0,
 ) : AutoCloseable {
     private val context: ConfigurableApplicationContext =
         SpringApplicationBuilder(CoSkyServerApplication::class.java, *sources).run(
             // As arguments: SpringApplicationBuilder.properties only sets defaults, which application.yaml overrides.
-            *(properties + ("spring.grpc.server.port" to port)).map { (key, value) -> "--$key=$value" }.toTypedArray(),
+            *(mapOf("server.port" to 0) + properties + ("spring.grpc.server.port" to port))
+                .map { (key, value) -> "--$key=$value" }
+                .toTypedArray(),
         )
-    private val channel: ManagedChannel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
+
+    /** The port gRPC is bound to. */
+    val grpcPort: Int = context.getBean(GrpcServerLifecycle::class.java).port
+
+    /** The port HTTP is bound to, for a server with a web server. */
+    val httpPort: Int
+        get() = context.environment.getRequiredProperty("local.server.port", Int::class.java)
+
+    private val channel: ManagedChannel = ManagedChannelBuilder.forAddress("localhost", grpcPort).usePlaintext().build()
 
     val anonymousResources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
     private val credentials = token?.let { bearer ->

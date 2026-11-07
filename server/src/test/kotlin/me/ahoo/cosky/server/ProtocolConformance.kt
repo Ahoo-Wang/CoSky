@@ -39,7 +39,6 @@ import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.cosky.test.conformance.ProtocolConformanceTest
 import org.junit.jupiter.api.AfterEach
-import java.net.ServerSocket
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -120,9 +119,9 @@ class MemoryProtocolConformanceTest : ProtocolConformanceTest() {
  * The whole server on real Redis, over a real port.
  */
 class RedisProtocolConformanceTest : ProtocolConformanceTest() {
-    private val port = ServerSocket(0).use { it.localPort }
     private val clients = mutableListOf<CoSkyClient>()
-    private var server = RunningServer(PROPERTIES, port = port)
+    private var server = RunningServer(PROPERTIES)
+    private val port = server.grpcPort
     private val remote: ManagedChannel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build()
 
     override val channel: Channel
@@ -132,6 +131,7 @@ class RedisProtocolConformanceTest : ProtocolConformanceTest() {
 
     override suspend fun restartServer() {
         server.close()
+        // On the port of the one before, as a restart is: a client keeps to its one endpoint, as does this channel.
         server = RunningServer(PROPERTIES, port = port)
     }
 

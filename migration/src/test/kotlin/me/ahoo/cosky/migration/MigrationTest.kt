@@ -481,18 +481,17 @@ class MigrationTest {
 
         val URL: String = startServer()
 
-        private fun freePort() = ServerSocket(0).use { it.localPort }
-
         private fun startServer(): String {
-            val port = freePort()
-            SpringApplicationBuilder(CoSkyServerApplication::class.java).run(
-                "--server.port=$port",
-                "--spring.grpc.server.port=${freePort()}",
+            // Port 0: the system picks free ports as the server binds them, where one found free beforehand could be
+            // taken by another process in between.
+            val server = SpringApplicationBuilder(CoSkyServerApplication::class.java).run(
+                "--server.port=0",
+                "--spring.grpc.server.port=0",
                 "--cosky.store.type=memory",
                 "--cosky.auth.enabled=true",
                 "--cosky.auth.bootstrap-token=$TOKEN",
             )
-            val url = "http://localhost:$port"
+            val url = "http://localhost:${server.environment.getRequiredProperty("local.server.port")}"
             // A server just started refuses requests until its access rules have loaded.
             val target = RestTarget(url, TOKEN)
             repeat(READY_ATTEMPTS) {

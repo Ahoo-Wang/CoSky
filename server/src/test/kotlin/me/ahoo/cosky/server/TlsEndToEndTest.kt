@@ -23,7 +23,6 @@ import me.ahoo.cosky.client.ConnectionState
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -41,7 +40,7 @@ import kotlin.time.Duration.Companion.seconds
  */
 class TlsEndToEndTest {
     private fun options(tls: Boolean, trusted: Path? = null) = CoSkyClientOptions(
-        endpoints = listOf("localhost:$GRPC_PORT"),
+        endpoints = listOf("localhost:${SERVER.grpcPort}"),
         snapshotDir = null,
         tls = tls,
         tlsTrustedCertificates = trusted,
@@ -78,7 +77,7 @@ class TlsEndToEndTest {
 
     @Test
     fun `the REST port answers over TLS, to whoever trusts the certificate`() {
-        val request = HttpRequest.newBuilder(URI("https://localhost:$HTTP_PORT/v1/auth/config")).build()
+        val request = HttpRequest.newBuilder(URI("https://localhost:${SERVER.httpPort}/v1/auth/config")).build()
 
         val response = HttpClient.newBuilder().sslContext(trusting(CERTIFICATE)).build()
             .send(request, HttpResponse.BodyHandlers.ofString())
@@ -105,8 +104,6 @@ class TlsEndToEndTest {
         private const val HTTP_OK = 200
         private val SUCCESS_WINDOW = 30.seconds
         private val FAILURE_WINDOW = 3.seconds
-        private val HTTP_PORT = ServerSocket(0).use { it.localPort }
-        private val GRPC_PORT = ServerSocket(0).use { it.localPort }
         private val DIRECTORY: Path = Files.createTempDirectory("cosky-tls")
         private val KEYSTORE: Path = DIRECTORY.resolve("server.p12")
         private val CERTIFICATE: Path = DIRECTORY.resolve("server.pem").also { makeCertificate(it) }
@@ -132,7 +129,6 @@ class TlsEndToEndTest {
 
         private val SERVER = RunningServer(
             mapOf(
-                "server.port" to HTTP_PORT,
                 "cosky.store.type" to CoSkyProperties.MEMORY,
                 "cosky.auth.enabled" to "false",
                 "spring.ssl.bundle.jks.cosky.keystore.location" to "file:$KEYSTORE",
@@ -141,7 +137,6 @@ class TlsEndToEndTest {
                 "server.ssl.bundle" to "cosky",
                 "spring.grpc.server.ssl.bundle" to "cosky",
             ),
-            port = GRPC_PORT,
         )
 
         @JvmStatic

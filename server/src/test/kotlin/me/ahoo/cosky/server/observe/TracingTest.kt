@@ -21,7 +21,6 @@ import me.ahoo.cosky.server.RunningServer
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -46,11 +45,9 @@ class TracingTest {
             }
             start()
         }
-        val port = ServerSocket(0).use { it.localPort }
         val properties = mapOf(
             "cosky.store.type" to "memory",
             "cosky.auth.enabled" to "false",
-            "server.port" to port,
             "management.tracing.sampling.probability" to "1.0",
             "management.opentelemetry.tracing.export.otlp.endpoint" to
                 "http://localhost:${collector.address.port}/v1/traces",
@@ -59,8 +56,9 @@ class TracingTest {
             RunningServer(properties).use { server ->
                 withTimeout(30.seconds) {
                     server.createNamespace("traced")
+                    val uri = URI("http://localhost:${server.httpPort}/v1/namespaces/traced/configs")
                     HttpClient.newHttpClient().send(
-                        HttpRequest.newBuilder(URI("http://localhost:$port/v1/namespaces/traced/configs")).build(),
+                        HttpRequest.newBuilder(uri).build(),
                         BodyHandlers.ofString(),
                     ).statusCode().assert().isEqualTo(200)
                     while (!received.any { GRPC_SPAN in it } || !received.any { HTTP_SPAN in it }) {
