@@ -305,6 +305,48 @@ test.describe('the shell', () => {
         await expect(edge(card, 'order', 'billing')).toHaveCount(0);
     });
 
+    test('the longest service names stay inside their nodes, which stay clear of one another', async ({page}) => {
+        const api = await installApiMock(page);
+        // 63 characters, as many as a service name may have, some of them as wide as letters get; and a short one
+        // in a second row, under them.
+        const long = `service-${'n'.repeat(55)}`;
+        const wide = Array.from({length: 5}, (_, index) => `${'m'.repeat(61)}-${index}`);
+        const sources = [long, ...wide, 'short'];
+        api.topology = sources.map(consumer => ({consumer, producer: 'database'}));
+        await login(page);
+        const card = page.locator('[data-slot="card"]').filter({hasText: 'Service Topology'});
+        const node = (name: string) => card.getByRole('group', {name, exact: true});
+        await expect(node('database')).toBeVisible();
+        await expect(node(long).getByTitle(long)).toBeVisible();
+
+        type Box = {x: number; y: number; width: number; height: number};
+        const within = (inner: Box, outer: Box) => inner.x >= outer.x && inner.y >= outer.y &&
+            inner.x + inner.width <= outer.x + outer.width && inner.y + inner.height <= outer.y + outer.height;
+        const apart = (a: Box, b: Box) => a.x + a.width <= b.x || b.x + b.width <= a.x ||
+            a.y + a.height <= b.y || b.y + b.height <= a.y;
+        // Measured again should the graph still be fitting itself into view.
+        await expect(async () => {
+            const boxes = new Map<string, Box>();
+            for (const name of [...sources, 'database']) {
+                const box = (await node(name).boundingBox())!;
+                const label = (await node(name).getByText(name, {exact: true}).boundingBox())!;
+                expect(within(label, box), `the name of ${name} inside its node`).toBe(true);
+                boxes.set(name, box);
+            }
+            const names = [...boxes.keys()];
+            for (const [index, name] of names.entries()) {
+                for (const other of names.slice(index + 1)) {
+                    expect(apart(boxes.get(name)!, boxes.get(other)!), `${name} clear of ${other}`).toBe(true);
+                }
+            }
+            const database = boxes.get('database')!;
+            for (const source of sources) {
+                const box = boxes.get(source)!;
+                expect(database.y, `database below ${source}`).toBeGreaterThan(box.y + box.height);
+            }
+        }).toPass({timeout: 5_000});
+    });
+
     test('command search reaches every page, and its keys stay out of the way', async ({page}) => {
         await installApiMock(page);
         await login(page);

@@ -30,6 +30,11 @@ export interface ServiceNodeData {
 export const HIGHLIGHT_COLOR = '#6d5ce8';
 export const DIM_OPACITY = 0.3;
 
+// A service name can be 63 characters without a space. Its node keeps one width and wraps the name onto at most this
+// many lines, so that the layout knows how much room every node takes.
+export const NODE_WIDTH = 200;
+export const LABEL_LINES = 3;
+
 export const NODE_TYPE_COLORS = {
     source: {
         backgroundColor: '#6d8cff',
@@ -128,7 +133,8 @@ export function toReactFlowTopology(
     const targets = nodeList.filter(nodeName => getNodeType(nodeName) === 'target').sort();
 
     const layerSpacingY = 220;
-    const nodeSpacingX = 180;
+    const nodeSpacingX = NODE_WIDTH + 40;
+    // Room for a node whose name takes all its lines.
     const rowSpacingY = 120;
     const maxNodesPerRow = 6;
 
@@ -176,7 +182,10 @@ export function toReactFlowTopology(
         const nodeType = getNodeType(nodeName);
         nodes.push({
             id: nodeName,
-            type: 'default',
+            // Not React Flow's 'default', whose own box, narrower than a ServiceNode, would be drawn around it.
+            type: 'service',
+            // The whole name, however short its label falls.
+            ariaLabel: nodeName,
             data: {
                 label: nodeName,
                 nodeType,

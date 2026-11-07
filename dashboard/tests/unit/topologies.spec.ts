@@ -16,6 +16,7 @@ import type {Edge} from '@xyflow/react';
 import {
     getConnectedNodeIds,
     isServiceNodeData,
+    NODE_WIDTH,
     toConsumers,
     toReactFlowTopology,
 } from '../../src/components/topology/topologies.ts';
@@ -48,6 +49,7 @@ test('converts service relationships into deterministic typed nodes and quiet ed
     const node = (id: string) => nodes.find(item => item.id === id)!;
 
     expect(nodes).toHaveLength(4);
+    expect(node('gateway')).toMatchObject({type: 'service', ariaLabel: 'gateway'});
     expect(node('gateway').data).toMatchObject({nodeType: 'source', inDegree: 0, outDegree: 2});
     expect(node('user').data).toMatchObject({nodeType: 'intermediate', inDegree: 1, outDegree: 1});
     expect(node('database').data).toMatchObject({nodeType: 'target', inDegree: 2, outDegree: 0});
@@ -105,8 +107,8 @@ test('wraps crowded layers without overlapping nodes', () => {
 });
 
 test('places each layer below every row of the crowded layer above it', () => {
-    // About the box React Flow gives a ServiceNode: nodes placed closer than this overlap on screen.
-    const box = {width: 170, height: 90};
+    // About the box of a ServiceNode whose name takes all its lines: nodes placed closer than this overlap on screen.
+    const box = {width: NODE_WIDTH, height: 93};
     const named = (prefix: string, count: number) =>
         Array.from({length: count}, (_, index) => `${prefix}-${String(index).padStart(2, '0')}`);
     // Three rows of sources, then three rows of the services they call, then the database those call.
