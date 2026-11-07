@@ -14,6 +14,7 @@
 package me.ahoo.cosky.server
 
 import io.grpc.ServerInterceptor
+import io.lettuce.core.AbstractRedisClient
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.cluster.RedisClusterClient
@@ -108,15 +109,40 @@ class CoSkyServerApplication : DisposableBean {
     ): Store {
         val redis = properties.store.redis
         val uri = RedisURI.create(redis.uri)
-        val clientResources = resources.getIfAvailable { ClientResources.create() }
+        // Shared resources stay their owner's. Without them a client makes its own, which shutting it down releases.
+        val shared = resources.getIfAvailable()
         val pollInterval = redis.tailPollInterval.toKotlinDuration()
-        val store = if (redis.cluster) {
-            RedisStore.cluster(RedisClusterClient.create(clientResources, uri), options, pollInterval)
+        return if (redis.cluster) {
+            val client = shared?.let { RedisClusterClient.create(it, uri) } ?: RedisClusterClient.create(uri)
+            owning(client) { RedisStore.cluster(client, options, pollInterval) }
         } else {
-            RedisStore.standalone(RedisClient.create(clientResources, uri), options, pollInterval)
+            val client = shared?.let { RedisClient.create(it, uri) } ?: RedisClient.create(uri)
+            owning(client) { RedisStore.standalone(client, options, pollInterval) }
         }
-        runBlocking(VirtualThreads.dispatcher) { store.checkPrerequisites() }
-        return store
+    }
+
+    /**
+     * A store that cannot start leaves nothing open, and one that can closes the client it was made with.
+     */
+    private fun owning(client: AbstractRedisClient, open: () -> RedisStore): Store {
+        var opened: RedisStore? = null
+        return runCatching {
+            open().also { store ->
+                opened = store
+                runBlocking(VirtualThreads.dispatcher) { store.checkPrerequisites() }
+            }
+        }.onFailure {
+            opened?.close()
+            client.shutdown()
+        }.map { ClientOwningStore(it, client) }.getOrThrow()
+    }
+
+    private class ClientOwningStore(private val store: RedisStore, private val client: AbstractRedisClient) :
+        Store by store {
+        override fun close() {
+            store.close()
+            client.shutdown()
+        }
     }
 
     @Bean

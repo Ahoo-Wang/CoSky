@@ -183,6 +183,55 @@ class MigrationTest {
     }
 
     @Test
+    fun `an interrupted run continues where it stopped, though a content came back`() {
+        val histories = mapOf("back.txt" to listOf("A", "B", "A", "C"), "current.txt" to listOf("A", "B", "A"))
+        histories.forEach { (name, contents) -> contents.forEach { six.setConfig(source, name, it) } }
+        target.createNamespace(namespace, "")
+        // Interrupted after each write but the last, every Config on its own.
+        val stopped = histories.flatMap { (name, contents) ->
+            (1 until contents.size).map { written -> Triple(name, contents, written) }
+        }.mapIndexed { index, (name, contents, written) ->
+            val copy = "$index-$name"
+            contents.forEach { six.setConfig(source, copy, it) }
+            var revision: Long? = null
+            contents.take(written).forEach { revision = target.putConfig(namespace, copy, text(it), revision) }
+            copy to contents
+        }
+
+        run("--history").assert().isEqualTo(EXIT_DONE)
+
+        (histories + stopped).forEach { (name, contents) -> historyOf(name).assert().isEqualTo(contents.reversed()) }
+    }
+
+    @Test
+    fun `running it again changes nothing, though 6x kept a content twice in a row`() {
+        // Removed and set again: 6.x keeps the same content as two versions, 8.0 as one.
+        listOf("1", "2").forEach { six.setConfig(source, "app.txt", it) }
+        six.removeConfig(source, "app.txt")
+        listOf("2", "1").forEach { six.setConfig(source, "app.txt", it) }
+        run("--history").assert().isEqualTo(EXIT_DONE)
+        historyOf("app.txt").assert().containsExactly("1", "2", "1")
+
+        run("--history").assert().isEqualTo(EXIT_DONE)
+
+        report.assert().contains("| 0 | 0 | 1 | 0 |")
+    }
+
+    @Test
+    fun `a history 8_0 has cut short and that fits more than one place is reported, not guessed`() {
+        val contents = List(HISTORY_KEPT + 4) { if (it % 2 == 0) "A" else "B" }
+        contents.forEach { six.setConfig(source, "app.txt", it) }
+        target.createNamespace(namespace, "")
+        var revision: Long? = null
+        contents.dropLast(2).forEach { revision = target.putConfig(namespace, "app.txt", text(it), revision) }
+
+        run("--history").assert().isEqualTo(EXIT_ATTENTION)
+
+        report.assert().contains("`app.txt` | CONFLICT | Its versions on 8.0 fit more than one place")
+        checkNotNull(target.config(namespace, "app.txt")).meta.revision.assert().isEqualTo(revision)
+    }
+
+    @Test
     fun `a change made in 6x before the switch still arrives`() {
         six.setConfig(source, "app.txt", "1")
         run().assert().isEqualTo(EXIT_DONE)
@@ -388,6 +437,9 @@ class MigrationTest {
     private companion object {
         const val REDIS_PORT = 6379
         const val ONE_MIB = 1024 * 1024
+
+        /** How many versions of a Config the server keeps, by default. */
+        const val HISTORY_KEPT = 20
         const val READY_ATTEMPTS = 100
         const val READY_DELAY = 100L
         val TOKEN = Tokens.generate().plaintext

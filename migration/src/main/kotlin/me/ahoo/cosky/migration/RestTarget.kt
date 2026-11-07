@@ -16,6 +16,7 @@ package me.ahoo.cosky.migration
 import com.google.gson.JsonParser
 import com.google.protobuf.Message
 import com.google.protobuf.util.JsonFormat
+import me.ahoo.cosky.api.v1.HistoryResponse
 import me.ahoo.cosky.api.v1.PutResponse
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.namespaceSpec
@@ -84,6 +85,24 @@ internal class RestTarget(private val baseUrl: String, private val token: String
             throw TargetRejectedException(messageOf(response))
         }
         return Resource.newBuilder().also { parser.merge(response.body(), it) }.build()
+    }
+
+    /**
+     * Every version 8.0 still keeps, oldest first.
+     */
+    fun history(namespace: String, name: String): List<Resource> {
+        val newestFirst = mutableListOf<Resource>()
+        var pageToken = ""
+        do {
+            val response = send(get("${configPath(namespace, name)}/history?pageToken=$pageToken"))
+            if (!isSuccess(response)) {
+                throw TargetRejectedException(messageOf(response))
+            }
+            val page = HistoryResponse.newBuilder().also { parser.merge(response.body(), it) }
+            newestFirst += page.revisionsList
+            pageToken = page.nextPageToken
+        } while (pageToken.isNotEmpty())
+        return newestFirst.asReversed()
     }
 
     /**
