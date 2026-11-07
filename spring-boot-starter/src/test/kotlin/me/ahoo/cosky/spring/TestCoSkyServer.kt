@@ -13,8 +13,11 @@
 
 package me.ahoo.cosky.spring
 
+import io.grpc.Attributes
+import io.grpc.Grpc
 import io.grpc.Server
 import io.grpc.ServerInterceptors
+import io.grpc.ServerTransportFilter
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -41,6 +44,8 @@ import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.net.InetSocketAddress
+import java.net.SocketAddress
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.minutes
 import me.ahoo.cosky.server.CoSkyProperties as ServerProperties
@@ -52,8 +57,15 @@ internal class TestCoSkyServer : AutoCloseable {
     val store = MemoryStore()
     val topology = TopologyRecorder(store, 1.minutes)
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+    private val open = ConcurrentHashMap.newKeySet<SocketAddress>()
     private val server: Server
     val endpoint: String
+
+    /**
+     * Where the clients connected now are, one connection for each: a closed client leaves nothing here.
+     */
+    val connections: Set<SocketAddress>
+        get() = open.toSet()
 
     init {
         val caches = WatchCache(store, WINDOW, scope)
@@ -65,6 +77,18 @@ internal class TestCoSkyServer : AutoCloseable {
                     WatchGrpcService(caches, ServerProperties(), topology = topology),
                     ClientNameInterceptor(),
                 ),
+            )
+            .addTransportFilter(
+                object : ServerTransportFilter() {
+                    override fun transportReady(attributes: Attributes): Attributes = attributes.also {
+                        open += checkNotNull(it[Grpc.TRANSPORT_ATTR_REMOTE_ADDR])
+                    }
+
+                    // Without attributes when it ends before it is ready.
+                    override fun transportTerminated(attributes: Attributes?) {
+                        attributes?.get(Grpc.TRANSPORT_ATTR_REMOTE_ADDR)?.let { open -= it }
+                    }
+                },
             )
             .build()
             .start()

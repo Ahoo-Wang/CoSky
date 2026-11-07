@@ -19,7 +19,7 @@ import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
-import me.ahoo.cosky.spring.CoSkyClients
+import me.ahoo.cosky.spring.CoSkyApplicationClient
 import me.ahoo.cosky.spring.CoSkyProperties
 import org.springframework.boot.context.config.ConfigData
 import org.springframework.boot.context.config.ConfigDataLoader
@@ -78,7 +78,8 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
         if (!properties.enabled) {
             return ConfigData.EMPTY
         }
-        val namespace = CoSkyClients.shared(properties, resource.applicationName).namespace(properties.namespace)
+        val application = CoSkyApplicationClient.of(context.bootstrapContext, properties, resource.applicationName)
+        val namespace = application.client.namespace(properties.namespace)
         var refusal: CoSkyException? = null
         val config = try {
             runBlocking(VirtualThreads.dispatcher) {
@@ -89,14 +90,14 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
             null
         }
         // Also when there is nothing: an optional Config that appears later is a change too.
-        CoSkyClients.markImported(properties, resource.config, config)
+        application.markImported(properties.namespace, resource.config, config)
         // A required Config that goes away leaves what it held so far: there is nothing to fall back on.
         if (config == null && !resource.optional) {
             throw ConfigDataResourceNotFoundException(resource, refusal)
         }
         val current = config?.let { parse(resource.config, it) }.orEmpty()
         val names = current.mapTo(HashSet()) { it.name }
-        val gone = CoSkyClients.addSources(properties, resource.config, names) - names
+        val gone = application.addSources(properties.namespace, resource.config, names) - names
         if (config == null && gone.isEmpty()) {
             throw ConfigDataResourceNotFoundException(resource, refusal)
         }

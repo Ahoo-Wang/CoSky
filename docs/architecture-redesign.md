@@ -988,6 +988,8 @@ cosky:
 | 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |
 | 健康检查 | `HealthIndicator` 映射 `ConnectionState`:只有 `CLOSED` 为 DOWN,`DEGRADED` 仍为 UP(应用靠本地视图继续工作,重启无益);状态写入 `connection` 明细 |
 
+每个应用有自己的客户端,以 `spring.application.name` 命名,关闭一个应用不影响同一 JVM 中的其他应用:第一个导入在 bootstrap 上下文中创建它,刷新沿用它;bootstrap 上下文关闭时交给应用上下文,随应用上下文关闭;没有导入时由自动配置创建;启动在交接之前失败(如必选 Config 不存在)时立即关闭。
+
 刷新事件在专用的平台线程上发布,这是 D28 的例外:`ContextRefresher.refresh` 是 `synchronized` 的,导入又在其中阻塞,JDK 21–23 上放在虚拟线程会占住 client 自己也需要的载体线程。
 
 ### 7.8 鉴权细则
