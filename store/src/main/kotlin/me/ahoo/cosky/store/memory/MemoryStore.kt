@@ -179,7 +179,8 @@ class MemoryStore(
         if (current?.state == NamespaceState.ACTIVE) {
             current to current.position
         } else {
-            val created = NamespaceData(epoch = newEpoch(), state = NamespaceState.ACTIVE)
+            val revision = current?.revision ?: 0
+            val created = NamespaceData(revision = revision, epoch = newEpoch(), state = NamespaceState.ACTIVE)
             created to created.position
         }
     }
@@ -197,7 +198,9 @@ class MemoryStore(
     override suspend fun dropNamespace(namespace: String) {
         transition(namespace) { current ->
             check(current?.state != NamespaceState.ACTIVE) { "Namespace $namespace is still active." }
-            val tombstone = current?.let { NamespaceData(epoch = "", state = NamespaceState.TERMINATING) }
+            val tombstone = current?.let {
+                NamespaceData(revision = it.revision, epoch = "", state = NamespaceState.TERMINATING)
+            }
             tombstone to Unit
         }
     }

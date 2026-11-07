@@ -58,7 +58,7 @@ Redis (只有 server 可访问)
 | D16 | 性能目标 | **采纳 §7.10** | 作为 W4a 验收标准 |
 | D17 | proto 命名 | **遵循 buf STANDARD**(枚举值前缀、服务 `Service` 后缀),仅豁免 `Get` 直接返回资源 | proto 枚举值在包内共享命名空间,无前缀易冲突;Get 返回资源符合 AIP-131(§4.2) |
 | D18 | OpenAPI | **混合生成**:schemas 由 proto 生成,paths 手写,构建时合并 | REST 路由无法由 RPC 自动推导,但 schema 必须与 proto 同步(§4.5) |
-| D19 | Watch 时间线 | **`(epoch, revision)` 才是 Watch 位置**;epoch 是每 namespace 一个随机值,删除重建或丢写后更换,`from_epoch` 不一致即 `gone`;server 与客户端保留低频反熵 | 丢写后 revision 会被复用,namespace 重建后 revision 从 1 重来,只比较数字会让视图静默且永久分叉(§6.4) |
+| D19 | Watch 时间线 | **`(epoch, revision)` 才是 Watch 位置**;epoch 是每 namespace 一个随机值,删除重建或丢写后更换,`from_epoch` 不一致即 `gone`;server 与客户端保留低频反熵 | 丢写后 revision 会被复用,只比较数字会让视图静默且永久分叉(§6.4)。namespace 重建后 revision 接着递增(§7.2),epoch 照样更换,所以旧位置同样得到 `gone` |
 | D20 | 租约回收保护 | **恢复宽限 + 大比例到期暂停 + 单轮回收上限**;存储故障不等于租约丢失 | 控制面故障超过 TTL 后恢复时,到期的主要是存活进程的租约,不能把控制面故障放大成数据面故障(§6.2) |
 | D21 | Redis 追尾 | **`PUBLISH` 提示 + 按 namespace 执行非阻塞 `tail.lua` + 兜底轮询**;`store-redis` 不使用阻塞命令 | Cluster 下跨 slot 的 `XREAD` 报 `CROSSSLOT`;每 namespace 一条阻塞连接则连接数随 namespace 增长;提示丢失只影响延迟(§6.1) |
 | D22 | 键布局 | **只读元数据随对象持久化**(`ver`、Stream、历史);租约 TTL 单独保存,实例挂载集中在一个 Sorted Set;"无变化"基于确定性序列化 | Lua 无法解析 protobuf,脚本和事件必须能直接拿到审计与租约数据(§5.1) |
@@ -558,7 +558,7 @@ sealed interface ApplyResult {
 |---|---|---|
 | `cosky:{ns}:state` | String | `active` / `terminating`;写入前必须是 `active`(§7.2) |
 | `cosky:{ns}:epoch` | String | 时间线标识,128 位随机值;`createNamespace` 创建,分叉时比较并更换 |
-| `cosky:{ns}:rev` | String | namespace revision,INCR 递增 |
+| `cosky:{ns}:rev` | String | namespace revision,INCR 递增;删除 namespace 时保留,重建后接着递增(§7.2) |
 | `cosky:{ns}:obj:<kind>` | Hash | name → 资源 protobuf 字节(确定性序列化,meta 中只读字段除外) |
 | `cosky:{ns}:ver:<kind>` | Hash | name → 元数据 `<revision>:<create_revision>:<created_ms>:<updated_ms>:<actor>` |
 | `cosky:{ns}:log` | Stream | 变更日志;ID = `<revision>-<seq>`;字段 `t`(P/D)、`k`(kind)、`n`(name)、`m`(元数据)、`o`(对象字节);由脚本裁剪,默认最多 10,000 条、64 MB(D38) |
@@ -608,7 +608,7 @@ sealed interface ApplyResult {
 | `namespace_create.lua` | 已是 `active` 时返回当前位置;否则 `SET state active`,写入新 epoch |
 | `namespace_terminate.lua` | `HLEN obj:config` 与 `HLEN obj:instance` 都为 0 时 `SET state terminating`,否则返回不为空 |
 
-`dropNamespace` 不是单个脚本:先读 `hist:idx` 和 `lease`,再分批 `UNLINK` 各键,只留 `state`。任何一步中断都可以重新执行。
+`dropNamespace` 不是单个脚本:先读 `hist:idx` 和 `lease`,再分批 `UNLINK` 各键,只留 `state` 和 `rev`。任何一步中断都可以重新执行。
 
 `apply.lua` 伪代码:
 
@@ -856,13 +856,12 @@ registration.close()                                                            
 - **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。删除先标记,再分三步,每步都可重入:
   0. **标记**:按 `expected_revision`(未给出时用读到的 revision)对 `_system` 中的 Namespace 对象 CAS,置 `terminating = true`。对象与 namespace 的数据不在同一 slot,无法一起原子更新,所以由这一步在 `_system` 内决出删除与并发更新的先后,此前不做任何不可逆操作(#1109)。明显不空的 namespace 在标记前就被拒绝,不留痕迹;
   1. `Store.terminateNamespace`:原子判空并置 `terminating`,此后写入都被拒绝;此时才发现不空则撤销标记,返回 `NAMESPACE_NOT_EMPTY`;
-  2. `Store.dropNamespace`:清理全部键,只留 `state` 作为墓碑;
+  2. `Store.dropNamespace`:清理全部键,只留 `state` 和 `rev` 作为墓碑;
   3. 按标记后的 revision 删除 `_system` 中的 Namespace 对象,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - **删除中的更新**:`terminating` 只由 server 设置。对象已标记时 Put 返回 `NOT_FOUND`(`NAMESPACE_NOT_FOUND`);不带 `expected_revision` 的 Put 由 server 按读到的 revision CAS,所以读取之后才开始的删除会让它以冲突失败,删除一旦标记就不会被更新覆盖。
 - **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续;对象已标记而 `state = active`,且标记已超过 1 分钟(留给仍在进行的请求),从第 1 步继续,不空则撤销标记;对象已标记而 `state` 不存在,直接删除对象。
 - **数据丢失**:`_system` 中有未标记的对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。`_system` 自身没有 `state`,说明整个 store 丢了数据:Reaper Leader 按首次启动重建 `_system`、`default` 和 bootstrap 管理员,其他 namespace 和对象无法恢复。
-- 删除后重建的 namespace revision 从 1 重新开始,epoch 也是新的随机值;客户端携带旧 `from_epoch` 时一律返回 `gone`,
-  即使 `from_revision` 落在新 namespace 的范围之内。
+- 删除后重建的 namespace 沿用墓碑中的 revision 继续递增,所以旧 namespace 的 revision,例如客户端仍持有的 `If-Match`、`expected_revision`、`min_revision` 或分页游标,都对不上新 namespace 的对象(#1134)。epoch 仍换成新的随机值,客户端携带旧 `from_epoch` 时一律返回 `gone`。只有存储连墓碑一起丢失时 revision 才会复用,与丢写同属 §6.4 接受的风险。
 
 ### 7.3 Watch 语义
 

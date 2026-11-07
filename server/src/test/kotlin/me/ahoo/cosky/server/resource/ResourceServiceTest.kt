@@ -664,6 +664,22 @@ class ResourceServiceTest {
         store.history(removed.key, 0).assert().hasSize(1)
     }
 
+    @Test
+    fun `a revision from before a namespace was deleted names nothing in the one created again`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        put(namespace("orders"))
+        val settings = config("settings").toBuilder().apply { metaBuilder.namespace = "orders" }.build()
+        val old = put(settings).revision
+        resources.delete(DeleteRequest.newBuilder().setKey(settings.key).build(), CALLER)
+        resources.delete(DeleteRequest.newBuilder().setKey(namespaceKey("orders")).build(), CALLER)
+        put(namespace("orders"))
+        put(settings)
+
+        // A client that still holds what it read before the deletion, as an If-Match, must not overwrite it.
+        val stale = settings.toBuilder().apply { configBuilder.content = "stale" }.build()
+        errorOf { put(stale, old) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+    }
+
     // --- history ---
 
     private fun history(limit: Int = 0, token: String = ""): HistoryRequest =

@@ -486,9 +486,10 @@ class RedisStore(
         val keys = RedisKeys(namespace)
         val history = commands.smembers(keys.historyIndex).await().map { keys.history(it.decodeToString()) }
         val objects = RedisKeys.KINDS.flatMap { listOf(keys.objects(it), keys.versions(it)) }
+        // The revision stays with the state: a namespace created again goes on counting, so that no revision of the
+        // old one, such as an If-Match a client still holds, names an object of the new (design §7.2).
         val fixed = listOf(
             keys.epoch,
-            keys.revision,
             keys.log,
             keys.logBytes,
             keys.lease,
