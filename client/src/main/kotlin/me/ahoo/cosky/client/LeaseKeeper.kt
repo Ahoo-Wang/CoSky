@@ -36,6 +36,7 @@ import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.ResourceServiceGrpcKt
 import me.ahoo.cosky.api.v1.RevokeRequest
+import me.ahoo.cosky.api.validation.Validator
 import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -170,15 +171,33 @@ internal class LeaseKeeper(
     }
 
     /**
-     * A failover can lose an Instance while the older lease survives, and renewing keeps succeeding (design D31). So
-     * this also runs for a registration still on its way, which is harmless: writing the same content changes nothing.
+     * A failover can lose an Instance while the older lease survives, and renewing keeps succeeding (design D31).
+     *
+     * Only the missing ones are created again. The others may hold what an operator has changed since, such as a weight
+     * of 0 that drains one (design §6.2), which putting the registration again would undo. Creating also leaves alone
+     * an Instance created meanwhile, and a registration that was still on its way when the server counted.
      */
     private suspend fun putBack() {
         delay(options.reRegisterJitter * Random.nextDouble())
-        mutex.withLock {
-            registrations.values.forEach { put(it) }
+        val created = mutex.withLock {
+            registrations.values.count { createIfMissing(it) }
         }
-        log.warn("Put back the registrations in namespace {}, since lease {} had lost some.", namespace, lease)
+        if (created > 0) {
+            log.warn("Put back {} registrations in namespace {}, which lease {} had lost.", created, namespace, lease)
+        }
+    }
+
+    /**
+     * @return false if the Instance is there already, whatever it holds.
+     */
+    private suspend fun createIfMissing(resource: Resource): Boolean = try {
+        put(resource, Validator.MUST_NOT_EXIST)
+        true
+    } catch (e: StatusException) {
+        if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_REVISION_CONFLICT) {
+            throw e
+        }
+        false
     }
 
     private suspend fun grant(): Long = leases().timed().grant(
@@ -188,20 +207,21 @@ internal class LeaseKeeper(
             .build(),
     ).lease
 
-    private suspend fun put(resource: Resource) {
+    private suspend fun put(resource: Resource, expectedRevision: Long = NO_CHECK) {
         try {
-            resources().timed().put(putRequest(resource))
+            resources().timed().put(putRequest(resource, expectedRevision))
         } catch (e: StatusException) {
             if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_LEASE_NOT_FOUND) {
                 throw e
             }
             lease = grant()
-            resources().timed().put(putRequest(resource))
+            resources().timed().put(putRequest(resource, expectedRevision))
         }
     }
 
-    private fun putRequest(resource: Resource): PutRequest = PutRequest.newBuilder()
+    private fun putRequest(resource: Resource, expectedRevision: Long): PutRequest = PutRequest.newBuilder()
         .setResource(resource.toBuilder().apply { metaBuilder.lease = lease })
+        .setExpectedRevision(expectedRevision)
         .build()
 
     private fun keyOf(name: String): ResourceKey = ResourceKey.newBuilder()
@@ -223,6 +243,9 @@ internal class LeaseKeeper(
     private companion object {
         val log = LoggerFactory.getLogger(LeaseKeeper::class.java)
         const val RENEWALS_PER_TTL = 3
+
+        /** `expected_revision` meaning no check at all. */
+        const val NO_CHECK = 0L
         val OUT_OF_REACH = setOf(Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED)
     }
 }

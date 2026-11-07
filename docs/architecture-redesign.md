@@ -726,7 +726,7 @@ client                         server                         Redis
 ```
 
 - KeepAlive 返回 `ttl_seconds = 0`(租约已过期被回收)时,客户端重新 Grant 并重新注册其全部实例。
-- KeepAlive 响应带 `attached_count`,即挂在该租约上的实例数(D31)。主从切换可能丢失最近的 Put,而更早的租约还在,续期一直成功。客户端发现它少于本地注册数时重新 Put 全部实例,不重新 Grant;内容不变的项会被跳过,所以并发注册造成的误判无害。
+- KeepAlive 响应带 `attached_count`,即挂在该租约上的实例数(D31)。主从切换可能丢失最近的 Put,而更早的租约还在,续期一直成功。客户端发现它少于本地注册数时以 `expected_revision = -1` 重新创建本地注册,不重新 Grant:只有缺失的实例被创建,仍在的保持原样,包括管理员之后的修改,所以并发注册造成的误判也无害。
   这也意味着手工删除存活进程的 Instance 会被恢复:要摘除仍在运行的实例,把 `weight` 设为 0。
 - 存储不可用时 KeepAlive 流以 `UNAVAILABLE` 结束,**不代表租约丢失**:客户端保留注册信息,重连成功后立即续期,不等下一周期。
 - 一个进程在一个 namespace 只持有一个租约,心跳成本 O(进程数),与实例数无关。
@@ -908,7 +908,7 @@ me.ahoo.cosky.server
 - **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`;`snapshot-include-config = false` 时 Config 不落盘。
 - **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
-- **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新 Put(D31)。
+- **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新创建缺失的实例(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
 - **分块**:收齐 `Snapshot` 与 `Events` 的全部分块后再更新 `StateFlow`,订阅者不会看到半个 revision。
 - **被拒绝的 Watch**:收到 `canceled` 后每 5 秒重试,因为权限和 namespace 都可能变化。视图还未知时 `load()` 立即抛出该错误,不必等到超时;有快照时继续用快照服务。

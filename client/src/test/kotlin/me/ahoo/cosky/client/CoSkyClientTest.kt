@@ -527,6 +527,25 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `putting back a lost instance leaves the others as an operator changed them`() = scenario {
+        val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        instances.register("order", ENDPOINT, instanceName = "a", weight = 1)
+        instances.register("order", ENDPOINT, instanceName = "b", weight = 1)
+        val registered = instancesOnServer().associateBy { it.meta.name }
+        // Drained the way design §6.2 says to take out a running instance: it keeps its lease.
+        write(registered.getValue("a").toBuilder().apply { instanceBuilder.weight = 0 }.build())
+        server.store.apply(NAMESPACE, listOf(Mutation.Delete(registered.getValue("b").key)), "test")
+
+        eventually { instancesOnServer().size == 2 }
+        // Registering waits for the put-back to finish, since both take the same lock.
+        instances.register("order", ENDPOINT, instanceName = "c")
+        val drained = instancesOnServer().single { it.meta.name == "a" }
+        drained.instance.hasWeight().assert().isTrue()
+        drained.instance.weight.assert().isEqualTo(0)
+        drained.meta.lease.assert().isEqualTo(registered.getValue("a").meta.lease)
+    }
+
+    @Test
     fun `a failing stream does not count as losing the lease`() = scenario {
         client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances.register("order", ENDPOINT)
         val before = instancesOnServer().single()
