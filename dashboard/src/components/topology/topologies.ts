@@ -187,7 +187,9 @@ export function toReactFlowTopology(
     Object.keys(topology).forEach(nodeName => {
         topology[nodeName].forEach(targetName => {
             edges.push({
-                id: `${nodeName}-${targetName}`,
+                // React Flow tells edges apart by id. A service name may hold '-' but never '>', so this id splits
+                // into its two names one way only.
+                id: `${nodeName}->${targetName}`,
                 source: nodeName,
                 target: targetName,
                 style: {

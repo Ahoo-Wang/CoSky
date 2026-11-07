@@ -16,6 +16,7 @@ import type {Edge} from '@xyflow/react';
 import {
     getConnectedNodeIds,
     isServiceNodeData,
+    toConsumers,
     toReactFlowTopology,
 } from '../../src/components/topology/topologies.ts';
 
@@ -52,10 +53,10 @@ test('converts service relationships into deterministic typed nodes and quiet ed
     expect(node('database').data).toMatchObject({nodeType: 'target', inDegree: 2, outDegree: 0});
     expect(new Set(nodes.map(item => `${item.position.x}:${item.position.y}`)).size).toBe(nodes.length);
     expect(edges.map(edge => edge.id)).toEqual([
-        'gateway-user',
-        'gateway-order',
-        'user-database',
-        'order-database',
+        'gateway->user',
+        'gateway->order',
+        'user->database',
+        'order->database',
     ]);
     expect(edges[0].style).toMatchObject({stroke: '#8b7aff', strokeWidth: 1, opacity: 0.28});
     expect(edges[0].animated).toBeUndefined();
@@ -75,7 +76,20 @@ test('classifies cyclic services and preserves both directions', () => {
         {label: 'billing', nodeType: 'intermediate', inDegree: 1, outDegree: 1},
         {label: 'ledger', nodeType: 'intermediate', inDegree: 1, outDegree: 1},
     ]);
-    expect(edges.map(edge => edge.id)).toEqual(['billing-ledger', 'ledger-billing']);
+    expect(edges.map(edge => edge.id)).toEqual(['billing->ledger', 'ledger->billing']);
+});
+
+test('keeps apart relationships whose names differ only in where a hyphen falls', () => {
+    const relationships = [
+        {consumer: 'a-b', producer: 'c'},
+        {consumer: 'a', producer: 'b-c'},
+        {consumer: 'c', producer: 'a-b'},
+        {consumer: 'b-c', producer: 'a'},
+    ];
+    const {edges} = toReactFlowTopology(toConsumers(relationships));
+
+    expect(new Set(edges.map(edge => edge.id)).size).toBe(relationships.length);
+    expect(edges.map(({source, target}) => ({consumer: source, producer: target}))).toEqual(relationships);
 });
 
 test('wraps crowded layers without overlapping nodes', () => {
