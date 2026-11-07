@@ -64,6 +64,7 @@ message ResourceKey {
 
 message NamespaceSpec {
   string description = 1;
+  bool terminating = 2; // read-only: a deletion has begun, and nothing may change it any more (§7.2)
 }
 
 enum ConfigFormat {

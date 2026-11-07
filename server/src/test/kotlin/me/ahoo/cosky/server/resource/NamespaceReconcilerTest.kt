@@ -23,7 +23,10 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.kind
+import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Kind
+import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
@@ -37,6 +40,7 @@ import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 class NamespaceReconcilerTest {
@@ -51,14 +55,14 @@ class NamespaceReconcilerTest {
         scope.cancel()
     }
 
-    private suspend fun objectOf(name: String) {
+    private suspend fun objectOf(name: String, terminating: Boolean = false) {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
         val namespace = resource {
             meta = objectMeta {
                 namespace = NamingRules.SYSTEM_NAMESPACE
                 this.name = name
             }
-            this.namespace = namespaceSpec {}
+            this.namespace = namespaceSpec { this.terminating = terminating }
         }
         store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(namespace)), "test")
         caches.of(NamingRules.SYSTEM_NAMESPACE).views.filterNotNull().first { view ->
@@ -109,6 +113,67 @@ class NamespaceReconcilerTest {
         store.namespaceState(NAME).assert().isNull()
         reconciler.reconcile()
         store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+    }
+
+    private suspend fun objectOrNull(name: String): Resource? =
+        store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().singleOrNull { it.meta.name == name }
+
+    /** One that finds every marked deletion left behind, however recent. */
+    private val impatient = NamespaceReconciler(store, caches, StoreBootstrap(store, auth), markedGrace = Duration.ZERO)
+
+    @Test
+    fun `a deletion that stopped after its mark is finished when the namespace is empty`() = runBlocking<Unit> {
+        store.createNamespace(NAME)
+        objectOf(NAME, terminating = true)
+
+        impatient.reconcile()
+
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+        objectOrNull(NAME).assert().isNull()
+    }
+
+    @Test
+    fun `a deletion that stopped after its mark is undone when the namespace holds something`() = runBlocking<Unit> {
+        store.createNamespace(NAME)
+        store.apply(NAME, listOf(Mutation.Put(config("kept"))), "test")
+        objectOf(NAME, terminating = true)
+
+        impatient.reconcile()
+
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+        checkNotNull(objectOrNull(NAME)).namespace.terminating.assert().isFalse()
+    }
+
+    @Test
+    fun `a deletion that marked its object a moment ago is left to its own request`() = runBlocking<Unit> {
+        store.createNamespace(NAME)
+        objectOf(NAME, terminating = true)
+
+        reconciler.reconcile()
+
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+        checkNotNull(objectOrNull(NAME)).namespace.terminating.assert().isTrue()
+    }
+
+    @Test
+    fun `a namespace on its way out that lost its state is deleted, not created anew`() = runBlocking<Unit> {
+        objectOf(NAME, terminating = true)
+
+        reconciler.reconcile()
+
+        store.namespaceState(NAME).assert().isNull()
+        objectOrNull(NAME).assert().isNull()
+    }
+
+    private fun config(name: String): Resource = resource {
+        meta = objectMeta {
+            namespace = NAME
+            this.name = name
+        }
+        config = configSpec {
+            format = ConfigFormat.CONFIG_FORMAT_TEXT
+            content = "x"
+        }
     }
 
     private companion object {

@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.server.resource
 
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -60,6 +61,7 @@ import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
@@ -485,13 +487,132 @@ class ResourceServiceTest {
     }
 
     @Test
-    fun `a namespace with objects cannot be deleted`() = scenario {
+    fun `a namespace with objects cannot be deleted, and is not even marked`() = scenario {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
-        put(namespace(NAMESPACE))
+        val revision = put(namespace(NAMESPACE)).revision
         put(config("a"))
         val request = DeleteRequest.newBuilder().setKey(namespaceKey(NAMESPACE)).build()
         errorOf { resources.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY)
         store.namespaceState(NAMESPACE).assert().isEqualTo(NamespaceState.ACTIVE)
+        namespaceObject(NAMESPACE)?.meta?.revision.assert().isEqualTo(revision)
+    }
+
+    private suspend fun namespaceObject(name: String): Resource? =
+        store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().singleOrNull { it.meta.name == name }
+
+    private fun described(name: String): Resource =
+        namespace(name).toBuilder().apply { namespaceBuilder.description = "Described" }.build()
+
+    /**
+     * A service whose store runs a write once, right after the next time something asks where a namespace stands, and
+     * whose cache stops following there: what that request then reads is one write old. Its cache has `_system` loaded
+     * up to [loaded] first, since loading asks where it stands too.
+     */
+    private suspend fun overtakenOnce(loaded: Long): Pair<ResourceService, (suspend () -> Unit) -> Unit> {
+        var hook: (suspend () -> Unit)? = null
+        val following = MutableStateFlow(true)
+        val overtaken = object : Store by store {
+            override fun changes(namespace: String, from: Position): Flow<ChangeBatch> =
+                store.changes(namespace, from).onEach { following.first { it } }
+
+            override suspend fun position(namespace: String): Position? = store.position(namespace).also {
+                hook?.let { write ->
+                    hook = null
+                    following.value = false
+                    write()
+                }
+            }
+        }
+        val caches = WatchCache(overtaken, WINDOW, scope)
+        caches.viewAt(NamingRules.SYSTEM_NAMESPACE, loaded, SHORT_TIMEOUT)
+        return ResourceService(overtaken, caches, minRevisionTimeout = SHORT_TIMEOUT) to { hook = it }
+    }
+
+    @Test
+    fun `a namespace written just before a deletion marks it is not deleted, and keeps its history`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val read = put(namespace("orders")).revision
+        val removed = config("removed").toBuilder().apply { metaBuilder.namespace = "orders" }.build()
+        put(removed)
+        resources.delete(DeleteRequest.newBuilder().setKey(removed.key).build(), CALLER)
+        val (service, overtake) = overtakenOnce(read)
+        overtake { applied(NamingRules.SYSTEM_NAMESPACE, described("orders"), read) }
+        val request = DeleteRequest.newBuilder().setKey(namespaceKey("orders")).setExpectedRevision(read).build()
+
+        errorOf { service.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+
+        store.namespaceState("orders").assert().isEqualTo(NamespaceState.ACTIVE)
+        store.history(removed.key, 0).assert().hasSize(1)
+        checkNotNull(namespaceObject("orders")).namespace.description.assert().isEqualTo("Described")
+    }
+
+    @Test
+    fun `a namespace being deleted takes no write, whether it names a revision or not`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val read = put(namespace("orders")).revision
+        val terminating = CompletableDeferred<Unit>()
+        val proceed = CompletableDeferred<Unit>()
+        val gated = object : Store by store {
+            override suspend fun terminateNamespace(namespace: String): TerminateResult {
+                terminating.complete(Unit)
+                proceed.await()
+                return store.terminateNamespace(namespace)
+            }
+        }
+        val service = ResourceService(gated, WatchCache(gated, WINDOW, scope), minRevisionTimeout = SHORT_TIMEOUT)
+        val request = DeleteRequest.newBuilder().setKey(namespaceKey("orders")).setExpectedRevision(read).build()
+        val deleting = async { service.delete(request, CALLER) }
+        terminating.await()
+
+        listOf(read, 0L).forEach { expected ->
+            val write = putRequest {
+                resource = described("orders")
+                expectedRevision = expected
+            }
+            errorOf { service.put(write, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND)
+        }
+        proceed.complete(Unit)
+
+        deleting.await().deleted.assert().isTrue()
+        store.namespaceState("orders").assert().isEqualTo(NamespaceState.TERMINATING)
+        namespaceObject("orders").assert().isNull()
+    }
+
+    @Test
+    fun `a write that read the namespace before a deletion marked it fails rather than undo the mark`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val read = put(namespace("orders")).revision
+        val (service, overtake) = overtakenOnce(read)
+        val marked = namespace("orders").toBuilder().apply { namespaceBuilder.terminating = true }.build()
+        overtake { applied(NamingRules.SYSTEM_NAMESPACE, marked, read) }
+
+        errorOf { service.put(PutRequest.newBuilder().setResource(described("orders")).build(), CALLER) }
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+
+        checkNotNull(namespaceObject("orders")).namespace.terminating.assert().isTrue()
+    }
+
+    @Test
+    fun `a namespace found to hold something only once marked has its deletion undone`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        put(namespace("orders"))
+        val crowded = object : Store by store {
+            override suspend fun terminateNamespace(namespace: String) = TerminateResult.NOT_EMPTY
+        }
+        val service = ResourceService(crowded, WatchCache(crowded, WINDOW, scope), minRevisionTimeout = SHORT_TIMEOUT)
+        val request = DeleteRequest.newBuilder().setKey(namespaceKey("orders")).build()
+
+        errorOf { service.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY)
+
+        store.namespaceState("orders").assert().isEqualTo(NamespaceState.ACTIVE)
+        checkNotNull(namespaceObject("orders")).namespace.terminating.assert().isFalse()
+    }
+
+    @Test
+    fun `whether a namespace is terminating is the server's to say`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        put(namespace("orders").toBuilder().apply { namespaceBuilder.terminating = true }.build())
+        checkNotNull(namespaceObject("orders")).namespace.terminating.assert().isFalse()
     }
 
     @Test

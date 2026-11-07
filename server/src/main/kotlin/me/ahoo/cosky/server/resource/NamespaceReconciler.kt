@@ -15,23 +15,34 @@ package me.ahoo.cosky.server.resource
 
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.Kind
+import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.key
 import org.slf4j.LoggerFactory
+import java.time.Clock
+import java.time.Duration
+import java.time.Instant
 
 /**
  * Compares the Namespace objects with the state of each namespace, for what no request is left to fix (design §7.2).
- * The object is written after the namespace is created and deleted after it is dropped, so any difference that lasts
- * means a deletion was interrupted, or the shard lost its data.
+ * The object is written after the namespace is created, marked as terminating before a deletion touches anything, and
+ * deleted after the namespace is dropped, so any difference that lasts means a deletion was interrupted, or the shard
+ * lost its data.
+ *
+ * @param markedGrace how long a deletion that marked its object is left to its own request, which is still under way
+ * most of the time: finishing it from here as well would race with it.
  */
 class NamespaceReconciler(
     private val store: Store,
     private val caches: WatchCache,
     private val bootstrap: StoreBootstrap,
+    private val clock: Clock = Clock.systemUTC(),
+    private val markedGrace: Duration = Duration.ofMinutes(1),
 ) {
     suspend fun reconcile() {
         if (store.namespaceState(NamingRules.SYSTEM_NAMESPACE) == null) {
@@ -43,21 +54,50 @@ class NamespaceReconciler(
             .filter { it.kind == Kind.KIND_NAMESPACE }
             .forEach { namespace ->
                 val name = namespace.meta.name
+                val terminating = namespace.namespace.terminating
                 when (store.namespaceState(name)) {
-                    NamespaceState.ACTIVE -> Unit
+                    NamespaceState.ACTIVE -> if (terminating && isLeftBehind(namespace)) finishOrUndo(namespace)
 
-                    NamespaceState.TERMINATING -> {
-                        log.info("Finishing the deletion of namespace {}.", name)
-                        store.dropNamespace(name)
-                        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Delete(namespace.key)), ACTOR)
-                    }
+                    NamespaceState.TERMINATING -> finish(namespace)
 
-                    null -> {
+                    // Whatever a namespace on its way out lost, it is deleted all the same.
+                    null -> if (terminating) {
+                        deleteObject(namespace)
+                    } else {
                         log.error("Namespace {} has no state: its shard lost data. Creating it anew.", name)
                         store.createNamespace(name)
                     }
                 }
             }
+    }
+
+    private fun isLeftBehind(namespace: Resource): Boolean {
+        val marked = namespace.meta.updatedAt.let { Instant.ofEpochSecond(it.seconds, it.nanos.toLong()) }
+        return !marked.plus(markedGrace).isAfter(clock.instant())
+    }
+
+    /**
+     * A deletion stopped between its mark and the termination: the namespace may have taken something since its
+     * request looked, and then the deletion is undone.
+     */
+    private suspend fun finishOrUndo(namespace: Resource) {
+        if (store.terminateNamespace(namespace.meta.name) == TerminateResult.TERMINATED) {
+            finish(namespace)
+            return
+        }
+        log.info("Namespace {} is not empty: undoing a deletion that stopped half way.", namespace.meta.name)
+        val active = namespace.toBuilder().apply { namespaceBuilder.terminating = false }.build()
+        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(active, namespace.meta.revision)), ACTOR)
+    }
+
+    private suspend fun finish(namespace: Resource) {
+        log.info("Finishing the deletion of namespace {}.", namespace.meta.name)
+        store.dropNamespace(namespace.meta.name)
+        deleteObject(namespace)
+    }
+
+    private suspend fun deleteObject(namespace: Resource) {
+        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Delete(namespace.key)), ACTOR)
     }
 
     private companion object {

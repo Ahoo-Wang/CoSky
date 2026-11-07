@@ -600,7 +600,8 @@ export interface HistoryResponse {
  *   "type": "object",
  *   "properties": {
  *     "service": {
- *       "type": "string"
+ *       "type": "string",
+ *       "description": "cannot change once the Instance exists (§7.1)"
  *     },
  *     "endpoint": {
  *       "$ref": "#/components/schemas/Endpoint"
@@ -622,6 +623,7 @@ export interface HistoryResponse {
  * ```
  */
 export interface InstanceSpec {
+    /** cannot change once the Instance exists (§7.1) */
     service: string;
     endpoint: Endpoint;
     /**
@@ -922,6 +924,10 @@ export interface NamespaceRef {
  *   "properties": {
  *     "description": {
  *       "type": "string"
+ *     },
+ *     "terminating": {
+ *       "type": "boolean",
+ *       "description": "read-only: a deletion has begun, and nothing may change it any more (§7.2)"
  *     }
  *   }
  * }
@@ -929,6 +935,8 @@ export interface NamespaceRef {
  */
 export interface NamespaceSpec {
     description: string;
+    /** read-only: a deletion has begun, and nothing may change it any more (§7.2) */
+    terminating: boolean;
 }
 
 /**
