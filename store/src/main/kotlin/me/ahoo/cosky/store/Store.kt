@@ -132,7 +132,7 @@ interface Store : AutoCloseable {
 
     /**
      * Makes [namespace] active with a new epoch; no change when it already is. Data still awaiting [dropNamespace] is
-     * discarded first.
+     * discarded first. Revisions go on from where the namespace left them, so that none names an object twice.
      */
     suspend fun createNamespace(namespace: String): Position
 
@@ -148,7 +148,8 @@ interface Store : AutoCloseable {
     suspend fun terminateNamespace(namespace: String): TerminateResult
 
     /**
-     * Removes all data of a terminating namespace, leaving only its state as a tombstone. Repeating it is fine.
+     * Removes all data of a terminating namespace, leaving only its state and revision as a tombstone. Repeating it
+     * is fine.
      *
      * @throws IllegalStateException when [namespace] is active.
      */

@@ -486,17 +486,21 @@ abstract class StoreConformanceTest {
     }
 
     @Test
-    fun `recreating a namespace starts a new timeline`() = scenario { store ->
+    fun `recreating a namespace starts a new timeline, and goes on counting revisions`() = scenario { store ->
         store.put(config())
         val old = position(store)
-        store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+        val deleted = store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+            .let { (it as ApplyResult.Applied).revision }
         store.terminateNamespace(namespace).assert().isEqualTo(TerminateResult.TERMINATED)
         store.dropNamespace(namespace)
         val recreated = store.createNamespace(namespace)
-        recreated.revision.assert().isEqualTo(0)
+        recreated.revision.assert().isEqualTo(deleted)
         recreated.epoch.assert().isNotEqualTo(old.epoch)
         val diverged = thrownBy<TimelineDivergedException> { store.changes(namespace, old).first() }
         diverged.current.assert().isEqualTo(recreated)
+        // No revision of the old namespace names an object of the new one.
+        val written = (store.apply(namespace, listOf(Mutation.Put(config())), ACTOR) as ApplyResult.Applied).revision
+        written.assert().isGreaterThan(deleted)
     }
 
     // --- history ---
@@ -845,10 +849,11 @@ abstract class StoreConformanceTest {
     @Test
     fun `creating over a terminating namespace discards what remains`() = scenario { store ->
         store.put(config())
-        store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+        val deleted = store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+            .let { (it as ApplyResult.Applied).revision }
         val lease = store.grant()
         store.terminateNamespace(namespace)
-        store.createNamespace(namespace).revision.assert().isEqualTo(0)
+        store.createNamespace(namespace).revision.assert().isEqualTo(deleted)
         store.history(configKey(), 0).assert().isEmpty()
         store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to null))
     }
