@@ -61,6 +61,7 @@ import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreOptions
 import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -699,10 +700,56 @@ class ResourceServiceTest {
     }
 
     @Test
+    fun `versions written between pages do not use up the limit`() {
+        val capped = ResourceService(store, caches, CAPPED, SHORT_TIMEOUT)
+        scenario {
+            "0123".forEach { put(config("a", "$it".repeat(200))) }
+            val first = capped.history(history(limit = 3), CALLER)
+            put(config("a", "4".repeat(200)))
+            val second = capped.history(history(limit = 3, token = first.nextPageToken), CALLER)
+            "56".forEach { put(config("a", "$it".repeat(200))) }
+            val third = capped.history(history(limit = 3, token = second.nextPageToken), CALLER)
+
+            third.nextPageToken.assert().isEmpty()
+            listOf(first, second, third).map { it.revisionsList.single().config.content.first() }
+                .assert().containsExactly('3', '2', '1')
+        }
+    }
+
+    @Test
+    fun `a version no longer kept is not made up for`() {
+        val few = CAPPED.copy(configHistorySize = 3)
+        val forgetful = MemoryStore(StoreOptions(limits = few))
+        val service = ResourceService(forgetful, WatchCache(forgetful, WINDOW, scope), few, SHORT_TIMEOUT)
+        suspend fun write(content: Char) = service.put(
+            putRequest { resource = config("a", "$content".repeat(200)) },
+            CALLER,
+        )
+        runBlocking(VirtualThreads.dispatcher) {
+            forgetful.createNamespace(NAMESPACE)
+            "012".forEach { write(it) }
+            val first = service.history(history(), CALLER)
+            write('3')
+            val second = service.history(history(token = first.nextPageToken), CALLER)
+
+            second.nextPageToken.assert().isEmpty()
+            listOf(first, second).map { it.revisionsList.single().config.content.first() }
+                .assert().containsExactly('2', '1')
+        }
+    }
+
+    @Test
     fun `garbage is not a history page token`() = scenario {
-        errorOf {
-            resources.history(history(token = "soon"), CALLER)
-        }.assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
+        val garbage = listOf(
+            "soon",
+            PageTokens.encode(ListPageToken("epoch", 2, "a")),
+            PageTokens.encode(HistoryPageToken(2, 0)),
+        )
+        garbage.forEach { token ->
+            errorOf {
+                resources.history(history(token = token), CALLER)
+            }.assert().isEqualTo(ErrorReason.ERROR_REASON_INVALID_ARGUMENT)
+        }
     }
 
     private companion object {

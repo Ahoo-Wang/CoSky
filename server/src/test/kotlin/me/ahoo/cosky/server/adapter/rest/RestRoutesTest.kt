@@ -199,24 +199,48 @@ class RestRoutesTest {
         get(WebTestClient.bindToRouterFunction(short).build(), "a", 99).expectStatus().isEqualTo(504)
     }
 
+    private fun WebTestClient.rollback(name: String, toRevision: Long) = post()
+        .uri("/v1/namespaces/$NAMESPACE/configs/$name:rollback")
+        .contentType(MediaType.APPLICATION_JSON)
+        .bodyValue("""{"toRevision":"$toRevision"}""")
+        .exchange()
+
     @Test
     fun `a rollback restores an earlier revision, even after a delete`() {
         val client = client()
         val first = revisionOf(client.putConfig("a"))
         client.putConfig("a", """{"config":{"format":"CONFIG_FORMAT_TEXT","content":"b"}}""")
         client.delete().uri("/v1/namespaces/$NAMESPACE/configs/a").exchange().expectStatus().isOk
-        val restored = client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue("""{"toRevision":"$first"}""")
-            .exchange()
+        val restored = client.rollback("a", first)
         val revision = revisionOf(restored)
+        restored.expectHeader().valueEquals("ETag", "\"$revision\"")
         get(client, "a", revision).expectStatus().isOk.json().getAsJsonObject("config")["content"].asString
             .assert().isEqualTo("a")
-        client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback")
+        client.rollback("a", 12345).expectStatus().isNotFound
+    }
+
+    @Test
+    fun `a rollback to what a config holds reports no entity tag, though the namespace has moved on`() {
+        val client = client()
+        val first = revisionOf(client.putConfig("a"))
+        client.putConfig("unrelated").expectStatus().isOk
+        val unchanged = client.rollback("a", first).expectStatus().isOk.expectHeader().doesNotExist("ETag")
+        unchanged.json()["changed"].let { it == null || !it.asBoolean }.assert().isTrue()
+    }
+
+    @Test
+    fun `the entity tag of a rollback is good for the next conditional write`() {
+        val client = client()
+        val first = revisionOf(client.putConfig("a"))
+        client.putConfig("a", """{"config":{"format":"CONFIG_FORMAT_TEXT","content":"b"}}""")
+        client.putConfig("unrelated").expectStatus().isOk
+        val tag = client.rollback("a", first).expectStatus().isOk.expectBody().returnResult().responseHeaders.eTag
+        client.put().uri("/v1/namespaces/$NAMESPACE/configs/a")
             .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue("""{"toRevision":"12345"}""")
+            .header("If-Match", checkNotNull(tag))
+            .bodyValue("""{"config":{"format":"CONFIG_FORMAT_TEXT","content":"c"}}""")
             .exchange()
-            .expectStatus().isNotFound
+            .expectStatus().isOk
     }
 
     @Test

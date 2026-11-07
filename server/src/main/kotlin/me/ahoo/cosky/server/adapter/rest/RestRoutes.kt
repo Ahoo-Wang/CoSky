@@ -32,6 +32,7 @@ import me.ahoo.cosky.api.v1.HistoryRequest
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListRequest
 import me.ahoo.cosky.api.v1.PutRequest
+import me.ahoo.cosky.api.v1.PutResponse
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.ServicesRequest
@@ -230,9 +231,15 @@ class RestRoutes(
             throw ProtoJson.invalidBody("The body must hold the spec of ${key.kind.name.removePrefix("KIND_")}.")
         }
         val put = PutRequest.newBuilder().setResource(resource).setExpectedRevision(expectedRevisionOf(request))
-        val response = resources.put(put.build(), callerOf(request))
+        return written(resources.put(put.build(), callerOf(request)))
+    }
+
+    /**
+     * Writing the same content creates no revision: there is no new entity tag to report, and the revision of the
+     * response is then the namespace's, which need not be the object's.
+     */
+    private suspend fun written(response: PutResponse): ServerResponse {
         val builder = ServerResponse.ok()
-        // Writing the same content creates no revision: there is no new entity tag to report.
         if (response.changed) {
             builder.eTag(eTagOf(response.revision))
         }
@@ -262,7 +269,8 @@ class RestRoutes(
             expectedRevisionOf(request),
             callerOf(request),
         )
-        return ServerResponse.ok().eTag(eTagOf(response.revision)).json(response)
+        // The earlier content may be what the Config holds already: like any such write, it then changes nothing.
+        return written(response)
     }
 
     private suspend fun importConfigs(request: ServerRequest): ServerResponse {
