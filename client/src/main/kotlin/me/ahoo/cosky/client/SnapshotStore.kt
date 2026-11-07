@@ -68,7 +68,8 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
     private fun write(key: WatchKey, snapshot: ListResponse) {
         val path = pathOf(key) ?: return
         try {
-            createPrivateDirectories(path.parent)
+            // Unlike looking first, this accepts a directory that another watch's write created in the meantime.
+            Files.createDirectories(path.parent, OWNER_ONLY_DIRECTORY)
             val temporary = Files.createTempFile(path.parent, path.fileName.toString(), ".tmp", OWNER_ONLY_FILE)
             Files.newOutputStream(temporary).use { snapshot.writeTo(it) }
             move(temporary, path)
@@ -82,13 +83,6 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
             Files.move(from, to, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
         } catch (_: AtomicMoveNotSupportedException) {
             Files.move(from, to, StandardCopyOption.REPLACE_EXISTING)
-        }
-    }
-
-    private fun createPrivateDirectories(directory: Path) {
-        if (!Files.exists(directory)) {
-            directory.parent?.let { createPrivateDirectories(it) }
-            Files.createDirectory(directory, OWNER_ONLY_DIRECTORY)
         }
     }
 
