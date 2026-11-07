@@ -68,7 +68,8 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
     private fun write(key: WatchKey, snapshot: ListResponse) {
         val path = pathOf(key) ?: return
         try {
-            createPrivateDirectories(path.parent)
+            // Unlike looking first, this accepts a directory that another watch's write created in the meantime.
+            Files.createDirectories(path.parent, OWNER_ONLY_DIRECTORY)
             val temporary = Files.createTempFile(path.parent, path.fileName.toString(), ".tmp", OWNER_ONLY_FILE)
             Files.newOutputStream(temporary).use { snapshot.writeTo(it) }
             move(temporary, path)
@@ -85,20 +86,17 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
         }
     }
 
-    private fun createPrivateDirectories(directory: Path) {
-        if (!Files.exists(directory)) {
-            directory.parent?.let { createPrivateDirectories(it) }
-            Files.createDirectory(directory, OWNER_ONLY_DIRECTORY)
-        }
-    }
-
+    /**
+     * `<namespace>/<kind>[-<filter>].pb`, the filter as its digest. A Config name alone may take 253 characters, more
+     * than a file system allows in one name once the kind and the temporary file's suffix join it; and on a file system
+     * that ignores case, names differing only in case would share one file.
+     */
     private fun pathOf(key: WatchKey): Path? {
         if (!options.snapshotIncludeConfig && key.kind == Kind.KIND_CONFIG) {
             return null
         }
-        val filter = listOf(key.name, key.service).filter { it.isNotEmpty() }.joinToString("-")
         val kind = key.kind.name.removePrefix("KIND_").lowercase()
-        val file = if (filter.isEmpty()) kind else "$kind-${filter.replace("/", "%2F")}"
+        val file = if (key.name.isEmpty() && key.service.isEmpty()) kind else "$kind-${sha256(key.name, key.service)}"
         return root?.resolve(key.namespace)?.resolve("$file.pb")
     }
 
@@ -114,10 +112,14 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
          */
         fun serverKey(options: CoSkyClientOptions): String {
             val tokenId = options.token?.split("_")?.getOrNull(1).orEmpty()
-            val source = (options.endpoints.sorted() + tokenId).joinToString("\n")
-            return MessageDigest.getInstance("SHA-256").digest(source.encodeToByteArray())
-                .joinToString("") { "%02x".format(it) }
-                .take(KEY_LENGTH)
+            return sha256(*(options.endpoints.sorted() + tokenId).toTypedArray()).take(KEY_LENGTH)
         }
+
+        /**
+         * In hex. Neither names nor endpoints hold a line break, so joining the parts with one keeps them apart.
+         */
+        fun sha256(vararg parts: String): String = MessageDigest.getInstance("SHA-256")
+            .digest(parts.joinToString("\n").encodeToByteArray())
+            .joinToString("") { "%02x".format(it) }
     }
 }

@@ -50,6 +50,7 @@ import org.springframework.boot.test.context.FilteredClassLoader
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
 import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.cloud.client.discovery.DiscoveryClient
+import org.springframework.cloud.context.refresh.ContextRefresher
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier
 import org.springframework.cloud.loadbalancer.support.LoadBalancerClientFactory
@@ -295,6 +296,36 @@ class CoSkyStarterTest {
 
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20"))
         eventually { context.environment.getProperty("order.limit") == "20" }
+    }
+
+    @Test
+    fun `a refresh that fails on one import still clears a deleted config the next time`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("required.yaml", "required: before"))
+        server.put(TestCoSkyServer.config("removed.yaml", "removed: should-disappear"))
+        // Refreshing by hand, to know which refresh saw what.
+        val context = application(
+            "--cosky.config.refresh.enabled=false",
+            "--spring.config.import=cosky:required.yaml,optional:cosky:removed.yaml",
+        )
+        val configs = context.getBean(CoSkyClient::class.java).namespace(TestCoSkyServer.NAMESPACE).configs
+        val refresher = context.getBean(ContextRefresher::class.java)
+        context.environment.getProperty("removed").assert().isEqualTo("should-disappear")
+
+        server.put(TestCoSkyServer.config("required.yaml", "required: [unclosed"))
+        server.delete("removed.yaml")
+        eventually {
+            configs.watch("required.yaml").value?.config?.content == "required: [unclosed" &&
+                configs.watch("removed.yaml").value == null
+        }
+        runCatching { refresher.refresh() }.exceptionOrNull().assert().isNotNull()
+        context.environment.getProperty("required").assert().isEqualTo("before")
+        context.environment.getProperty("removed").assert().isEqualTo("should-disappear")
+
+        server.put(TestCoSkyServer.config("required.yaml", "required: after"))
+        eventually { configs.watch("required.yaml").value?.config?.content == "required: after" }
+        refresher.refresh()
+        context.environment.getProperty("required").assert().isEqualTo("after")
+        context.environment.getProperty("removed").assert().isNull()
     }
 
     @Test

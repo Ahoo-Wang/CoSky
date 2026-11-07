@@ -87,11 +87,19 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     val hasPosition: Boolean
         get() = epoch.isNotEmpty()
 
-    fun toSnapshot(): ListResponse = ListResponse.newBuilder()
-        .addAllItems(objects.value.values)
-        .setEpoch(epoch)
-        .setRevision(revision)
-        .build()
+    /**
+     * The view and its position from one moment, as [apply] leaves them: objects older than the position would make a
+     * restart resume past changes they lack. Only references are taken under the lock, since a view never changes once
+     * published.
+     */
+    fun toSnapshot(): ListResponse {
+        val snapshot = ListResponse.newBuilder()
+        val items = synchronized(this) {
+            snapshot.setEpoch(epoch).setRevision(revision)
+            objects.value.values
+        }
+        return snapshot.addAllItems(items).build()
+    }
 
     /**
      * Forgets the position, so that the next watch starts from a snapshot; the view stays until that arrives.
@@ -160,9 +168,13 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         val applied = objects.value.toMutableMap()
         batch.forEach { event ->
             val name = event.resource.meta.name
-            when (event.type) {
-                WatchResponse.Event.Type.TYPE_DELETE -> applied.remove(name)
-                else -> applied[name] = event.resource
+            // A snapshot may hold objects newer than its own revision (design §6.1), and the events after it replay
+            // what they already have: applying those would move an object back for a while (§4.6).
+            if ((applied[name]?.meta?.revision ?: 0) < events.revision) {
+                when (event.type) {
+                    WatchResponse.Event.Type.TYPE_DELETE -> applied.remove(name)
+                    else -> applied[name] = event.resource
+                }
             }
         }
         objects.value = applied
