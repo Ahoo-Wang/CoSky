@@ -106,6 +106,7 @@ export function ServicePage() {
                                 namespace={currentNamespace}
                                 service={summary.service}
                                 follow={follow}
+                                onChange={loadAll}
                             />
                         ),
                     }}

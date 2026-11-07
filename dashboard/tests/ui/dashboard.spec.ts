@@ -523,6 +523,30 @@ test.describe('configuration', () => {
         expect(post?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
+    test('a rollback shows in the list and the history, though the Watch is down', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/namespaces/default/configs/application.yaml', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_JSON', content: '{"port":7070}', sha256: 'gggg7777hhhh8888'},
+        });
+        api.failing = {method: 'GET', path: /\/watch$/, status: 503, message: 'Unavailable.'};
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const format = (name: string) => row(page, 'application.yaml').getByRole('cell', {name, exact: true});
+        await expect(format('JSON')).toBeVisible();
+        await row(page, 'application.yaml').getByRole('button', {name: /expand/i}).click();
+        const history = page.getByRole('table').last();
+        const version = (sha256: string) => history.getByRole('row').filter({hasText: sha256});
+        await expect(version('aaaa1111')).toHaveCount(1);
+
+        await version('aaaa1111').getByRole('button', {name: 'Diff'}).click();
+        await confirm(page, page.getByRole('button', {name: /Roll back to revision/}));
+
+        await expect(toast(page, 'Rolled back')).toBeVisible();
+        await expect(format('YAML')).toBeVisible();
+        await expect(version('aaaa1111')).toHaveCount(2);
+    });
+
     test('a comparison leaves none of the content it compared behind, however it is closed', async ({page}) => {
         // Monaco offers its API to a page that asks for it, so that the models it holds can be counted.
         await page.addInitScript(() => Object.assign(window, {MonacoEnvironment: {globalAPI: true}}));
@@ -892,6 +916,32 @@ test.describe('services', () => {
         await confirm(page, row(page, 'order-1').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Instance deleted')).toBeVisible();
         expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+    });
+
+    test('a delete counts the service again, and its last instance removes it, though the Watch is down', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/namespaces/default/instances/database-2', {
+            meta: {},
+            instance: {service: 'database', endpoint: {scheme: 'tcp', host: '10.0.0.3', port: 3306}},
+        });
+        api.failing = {method: 'GET', path: /\/watch$/, status: 503, message: 'Unavailable.'};
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        const count = (service: string, instances: string) =>
+            row(page, service).getByRole('cell', {name: instances, exact: true});
+        // The expanded instances sit in a row of the services, after it: the last row holding a name is the instance's.
+        const instance = (name: string) => page.getByRole('row').filter({hasText: name}).last();
+        await expect(count('database', '2')).toBeVisible();
+        await row(page, 'database').getByRole('button', {name: /expand/i}).click();
+
+        await confirm(page, instance('database-2').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Instance deleted')).toBeVisible();
+        await expect(count('database', '1')).toBeVisible();
+        await expect(page.getByRole('row').filter({hasText: 'database-2'})).toHaveCount(0);
+
+        await confirm(page, instance('database-1').getByRole('button', {name: 'Delete'}));
+        await expect(page.getByRole('row').filter({hasText: 'database'})).toHaveCount(0);
+        await expect(count('order', '1')).toBeVisible();
     });
 
     test('an edit that ends after its editor was closed leaves the editor opened again alone', async ({page}) => {

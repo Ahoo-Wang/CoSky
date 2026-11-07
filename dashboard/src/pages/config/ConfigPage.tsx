@@ -165,7 +165,12 @@ export function ConfigPage() {
                     onRetry={loadConfigs}
                     expandable={{
                         render: config => (
-                            <ConfigVersionTable namespace={currentNamespace} name={config.name} follow={follow}/>
+                            <ConfigVersionTable
+                                namespace={currentNamespace}
+                                name={config.name}
+                                follow={follow}
+                                onChange={loadAll}
+                            />
                         ),
                     }}
                     search={{placeholder: 'Search configurations...', getValue: config => config.name}}
