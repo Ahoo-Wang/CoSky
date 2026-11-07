@@ -87,7 +87,8 @@ class RedisStore(
     private val hintConnection: StatefulRedisPubSubConnection<String, ByteArray>,
     private val options: StoreOptions = StoreOptions(),
     private val tailPollInterval: Duration = 1.seconds,
-) : Store, AutoCloseable {
+    private val commandConnection: AutoCloseable? = null,
+) : Store {
     private val hints = ConcurrentHashMap<String, MutableStateFlow<Long>>()
     private val subscribed = AtomicBoolean()
 
@@ -518,6 +519,7 @@ class RedisStore(
 
     override fun close() {
         hintConnection.close()
+        commandConnection?.close()
     }
 
     private fun hintsOf(namespace: String): MutableStateFlow<Long> {
@@ -598,32 +600,40 @@ class RedisStore(
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
         private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
 
+        /**
+         * A store on two connections of its own, which closing it closes. The client stays its owner's to shut down.
+         */
         fun standalone(
             client: RedisClient,
             options: StoreOptions = StoreOptions(),
             tailPollInterval: Duration = 1.seconds,
         ): RedisStore {
             client.options = clientOptions()
-            return RedisStore(
-                client.connect(CODEC).async() as RedisClusterAsyncCommands<String, ByteArray>,
-                client.connectPubSub(CODEC),
-                options,
-                tailPollInterval,
-            )
+            val connection = client.connect(CODEC)
+            val hints = connection.closedIfFailing { client.connectPubSub(CODEC) }
+            val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
+            return RedisStore(commands, hints, options, tailPollInterval, connection)
         }
 
+        /**
+         * As [standalone], on a Redis Cluster.
+         */
         fun cluster(
             client: RedisClusterClient,
             options: StoreOptions = StoreOptions(),
             tailPollInterval: Duration = 1.seconds,
         ): RedisStore {
             client.setOptions(clusterClientOptions())
-            return RedisStore(
-                client.connect(CODEC).async(),
-                client.connectPubSub(CODEC),
-                options,
-                tailPollInterval,
-            )
+            val connection = client.connect(CODEC)
+            val hints = connection.closedIfFailing { client.connectPubSub(CODEC) }
+            return RedisStore(connection.async(), hints, options, tailPollInterval, connection)
+        }
+
+        private inline fun <T> AutoCloseable.closedIfFailing(block: () -> T): T = try {
+            block()
+        } catch (e: RedisException) {
+            close()
+            throw e
         }
 
         /**

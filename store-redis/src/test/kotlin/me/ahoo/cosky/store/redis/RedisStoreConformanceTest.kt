@@ -193,6 +193,24 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
         connection.close()
     }
 
+    @Test
+    fun `closing a store closes both connections it opened`() {
+        val before = clients()
+        val store = RedisStore.standalone(CLIENT)
+        clients().assert().isEqualTo(before + 2)
+
+        store.close()
+
+        // Redis drops a connection from its list a moment after it closes.
+        val deadline = System.nanoTime() + 5.seconds.inWholeNanoseconds
+        while (clients() != before && System.nanoTime() < deadline) {
+            Thread.sleep(50)
+        }
+        clients().assert().isEqualTo(before)
+    }
+
+    private fun clients(): Int = CONNECTION.sync().clientList().lines().count { it.isNotBlank() }
+
     @AfterEach
     fun closeStores() {
         stores.forEach { it.close() }
