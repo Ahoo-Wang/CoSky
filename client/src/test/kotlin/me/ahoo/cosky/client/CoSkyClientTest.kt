@@ -450,6 +450,18 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `a renewal stream that goes silent is opened again, rather than waited on until the lease runs out`() =
+        scenario {
+            client(leaseTtl = 6.seconds, callTimeout = 1.seconds).namespace(NAMESPACE).instances
+                .register("order", ENDPOINT, instanceName = "a")
+            eventually { server.renewalStreams.get() == 1 }
+            server.answerRenewals = false
+
+            // A period of 2 seconds and a call's time of 1: the client gives up on the stream after 3.
+            eventually { server.renewalStreams.get() > 1 }
+        }
+
+    @Test
     fun `a replacement made while the server is away goes out once one answers`() = scenario {
         val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
         instances.register("order", endpoint(port = 8080), instanceName = "a")
