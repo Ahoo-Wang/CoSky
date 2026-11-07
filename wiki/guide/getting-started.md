@@ -90,7 +90,7 @@ builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().
 
 ## 6. Look around
 
-Open the [Dashboard](./dashboard.md) at <http://localhost:8080>. Instances show up under **Service**, with **Leased** next to them, and the topology on the first page shows who calls whom.
+Open the [Dashboard](./dashboard.md) at <http://localhost:8080>. Instances show up under **Service**, with **Leased** next to them, and the topology on the first page shows who calls whom. The server records the topology every 30 seconds ([`cosky.view.topology-flush-interval`](./properties.md)), so the consumer shows up there, and here, up to half a minute after it starts:
 
 ```bash
 curl localhost:8080/v1/namespaces/default/views/topology
