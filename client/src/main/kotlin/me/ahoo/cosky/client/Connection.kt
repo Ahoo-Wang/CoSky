@@ -35,15 +35,18 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
     private var index = 0
     private var raw: ManagedChannel = options.channelFactory(options.endpoints[0])
     private var decorated: Channel = decorate(raw)
+    private var closed = false
 
     fun channel(): Channel = synchronized(lock) { decorated }
 
     /**
-     * Moves on from [failed], unless someone else already did.
+     * Moves on from [failed], unless someone else already did or the connection is closed. Cancelling the client does
+     * not stop a failure that is already being handled, and a channel opened after closing took the current one would
+     * never be shut down.
      */
     fun rotate(failed: Channel) {
         val previous = synchronized(lock) {
-            if (failed !== decorated) {
+            if (closed || failed !== decorated) {
                 return
             }
             if (options.endpoints.size == 1) {
@@ -62,7 +65,10 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
     }
 
     override fun close() {
-        val channel = synchronized(lock) { raw }
+        val channel = synchronized(lock) {
+            closed = true
+            raw
+        }
         channel.shutdown()
         if (!channel.awaitTermination(1, TimeUnit.SECONDS)) {
             channel.shutdownNow()
