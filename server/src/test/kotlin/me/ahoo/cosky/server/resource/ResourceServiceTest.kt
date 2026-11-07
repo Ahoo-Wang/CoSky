@@ -15,6 +15,7 @@ package me.ahoo.cosky.server.resource
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +60,7 @@ import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -341,6 +343,21 @@ class ResourceServiceTest {
     }
 
     @Test
+    fun `a later page on a replica that is behind waits for the first page's revision`() = scenario {
+        val (replica, following) = replicaThatFollows()
+        replica.caches.viewAt(NAMESPACE, put(config("a")).revision, SHORT_TIMEOUT)
+        following.value = false
+        put(config("b"))
+        val revision = put(config("c")).revision
+        val first = resources.list(list().setPageSize(1).setMinRevision(revision).build(), CALLER)
+        val next = list().setPageSize(1).setPageToken(first.nextPageToken).build()
+
+        errorOf { replica.resources.list(next, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
+        following.value = true
+        replica.resources.list(next, CALLER).itemsList.map { it.meta.name }.assert().containsExactly("b")
+    }
+
+    @Test
     fun `a page token from another epoch asks to start over`() = scenario {
         val revision = put(config("a")).revision
         val token = PageTokens.encode(ListPageToken("another", revision, "a"))
@@ -355,6 +372,56 @@ class ResourceServiceTest {
     }
 
     // --- put and delete ---
+
+    @Test
+    fun `an import on a replica that is behind keeps the labels and format written elsewhere`() = scenario {
+        val (replica, following) = replicaThatFollows()
+        val old = put(config("settings", labels = mapOf("team" to "old"))).revision
+        replica.caches.viewAt(NAMESPACE, old, SHORT_TIMEOUT)
+        following.value = false
+        put(properties(config("settings", labels = mapOf("team" to "new"))), old)
+
+        val importing = async { replica.resources.importConfig(NAMESPACE, "settings", "key=imported", CALLER) }
+        delay(SETTLE)
+        following.value = true
+        importing.await().changed.assert().isTrue()
+
+        val stored = store.readAll(NAMESPACE).toList().single()
+        stored.meta.labelsMap.assert().containsEntry("team", "new")
+        stored.config.format.assert().isEqualTo(ConfigFormat.CONFIG_FORMAT_PROPERTIES)
+        stored.config.content.assert().isEqualTo("key=imported")
+    }
+
+    @Test
+    fun `an import does not undo what was written after it read the Config`() = scenario {
+        val old = put(config("settings", labels = mapOf("team" to "old"))).revision
+        var overtake: (suspend () -> Unit)? = null
+        val following = MutableStateFlow(true)
+        // Right after the import asks where the store is, another write lands and this replica stops following it.
+        val overtaken = object : Store by store {
+            override fun changes(namespace: String, from: Position): Flow<ChangeBatch> =
+                store.changes(namespace, from).onEach { following.first { it } }
+
+            override suspend fun position(namespace: String): Position? = store.position(namespace).also {
+                overtake?.let { write ->
+                    overtake = null
+                    following.value = false
+                    write()
+                }
+            }
+        }
+        val caches = WatchCache(overtaken, WINDOW, scope)
+        val replica = ResourceService(overtaken, caches, minRevisionTimeout = SHORT_TIMEOUT)
+        caches.viewAt(NAMESPACE, old, SHORT_TIMEOUT)
+        overtake = { applied(NAMESPACE, config("settings", labels = mapOf("team" to "new")), old) }
+
+        errorOf { replica.importConfig(NAMESPACE, "settings", "imported", CALLER) }
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+        store.readAll(NAMESPACE).toList().single().meta.labelsMap.assert().containsEntry("team", "new")
+    }
+
+    private fun properties(config: Resource): Resource =
+        config.toBuilder().apply { configBuilder.format = ConfigFormat.CONFIG_FORMAT_PROPERTIES }.build()
 
     @Test
     fun `a put can only create, or compare and set`() = scenario {
@@ -448,6 +515,29 @@ class ResourceServiceTest {
         delay(SETTLE)
         errorOf { resources.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
         store.namespaceState("orders").assert().isEqualTo(NamespaceState.ACTIVE)
+    }
+
+    @Test
+    fun `a replica that is behind does not drop a namespace for a stale revision`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val (replica, following) = replicaThatFollows()
+        val stale = put(namespace("orders")).revision
+        replica.caches.viewAt(NamingRules.SYSTEM_NAMESPACE, stale, SHORT_TIMEOUT)
+        following.value = false
+        val described = namespace("orders").toBuilder().apply { namespaceBuilder.description = "Orders" }.build()
+        put(described, stale)
+        val removed = config("removed").toBuilder().apply { metaBuilder.namespace = "orders" }.build()
+        put(removed)
+        resources.delete(DeleteRequest.newBuilder().setKey(removed.key).build(), CALLER)
+        val request = DeleteRequest.newBuilder().setKey(namespaceKey("orders")).setExpectedRevision(stale).build()
+
+        errorOf { replica.resources.delete(request, CALLER) }
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
+        following.value = true
+        errorOf { replica.resources.delete(request, CALLER) }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+
+        store.namespaceState("orders").assert().isEqualTo(NamespaceState.ACTIVE)
+        store.history(removed.key, 0).assert().hasSize(1)
     }
 
     // --- history ---

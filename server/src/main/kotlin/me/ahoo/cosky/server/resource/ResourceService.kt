@@ -88,7 +88,15 @@ class ResourceService(
         requireValid(validator.validate(request))
         val permission = permissionOf(caller.principal, Verb.VERB_GET, request.kind, request.namespace)
         val token = PageTokens.list(request.pageToken)
-        val view = viewOf(request.namespace, request.minRevision)
+        val view = viewOf(request.namespace, request.minRevision).let { reached ->
+            // A later page reads no earlier than the first, wherever it lands, or it would leave out what the first
+            // page's revision promises (design §4.6). Another timeline is refused below instead of waited for.
+            if (token != null && token.epoch == reached.epoch && token.revision > reached.revision) {
+                viewOf(request.namespace, token.revision)
+            } else {
+                reached
+            }
+        }
         if (token != null && token.epoch != view.epoch) {
             throw PageTokens.invalid("The timeline changed since this page was requested; list from the first page.")
         }
@@ -165,11 +173,13 @@ class ResourceService(
     }
 
     /**
-     * Writes one entry of an archive, which holds nothing but the content: what else a Config has already stays.
+     * Writes one entry of an archive, which holds nothing but the content: what else a Config has already stays. It is
+     * read as of the store's latest write and kept by compare-and-set, so that neither a replica that is behind nor a
+     * write meanwhile has its labels or format undone.
      */
     suspend fun importConfig(namespace: String, name: String, content: String, caller: Caller): PutResponse {
         val key = ResourceKey.newBuilder().setNamespace(namespace).setKind(Kind.KIND_CONFIG).setName(name).build()
-        val existing = viewOf(namespace, 0).objects[key]
+        val existing = latestViewOf(namespace).objects[key]
         val resource = Resource.newBuilder().apply {
             metaBuilder.setNamespace(namespace).setName(name).putAllLabels(existing?.meta?.labelsMap.orEmpty())
             config = configSpec {
@@ -177,7 +187,11 @@ class ResourceService(
                 this.content = content
             }
         }.build()
-        return put(PutRequest.newBuilder().setResource(resource).build(), caller)
+        val request = PutRequest.newBuilder()
+            .setResource(resource)
+            .setExpectedRevision(existing?.meta?.revision ?: Mutation.MUST_NOT_EXIST)
+            .build()
+        return put(request, caller)
     }
 
     suspend fun history(request: HistoryRequest, caller: Caller): HistoryResponse {
@@ -306,11 +320,15 @@ class ResourceService(
         }
     }
 
+    /**
+     * As of the store's latest write, since a replica that is behind would let a stale revision through. A Namespace
+     * written after this and before the termination still makes the last step fail with a conflict, but only then.
+     */
     private suspend fun checkExpected(key: ResourceKey, expectedRevision: Long) {
         if (expectedRevision == Mutation.NO_CHECK) {
             return
         }
-        val current = viewOf(key.namespace, 0).objects[key]?.meta?.revision ?: 0
+        val current = latestViewOf(key.namespace).objects[key]?.meta?.revision ?: 0
         if (current != expectedRevision) {
             throw CoSkyException.revisionConflict(key, expectedRevision, current)
         }
@@ -318,6 +336,12 @@ class ResourceService(
 
     private suspend fun viewOf(namespace: String, minRevision: Long): NamespaceView =
         caches.viewAt(namespace, minRevision, minRevisionTimeout)
+
+    /**
+     * What this replica holds once it caught up with the store, for a write that decides on what is there.
+     */
+    private suspend fun latestViewOf(namespace: String): NamespaceView =
+        viewOf(namespace, store.position(namespace)?.revision ?: 0)
 
     private fun matches(resource: Resource, request: ListRequest): Boolean =
         resource.kind == request.kind &&
