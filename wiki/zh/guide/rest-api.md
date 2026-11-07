@@ -117,7 +117,7 @@ Server-sent events，每个 `data:` 行是一条 proto3 JSON 消息：
 | 方法 | 路径 | |
 |---|---|---|
 | GET | `/v1/namespaces` | |
-| GET、PUT、DELETE | `/v1/namespaces/{name}` | 最简单的请求体是 `{"namespace":{}}`。只有空的 namespace 才能删除。 |
+| GET、PUT、DELETE | `/v1/namespaces/{name}` | 最简单的请求体是 `{"namespace":{}}`。只有空的 namespace 才能删除。删除进行中时 `namespace.terminating` 为 `true`，写入返回 `404`。 |
 | GET | `/v1/serviceaccounts` | |
 | GET、PUT、DELETE | `/v1/serviceaccounts/{name}` | 最简单的请求体是 `{"serviceAccount":{}}`。请求体中的 `tokens` 被忽略。 |
 | POST | `/v1/serviceaccounts/{name}/tokens` | 只返回一次明文。`{"expiresAt": "..."}` 可选。 |

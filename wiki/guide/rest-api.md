@@ -117,7 +117,7 @@ Computed from the server's memory, read-only.
 | Method | Path | |
 |---|---|---|
 | GET | `/v1/namespaces` | |
-| GET, PUT, DELETE | `/v1/namespaces/{name}` | The smallest body is `{"namespace":{}}`. Only an empty namespace can be deleted. |
+| GET, PUT, DELETE | `/v1/namespaces/{name}` | The smallest body is `{"namespace":{}}`. Only an empty namespace can be deleted. While a deletion is under way, `namespace.terminating` is `true` and a write gets `404`. |
 | GET | `/v1/serviceaccounts` | |
 | GET, PUT, DELETE | `/v1/serviceaccounts/{name}` | The smallest body is `{"serviceAccount":{}}`. `tokens` in the body is ignored. |
 | POST | `/v1/serviceaccounts/{name}/tokens` | Returns the plaintext once. `{"expiresAt": "..."}` is optional. |

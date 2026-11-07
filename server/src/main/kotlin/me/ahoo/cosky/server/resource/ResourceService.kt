@@ -32,6 +32,7 @@ import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.ViolationCode
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.validation.Limits
+import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.api.validation.Violation
 import me.ahoo.cosky.api.validation.requireValid
@@ -130,10 +131,10 @@ class ResourceService(
         val key = request.resource.key
         return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
             authorizePut(request, key, caller.principal)
+            val write = withStoredTokens(withContentHash(unlessTerminating(request)))
             if (key.kind == Kind.KIND_NAMESPACE) {
                 store.createNamespace(key.name)
             }
-            val write = withStoredTokens(withContentHash(request))
             val applied = apply(
                 key,
                 Mutation.Put(write.resource, write.expectedRevision),
@@ -150,7 +151,7 @@ class ResourceService(
         return audit.audited(caller, Verb.VERB_DELETE, key, DeleteResponse::getRevision) {
             authorizeDelete(key, caller.principal)
             if (key.kind == Kind.KIND_NAMESPACE) {
-                dropNamespace(key, request.expectedRevision)
+                return@audited deleteNamespace(key, request.expectedRevision, caller.principal.id)
             }
             val mutation = Mutation.Delete(key, request.expectedRevision)
             val applied = apply(key, mutation, request.expectedRevision, caller.principal.id)
@@ -307,31 +308,82 @@ class ResourceService(
     }
 
     /**
-     * The first two of the three steps of §7.2; the caller deletes the Namespace object last, so that an interrupted
-     * deletion leaves a trace for [NamespaceReconciler] to finish.
+     * A Namespace being deleted takes no write, and a write to one compares and sets the revision it read: a deletion
+     * marks the object first, so whichever comes second fails, and a write never follows a deletion that has begun
+     * (design §7.2). Whether it is terminating is the server's to state.
      */
-    private suspend fun dropNamespace(key: ResourceKey, expectedRevision: Long) {
-        // Before anything irreversible: the store only checks it on the last step, when the data is already gone.
-        checkExpected(key, expectedRevision)
-        when (store.terminateNamespace(key.name)) {
-            TerminateResult.NOT_EMPTY -> throw CoSkyException.namespaceNotEmpty(key.name)
-            TerminateResult.NOT_FOUND -> throw CoSkyException.namespaceNotFound(key.name)
-            TerminateResult.TERMINATED -> store.dropNamespace(key.name)
+    private suspend fun unlessTerminating(request: PutRequest): PutRequest {
+        val resource = request.resource
+        if (!resource.hasNamespace()) {
+            return request
         }
+        val stored = latestViewOf(NamingRules.SYSTEM_NAMESPACE).objects[resource.key]
+        if (stored?.namespace?.terminating == true) {
+            throw CoSkyException.namespaceNotFound(resource.meta.name)
+        }
+        return request.toBuilder()
+            .setResource(resource.toBuilder().apply { namespaceBuilder.terminating = false })
+            .setExpectedRevision(
+                when {
+                    request.expectedRevision != Mutation.NO_CHECK -> request.expectedRevision
+                    else -> stored?.meta?.revision ?: Mutation.MUST_NOT_EXIST
+                },
+            )
+            .build()
     }
 
     /**
-     * As of the store's latest write, since a replica that is behind would let a stale revision through. A Namespace
-     * written after this and before the termination still makes the last step fail with a conflict, but only then.
+     * Marks the Namespace object as terminating by compare-and-set, then takes the three steps of §7.2. The object and
+     * the namespace's data lie in different slots, so the mark is the one step that decides between this deletion and
+     * a write meanwhile: nothing irreversible happens before it. Every step after it can be taken again, by
+     * [NamespaceReconciler] should this request be interrupted.
      */
-    private suspend fun checkExpected(key: ResourceKey, expectedRevision: Long) {
-        if (expectedRevision == Mutation.NO_CHECK) {
-            return
+    private suspend fun deleteNamespace(key: ResourceKey, expectedRevision: Long, actor: String): DeleteResponse {
+        val marked = markTerminating(key, expectedRevision, actor)
+        when (store.terminateNamespace(key.name)) {
+            TerminateResult.NOT_EMPTY -> {
+                unmark(key, marked, actor)
+                throw CoSkyException.namespaceNotEmpty(key.name)
+            }
+
+            TerminateResult.NOT_FOUND -> {
+                unmark(key, marked, actor)
+                throw CoSkyException.namespaceNotFound(key.name)
+            }
+
+            TerminateResult.TERMINATED -> store.dropNamespace(key.name)
         }
-        val current = latestViewOf(key.namespace).objects[key]?.meta?.revision ?: 0
-        if (current != expectedRevision) {
-            throw CoSkyException.revisionConflict(key, expectedRevision, current)
+        val result = store.apply(key.namespace, listOf(Mutation.Delete(key, marked)), actor)
+        val revision = when {
+            result is ApplyResult.Applied -> result.revision
+            // Gone already: the reconciler finished a deletion that seemed interrupted, which is as good.
+            result is ApplyResult.Conflict && result.currentRevision == null -> marked
+            else -> apply(key, Mutation.Delete(key, marked), marked, actor).revision
         }
+        return DeleteResponse.newBuilder().setRevision(revision).setDeleted(true).build()
+    }
+
+    /**
+     * @return the revision of the marked object. A deletion already under way is joined rather than refused.
+     */
+    private suspend fun markTerminating(key: ResourceKey, expectedRevision: Long, actor: String): Long {
+        val stored = latestViewOf(key.namespace).objects[key] ?: throw CoSkyException.namespaceNotFound(key.name)
+        if (stored.namespace.terminating) {
+            return stored.meta.revision
+        }
+        // What visibly holds something is refused before the mark, so that the usual refusal changes nothing.
+        if (viewOf(key.name, 0).objects.isNotEmpty()) {
+            throw CoSkyException.namespaceNotEmpty(key.name)
+        }
+        val expected = expectedRevision.takeIf { it != Mutation.NO_CHECK } ?: stored.meta.revision
+        val terminating = stored.toBuilder().apply { namespaceBuilder.terminating = true }.build()
+        return apply(key, Mutation.Put(terminating, expected), expected, actor).revision
+    }
+
+    private suspend fun unmark(key: ResourceKey, marked: Long, actor: String) {
+        val stored = latestViewOf(key.namespace).objects[key] ?: return
+        val active = stored.toBuilder().apply { namespaceBuilder.terminating = false }.build()
+        store.apply(key.namespace, listOf(Mutation.Put(active, marked)), actor)
     }
 
     private suspend fun viewOf(namespace: String, minRevision: Long): NamespaceView =

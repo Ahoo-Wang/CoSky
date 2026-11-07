@@ -235,7 +235,10 @@ enum Kind {
   KIND_ROLE_BINDING = 6;
 }
 
-message NamespaceSpec { string description = 1; }
+message NamespaceSpec {
+  string description = 1;
+  bool terminating = 2; // 只读:删除已开始,不再接受修改(§7.2)
+}
 
 enum ConfigFormat {
   CONFIG_FORMAT_UNSPECIFIED = 0;
@@ -850,12 +853,14 @@ registration.close()                                                            
 - `_system` 在 server 首次启动时自动创建;`default` namespace 在 bootstrap 时创建。
 - **创建**:先 `Store.createNamespace`(`state = active`,新 epoch),再 Put `_system` 中的 Namespace 对象。
 - **写入(D25)**:`apply.lua`、`lease_grant.lua` 要求 `state = active`,否则返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。判断在脚本内完成,不依赖缓存,所以迟到的写入不会让已删除的 namespace 复活。
-- **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。删除分三步,每步都可重入:
-  1. `Store.terminateNamespace`:原子判空并置 `terminating`,此后写入都被拒绝;
+- **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。删除先标记,再分三步,每步都可重入:
+  0. **标记**:按 `expected_revision`(未给出时用读到的 revision)对 `_system` 中的 Namespace 对象 CAS,置 `terminating = true`。对象与 namespace 的数据不在同一 slot,无法一起原子更新,所以由这一步在 `_system` 内决出删除与并发更新的先后,此前不做任何不可逆操作(#1109)。明显不空的 namespace 在标记前就被拒绝,不留痕迹;
+  1. `Store.terminateNamespace`:原子判空并置 `terminating`,此后写入都被拒绝;此时才发现不空则撤销标记,返回 `NAMESPACE_NOT_EMPTY`;
   2. `Store.dropNamespace`:清理全部键,只留 `state` 作为墓碑;
-  3. 删除 `_system` 中的 Namespace 对象,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
-- **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续。
-- **数据丢失**:`_system` 中有对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。`_system` 自身没有 `state`,说明整个 store 丢了数据:Reaper Leader 按首次启动重建 `_system`、`default` 和 bootstrap 管理员,其他 namespace 和对象无法恢复。
+  3. 按标记后的 revision 删除 `_system` 中的 Namespace 对象,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
+- **删除中的更新**:`terminating` 只由 server 设置。对象已标记时 Put 返回 `NOT_FOUND`(`NAMESPACE_NOT_FOUND`);不带 `expected_revision` 的 Put 由 server 按读到的 revision CAS,所以读取之后才开始的删除会让它以冲突失败,删除一旦标记就不会被更新覆盖。
+- **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续;对象已标记而 `state = active`,且标记已超过 1 分钟(留给仍在进行的请求),从第 1 步继续,不空则撤销标记;对象已标记而 `state` 不存在,直接删除对象。
+- **数据丢失**:`_system` 中有未标记的对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。`_system` 自身没有 `state`,说明整个 store 丢了数据:Reaper Leader 按首次启动重建 `_system`、`default` 和 bootstrap 管理员,其他 namespace 和对象无法恢复。
 - 删除后重建的 namespace revision 从 1 重新开始,epoch 也是新的随机值;客户端携带旧 `from_epoch` 时一律返回 `gone`,
   即使 `from_revision` 落在新 namespace 的范围之内。
 
