@@ -525,6 +525,16 @@ class CoSkyClientTest {
         ).build()
 
     @Test
+    fun `a lease ttl the protocol does not take is refused at once, rather than become the server's default`() {
+        listOf(Duration.ZERO, 500.milliseconds, 4.seconds, 5500.milliseconds, 301.seconds).forEach { ttl ->
+            runCatching { CoSkyClientOptions(listOf("a:1"), leaseTtl = ttl) }.exceptionOrNull()
+                .assert().isInstanceOf(IllegalArgumentException::class.java)
+        }
+        listOf(5.seconds, 300.seconds).map { CoSkyClientOptions(listOf("a:1"), leaseTtl = it).leaseTtl }
+            .assert().containsExactly(5.seconds, 300.seconds)
+    }
+
+    @Test
     fun `options say nothing of the token`() {
         CoSkyClientOptions(listOf("a:1"), token = "cosky_id_secret").toString().assert().doesNotContain("secret")
     }

@@ -17,6 +17,7 @@ import io.grpc.Grpc
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.TlsChannelCredentials
+import me.ahoo.cosky.api.validation.Limits
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -77,6 +78,12 @@ data class CoSkyClientOptions(
 ) {
     init {
         require(endpoints.isNotEmpty()) { "At least one endpoint is required." }
+        // A lease lasts whole seconds within the protocol's range. Anything else would reach the server as 0, which
+        // asks for its default, while renewals still followed this value.
+        val ttlRange = Limits.DEFAULT.minLeaseTtlSeconds..Limits.DEFAULT.maxLeaseTtlSeconds
+        require(leaseTtl.inWholeSeconds.seconds == leaseTtl && leaseTtl.inWholeSeconds in ttlRange) {
+            "leaseTtl must be whole seconds within $ttlRange, not $leaseTtl."
+        }
     }
 
     /**
