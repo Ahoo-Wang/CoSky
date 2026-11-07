@@ -443,9 +443,30 @@ class CoSkyClientTest {
     @Test
     fun `a registration the server refuses is an error, and is not tried again`() = scenario {
         val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+        val kept = instances.register("order", ENDPOINT, instanceName = "kept")
         val failure = runCatching { instances.register("Not A Service!", ENDPOINT, instanceName = "bad") }
         (failure.exceptionOrNull() as StatusException).status.code.assert().isEqualTo(Status.Code.INVALID_ARGUMENT)
+        // Forgotten, it does not hold on to the lease once the last registration is closed.
+        kept.close()
+        server.store.leaseStats(NAMESPACE).total.assert().isEqualTo(0)
     }
+
+    @Test
+    fun `a refused replacement keeps the registration it would have replaced, and restores it with the lease`() =
+        scenario {
+            val instances = client(leaseTtl = 6.seconds).namespace(NAMESPACE).instances
+            instances.register("order", ENDPOINT, instanceName = "a")
+            val failure = runCatching { instances.register("order", endpoint(port = 0), instanceName = "a") }
+            (failure.exceptionOrNull() as StatusException).status.code.assert().isEqualTo(Status.Code.INVALID_ARGUMENT)
+            val lost = instancesOnServer().single()
+            lost.instance.endpoint.port.assert().isEqualTo(ENDPOINT.port)
+            server.store.expireLease(NAMESPACE, lost.meta.lease, "test", force = true)
+
+            eventually { instancesOnServer().isNotEmpty() }
+            val restored = instancesOnServer().single()
+            restored.meta.lease.assert().isNotEqualTo(lost.meta.lease)
+            restored.instance.endpoint.port.assert().isEqualTo(ENDPOINT.port)
+        }
 
     @Test
     fun `a server that never answers does not hold up a registration`() = scenario {

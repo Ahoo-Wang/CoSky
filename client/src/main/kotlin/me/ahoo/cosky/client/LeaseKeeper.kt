@@ -68,7 +68,8 @@ internal class LeaseKeeper(
      */
     suspend fun register(resource: Resource) {
         mutex.withLock {
-            registrations[resource.meta.name] = resource
+            val name = resource.meta.name
+            val previous = registrations.put(name, resource)
             try {
                 if (lease == 0L) {
                     lease = grant()
@@ -76,10 +77,12 @@ internal class LeaseKeeper(
                 put(resource)
             } catch (e: StatusException) {
                 if (e.status.code !in OUT_OF_REACH) {
-                    registrations.remove(resource.meta.name)
+                    // The server keeps what an earlier registration of this name put there, so the client keeps it
+                    // too: it is what to restore should the lease be lost.
+                    if (previous == null) registrations.remove(name) else registrations[name] = previous
                     throw e
                 }
-                log.warn("Could not register {} yet, and keeps trying: {}", resource.meta.name, e.status)
+                log.warn("Could not register {} yet, and keeps trying: {}", name, e.status)
             }
             if (renewal == null) {
                 renewal = scope.launch { keepRenewing() }
