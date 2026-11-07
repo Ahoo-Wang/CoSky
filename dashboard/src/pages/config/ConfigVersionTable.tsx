@@ -28,7 +28,7 @@ interface ConfigVersionTableProps {
 }
 
 export function ConfigVersionTable({namespace, name}: ConfigVersionTableProps) {
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     const {result: versions, loading, error, execute: loadVersions} = useQuery<string, ConfigResource[]>({
         query: `${namespace}/${name}`,
         execute: (_, __, abortController) => configs.history(namespace, name, abortController),
@@ -36,15 +36,17 @@ export function ConfigVersionTable({namespace, name}: ConfigVersionTableProps) {
 
     const handleDiff = (version: ConfigResource) => {
         openDrawer(
-            <ConfigVersionDiffer
-                namespace={namespace}
-                name={name}
-                version={version}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadVersions();
-                }}
-            />,
+            close => (
+                <ConfigVersionDiffer
+                    namespace={namespace}
+                    name={name}
+                    version={version}
+                    onSuccess={() => {
+                        close();
+                        loadVersions();
+                    }}
+                />
+            ),
             {title: 'Compare with the current version', width: 'min(88vw, 1320px)'},
         );
     };

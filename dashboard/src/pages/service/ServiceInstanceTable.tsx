@@ -34,7 +34,7 @@ export interface ServiceInstanceTableProps {
 }
 
 export function ServiceInstanceTable({namespace, service, changes}: ServiceInstanceTableProps) {
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadInstances} = useQuery<string, InstanceResource[]>({
         query: `${namespace}/${service}/${changes}`,
         execute: (_, __, abortController) => instances.list(namespace, service, abortController),
@@ -42,16 +42,18 @@ export function ServiceInstanceTable({namespace, service, changes}: ServiceInsta
 
     const handleEdit = (instance: InstanceResource) => {
         openDrawer(
-            <ServiceInstanceEditor
-                namespace={namespace}
-                service={service}
-                existing={instance}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadInstances();
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <ServiceInstanceEditor
+                    namespace={namespace}
+                    service={service}
+                    existing={instance}
+                    onSuccess={() => {
+                        close();
+                        loadInstances();
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: 'Edit Instance'},
         );
     };

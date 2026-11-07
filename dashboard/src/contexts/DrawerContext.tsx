@@ -21,8 +21,11 @@ export interface DrawerOptions {
 }
 
 interface DrawerContextType {
-    openDrawer: (content: ReactNode, options?: DrawerOptions) => void;
-    closeDrawer: () => void;
+    /**
+     * @param render what to show, given what closes it. That closes this drawer only: an operation that ends after its
+     * drawer was closed must leave alone whatever has been opened since.
+     */
+    openDrawer: (render: (close: () => void) => ReactNode, options?: DrawerOptions) => void;
 }
 
 export const DrawerContext = createContext<DrawerContextType | undefined>(undefined);

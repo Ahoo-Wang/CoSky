@@ -31,7 +31,7 @@ import type {DataTableColumn} from '@/components/ui/data-table';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     // One stream per page, whatever is expanded: browsers allow few connections per server over HTTP/1.1.
     const [changes, setChanges] = useState(0);
     const {result, loading, error, execute: loadServices} = useQuery<string, ServiceSummary[]>({
@@ -48,16 +48,18 @@ export function ServicePage() {
 
     const handleAddInstance = (service?: string) => {
         openDrawer(
-            <ServiceInstanceEditor
-                namespace={currentNamespace}
-                service={service}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadServices();
-                    setChanges(count => count + 1);
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <ServiceInstanceEditor
+                    namespace={currentNamespace}
+                    service={service}
+                    onSuccess={() => {
+                        close();
+                        loadServices();
+                        setChanges(count => count + 1);
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: service ? `Add an instance of ${service}` : 'Add Instance'},
         );
     };

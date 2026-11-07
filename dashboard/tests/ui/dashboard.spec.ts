@@ -322,6 +322,62 @@ test.describe('configuration', () => {
         await expect(page.getByRole('dialog')).toHaveCount(0);
     });
 
+    test('a save that ends after its editor was closed leaves a newer draft open', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('9090');
+        await typeInMonaco(page, 'server:\n  port: 1');
+        const answer = api.hold('PUT', /configs\/application\.yaml$/);
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect.poll(() => lastRequest(api, 'PUT', '/v1/namespaces/default/configs/application.yaml')).toBeTruthy();
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await page.getByLabel('Name', {exact: true}).fill('new-unsaved-draft.yaml');
+        await typeInMonaco(page, 'draft: true');
+        answer();
+
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('new-unsaved-draft.yaml');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(row(page, 'new-unsaved-draft.yaml')).toBeVisible();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        const put = lastRequest(api, 'PUT', '/v1/namespaces/default/configs/new-unsaved-draft.yaml');
+        expect(JSON.parse(put?.body ?? '')).toMatchObject({config: {content: 'draft: true'}});
+    });
+
+    test('an import that ends after its page was left leaves the editor opened since alone', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await page.getByRole('button', {name: 'Import'}).click();
+        await page.locator('input[type="file"]').setInputFiles({
+            name: 'configs.zip',
+            mimeType: 'application/zip',
+            buffer: Buffer.from('PK-archive'),
+        });
+        const answer = api.hold('POST', /configs:import$/);
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect.poll(() => lastRequest(api, 'POST', '/v1/namespaces/default/configs:import')).toBeTruthy();
+        await page.goBack();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Role', exact: true}).click();
+        await page.getByRole('button', {name: 'Add Role'}).click();
+        await page.getByLabel('Name', {exact: true}).fill('reader');
+        answer();
+
+        await expect(toast(page, 'Configs imported')).toBeVisible();
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('reader');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect(toast(page, 'Role saved')).toBeVisible();
+        await expect(row(page, 'reader')).toBeVisible();
+    });
+
     test('a new Config is created only if it does not exist, in the format its name suggests', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -694,6 +750,30 @@ test.describe('services', () => {
         await confirm(page, row(page, 'order-1').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Instance deleted')).toBeVisible();
         expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+    });
+
+    test('an edit that ends after its editor was closed leaves the editor opened again alone', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
+        await row(page, 'order-1').getByRole('button', {name: 'Edit'}).click();
+        await page.getByLabel('Weight', {exact: true}).fill('5');
+        const answer = api.hold('PUT', /instances\/order-1$/);
+        await page.getByRole('button', {name: 'Submit'}).click();
+        await expect.poll(() => lastRequest(api, 'PUT', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+
+        await row(page, 'order-1').getByRole('button', {name: 'Edit'}).click();
+        await page.getByLabel('Weight', {exact: true}).fill('7');
+        answer();
+
+        await expect(toast(page, 'Instance saved')).toBeVisible();
+        await expect(page.getByLabel('Weight', {exact: true})).toHaveValue('7');
+        await page.getByRole('button', {name: 'Cancel'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        await expect(row(page, 'order-1')).toContainText('5');
     });
 
     test('an instance added to a listed service needs no service name, and the page follows changes', async ({page}) => {

@@ -37,7 +37,7 @@ import {runAction} from '@/lib/actions';
 
 export function ConfigPage() {
     const {currentNamespace} = useCurrentNamespaceContext();
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     const [exporting, setExporting] = useState(false);
     const {result = [], loading, error, execute: loadConfigs} = useQuery<string, ConfigResource[]>({
         query: currentNamespace,
@@ -56,29 +56,33 @@ export function ConfigPage() {
 
     const handleEdit = (config?: ConfigResource) => {
         openDrawer(
-            <ConfigEditor
-                namespace={currentNamespace}
-                name={config?.name}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadConfigs();
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <ConfigEditor
+                    namespace={currentNamespace}
+                    name={config?.name}
+                    onSuccess={() => {
+                        close();
+                        loadConfigs();
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: config ? 'Edit Config' : 'Add Config'},
         );
     };
 
     const handleImport = () => {
         openDrawer(
-            <ConfigImporter
-                namespace={currentNamespace}
-                onSuccess={() => {
-                    closeDrawer();
-                    loadConfigs();
-                }}
-                onCancel={closeDrawer}
-            />,
+            close => (
+                <ConfigImporter
+                    namespace={currentNamespace}
+                    onSuccess={() => {
+                        close();
+                        loadConfigs();
+                    }}
+                    onCancel={close}
+                />
+            ),
             {title: 'Import Configs', width: 'min(640px, 92vw)'},
         );
     };

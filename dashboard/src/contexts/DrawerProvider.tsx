@@ -11,47 +11,53 @@
  * limitations under the License.
  */
 
-import React, {type ReactNode, useState} from "react";
+import React, {type ReactNode, useRef, useState} from "react";
 import {useLocation} from "react-router-dom";
 import {DrawerContext} from "@/contexts/DrawerContext";
 import type {DrawerOptions} from "@/contexts/DrawerContext";
 import {Sheet, SheetContent, SheetHeader, SheetTitle} from "@/components/ui/sheet";
 
+interface Shown {
+    /** Which opening it is, so that what closes one leaves the next alone. */
+    id: number;
+    open: boolean;
+    content: ReactNode;
+    options: DrawerOptions;
+}
+
 export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) => {
-    const [open, setOpen] = useState(false);
-    const [content, setContent] = useState<ReactNode>(null);
-    const [options, setOptions] = useState<DrawerOptions>({});
+    const [shown, setShown] = useState<Shown>({id: 0, open: false, content: null, options: {}});
+    const openings = useRef(0);
     const {key: location} = useLocation();
     const [shownAt, setShownAt] = useState(location);
 
     // What it shows belongs to the page it was opened on, which going back or following a link leaves.
     if (shownAt !== location) {
         setShownAt(location);
-        setOpen(false);
+        setShown({...shown, open: false});
     }
 
-    const openDrawer = (drawerContent: ReactNode, drawerOptions: DrawerOptions = {}) => {
-        setContent(drawerContent);
-        setOptions(drawerOptions);
-        setOpen(true);
+    const close = (id: number) => {
+        setShown(current => current.id === id ? {...current, open: false} : current);
     };
 
-    const closeDrawer = () => {
-        setOpen(false);
+    const openDrawer = (render: (close: () => void) => ReactNode, options: DrawerOptions = {}) => {
+        const id = ++openings.current;
+        setShown({id, open: true, content: render(() => close(id)), options});
     };
     return (
-        <DrawerContext.Provider value={{openDrawer, closeDrawer}}>
+        <DrawerContext.Provider value={{openDrawer}}>
             {children}
-            <Sheet open={open} onOpenChange={(nextOpen) => !nextOpen && closeDrawer()}>
+            <Sheet open={shown.open} onOpenChange={(nextOpen) => !nextOpen && close(shown.id)}>
                 <SheetContent
                     className="w-[calc(100vw-1.5rem)] max-w-none gap-0 sm:w-[min(60vw,960px)] sm:max-w-none"
-                    style={{width: options.width}}
+                    style={{width: shown.options.width}}
                 >
                     <SheetHeader className="border-b px-6 py-5">
-                        <SheetTitle>{options.title ?? 'Details'}</SheetTitle>
+                        <SheetTitle>{shown.options.title ?? 'Details'}</SheetTitle>
                     </SheetHeader>
                     <div className="min-h-0 flex-1 overflow-y-auto p-6">
-                        {content}
+                        {shown.content}
                     </div>
                 </SheetContent>
             </Sheet>

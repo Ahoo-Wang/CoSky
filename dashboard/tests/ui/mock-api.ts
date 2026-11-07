@@ -51,6 +51,8 @@ export interface MockApi {
     requests: RecordedRequest[];
     /** Such requests take this long. */
     slow?: {path: RegExp; milliseconds: number};
+    /** Keeps the next such request from being answered until the function it returns is called. */
+    hold: (method: string, path: RegExp) => () => void;
     /** Lets every open Watch stream say this, and end. */
     releaseWatch: (message?: Json) => void;
     put: (path: string, resource: Stored) => void;
@@ -95,6 +97,7 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
     const history = new Map<string, Stored[]>();
     const issued = new Set<string>([TOKEN]);
     const pendingWatches: Array<(message: Json) => void> = [];
+    const holds: Array<{method: string; path: RegExp; released: Promise<void>}> = [];
 
     const store = (path: string, resource: Stored) => {
         const name = path.replace(/^.*\/(?:configs|instances|namespaces|serviceaccounts|roles|rolebindings)\//, '');
@@ -114,6 +117,14 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         noRules: false,
         empty: options.empty ?? false,
         requests: [],
+        hold: (method, path) => {
+            let release = () => {};
+            const released = new Promise<void>(resolve => {
+                release = resolve;
+            });
+            holds.push({method, path, released});
+            return release;
+        },
         releaseWatch: (message = {events: {revision: nextRevision(), events: []}}) =>
             pendingWatches.splice(0).forEach(release => release(message)),
         put: store,
@@ -211,6 +222,10 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         }
         if (mockApi.slow?.path.test(path)) {
             await new Promise(resolve => setTimeout(resolve, mockApi.slow?.milliseconds));
+        }
+        const held = holds.findIndex(hold => hold.method === method && hold.path.test(path));
+        if (held >= 0) {
+            await holds.splice(held, 1)[0].released;
         }
         if (path === '/v1/me') {
             await json(route, mockApi.auth

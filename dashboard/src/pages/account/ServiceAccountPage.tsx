@@ -42,7 +42,7 @@ function NewToken({token, onClose}: {token: string; onClose: () => void}) {
 }
 
 export function ServiceAccountPage() {
-    const {openDrawer, closeDrawer} = useDrawer();
+    const {openDrawer} = useDrawer();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [creating, setCreating] = useState(false);
@@ -78,7 +78,7 @@ export function ServiceAccountPage() {
     const handleCreateToken = async (accountName: string) => {
         try {
             const token = await serviceAccounts.createToken(accountName);
-            openDrawer(<NewToken token={token} onClose={closeDrawer}/>, {title: `New token of ${accountName}`});
+            openDrawer(close => <NewToken token={token} onClose={close}/>, {title: `New token of ${accountName}`});
             loadAccounts();
         } catch (failure) {
             toast.error(await failureMessage('Failed to create token', failure));
