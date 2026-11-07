@@ -40,7 +40,7 @@ The API always shares the page's origin, since the server has no CORS (design D3
 | `src/services/` | `fetcher.ts` (token, expiry, timeout), `clients.ts` (client instances), `resources.ts` (typed operations and complete models) and `watch.ts` (following changes). Pages use `resources.ts`: proto3 JSON leaves empty fields out, while the generated types call everything required. |
 | `src/security/`, `src/components/security/` | The token of this tab (`session.ts`), sign-in with OIDC and PKCE (`oidc.ts`), `ProtectedRoute`. |
 | `src/contexts/` | Who is signed in (`useMe`), namespaces, current namespace, and the detail drawer (`useDrawer`). |
-| `src/hooks/useWatchRefresh.ts` | Reads a page again when its objects change. Use one stream per page: browsers allow few connections per server over HTTP/1.1. |
+| `src/hooks/useWatchRefresh.ts`, `useRowReads.ts` | Reads a page again when its objects change, along with the rows it has expanded. Use one stream per page: browsers allow few connections per server over HTTP/1.1. |
 | `src/components/ui/` | shadcn/ui primitives plus shared controls (`confirm-button`, `multi-select`, `options-select`, `data-table`). |
 | `src/components/layout/` | Application shell: `AuthenticatedLayout` composes `Sidebar`, `CommandSearch`, `AccountMenu`, `CurrentNamespaceSelector`; menu entries live in `navigation.ts`. |
 | `src/lib/actions.ts` | `runAction` and `failureMessage`: toast outcomes with the server's reason. |

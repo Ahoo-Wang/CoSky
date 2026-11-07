@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {useEffect} from 'react';
 import {Pencil, Trash2} from 'lucide-react';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import {useDrawer} from '@/contexts/DrawerContext';
@@ -29,16 +30,17 @@ const NO_LEASE = '0';
 export interface ServiceInstanceTableProps {
     namespace: string;
     service: string;
-    /** Reads again whenever this changes. */
-    changes: number;
+    /** Makes these instances read along with the page whenever it reads again; returns what stops it. */
+    follow: (read: () => Promise<unknown>) => () => void;
 }
 
-export function ServiceInstanceTable({namespace, service, changes}: ServiceInstanceTableProps) {
+export function ServiceInstanceTable({namespace, service, follow}: ServiceInstanceTableProps) {
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadInstances} = useQuery<string, InstanceResource[]>({
-        query: `${namespace}/${service}/${changes}`,
+        query: `${namespace}/${service}`,
         execute: (_, __, abortController) => instances.list(namespace, service, abortController),
     });
+    useEffect(() => follow(loadInstances), [follow, loadInstances]);
 
     const handleEdit = (instance: InstanceResource) => {
         openDrawer(

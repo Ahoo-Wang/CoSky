@@ -795,6 +795,37 @@ test.describe('services', () => {
         api.releaseWatch();
         await expect(row(page, 'order-2')).toBeVisible();
     });
+
+    test('an expanded service keeps up with instances that change sooner than they can be read', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/namespaces/default/instances/order-2', {
+            meta: {},
+            instance: {service: 'order', endpoint: {scheme: 'http', host: '10.0.0.3', port: 8080}},
+        });
+        await login(page);
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await row(page, 'order').getByRole('button', {name: /expand/i}).click();
+        await expect(row(page, 'order-1')).toContainText('"zone":"east"');
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        // Each of its two pages takes longer than the Watch takes to say that something changed again.
+        api.slow = {path: /^\/v1\/namespaces\/default\/instances$/, milliseconds: 1_500};
+        api.put('/v1/namespaces/default/instances/order-1', {
+            meta: {lease: '42', labels: {pool: 'a'}},
+            instance: {
+                service: 'order',
+                endpoint: {scheme: 'http', host: '10.0.0.1', port: 8080},
+                weight: 2,
+                metadata: {zone: 'west'},
+            },
+        });
+        const changes = setInterval(() => api.releaseWatch(), 200);
+        try {
+            await expect(row(page, 'order-1')).toContainText('"zone":"west"', {timeout: 10_000});
+        } finally {
+            clearInterval(changes);
+        }
+    });
 });
 
 test.describe('namespaces', () => {
