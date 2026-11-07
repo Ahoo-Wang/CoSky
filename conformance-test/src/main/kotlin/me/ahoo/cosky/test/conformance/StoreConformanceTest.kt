@@ -608,6 +608,17 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `leases still waiting after expiry do not hold back one that is ready`() = scenario { store ->
+        repeat(3) { store.grant(READY_TTL) }
+        delay(READY_TTL)
+        // It expires after those three, and is ready a third of a much shorter TTL later, long before them.
+        val ready = store.grant(SHORT_TTL)
+        delay(EXPIRY_WAIT)
+        store.leaseStats(namespace).expired.assert().isEqualTo(4)
+        store.expiredLeases(namespace, 2).assert().containsExactly(ready)
+    }
+
+    @Test
     fun `an expired lease can renew until it is reaped`() = scenario { store ->
         val lease = store.grant(SHORT_TTL)
         delay(EXPIRY_WAIT)

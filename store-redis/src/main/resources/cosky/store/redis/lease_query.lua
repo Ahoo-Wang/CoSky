@@ -10,12 +10,32 @@
 -- ARGV: limit
 local t = redis.call('TIME')
 local now = t[1] .. string.format('%03d', math.floor(tonumber(t[2]) / 1000))
+local limit = tonumber(ARGV[1])
+-- Leases are ordered by expiry, and one with a long TTL can still be waiting when one behind it with a short TTL is
+-- ready: reading on past those keeps them from holding it back. The bound keeps a mass expiry from making one call long;
+-- what it leaves unread becomes ready within a third of the longest TTL anyway.
+local page = 256
+local max_read = 10000
 local ready = {}
-local expired = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', now, 'WITHSCORES', 'LIMIT', 0, ARGV[1])
-for i = 1, #expired, 2 do
-  local ttl = tonumber(redis.call('HGET', KEYS[2], expired[i]) or '0')
-  if tonumber(expired[i + 1]) + ttl / 3 <= tonumber(now) then
-    ready[#ready + 1] = expired[i]
+local read = 0
+while #ready < limit and read < max_read do
+  local expired = redis.call('ZRANGEBYSCORE', KEYS[1], '-inf', now, 'WITHSCORES', 'LIMIT', read, page)
+  if #expired == 0 then
+    break
+  end
+  local ids = {}
+  for i = 1, #expired, 2 do
+    ids[#ids + 1] = expired[i]
+  end
+  local ttls = redis.call('HMGET', KEYS[2], unpack(ids))
+  for j = 1, #ids do
+    if #ready < limit and tonumber(expired[2 * j]) + tonumber(ttls[j] or '0') / 3 <= tonumber(now) then
+      ready[#ready + 1] = ids[j]
+    end
+  end
+  read = read + #ids
+  if #ids < page then
+    break
   end
 end
 return {
