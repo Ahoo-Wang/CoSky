@@ -11,9 +11,6 @@
  * limitations under the License.
  */
 
-import {useCurrentNamespaceContext} from "@/contexts/namespace/CurrentNamespaceContext";
-import {useQuery} from "@ahoo-wang/fetcher-react";
-import {viewsClient} from "@/services/clients";
 import {useMemo, useState, useCallback} from "react";
 import {
     toReactFlowTopology,
@@ -22,7 +19,6 @@ import {
     DIM_OPACITY,
     getConnectedNodeIds,
     isServiceNodeData,
-    toConsumers,
 } from "@/components/topology/topologies";
 import type {Node, Edge, NodeMouseHandler, OnNodesChange} from "@xyflow/react";
 import {
@@ -42,32 +38,32 @@ const nodeTypes = {
     default: ServiceNode,
 };
 
-export function Topology() {
-    const {currentNamespace} = useCurrentNamespaceContext();
+interface TopologyProps {
+    /** What each consumer depends on; none while it is being read. */
+    consumers?: Record<string, string[]>;
+    error?: unknown;
+    onRetry: () => void;
+}
+
+export function Topology({consumers, error, onRetry}: TopologyProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedNodeId, setSelectedNodeId] = useState<string>();
 
-    const {result = {}, loading, error, execute: retry} = useQuery<string, Record<string, string[]>>({
-        query: currentNamespace,
-        execute: async (namespace, _, abortController) => {
-            const view = await viewsClient.viewTopology({urlParams: {path: {namespace}}, abortController});
-            return toConsumers(view.edges ?? []);
-        },
-    });
-
     const {baseNodes, baseEdges} = useMemo(() => {
-        const topology = toReactFlowTopology(result);
+        const topology = toReactFlowTopology(consumers ?? {});
         return {
             baseNodes: topology.nodes,
             baseEdges: topology.edges
         };
-    }, [result]);
+    }, [consumers]);
 
     const [internalNodes, setInternalNodes] = useState(baseNodes);
-    // getDerivedStateFromProps pattern: sync when baseNodes reference changes
-    const [prevBaseNodes, setPrevBaseNodes] = useState(baseNodes);
-    if (prevBaseNodes !== baseNodes) {
-        setPrevBaseNodes(baseNodes);
+    // The topology is read again and again. Only relationships that changed start the graph over: reading the same
+    // ones again keeps what someone moved, searched for or selected.
+    const relationships = JSON.stringify(consumers ?? {});
+    const [shownRelationships, setShownRelationships] = useState(relationships);
+    if (shownRelationships !== relationships) {
+        setShownRelationships(relationships);
         setInternalNodes(baseNodes);
         setSearchTerm('');
         setSelectedNodeId(undefined);
@@ -153,17 +149,17 @@ export function Topology() {
         setInternalNodes((nds) => applyNodeChanges(changes, nds));
     }, []);
 
-    if (loading) {
-        return <Skeleton className="h-full min-h-96 w-full"/>;
-    }
     if (error) {
         return <div role="alert" className="grid h-full min-h-96 place-items-center text-center">
             <div className="space-y-3">
                 <Network className="mx-auto size-10 text-destructive/70"/>
                 <p className="font-medium">Could not load service topology</p>
-                <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={retry}>Retry</button>
+                <button type="button" className="text-sm font-medium text-primary hover:underline" onClick={onRetry}>Retry</button>
             </div>
         </div>;
+    }
+    if (!consumers) {
+        return <Skeleton className="h-full min-h-96 w-full"/>;
     }
     if (nodes.length === 0) {
         return (
@@ -199,6 +195,8 @@ export function Topology() {
             </div>
             <div className="min-h-0 flex-1">
                 <ReactFlow
+                    // Other relationships are laid out anew, and fit into view again: fitView only acts as it mounts.
+                    key={relationships}
                     nodes={nodes}
                     edges={edges}
                     nodeTypes={nodeTypes}

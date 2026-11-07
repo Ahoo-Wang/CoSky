@@ -158,9 +158,14 @@ export function toReactFlowTopology(
         return positions;
     }
 
+    // A crowded layer wraps into rows, so the next layer starts below its last row rather than at a fixed height.
+    const lastRowOffset = (nodes: string[]) => Math.max(Math.ceil(nodes.length / maxNodesPerRow) - 1, 0) * rowSpacingY;
+    const intermediateY = lastRowOffset(sources) + layerSpacingY;
+    const targetY = intermediateY + lastRowOffset(intermediates) + layerSpacingY;
+
     const sourcePositions = layoutLayer(sources, 0);
-    const intermediatePositions = layoutLayer(intermediates, layerSpacingY);
-    const targetPositions = layoutLayer(targets, 2 * layerSpacingY);
+    const intermediatePositions = layoutLayer(intermediates, intermediateY);
+    const targetPositions = layoutLayer(targets, targetY);
 
     const positionMap = new Map<string, {x: number, y: number}>();
     [...sourcePositions, ...intermediatePositions, ...targetPositions].forEach(({nodeName, x, y}) => {
@@ -187,7 +192,9 @@ export function toReactFlowTopology(
     Object.keys(topology).forEach(nodeName => {
         topology[nodeName].forEach(targetName => {
             edges.push({
-                id: `${nodeName}-${targetName}`,
+                // React Flow tells edges apart by id. A service name may hold '-' but never '>', so this id splits
+                // into its two names one way only.
+                id: `${nodeName}->${targetName}`,
                 source: nodeName,
                 target: targetName,
                 style: {
