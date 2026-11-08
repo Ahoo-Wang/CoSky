@@ -16,7 +16,6 @@ package me.ahoo.cosky.server.adapter.rest
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.protobuf.Message
-import io.lettuce.core.RedisException
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +58,7 @@ import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchSession
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.StoreUnavailableException
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -133,7 +133,7 @@ class RestRoutes(
         global("/v1/rolebindings", Kind.KIND_ROLE_BINDING)
 
         onError<CoSkyException> { error, _ -> errorResponse(error as CoSkyException) }
-        onError<RedisException> { error, _ ->
+        onError<StoreUnavailableException> { error, _ ->
             errorResponse(CoSkyException.storeUnavailable("The store is unavailable.", error))
         }
         // Filters run outside the error handlers above, so this one has to answer its own failures.

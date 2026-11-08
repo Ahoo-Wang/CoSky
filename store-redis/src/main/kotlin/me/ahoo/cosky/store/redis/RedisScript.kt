@@ -13,11 +13,14 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.RedisException
 import io.lettuce.core.RedisNoScriptException
 import io.lettuce.core.ScriptOutputType
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import kotlinx.coroutines.future.await
+import me.ahoo.cosky.store.StoreUnavailableException
 import java.security.MessageDigest
+import java.util.concurrent.CompletionStage
 
 /**
  * A Lua script from the classpath, run by digest; it is loaded when a node does not have it yet, as after a failover.
@@ -43,10 +46,24 @@ internal class RedisScript(name: String, vararg includes: String) {
         return try {
             commands.evalsha<T>(digest, output, keyArray, *argArray).await()
         } catch (_: RedisNoScriptException) {
-            commands.eval<T>(source, output, keyArray, *argArray).await()
+            commands.eval<T>(source, output, keyArray, *argArray).reply()
+        } catch (e: RedisException) {
+            throw unavailable(e)
         }
     }
 }
+
+/**
+ * The answer to a command. Lettuce's failures stop here: past the store, Redis being out of reach is the store being
+ * unavailable, whichever driver says so.
+ */
+internal suspend fun <T> CompletionStage<T>.reply(): T = try {
+    await()
+} catch (e: RedisException) {
+    throw unavailable(e)
+}
+
+private fun unavailable(e: RedisException) = StoreUnavailableException("Redis: ${e.message}", e)
 
 internal fun String.arg(): ByteArray = encodeToByteArray()
 

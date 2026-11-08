@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.AbstractRedisClient
 import io.lettuce.core.ClientOptions
 import io.lettuce.core.Limit
 import io.lettuce.core.MapScanCursor
@@ -20,6 +21,7 @@ import io.lettuce.core.Range
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisCommandExecutionException
 import io.lettuce.core.RedisException
+import io.lettuce.core.RedisURI
 import io.lettuce.core.ScanArgs
 import io.lettuce.core.ScanCursor
 import io.lettuce.core.ScriptOutputType
@@ -34,6 +36,7 @@ import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import io.lettuce.core.resource.ClientResources
 import io.lettuce.core.resource.EpollProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -61,6 +64,7 @@ import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.RevisionGoneException
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.TimelineDivergedException
 import me.ahoo.cosky.store.exceeds
@@ -161,7 +165,7 @@ class RedisStore(
 
     override suspend fun position(namespace: String): Position? {
         val keys = RedisKeys(namespace)
-        val values = commands.mget(keys.state, keys.epoch, keys.revision).await()
+        val values = commands.mget(keys.state, keys.epoch, keys.revision).reply()
         val byKey = values.filter { it.hasValue() }.associate { it.key to it.value.decodeToString() }
         if (byKey[keys.state] != STATE_ACTIVE) {
             return null
@@ -197,7 +201,7 @@ class RedisStore(
             var cursor: ScanCursor = ScanCursor.INITIAL
             do {
                 val page: MapScanCursor<String, ByteArray> =
-                    commands.hscan(keys.versions(kind), cursor, ScanArgs.Builder.limit(READ_BATCH_SIZE)).await()
+                    commands.hscan(keys.versions(kind), cursor, ScanArgs.Builder.limit(READ_BATCH_SIZE)).reply()
                 page.map.forEach { (name, meta) -> emit(versionOf(namespace, kind, name, meta)) }
                 cursor = page
             } while (!page.isFinished)
@@ -226,7 +230,7 @@ class RedisStore(
                     listOf(keys.state, keys.epoch, keys.revision, keys.log),
                     listOf(from.epoch.arg(), applied.arg(), appliedMeta.arg(), readSize.arg()),
                 )
-            } catch (e: RedisException) {
+            } catch (e: StoreUnavailableException) {
                 log.warn("Reading the log of namespace {} failed; trying again: {}", namespace, e.message)
                 delay(tailPollInterval)
                 continue
@@ -269,7 +273,7 @@ class RedisStore(
         var bytes = 0L
         do {
             val count = minOf(limit - newestFirst.size, TAIL_BATCH_SIZE).toLong()
-            val page = commands.xrevrange(log, Range.from(Range.Boundary.unbounded(), upper), Limit.from(count)).await()
+            val page = commands.xrevrange(log, Range.from(Range.Boundary.unbounded(), upper), Limit.from(count)).reply()
             newestFirst += page
             bytes += page.sumOf { message -> message.body.values.sumOf { it.size.toLong() } }
             page.lastOrNull()?.let { upper = Range.Boundary.excluding(it.id) }
@@ -327,7 +331,7 @@ class RedisStore(
 
     override suspend fun history(key: ResourceKey, limit: Int): List<Resource> {
         val stop = if (limit == 0) TO_THE_END else limit.toLong() - 1
-        return commands.zrevrange(RedisKeys(key.namespace).history(key.name), 0, stop).await().map { member ->
+        return commands.zrevrange(RedisKeys(key.namespace).history(key.name), 0, stop).reply().map { member ->
             val separator = member.indexOf(0)
             val meta = StoredMeta.parse(member.copyOfRange(0, separator).decodeToString())
             resourceOf(member.copyOfRange(separator + 1, member.size), meta)
@@ -350,7 +354,7 @@ class RedisStore(
 
     override suspend fun leaseOwners(namespace: String, leases: Collection<Long>): Map<Long, String?> {
         val ids = leases.map { it.toString() }
-        val owners = commands.hmget(RedisKeys(namespace).leaseOwner, *ids.toTypedArray()).await()
+        val owners = commands.hmget(RedisKeys(namespace).leaseOwner, *ids.toTypedArray()).reply()
             .associate { it.key to it.getValueOrElse(null)?.decodeToString() }
         return leases.associateWith { owners[it.toString()] }
     }
@@ -379,7 +383,7 @@ class RedisStore(
      *
      * @throws IllegalStateException when a prerequisite is not met.
      */
-    suspend fun checkPrerequisites() {
+    internal suspend fun checkPrerequisites() {
         val reports = try {
             when (commands) {
                 is RedisAdvancedClusterAsyncCommands -> commands.upstream().commands().info().map { it.await() }
@@ -453,7 +457,7 @@ class RedisStore(
     }
 
     override suspend fun namespaceState(namespace: String): NamespaceState? =
-        when (commands.get(RedisKeys(namespace).state).await()?.decodeToString()) {
+        when (commands.get(RedisKeys(namespace).state).reply()?.decodeToString()) {
             STATE_ACTIVE -> NamespaceState.ACTIVE
             null -> null
             else -> NamespaceState.TERMINATING
@@ -484,7 +488,7 @@ class RedisStore(
      */
     private suspend fun removeData(namespace: String) {
         val keys = RedisKeys(namespace)
-        val history = commands.smembers(keys.historyIndex).await().map { keys.history(it.decodeToString()) }
+        val history = commands.smembers(keys.historyIndex).reply().map { keys.history(it.decodeToString()) }
         val objects = RedisKeys.KINDS.flatMap { listOf(keys.objects(it), keys.versions(it)) }
         // The revision stays with the state: a namespace created again goes on counting, so that no revision of the
         // old one, such as an If-Match a client still holds, names an object of the new (design §7.2).
@@ -565,6 +569,14 @@ class RedisStore(
 
     private data class LogEntry(val revision: Long, val meta: String, val change: Change)
 
+    private class ClientOwningStore(private val store: RedisStore, private val client: AbstractRedisClient) :
+        Store by store {
+        override fun close() {
+            store.close()
+            client.shutdown()
+        }
+    }
+
     companion object {
         private val log = LoggerFactory.getLogger(RedisStore::class.java)
         private const val STATE_ACTIVE = "active"
@@ -600,6 +612,43 @@ class RedisStore(
         private val TCP_USER_TIMEOUT = 30.seconds.toJavaDuration()
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
         private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
+
+        /**
+         * A store on a client of its own, which closing the store shuts down. The prerequisites of design D31 are
+         * checked before it is handed out, and nothing stays open when they fail or Redis cannot be reached.
+         *
+         * @param resources shared with the caller, who stays their owner; without them the client makes its own.
+         */
+        suspend fun open(
+            uri: String,
+            cluster: Boolean = false,
+            options: StoreOptions = StoreOptions(),
+            tailPollInterval: Duration = 1.seconds,
+            resources: ClientResources? = null,
+        ): Store {
+            val redisUri = RedisURI.create(uri)
+            return if (cluster) {
+                val client = resources?.let { RedisClusterClient.create(it, redisUri) }
+                    ?: RedisClusterClient.create(redisUri)
+                owning(client) { RedisStore.cluster(client, options, tailPollInterval) }
+            } else {
+                val client = resources?.let { RedisClient.create(it, redisUri) } ?: RedisClient.create(redisUri)
+                owning(client) { RedisStore.standalone(client, options, tailPollInterval) }
+            }
+        }
+
+        private suspend fun owning(client: AbstractRedisClient, open: () -> RedisStore): Store {
+            var opened: RedisStore? = null
+            return runCatching {
+                open().also { store ->
+                    opened = store
+                    store.checkPrerequisites()
+                }
+            }.onFailure {
+                opened?.close()
+                client.shutdown()
+            }.map { ClientOwningStore(it, client) }.getOrThrow()
+        }
 
         /**
          * A store on two connections of its own, which closing it closes. The client stays its owner's to shut down.

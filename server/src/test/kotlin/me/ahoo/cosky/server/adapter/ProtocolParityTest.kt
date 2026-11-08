@@ -47,6 +47,10 @@ import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.store.ApplyResult
+import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -61,7 +65,21 @@ import kotlin.time.Duration.Companion.milliseconds
  * HTTP status of design §4.4.
  */
 class ProtocolParityTest {
-    private val store = MemoryStore()
+    private val memory = MemoryStore()
+
+    /**
+     * Fails every write while set, as a store does whose backend is out of reach.
+     */
+    @Volatile
+    private var unreachable = false
+    private val store: Store = object : Store by memory {
+        override suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult {
+            if (unreachable) {
+                throw StoreUnavailableException("The backend is out of reach.")
+            }
+            return memory.apply(namespace, mutations, actor)
+        }
+    }
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val caches = WatchCache(store, 64, scope)
     private val service = ResourceService(store, caches, minRevisionTimeout = 200.milliseconds)
@@ -203,6 +221,16 @@ class ProtocolParityTest {
             ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT,
             { grpc.get(GetRequest.newBuilder().setKey(key()).setMinRevision(99).build()) },
             { rest.get().uri("/v1/namespaces/$NAMESPACE/configs/a?minRevision=99").exchange() },
+        )
+    }
+
+    @Test
+    fun `a store out of reach`() = scenario {
+        unreachable = true
+        sameFailure(
+            ErrorReason.ERROR_REASON_STORE_UNAVAILABLE,
+            { grpc.put(PutRequest.newBuilder().setResource(config()).build()) },
+            { restPut("/v1/namespaces/$NAMESPACE/configs/a") },
         )
     }
 

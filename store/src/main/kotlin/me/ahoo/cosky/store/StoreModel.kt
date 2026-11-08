@@ -85,6 +85,12 @@ sealed interface GrantResult {
 enum class TerminateResult { TERMINATED, NOT_EMPTY, NOT_FOUND }
 
 /**
+ * The store could not be reached, or did not answer in time. Whatever was asked may or may not have taken effect, and
+ * asking again later is the remedy, so callers must not read it as a missing object or lease (design §6.2).
+ */
+class StoreUnavailableException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
+
+/**
  * @param earliest the oldest position that can still be resumed from; the caller must load everything again.
  */
 class RevisionGoneException(val earliest: Long) : RuntimeException("Revisions before $earliest are gone.")

@@ -34,6 +34,7 @@ import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.key
 import me.ahoo.cosky.test.conformance.StoreConformanceTest
 import me.ahoo.test.asserts.assert
@@ -207,6 +208,21 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
             Thread.sleep(50)
         }
         clients().assert().isEqualTo(before)
+    }
+
+    @Test
+    fun `a redis out of reach is the store being unavailable, whether for a command or a script`() {
+        val store = RedisStore.standalone(CLIENT)
+        store.close()
+
+        val failures = runBlocking {
+            listOf(
+                runCatching { store.position("unreachable") },
+                runCatching { store.createNamespace("unreachable") },
+            ).map { it.exceptionOrNull() }
+        }
+
+        failures.forEach { it.assert().isInstanceOf(StoreUnavailableException::class.java) }
     }
 
     private fun clients(): Int = CONNECTION.sync().clientList().lines().count { it.isNotBlank() }
