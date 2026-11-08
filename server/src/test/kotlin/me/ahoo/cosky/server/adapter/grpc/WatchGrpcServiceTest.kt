@@ -46,6 +46,7 @@ import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -105,6 +106,49 @@ class WatchGrpcServiceTest {
             }
             val failure = withTimeout(10.seconds) {
                 runCatching { stub.watch(requests).first() }
+            }.exceptionOrNull() as StatusException
+            failure.status.code.assert().isEqualTo(Status.Code.UNAVAILABLE)
+        } finally {
+            channel.shutdownNow()
+            server.shutdownNow()
+            scope.cancel()
+        }
+    }
+
+    /**
+     * Never loads anything: the store cannot be reached.
+     */
+    private class UnreachableStore(private val delegate: Store) : Store by delegate {
+        override suspend fun position(namespace: String): Position? =
+            throw StoreUnavailableException("The backend is out of reach.")
+    }
+
+    @Test
+    fun `a replica that cannot load the namespace ends a resuming stream with unavailable`() = runBlocking<Unit> {
+        val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+        val caches = WatchCache(UnreachableStore(MemoryStore()), WINDOW, scope)
+        val properties = CoSkyProperties(read = CoSkyProperties.Read(minRevisionTimeout = Duration.ofMillis(100)))
+        val name = UUID.randomUUID().toString()
+        val server = InProcessServerBuilder.forName(name)
+            .addService(WatchGrpcService(WatchService(caches, properties)))
+            .build()
+            .start()
+        val channel = InProcessChannelBuilder.forName(name).build()
+        try {
+            val create = WatchRequest.newBuilder().apply {
+                createBuilder
+                    .setWatchId(1)
+                    .setNamespace(NAMESPACE)
+                    .setKind(Kind.KIND_CONFIG)
+                    .setFromRevision(7)
+                    .setFromEpoch("elsewhere")
+            }.build()
+            val requests = flow {
+                emit(create)
+                CompletableDeferred<Unit>().await()
+            }
+            val failure = withTimeout(10.seconds) {
+                runCatching { WatchServiceGrpcKt.WatchServiceCoroutineStub(channel).watch(requests).first() }
             }.exceptionOrNull() as StatusException
             failure.status.code.assert().isEqualTo(Status.Code.UNAVAILABLE)
         } finally {

@@ -50,9 +50,10 @@ internal class WatchMultiplexer(
     private val connectionState = MutableStateFlow(ConnectionState.CONNECTING)
 
     /**
-     * Held while a new stream takes over and creates every watch, and while a watch is added: a watch added in
-     * between would otherwise be created twice on the stream, by both. The second one takes up the server's quota for
-     * nothing, and near it keeps a real watch out.
+     * Held whenever the stream's queue and the routes from watch ids change, so that both belong to one stream: while
+     * a new stream takes over and creates every watch, while a watch is added, and while one starts over. A watch
+     * added during a takeover would otherwise be created twice on the stream, taking up the server's quota for
+     * nothing; one started over for a stream that was replaced meanwhile would lose its route on the new one.
      */
     private val lock = Any()
 
@@ -104,7 +105,7 @@ internal class WatchMultiplexer(
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 log.warn("The watch stream failed: {}", e.message)
             }
-            requests = null
+            synchronized(lock) { requests = null }
             connectionState.compareAndSet(ConnectionState.SYNCED, ConnectionState.DEGRADED)
             connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
             connection.rotate(channel)
@@ -146,14 +147,25 @@ internal class WatchMultiplexer(
         byId.remove(response.watchId)
         scope.launch {
             delay(CANCELED_RETRY)
-            if (requests === outgoing) {
-                restart(outgoing, response.watchId, watch)
+            synchronized(lock) {
+                if (requests === outgoing) {
+                    recreate(outgoing, watch)
+                }
             }
         }
     }
 
-    private fun restart(outgoing: RequestQueue<WatchRequest>, oldId: Long, watch: WatchState) {
-        byId.remove(oldId)
+    /**
+     * Starts a watch over, as long as [outgoing] is still the stream's and [oldId] still routes to the watch: a stream
+     * that took over meanwhile created every watch afresh, and one started over already has a new id.
+     */
+    private fun restart(outgoing: RequestQueue<WatchRequest>, oldId: Long, watch: WatchState) = synchronized(lock) {
+        if (requests === outgoing && byId.remove(oldId, watch)) {
+            recreate(outgoing, watch)
+        }
+    }
+
+    private fun recreate(outgoing: RequestQueue<WatchRequest>, watch: WatchState) {
         watch.startOver()
         create(outgoing, watch)
     }
@@ -179,10 +191,13 @@ internal class WatchMultiplexer(
     private suspend fun resync() {
         while (true) {
             delay(options.resyncInterval * (RESYNC_JITTER_FLOOR + Random.nextDouble() * RESYNC_JITTER_SPREAD))
-            val outgoing = requests ?: continue
-            byId.toMap().forEach { (id, watch) ->
-                outgoing.trySend(cancelOf(id))
-                restart(outgoing, id, watch)
+            // The queue and the routes are read together, or they could belong to different streams.
+            synchronized(lock) {
+                val outgoing = requests ?: return@synchronized
+                byId.toMap().forEach { (id, watch) ->
+                    outgoing.trySend(cancelOf(id))
+                    restart(outgoing, id, watch)
+                }
             }
         }
     }

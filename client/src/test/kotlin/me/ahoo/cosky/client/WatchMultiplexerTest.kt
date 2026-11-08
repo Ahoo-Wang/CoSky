@@ -17,6 +17,7 @@ import io.grpc.inprocess.InProcessChannelBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.VirtualThreads
@@ -135,6 +136,33 @@ class WatchMultiplexerTest {
         (old + new).forEach { write(it, "fresh") }
         awaitUntil { (old + new).all { watch(it).view.value[it]?.config?.content == "fresh" } }
     }
+
+    @Test
+    fun `starting a watch over for a stream that was replaced leaves its route on the new one`() {
+        val watch = watch("order.yaml")
+        runBlocking { withTimeout(10.seconds) { watch.awaitKnown() } }
+        val replaced = requests()
+        server.stop()
+        server.start()
+        awaitUntil { requests().let { it != null && it !== replaced } }
+        awaitUntil { routes().containsValue(watch) }
+        val id = routes().entries.single { it.value === watch }.key
+
+        // What a resync that read the old queue would do with the new stream's route.
+        WatchMultiplexer::class.java
+            .getDeclaredMethod("restart", Channel::class.java, Long::class.java, WatchState::class.java)
+            .apply { isAccessible = true }
+            .invoke(multiplexer, replaced, id, watch)
+
+        routes()[id].assert().isSameAs(watch)
+        write("order.yaml", "fresh")
+        awaitUntil { watch.view.value["order.yaml"]?.config?.content == "fresh" }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun routes(): Map<Long, WatchState> =
+        WatchMultiplexer::class.java.getDeclaredField("byId").apply { isAccessible = true }.get(multiplexer)
+            as Map<Long, WatchState>
 
     private companion object {
         const val NAMESPACE = "prod"

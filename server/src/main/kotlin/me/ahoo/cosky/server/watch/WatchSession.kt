@@ -66,7 +66,7 @@ class WatchSession(
     }
 
     private suspend fun serve() {
-        val start = cache.awaitView()
+        val start = if (create.fromRevision == 0L) cache.awaitView() else firstViewToResumeOn()
         when {
             start.isClosed -> sendClosed()
 
@@ -83,6 +83,13 @@ class WatchSession(
             create.fromRevision <= start.revision || catchUp(start) -> follow(start.epoch)
         }
     }
+
+    /**
+     * A client with a position got it from some replica, which may well serve it now: one that has not loaded the
+     * namespace within the catch-up timeout sends it elsewhere rather than keep it waiting (design D29).
+     */
+    private suspend fun firstViewToResumeOn(): NamespaceView = withTimeoutOrNull(catchUpTimeout) { cache.awaitView() }
+        ?: throw CoSkyException.storeUnavailable("This replica has not loaded namespace ${create.namespace} yet.")
 
     /**
      * Waits for this replica to reach the position of the client, which came from another replica.
