@@ -33,6 +33,7 @@ import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
@@ -68,7 +69,9 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
         server = InProcessServerBuilder.forName(name)
             .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
             .addService(ServerInterceptors.intercept(LeaseGrpcService(store), silencing))
-            .addService(ServerInterceptors.intercept(WatchGrpcService(caches, properties), recordingCreates))
+            .addService(
+                ServerInterceptors.intercept(WatchGrpcService(WatchService(caches, properties)), recordingCreates),
+            )
             .build()
             .start()
     }

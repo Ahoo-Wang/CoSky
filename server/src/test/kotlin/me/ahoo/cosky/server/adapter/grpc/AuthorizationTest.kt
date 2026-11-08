@@ -76,6 +76,7 @@ import me.ahoo.cosky.server.auth.ParsedToken
 import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.key
@@ -105,7 +106,9 @@ class AuthorizationTest {
             ),
         )
         .addService(ServerInterceptors.intercept(LeaseGrpcService(store, access), interceptor))
-        .addService(ServerInterceptors.intercept(WatchGrpcService(caches, CoSkyProperties(), access), interceptor))
+        .addService(
+            ServerInterceptors.intercept(WatchGrpcService(WatchService(caches, CoSkyProperties(), access)), interceptor)
+        )
         .build()
         .start()
     private val channels = mutableListOf<io.grpc.ManagedChannel>()

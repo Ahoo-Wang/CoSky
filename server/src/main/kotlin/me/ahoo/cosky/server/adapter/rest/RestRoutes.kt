@@ -16,8 +16,6 @@ package me.ahoo.cosky.server.adapter.rest
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.protobuf.Message
-import kotlinx.coroutines.channels.ProducerScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
@@ -38,24 +36,21 @@ import me.ahoo.cosky.api.v1.ServicesRequest
 import me.ahoo.cosky.api.v1.StatsRequest
 import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.cosky.api.v1.TopologyRequest
-import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
-import me.ahoo.cosky.api.validation.Validator
-import me.ahoo.cosky.api.validation.requireValid
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
-import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.auth.TokenService
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
-import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.server.watch.WatchSession
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.StoreUnavailableException
@@ -76,7 +71,6 @@ import org.springframework.web.reactive.function.server.sse
 import java.time.Instant
 import java.time.format.DateTimeParseException
 import kotlin.jvm.optionals.getOrNull
-import kotlin.time.toKotlinDuration
 
 /**
  * The REST API (design §4.5, `api/src/main/openapi/paths.yaml`), protocol mapping only: everything of substance lives
@@ -89,11 +83,11 @@ class RestRoutes(
     private val resources: ResourceService,
     private val views: ViewService,
     private val tokens: TokenService,
-    private val caches: WatchCache,
-    private val authorizer: Authorizer,
+    private val watches: WatchService,
     private val access: AccessControl?,
     private val audit: AuditLogger,
-    private val properties: CoSkyProperties,
+    private val oidc: CoSkyProperties.Oidc = CoSkyProperties.Oidc(),
+    private val metrics: CoSkyMetrics = CoSkyMetrics(),
     private val limits: Limits = Limits.DEFAULT,
 ) {
     fun routes(): RouterFunction<ServerResponse> = publicRoutes().and(signedInRoutes())
@@ -182,7 +176,7 @@ class RestRoutes(
         val principal = try {
             access.authenticate(request.headers().firstHeader(HttpHeaders.AUTHORIZATION)?.removePrefix(BEARER))
         } catch (e: CoSkyException) {
-            caches.metrics.authFailure(e.reason.name)
+            metrics.authFailure(e.reason.name)
             val path = request.path()
             audit.record(UNKNOWN_SUBJECT, null, null, null, path, null, e.errorCode.grpcCode.name, remote)
             throw e
@@ -318,85 +312,45 @@ class RestRoutes(
     // --- watch ---
 
     private suspend fun watch(request: ServerRequest): ServerResponse {
-        val namespace = request.pathVariable(NAMESPACE)
         val kind = request.queryParam("kind").getOrNull()
             ?.let { runCatching { Kind.valueOf(it) }.getOrNull() }
             ?: throw ProtoJson.invalid("kind", "A kind is required, like KIND_CONFIG.")
         val create = WatchRequest.Create.newBuilder()
             .setWatchId(0)
-            .setNamespace(namespace)
+            .setNamespace(request.pathVariable(NAMESPACE))
             .setKind(kind)
             .setName(request.queryParam(NAME).getOrNull().orEmpty())
             .setService(request.queryParam("service").getOrNull().orEmpty())
             .setFromRevision(longParam(request, "fromRevision") ?: 0)
             .setFromEpoch(request.queryParam("fromEpoch").getOrNull().orEmpty())
             .build()
-        requireValid(Validator(limits).validate(WatchRequest.newBuilder().setCreate(create).build()))
         val principal = callerOf(request).principal
-        val permission = authorizer.permission(principal, Verb.VERB_WATCH, kind, namespace)
-        if (permission == Permission.None) {
-            throw CoSkyException.permissionDenied("${principal.id} may not watch this.")
-        }
+        // Refused here, as a status, rather than in the first event.
+        val permission = watches.permissionOf(principal, create)
         val events = responses(create, principal, permission).map { ProtoJson.print(it) }
         return ServerResponse.ok().sse().bodyAndAwait(events)
     }
 
+    /**
+     * One watch to a stream, so a change of what the subject may see simply ends the stream, after saying why.
+     */
     private fun responses(
         create: WatchRequest.Create,
         principal: Principal,
         permission: Permission,
     ): Flow<WatchResponse> = channelFlow {
-        val session = WatchSession(
-            create,
-            caches.of(create.namespace),
-            limits.maxMessageBytes,
-            properties.read.minRevisionTimeout.toKotlinDuration(),
-            permission,
-            caches.metrics,
-        ) { send(it) }
-        val bookmarks = launch {
-            while (true) {
-                delay(properties.watch.progressInterval.toKotlinDuration())
-                send(WatchSession.progress(create.watchId, session.cursor.get()))
+        val stream = watches.stream(principal, null, this) { send(it) }
+        val watch = stream.start(create, permission)
+        val maintaining = launch {
+            try {
+                stream.maintain()
+            } catch (e: CoSkyException) {
+                send(WatchSession.canceled(create.watchId, e))
+                watch.cancel()
             }
         }
-        val reevaluating = launch { reevaluate(create, principal, permission) }
-        session.run()
-        bookmarks.cancel()
-        reevaluating.cancel()
-    }
-
-    /**
-     * As for a gRPC watch, but with only one watch a change simply ends the stream, after saying why.
-     */
-    private suspend fun ProducerScope<WatchResponse>.reevaluate(
-        create: WatchRequest.Create,
-        principal: Principal,
-        permission: Permission,
-    ) {
-        authorizer.changes.collect {
-            val valid = authorizer.isValid(principal)
-            val now = authorizer.permission(principal, Verb.VERB_WATCH, create.kind, create.namespace)
-            if (!valid || now != permission) {
-                send(
-                    when {
-                        !valid -> WatchSession.canceled(
-                            create.watchId,
-                            CoSkyException.unauthenticated("The token is no longer valid."),
-                        )
-
-                        now == Permission.None ->
-                            WatchSession.canceled(
-                                create.watchId,
-                                CoSkyException.permissionDenied("Access was withdrawn."),
-                            )
-
-                        else -> WatchSession.gone(create.watchId, 0)
-                    },
-                )
-                close()
-            }
-        }
+        watch.join()
+        maintaining.cancel()
     }
 
     // --- views ---
@@ -456,7 +410,6 @@ class RestRoutes(
     }
 
     private suspend fun authConfig(): ServerResponse {
-        val oidc = properties.auth.oidc
         val response = JsonObject()
         if (oidc.issuer != null && oidc.clientId != null) {
             response.add(

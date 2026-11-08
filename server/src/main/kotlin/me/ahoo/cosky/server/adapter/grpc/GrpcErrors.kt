@@ -13,6 +13,9 @@
 
 package me.ahoo.cosky.server.adapter.grpc
 
+import io.grpc.StatusRuntimeException
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.store.StoreUnavailableException
 
@@ -25,5 +28,19 @@ internal inline fun <T> grpcCall(block: () -> T): T = try {
 } catch (e: CoSkyException) {
     throw e.toStatusRuntimeException()
 } catch (e: StoreUnavailableException) {
-    throw CoSkyException.storeUnavailable("The store is unavailable.", e).toStatusRuntimeException()
+    throw unavailable(e)
 }
+
+/**
+ * As [grpcCall], for what ends a stream.
+ */
+internal fun <T> Flow<T>.grpcErrors(): Flow<T> = catch { e ->
+    throw when (e) {
+        is CoSkyException -> e.toStatusRuntimeException()
+        is StoreUnavailableException -> unavailable(e)
+        else -> e
+    }
+}
+
+internal fun unavailable(e: StoreUnavailableException): StatusRuntimeException =
+    CoSkyException.storeUnavailable("The store is unavailable.", e).toStatusRuntimeException()
