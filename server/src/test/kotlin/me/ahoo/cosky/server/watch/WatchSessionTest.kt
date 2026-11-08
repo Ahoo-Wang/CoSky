@@ -297,7 +297,7 @@ class WatchSessionTest {
         cache.awaitView()
         val sent = watch(create(), whileRunning = {
             delay(SETTLE)
-            store.terminateNamespace(NAMESPACE)
+            store.terminateNamespace(NAMESPACE, checkNotNull(store.position(NAMESPACE)).epoch)
         }) { it.hasCanceled() }
         sent.last().canceled.detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND)
     }

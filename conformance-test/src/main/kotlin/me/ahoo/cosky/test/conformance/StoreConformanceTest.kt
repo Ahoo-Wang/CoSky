@@ -421,9 +421,10 @@ abstract class StoreConformanceTest {
 
     @Test
     fun `changes complete when the namespace stops being active`() = scenario { store ->
+        val epoch = position(store).epoch
         val start = position(store)
         val following = async { store.changes(namespace, start).toList() }
-        store.terminateNamespace(namespace)
+        store.terminateNamespace(namespace, epoch)
         following.await().assert().isEmpty()
     }
 
@@ -487,12 +488,13 @@ abstract class StoreConformanceTest {
 
     @Test
     fun `recreating a namespace starts a new timeline, and goes on counting revisions`() = scenario { store ->
+        val epoch = position(store).epoch
         store.put(config())
         val old = position(store)
         val deleted = store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
             .let { (it as ApplyResult.Applied).revision }
-        store.terminateNamespace(namespace).assert().isEqualTo(TerminateResult.TERMINATED)
-        store.dropNamespace(namespace)
+        store.terminateNamespace(namespace, epoch).assert().isEqualTo(TerminateResult.TERMINATED)
+        store.dropNamespace(namespace, epoch)
         val recreated = store.createNamespace(namespace)
         recreated.revision.assert().isEqualTo(deleted)
         recreated.epoch.assert().isNotEqualTo(old.epoch)
@@ -778,7 +780,7 @@ abstract class StoreConformanceTest {
         store.position(absent).assert().isNull()
         store.apply(absent, emptyList(), ACTOR).assert().isEqualTo(ApplyResult.NamespaceNotActive)
         store.grantLease(absent, LONG_TTL, ACTOR).assert().isEqualTo(GrantResult.NamespaceNotActive)
-        store.terminateNamespace(absent).assert().isEqualTo(TerminateResult.NOT_FOUND)
+        store.terminateNamespace(absent, "").assert().isEqualTo(TerminateResult.NOT_FOUND)
     }
 
     @Test
@@ -791,15 +793,17 @@ abstract class StoreConformanceTest {
 
     @Test
     fun `a namespace with objects cannot terminate`() = scenario { store ->
+        val epoch = position(store).epoch
         store.put(config())
-        store.terminateNamespace(namespace).assert().isEqualTo(TerminateResult.NOT_EMPTY)
+        store.terminateNamespace(namespace, epoch).assert().isEqualTo(TerminateResult.NOT_EMPTY)
         store.namespaceState(namespace).assert().isEqualTo(NamespaceState.ACTIVE)
         store.put(config("still writable")).assert().isEqualTo(ApplyResult.Applied(2, 1))
     }
 
     @Test
     fun `a terminating namespace rejects writes`() = scenario { store ->
-        store.terminateNamespace(namespace).assert().isEqualTo(TerminateResult.TERMINATED)
+        val epoch = position(store).epoch
+        store.terminateNamespace(namespace, epoch).assert().isEqualTo(TerminateResult.TERMINATED)
         store.namespaceState(namespace).assert().isEqualTo(NamespaceState.TERMINATING)
         store.position(namespace).assert().isNull()
         store.put(config()).assert().isEqualTo(ApplyResult.NamespaceNotActive)
@@ -808,23 +812,26 @@ abstract class StoreConformanceTest {
 
     @Test
     fun `terminating twice is fine`() = scenario { store ->
-        store.terminateNamespace(namespace)
-        store.terminateNamespace(namespace).assert().isEqualTo(TerminateResult.TERMINATED)
+        val epoch = position(store).epoch
+        store.terminateNamespace(namespace, epoch)
+        store.terminateNamespace(namespace, epoch).assert().isEqualTo(TerminateResult.TERMINATED)
     }
 
     @Test
     fun `an active namespace cannot be dropped`() = scenario { store ->
-        thrownBy<IllegalStateException> { store.dropNamespace(namespace) }
+        val epoch = position(store).epoch
+        thrownBy<IllegalStateException> { store.dropNamespace(namespace, epoch) }
     }
 
     @Test
     fun `dropping removes everything and can repeat`() = scenario { store ->
+        val epoch = position(store).epoch
         store.put(config())
         val lease = store.grant()
         store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
-        store.terminateNamespace(namespace)
-        store.dropNamespace(namespace)
-        store.dropNamespace(namespace)
+        store.terminateNamespace(namespace, epoch)
+        store.dropNamespace(namespace, epoch)
+        store.dropNamespace(namespace, epoch)
         store.namespaceState(namespace).assert().isEqualTo(NamespaceState.TERMINATING)
         store.history(configKey(), 0).assert().isEmpty()
         store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to null))
@@ -834,25 +841,52 @@ abstract class StoreConformanceTest {
     @Test
     fun `dropping a namespace that was never created does nothing`() = scenario { store ->
         val absent = "absent-${UUID.randomUUID()}"
-        store.dropNamespace(absent)
+        store.dropNamespace(absent, "")
         store.namespaceState(absent).assert().isNull()
     }
 
     @Test
     fun `a late write does not revive a dropped namespace`() = scenario { store ->
-        store.terminateNamespace(namespace)
-        store.dropNamespace(namespace)
+        val epoch = position(store).epoch
+        store.terminateNamespace(namespace, epoch)
+        store.dropNamespace(namespace, epoch)
         store.put(config()).assert().isEqualTo(ApplyResult.NamespaceNotActive)
         store.namespaceState(namespace).assert().isEqualTo(NamespaceState.TERMINATING)
     }
 
     @Test
+    fun `a deletion of an earlier generation leaves the namespace created again alone`() = scenario { store ->
+        val earlier = position(store).epoch
+        store.terminateNamespace(namespace, earlier)
+        store.dropNamespace(namespace, earlier)
+        store.createNamespace(namespace)
+        store.put(config())
+        store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+
+        store.terminateNamespace(namespace, earlier).assert().isEqualTo(TerminateResult.SUPERSEDED)
+        store.dropNamespace(namespace, earlier)
+
+        store.namespaceState(namespace).assert().isEqualTo(NamespaceState.ACTIVE)
+        store.history(configKey(), 0).assert().isNotEmpty()
+        store.put(config("still writable")).assert().isInstanceOf(ApplyResult.Applied::class.java)
+    }
+
+    @Test
+    fun `a deletion that began before the epoch was replaced stops`() = scenario { store ->
+        val before = position(store).epoch
+        store.rotateEpoch(namespace, before)
+        store.terminateNamespace(namespace, before).assert().isEqualTo(TerminateResult.SUPERSEDED)
+        store.namespaceState(namespace).assert().isEqualTo(NamespaceState.ACTIVE)
+    }
+
+    @Test
     fun `creating over a terminating namespace discards what remains`() = scenario { store ->
+        val epoch = position(store).epoch
         store.put(config())
         val deleted = store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
             .let { (it as ApplyResult.Applied).revision }
         val lease = store.grant()
-        store.terminateNamespace(namespace)
+        store.terminateNamespace(namespace, epoch)
         store.createNamespace(namespace).revision.assert().isEqualTo(deleted)
         store.history(configKey(), 0).assert().isEmpty()
         store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to null))
@@ -886,9 +920,10 @@ abstract class StoreConformanceTest {
 
     @Test
     fun `dropping a namespace drops its topology, and a late write does not bring it back`() = scenario { store ->
+        val epoch = position(store).epoch
         store.recordTopology(namespace, listOf(edge("order", "payment")), LONG_TTL)
-        store.terminateNamespace(namespace)
-        store.dropNamespace(namespace)
+        store.terminateNamespace(namespace, epoch)
+        store.dropNamespace(namespace, epoch)
         store.recordTopology(namespace, listOf(edge("order", "payment")), LONG_TTL)
         store.createNamespace(namespace)
         store.topology(namespace).assert().isEmpty()

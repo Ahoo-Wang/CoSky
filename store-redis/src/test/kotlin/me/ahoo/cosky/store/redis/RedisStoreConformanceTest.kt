@@ -113,8 +113,9 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
         }
         commands.get(keys.logBytes).await().decodeToString().toLong().assert().isEqualTo(actual)
         store.apply(namespace, listOf(Mutation.Delete(config(namespace, "a", "").key)), "test")
-        store.terminateNamespace(namespace)
-        store.dropNamespace(namespace)
+        val epoch = checkNotNull(store.position(namespace)).epoch
+        store.terminateNamespace(namespace, epoch)
+        store.dropNamespace(namespace, epoch)
         commands.exists(keys.logBytes).await().assert().isEqualTo(0L)
         connection.close()
     }
@@ -173,23 +174,32 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
     }
 
     /**
-     * Two replicas apart have nothing to wait on, so this is the step they race on: what another replica started
-     * removing must not take the epoch and log of the namespace created since.
+     * A removal checks each batch against the epoch it is for, in the script: one that comes late must not take
+     * anything of the namespace created since, and the epoch goes last, so that a removal cut short can go on.
      */
     @Test
-    fun `removing data stops at a namespace that is active again`() = runBlocking<Unit> {
+    fun `removing data stops at a namespace that is active again, or another epoch`() = runBlocking<Unit> {
         val keys = RedisKeys("removal-${UUID.randomUUID()}")
         val connection = CLIENT.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
         val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
         val remove = RedisScript("namespace_remove")
+        suspend fun removeEpoch(epoch: String) =
+            remove.run<Long>(
+                commands,
+                ScriptOutputType.INTEGER,
+                listOf(keys.state, keys.epoch, keys.epoch),
+                listOf(epoch.arg())
+            )
         commands.set(keys.epoch, "epoch".arg()).await()
 
         commands.set(keys.state, "active".arg()).await()
-        remove.run<Long>(commands, ScriptOutputType.INTEGER, listOf(keys.state, keys.epoch), emptyList())
+        removeEpoch("epoch")
         commands.exists(keys.epoch).await().assert().isEqualTo(1)
 
         commands.set(keys.state, "terminating".arg()).await()
-        remove.run<Long>(commands, ScriptOutputType.INTEGER, listOf(keys.state, keys.epoch), emptyList())
+        removeEpoch("another")
+        commands.exists(keys.epoch).await().assert().isEqualTo(1)
+        removeEpoch("epoch")
         commands.exists(keys.epoch).await().assert().isEqualTo(0)
         connection.close()
     }

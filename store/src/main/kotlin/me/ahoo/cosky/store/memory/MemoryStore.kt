@@ -187,21 +187,27 @@ class MemoryStore(
 
     override suspend fun namespaceState(namespace: String): NamespaceState? = slot(namespace).value?.state
 
-    override suspend fun terminateNamespace(namespace: String): TerminateResult = transition(namespace) { current ->
-        when {
-            current == null -> null to TerminateResult.NOT_FOUND
-            current.objects.isNotEmpty() -> current to TerminateResult.NOT_EMPTY
-            else -> current.copy(state = NamespaceState.TERMINATING) to TerminateResult.TERMINATED
-        }
-    }
-
-    override suspend fun dropNamespace(namespace: String) {
+    override suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult =
         transition(namespace) { current ->
-            check(current?.state != NamespaceState.ACTIVE) { "Namespace $namespace is still active." }
-            val tombstone = current?.let {
-                NamespaceData(revision = it.revision, epoch = "", state = NamespaceState.TERMINATING)
+            when {
+                current == null -> null to TerminateResult.NOT_FOUND
+                current.state == NamespaceState.TERMINATING -> current to TerminateResult.TERMINATED
+                current.epoch != epoch -> current to TerminateResult.SUPERSEDED
+                current.objects.isNotEmpty() -> current to TerminateResult.NOT_EMPTY
+                else -> current.copy(state = NamespaceState.TERMINATING) to TerminateResult.TERMINATED
             }
-            tombstone to Unit
+        }
+
+    override suspend fun dropNamespace(namespace: String, epoch: String) {
+        transition(namespace) { current ->
+            check(current?.state != NamespaceState.ACTIVE || current.epoch != epoch) {
+                "Namespace $namespace is still active."
+            }
+            // Dropped already, under the epoch it had, or created again since: either way not this one's.
+            if (current == null || current.state == NamespaceState.ACTIVE || current.epoch != epoch) {
+                return@transition current to Unit
+            }
+            NamespaceData(revision = current.revision, epoch = "", state = NamespaceState.TERMINATING) to Unit
         }
     }
 

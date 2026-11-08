@@ -125,8 +125,9 @@ class RedisStoreClusterTest {
             store.keepAlive(first, listOf(lease)).assert().isEqualTo(mapOf(lease to LeaseRenewal(1.minutes, 0)))
             store.expireLease(first, lease, "test", force = true).assert().isTrue()
             store.apply(first, listOf(Mutation.Delete(config(first, "1").key)), "test")
-            store.terminateNamespace(first).assert().isEqualTo(TerminateResult.TERMINATED)
-            store.dropNamespace(first)
+            val epoch = checkNotNull(store.position(first)).epoch
+            store.terminateNamespace(first, epoch).assert().isEqualTo(TerminateResult.TERMINATED)
+            store.dropNamespace(first, epoch)
             store.namespaceState(first).assert().isEqualTo(NamespaceState.TERMINATING)
         }
     }

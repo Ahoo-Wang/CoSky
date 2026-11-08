@@ -443,10 +443,11 @@ class RedisStore(
     }
 
     override suspend fun createNamespace(namespace: String): Position {
-        if (namespaceState(namespace) == NamespaceState.TERMINATING) {
-            removeData(namespace)
-        }
         val keys = RedisKeys(namespace)
+        if (namespaceState(namespace) == NamespaceState.TERMINATING) {
+            // What a drop has not removed yet, under the epoch it still has: once that is gone, so is the rest.
+            commands.get(keys.epoch).reply()?.let { removeData(namespace, it.decodeToString()) }
+        }
         val reply = NAMESPACE_CREATE.run<List<Any?>>(
             commands,
             ScriptOutputType.MULTI,
@@ -463,22 +464,27 @@ class RedisStore(
             else -> NamespaceState.TERMINATING
         }
 
-    override suspend fun terminateNamespace(namespace: String): TerminateResult {
+    override suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult {
         val keys = RedisKeys(namespace)
         val reply = NAMESPACE_TERMINATE.run<ByteArray>(
             commands,
             ScriptOutputType.VALUE,
-            listOf(keys.state, keys.objects(Kind.KIND_CONFIG), keys.objects(Kind.KIND_INSTANCE)),
-            listOf(namespace.arg()),
+            listOf(keys.state, keys.epoch, keys.objects(Kind.KIND_CONFIG), keys.objects(Kind.KIND_INSTANCE)),
+            listOf(namespace.arg(), epoch.arg()),
         )
         return TerminateResult.valueOf(reply.decodeToString().uppercase())
     }
 
-    override suspend fun dropNamespace(namespace: String) {
-        when (namespaceState(namespace)) {
-            NamespaceState.ACTIVE -> error("Namespace $namespace is still active.")
-            NamespaceState.TERMINATING -> removeData(namespace)
-            null -> Unit
+    override suspend fun dropNamespace(namespace: String, epoch: String) {
+        val keys = RedisKeys(namespace)
+        val (state, current) = commands.mget(
+            keys.state,
+            keys.epoch
+        ).reply().map { it.getValueOrElse(null)?.decodeToString() }
+        check(state != STATE_ACTIVE || current != epoch) { "Namespace $namespace is still active." }
+        // Dropped already, under the epoch it had, or created again since: either way not this one's.
+        if (state != null && state != STATE_ACTIVE && current == epoch) {
+            removeData(namespace, epoch)
         }
     }
 
@@ -486,14 +492,13 @@ class RedisStore(
      * Removes everything but the state, which stays as a tombstone. Each step can run again if this one is interrupted,
      * and none touches a namespace that has been created again by another replica in the meantime.
      */
-    private suspend fun removeData(namespace: String) {
+    private suspend fun removeData(namespace: String, epoch: String) {
         val keys = RedisKeys(namespace)
         val history = commands.smembers(keys.historyIndex).reply().map { keys.history(it.decodeToString()) }
         val objects = RedisKeys.KINDS.flatMap { listOf(keys.objects(it), keys.versions(it)) }
         // The revision stays with the state: a namespace created again goes on counting, so that no revision of the
         // old one, such as an If-Match a client still holds, names an object of the new (design §7.2).
         val fixed = listOf(
-            keys.epoch,
             keys.log,
             keys.logBytes,
             keys.lease,
@@ -503,9 +508,16 @@ class RedisStore(
             keys.leaseSequence,
             keys.topology,
         )
-        (history + objects + fixed + keys.historyIndex).chunked(REMOVE_BATCH_SIZE).forEach {
-            NAMESPACE_REMOVE.run<Long>(commands, ScriptOutputType.INTEGER, listOf(keys.state) + it, emptyList())
-        }
+        // The epoch last: until it goes, a removal cut short is taken up again under it.
+        ((history + objects + fixed + keys.historyIndex).chunked(REMOVE_BATCH_SIZE) + listOf(listOf(keys.epoch)))
+            .forEach {
+                NAMESPACE_REMOVE.run<Long>(
+                    commands,
+                    ScriptOutputType.INTEGER,
+                    listOf(keys.state, keys.epoch) + it,
+                    listOf(epoch.arg()),
+                )
+            }
     }
 
     override suspend fun tryLock(name: String, owner: String, ttl: Duration): Boolean {
