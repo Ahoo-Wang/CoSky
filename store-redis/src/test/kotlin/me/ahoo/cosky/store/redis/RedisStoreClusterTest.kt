@@ -67,6 +67,16 @@ class RedisStoreClusterTest {
     }
 
     @Test
+    fun `a store opened on a cluster serves it, and leaves resources it was given open`() = runBlocking<Unit> {
+        val (namespace, _) = namespaces()
+        RedisStore.open("redis://127.0.0.1:${PORTS.first()}", cluster = true, resources = RESOURCES).use { store ->
+            store.createNamespace(namespace)
+            store.position(namespace).assert().isNotNull()
+        }
+        RESOURCES.eventExecutorGroup().isShuttingDown.assert().isFalse()
+    }
+
+    @Test
     fun `namespaces on different nodes work side by side`() = runBlocking<Unit> {
         val (first, second) = namespaces()
         val store = RedisStore.cluster(CLIENT)
