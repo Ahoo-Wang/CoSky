@@ -35,6 +35,9 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
+          # The Gradle distribution and dependencies from the cache, as the other workflows have them: a release
+          # should not depend on services.gradle.org answering at that moment.
+          cache: gradle
 
       - name: Publish package
         run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
@@ -63,6 +66,9 @@ jobs:
           distribution: 'temurin'
           server-id: github
           settings-path: ${{ github.workspace }}
+          # The Gradle distribution and dependencies from the cache, as the other workflows have them: a release
+          # should not depend on services.gradle.org answering at that moment.
+          cache: gradle
 
       - name: Publish package
         run: ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository
