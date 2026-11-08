@@ -42,7 +42,7 @@ function NewToken({token, onClose}: {token: string; onClose: () => void}) {
 }
 
 export function ServiceAccountPage() {
-    const {openDrawer} = useDrawer();
+    const {reserveDrawer} = useDrawer();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [creating, setCreating] = useState(false);
@@ -76,9 +76,21 @@ export function ServiceAccountPage() {
     };
 
     const handleCreateToken = async (accountName: string) => {
+        const showToken = reserveDrawer();
         try {
             const token = await serviceAccounts.createToken(accountName);
-            openDrawer(close => <NewToken token={token} onClose={close}/>, {title: `New token of ${accountName}`});
+            const shown = showToken(close => <NewToken token={token} onClose={close}/>, {
+                title: `New token of ${accountName}`,
+            });
+            if (!shown) {
+                // Something else is on screen now. The token is shown only once, so it is offered rather than lost.
+                toast.success(`New token of ${accountName}`, {
+                    description: 'It is shown only once: copy it now.',
+                    duration: Infinity,
+                    closeButton: true,
+                    action: {label: 'Copy token', onClick: () => void navigator.clipboard.writeText(token)},
+                });
+            }
             loadAccounts();
         } catch (failure) {
             toast.error(await failureMessage('Failed to create token', failure));

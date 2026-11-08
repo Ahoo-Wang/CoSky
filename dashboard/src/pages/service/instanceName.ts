@@ -34,8 +34,10 @@ const digestOf = (value: string) => {
  * host or port holds a `_`, so the first and the last one keep the three apart; the `:` of an IPv6 host becomes one
  * too, which still sets it apart from every other host. A name that is too long keeps its port, and a digest of the
  * whole name before it, so that two endpoints of a long host do not share one.
+ *
+ * @param port a number, as the client has it: `08080` names the endpoint `8080` does.
  */
-export const defaultInstanceName = (service: string, host: string, port: string | number) => {
+export const defaultInstanceName = (service: string, host: string, port: number) => {
     const name = `${service}_${host}_${port}`.replace(ILLEGAL_NAME_CHARACTER, '_');
     if (name.length <= MAX_NAME_LENGTH) {
         return name;

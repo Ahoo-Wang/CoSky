@@ -26,6 +26,14 @@ interface DrawerContextType {
      * drawer was closed must leave alone whatever has been opened since.
      */
     openDrawer: (render: (close: () => void) => ReactNode, options?: DrawerOptions) => void;
+    /**
+     * For what an operation shows when it ends: the drawer it returns opens only if nothing else has opened since and
+     * the page is still the one the operation started on, so that a late answer does not replace what someone is
+     * doing now.
+     *
+     * @return opens the drawer as [openDrawer] does, and says whether it did.
+     */
+    reserveDrawer: () => (render: (close: () => void) => ReactNode, options?: DrawerOptions) => boolean;
 }
 
 export const DrawerContext = createContext<DrawerContextType | undefined>(undefined);

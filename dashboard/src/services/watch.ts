@@ -13,6 +13,7 @@
 
 import type {Kind, WatchResponse} from '@/generated';
 import {watchClient} from '@/services/clients';
+import {readsBehind, watchedUpTo} from '@/services/revisions';
 
 const MIN_RETRY_MS = 1_000;
 const MAX_RETRY_MS = 30_000;
@@ -76,7 +77,14 @@ export async function followChanges({namespace, kind, service, signal, onChange}
                     return;
                 }
                 if (message.snapshot || message.events || message.gone !== undefined) {
+                    watchedUpTo(namespace, message.snapshot?.revision ?? message.events?.revision);
                     onChange();
+                } else if (message.progress !== undefined) {
+                    // An earlier read may have come from a replica that was behind.
+                    watchedUpTo(namespace, message.progress);
+                    if (readsBehind(namespace, message.progress)) {
+                        onChange();
+                    }
                 }
             }
             await reader.cancel();
