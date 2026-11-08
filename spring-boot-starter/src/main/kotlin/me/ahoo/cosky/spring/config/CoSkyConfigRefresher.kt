@@ -22,7 +22,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.spring.CoSkyApplicationClient
-import me.ahoo.cosky.spring.CoSkyProperties
 import me.ahoo.cosky.spring.orNone
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
@@ -44,7 +43,6 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 class CoSkyConfigRefresher(
     private val application: CoSkyApplicationClient,
-    private val properties: CoSkyProperties,
     private val publisher: ApplicationEventPublisher,
 ) : ApplicationListener<AvailabilityChangeEvent<ReadinessState>>, DisposableBean {
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
@@ -62,8 +60,9 @@ class CoSkyConfigRefresher(
         if (event.state != ReadinessState.ACCEPTING_TRAFFIC || !started.compareAndSet(false, true)) {
             return
         }
-        val configs = application.client.namespace(properties.namespace).configs
-        application.importedBy(properties.namespace).forEach { (config, loaded) ->
+        // Imports a refresh adds are followed as well, once each.
+        application.eachImport { namespace, config, loaded ->
+            val configs = application.client.namespace(namespace).configs
             scope.launch {
                 configs.watch(config).dropWhile { it.orNone() == loaded }.collect { refresh(config) }
             }
