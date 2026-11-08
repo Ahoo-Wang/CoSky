@@ -41,6 +41,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Position
@@ -71,7 +72,7 @@ class WatchGrpcServiceTest {
         val properties = CoSkyProperties(read = CoSkyProperties.Read(minRevisionTimeout = Duration.ofMillis(100)))
         val name = UUID.randomUUID().toString()
         val server = InProcessServerBuilder.forName(name)
-            .addService(WatchGrpcService(caches, properties))
+            .addService(WatchGrpcService(WatchService(caches, properties)))
             .build()
             .start()
         val channel = InProcessChannelBuilder.forName(name).build()
@@ -120,7 +121,7 @@ class WatchGrpcServiceTest {
         val caches = WatchCache(store, WINDOW, scope)
         val name = UUID.randomUUID().toString()
         val server = InProcessServerBuilder.forName(name)
-            .addService(WatchGrpcService(caches, CoSkyProperties()))
+            .addService(WatchGrpcService(WatchService(caches, CoSkyProperties())))
             .build()
             .start()
         val channel = InProcessChannelBuilder.forName(name).build()

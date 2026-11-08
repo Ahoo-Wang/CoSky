@@ -39,8 +39,9 @@ import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
 import me.ahoo.cosky.server.resource.ResourceService
-import me.ahoo.cosky.server.view.TopologyRecorder
+import me.ahoo.cosky.server.watch.TopologyRecorder
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.net.InetSocketAddress
@@ -74,7 +75,7 @@ internal class TestCoSkyServer : AutoCloseable {
             .addService(LeaseGrpcService(store))
             .addService(
                 ServerInterceptors.intercept(
-                    WatchGrpcService(caches, ServerProperties(), topology = topology),
+                    WatchGrpcService(WatchService(caches, ServerProperties(), topology = topology)),
                     ClientNameInterceptor(),
                 ),
             )

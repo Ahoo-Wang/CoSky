@@ -39,9 +39,10 @@ import me.ahoo.cosky.server.observe.ReadinessIndicator
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.resource.StoreBootstrap
-import me.ahoo.cosky.server.view.TopologyRecorder
 import me.ahoo.cosky.server.view.ViewService
+import me.ahoo.cosky.server.watch.TopologyRecorder
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.StoreOptions
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -153,24 +154,32 @@ class CoSkyServerApplication : DisposableBean {
         TokenService(store, caches, authorizer, audit = audit)
 
     @Bean
+    fun watchService(
+        caches: WatchCache,
+        properties: CoSkyProperties,
+        authorizer: Authorizer,
+        topology: TopologyRecorder,
+    ): WatchService = WatchService(caches, properties, authorizer, topology)
+
+    @Bean
     fun restRoutes(
         resources: ResourceService,
         views: ViewService,
         tokens: TokenService,
-        caches: WatchCache,
-        authorizer: Authorizer,
+        watches: WatchService,
         access: AccessControl,
         audit: AuditLogger,
         properties: CoSkyProperties,
+        metrics: CoSkyMetrics,
     ): RouterFunction<ServerResponse> = RestRoutes(
         resources,
         views,
         tokens,
-        caches,
-        authorizer,
+        watches,
         access.takeIf { properties.auth.enabled },
         audit,
-        properties,
+        properties.auth.oidc,
+        metrics,
     ).routes()
 
     @Bean

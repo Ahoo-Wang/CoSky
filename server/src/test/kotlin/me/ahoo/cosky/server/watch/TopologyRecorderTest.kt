@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-package me.ahoo.cosky.server.view
+package me.ahoo.cosky.server.watch
 
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking

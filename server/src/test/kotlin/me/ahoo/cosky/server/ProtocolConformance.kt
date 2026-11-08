@@ -36,6 +36,7 @@ import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.cosky.test.conformance.ProtocolConformanceTest
 import org.junit.jupiter.api.AfterEach
@@ -81,7 +82,7 @@ class MemoryProtocolConformanceTest : ProtocolConformanceTest() {
         return InProcessServerBuilder.forName(name)
             .addService(ResourceGrpcService(ResourceService(store, caches)))
             .addService(LeaseGrpcService(store))
-            .addService(WatchGrpcService(caches, CoSkyProperties()))
+            .addService(WatchGrpcService(WatchService(caches, CoSkyProperties())))
             .build()
             .start()
     }

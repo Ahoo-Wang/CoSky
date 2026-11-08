@@ -42,11 +42,11 @@ import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
-import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
@@ -92,11 +92,9 @@ class ProtocolParityTest {
             service,
             ViewService(store, caches),
             TokenService(store, caches),
-            caches,
-            Authorizer.ALLOW_ALL,
+            WatchService(caches, CoSkyProperties()),
             null,
             AuditLogger(),
-            CoSkyProperties(),
         ).routes(),
     ).build()
 

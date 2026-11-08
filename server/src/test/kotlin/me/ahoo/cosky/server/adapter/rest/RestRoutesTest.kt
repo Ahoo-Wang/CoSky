@@ -37,6 +37,7 @@ import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
@@ -59,17 +60,19 @@ class RestRoutesTest {
     private val access = AccessControl(caches)
     private val adminToken = Tokens.generate()
 
-    private fun client(authenticated: Boolean = false, properties: CoSkyProperties = CoSkyProperties()): WebTestClient {
+    private fun client(
+        authenticated: Boolean = false,
+        oidc: CoSkyProperties.Oidc = CoSkyProperties.Oidc(),
+    ): WebTestClient {
         val authorizer: Authorizer = if (authenticated) access else Authorizer.ALLOW_ALL
         val routes = RestRoutes(
             ResourceService(store, caches, authorizer = authorizer),
             ViewService(store, caches, authorizer),
             TokenService(store, caches, authorizer),
-            caches,
-            authorizer,
+            WatchService(caches, CoSkyProperties(), authorizer),
             access.takeIf { authenticated },
             AuditLogger(),
-            properties,
+            oidc,
         ).routes()
         return WebTestClient.bindToRouterFunction(routes).build()
     }
@@ -189,11 +192,9 @@ class RestRoutesTest {
             ResourceService(store, caches, minRevisionTimeout = kotlin.time.Duration.ZERO),
             ViewService(store, caches),
             TokenService(store, caches),
-            caches,
-            Authorizer.ALLOW_ALL,
+            WatchService(caches, CoSkyProperties()),
             null,
             AuditLogger(),
-            CoSkyProperties(),
         ).routes()
         client.putConfig("a").expectStatus().isOk
         get(WebTestClient.bindToRouterFunction(short).build(), "a", 99).expectStatus().isEqualTo(504)
@@ -410,7 +411,7 @@ class RestRoutesTest {
     @Test
     fun `the sign-in page learns how people sign in, before anyone has`() {
         val oidc = CoSkyProperties.Oidc(issuer = "https://idp.example", clientId = "dashboard", audience = "private")
-        val client = client(authenticated = true, CoSkyProperties(auth = CoSkyProperties.Auth(oidc = oidc)))
+        val client = client(authenticated = true, oidc)
 
         val config = client.get().uri("/v1/auth/config").exchange().expectStatus().isOk.json().getAsJsonObject("oidc")
 
@@ -427,7 +428,7 @@ class RestRoutesTest {
             CoSkyProperties.Oidc(issuer = "https://idp.example"),
             CoSkyProperties.Oidc(clientId = "dashboard"),
         ).forEach { oidc ->
-            val config = client(authenticated = true, CoSkyProperties(auth = CoSkyProperties.Auth(oidc = oidc)))
+            val config = client(authenticated = true, oidc)
                 .get().uri("/v1/auth/config").exchange().expectStatus().isOk.json()
             config.keySet().assert().isEmpty()
         }

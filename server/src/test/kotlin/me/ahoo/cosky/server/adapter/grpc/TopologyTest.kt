@@ -33,8 +33,9 @@ import me.ahoo.cosky.api.v1.TopologyEdge
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
 import me.ahoo.cosky.server.CoSkyProperties
-import me.ahoo.cosky.server.view.TopologyRecorder
+import me.ahoo.cosky.server.watch.TopologyRecorder
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -51,7 +52,9 @@ class TopologyTest {
         runBlocking(VirtualThreads.dispatcher) {
             val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
             val name = UUID.randomUUID().toString()
-            val service = WatchGrpcService(WatchCache(store, 64, scope), CoSkyProperties(), topology = recorder)
+            val service = WatchGrpcService(
+                WatchService(WatchCache(store, 64, scope), CoSkyProperties(), topology = recorder)
+            )
             val server = InProcessServerBuilder.forName(name)
                 .addService(ServerInterceptors.intercept(service, ClientNameInterceptor()))
                 .build()
