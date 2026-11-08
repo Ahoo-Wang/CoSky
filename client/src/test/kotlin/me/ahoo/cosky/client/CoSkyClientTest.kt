@@ -24,14 +24,17 @@ import io.grpc.Status
 import io.grpc.StatusException
 import io.grpc.inprocess.InProcessChannelBuilder
 import io.grpc.inprocess.InProcessServerBuilder
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.error.CoSkyException
@@ -157,6 +160,50 @@ class CoSkyClientTest {
     private suspend fun eventually(condition: suspend () -> Boolean) {
         while (!condition()) {
             delay(10.milliseconds)
+        }
+    }
+
+    /** The first call of [method] fails without a status, like one that starts just as an in-process server stops. */
+    private fun failingOnce(method: String): ClientInterceptor = object : FirstCallOf(method) {
+        override fun <Req, Resp> replace(call: ClientCall<Req, Resp>): ClientCall<Req, Resp> =
+            object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) =
+                    throw NullPointerException("'executor' must not be null.")
+            }
+    }
+
+    /** The first call of [method] is never answered; [started] completes once it is made. */
+    private fun unansweredOnce(method: String, started: CompletableDeferred<Unit>): ClientInterceptor =
+        object : FirstCallOf(method) {
+            override fun <Req, Resp> replace(call: ClientCall<Req, Resp>): ClientCall<Req, Resp> =
+                object : ClientCall<Req, Resp>() {
+                    override fun start(responseListener: Listener<Resp>, headers: Metadata) {
+                        started.complete(Unit)
+                    }
+
+                    override fun request(numMessages: Int) = Unit
+
+                    override fun cancel(message: String?, cause: Throwable?) = Unit
+
+                    override fun halfClose() = Unit
+
+                    override fun sendMessage(message: Req) = Unit
+                }
+        }
+
+    /** Hands the first call of one method to [replace], and every other call on as it is. */
+    private abstract class FirstCallOf(private val method: String) : ClientInterceptor {
+        private val replaced = AtomicBoolean()
+
+        abstract fun <Req, Resp> replace(call: ClientCall<Req, Resp>): ClientCall<Req, Resp>
+
+        override fun <Req, Resp> interceptCall(
+            method: MethodDescriptor<Req, Resp>,
+            callOptions: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            val call = next.newCall(method, callOptions)
+            return if (method.bareMethodName == this.method && !replaced.getAndSet(true)) replace(call) else call
         }
     }
 
@@ -422,6 +469,24 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `closing still finishes when revoking fails without a status`() = scenario {
+        val client = client(interceptors = listOf(failingOnce("Revoke")))
+        client.namespace(NAMESPACE).instances.register("order", ENDPOINT)
+        client.close()
+        client.connectionState.value.assert().isEqualTo(ConnectionState.CLOSED)
+    }
+
+    @Test
+    fun `closing the last registration succeeds though its lease cannot be revoked`() = scenario {
+        val instances = client(interceptors = listOf(failingOnce("Revoke"))).namespace(NAMESPACE).instances
+        instances.register("order", ENDPOINT, instanceName = "a").close()
+        instancesOnServer().assert().isEmpty()
+        // The lease is left to expire, and registering goes on as before.
+        instances.register("order", ENDPOINT, instanceName = "b")
+        instancesOnServer().map { it.meta.name }.assert().containsExactly("b")
+    }
+
+    @Test
     fun `a registration that cannot be closed stays, and keeps being renewed`() = scenario {
         val client = client(leaseTtl = 6.seconds)
         val registration = client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
@@ -473,26 +538,8 @@ class CoSkyClientTest {
     @Test
     fun `a renewal that fails without a status is tried again, rather than ending the renewals for good`() =
         scenario {
-            // As when an in-process server stops just as a renewal stream starts: starting the call throws.
-            val broken = AtomicBoolean(true)
-            val failingOnce = object : ClientInterceptor {
-                override fun <Req, Resp> interceptCall(
-                    method: MethodDescriptor<Req, Resp>,
-                    callOptions: CallOptions,
-                    next: Channel,
-                ): ClientCall<Req, Resp> {
-                    val call = next.newCall(method, callOptions)
-                    if (method.bareMethodName != "KeepAlive" || !broken.getAndSet(false)) {
-                        return call
-                    }
-                    return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
-                        override fun start(responseListener: Listener<Resp>, headers: Metadata) =
-                            throw NullPointerException("'executor' must not be null.")
-                    }
-                }
-            }
-            val instances = client(leaseTtl = 6.seconds, interceptors = listOf(failingOnce)).namespace(NAMESPACE)
-                .instances
+            val instances = client(leaseTtl = 6.seconds, interceptors = listOf(failingOnce("KeepAlive")))
+                .namespace(NAMESPACE).instances
             instances.register("order", ENDPOINT, instanceName = "a")
             val lost = instancesOnServer().single().meta.lease
             server.store.expireLease(NAMESPACE, lost, "test", force = true)
@@ -555,6 +602,32 @@ class CoSkyClientTest {
         val kept = instances.register("order", ENDPOINT, instanceName = "kept")
         val failure = runCatching { instances.register("Not A Service!", ENDPOINT, instanceName = "bad") }
         (failure.exceptionOrNull() as StatusException).status.code.assert().isEqualTo(Status.Code.INVALID_ARGUMENT)
+        // Forgotten, it does not hold on to the lease once the last registration is closed.
+        kept.close()
+        server.store.leaseStats(NAMESPACE).total.assert().isEqualTo(0)
+    }
+
+    @Test
+    fun `a registration whose call fails without a status is no error, and goes out once the server answers`() =
+        scenario {
+            val instances = client(leaseTtl = 6.seconds, interceptors = listOf(failingOnce("Put")))
+                .namespace(NAMESPACE).instances
+            // Nothing refused it, and the server may have it or not, so the client keeps it as if none had answered.
+            val registration = instances.register("order", ENDPOINT, instanceName = "a")
+            eventually { instancesOnServer().isNotEmpty() }
+            registration.close()
+            instancesOnServer().assert().isEmpty()
+        }
+
+    @Test
+    fun `a registration cancelled on its way is forgotten, as the caller has nothing to close it with`() = scenario {
+        val putStarted = CompletableDeferred<Unit>()
+        val instances = client(leaseTtl = 6.seconds, interceptors = listOf(unansweredOnce("Put", putStarted)))
+            .namespace(NAMESPACE).instances
+        val registering = launch { instances.register("order", ENDPOINT, instanceName = "cancelled") }
+        putStarted.await()
+        registering.cancelAndJoin()
+        val kept = instances.register("order", ENDPOINT, instanceName = "kept")
         // Forgotten, it does not hold on to the lease once the last registration is closed.
         kept.close()
         server.store.leaseStats(NAMESPACE).total.assert().isEqualTo(0)

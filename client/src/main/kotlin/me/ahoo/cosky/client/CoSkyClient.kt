@@ -13,7 +13,6 @@
 
 package me.ahoo.cosky.client
 
-import io.grpc.StatusException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -30,7 +29,6 @@ import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ObjectMeta
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.validation.NamingRules
-import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -53,29 +51,14 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
      */
     override fun close() {
         runBlocking(VirtualThreads.dispatcher) {
+            // Revoking is best effort: a lease that cannot be revoked does not keep the rest of closing from running.
             withTimeoutOrNull(options.closeTimeout) {
-                namespaces.values.forEach { revokeLease(it) }
+                namespaces.values.forEach { it.leases.close() }
             }
         }
         watches.close()
         scope.cancel()
         connection.close()
-    }
-
-    /**
-     * Best effort: a server out of reach cannot be told, and it expires the lease by itself. This must not keep the
-     * rest of closing from running.
-     */
-    private suspend fun revokeLease(namespace: Namespace) {
-        try {
-            namespace.leases.close()
-        } catch (e: StatusException) {
-            log.warn("Could not revoke a lease while closing, so it will expire: {}", e.status)
-        }
-    }
-
-    private companion object {
-        val log = LoggerFactory.getLogger(CoSkyClient::class.java)
     }
 
     inner class Namespace internal constructor(private val name: String) {

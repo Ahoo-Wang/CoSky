@@ -80,8 +80,11 @@ internal class LeaseKeeper(
     private var lease = 0L
 
     /**
-     * @throws StatusException when the server refuses it. A server out of reach is no reason to fail: the registration
-     * is remembered, and goes out as soon as one answers (design §7.5).
+     * Returns once the client holds the registration. A server out of reach is no reason to fail: the registration is
+     * remembered, and goes out as soon as one answers (design §7.5).
+     *
+     * @throws StatusException when the server refuses it. Then, as when the call is cancelled, the client holds what it
+     * held before: the caller has no [Registration] to close, so nothing may stay behind that would be put again.
      */
     suspend fun register(resource: Resource) {
         mutex.withLock {
@@ -94,14 +97,22 @@ internal class LeaseKeeper(
                 put(resource)
                 confirmed[name] = resource
                 pending.remove(name)
+            } catch (e: CancellationException) {
+                giveWay(name, previous)
+                throw e
             } catch (e: StatusException) {
                 if (e.status.code !in OUT_OF_REACH) {
                     // The server keeps what an earlier registration of this name put there, so the client keeps it
                     // too: it is what to restore should the lease be lost.
-                    if (previous == null) registrations.remove(name) else registrations[name] = previous
+                    giveWay(name, previous)
                     throw e
                 }
                 log.warn("Could not register {} yet, and keeps trying: {}", name, e.status)
+                pending.add(name)
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                // A call can fail without a status, as one does that starts just as an in-process server stops. That
+                // is no refusal, and whether the server got it is not certain, so it goes out again once one answers.
+                log.warn("Could not register {} yet, and keeps trying.", name, e)
                 pending.add(name)
             }
             if (renewal == null) {
@@ -110,6 +121,11 @@ internal class LeaseKeeper(
         }
     }
 
+    /**
+     * Throws when the Instance cannot be deleted, and then leaves the registration as it was: its renewals go on, and
+     * closing it can be tried again. Once the Instance is deleted nothing fails it: revoking the lease after the last
+     * one is best effort.
+     */
     suspend fun deregister(name: String) {
         mutex.withLock {
             // In this order: if the server cannot be reached the registration stays, and with it the renewals of an
@@ -135,13 +151,25 @@ internal class LeaseKeeper(
         }
     }
 
+    /**
+     * Best effort: a lease that cannot be revoked is no longer renewed, so the server expires it by itself.
+     */
     private suspend fun revoke() {
         renewal?.cancel()
         renewal = null
         // None was ever granted if the server has been away since the first registration.
-        if (lease != 0L) {
+        if (lease == 0L) {
+            return
+        }
+        try {
             leases().timed().revoke(RevokeRequest.newBuilder().setNamespace(namespace).setLease(lease).build())
             lease = 0
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: StatusException) {
+            log.warn("Could not revoke lease {} of namespace {}, so it will expire: {}", lease, namespace, e.status)
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            log.warn("Could not revoke lease {} of namespace {}, so it will expire.", lease, namespace, e)
         }
     }
 
@@ -252,9 +280,14 @@ internal class LeaseKeeper(
                 throw e
             }
             log.error("The server refused {}, registered while it was out of reach: {}", name, e.status)
-            if (previous == null) registrations.remove(name) else registrations[name] = previous
+            giveWay(name, previous)
             pending.remove(name)
         }
+    }
+
+    /** Takes back a registration of [name], so that the one it would have replaced, if any, is what stays. */
+    private fun giveWay(name: String, previous: Resource?) {
+        if (previous == null) registrations.remove(name) else registrations[name] = previous
     }
 
     /**
