@@ -31,6 +31,7 @@ import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.adapter.grpc.LeaseGrpcService
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
 import me.ahoo.cosky.server.adapter.grpc.WatchGrpcService
+import me.ahoo.cosky.server.lease.LeaseService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchService
@@ -68,7 +69,7 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
         val caches = WatchCache(store, WINDOW, scope)
         server = InProcessServerBuilder.forName(name)
             .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
-            .addService(ServerInterceptors.intercept(LeaseGrpcService(store), silencing))
+            .addService(ServerInterceptors.intercept(LeaseGrpcService(LeaseService(store)), silencing))
             .addService(
                 ServerInterceptors.intercept(WatchGrpcService(WatchService(caches, properties)), recordingCreates),
             )

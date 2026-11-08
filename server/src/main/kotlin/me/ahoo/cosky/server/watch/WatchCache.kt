@@ -47,6 +47,14 @@ class WatchCache(
     }
 
     /**
+     * A view once this replica caught up with the store's latest write, for a write that decides on what is there.
+     *
+     * @throws CoSkyException as [viewAt].
+     */
+    suspend fun latestViewAt(namespace: String, timeout: Duration): NamespaceView =
+        viewAt(namespace, store.position(namespace)?.revision ?: 0, timeout)
+
+    /**
      * A view to read at, no older than [minRevision].
      *
      * @throws CoSkyException if there is none to serve within [timeout], saying why.

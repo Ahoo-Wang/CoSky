@@ -33,9 +33,11 @@ import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.OidcAuthenticator
 import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.lease.LeaseReaper
+import me.ahoo.cosky.server.lease.LeaseService
 import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.server.observe.MeteredStore
 import me.ahoo.cosky.server.observe.ReadinessIndicator
+import me.ahoo.cosky.server.resource.NamespaceLifecycle
 import me.ahoo.cosky.server.resource.NamespaceReconciler
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.resource.StoreBootstrap
@@ -197,18 +199,29 @@ class CoSkyServerApplication : DisposableBean {
         AuthInterceptor(access, audit, metrics)
 
     @Bean
+    fun leaseService(store: Store, authorizer: Authorizer): LeaseService = LeaseService(store, authorizer)
+
+    @Bean
+    fun namespaceLifecycle(store: Store, caches: WatchCache, properties: CoSkyProperties): NamespaceLifecycle =
+        NamespaceLifecycle(store, caches, properties.read.minRevisionTimeout.toKotlinDuration())
+
+    @Bean
     fun resourceService(
         store: Store,
         caches: WatchCache,
         properties: CoSkyProperties,
         authorizer: Authorizer,
         audit: AuditLogger,
+        leases: LeaseService,
+        namespaces: NamespaceLifecycle,
     ): ResourceService = ResourceService(
         store,
         caches,
         minRevisionTimeout = properties.read.minRevisionTimeout.toKotlinDuration(),
         authorizer = authorizer,
         audit = audit,
+        leases = leases,
+        namespaces = namespaces,
     )
 
     @Bean
@@ -220,6 +233,7 @@ class CoSkyServerApplication : DisposableBean {
         store: Store,
         caches: WatchCache,
         bootstrap: StoreBootstrap,
+        namespaces: NamespaceLifecycle,
         properties: CoSkyProperties,
         metrics: CoSkyMetrics,
     ): LeaseReaper {
@@ -240,7 +254,7 @@ class CoSkyServerApplication : DisposableBean {
                 protectionMinLeases = lease.protectionMinLeases,
                 protectionMaxDuration = lease.protectionMaxDuration,
             ),
-            maintenance = NamespaceReconciler(store, caches, bootstrap)::reconcile,
+            maintenance = NamespaceReconciler(store, caches, bootstrap, namespaces = namespaces)::reconcile,
             metrics = metrics,
         )
     }

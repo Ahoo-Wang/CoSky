@@ -32,7 +32,6 @@ import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.ViolationCode
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.validation.Limits
-import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.api.validation.Validator
 import me.ahoo.cosky.api.validation.Violation
 import me.ahoo.cosky.api.validation.requireValid
@@ -43,13 +42,13 @@ import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.auth.authorizedName
+import me.ahoo.cosky.server.lease.LeaseService
 import me.ahoo.cosky.server.watch.NamespaceView
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.chunkedByBytes
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
-import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.key
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -65,6 +64,8 @@ class ResourceService(
     private val minRevisionTimeout: Duration = 3.seconds,
     private val authorizer: Authorizer = Authorizer.ALLOW_ALL,
     private val audit: AuditLogger = AuditLogger(),
+    private val leases: LeaseService = LeaseService(store, authorizer, limits),
+    private val namespaces: NamespaceLifecycle = NamespaceLifecycle(store, caches, minRevisionTimeout),
 ) {
     private val validator = Validator(limits)
 
@@ -131,7 +132,7 @@ class ResourceService(
         val key = request.resource.key
         return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
             authorizePut(request, key, caller.principal)
-            val write = withStoredTokens(withContentHash(unlessTerminating(request)))
+            val write = withStoredTokens(withContentHash(namespaces.guard(request)))
             if (key.kind == Kind.KIND_NAMESPACE) {
                 store.createNamespace(key.name)
             }
@@ -151,7 +152,7 @@ class ResourceService(
         return audit.audited(caller, Verb.VERB_DELETE, key, DeleteResponse::getRevision) {
             authorizeDelete(key, caller.principal)
             if (key.kind == Kind.KIND_NAMESPACE) {
-                return@audited deleteNamespace(key, request.expectedRevision, caller.principal.id)
+                return@audited namespaces.delete(key, request.expectedRevision, caller.principal.id)
             }
             val mutation = Mutation.Delete(key, request.expectedRevision)
             val applied = apply(key, mutation, request.expectedRevision, caller.principal.id)
@@ -261,11 +262,8 @@ class ResourceService(
             )
         }
         val lease = resource.meta.lease
-        if (lease != 0L && lease != existing?.meta?.lease && principal != Principal.ANONYMOUS) {
-            val owner = store.leaseOwners(key.namespace, listOf(lease))[lease]
-            if (owner != null && owner != principal.id) {
-                throw CoSkyException.permissionDenied("Lease $lease belongs to another subject.")
-            }
+        if (lease != 0L && lease != existing?.meta?.lease) {
+            leases.requireOwner(key.namespace, lease, principal)
         }
     }
 
@@ -315,93 +313,13 @@ class ResourceService(
             .build()
     }
 
-    /**
-     * A Namespace being deleted takes no write, and a write to one compares and sets the revision it read: a deletion
-     * marks the object first, so whichever comes second fails, and a write never follows a deletion that has begun
-     * (design §7.2). Whether it is terminating is the server's to state.
-     */
-    private suspend fun unlessTerminating(request: PutRequest): PutRequest {
-        val resource = request.resource
-        if (!resource.hasNamespace()) {
-            return request
-        }
-        val stored = latestViewOf(NamingRules.SYSTEM_NAMESPACE).objects[resource.key]
-        if (stored?.namespace?.terminating == true) {
-            throw CoSkyException.namespaceNotFound(resource.meta.name)
-        }
-        return request.toBuilder()
-            .setResource(resource.toBuilder().apply { namespaceBuilder.terminating = false })
-            .setExpectedRevision(
-                when {
-                    request.expectedRevision != Mutation.NO_CHECK -> request.expectedRevision
-                    else -> stored?.meta?.revision ?: Mutation.MUST_NOT_EXIST
-                },
-            )
-            .build()
-    }
-
-    /**
-     * Marks the Namespace object as terminating by compare-and-set, then takes the three steps of §7.2. The object and
-     * the namespace's data lie in different slots, so the mark is the one step that decides between this deletion and
-     * a write meanwhile: nothing irreversible happens before it. Every step after it can be taken again, by
-     * [NamespaceReconciler] should this request be interrupted.
-     */
-    private suspend fun deleteNamespace(key: ResourceKey, expectedRevision: Long, actor: String): DeleteResponse {
-        val marked = markTerminating(key, expectedRevision, actor)
-        when (store.terminateNamespace(key.name)) {
-            TerminateResult.NOT_EMPTY -> {
-                unmark(key, marked, actor)
-                throw CoSkyException.namespaceNotEmpty(key.name)
-            }
-
-            TerminateResult.NOT_FOUND -> {
-                unmark(key, marked, actor)
-                throw CoSkyException.namespaceNotFound(key.name)
-            }
-
-            TerminateResult.TERMINATED -> store.dropNamespace(key.name)
-        }
-        val result = store.apply(key.namespace, listOf(Mutation.Delete(key, marked)), actor)
-        val revision = when {
-            result is ApplyResult.Applied -> result.revision
-            // Gone already: the reconciler finished a deletion that seemed interrupted, which is as good.
-            result is ApplyResult.Conflict && result.currentRevision == null -> marked
-            else -> apply(key, Mutation.Delete(key, marked), marked, actor).revision
-        }
-        return DeleteResponse.newBuilder().setRevision(revision).setDeleted(true).build()
-    }
-
-    /**
-     * @return the revision of the marked object. A deletion already under way is joined rather than refused.
-     */
-    private suspend fun markTerminating(key: ResourceKey, expectedRevision: Long, actor: String): Long {
-        val stored = latestViewOf(key.namespace).objects[key] ?: throw CoSkyException.namespaceNotFound(key.name)
-        if (stored.namespace.terminating) {
-            return stored.meta.revision
-        }
-        // What visibly holds something is refused before the mark, so that the usual refusal changes nothing.
-        if (viewOf(key.name, 0).objects.isNotEmpty()) {
-            throw CoSkyException.namespaceNotEmpty(key.name)
-        }
-        val expected = expectedRevision.takeIf { it != Mutation.NO_CHECK } ?: stored.meta.revision
-        val terminating = stored.toBuilder().apply { namespaceBuilder.terminating = true }.build()
-        return apply(key, Mutation.Put(terminating, expected), expected, actor).revision
-    }
-
-    private suspend fun unmark(key: ResourceKey, marked: Long, actor: String) {
-        val stored = latestViewOf(key.namespace).objects[key] ?: return
-        val active = stored.toBuilder().apply { namespaceBuilder.terminating = false }.build()
-        store.apply(key.namespace, listOf(Mutation.Put(active, marked)), actor)
-    }
-
     private suspend fun viewOf(namespace: String, minRevision: Long): NamespaceView =
         caches.viewAt(namespace, minRevision, minRevisionTimeout)
 
-    /**
-     * What this replica holds once it caught up with the store, for a write that decides on what is there.
-     */
-    private suspend fun latestViewOf(namespace: String): NamespaceView =
-        viewOf(namespace, store.position(namespace)?.revision ?: 0)
+    private suspend fun latestViewOf(namespace: String): NamespaceView = caches.latestViewAt(
+        namespace,
+        minRevisionTimeout
+    )
 
     private fun matches(resource: Resource, request: ListRequest): Boolean =
         resource.kind == request.kind &&
@@ -413,11 +331,16 @@ class ResourceService(
         mutation: Mutation,
         expected: Long,
         actor: String,
-    ): ApplyResult.Applied = when (val result = store.apply(key.namespace, listOf(mutation), actor)) {
-        is ApplyResult.Applied -> result
-        is ApplyResult.Conflict -> throw CoSkyException.revisionConflict(key, expected, result.currentRevision ?: 0)
-        is ApplyResult.LeaseNotFound -> throw CoSkyException.leaseNotFound(key.namespace, result.lease)
-        ApplyResult.NamespaceNotActive -> throw CoSkyException.namespaceNotFound(key.namespace)
-        ApplyResult.BatchTooLarge -> error("A single mutation cannot exceed the batch limit.")
-    }
+    ): ApplyResult.Applied = store.apply(key.namespace, listOf(mutation), actor).requireApplied(key, expected)
+}
+
+/**
+ * @throws CoSkyException saying why a write of [key] that expected revision [expected] did not apply.
+ */
+internal fun ApplyResult.requireApplied(key: ResourceKey, expected: Long): ApplyResult.Applied = when (this) {
+    is ApplyResult.Applied -> this
+    is ApplyResult.Conflict -> throw CoSkyException.revisionConflict(key, expected, currentRevision ?: 0)
+    is ApplyResult.LeaseNotFound -> throw CoSkyException.leaseNotFound(key.namespace, lease)
+    ApplyResult.NamespaceNotActive -> throw CoSkyException.namespaceNotFound(key.namespace)
+    ApplyResult.BatchTooLarge -> error("A single mutation cannot exceed the batch limit.")
 }

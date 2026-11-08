@@ -74,6 +74,7 @@ import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.ParsedToken
 import me.ahoo.cosky.server.auth.Tokens
+import me.ahoo.cosky.server.lease.LeaseService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchService
@@ -105,7 +106,7 @@ class AuthorizationTest {
                 interceptor,
             ),
         )
-        .addService(ServerInterceptors.intercept(LeaseGrpcService(store, access), interceptor))
+        .addService(ServerInterceptors.intercept(LeaseGrpcService(LeaseService(store, access)), interceptor))
         .addService(
             ServerInterceptors.intercept(WatchGrpcService(WatchService(caches, CoSkyProperties(), access)), interceptor)
         )
