@@ -25,9 +25,13 @@ import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.health.contributor.HealthIndicator
 import org.springframework.boot.web.server.context.WebServerApplicationContext
+import org.springframework.cloud.client.ConditionalOnBlockingDiscoveryEnabled
+import org.springframework.cloud.client.ConditionalOnDiscoveryEnabled
+import org.springframework.cloud.client.ConditionalOnReactiveDiscoveryEnabled
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationConfiguration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
 import org.springframework.cloud.commons.util.InetUtils
@@ -82,27 +86,39 @@ class CoSkyAutoConfiguration {
         @Bean
         fun coSkyConfigRefresher(
             application: CoSkyApplicationClient,
-            properties: CoSkyProperties,
             publisher: ApplicationEventPublisher,
-        ): CoSkyConfigRefresher = CoSkyConfigRefresher(application, properties, publisher)
+        ): CoSkyConfigRefresher = CoSkyConfigRefresher(application, publisher)
     }
 
+    /**
+     * Follows Spring Cloud's switches for discovery as well as its own, as every discovery client does.
+     */
     @Configuration(proxyBeanMethods = false)
+    @ConditionalOnDiscoveryEnabled
     @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["discovery.enabled"], matchIfMissing = true)
     class Discovery {
-        @Bean
-        fun coSkyDiscoveryClient(client: CoSkyClient, properties: CoSkyProperties): CoSkyDiscoveryClient =
-            CoSkyDiscoveryClient(client, properties)
+        @Configuration(proxyBeanMethods = false)
+        @ConditionalOnBlockingDiscoveryEnabled
+        class Blocking {
+            @Bean
+            fun coSkyDiscoveryClient(client: CoSkyClient, properties: CoSkyProperties): CoSkyDiscoveryClient =
+                CoSkyDiscoveryClient(client, properties)
+        }
 
-        @Bean
-        fun coSkyReactiveDiscoveryClient(
-            client: CoSkyClient,
-            properties: CoSkyProperties,
-        ): CoSkyReactiveDiscoveryClient = CoSkyReactiveDiscoveryClient(client, properties)
+        @Configuration(proxyBeanMethods = false)
+        @ConditionalOnReactiveDiscoveryEnabled
+        class Reactive {
+            @Bean
+            fun coSkyReactiveDiscoveryClient(
+                client: CoSkyClient,
+                properties: CoSkyProperties,
+            ): CoSkyReactiveDiscoveryClient = CoSkyReactiveDiscoveryClient(client, properties)
+        }
     }
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(ServiceInstanceListSupplier::class)
+    @ConditionalOnDiscoveryEnabled
     @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["discovery.enabled"], matchIfMissing = true)
     @LoadBalancerClients(defaultConfiguration = [CoSkyLoadBalancing::class])
     class LoadBalancingImports
@@ -116,10 +132,12 @@ class CoSkyAutoConfiguration {
             CoSkyServiceRegistry(client, properties)
 
         /**
-         * Needs a web server for the port, and follows Spring Cloud's own switch, which also takes away its properties.
+         * Needs a web server for the port, so a web application, which having the classes does not make one. Follows
+         * Spring Cloud's own switch, which also takes away its properties.
          */
         @Configuration(proxyBeanMethods = false)
         @ConditionalOnClass(WebServerApplicationContext::class)
+        @ConditionalOnWebApplication
         @ConditionalOnProperty(
             name = ["spring.cloud.service-registry.auto-registration.enabled"],
             matchIfMissing = true,

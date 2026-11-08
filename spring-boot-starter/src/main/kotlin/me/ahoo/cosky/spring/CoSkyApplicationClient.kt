@@ -43,15 +43,39 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
     private val sources = ConcurrentHashMap<Pair<String, String>, Set<String>>()
     private var handedOver = false
 
+    private val importListeners = mutableListOf<(namespace: String, config: String, seen: Resource) -> Unit>()
+
     /**
      * Remembers a Config this application loaded and what it saw, so that a change to it can trigger a refresh once the
-     * context exists.
+     * context exists. A Config imported for the first time, say by a refresh that added an import, goes to the
+     * listeners too.
      */
-    internal fun markImported(namespace: String, config: String, seen: Resource?) {
-        imported.computeIfAbsent(namespace) { ConcurrentHashMap() }[config] = seen.orNone()
+    internal fun markImported(namespace: String, config: String, seen: Resource?) = synchronized(importListeners) {
+        val first = imported.computeIfAbsent(namespace) { ConcurrentHashMap() }.put(config, seen.orNone()) == null
+        if (first) {
+            importListeners.forEach { it(namespace, config, seen.orNone()) }
+        }
     }
 
     internal fun importedBy(namespace: String): Map<String, Resource> = imported[namespace].orEmpty()
+
+    /**
+     * Calls [listener] once for every Config imported so far, with what its load saw, and once for every Config
+     * imported for the first time later. It must not block.
+     */
+    internal fun eachImport(listener: (namespace: String, config: String, seen: Resource) -> Unit) =
+        synchronized(importListeners) {
+            imported.forEach { (namespace, configs) ->
+                configs.forEach { (config, seen) ->
+                    listener(
+                        namespace,
+                        config,
+                        seen
+                    )
+                }
+            }
+            importListeners += listener
+        }
 
     /**
      * Remembers the property sources a Config makes up now, along with all it made up before. None is forgotten: a

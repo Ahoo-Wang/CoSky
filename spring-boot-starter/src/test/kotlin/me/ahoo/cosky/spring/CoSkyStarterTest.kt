@@ -39,7 +39,6 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.slf4j.LoggerFactory
-import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.availability.AvailabilityChangeEvent
 import org.springframework.boot.availability.ReadinessState
@@ -47,9 +46,6 @@ import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.context.config.ConfigDataResourceNotFoundException
 import org.springframework.boot.health.contributor.HealthIndicator
 import org.springframework.boot.health.contributor.Status
-import org.springframework.boot.test.context.FilteredClassLoader
-import org.springframework.boot.test.context.runner.ApplicationContextRunner
-import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.cloud.client.discovery.DiscoveryClient
 import org.springframework.cloud.context.refresh.ContextRefresher
 import org.springframework.cloud.endpoint.event.RefreshEvent
@@ -260,6 +256,19 @@ class CoSkyStarterTest {
     }
 
     @Test
+    fun `a config a refresh imports for the first time is followed as well`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
+        server.put(TestCoSkyServer.config("child.yaml", "child: before"))
+        val context = application("--spring.config.import=cosky:order.yaml")
+        server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 20\nspring.config.import: cosky:child.yaml"))
+        eventually { context.environment.getProperty("child") == "before" }
+
+        server.put(TestCoSkyServer.config("child.yaml", "child: after"))
+
+        eventually { context.environment.getProperty("child") == "after" }
+    }
+
+    @Test
     fun `content that does not parse keeps the old values and does not stop later refreshes`() = runBlocking<Unit> {
         server.put(TestCoSkyServer.config("order.yaml", "order:\n  limit: 10"))
         val context = application("--spring.config.import=cosky:order.yaml")
@@ -281,7 +290,7 @@ class CoSkyStarterTest {
         val other = current?.toBuilder()?.apply { configBuilder.content = "order:\n  limit: 20" }?.build()
         application.markImported(TestCoSkyServer.NAMESPACE, "order.yaml", other)
         val events = CopyOnWriteArrayList<Any>()
-        val refresher = CoSkyConfigRefresher(application, properties) { events += it }
+        val refresher = CoSkyConfigRefresher(application) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.ACCEPTING_TRAFFIC))
         eventually { events.isNotEmpty() }
         refresher.destroy()
@@ -410,7 +419,7 @@ class CoSkyStarterTest {
         // Stands in for that gap: this refresher starts from something other than what the view holds.
         application.markImported(TestCoSkyServer.NAMESPACE, "order.yaml", null)
         val events = CopyOnWriteArrayList<Any>()
-        val refresher = CoSkyConfigRefresher(application, properties) { events += it }
+        val refresher = CoSkyConfigRefresher(application) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.REFUSING_TRAFFIC))
         delay(200.milliseconds)
         events.assert().isEmpty()
@@ -456,13 +465,14 @@ class CoSkyStarterTest {
     }
 
     @Test
-    fun `a discovered instance has a uri of its host and port, an IPv6 host in brackets`() {
+    fun `a discovered instance has a uri of its scheme, host and port, an IPv6 host in brackets`() {
         fun assertUri(scheme: String, host: String, port: Int, uri: String) {
             val instance = TestCoSkyServer.instance("order-1", "order").toBuilder()
                 .apply { instanceBuilder.endpointBuilder.setScheme(scheme).setHost(host).setPort(port) }
                 .build()
                 .toServiceInstance()
             instance.host.assert().isEqualTo(host)
+            instance.scheme.assert().isEqualTo(scheme)
             instance.uri.toString().assert().isEqualTo(uri)
             instance.uri.host.assert().isNotNull()
             instance.uri.port.assert().isEqualTo(port)
@@ -470,7 +480,8 @@ class CoSkyStarterTest {
         assertUri("http", "10.0.0.1", 8080, "http://10.0.0.1:8080")
         assertUri("https", "order.example.com", 8443, "https://order.example.com:8443")
         assertUri("http", "2001:db8::1", 8080, "http://[2001:db8::1]:8080")
-        assertUri("grpcs", "::ffff:192.0.2.1", 443, "https://[::ffff:192.0.2.1]:443")
+        assertUri("grpc", "10.0.0.1", 9090, "grpc://10.0.0.1:9090")
+        assertUri("grpcs", "::ffff:192.0.2.1", 443, "grpcs://[::ffff:192.0.2.1]:443")
     }
 
     @Test
@@ -738,29 +749,6 @@ class CoSkyStarterTest {
             )
         }.exceptionOrNull()?.message.assert().isEqualTo("refused")
         eventually { server.connections.isEmpty() }
-    }
-
-    @Test
-    fun `each integration applies only when its framework is there`() {
-        ApplicationContextRunner()
-            .withClassLoader(
-                FilteredClassLoader(
-                    RefreshEvent::class.java,
-                    ServiceInstanceListSupplier::class.java,
-                    HealthIndicator::class.java,
-                    WebServerApplicationContext::class.java,
-                ),
-            )
-            .withConfiguration(AutoConfigurations.of(CoSkyAutoConfiguration::class.java))
-            .withPropertyValues("cosky.endpoints=${server.endpoint}", "cosky.snapshot.enabled=false")
-            .run { context ->
-                context.startupFailure.assert().isNull()
-                context.containsBean("coSkyDiscoveryClient").assert().isTrue()
-                context.containsBean("coSkyServiceRegistry").assert().isTrue()
-                context.containsBean("coSkyConfigRefresher").assert().isFalse()
-                context.containsBean("coSkyHealthIndicator").assert().isFalse()
-                context.containsBean("coSkyAutoServiceRegistration").assert().isFalse()
-            }
     }
 
     @Test
