@@ -78,6 +78,11 @@ data class NamespaceView(
      */
     fun instancesOf(service: String): Collection<Resource> = instancesByService[service]?.values.orEmpty()
 
+    /**
+     * How many Instances each service has, read off the index rather than counted over the namespace.
+     */
+    fun instanceCounts(): Map<String, Int> = instancesByService.mapValues { (_, instances) -> instances.size }
+
     fun applying(batch: ChangeBatch, windowSize: Int, maxWindowBytes: Long = Long.MAX_VALUE): NamespaceView {
         var applied = objects
         var index = instancesByService

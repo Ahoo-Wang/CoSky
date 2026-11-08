@@ -15,7 +15,6 @@ package me.ahoo.cosky.server.view
 
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
-import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ServiceSummary
 import me.ahoo.cosky.api.v1.ServicesRequest
 import me.ahoo.cosky.api.v1.ServicesResponse
@@ -48,7 +47,7 @@ class ViewService(
         requireValid(Validator.DEFAULT.validate(request))
         requireWholeNamespace(request.namespace, caller)
         val view = caches.viewAt(request.namespace, 0, timeout)
-        val summaries = instancesOf(view.objects.values).groupingBy { it.instance.service }.eachCount()
+        val summaries = view.instanceCounts()
             .toSortedMap()
             .map { (service, count) -> ServiceSummary.newBuilder().setService(service).setInstanceCount(count).build() }
         return ServicesResponse.newBuilder().addAllServices(summaries).setRevision(view.revision).build()
@@ -65,16 +64,14 @@ class ViewService(
         requireValid(Validator.DEFAULT.validate(request))
         requireWholeNamespace(request.namespace, caller)
         val view = caches.viewAt(request.namespace, 0, timeout)
-        val instances = instancesOf(view.objects.values)
+        val instances = view.instanceCounts()
         return StatsResponse.newBuilder()
-            .setServiceCount(instances.distinctBy { it.instance.service }.size)
-            .setInstanceCount(instances.size)
+            .setServiceCount(instances.size)
+            .setInstanceCount(instances.values.sum())
             .setConfigCount(view.objects.keys.count { it.kind == Kind.KIND_CONFIG })
             .setRevision(view.revision)
             .build()
     }
-
-    private fun instancesOf(objects: Collection<Resource>): List<Resource> = objects.filter { it.hasInstance() }
 
     /**
      * A view covers everything, so a rule limited to some names is not enough (design §7.8).
