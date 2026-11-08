@@ -887,8 +887,8 @@ Dashboard 静态资源、Actuator),`9090` gRPC。
 
 ```
 me.ahoo.cosky.server
-├─ resource/   ResourceService:校验 → 鉴权 → Store.apply → 等待 min_revision
-├─ watch/      NamespaceCache、WatchCache(管理全部 namespace)、WatchSession(单个 watch)、AntiEntropy
+├─ resource/   ResourceService:校验 → 鉴权 → Store.apply → 等待 min_revision;NamespaceLifecycle(删除的标记、终止、清理与撤销,D39、D43)、NamespaceReconciler
+├─ watch/      NamespaceCache、WatchCache(管理全部 namespace)、WatchSession(单个 watch)、WatchService(两种协议共用:校验、授权、配额、进度、权限复核)、TopologyRecorder、AntiEntropy
 ├─ lease/      LeaseService、LeaseReaper(含回收保护)、LeaderElection
 ├─ auth/       TokenAuthenticator、OidcAuthenticator、Authorizer、Bootstrap
 ├─ view/       ServicesView、TopologyView、StatsView
