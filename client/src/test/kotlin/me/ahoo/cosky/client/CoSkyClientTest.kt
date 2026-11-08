@@ -13,6 +13,13 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.CallOptions
+import io.grpc.Channel
+import io.grpc.ClientCall
+import io.grpc.ClientInterceptor
+import io.grpc.ForwardingClientCall
+import io.grpc.Metadata
+import io.grpc.MethodDescriptor
 import io.grpc.Status
 import io.grpc.StatusException
 import io.grpc.inprocess.InProcessChannelBuilder
@@ -54,6 +61,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.name
@@ -90,6 +98,7 @@ class CoSkyClientTest {
         resync: Duration = 30.minutes,
         endpoints: List<String> = listOf("only"),
         callTimeout: Duration = 10.seconds,
+        interceptors: List<ClientInterceptor> = emptyList(),
         serverName: (String) -> String = { server.name },
     ): CoSkyClient = CoSkyClient(
         CoSkyClientOptions(
@@ -105,7 +114,7 @@ class CoSkyClientTest {
             reRegisterJitter = Duration.ZERO,
             leaseTtl = leaseTtl,
             callTimeout = callTimeout,
-            channelFactory = { InProcessChannelBuilder.forName(serverName(it)).build() },
+            channelFactory = { InProcessChannelBuilder.forName(serverName(it)).intercept(interceptors).build() },
         ),
     ).also { clients += it }
 
@@ -459,6 +468,38 @@ class CoSkyClientTest {
 
             // A period of 2 seconds and a call's time of 1: the client gives up on the stream after 3.
             eventually { server.renewalStreams.get() > 1 }
+        }
+
+    @Test
+    fun `a renewal that fails without a status is tried again, rather than ending the renewals for good`() =
+        scenario {
+            // As when an in-process server stops just as a renewal stream starts: starting the call throws.
+            val broken = AtomicBoolean(true)
+            val failingOnce = object : ClientInterceptor {
+                override fun <Req, Resp> interceptCall(
+                    method: MethodDescriptor<Req, Resp>,
+                    callOptions: CallOptions,
+                    next: Channel,
+                ): ClientCall<Req, Resp> {
+                    val call = next.newCall(method, callOptions)
+                    if (method.bareMethodName != "KeepAlive" || !broken.getAndSet(false)) {
+                        return call
+                    }
+                    return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                        override fun start(responseListener: Listener<Resp>, headers: Metadata) =
+                            throw NullPointerException("'executor' must not be null.")
+                    }
+                }
+            }
+            val instances = client(leaseTtl = 6.seconds, interceptors = listOf(failingOnce)).namespace(NAMESPACE)
+                .instances
+            instances.register("order", ENDPOINT, instanceName = "a")
+            val lost = instancesOnServer().single().meta.lease
+            server.store.expireLease(NAMESPACE, lost, "test", force = true)
+
+            // Only renewing finds the lease lost and restores the registration.
+            eventually { instancesOnServer().isNotEmpty() }
+            instancesOnServer().single().meta.lease.assert().isNotEqualTo(lost)
         }
 
     @Test

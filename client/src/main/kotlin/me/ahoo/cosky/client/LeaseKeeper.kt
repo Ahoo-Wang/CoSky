@@ -158,6 +158,10 @@ internal class LeaseKeeper(
                 throw e
             } catch (e: StatusException) {
                 log.warn("Renewing the lease of namespace {} failed: {}", namespace, e.status)
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                // A call can fail without a status, as one does that starts just as an in-process server stops.
+                // Letting it end this loop would end the renewals for good, and every registration with its lease.
+                log.warn("Renewing the lease of namespace {} failed.", namespace, e)
             }
             connection.rotate(channel)
             delay(backoff.next())
