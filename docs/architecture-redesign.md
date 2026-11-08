@@ -82,6 +82,7 @@ Redis (只有 server 可访问)
 | D40 | 重建 namespace 的 revision | **删除时 revision 随 `state` 墓碑保留,重建后接着递增**,epoch 照样更换 | 从 1 重来时,旧的 `If-Match`、`expected_revision`、`min_revision` 和分页游标会对上新对象(#1134)。只改存储的删除与重建,协议与客户端不变;只有连墓碑一起丢失时才会复用,与丢写同属 §6.4 接受的风险(§7.2) |
 | D41 | starter 的客户端归属 | **每个应用一个客户端**:第一个导入在 bootstrap 上下文中创建,交给应用上下文随它关闭;启动在交接前失败时由运行监听器关闭 | 共享客户端让同一 JVM 中关闭一个应用就撤销另一个的实例,也让启动失败的应用留下仍在监听的客户端(#1139、#1140)。代价是同一 JVM 中每个应用多一条连接(§7.7) |
 | D42 | 管理员摘流的持续时间 | **持续到应用重新注册**;租约回收时实例已删除,重新注册用应用自己的值;要持久摘流,修改应用的注册权重 | 保留管理修改需要客户端跟踪服务端状态,或服务端另存覆盖值,都是新机制(#1093)(§6.2) |
+| D43 | Namespace 删除的代际 | **标记时在对象上记下 namespace 当前的 epoch(只读字段 `terminating_epoch`),终止与清理都在数据 slot 内原子校验它**;epoch 已不同返回 `SUPERSEDED` 并撤销标记;清理最后才删 epoch,中断后可按同一 epoch 继续;reconciler 删除对象按标记后的 revision CAS | 终止与清理只认名字时,迟到的删除或恢复会作用到重建后的新一代:删掉新对象,或清空新一代的历史(#1155)。复用 epoch 不增加新的存储概念;代价是删除恰好遇上反熵替换 epoch 时以冲突失败,重试即可(§7.2) |
 
 ---
 
@@ -242,6 +243,7 @@ enum Kind {
 message NamespaceSpec {
   string description = 1;
   bool terminating = 2; // 只读:删除已开始,不再接受修改(§7.2)
+  string terminating_epoch = 3; // 只读:删除针对的 epoch;重建的 namespace 不受它影响(§7.2,D43)
 }
 
 enum ConfigFormat {
@@ -529,10 +531,10 @@ interface Store {
     /** state = active,新 epoch;已是 active 时不变;还有待清理的数据时先清理。 */
     suspend fun createNamespace(namespace: String): Position
     suspend fun namespaceState(namespace: String): NamespaceState?           // ACTIVE / TERMINATING / null
-    /** 原子判空并置为 terminating;此后写入返回 NamespaceNotActive(§7.2)。 */
-    suspend fun terminateNamespace(namespace: String): TerminateResult
-    /** 清理 terminating namespace 的全部数据(epoch、rev、log、对象、历史、租约、拓扑),只留 state 墓碑;可重入。 */
-    suspend fun dropNamespace(namespace: String)
+    /** 原子校验仍是 epoch 那一代、判空并置为 terminating;此后写入返回 NamespaceNotActive。epoch 不同返回 SUPERSEDED(§7.2,D43)。 */
+    suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult
+    /** 清理 epoch 那一代 terminating namespace 的全部数据(log、对象、历史、租约、拓扑,epoch 最后),只留 state 与 rev 墓碑;可重入,不碰重建的 namespace。 */
+    suspend fun dropNamespace(namespace: String, epoch: String)
 
     /** 带过期的互斥锁,用于 Reaper 选主;owner 相同时为续约。 */
     suspend fun tryLock(name: String, owner: String, ttl: Duration): Boolean
@@ -610,9 +612,9 @@ sealed interface ApplyResult {
 | `topology_record.lua` | 校验 `state = active` → `ZADD topology <TIME+retention> edge` → `ZREMRANGEBYSCORE` 清理已到期的边;**不改 revision、不写日志** |
 | `topology_read.lua` | 用 Redis `TIME` 读取未到期的边 |
 | `namespace_create.lua` | 已是 `active` 时返回当前位置;否则 `SET state active`,写入新 epoch |
-| `namespace_terminate.lua` | `HLEN obj:config` 与 `HLEN obj:instance` 都为 0 时 `SET state terminating`,否则返回不为空 |
+| `namespace_terminate.lua` | `state = active` 而 `epoch` 不是删除开始时的值,返回 `SUPERSEDED`;`HLEN obj:config` 与 `HLEN obj:instance` 都为 0 时 `SET state terminating`,否则返回不为空 |
 
-`dropNamespace` 不是单个脚本:先读 `hist:idx` 和 `lease`,再分批 `UNLINK` 各键,只留 `state` 和 `rev`。任何一步中断都可以重新执行。
+`dropNamespace` 不是单个脚本:先读 `hist:idx` 和 `lease`,再分批 `UNLINK` 各键,只留 `state` 和 `rev`。每一批都在 `namespace_remove.lua` 内校验 `state` 不是 `active`、`epoch` 仍是删除针对的值,`epoch` 最后删除,所以任何一步中断都可以按同一 epoch 重新执行,而重建的 namespace 不会被清理(D43)。
 
 `apply.lua` 伪代码:
 
@@ -858,12 +860,12 @@ registration.close()                                                            
 - **创建**:先 `Store.createNamespace`(`state = active`,新 epoch),再 Put `_system` 中的 Namespace 对象。
 - **写入(D25)**:`apply.lua`、`lease_grant.lua` 要求 `state = active`,否则返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。判断在脚本内完成,不依赖缓存,所以迟到的写入不会让已删除的 namespace 复活。
 - **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。删除先标记,再分三步,每步都可重入:
-  0. **标记**:按 `expected_revision`(未给出时用读到的 revision)对 `_system` 中的 Namespace 对象 CAS,置 `terminating = true`。对象与 namespace 的数据不在同一 slot,无法一起原子更新,所以由这一步在 `_system` 内决出删除与并发更新的先后,此前不做任何不可逆操作(#1109)。明显不空的 namespace 在标记前就被拒绝,不留痕迹;
-  1. `Store.terminateNamespace`:原子判空并置 `terminating`,此后写入都被拒绝;此时才发现不空则撤销标记,返回 `NAMESPACE_NOT_EMPTY`;
-  2. `Store.dropNamespace`:清理全部键,只留 `state` 和 `rev` 作为墓碑;
+  0. **标记**:按 `expected_revision`(未给出时用读到的 revision)对 `_system` 中的 Namespace 对象 CAS,置 `terminating = true`,并在 `terminating_epoch` 中记下该 namespace 当前的 epoch,此后每一步都只针对这一代(D43)。对象与 namespace 的数据不在同一 slot,无法一起原子更新,所以由这一步在 `_system` 内决出删除与并发更新的先后,此前不做任何不可逆操作(#1109)。明显不空的 namespace 在标记前就被拒绝,不留痕迹;
+  1. `Store.terminateNamespace`:原子校验 epoch、判空并置 `terminating`,此后写入都被拒绝;此时才发现不空则撤销标记,返回 `NAMESPACE_NOT_EMPTY`;epoch 已不同(重建过,或时间线被替换)则撤销标记,返回 `ABORTED`(`REVISION_CONFLICT`),不碰数据;
+  2. `Store.dropNamespace`:按同一 epoch 清理全部键,只留 `state` 和 `rev` 作为墓碑;
   3. 按标记后的 revision 删除 `_system` 中的 Namespace 对象,该 namespace 上的所有 watch 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - **删除中的更新**:`terminating` 只由 server 设置。对象已标记时 Put 返回 `NOT_FOUND`(`NAMESPACE_NOT_FOUND`);不带 `expected_revision` 的 Put 由 server 按读到的 revision CAS,所以读取之后才开始的删除会让它以冲突失败,删除一旦标记就不会被更新覆盖。
-- **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续;对象已标记而 `state = active`,且标记已超过 1 分钟(留给仍在进行的请求),从第 1 步继续,不空则撤销标记;对象已标记而 `state` 不存在,直接删除对象。
+- **中断恢复**:Reaper Leader 发现 `_system` 中有对象而 `state = terminating` 时,从第 2 步继续;对象已标记而 `state = active`,且标记已超过 1 分钟(留给仍在进行的请求),从第 1 步继续,不空或已是另一代则撤销标记;对象已标记而 `state` 不存在,直接删除对象。恢复用对象记下的 `terminating_epoch`,删除对象一律按标记后的 revision CAS,所以迟到的恢复不会删掉重建后的新对象(D43)。
 - **数据丢失**:`_system` 中有未标记的对象而 `state` 不存在,说明该分片丢了数据。server 记录 ERROR 日志并执行 `createNamespace`,新 epoch 让客户端重新 List。`_system` 自身没有 `state`,说明整个 store 丢了数据:Reaper Leader 按首次启动重建 `_system`、`default` 和 bootstrap 管理员,其他 namespace 和对象无法恢复。
 - 删除后重建的 namespace 沿用墓碑中的 revision 继续递增,所以旧 namespace 的 revision,例如客户端仍持有的 `If-Match`、`expected_revision`、`min_revision` 或分页游标,都对不上新 namespace 的对象(#1134)。epoch 仍换成新的随机值,客户端携带旧 `from_epoch` 时一律返回 `gone`。只有存储连墓碑一起丢失时 revision 才会复用,与丢写同属 §6.4 接受的风险。
 

@@ -55,14 +55,23 @@ class NamespaceReconcilerTest {
         scope.cancel()
     }
 
+    /**
+     * @param terminating marks it as a deletion does, for the epoch the namespace has now.
+     */
     private suspend fun objectOf(name: String, terminating: Boolean = false) {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        val epoch = store.position(name)?.epoch.orEmpty()
         val namespace = resource {
             meta = objectMeta {
                 namespace = NamingRules.SYSTEM_NAMESPACE
                 this.name = name
             }
-            this.namespace = namespaceSpec { this.terminating = terminating }
+            this.namespace = namespaceSpec {
+                this.terminating = terminating
+                if (terminating) {
+                    terminatingEpoch = epoch
+                }
+            }
         }
         store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(namespace)), "test")
         caches.of(NamingRules.SYSTEM_NAMESPACE).views.filterNotNull().first { view ->
@@ -88,8 +97,9 @@ class NamespaceReconcilerTest {
     @Test
     fun `an interrupted deletion is finished`() = runBlocking<Unit> {
         store.createNamespace(NAME)
-        objectOf(NAME)
-        store.terminateNamespace(NAME).assert().isEqualTo(TerminateResult.TERMINATED)
+        val epoch = checkNotNull(store.position(NAME)).epoch
+        objectOf(NAME, terminating = true)
+        store.terminateNamespace(NAME, epoch).assert().isEqualTo(TerminateResult.TERMINATED)
         reconciler.reconcile()
         store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
         eventually {

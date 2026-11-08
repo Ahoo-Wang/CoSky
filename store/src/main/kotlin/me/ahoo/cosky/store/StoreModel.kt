@@ -82,7 +82,11 @@ sealed interface GrantResult {
     data object NamespaceNotActive : GrantResult
 }
 
-enum class TerminateResult { TERMINATED, NOT_EMPTY, NOT_FOUND }
+/**
+ * [SUPERSEDED]: the namespace is active under another epoch, created again or its timeline replaced since the deletion
+ * began, and is not the one to delete.
+ */
+enum class TerminateResult { TERMINATED, NOT_EMPTY, NOT_FOUND, SUPERSEDED }
 
 /**
  * The store could not be reached, or did not answer in time. Whatever was asked may or may not have taken effect, and

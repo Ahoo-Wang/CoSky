@@ -80,12 +80,13 @@ class NamespaceReconciler(
      * request looked, and then the deletion is undone.
      */
     private suspend fun finishOrUndo(namespace: Resource) {
-        if (store.terminateNamespace(namespace.meta.name) == TerminateResult.TERMINATED) {
+        val name = namespace.meta.name
+        if (store.terminateNamespace(name, namespace.namespace.terminatingEpoch) == TerminateResult.TERMINATED) {
             finish(namespace)
             return
         }
-        log.info("Namespace {} is not empty: undoing a deletion that stopped half way.", namespace.meta.name)
-        namespaces.unmark(namespace, namespace.meta.revision)
+        log.info("Namespace {} is not empty, or another one: undoing a deletion that stopped half way.", name)
+        namespaces.unmark(namespace)
     }
 
     private suspend fun finish(namespace: Resource) {

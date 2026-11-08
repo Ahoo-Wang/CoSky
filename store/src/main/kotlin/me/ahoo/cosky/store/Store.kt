@@ -144,18 +144,21 @@ interface Store : AutoCloseable {
     suspend fun namespaceState(namespace: String): NamespaceState?
 
     /**
-     * Atomically checks that [namespace] is empty and marks it terminating, after which writes are rejected (§7.2).
-     * Repeating it on a terminating namespace is fine.
+     * Atomically checks that [namespace] is still active under [epoch] and empty, and marks it terminating, after
+     * which writes are rejected (§7.2). A deletion that began before the namespace was created again, or before its
+     * epoch was replaced, gets [TerminateResult.SUPERSEDED] and changes nothing. Repeating it on a terminating
+     * namespace is fine.
      */
-    suspend fun terminateNamespace(namespace: String): TerminateResult
+    suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult
 
     /**
-     * Removes all data of a terminating namespace, leaving only its state and revision as a tombstone. Repeating it
-     * is fine.
+     * Removes all data of [namespace] while it is terminating under [epoch], leaving only its state and revision as a
+     * tombstone. It leaves alone a namespace created again since, and repeating it is fine, also after it was cut
+     * short.
      *
-     * @throws IllegalStateException when [namespace] is active.
+     * @throws IllegalStateException when [namespace] is active under [epoch].
      */
-    suspend fun dropNamespace(namespace: String)
+    suspend fun dropNamespace(namespace: String, epoch: String)
 
     /**
      * A mutex with an expiry, for electing the reaper. The same [owner] renews it.

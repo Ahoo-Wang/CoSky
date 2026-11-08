@@ -554,10 +554,10 @@ class ResourceServiceTest {
         val terminating = CompletableDeferred<Unit>()
         val proceed = CompletableDeferred<Unit>()
         val gated = object : Store by store {
-            override suspend fun terminateNamespace(namespace: String): TerminateResult {
+            override suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult {
                 terminating.complete(Unit)
                 proceed.await()
-                return store.terminateNamespace(namespace)
+                return store.terminateNamespace(namespace, epoch)
             }
         }
         val service = ResourceService(gated, WatchCache(gated, WINDOW, scope), minRevisionTimeout = SHORT_TIMEOUT)
@@ -598,7 +598,7 @@ class ResourceServiceTest {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
         put(namespace("orders"))
         val crowded = object : Store by store {
-            override suspend fun terminateNamespace(namespace: String) = TerminateResult.NOT_EMPTY
+            override suspend fun terminateNamespace(namespace: String, epoch: String) = TerminateResult.NOT_EMPTY
         }
         val service = ResourceService(crowded, WatchCache(crowded, WINDOW, scope), minRevisionTimeout = SHORT_TIMEOUT)
         val request = DeleteRequest.newBuilder().setKey(namespaceKey("orders")).build()

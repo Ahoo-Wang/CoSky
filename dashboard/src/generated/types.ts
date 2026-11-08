@@ -928,6 +928,10 @@ export interface NamespaceRef {
  *     "terminating": {
  *       "type": "boolean",
  *       "description": "read-only: a deletion has begun, and nothing may change it any more (§7.2)"
+ *     },
+ *     "terminatingEpoch": {
+ *       "type": "string",
+ *       "description": "read-only: the epoch the deletion is for; a namespace created again is not its (§7.2)"
  *     }
  *   }
  * }
@@ -937,6 +941,8 @@ export interface NamespaceSpec {
     description: string;
     /** read-only: a deletion has begun, and nothing may change it any more (§7.2) */
     terminating: boolean;
+    /** read-only: the epoch the deletion is for; a namespace created again is not its (§7.2) */
+    terminatingEpoch: string;
 }
 
 /**
