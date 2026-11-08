@@ -13,8 +13,8 @@
 
 package me.ahoo.cosky.server.adapter.grpc
 
-import io.lettuce.core.RedisException
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.store.StoreUnavailableException
 
 /**
  * Turns a failure into its gRPC status. A store failure becomes UNAVAILABLE, which clients must not read as the loss of
@@ -24,6 +24,6 @@ internal inline fun <T> grpcCall(block: () -> T): T = try {
     block()
 } catch (e: CoSkyException) {
     throw e.toStatusRuntimeException()
-} catch (e: RedisException) {
+} catch (e: StoreUnavailableException) {
     throw CoSkyException.storeUnavailable("The store is unavailable.", e).toStatusRuntimeException()
 }

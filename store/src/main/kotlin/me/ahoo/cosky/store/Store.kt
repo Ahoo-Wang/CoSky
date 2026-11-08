@@ -23,7 +23,9 @@ import kotlin.time.Duration
  * Persistence of the server (design §5.0). Only the server talks to a store.
  *
  * Business failures are typed results; exceptions are for infrastructure failures, misuse, and the two ways a
- * [changes] flow can no longer continue. Closing a store releases what it opened, so that a wrapper passes it on.
+ * [changes] flow can no longer continue. An implementation reports that its backend is out of reach as
+ * [StoreUnavailableException], in its own terms rather than its driver's, so that the server needs to know no driver.
+ * Closing a store releases what it opened, so that a wrapper passes it on.
  */
 interface Store : AutoCloseable {
     override fun close() = Unit
