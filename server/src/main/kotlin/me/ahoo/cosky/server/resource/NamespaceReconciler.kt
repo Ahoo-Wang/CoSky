@@ -18,11 +18,9 @@ import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.watch.WatchCache
-import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.TerminateResult
-import me.ahoo.cosky.store.key
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
@@ -43,6 +41,7 @@ class NamespaceReconciler(
     private val bootstrap: StoreBootstrap,
     private val clock: Clock = Clock.systemUTC(),
     private val markedGrace: Duration = Duration.ofMinutes(1),
+    private val namespaces: NamespaceLifecycle = NamespaceLifecycle(store, caches),
 ) {
     suspend fun reconcile() {
         if (store.namespaceState(NamingRules.SYSTEM_NAMESPACE) == null) {
@@ -62,7 +61,7 @@ class NamespaceReconciler(
 
                     // Whatever a namespace on its way out lost, it is deleted all the same.
                     null -> if (terminating) {
-                        deleteObject(namespace)
+                        namespaces.deleteObject(namespace)
                     } else {
                         log.error("Namespace {} has no state: its shard lost data. Creating it anew.", name)
                         store.createNamespace(name)
@@ -86,22 +85,15 @@ class NamespaceReconciler(
             return
         }
         log.info("Namespace {} is not empty: undoing a deletion that stopped half way.", namespace.meta.name)
-        val active = namespace.toBuilder().apply { namespaceBuilder.terminating = false }.build()
-        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(active, namespace.meta.revision)), ACTOR)
+        namespaces.unmark(namespace, namespace.meta.revision)
     }
 
     private suspend fun finish(namespace: Resource) {
         log.info("Finishing the deletion of namespace {}.", namespace.meta.name)
-        store.dropNamespace(namespace.meta.name)
-        deleteObject(namespace)
-    }
-
-    private suspend fun deleteObject(namespace: Resource) {
-        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Delete(namespace.key)), ACTOR)
+        namespaces.finish(namespace)
     }
 
     private companion object {
-        const val ACTOR = "system"
         val log = LoggerFactory.getLogger(NamespaceReconciler::class.java)
     }
 }

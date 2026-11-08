@@ -232,6 +232,16 @@ R1 分页与分块(D23)、R2 授权范围(D24)、R3 namespace 生命周期(D25)�
 
 修复中顺带发现并修复:默认实例名的拼接歧义改为 `<service>_<host>_<port>`(#1126),续约流静默挂起时重连(测试偶发失败的根因),以及几处端到端测试的端口争用和读写时序。
 
+### 代码结构审查(2026-11-07)
+
+按职责逐层审查 server 与存储,不改协议、存储格式与设计决策,只把放错层的规则放回去:
+
+- Store SPI 用自己的 `StoreUnavailableException` 表示后端不可达,`RedisStore` 在边界转换 Lettuce 的异常,并拥有自己创建的客户端(`RedisStore.open`);server 只在装配处知道 Redis(#1154、#1166)。
+- Watch 的校验、授权、配额、进度书签与权限复核只在 `WatchService` 实现一次,gRPC 与 REST 只做映射;`TopologyRecorder` 移到 `watch` 包,避免 `watch` 与 `view` 互相依赖(#1165)。
+- 租约规则从 gRPC 适配层移入 `LeaseService`,租约归属只检查一处;D39 的 namespace 删除流程收拢到 `NamespaceLifecycle`,请求与 reconciler 共用;服务视图直接读按服务的索引(#1167)。
+
+没有发现需要改动架构决策的问题。
+
 ## 7. 风险
 
 | 风险 | 影响 | 应对 |
