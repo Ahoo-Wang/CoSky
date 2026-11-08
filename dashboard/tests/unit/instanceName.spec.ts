@@ -31,7 +31,6 @@ const PINNED: [string, string, number, string][] = [
 test('an instance is named as the client names it', () => {
     for (const [service, host, port, name] of PINNED) {
         expect(defaultInstanceName(service, host, port)).toBe(name);
-        expect(defaultInstanceName(service, host, String(port))).toBe(name);
     }
 });
 
@@ -46,7 +45,7 @@ test('a long name is cut', () => {
 
 test('a name cut short keeps the port, so endpoints of one host stay apart', () => {
     const first = defaultInstanceName(LONGEST_SERVICE, LONG_DOMAIN, 8080);
-    const second = defaultInstanceName(LONGEST_SERVICE, LONG_DOMAIN, '8081');
+    const second = defaultInstanceName(LONGEST_SERVICE, LONG_DOMAIN, 8081);
     expect(first).not.toBe(second);
     expect(first).toMatch(/_8080$/);
     expect(second).toMatch(/_8081$/);

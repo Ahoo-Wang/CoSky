@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import React, {type ReactNode, useRef, useState} from "react";
+import React, {type ReactNode, useEffect, useRef, useState} from "react";
 import {useLocation} from "react-router-dom";
 import {DrawerContext} from "@/contexts/DrawerContext";
 import type {DrawerOptions} from "@/contexts/DrawerContext";
@@ -30,6 +30,11 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
     const openings = useRef(0);
     const {key: location} = useLocation();
     const [shownAt, setShownAt] = useState(location);
+    // Where an operation that ends now finds the page, which its closure saw only as it was when it began.
+    const currentLocation = useRef(location);
+    useEffect(() => {
+        currentLocation.current = location;
+    }, [location]);
 
     // What it shows belongs to the page it was opened on, which going back or following a link leaves.
     if (shownAt !== location) {
@@ -45,8 +50,20 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
         const id = ++openings.current;
         setShown({id, open: true, content: render(() => close(id)), options});
     };
+
+    const reserveDrawer = () => {
+        const since = openings.current;
+        const startedAt = currentLocation.current;
+        return (render: (close: () => void) => ReactNode, options: DrawerOptions = {}) => {
+            if (openings.current !== since || currentLocation.current !== startedAt) {
+                return false;
+            }
+            openDrawer(render, options);
+            return true;
+        };
+    };
     return (
-        <DrawerContext.Provider value={{openDrawer}}>
+        <DrawerContext.Provider value={{openDrawer, reserveDrawer}}>
             {children}
             <Sheet open={shown.open} onOpenChange={(nextOpen) => !nextOpen && close(shown.id)}>
                 <SheetContent

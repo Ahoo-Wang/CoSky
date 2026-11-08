@@ -730,6 +730,28 @@ test.describe('configuration', () => {
         await expect(row(page, 'application.yaml')).toBeVisible();
     });
 
+    test('a read after a change asks for no less than the change, and a bookmark ahead of the reads reads again', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        // First pages only: a later one reads where its first did, by its token.
+        const asked = () => api.requests
+            .filter(request => request.path === '/v1/namespaces/default/configs' && !request.query.has('pageToken'))
+            .map(request => request.query.get('minRevision'));
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        // A replica that is behind would answer with less than the change, were the read not to ask for it.
+        api.releaseWatch({events: {revision: '500', events: []}});
+        await expect.poll(() => asked().at(-1)).toBe('500');
+
+        // The list said less than 600: a bookmark of 600 means something changed that no read has shown yet.
+        await expect.poll(() => api.requests.filter(request => request.path.endsWith('/watch')).length)
+            .toBeGreaterThan(1);
+        api.releaseWatch({progress: '600'});
+        await expect.poll(() => asked().at(-1)).toBe('600');
+    });
+
     test('a snapshot covers whatever was missed while no stream was open', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -914,7 +936,8 @@ test.describe('services', () => {
         await page.getByRole('button', {name: 'Add Instance', exact: true}).click();
         await page.getByLabel('Service', {exact: true}).fill('billing');
         await page.getByLabel('Host', {exact: true}).fill('10.0.0.9');
-        await page.getByLabel('Port', {exact: true}).fill('8081');
+        // Spelled with a leading zero, it is still port 8081, and so the same endpoint and name.
+        await page.getByLabel('Port', {exact: true}).fill('08081');
         await typeInMonaco(page, '[1]');
         await page.getByRole('button', {name: 'Submit'}).click();
         await expect(toast(page, 'Metadata must be a JSON object of strings.')).toBeVisible();
@@ -1163,6 +1186,24 @@ test.describe('security', () => {
 
         await confirm(page, row(page, 'deployer').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Service account deleted')).toBeVisible();
+    });
+
+    test('a token that arrives after the page moved on leaves what is open alone, and can still be copied', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        const answer = api.hold('POST', /tokens$/);
+        await row(page, 'admin').getByRole('button', {name: 'New token'}).click();
+
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await page.getByLabel('Name', {exact: true}).fill('draft.yaml');
+        answer();
+
+        await expect(toast(page, 'New token of admin')).toBeVisible();
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('draft.yaml');
+        await expect(page.getByRole('textbox', {name: 'New token'})).toHaveCount(0);
     });
 
     test('a failed token says why', async ({page}) => {

@@ -21,6 +21,7 @@ import {
     rolesClient,
     serviceAccountsClient,
 } from '@/services/clients';
+import {minRevisionOf, readUpTo} from '@/services/revisions';
 
 /**
  * A resource as it arrives. proto3 JSON leaves out whatever is empty, and only one spec of a resource is ever set,
@@ -174,14 +175,23 @@ async function listAll<T>(
     toResource: (resource: WireResource) => T,
     {abortController, query}: PageOptions = {},
 ): Promise<T[]> {
+    const namespace = path.namespace ?? SYSTEM_NAMESPACE;
+    // No less than this page's watch has seen; later pages read where the first one did.
+    const minRevision = minRevisionOf(namespace);
     const items: T[] = [];
     let pageToken = '';
     do {
         const response = await list({
-            urlParams: {path, query: {...query, ...(pageToken ? {pageToken} : {})}},
+            urlParams: {
+                path,
+                query: {...query, ...(pageToken ? {pageToken} : minRevision ? {minRevision} : {})},
+            },
             abortController,
         });
         const page = await response.json() as Wire<ListResponse>;
+        if (!pageToken) {
+            readUpTo(namespace, page.revision);
+        }
         items.push(...(page.items ?? []).map(item => toResource(item as WireResource)));
         pageToken = page.nextPageToken ?? '';
     } while (pageToken);

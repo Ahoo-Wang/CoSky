@@ -62,7 +62,7 @@ export function ServiceInstanceEditor({namespace, service, existing, onSuccess, 
             return;
         }
         const name = existing?.name ?? (values.name.trim()
-            || defaultInstanceName(service ?? values.service, values.host, values.port));
+            || defaultInstanceName(service ?? values.service, values.host, Number(values.port)));
         setSaving(true);
         const saved = await runAction(
             () => instances.put(namespace, name, {

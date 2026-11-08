@@ -28,6 +28,7 @@ import {PageHeader} from '@/components/layout/PageHeader';
 import {Button} from '@/components/ui/button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
+import {readUpTo} from '@/services/revisions';
 
 export function ServicePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
@@ -36,6 +37,7 @@ export function ServicePage() {
         query: currentNamespace,
         execute: async (namespace, _, abortController) => {
             const view = await viewsClient.viewServices({urlParams: {path: {namespace}}, abortController});
+            readUpTo(namespace, view.revision);
             return view.services ?? [];
         },
     });
