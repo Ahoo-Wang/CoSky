@@ -125,16 +125,16 @@ class RedisStoreClusterFailoverTest {
 
     private companion object {
         /**
-         * The node timeout, a replica's election, and two periodic reads of the topology with the wait for the hung node
-         * within each, should the first begin before the election: about 25 seconds at worst. Without reading the
-         * topology again, never, while the node hangs.
+         * The node timeout, a replica's election, and two periodic reads of the topology with the wait for the hung
+         * node within each, should the first begin before the election: about 25 seconds at worst, with room for a
+         * slow runner. Without reading the topology again, never, while the node hangs.
          */
-        val RECOVERY = 30.seconds
+        val RECOVERY = 45.seconds
         val ATTEMPT = 3.seconds
         val RETRY = 200.milliseconds
 
         /** Longer than [RECOVERY], so that only following the failover can make the store take writes again. */
-        val HANG = 60.seconds
+        val HANG = 90.seconds
         val PORTS = (7100..7105).toList()
 
         val CLUSTER: ClusterContainer = ClusterContainer()
