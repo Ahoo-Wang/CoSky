@@ -28,6 +28,7 @@ import io.lettuce.core.ScriptOutputType
 import io.lettuce.core.SocketOptions
 import io.lettuce.core.StreamMessage
 import io.lettuce.core.cluster.ClusterClientOptions
+import io.lettuce.core.cluster.ClusterTopologyRefreshOptions
 import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
@@ -622,6 +623,15 @@ class RedisStore(
         private val NAMESPACE_CREATE = RedisScript("namespace_create")
         private const val EDGE_SEPARATOR = "\u0000"
         private val TCP_USER_TIMEOUT = 30.seconds.toJavaDuration()
+        private const val RECONNECTS_BEFORE_REFRESH = 2
+        private val ADAPTIVE_REFRESH_INTERVAL = 2.seconds
+        private val PERIODIC_REFRESH = 5.seconds
+
+        /**
+         * How long a command, or a read of the topology, waits for a cluster node, rather than Lettuce's minute: the
+         * scripts take milliseconds, and a namespace on a master that hangs is unavailable at least this long.
+         */
+        private val CLUSTER_TIMEOUT = 5.seconds
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
         private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
 
@@ -640,6 +650,11 @@ class RedisStore(
         ): Store {
             val redisUri = RedisURI.create(uri)
             return if (cluster) {
+                // Unless the URI says otherwise: Lettuce reads a cluster's topology with the timeout of the URI it
+                // started from, and so waits that long for a node that hangs before it can follow a failover.
+                if ("timeout=" !in uri) {
+                    redisUri.timeout = CLUSTER_TIMEOUT.toJavaDuration()
+                }
                 val client = resources?.let { RedisClusterClient.create(it, redisUri) }
                     ?: RedisClusterClient.create(redisUri)
                 owning(client) { RedisStore.cluster(client, options, tailPollInterval) }
@@ -716,7 +731,24 @@ class RedisStore(
 
         internal fun clientOptions(): ClientOptions = ClientOptions.builder().socketOptions(socketOptions()).build()
 
-        internal fun clusterClientOptions(): ClusterClientOptions =
-            ClusterClientOptions.builder().socketOptions(socketOptions()).build()
+        internal fun clusterClientOptions(): ClusterClientOptions = ClusterClientOptions.builder()
+            .socketOptions(socketOptions())
+            .topologyRefreshOptions(topologyRefreshOptions())
+            .build()
+
+        /**
+         * A master that fails is replaced by its replica within the cluster's node timeout, but a client goes on
+         * sending its slots to the old node until it reads the topology again: without this, not before the old node
+         * answers again, with the namespaces in those slots unavailable all along. This reads it again on any sign of
+         * a change, such as a node it cannot reconnect to, a redirect or a slot no node holds, and every few seconds
+         * regardless: a node that hangs, or a host that vanishes, gives no sign at all.
+         */
+        private fun topologyRefreshOptions(): ClusterTopologyRefreshOptions = ClusterTopologyRefreshOptions.builder()
+            .enableAllAdaptiveRefreshTriggers()
+            .refreshTriggersReconnectAttempts(RECONNECTS_BEFORE_REFRESH)
+            // Short enough to read it again once the replica has taken over, should the first read come before.
+            .adaptiveRefreshTriggersTimeout(ADAPTIVE_REFRESH_INTERVAL.toJavaDuration())
+            .enablePeriodicRefresh(PERIODIC_REFRESH.toJavaDuration())
+            .build()
     }
 }

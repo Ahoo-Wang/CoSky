@@ -25,4 +25,11 @@ class RedisClientOptionsTest {
             it.tcpUserTimeout.isEnabled.assert().isEqualTo(EpollProvider.isAvailable())
         }
     }
+
+    @Test
+    fun `a cluster client reads the topology again when it changes, and every so often`() {
+        val refresh = RedisStore.clusterClientOptions().topologyRefreshOptions
+        refresh.adaptiveRefreshTriggers.assert().isNotEmpty()
+        refresh.isPeriodicRefreshEnabled.assert().isTrue()
+    }
 }
