@@ -35,9 +35,11 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Endpoint
+import me.ahoo.cosky.api.v1.GetRequest
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.ResourceServiceGrpcKt
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
@@ -52,17 +54,16 @@ import me.ahoo.cosky.client.CoSkyClientOptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
 import org.testcontainers.Testcontainers
-import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
-import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy
+import org.testcontainers.images.builder.ImageFromDockerfile
 import org.testcontainers.toxiproxy.ToxiproxyContainer
+import org.testcontainers.utility.DockerImageName
 import java.io.File
 import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse.BodyHandlers
-import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
@@ -189,6 +190,35 @@ class LoadMeasurement {
                 process.destroyForcibly()
             }
         }
+    }
+
+    /**
+     * What a round trip took to the server, a read from its view, and from the server's side to Redis: over emulated
+     * links, what the network really added.
+     */
+    private suspend fun reportRoundTrips(resources: ResourceServiceGrpcKt.ResourceServiceCoroutineStub, redis: String) {
+        val key = ResourceKey.newBuilder().setNamespace(NAMESPACE).setKind(Kind.KIND_CONFIG).setName("config-0").build()
+        val get = GetRequest.newBuilder().setKey(key).build()
+        val toServer = List(ROUND_TRIPS) { timed { resources.get(get) } }
+        val client = RedisClient.create(redis)
+        val toRedis = try {
+            client.connect().use { connection -> List(ROUND_TRIPS) { timed { connection.sync().ping() } } }
+        } finally {
+            client.shutdown()
+        }
+        report("round trip to the server ${submillis(toServer)}, to redis ${submillis(toRedis)}")
+    }
+
+    private inline fun timed(block: () -> Unit): Long {
+        val started = System.nanoTime()
+        block()
+        return System.nanoTime() - started
+    }
+
+    private fun submillis(nanos: List<Long>): String {
+        val sorted = nanos.sorted()
+        fun at(share: Double) = "%.1fms".format(sorted[((sorted.size - 1) * share).toInt()] / NANOS_PER_MILLI)
+        return "p50=${at(P50)} p99=${at(P99)}"
     }
 
     private fun network(): String = "redis=${redisNetem ?: LOOPBACK} clients=${clientNetem ?: LOOPBACK}"
@@ -379,6 +409,7 @@ class LoadMeasurement {
                     "loaded instances=$instances configs=$configs in ${loadSeconds}s, " +
                         "heap ${emptyHeap}MB -> ${loadedHeap}MB",
                 )
+                reportRoundTrips(resources, redis)
 
                 // --- write latency ---
                 writeLatency(resources, 1, writes)
@@ -656,29 +687,30 @@ class LoadMeasurement {
     }
 
     /**
-     * A link with the delay, jitter and loss of a real network, to [upstream]: a Toxiproxy relay whose interface netem
-     * shapes with [netem], the arguments of `tc qdisc ... netem`. Traffic both ways leaves the relay through that
-     * interface, so each direction gets them once.
+     * A link with the delay, jitter and loss of a real network, to [upstream]: a Toxiproxy relay whose interfaces netem
+     * shapes with [netem], the arguments of `tc qdisc ... netem`. Traffic each way leaves the relay once, so each
+     * direction is shaped once. Netem can delay more than it is told, by milliseconds in a VM with a coarse timer, so
+     * what a round trip over the link took is measured and reported as well.
      */
     private class EmulatedLink(upstream: String, netem: String) : AutoCloseable {
-        private val relay = ToxiproxyContainer(TOXIPROXY_IMAGE).withNetwork(NETWORK).withAccessToHost(true)
+        private val relay = ToxiproxyContainer(
+            DockerImageName.parse(RELAY_IMAGE).asCompatibleSubstituteFor(TOXIPROXY_IMAGE),
+        )
+            .withNetwork(NETWORK)
+            .withAccessToHost(true)
+            .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN) }
             .also { it.start() }
 
         init {
             ToxiproxyClient(relay.host, relay.controlPort).createProxy("link", "0.0.0.0:$RELAY_PORT", upstream)
             // A queue long enough that a burst, such as an event to every connection, is delayed rather than dropped.
-            GenericContainer(NETEM_IMAGE)
-                .withNetworkMode("container:${relay.containerId}")
-                // The relay's own network, which takes no hosts of its own, such as the one Testcontainers adds to
-                // reach this host.
-                .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN)?.withExtraHosts() }
-                .withCommand(
-                    "sh",
-                    "-c",
-                    "apk add --no-cache -q iproute2-tc && tc qdisc add dev eth0 root netem limit $NETEM_LIMIT $netem",
-                )
-                .withStartupCheckStrategy(OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(2)))
-                .use { it.start() }
+            val shaped = relay.execInContainer(
+                "sh",
+                "-c",
+                "for i in ${'$'}(ls /sys/class/net); do [ ${'$'}i = lo ] || " +
+                    "tc qdisc add dev ${'$'}i root netem limit $NETEM_LIMIT $netem || exit 1; done",
+            )
+            check(shaped.exitCode == 0) { "netem $netem failed: ${shaped.stderr}" }
         }
 
         val host: String get() = relay.host
@@ -756,9 +788,10 @@ class LoadMeasurement {
         const val REDIS_ALIAS = "redis"
         const val LOOPBACK = "loopback"
         const val TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.12.0"
-        const val NETEM_IMAGE = "alpine:3.20"
         const val RELAY_PORT = 8666
         const val NETEM_LIMIT = 100_000
+        const val ROUND_TRIPS = 200
+        const val NANOS_PER_MILLI = 1e6
         const val SERVICES = 2_000
         const val MB = 1024.0 * 1024
         const val STOP_SECONDS = 15L
@@ -786,6 +819,22 @@ class LoadMeasurement {
         val PROPAGATION_SETTLE = 5.seconds
         val SETTLE = 5.seconds
         val NETWORK: Network by lazy { Network.newNetwork() }
+
+        /** Toxiproxy beside `tc`, which its own image, built from nothing, does not have. */
+        val RELAY_IMAGE: String by lazy {
+            ImageFromDockerfile("cosky-netem-relay:2.12.0", false).withFileFromString(
+                "Dockerfile",
+                """
+                FROM $TOXIPROXY_IMAGE AS toxiproxy
+                FROM alpine:3.20
+                RUN apk add --no-cache iproute2-tc
+                COPY --from=toxiproxy /toxiproxy /toxiproxy
+                EXPOSE 8474
+                ENTRYPOINT ["/toxiproxy"]
+                CMD ["-host=0.0.0.0"]
+                """.trimIndent(),
+            ).get()
+        }
         val SAMPLE = 10.seconds
         val WINDOW_WARM_UP = 5.seconds
         val WINDOW_AFTER_KILL = 15.seconds
