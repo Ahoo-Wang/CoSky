@@ -16,6 +16,7 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.dokka.gradle.DokkaPlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
 import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
+import java.time.Duration
 
 plugins {
     alias(libs.plugins.publish)
@@ -143,6 +144,12 @@ configure(libraryProjects) {
         }
         // fix logging missing code for JacocoPlugin
         jvmArgs = listOf("-Dlogback.configurationFile=${rootProject.rootDir}/config/logback.xml")
+        // A test that hangs fails within minutes, naming itself and printing every thread's stack, instead of holding
+        // CI until GitHub cancels the job hours later. No test or lifecycle method comes near ten minutes.
+        systemProperty("junit.jupiter.execution.timeout.default", "10m")
+        systemProperty("junit.jupiter.execution.timeout.threaddump.enabled", "true")
+        // Should a hang not answer the interrupt, the task fails rather than waits.
+        timeout.set(Duration.ofMinutes(45))
     }
 
     dependencies {

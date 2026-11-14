@@ -27,6 +27,8 @@ jobs:
   integration-test:
     name: Integration Test
     runs-on: ubuntu-latest
+    # A run takes about 20 minutes. A hang should fail in an hour, not in GitHub's six.
+    timeout-minutes: 60
     services:
       redis:
         image: redis
@@ -54,6 +56,15 @@ jobs:
       - name: Integration Test
         # The ABI Compatibility job checks the Kotlin API instead, without blocking, until 8.0.0-rc.1.
         run: ./gradlew clean check -x checkKotlinAbi
+
+      # A test that times out leaves every thread's stack in its report.
+      - name: Keep the test reports
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: integration-test-results
+          path: '**/build/test-results/test/*.xml'
+          retention-days: 7
 
   # The Kotlin API that 8.0.0-rc.1 freezes (CONTRIBUTING.md). A pull request that changes it updates the dumps
   # (`./gradlew updateKotlinAbi`), so the change shows in review.
