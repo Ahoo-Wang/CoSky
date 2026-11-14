@@ -16,6 +16,8 @@ package me.ahoo.cosky.store.redis
 import io.lettuce.core.resource.EpollProvider
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import java.time.Duration
+import kotlin.time.toJavaDuration
 
 class RedisClientOptionsTest {
     @Test
@@ -24,5 +26,21 @@ class RedisClientOptionsTest {
             it.keepAlive.isEnabled.assert().isTrue()
             it.tcpUserTimeout.isEnabled.assert().isEqualTo(EpollProvider.isAvailable())
         }
+    }
+
+    @Test
+    fun `a cluster client reads the topology again when it changes, and every so often`() {
+        val refresh = RedisStore.clusterClientOptions().topologyRefreshOptions
+        refresh.adaptiveRefreshTriggers.assert().isNotEmpty()
+        refresh.isPeriodicRefreshEnabled.assert().isTrue()
+    }
+
+    @Test
+    fun `a cluster waits for a node no longer than the URI allows, or a few seconds`() {
+        RedisStore.clusterUri("redis://127.0.0.1:7000").timeout
+            .assert().isEqualTo(RedisStore.CLUSTER_TIMEOUT.toJavaDuration())
+        RedisStore.clusterUri("redis://127.0.0.1:7000?timeout=30s").timeout.assert().isEqualTo(Duration.ofSeconds(30))
+        RedisStore.clusterUri("redis://timeout=@127.0.0.1:7000").timeout
+            .assert().isEqualTo(RedisStore.CLUSTER_TIMEOUT.toJavaDuration())
     }
 }
