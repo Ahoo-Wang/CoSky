@@ -21,6 +21,8 @@ import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.roleBindingSpec
 import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.NamingRules
+import me.ahoo.cosky.server.BOOTSTRAP_TOKEN_EXAMPLE
+import me.ahoo.cosky.server.StartupFailure
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
@@ -36,12 +38,18 @@ class AuthBootstrap(private val store: Store) {
             return
         }
         if (bootstrapToken.isNullOrEmpty()) {
-            log.warn("No RoleBinding exists and no bootstrap token is set, so nobody can sign in.")
+            log.warn(
+                "No RoleBinding exists and no bootstrap token is set, so nobody can sign in. Set " +
+                    "cosky.auth.bootstrap-token (COSKY_BOOTSTRAP_TOKEN), such as {}, and start again.",
+                BOOTSTRAP_TOKEN_EXAMPLE,
+            )
             return
         }
-        val token = checkNotNull(Tokens.parse(bootstrapToken)) {
-            "The bootstrap token must look like ${ParsedToken.PREFIX}<id>${ParsedToken.SEPARATOR}<secret>, both base62."
-        }
+        val token = Tokens.parse(bootstrapToken) ?: throw StartupFailure(
+            "The bootstrap token must look like ${ParsedToken.PREFIX}<id>${ParsedToken.SEPARATOR}<secret>, " +
+                "both base62.",
+            "Set cosky.auth.bootstrap-token (COSKY_BOOTSTRAP_TOKEN) to one, such as $BOOTSTRAP_TOKEN_EXAMPLE.",
+        )
         val result = store.apply(
             NamingRules.SYSTEM_NAMESPACE,
             listOf(
