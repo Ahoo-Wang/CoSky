@@ -19,6 +19,10 @@ spring:
           # Clients ping every 15 seconds to notice a server that is silently gone. gRPC ends the connections of those
           # it finds pinging more often than this, 5 minutes by default.
           time: 10s
+  webflux:
+    # Failures that are not CoSky's own, such as a path that does not exist, are problem details (RFC 9457) as well.
+    problemdetails:
+      enabled: true
   http:
     codecs:
       # A Config of 1 MiB, or an archive of them.

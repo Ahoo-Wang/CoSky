@@ -126,16 +126,16 @@ class RestRoutes(
         global("/v1/roles", Kind.KIND_ROLE)
         global("/v1/rolebindings", Kind.KIND_ROLE_BINDING)
 
-        onError<CoSkyException> { error, _ -> errorResponse(error as CoSkyException) }
-        onError<StoreUnavailableException> { error, _ ->
-            errorResponse(CoSkyException.storeUnavailable("The store is unavailable.", error))
+        onError<CoSkyException> { error, request -> errorResponse(error as CoSkyException, request) }
+        onError<StoreUnavailableException> { error, request ->
+            errorResponse(CoSkyException.storeUnavailable("The store is unavailable.", error), request)
         }
         // Filters run outside the error handlers above, so this one has to answer its own failures.
         filter { request, next ->
             val signedIn = try {
                 authenticated(request)
             } catch (e: CoSkyException) {
-                return@filter errorResponse(e)
+                return@filter errorResponse(e, request)
             }
             next(signedIn)
         }
@@ -445,16 +445,10 @@ class RestRoutes(
     private suspend fun ServerResponse.BodyBuilder.json(message: Message): ServerResponse =
         contentType(MediaType.APPLICATION_JSON).bodyValueAndAwait(ProtoJson.print(message))
 
-    private suspend fun errorResponse(error: CoSkyException): ServerResponse {
-        val body = JsonObject().apply {
-            addProperty("status", error.errorCode.grpcCode.name)
-            addProperty("message", error.message)
-            add("detail", ProtoJson.tree(error.detail))
-        }
-        return ServerResponse.status(HttpStatus.valueOf(error.errorCode.httpStatus))
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValueAndAwait(body.toString())
-    }
+    private suspend fun errorResponse(error: CoSkyException, request: ServerRequest): ServerResponse =
+        ServerResponse.status(HttpStatus.valueOf(error.errorCode.httpStatus))
+            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
+            .bodyValueAndAwait(Problems.of(error, request.path()).toString())
 
     private companion object {
         const val NAMESPACE = "namespace"

@@ -40,6 +40,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.adapter.grpc.ResourceGrpcService
+import me.ahoo.cosky.server.adapter.rest.Problems
 import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.TokenService
@@ -139,10 +140,13 @@ class ProtocolParityTest {
         failure.status.code.assert().isEqualTo(code.grpcCode)
 
         val response = restCall().expectStatus().isEqualTo(code.httpStatus)
+            .expectHeader().contentType(MediaType.APPLICATION_PROBLEM_JSON)
             .expectBody(String::class.java).returnResult().responseBody
         val body = JsonParser.parseString(response).asJsonObject
-        body["status"].asString.assert().isEqualTo(code.grpcCode.name)
-        body.getAsJsonObject("detail")["reason"].asString.assert().isEqualTo(expected.name)
+        body["status"].asInt.assert().isEqualTo(code.httpStatus)
+        body["code"].asString.assert().isEqualTo(code.grpcCode.name)
+        body["reason"].asString.assert().isEqualTo(expected.name)
+        body["type"].asString.assert().isEqualTo(Problems.typeOf(expected))
     }
 
     private fun scenario(block: suspend () -> Unit): Unit = runBlocking {

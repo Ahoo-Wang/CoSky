@@ -9,7 +9,7 @@
     "roleBindingsApiClient.ts": "e5bf8b0c62802db3103b428bef8914d406b8b96d5d23cae91f7683810523eff4",
     "rolesApiClient.ts": "d990e3b65543a4716982d6cfaf0c1e194e78124dc899d9bff8d174c49c55b6c7",
     "serviceAccountsApiClient.ts": "b9f0c291e7f5b7af270730bbb21e57394750b6ad4132e20c6333aabe2deac865",
-    "types.ts": "6f4866c696b4529b920afd2d6302d3815df41d95458094cfbf061bee952a6089",
+    "types.ts": "1f84b835536efe2f9777fb94d5664d7a3a02eee39997a7215a1e6db203a8bae0",
     "viewsApiClient.ts": "42dafd8951181441cc61e4a6e29669af0a5e7029dcbc7955a20c2dfe1657246f",
     "watchApiClient.ts": "4d0d78da0c3a3b1c0cce1933122656b1f8b655ba1543f12e6917427bdf353d81"
   }
