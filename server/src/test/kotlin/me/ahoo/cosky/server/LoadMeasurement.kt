@@ -89,6 +89,8 @@ class LoadMeasurement {
     private val writes = env("COSKY_LOAD_WRITES", WRITES)
     private val redisNetem: String? = System.getenv("COSKY_LOAD_REDIS_NETEM")
     private val clientNetem: String? = System.getenv("COSKY_LOAD_CLIENT_NETEM")
+    private val leaseClients = env("COSKY_LOAD_LEASE_CLIENTS", 100)
+    private val leaseSeconds = env("COSKY_LOAD_LEASE_SECONDS", 90)
     private val http = HttpClient.newHttpClient()
 
     private fun env(name: String, default: Int): Int = System.getenv(name)?.toInt() ?: default
@@ -568,6 +570,54 @@ class LoadMeasurement {
     }
 
     /**
+     * Clients on a link with `COSKY_LOAD_CLIENT_NETEM`, each with an instance on its lease, for a few lease TTLs:
+     * what a client on loopback sees of them, and how many leases the server let expire, which should be none.
+     */
+    @Test
+    fun `leases over a lossy link`() = runBlocking<Unit>(Dispatchers.Default) {
+        withRedis { redis ->
+            ServerProcess(redis, "2g").use { server ->
+                server.awaitReady()
+                val link = checkNotNull(clientLinkTo(server)) { "Set COSKY_LOAD_CLIENT_NETEM to the link's netem." }
+                val writeChannel = channel(server.grpcPort)
+                ResourceServiceGrpcKt.ResourceServiceCoroutineStub(writeChannel).withWaitForReady()
+                    .put(PutRequest.newBuilder().setResource(namespaceOf(NAMESPACE)).build())
+                val options = CoSkyClientOptions(endpoints = listOf("localhost:${link.port}"), snapshotDir = null)
+                val far = List(leaseClients) { CoSkyClient(options) }
+                val watcher = CoSkyClient(
+                    CoSkyClientOptions(endpoints = listOf("localhost:${server.grpcPort}"), snapshotDir = null),
+                )
+                try {
+                    val registering = System.nanoTime()
+                    far.mapIndexed { index, client ->
+                        async { client.namespace(NAMESPACE).instances.register("far", ENDPOINT, "far-$index") }
+                    }.awaitAll()
+                    val view = watcher.namespace(NAMESPACE).instances.watch("far")
+                    view.first { it.size == leaseClients }
+                    report(
+                        "leases network ${network()} clients=$leaseClients registered in " +
+                            "${TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - registering)}ms",
+                    )
+                    var fewest = leaseClients
+                    val watching = System.nanoTime()
+                    while (TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - watching) < leaseSeconds) {
+                        fewest = minOf(fewest, view.value.size)
+                        delay(100.milliseconds)
+                    }
+                    report(
+                        "leases after ${leaseSeconds}s: fewest live=$fewest of $leaseClients, " +
+                            "expired=${server.metric("cosky_lease_expired_total")}",
+                    )
+                } finally {
+                    (far + watcher).forEach { it.close() }
+                    writeChannel.shutdownNow()
+                    link.close()
+                }
+            }
+        }
+    }
+
+    /**
      * Writes through one replica, one at a time, to namespaces a client watches on another.
      */
     private suspend fun propagationAcross(
@@ -619,7 +669,9 @@ class LoadMeasurement {
             // A queue long enough that a burst, such as an event to every connection, is delayed rather than dropped.
             GenericContainer(NETEM_IMAGE)
                 .withNetworkMode("container:${relay.containerId}")
-                .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN) }
+                // The relay's own network, which takes no hosts of its own, such as the one Testcontainers adds to
+                // reach this host.
+                .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN)?.withExtraHosts() }
                 .withCommand(
                     "sh",
                     "-c",
