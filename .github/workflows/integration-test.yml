@@ -54,6 +54,28 @@ jobs:
       - name: Integration Test
         run: ./gradlew clean check
 
+  # From 8.0.0-beta.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
+  # pull request, with the rules in buf.yaml.
+  proto-compatibility:
+    name: Proto Compatibility
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+
+      - name: Checkout the base
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
+
+      - name: Breaking changes
+        run: >-
+          docker run --rm -v "$PWD:/workspace" -w /workspace
+          bufbuild/buf:1.47.2@sha256:c14957e613e9b95c4bf462fa73afdee48e13a67b8014ed1f951e5615492d457d
+          breaking --against .base/api/src/main/proto --error-format github-actions
+
   # The versions design D31 promises, beyond the one every other test runs on.
   redis-compatibility:
     name: Redis Compatibility (${{ matrix.image }})
