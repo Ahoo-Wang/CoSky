@@ -74,6 +74,23 @@ curl -X PUT localhost:8080/v1/rolebindings/devs-view \
 | `viewer` | 读取和 watch 一切 |
 | `client` | 读取和 watch Config，读取、watch 和写入 Instance |
 
+### 给应用的 token
+
+应用需要一个自己的 ServiceAccount，在它的 namespace 中绑定 `client`，再用这个账号的一个 token。`COSKY_TOKEN` 中是管理员的 token 时：
+
+```bash
+curl -X PUT localhost:8080/v1/serviceaccounts/order \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"serviceAccount":{"description":"The order service"}}'
+curl -X PUT localhost:8080/v1/rolebindings/order-client \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"roleBinding":{"role":"client","subjects":[{"type":"TYPE_SERVICE_ACCOUNT","name":"order"}],"namespaces":["prod"]}}'
+curl -X POST localhost:8080/v1/serviceaccounts/order/tokens \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
+
+最后一条命令返回应用的 token，只显示一次。把它作为 `cosky.token`（`COSKY_TOKEN`）交给应用。在 Dashboard 的 **Security** 下也能完成：建 service account、建 role binding，再 **Create token**。没有 token，或者 token 的角色不允许时，应用会在启动时停下并说明原因。
+
 自定义角色如下：
 
 ```json

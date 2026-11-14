@@ -22,6 +22,8 @@ val client = CoSkyClient(
 val prod = client.namespace("prod")
 ```
 
+`COSKY_TOKEN` 是应用自己的 token：[安全](./security.md#给应用的-token)中说明了怎么创建。
+
 ## 读取 Config
 
 ```kotlin

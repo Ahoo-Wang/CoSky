@@ -74,6 +74,23 @@ A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some n
 | `viewer` | Reading and watching everything |
 | `client` | Reading and watching Configs, and reading, watching and writing Instances |
 
+### A token for an application
+
+An application needs a ServiceAccount of its own, bound to `client` in its namespaces, and one of the account's tokens. With an admin's token in `COSKY_TOKEN`:
+
+```bash
+curl -X PUT localhost:8080/v1/serviceaccounts/order \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"serviceAccount":{"description":"The order service"}}'
+curl -X PUT localhost:8080/v1/rolebindings/order-client \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"roleBinding":{"role":"client","subjects":[{"type":"TYPE_SERVICE_ACCOUNT","name":"order"}],"namespaces":["prod"]}}'
+curl -X POST localhost:8080/v1/serviceaccounts/order/tokens \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
+
+The last answers the application's token, once. Give it to the application as `cosky.token` (`COSKY_TOKEN`). The Dashboard does the same under **Security**: a service account, a role binding, then **Create token**. An application without a token, or with one its roles do not allow, stops at start and says which.
+
 Your own roles look like this:
 
 ```json
