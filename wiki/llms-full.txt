@@ -367,16 +367,15 @@ implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.3")
 
 ```kotlin
 val client = CoSkyClient(
-    CoSkyClientOptions(
-        endpoints = listOf("cosky-0.internal:9090", "cosky-1.internal:9090"),
-        token = System.getenv("COSKY_TOKEN"),
-        clientName = "order-service",
-    ),
+    CoSkyClientOptions(listOf("cosky-0.internal:9090", "cosky-1.internal:9090")) {
+        token = System.getenv("COSKY_TOKEN")
+        clientName = "order-service"
+    },
 )
 val prod = client.namespace("prod")
 ```
 
-`COSKY_TOKEN` is the application's own token: [Security](./security.md#a-token-for-an-application) shows how to make one.
+`COSKY_TOKEN` is the application's own token: [Security](./security.md#a-token-for-an-application) shows how to make one. Every setting but the endpoints goes in the block, and `CoSkyClientOptions.Builder` lists them with their defaults.
 
 ## Reading Configs
 
@@ -448,11 +447,10 @@ Snapshots are not encrypted. The directory is `0700` and the files `0600`. `snap
 ## TLS
 
 ```kotlin
-CoSkyClientOptions(
-    endpoints = listOf("cosky.internal:9090"),
-    tls = true,
-    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem"), // for a private CA
-)
+CoSkyClientOptions(listOf("cosky.internal:9090")) {
+    tls = true
+    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem") // for a private CA
+}
 ```
 
 See [Security](./security.md#tls). For anything else, `channelFactory` builds the gRPC channel yourself.
@@ -581,8 +579,9 @@ Metrics are at `/actuator/prometheus`:
 |---|---|
 | `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
 | `cosky_cache_revision{namespace}` | Replicas that disagree for long: one of them is cut off from Redis |
-| `cosky_store_apply_seconds` | Write latency |
+| `cosky_store_apply_seconds` | Write latency, a histogram: `histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` is the p99 over every replica |
 | `cosky_watch_active` | Watches on this replica |
+| `cosky_watch_events_sent_total` | Events sent to watchers |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
 | `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
 | `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
@@ -1120,7 +1119,7 @@ Failures that are not CoSky's own, such as a path that does not exist, are probl
 |---|---|---|
 | GET | `/v1/namespaces/{ns}/configs` | List. `?labelSelector=a=1,b=2` |
 | GET, PUT, DELETE | `/v1/namespaces/{ns}/configs/{name}` | |
-| GET | `/v1/namespaces/{ns}/configs/{name}/history` | Newest first. `?limit=&pageToken=` |
+| GET | `/v1/namespaces/{ns}/configs/{name}/history` | Newest first. `?limit=` is the most revisions over all pages together, and `?pageToken=` the next page |
 | POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{"toRevision": "41"}`. Writes that content as a new revision, and brings back a deleted Config. |
 | POST | `/v1/namespaces/{ns}/configs:import` | A zip file as the body; each entry path is a Config name |
 | GET | `/v1/namespaces/{ns}/configs:export` | A zip file |
