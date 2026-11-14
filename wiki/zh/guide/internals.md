@@ -23,6 +23,8 @@ description: 仓库如何组织和测试，供开发 CoSky 本身的人参考。
 | `dashboard` | React 前端，有自己的构建 | REST API |
 | `wiki` | 本站 | |
 
+辅助构建和测试的模块放在各自的目录里，Gradle 路径不变：`platform/` 下是 `bom` 和 `dependencies`，`testing/` 下是 `test`、`conformance-test` 和 `code-coverage-report`。
+
 两条规则把这些维系在一起：除了 server，没有任何东西接触 Store，客户端也看不到 Redis；两种协议是同一份契约，REST 由与 gRPC 相同的 proto 映射而来。
 
 ## 构建

@@ -31,28 +31,29 @@ CI=true ./gradlew build
 
 - **Framework**: JUnit 5 with `me.ahoo.test:fluent-assert-core` for assertions; `kotlinx-coroutines-test` for suspend code
 - **Redis**: integration tests use Testcontainers (no local Redis needed)
-- **Coverage**: Jacoco aggregated in `code-coverage-report/`; `check` fails below 90% line / 70% branch coverage.
+- **Coverage**: Jacoco aggregated in `testing/code-coverage-report/`; `check` fails below 90% line / 70% branch coverage.
   Generated code (`me.ahoo.cosky.api.v1`) and the conformance suites (`me.ahoo.cosky.test`) are excluded — never put
   production code in those packages
 - **Bug fixes** come with a test that fails without the fix
 
 ## Project Structure
 
-Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.name}`).
+Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.name}`). The modules the product ships sit at the root; those that support the build and the tests sit in `platform/` and `testing/`, under unchanged project paths (`testing/test` is `:test`), mapped in `settings.gradle.kts`.
 
 | Module | Purpose | Status |
 |--------|---------|--------|
 | `api` | Protos (`cosky.v1`), generated messages and grpc-kotlin stubs, validation, error model, OpenAPI | ✅ |
 | `store` | Store SPI and in-memory implementation | ✅ |
-| `conformance-test` | Store SPI conformance suite, and the protocol suite a client drives against a server | ✅ |
+| `testing/conformance-test` | Store SPI conformance suite, and the protocol suite a client drives against a server | ✅ |
 | `client` | Coroutine client: Watch, leases, local snapshots, load balancing | ✅ |
 | `spring-boot-starter` | ConfigData loading, refresh, Spring Cloud discovery and registry | ✅ |
 | `server` | gRPC + REST server, Watch Cache, lease reaper, auth, views | ✅ |
 | `store-redis` | Redis Store (the only module with Lua) | ✅ |
 | `migration` | `cosky-migrate`: imports 6.x Configs for a whole cutover, the only module that knows 6.x keys (D33) | ✅ |
-| `bom` / `dependencies` | Bill of Materials / version platform | ✅ |
+| `platform/bom` / `platform/dependencies` | Bill of Materials / version platform | ✅ |
 | `examples` | A provider and a consumer on the starter; `e2e` runs them with the server as separate processes | ✅ |
-| `test` | Shared test utilities | ✅ |
+| `testing/test` | Shared test utilities | ✅ |
+| `testing/code-coverage-report` | Jacoco report over every module | ✅ |
 | `buildSrc` | Build logic (OpenAPI generation) | ✅ |
 | `dashboard/` | React 19 frontend (separate build — see dashboard/CLAUDE.md); the server image bundles it | ✅ |
 | `wiki/` | VitePress documentation site, see wiki/AGENTS.md | ✅ |

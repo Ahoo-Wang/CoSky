@@ -15,7 +15,7 @@
 # The 8.0 modules map onto the existing labels; the client serves both configuration and discovery.
 core:
   - changed-files:
-      - any-glob-to-any-file: ['api/**', 'store/**', 'store-redis/**', 'conformance-test/**', 'test/**']
+      - any-glob-to-any-file: ['api/**', 'store/**', 'store-redis/**', 'testing/**']
 config:
   - changed-files:
       - any-glob-to-any-file: ['client/**', 'spring-boot-starter/**']
@@ -33,7 +33,7 @@ documentation:
       - any-glob-to-any-file: ['wiki/**', 'docs/**', '**/*.md', 'llms.txt']
 dependencies:
   - changed-files:
-      - any-glob-to-any-file: ['gradle/libs.versions.toml', 'dependencies/**', '**/pnpm-lock.yaml', '**/pnpm-workspace.yaml']
+      - any-glob-to-any-file: ['gradle/libs.versions.toml', 'platform/**', '**/pnpm-lock.yaml', '**/pnpm-workspace.yaml']
 ci:
   - changed-files:
       - any-glob-to-any-file: ['.github/**']
