@@ -47,7 +47,7 @@ Redis (只有 server 可访问)
 | D5 | 身份 | **内置最小集(bootstrap admin + ServiceAccount + Role/RoleBinding),人员走 OIDC** | 删除自建用户/密码/锁定/改密;权限对象本身是资源,复用存储、Watch、审计 |
 | D6 | 直连 Redis 模式 | **不保留** | 双模式会让两套语义长期共存 |
 | D7 | 不做的事 | 自研一致性协议、多数据中心同步、服务端托管业务规则 | 控制面只存数据、推送变更 |
-| D8 | 模块目录 | **去掉 `cosky-` 前缀**(`api/`、`server/` …);发布的 Maven artifactId 仍为 `cosky-*` | 目录简洁;Maven 坐标需全局可辨识,由根构建脚本统一加前缀(§3.1) |
+| D8 | 模块目录 | **去掉 `cosky-` 前缀**(`api/`、`server/` …);发布的 Maven artifactId 仍为 `cosky-*`。随产品发布的模块在根目录,辅助构建和测试的模块按角色归入 `platform/`(`bom`、`dependencies`)和 `testing/`(`test`、`conformance-test`、`code-coverage-report`),项目路径(`:bom` …)不变 | 目录简洁;Maven 坐标需全局可辨识,由根构建脚本统一加前缀(§3.1);根目录一眼看出产品由哪些模块组成 |
 | D9 | 异步模型 | **Kotlin 协程优先**(`suspend` / `Flow` / `StateFlow`);Reactor 只出现在适配层 | 协程是 Kotlin 原生模型,代码顺序可读、取消语义结构化;grpc-kotlin 原生协程;Reactor 仅用于对接只提供 Reactor API 的外部框架(§3.2) |
 | D10 | Spring 配置加载 | **Spring Boot ConfigData API**(`spring.config.import=cosky:…`),不再使用 bootstrap 上下文 | Spring Boot 推荐方式,无需 Spring Cloud bootstrap(§7.7) |
 | D11 | Dashboard 部署 | **server 托管静态资源(单镜像)**,同时支持独立部署 | 部署最简;Dashboard 只依赖公开 REST API |
@@ -145,9 +145,9 @@ Redis (只有 server 可访问)
 | `server/` | `cosky-server` | gRPC + REST、AuthN/Z、Resource Service、Watch Cache、Lease Reaper、派生视图 | `api`、`store` |
 | `store/` | `cosky-store` | Store SPI + 内存实现(测试与 `--dev` 模式) | `api` |
 | `store-redis/` | `cosky-store-redis` | Redis 实现,**唯一含 Lua 的模块** | `store` |
-| `conformance-test/` | `cosky-conformance-test` | Store SPI 与协议一致性测试套件 | `store`、`client` |
+| `testing/conformance-test/` | `cosky-conformance-test` | Store SPI 与协议一致性测试套件 | `store`、`client` |
 | `migration/` | `cosky-migration` | 把 6.x Redis 中的 Config 导入 8.0,并报告需要手工重建的内容(D33);命令行工具 `cosky-migrate` | `api` |
-| `bom/`、`dependencies/`、`test/` | `cosky-bom` … | 同现状,去前缀 | — |
+| `platform/bom/`、`platform/dependencies/`、`testing/test/` | `cosky-bom` … | 同现状,去前缀;项目路径仍是 `:bom`、`:dependencies`、`:test` | — |
 | `dashboard/`、`examples/`、`wiki/` | — | Dashboard 只调用 server 公开 REST API,客户端由 OpenAPI 生成 | — |
 
 删除:`cosky-core`、`cosky-config`、`cosky-discovery`、`cosky-spring-cloud-core`、两个独立 starter、`cosky-rest-api`。

@@ -23,6 +23,8 @@ For working on CoSky itself. [Architecture](./architecture.md) explains the syst
 | `dashboard` | The React frontend, with a build of its own | The REST API |
 | `wiki` | This site | |
 
+The modules that support the build and the tests sit in folders of their own, under the same Gradle paths: `platform/` holds `bom` and `dependencies`, and `testing/` holds `test`, `conformance-test` and `code-coverage-report`.
+
 Two rules hold this together. Nothing but the server touches the Store, and clients never see Redis. And both protocols are one contract: REST is mapped from the same protos as gRPC.
 
 ## Building

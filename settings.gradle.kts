@@ -15,7 +15,6 @@ rootProject.name = "CoSky"
 
 include(":api")
 include(":store")
-include(":conformance-test")
 include(":store-redis")
 include(":server")
 include(":client")
@@ -24,7 +23,16 @@ include(":migration")
 include(":examples:provider")
 include(":examples:consumer")
 include(":examples:e2e")
-include(":bom")
-include(":dependencies")
-include(":test")
-include(":code-coverage-report")
+
+// The modules that support the build and the tests sit in folders by role. Their project paths, and so their artifacts,
+// keep their names (design D8): `testing/test` is still `:test`, published as `cosky-test`.
+mapOf(
+    ":bom" to "platform/bom",
+    ":dependencies" to "platform/dependencies",
+    ":test" to "testing/test",
+    ":conformance-test" to "testing/conformance-test",
+    ":code-coverage-report" to "testing/code-coverage-report",
+).forEach { (path, dir) ->
+    include(path)
+    project(path).projectDir = file(dir)
+}
