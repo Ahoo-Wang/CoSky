@@ -15,6 +15,7 @@ import io.gitlab.arturbosch.detekt.extensions.DetektExtension
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.dokka.gradle.DokkaPlugin
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     alias(libs.plugins.publish)
@@ -157,6 +158,24 @@ configure(libraryProjects) {
         testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
         jmh("org.openjdk.jmh:jmh-core")
         jmh("org.openjdk.jmh:jmh-generator-annprocess")
+    }
+}
+
+// The Kotlin API that 8.0.0-rc.1 freezes (CONTRIBUTING.md, "Releases and versioning"). Each module keeps it in
+// `api/<module>.api`: `./gradlew checkKotlinAbi` compares, `./gradlew updateKotlinAbi` rewrites. Until the release
+// candidate it only reports, in CI's ABI Compatibility job.
+configure(listOf(project(":api"), project(":client"), project(":spring-boot-starter"))) {
+    configure<KotlinJvmProjectExtension> {
+        @OptIn(ExperimentalAbiValidation::class)
+        abiValidation {
+            filters {
+                exclude {
+                    // The protos' generated code, which buf checks (`:api:bufBreaking`).
+                    byNames.add("me.ahoo.cosky.api.v1.**")
+                    annotatedWith.add("me.ahoo.cosky.api.InternalCoSkyApi")
+                }
+            }
+        }
     }
 }
 

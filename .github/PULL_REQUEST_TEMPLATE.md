@@ -13,3 +13,4 @@
 - [ ] Tests cover the change (`./gradlew check` passes locally)
 - [ ] Documentation (wiki, README, KDoc) is updated where behavior or configuration changed
 - [ ] Breaking changes are marked with `!` in the title and described above, with upgrade notes
+- [ ] A change to the Kotlin API of `api`, `client` or `spring-boot-starter` comes with its dump (`./gradlew updateKotlinAbi`)
