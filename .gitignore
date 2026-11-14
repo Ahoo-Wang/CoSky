@@ -1,31 +1,27 @@
-.gradle
-**/build/
+# Every Gradle module: its build output, and Gradle's and Kotlin's caches
+.gradle/
+.kotlin/
+build/
+# A source package named build, such as buildSrc's me.ahoo.cosky.build
 !**/src/**/build/
+# Committed, even where a global ignore file leaves out jars
+!gradle/wrapper/gradle-wrapper.jar
 
-# Ignore Gradle GUI config
-gradle-app.setting
+# A JVM that crashed or dumped its heap
+hs_err_pid*.log
+replay_pid*.log
+*.hprof
 
-# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
-!gradle-wrapper.jar
-
-# Avoid ignore Gradle wrappper properties
-!gradle-wrapper.properties
-
-# Cache of project
-.gradletasknamecache
-
-# Eclipse Gradle plugin generated files
-# Eclipse Core
-.project
-# JDT-specific (Eclipse Java Development Tools)
-.classpath
-.kotlin
-
-# IntelliJ IDEA
+# IDEs
 .idea/
+*.iml
+.vscode/
+.project
+.classpath
+.settings/
 
-# VitePress wiki
-wiki/node_modules/
-wiki/.vitepress/dist/
-wiki/.vitepress/cache/
-wiki/.tmp-mermaid/
+# OS
+.DS_Store
+Thumbs.db
+
+# The Node projects, dashboard/ and wiki/, have their own .gitignore.

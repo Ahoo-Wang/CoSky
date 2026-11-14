@@ -1,0 +1,5 @@
+node_modules/
+
+# VitePress: the built site, and its cache
+.vitepress/dist/
+.vitepress/cache/
