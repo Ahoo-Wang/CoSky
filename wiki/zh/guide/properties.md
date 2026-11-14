@@ -14,8 +14,8 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | 属性 | 默认值 | 含义 |
 |---|---|---|
 | `cosky.store.type` | `redis` | `redis`，或用于开发的 `memory`：进程结束后什么都不保留 |
-| `cosky.store.redis.uri` | `redis://localhost:6379` | 也接受 Sentinel URI |
-| `cosky.store.redis.cluster` | `false` | URI 是 Redis Cluster 的种子节点。此时一条命令最多等一个节点 5 秒，除非 URI 自己设置，例如 `?timeout=10s` |
+| `cosky.store.redis.uri` | `redis://localhost:6379` | 也接受 Sentinel URI，例如 `redis-sentinel://s1:26379,s2:26379#mymaster`：server 跟随 Sentinel 指定的主节点。一条命令最多等 Redis 5 秒，除非 URI 自己设置，例如 `?timeout=10s` |
+| `cosky.store.redis.cluster` | `false` | URI 是 Redis Cluster 的种子节点 |
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的读取间隔 |
 
 ### 认证

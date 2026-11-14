@@ -60,6 +60,18 @@ On a cluster of three masters and three replicas in Docker, with a node timeout 
 
 That is the node timeout, the replica's election, and then up to 10 seconds: the server reads the topology every 5 seconds, and each read waits up to 5 seconds for the stopped node. Meanwhile each request on that namespace failed with `STORE_UNAVAILABLE` after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
 
+## A Redis Sentinel failover
+
+On a master with one replica and three Sentinels in Docker, which take a master that does not answer for 5 seconds as down, one server wrote a Config every 100 ms while the master was stopped:
+
+| The master | 8.0.0-beta.1 | Since |
+|---|---|---|
+| Killed (`docker kill`) | 10.2 seconds | 15.5 seconds |
+| Frozen (`docker pause`) | Until it answered again: not within 240 seconds | 16.2 seconds |
+| Handed over (`SENTINEL FAILOVER`) | At once | At once |
+
+A plain connection asks the Sentinels for the master only when it connects. A master that hangs keeps its connections open, so beta.1 went on sending to it, and each request failed after a minute. The server now follows what the Sentinels announce, and a request fails with `STORE_UNAVAILABLE` after 5 seconds instead. After a kill, beta.1's first request waited 10.2 seconds and then succeeded, longer than a client waits for a call, 10 seconds; now requests fail after 5 seconds each until the server has followed. A Sentinel that hands the master over closes its clients' connections itself, so both follow at once.
+
 ## Many namespaces, and a Redis Cluster
 
 Three replicas followed many namespaces of 50 Instances each, on Redis 7.4 alone and on a Redis Cluster of three masters and three replicas, all in one container on the same laptop. 16 writers wrote 32,000 Configs through one replica, each to a namespace picked at random, and a client on another replica watched 100 of the namespaces.

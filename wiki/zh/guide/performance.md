@@ -60,6 +60,18 @@ server 使用 512 MB 堆，反复写同一个 1 MB 的 Config：
 
 其中是 node timeout、副本的选举，再加最多 10 秒：server 每 5 秒读一次拓扑，每次读取最多等停掉的节点 5 秒。在此期间，这个 namespace 上的每个请求都在 5 秒后以 `STORE_UNAVAILABLE` 失败。8.0.0-alpha.5 在 kill 之后不可用 53 秒；它不会再次读取拓扑，所以主节点被冻结时，要等到这个节点重新应答才恢复。
 
+## Redis Sentinel 故障切换
+
+在 Docker 中一主一从、三个 Sentinel 的部署上（主节点 5 秒不应答即判为下线），一个 server 每 100 ms 写一次 Config，同时停掉主节点：
+
+| 主节点 | 8.0.0-beta.1 | 之后 |
+|---|---|---|
+| 被杀掉（`docker kill`） | 10.2 秒 | 15.5 秒 |
+| 被冻结（`docker pause`） | 直到它重新应答：240 秒内没有恢复 | 16.2 秒 |
+| 主动交接（`SENTINEL FAILOVER`） | 立即 | 立即 |
+
+普通连接只在建立时向 Sentinel 询问主节点。挂住的主节点不会关闭连接，所以 beta.1 一直发给它，每个请求一分钟后才失败。现在 server 跟随 Sentinel 公布的变化，请求在 5 秒后以 `STORE_UNAVAILABLE` 失败。被杀掉时，beta.1 的第一个请求等了 10.2 秒后成功，比客户端等一次调用的时间（10 秒）还长；现在在 server 跟上之前，每个请求 5 秒后失败。Sentinel 主动交接时会自己关闭客户端的连接，所以两者都立即跟上。
+
 ## 很多 namespace 与 Redis Cluster
 
 三个副本跟随很多个 namespace，每个 50 个 Instance，分别连单个 Redis 7.4 和三主三从的 Redis Cluster，都在同一台笔记本上的一个容器里。16 个写入方经一个副本写 32,000 个 Config，每次写到随机挑选的 namespace，另一个副本上的客户端 watch 其中 100 个 namespace。
