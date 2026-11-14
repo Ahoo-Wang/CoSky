@@ -5,7 +5,7 @@ description: REST API 的接口及其共同约定。
 
 # REST API
 
-管理 API，位于 8080 端口。`./gradlew :api:generateOpenApi` 把完整的 OpenAPI 3.1 文档写到 `api/build/openapi/cosky.yaml`，schema 与 gRPC 相同，因为两者来自同一份 proto。
+管理 API，位于 8080 端口。它的 OpenAPI 3.1 文档与 gRPC 使用相同的 schema，因为两者来自同一份 proto。server 在 `/v3/api-docs` 提供这份文档（YAML 格式在 `/v3/api-docs.yaml`），并在 `/swagger-ui.html` 用 Swagger UI 展示，可以在 **Authorize** 中填入 token。`./gradlew :api:generateOpenApi` 把它写到 `api/build/openapi/cosky.yaml`，其中还有 Watch 事件流的条目 schema，server 上的副本没有这一项。
 
 ## 约定
 

@@ -64,6 +64,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | `spring.grpc.server.shutdown.grace-period` | `5s` | 关闭时留给已打开的流的时间 |
 | `management.tracing.sampling.probability` | `0.1` | 追踪的请求比例 |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | 链路数据发往何处 |
+| `springdoc.api-docs.enabled` | `true` | REST API 的文档（`/v3/api-docs`），以及基于它的 Swagger UI（`/swagger-ui.html`）；`springdoc.swagger-ui.enabled=false` 只保留文档 |
 
 ### 固定限制
 

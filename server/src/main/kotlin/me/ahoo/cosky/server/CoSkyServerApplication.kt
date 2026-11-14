@@ -16,6 +16,7 @@ package me.ahoo.cosky.server
 import io.grpc.ServerInterceptor
 import io.lettuce.core.resource.ClientResources
 import io.micrometer.core.instrument.MeterRegistry
+import io.swagger.v3.oas.models.OpenAPI
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -26,6 +27,7 @@ import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.adapter.grpc.AuthInterceptor
 import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
+import me.ahoo.cosky.server.adapter.rest.OpenApiDocument
 import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
@@ -183,6 +185,12 @@ class CoSkyServerApplication : DisposableBean {
         properties.auth.oidc,
         metrics,
     ).routes()
+
+    /**
+     * What springdoc serves at `/v3/api-docs` and shows in Swagger UI.
+     */
+    @Bean
+    fun openApi(): OpenAPI = OpenApiDocument.load()
 
     @Bean
     @Primary
