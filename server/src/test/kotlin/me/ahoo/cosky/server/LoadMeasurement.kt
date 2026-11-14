@@ -53,7 +53,7 @@ import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.CoSkyClientOptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
-import org.testcontainers.Testcontainers
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.Network
 import org.testcontainers.images.builder.ImageFromDockerfile
 import org.testcontainers.toxiproxy.ToxiproxyContainer
@@ -224,11 +224,12 @@ class LoadMeasurement {
     private fun network(): String = "redis=${redisNetem ?: LOOPBACK} clients=${clientNetem ?: LOOPBACK}"
 
     /**
-     * Where clients reach [server] through, when `COSKY_LOAD_CLIENT_NETEM` asks for a network between them.
+     * Where clients reach [server] through, when `COSKY_LOAD_CLIENT_NETEM` asks for a network between them. Not through
+     * Testcontainers' access to the host: its SSH tunnel takes two threads of this process for each connection, and
+     * thousands of connections run out of threads.
      */
     private fun clientLinkTo(server: ServerProcess): EmulatedLink? = clientNetem?.let {
-        Testcontainers.exposeHostPorts(server.grpcPort)
-        EmulatedLink("host.testcontainers.internal:${server.grpcPort}", it)
+        EmulatedLink("$HOST_FROM_RELAYS:${server.grpcPort}", it)
     }
 
     /**
@@ -697,7 +698,7 @@ class LoadMeasurement {
             DockerImageName.parse(RELAY_IMAGE).asCompatibleSubstituteFor(TOXIPROXY_IMAGE),
         )
             .withNetwork(NETWORK)
-            .withAccessToHost(true)
+            .withExtraHost(DOCKER_HOST_ALIAS, "host-gateway")
             .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN) }
             .also { it.start() }
 
@@ -787,6 +788,7 @@ class LoadMeasurement {
         const val PERCENT = 100
         const val REDIS_ALIAS = "redis"
         const val LOOPBACK = "loopback"
+        const val DOCKER_HOST_ALIAS = "host.docker.internal"
         const val TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.12.0"
         const val RELAY_PORT = 8666
         const val NETEM_LIMIT = 100_000
@@ -819,6 +821,20 @@ class LoadMeasurement {
         val PROPAGATION_SETTLE = 5.seconds
         val SETTLE = 5.seconds
         val NETWORK: Network by lazy { Network.newNetwork() }
+
+        /**
+         * This machine, as the relays see it. Run in a container on the Docker host's network (`--network host`), the
+         * measurement and the relays share one kernel, and this is the gateway of the relays' network. Elsewhere it is
+         * Docker's name for the host, which a VM's port forwarding may stand between, losing packets of its own.
+         */
+        val HOST_FROM_RELAYS: String by lazy {
+            if (File("/.dockerenv").exists()) {
+                DockerClientFactory.instance().client().inspectNetworkCmd().withNetworkId(NETWORK.id).exec()
+                    .ipam.config.first().gateway
+            } else {
+                DOCKER_HOST_ALIAS
+            }
+        }
 
         /** Toxiproxy beside `tc`, which its own image, built from nothing, does not have. */
         val RELAY_IMAGE: String by lazy {
