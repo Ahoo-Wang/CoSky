@@ -78,8 +78,8 @@ CoSky follows [Semantic Versioning](https://semver.org):
 
 From `8.0.0-rc.1` to `8.0.0`, these only grow: the gRPC API, REST, the client's and the starter's API and properties,
 the server's properties, the documented metrics and the data in Redis. A field, call or property may be added; none is
-removed, renumbered, renamed or given another meaning. Until the release candidate, during the betas, they may still
-change, and the release notes say how. CI's Proto Compatibility job checks the protos against a pull request's base
+removed, renumbered, renamed or given another meaning. Before the release candidate there is no compatibility promise:
+an alpha or a beta may change any of them, and its release notes say how to upgrade. CI's Proto Compatibility job checks the protos against a pull request's base
 with `./gradlew :api:bufBreaking` (rules in `api/src/main/proto/buf.yaml`).
 
 To release:

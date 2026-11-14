@@ -15,7 +15,7 @@
 > **[文档](https://cosky.ahoo.me/zh/)** | [English Documentation](https://cosky.ahoo.me/) | [English README](README.md)
 
 > [!IMPORTANT]
-> **8.0 处于 beta 阶段。** 功能已经完整，但 API、协议、配置和 Redis 中的数据在候选版本 `8.0.0-rc.1` 冻结之前仍可能变化（[冻结的范围](CONTRIBUTING.md#releases-and-versioning)）。它仍是预览版，请暂时不要用于生产环境。稳定版本是 6.x，`ahoowang/cosky:latest` 目前仍是 6.x。它由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG，文档在该分支的 [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide) 中。
+> **8.0 处于 beta 阶段。** 功能已经完整，但候选版本之前不作兼容性承诺：在 `8.0.0-rc.1` 冻结之前，API、协议、配置和 Redis 中的数据都可能变化（[冻结的范围](CONTRIBUTING.md#releases-and-versioning)）。它仍是预览版，请暂时不要用于生产环境。稳定版本是 6.x，`ahoowang/cosky:latest` 目前仍是 6.x。它由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG，文档在该分支的 [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide) 中。
 
 CoSky 为微服务提供**配置管理**和**服务发现**。一个小型 server 位于 **Redis** 前面，应用只和这个 server 通信。
 
