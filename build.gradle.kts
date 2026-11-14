@@ -91,6 +91,8 @@ configure(libraryProjects) {
         compilerOptions {
             freeCompilerArgs = listOf("-Xjsr305=strict", "-Xjvm-default=all-compatibility")
             javaParameters = true
+            // CoSky's own modules share what the api module marks internal; examples and applications do not.
+            optIn.add("me.ahoo.cosky.api.InternalCoSkyApi")
         }
     }
     tasks.withType<JavaCompile> {

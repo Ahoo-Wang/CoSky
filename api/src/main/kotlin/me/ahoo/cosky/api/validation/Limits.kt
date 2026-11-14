@@ -12,6 +12,8 @@
  */
 package me.ahoo.cosky.api.validation
 
+import me.ahoo.cosky.api.InternalCoSkyApi
+
 /**
  * Resource limits (design §7.1) and lease TTL bounds (§4.3, §7.6). The values are defaults; a server may configure
  * its own.
@@ -19,6 +21,7 @@ package me.ahoo.cosky.api.validation
  * Lengths of values and descriptions count Unicode code points (names and keys are ASCII);
  * [maxConfigContentBytes] counts UTF-8 bytes.
  */
+@InternalCoSkyApi
 data class Limits(
     val maxConfigContentBytes: Int = MIB,
     val maxMetadataEntries: Int = 64,

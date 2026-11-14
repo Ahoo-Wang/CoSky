@@ -16,6 +16,7 @@ import com.google.protobuf.Any
 import com.google.protobuf.InvalidProtocolBufferException
 import io.grpc.StatusRuntimeException
 import io.grpc.protobuf.StatusProto
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.v1.BadRequest
 import me.ahoo.cosky.api.v1.ErrorDetail
 import me.ahoo.cosky.api.v1.ErrorReason
@@ -106,6 +107,7 @@ class CoSkyException(
             "Lease $lease not found in namespace $namespace.",
         )
 
+        @InternalCoSkyApi
         fun invalidArgument(violations: List<Violation>): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_INVALID_ARGUMENT).setBadRequest(
                 BadRequest.newBuilder().addAllViolations(violations.map { it.toProto() }),

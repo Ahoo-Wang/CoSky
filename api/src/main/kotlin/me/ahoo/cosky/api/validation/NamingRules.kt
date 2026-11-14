@@ -12,11 +12,14 @@
  */
 package me.ahoo.cosky.api.validation
 
+import me.ahoo.cosky.api.InternalCoSkyApi
+
 /**
  * Naming rules for resource names (design §4.2).
  *
  * Each rule caps the length separately from the pattern so that violations can say which of the two failed.
  */
+@InternalCoSkyApi
 object NamingRules {
     /** Namespace holding the global kinds; reserved, it never matches [NAMESPACE]. */
     const val SYSTEM_NAMESPACE = "_system"
