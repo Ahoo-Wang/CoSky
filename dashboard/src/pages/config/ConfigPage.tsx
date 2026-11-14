@@ -42,7 +42,7 @@ export function ConfigPage() {
     const [exporting, setExporting] = useState(false);
     const {result = [], loading, error, execute: loadConfigs} = useQuery<string, ConfigResource[]>({
         query: currentNamespace,
-        execute: (namespace, _, abortController) => configs.list(namespace, abortController),
+        execute: (namespace, abortController) => configs.list(namespace, abortController),
     });
     // An expanded history changes with its Config, so it reads along with the list.
     const {read: loadAll, follow} = useRowReads(loadConfigs);

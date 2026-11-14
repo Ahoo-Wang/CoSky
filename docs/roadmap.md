@@ -194,7 +194,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 **依赖和杂项**
 
 - Renovate 有一批大版本升级等批准(如 TypeScript 7、Node 24、pnpm 12、GitHub Actions)。#931 里的 simba、cosec、cosid `main` 已不用,可能来自 v6 分支。
-- `@ahoo-wang/fetcher-generator` 被标为已弃用,Dashboard 的 `generate` 脚本依赖它。
+- Dashboard 已从弃用的 `@ahoo-wang/fetcher-generator` 迁到 `@ahoo-wang/wow-generator` 9.9,fetcher 各包随之从 3.x 升到 6.0(2026-11-14)。生成的客户端改为按参数传路径、查询和请求头,返回解析好的对象;`src/services` 随之改写,单元、UI(含覆盖率)和真实后端测试都通过。wow-generator 包里的迁移指南链接是 404。
 - #5(2021 年询问掉线告警)还开着。
 - 依赖告警已核对:19 个都在 Dashboard 的锁文件里,没有一个进入生产包。Monaco 0.55.1 自带的 DOMPurify 3.2.7 不在严重告警的范围内,更新的 Monaco 自带 3.4.x 反而在,所以先不升级 Monaco。`deepmerge` 还没有修复版本。
 

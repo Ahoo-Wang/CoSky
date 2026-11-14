@@ -39,7 +39,7 @@ export function ConfigVersionTable({namespace, name, follow, onChange}: ConfigVe
     const {openDrawer} = useDrawer();
     const {result: versions, loading, error, execute: loadVersions} = useQuery<string, ConfigResource[]>({
         query: `${namespace}/${name}`,
-        execute: (_, __, abortController) => configs.history(namespace, name, abortController),
+        execute: (_, abortController) => configs.history(namespace, name, abortController),
     });
     useEffect(() => follow(loadVersions), [follow, loadVersions]);
 
