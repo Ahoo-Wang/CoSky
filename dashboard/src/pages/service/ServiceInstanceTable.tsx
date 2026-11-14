@@ -43,7 +43,7 @@ export function ServiceInstanceTable({namespace, service, follow, onChange}: Ser
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadInstances} = useQuery<string, InstanceResource[]>({
         query: `${namespace}/${service}`,
-        execute: (_, __, abortController) => instances.list(namespace, service, abortController),
+        execute: (_, abortController) => instances.list(namespace, service, abortController),
     });
     useEffect(() => follow(loadInstances), [follow, loadInstances]);
 

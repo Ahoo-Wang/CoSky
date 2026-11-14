@@ -33,12 +33,12 @@ const BUILT_IN_ROLES = ['admin', 'viewer', 'client'];
 export function RoleBindingPage() {
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadBindings} = useQuery<null, RoleBindingResource[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => roleBindings.list(abortController),
+        query: null,
+        execute: (_, abortController) => roleBindings.list(abortController),
     });
     const {result: availableRoles = []} = useQuery<null, RoleResource[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => roles.list(abortController),
+        query: null,
+        execute: (_, abortController) => roles.list(abortController),
     });
 
     const handleEdit = (binding?: RoleBindingResource) => {

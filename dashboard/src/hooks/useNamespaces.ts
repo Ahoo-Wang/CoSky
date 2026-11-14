@@ -24,8 +24,8 @@ export interface UseNamespacesReturn {
 
 export function useNamespaces(): UseNamespacesReturn {
     const {result: namespaces = [], loading, error, execute} = useQuery<null, NamespaceResource[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => namespacesApi.list(abortController),
+        query: null,
+        execute: (_, abortController) => namespacesApi.list(abortController),
     });
     return {namespaces, loading, error, refresh: execute};
 }

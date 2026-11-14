@@ -64,10 +64,15 @@ export async function followChanges({namespace, kind, service, signal, onChange}
         const abort = () => abortController.abort();
         signal.addEventListener('abort', abort, {once: true});
         try {
-            const stream = await watchClient.watch({
-                urlParams: {path: {namespace}, query: {kind, ...(service ? {service} : {})}},
-                abortController,
-            });
+            const stream = await watchClient.watch(
+                namespace,
+                kind,
+                undefined,
+                service || undefined,
+                undefined,
+                undefined,
+                {abortController},
+            );
             const reader = stream.getReader();
             for (let next = await readOrSilence(reader); next && !next.done; next = await readOrSilence(reader)) {
                 retry = MIN_RETRY_MS;

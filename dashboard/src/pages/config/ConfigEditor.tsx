@@ -42,7 +42,7 @@ export function ConfigEditor({namespace, name, onSuccess, onCancel}: ConfigEdito
     const [saving, setSaving] = useState(false);
     const {result: config, error, execute: reload} = useQuery<string | undefined, ConfigResource | null>({
         query: name,
-        execute: async (query, _, abortController) => query ? configs.get(namespace, query, abortController) : null,
+        execute: async (query, abortController) => query ? configs.get(namespace, query, abortController) : null,
         onSuccess: loaded => {
             if (loaded) {
                 setFormat(loaded.format);

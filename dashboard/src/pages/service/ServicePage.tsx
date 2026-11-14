@@ -35,8 +35,8 @@ export function ServicePage() {
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadServices} = useQuery<string, ServiceSummary[]>({
         query: currentNamespace,
-        execute: async (namespace, _, abortController) => {
-            const view = await viewsClient.viewServices({urlParams: {path: {namespace}}, abortController});
+        execute: async (namespace, abortController) => {
+            const view = await viewsClient.viewServices(namespace, {abortController});
             readUpTo(namespace, view.revision);
             return view.services ?? [];
         },

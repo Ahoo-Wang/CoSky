@@ -11,8 +11,9 @@
  * limitations under the License.
  */
 
+import type {ParameterRequest} from '@ahoo-wang/fetcher-decorator';
 import {ConfigFormat, Kind, SubjectType, Verb} from '@/generated';
-import type {CreateTokenRequest, CreateTokenResponse, ListResponse, Resource} from '@/generated';
+import type {CreateTokenResponse, HistoryResponse, ListResponse, Resource} from '@/generated';
 import {
     configsClient,
     instancesClient,
@@ -161,34 +162,29 @@ const roleBindingOf = (resource: WireResource): RoleBindingResource => ({
     namespaces: (resource.roleBinding?.namespaces ?? []) as string[],
 });
 
-interface PageOptions {
-    abortController?: AbortController;
-    query?: Record<string, string>;
-}
+/** One page of a list: `minRevision` for the first, `pageToken` for the others. */
+type ListPage = (
+    minRevision: string | undefined,
+    pageToken: string | undefined,
+    request: ParameterRequest,
+) => Promise<ListResponse>;
 
 /**
- * Reads every page: a list is split by bytes, so that a page can hold few objects (design D23).
+ * Reads every page of a list in [namespace]: a list is split by bytes, so that a page can hold few objects (design D23).
  */
 async function listAll<T>(
-    list: (request: object) => Promise<Response>,
-    path: Record<string, string>,
+    namespace: string,
+    list: ListPage,
     toResource: (resource: WireResource) => T,
-    {abortController, query}: PageOptions = {},
+    abortController?: AbortController,
 ): Promise<T[]> {
-    const namespace = path.namespace ?? SYSTEM_NAMESPACE;
     // No less than this page's watch has seen; later pages read where the first one did.
-    const minRevision = minRevisionOf(namespace);
+    const minRevision = minRevisionOf(namespace) || undefined;
     const items: T[] = [];
     let pageToken = '';
     do {
-        const response = await list({
-            urlParams: {
-                path,
-                query: {...query, ...(pageToken ? {pageToken} : minRevision ? {minRevision} : {})},
-            },
-            abortController,
-        });
-        const page = await response.json() as Wire<ListResponse>;
+        const page = await list(pageToken ? undefined : minRevision, pageToken || undefined, {abortController}) as
+            Wire<ListResponse>;
         if (!pageToken) {
             readUpTo(namespace, page.revision);
         }
@@ -199,42 +195,49 @@ async function listAll<T>(
 }
 
 /**
- * Compare-and-set against the revision an edit started from, or create-only without one.
+ * Compare-and-set against the revision an edit started from, or create-only without one: `If-Match` and
+ * `If-None-Match`, as the generated clients take them.
  */
-const writeGuard = (revision?: string): Record<string, string> =>
-    revision ? {'If-Match': `"${revision}"`} : {'If-None-Match': '*'};
+const writeGuard = (revision?: string): [string | undefined, '*' | undefined] =>
+    revision ? [`"${revision}"`, undefined] : [undefined, '*'];
 
-const putRequest = (path: Record<string, string>, body: WireResource, revision?: string) => ({
-    urlParams: {path},
-    headers: {'Content-Type': 'application/json', ...writeGuard(revision)},
-    body: body as Resource,
-});
+/** proto3 JSON leaves out what is empty, which the generated types do not know. */
+const body = (resource: WireResource) => resource as Resource;
 
 /** Where Namespaces and the other global kinds live, and so where their changes are watched. */
 export const SYSTEM_NAMESPACE = '_system';
 
 export const namespaces = {
-    list: (abortController?: AbortController) =>
-        listAll(request => namespacesClient.listNamespaces(request), {}, namespaceOf, {abortController}),
+    list: (abortController?: AbortController) => listAll(
+        SYSTEM_NAMESPACE,
+        (minRevision, pageToken, request) =>
+            namespacesClient.listNamespaces(undefined, minRevision, undefined, pageToken, request),
+        namespaceOf,
+        abortController,
+    ),
     create: (name: string, description: string) =>
-        namespacesClient.putNamespace(putRequest({name}, {namespace: {description}})),
-    delete: (name: string) => namespacesClient.deleteNamespace({urlParams: {path: {name}}}),
+        namespacesClient.putNamespace(name, body({namespace: {description}}), ...writeGuard()),
+    delete: (name: string) => namespacesClient.deleteNamespace(name),
 };
 
 export const configs = {
-    list: (namespace: string, abortController?: AbortController) =>
-        listAll(request => configsClient.listConfigs(request), {namespace}, configOf, {abortController}),
+    list: (namespace: string, abortController?: AbortController) => listAll(
+        namespace,
+        (minRevision, pageToken, request) =>
+            configsClient.listConfigs(namespace, undefined, minRevision, undefined, pageToken, request),
+        configOf,
+        abortController,
+    ),
     async get(namespace: string, name: string, abortController?: AbortController): Promise<ConfigResource> {
-        const response = await configsClient.getConfig({urlParams: {path: {namespace, name}}, abortController});
-        return configOf(await response.json() as WireResource);
+        return configOf(await configsClient.getConfig(namespace, name, undefined, {abortController}) as WireResource);
     },
     /**
      * @param revision the revision the edit started from; a new Config has none.
      */
     put: (namespace: string, name: string, spec: {format: ConfigFormat; content: string}, revision?: string,
           labels?: Record<string, string>) =>
-        configsClient.putConfig(putRequest({namespace, name}, {meta: {labels}, config: spec}, revision)),
-    delete: (namespace: string, name: string) => configsClient.deleteConfig({urlParams: {path: {namespace, name}}}),
+        configsClient.putConfig(namespace, name, body({meta: {labels}, config: spec}), ...writeGuard(revision)),
+    delete: (namespace: string, name: string) => configsClient.deleteConfig(namespace, name),
     /**
      * Newest first; the first one is the current version.
      */
@@ -242,10 +245,13 @@ export const configs = {
         const versions: ConfigResource[] = [];
         let pageToken = '';
         do {
-            const page = await configsClient.getConfigHistory({
-                urlParams: {path: {namespace, name}, query: pageToken ? {pageToken} : {}},
-                abortController,
-            }) as Wire<{revisions: Resource[]; nextPageToken: string}>;
+            const page = await configsClient.getConfigHistory(
+                namespace,
+                name,
+                undefined,
+                pageToken || undefined,
+                {abortController},
+            ) as Wire<HistoryResponse>;
             versions.push(...(page.revisions ?? []).map(item => configOf(item as WireResource)));
             pageToken = page.nextPageToken ?? '';
         } while (pageToken);
@@ -255,38 +261,30 @@ export const configs = {
      * @param currentRevision what the user compared it with, so that a later change is not overwritten unseen.
      */
     rollback: (namespace: string, name: string, toRevision: string, currentRevision?: string) =>
-        configsClient.rollbackConfig({
-            urlParams: {path: {namespace, name}},
-            headers: {
-                'Content-Type': 'application/json',
-                ...(currentRevision ? {'If-Match': `"${currentRevision}"`} : {}),
-            },
-            body: {toRevision},
-        }),
-    importArchive: (namespace: string, archive: File) => configsClient.importConfigs({
-        urlParams: {path: {namespace}},
-        body: archive,
-    }),
+        configsClient.rollbackConfig(namespace, name, {toRevision}, currentRevision && `"${currentRevision}"`),
+    importArchive: (namespace: string, archive: File) => configsClient.importConfigs(namespace, archive),
     async exportArchive(namespace: string): Promise<Blob> {
-        const response = await configsClient.exportConfigs({urlParams: {path: {namespace}}});
+        const response = await configsClient.exportConfigs(namespace);
         return response.blob();
     },
 };
 
 export const instances = {
     list: (namespace: string, service: string, abortController?: AbortController) => listAll(
-        request => instancesClient.listInstances(request),
-        {namespace},
+        namespace,
+        (minRevision, pageToken, request) =>
+            instancesClient.listInstances(namespace, undefined, service, minRevision, undefined, pageToken, request),
         instanceOf,
-        {abortController, query: {service}},
+        abortController,
     ),
     /**
      * @param existing what it replaces, whose revision, labels and lease carry over.
      */
     put: (namespace: string, name: string, spec: InstanceSpec, existing?: InstanceResource) =>
-        instancesClient.putInstance(putRequest(
-            {namespace, name},
-            {
+        instancesClient.putInstance(
+            namespace,
+            name,
+            body({
                 meta: {labels: existing?.labels, lease: existing?.lease},
                 instance: {
                     service: spec.service,
@@ -294,53 +292,56 @@ export const instances = {
                     weight: spec.weight,
                     metadata: spec.metadata,
                 },
-            },
-            existing?.revision,
-        )),
-    delete: (namespace: string, name: string) =>
-        instancesClient.deleteInstance({urlParams: {path: {namespace, name}}}),
+            }),
+            ...writeGuard(existing?.revision),
+        ),
+    delete: (namespace: string, name: string) => instancesClient.deleteInstance(namespace, name),
 };
 
 export const serviceAccounts = {
     list: (abortController?: AbortController) => listAll(
-        request => serviceAccountsClient.listServiceAccounts(request),
-        {},
+        SYSTEM_NAMESPACE,
+        (minRevision, pageToken, request) =>
+            serviceAccountsClient.listServiceAccounts(undefined, minRevision, undefined, pageToken, request),
         serviceAccountOf,
-        {abortController},
+        abortController,
     ),
-    create: (name: string, description: string) => serviceAccountsClient.putServiceAccount(
-        putRequest({name}, {serviceAccount: {description}}),
-    ),
-    delete: (name: string) => serviceAccountsClient.deleteServiceAccount({urlParams: {path: {name}}}),
+    create: (name: string, description: string) =>
+        serviceAccountsClient.putServiceAccount(name, body({serviceAccount: {description}}), ...writeGuard()),
+    delete: (name: string) => serviceAccountsClient.deleteServiceAccount(name),
     /**
      * @return the plaintext, which the server never shows again.
      */
     async createToken(name: string): Promise<string> {
-        const created = await serviceAccountsClient.createToken({
-            urlParams: {path: {name}},
-            headers: {'Content-Type': 'application/json'},
-            body: {} as CreateTokenRequest,
-        }) as Wire<CreateTokenResponse>;
+        const created = await serviceAccountsClient.createToken(name, {}) as Wire<CreateTokenResponse>;
         return created.token ?? '';
     },
-    revokeToken: (name: string, tokenId: string) =>
-        serviceAccountsClient.revokeToken({urlParams: {path: {name, tokenId}}}),
+    revokeToken: (name: string, tokenId: string) => serviceAccountsClient.revokeToken(name, tokenId),
 };
 
 export const roles = {
-    list: (abortController?: AbortController) =>
-        listAll(request => rolesClient.listRoles(request), {}, roleOf, {abortController}),
+    list: (abortController?: AbortController) => listAll(
+        SYSTEM_NAMESPACE,
+        (minRevision, pageToken, request) => rolesClient.listRoles(undefined, minRevision, undefined, pageToken, request),
+        roleOf,
+        abortController,
+    ),
     /**
      * @param existing what it replaces, whose revision and labels carry over.
      */
     put: (name: string, spec: {description: string; rules: RoleRule[]}, existing?: RoleResource) =>
-        rolesClient.putRole(putRequest({name}, {meta: {labels: existing?.labels}, role: spec}, existing?.revision)),
-    delete: (name: string) => rolesClient.deleteRole({urlParams: {path: {name}}}),
+        rolesClient.putRole(name, body({meta: {labels: existing?.labels}, role: spec}), ...writeGuard(existing?.revision)),
+    delete: (name: string) => rolesClient.deleteRole(name),
 };
 
 export const roleBindings = {
-    list: (abortController?: AbortController) =>
-        listAll(request => roleBindingsClient.listRoleBindings(request), {}, roleBindingOf, {abortController}),
+    list: (abortController?: AbortController) => listAll(
+        SYSTEM_NAMESPACE,
+        (minRevision, pageToken, request) =>
+            roleBindingsClient.listRoleBindings(undefined, minRevision, undefined, pageToken, request),
+        roleBindingOf,
+        abortController,
+    ),
     /**
      * @param existing what it replaces, whose revision and labels carry over.
      */
@@ -349,7 +350,9 @@ export const roleBindings = {
         spec: {role: string; subjects: RoleBindingSubject[]; namespaces: string[]},
         existing?: RoleBindingResource,
     ) => roleBindingsClient.putRoleBinding(
-        putRequest({name}, {meta: {labels: existing?.labels}, roleBinding: spec}, existing?.revision),
+        name,
+        body({meta: {labels: existing?.labels}, roleBinding: spec}),
+        ...writeGuard(existing?.revision),
     ),
-    delete: (name: string) => roleBindingsClient.deleteRoleBinding({urlParams: {path: {name}}}),
+    delete: (name: string) => roleBindingsClient.deleteRoleBinding(name),
 };
