@@ -47,8 +47,8 @@ export function ServiceAccountPage() {
     const [description, setDescription] = useState('');
     const [creating, setCreating] = useState(false);
     const {result, loading, error, execute: loadAccounts} = useQuery<null, ServiceAccountResource[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => serviceAccounts.list(abortController),
+        query: null,
+        execute: (_, abortController) => serviceAccounts.list(abortController),
     });
 
     const handleCreate = async () => {

@@ -67,8 +67,8 @@ export function LoginPage() {
     const [signingIn, setSigningIn] = useState(false);
     const navigate = useNavigate();
     const {result: config} = useQuery<null, AuthConfigResponse>({
-        initialQuery: null,
-        execute: (_, __, abortController) => identityClient.getAuthConfig({abortController}),
+        query: null,
+        execute: (_, abortController) => identityClient.getAuthConfig({abortController}),
     });
     const oidc = config?.oidc;
 

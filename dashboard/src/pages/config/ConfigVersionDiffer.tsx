@@ -37,7 +37,7 @@ export function ConfigVersionDiffer({namespace, name, version, onSuccess}: Confi
     const [reason, setReason] = useState<string>();
     const {result: current, error, execute: reload} = useQuery<string, ConfigResource>({
         query: name,
-        execute: (query, _, abortController) => configs.get(namespace, query, abortController),
+        execute: (query, abortController) => configs.get(namespace, query, abortController),
         onError: async failure => setReason(await errorReason(failure)),
     });
     const [diffEditor, setDiffEditor] = useState<MonacoDiffEditor>();

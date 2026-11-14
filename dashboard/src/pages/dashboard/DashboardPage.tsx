@@ -39,14 +39,14 @@ export function DashboardPage() {
     const [lastUpdated, setLastUpdated] = useState<{namespace: string; at: Date}>();
     const {result: stats, error, execute: loadStats} = useQuery<string, Partial<StatsResponse>>({
         query: currentNamespace,
-        execute: (namespace, _, abortController) =>
-            viewsClient.viewStats({urlParams: {path: {namespace}}, abortController}),
+        execute: (namespace, abortController) =>
+            viewsClient.viewStats(namespace, {abortController}),
         onSuccess: () => setLastUpdated({namespace: currentNamespace, at: new Date()}),
     });
     const {result: topology, error: topologyError, execute: loadTopology} = useQuery<string, TopologyReading>({
         query: currentNamespace,
-        execute: async (namespace, _, abortController) => {
-            const view = await viewsClient.viewTopology({urlParams: {path: {namespace}}, abortController});
+        execute: async (namespace, abortController) => {
+            const view = await viewsClient.viewTopology(namespace, {abortController});
             return {namespace, consumers: toConsumers(view.edges ?? [])};
         },
     });

@@ -33,7 +33,7 @@ export function ProtectedRoute({children}: {children: ReactNode}) {
     const signIns = useSyncExternalStore(session.subscribe, session.signIns);
     const {result: me, error, execute: retry} = useQuery<number, MeResponse>({
         query: signIns,
-        execute: (_, __, abortController) => identityClient.getMe({abortController}),
+        execute: (_, abortController) => identityClient.getMe({abortController}),
     });
     if (error instanceof ExchangeError && error.exchange.response?.status === UNAUTHORIZED) {
         return <Navigate to="/login" replace/>;

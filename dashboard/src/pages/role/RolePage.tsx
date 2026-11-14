@@ -28,8 +28,8 @@ import {runAction} from '@/lib/actions';
 export function RolePage() {
     const {openDrawer} = useDrawer();
     const {result, loading, error, execute: loadRoles} = useQuery<null, RoleResource[]>({
-        initialQuery: null,
-        execute: (_, __, abortController) => roles.list(abortController),
+        query: null,
+        execute: (_, abortController) => roles.list(abortController),
     });
 
     const handleEdit = (role?: RoleResource) => {

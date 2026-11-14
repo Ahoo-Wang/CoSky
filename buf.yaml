@@ -1,9 +1,0 @@
-# The gRPC API, cosky.v1, as buf sees it: CI checks each pull request against its base for breaking changes (FILE,
-# the strictest set, which also keeps the generated Kotlin and Java code compatible). From 8.0.0-beta.1 to 8.0.0 the
-# API only grows: see CONTRIBUTING.md.
-version: v2
-modules:
-  - path: api/src/main/proto
-breaking:
-  use:
-    - FILE
