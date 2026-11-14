@@ -18,6 +18,7 @@ import io.lettuce.core.ClientOptions
 import io.lettuce.core.Limit
 import io.lettuce.core.MapScanCursor
 import io.lettuce.core.Range
+import io.lettuce.core.ReadFrom
 import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisCommandExecutionException
 import io.lettuce.core.RedisException
@@ -35,6 +36,7 @@ import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
 import io.lettuce.core.codec.ByteArrayCodec
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
+import io.lettuce.core.masterreplica.MasterReplica
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 import io.lettuce.core.resource.ClientResources
@@ -633,10 +635,10 @@ class RedisStore(
         private val PERIODIC_REFRESH = 5.seconds
 
         /**
-         * How long a command, or a read of the topology, waits for a cluster node, rather than Lettuce's minute: the
+         * How long a command, or a read of a cluster's topology, waits for Redis, rather than Lettuce's minute: the
          * scripts take milliseconds, and a namespace on a master that hangs is unavailable at least this long.
          */
-        internal val CLUSTER_TIMEOUT = 5.seconds
+        internal val COMMAND_TIMEOUT = 5.seconds
         private val TIMEOUT_PARAMETER = Regex("[?&]timeout=")
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
         private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
@@ -654,26 +656,28 @@ class RedisStore(
             tailPollInterval: Duration = 1.seconds,
             resources: ClientResources? = null,
         ): Store {
-            return if (cluster) {
-                val redisUri = clusterUri(uri)
+            val redisUri = redisUri(uri)
+            if (cluster) {
                 val client = resources?.let { RedisClusterClient.create(it, redisUri) }
                     ?: RedisClusterClient.create(redisUri)
-                owning(client) { RedisStore.cluster(client, options, tailPollInterval) }
-            } else {
-                val redisUri = RedisURI.create(uri)
-                val client = resources?.let { RedisClient.create(it, redisUri) } ?: RedisClient.create(redisUri)
+                return owning(client) { RedisStore.cluster(client, options, tailPollInterval) }
+            }
+            val client = resources?.let { RedisClient.create(it, redisUri) } ?: RedisClient.create(redisUri)
+            return if (redisUri.sentinels.isEmpty()) {
                 owning(client) { RedisStore.standalone(client, options, tailPollInterval) }
+            } else {
+                owning(client) { RedisStore.sentinel(client, redisUri, options, tailPollInterval) }
             }
         }
 
         /**
-         * The URI of a cluster, with [CLUSTER_TIMEOUT] unless it sets its own: Lettuce reads a cluster's topology with
-         * the timeout of the URI it started from, and so waits that long for a node that hangs before it can follow a
-         * failover.
+         * [uri], with [COMMAND_TIMEOUT] unless it sets its own. A command to a master that hangs waits that long before
+         * it fails, and Lettuce reads a cluster's topology with the timeout of the URI it started from, so waits that
+         * long for a node that hangs before it can follow a failover.
          */
-        internal fun clusterUri(uri: String): RedisURI = RedisURI.create(uri).apply {
+        internal fun redisUri(uri: String): RedisURI = RedisURI.create(uri).apply {
             if (!TIMEOUT_PARAMETER.containsMatchIn(uri)) {
-                timeout = CLUSTER_TIMEOUT.toJavaDuration()
+                timeout = COMMAND_TIMEOUT.toJavaDuration()
             }
         }
 
@@ -701,6 +705,27 @@ class RedisStore(
             client.options = clientOptions()
             val connection = client.connect(CODEC)
             val hints = connection.closedIfFailing { client.connectPubSub(CODEC) }
+            val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
+            return RedisStore(commands, hints, options, tailPollInterval, connection)
+        }
+
+        /**
+         * As [standalone], on the master that the Sentinels of [uri] name, and on the replica they promote should it
+         * fail. A plain connection asks them only when it connects, and so stays with a master that hangs, which keeps
+         * its connections open, until it answers again. This one follows what they announce.
+         *
+         * Hints still come on a plain connection: while a master that hangs holds it, each follower reads every
+         * `tailPollInterval` instead, as when a hint is lost.
+         */
+        fun sentinel(
+            client: RedisClient,
+            uri: RedisURI,
+            options: StoreOptions = StoreOptions(),
+            tailPollInterval: Duration = 1.seconds,
+        ): RedisStore {
+            client.options = clientOptions()
+            val connection = MasterReplica.connect(client, CODEC, uri).apply { readFrom = ReadFrom.UPSTREAM }
+            val hints = connection.closedIfFailing { client.connectPubSub(CODEC, uri) }
             val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
             return RedisStore(commands, hints, options, tailPollInterval, connection)
         }

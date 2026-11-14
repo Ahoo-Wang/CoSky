@@ -36,11 +36,13 @@ class RedisClientOptionsTest {
     }
 
     @Test
-    fun `a cluster waits for a node no longer than the URI allows, or a few seconds`() {
-        RedisStore.clusterUri("redis://127.0.0.1:7000").timeout
-            .assert().isEqualTo(RedisStore.CLUSTER_TIMEOUT.toJavaDuration())
-        RedisStore.clusterUri("redis://127.0.0.1:7000?timeout=30s").timeout.assert().isEqualTo(Duration.ofSeconds(30))
-        RedisStore.clusterUri("redis://timeout=@127.0.0.1:7000").timeout
-            .assert().isEqualTo(RedisStore.CLUSTER_TIMEOUT.toJavaDuration())
+    fun `a command waits for Redis no longer than the URI allows, or a few seconds`() {
+        RedisStore.redisUri("redis://127.0.0.1:7000").timeout
+            .assert().isEqualTo(RedisStore.COMMAND_TIMEOUT.toJavaDuration())
+        RedisStore.redisUri("redis://127.0.0.1:7000?timeout=30s").timeout.assert().isEqualTo(Duration.ofSeconds(30))
+        RedisStore.redisUri("redis://timeout=@127.0.0.1:7000").timeout
+            .assert().isEqualTo(RedisStore.COMMAND_TIMEOUT.toJavaDuration())
+        RedisStore.redisUri("redis-sentinel://127.0.0.1:26379#cosky").timeout
+            .assert().isEqualTo(RedisStore.COMMAND_TIMEOUT.toJavaDuration())
     }
 }

@@ -14,8 +14,8 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.store.type` | `redis` | `redis`, or `memory` for development: nothing survives the process |
-| `cosky.store.redis.uri` | `redis://localhost:6379` | Also takes Sentinel URIs |
-| `cosky.store.redis.cluster` | `false` | The URI is a seed of a Redis Cluster. A command then waits at most 5 seconds for a node, unless the URI sets its own, such as `?timeout=10s` |
+| `cosky.store.redis.uri` | `redis://localhost:6379` | Also takes Sentinel URIs, such as `redis-sentinel://s1:26379,s2:26379#mymaster`: the server follows the master the Sentinels name. A command waits at most 5 seconds for Redis, unless the URI sets its own, such as `?timeout=10s` |
+| `cosky.store.redis.cluster` | `false` | The URI is a seed of a Redis Cluster |
 | `cosky.store.redis.tail-poll-interval` | `1s` | How often each namespace is read when no hint arrives |
 
 ### Authentication

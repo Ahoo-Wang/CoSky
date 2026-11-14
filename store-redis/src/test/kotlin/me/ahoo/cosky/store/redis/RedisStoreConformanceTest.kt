@@ -45,6 +45,20 @@ import java.util.UUID
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
+/**
+ * Rewinds a namespace's timeline in place, to a revision in KEYS[1] (its revision key) and ARGV[1], with its log in
+ * KEYS[2]: what a failover that lost the writes after that revision leaves behind, objects aside.
+ */
+internal val LOSE_WRITES_AFTER: String = """
+    local kept = redis.call('XRANGE', KEYS[2], '-', ARGV[1] .. '-9999')
+    redis.call('DEL', KEYS[2])
+    for _, entry in ipairs(kept) do
+      redis.call('XADD', KEYS[2], entry[1], unpack(entry[2]))
+    end
+    redis.call('SET', KEYS[1], ARGV[1])
+    return 1
+""".trimIndent()
+
 class RedisStoreConformanceTest : StoreConformanceTest() {
     private val stores = mutableListOf<RedisStore>()
 
@@ -57,17 +71,8 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
      */
     override suspend fun loseWritesAfter(store: Store, namespace: String, revision: Long) {
         val keys = RedisKeys(namespace)
-        val script = """
-            local kept = redis.call('XRANGE', KEYS[2], '-', ARGV[1] .. '-9999')
-            redis.call('DEL', KEYS[2])
-            for _, entry in ipairs(kept) do
-              redis.call('XADD', KEYS[2], entry[1], unpack(entry[2]))
-            end
-            redis.call('SET', KEYS[1], ARGV[1])
-            return 1
-        """.trimIndent()
         CONNECTION.async().eval<Long>(
-            script,
+            LOSE_WRITES_AFTER,
             ScriptOutputType.INTEGER,
             arrayOf(keys.revision, keys.log),
             revision.toString(),
