@@ -46,7 +46,7 @@ Each replica follows each namespace's log, and keeps an immutable view of the na
 
 Watchers read those views without any lock. A slow watcher only misses intermediate views, then finds what it missed in the window. It holds back nobody else. If it falls out of the window, it gets `gone` and starts over from a snapshot of what it watches, which is the only cost.
 
-So Redis load grows with the number of namespaces and replicas, and not with the number of clients.
+So Redis load grows with the number of namespaces and replicas, and not with the number of clients. [Performance](./performance.md#many-namespaces-and-a-redis-cluster) measures it, on one Redis and on a Cluster.
 
 Every 5 minutes, a replica also compares its view with the store. Any difference should be impossible, so it counts as a lost timeline, as below.
 

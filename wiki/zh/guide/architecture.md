@@ -46,7 +46,7 @@ graph TB
 
 Watcher 不加锁地读取这些视图。慢的 watcher 只是错过中间的视图，之后从窗口中补齐，不会拖慢任何其他 watcher。如果掉出窗口，它会收到 `gone`，并从所 watch 内容的快照重新开始，代价仅此而已。
 
-所以 Redis 的负载随 namespace 和副本的数量增长，而不是随客户端的数量增长。
+所以 Redis 的负载随 namespace 和副本的数量增长，而不是随客户端的数量增长。[性能](./performance.md#很多-namespace-与-redis-cluster)给出了单个 Redis 和 Cluster 上的实测。
 
 每 5 分钟，副本还会把视图与存储比较一次。不一致本不该发生，所以按时间线丢失处理，见下文。
 

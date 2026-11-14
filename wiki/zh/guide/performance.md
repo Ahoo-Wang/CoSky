@@ -60,11 +60,29 @@ server 使用 512 MB 堆，反复写同一个 1 MB 的 Config：
 
 其中是 node timeout、副本的选举，再加最多 10 秒：server 每 5 秒读一次拓扑，每次读取最多等停掉的节点 5 秒。在此期间，这个 namespace 上的每个请求都在 5 秒后以 `STORE_UNAVAILABLE` 失败。8.0.0-alpha.5 在 kill 之后不可用 53 秒；它不会再次读取拓扑，所以主节点被冻结时，要等到这个节点重新应答才恢复。
 
+## 很多 namespace 与 Redis Cluster
+
+三个副本跟随很多个 namespace，每个 50 个 Instance，分别连单个 Redis 7.4 和三主三从的 Redis Cluster，都在同一台笔记本上的一个容器里。16 个写入方经一个副本写 32,000 个 Config，每次写到随机挑选的 namespace，另一个副本上的客户端 watch 其中 100 个 namespace。
+
+| | 1,000 个 namespace，单个 Redis | 1,000 个 namespace，Cluster | 5,000 个 namespace，单个 Redis | 5,000 个 namespace，Cluster |
+|---|---|---|---|---|
+| 第二、第三个副本就绪 | 3.3 和 4.0 秒 | 3.4 和 4.1 秒 | 4.7 和 6.7 秒 | 5.2 和 7.5 秒 |
+| 空闲时 Redis | 每秒 21,000 条命令，CPU 11% | 每个主节点每秒 6,700 条，CPU 4% | 每秒 129,000 条，CPU 30% | 每个主节点每秒 42,000 条，CPU 11% |
+| 写入 | 每秒 8,354 次，p99 5 ms | 每秒 7,809 次，p99 7 ms | 每秒 6,739 次，p99 9 ms | 每秒 6,240 次，p99 9 ms |
+| 写入时 Redis | CPU 77% | 每个主节点 CPU 39% 到 43% | CPU 84% | 每个主节点 CPU 48% 到 55% |
+| 写入到达另一个副本上的 watcher，p99 | 14 ms | 23 ms | 8 ms | 16 ms |
+
+空闲时，为防提示丢失，每个副本每秒读每个 namespace 一次，每次约七条 Redis 命令。这部分负载随 namespace 数乘以副本数增长，与客户端数量无关。单个 Redis 在 5,000 个 namespace、三个副本时用到 30% 的 CPU；Cluster 把它分摊到各主节点，调大 `cosky.store.redis.tail-poll-interval` 也能降低它，代价是提示丢失后恢复得更慢。
+
+三个副本时，一次写入约 35 条 Redis 命令：写入本身，加上每个副本对该 namespace 的一次读取。在 Cluster 中，写入发布的提示会到达每个节点，表现为每个主节点每秒收到 4,000 到 5,000 条消息，没有看到明显代价。这里限制写入的是笔记本而不是 Redis：单个 Redis 已接近饱和，而 Cluster 的主节点还剩一半 CPU。
+
+在 Cluster 上重新测量上面的目标，结果与单个 Redis 一致：一个 namespace 中 50,000 个 Instance 和 10,000 个 Config，16 个写入方每秒 17,500 次写入、p99 2 ms，5,000 个连接 watch，传播 p99 103 ms，第二个副本 2.9 秒就绪。
+
 ## 没有测量的
 
 - 真实网络或真实机房。
 - 连接负载下的多个 server 副本。
-- 这个规模的 Redis Cluster。
+- 超过三个主节点的 Cluster，或超过三个副本。
 - 长时间运行：几天的内存变化和泄漏。
 
 ## 复现
@@ -73,7 +91,13 @@ server 使用 512 MB 堆，反复写同一个 1 MB 的 Config：
 COSKY_MEASURE=load COSKY_MEASURE_HEAP=4g ./gradlew :server:test --tests '*LoadMeasurement*'
 ```
 
-`COSKY_LOAD_CONNECTIONS`、`COSKY_LOAD_WATCHES_PER_CONNECTION`、`COSKY_LOAD_PROPAGATION_PAUSE_MS`、`COSKY_LOAD_RATES`、`COSKY_LOAD_WINDOW` 和 `COSKY_LOAD_WINDOW_CLIENTS` 控制规模。`COSKY_LOAD_SERVER_HEAP` 设置 server 的堆，`COSKY_LOAD_REDIS_URI` 使用你自己启动的 Redis，在容器内运行时需要它。客户端的热路径是 JMH 基准：
+`COSKY_LOAD_CONNECTIONS`、`COSKY_LOAD_WATCHES_PER_CONNECTION`、`COSKY_LOAD_PROPAGATION_PAUSE_MS`、`COSKY_LOAD_RATES`、`COSKY_LOAD_WINDOW` 和 `COSKY_LOAD_WINDOW_CLIENTS` 控制规模。`COSKY_LOAD_SERVER_HEAP` 设置 server 的堆，`COSKY_LOAD_REDIS_URI` 使用你自己启动的 Redis，在容器内运行时需要它。加上 `COSKY_LOAD_REDIS_CLUSTER=true` 时，它是 Redis Cluster 的一个节点，各节点宣告的地址必须是运行测量的地方能连上的。多个副本跟随很多 namespace 是另一个测试，由 `COSKY_LOAD_NAMESPACES`、`COSKY_LOAD_OBJECTS_PER_NAMESPACE`、`COSKY_LOAD_REPLICAS` 和 `COSKY_LOAD_WRITES` 控制规模：
+
+```bash
+COSKY_MEASURE=load COSKY_MEASURE_HEAP=2g COSKY_LOAD_SERVER_HEAP=2g ./gradlew :server:test --tests '*LoadMeasurement.many namespaces*'
+```
+
+客户端的热路径是 JMH 基准：
 
 ```bash
 ./gradlew :client:jmh

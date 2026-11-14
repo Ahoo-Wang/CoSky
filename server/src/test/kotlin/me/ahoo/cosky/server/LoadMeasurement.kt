@@ -548,8 +548,12 @@ class LoadMeasurement {
         val failures = ConcurrentLinkedQueue<String>()
         val channel = channel(watching.grpcPort)
         val streams = openWatches(listOf(channel), delivered, snapshots, failures, watched.map { it to "service-0" })
+        val opening = System.nanoTime()
         while (snapshots.get() < watched.size && failures.isEmpty()) {
             delay(200.milliseconds)
+            check(TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - opening) < OPEN_TIMEOUT_SECONDS) {
+                "Only ${snapshots.get()} of ${watched.size} snapshots"
+            }
         }
         failures.forEach { report("failed stream: $it") }
         repeat(propagationWrites) { index ->
