@@ -503,10 +503,9 @@ class LoadMeasurement {
         val clientCount = env("COSKY_LOAD_WINDOW_CLIENTS", WINDOW_CLIENTS)
         val clients = List(clientCount) {
             CoSkyClient(
-                CoSkyClientOptions(
-                    endpoints = listOf("localhost:${first.grpcPort}", "localhost:${second.grpcPort}"),
-                    snapshotDir = null,
-                ),
+                CoSkyClientOptions(listOf("localhost:${first.grpcPort}", "localhost:${second.grpcPort}")) {
+                    snapshotDir = null
+                },
             )
         }
         val views = clients.map { it.namespace(NAMESPACE).instances.watch("churn") }
@@ -614,10 +613,12 @@ class LoadMeasurement {
                 val writeChannel = channel(server.grpcPort)
                 ResourceServiceGrpcKt.ResourceServiceCoroutineStub(writeChannel).withWaitForReady()
                     .put(PutRequest.newBuilder().setResource(namespaceOf(NAMESPACE)).build())
-                val options = CoSkyClientOptions(endpoints = listOf("localhost:${link.port}"), snapshotDir = null)
+                val options = CoSkyClientOptions(listOf("localhost:${link.port}")) { snapshotDir = null }
                 val far = List(leaseClients) { CoSkyClient(options) }
                 val watcher = CoSkyClient(
-                    CoSkyClientOptions(endpoints = listOf("localhost:${server.grpcPort}"), snapshotDir = null),
+                    CoSkyClientOptions(listOf("localhost:${server.grpcPort}")) {
+                        snapshotDir = null
+                    },
                 )
                 try {
                     val registering = System.nanoTime()

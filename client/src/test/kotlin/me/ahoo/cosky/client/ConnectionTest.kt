@@ -61,10 +61,9 @@ class ConnectionTest {
     private val channels = mutableListOf<CountingChannel>()
 
     private fun connection(vararg endpoints: String) = Connection(
-        CoSkyClientOptions(
-            endpoints = endpoints.toList(),
-            channelFactory = { endpoint -> CountingChannel(endpoint).also { channels += it } },
-        ),
+        CoSkyClientOptions(endpoints.toList()) {
+            channelFactory = { endpoint -> CountingChannel(endpoint).also { channels += it } }
+        },
     )
 
     @Test
