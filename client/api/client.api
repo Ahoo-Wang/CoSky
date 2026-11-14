@@ -1,0 +1,125 @@
+public final class me/ahoo/cosky/client/CoSkyClient : java/lang/AutoCloseable {
+	public fun <init> (Lme/ahoo/cosky/client/CoSkyClientOptions;)V
+	public fun close ()V
+	public final fun getConnectionState ()Lkotlinx/coroutines/flow/StateFlow;
+	public final fun namespace (Ljava/lang/String;)Lme/ahoo/cosky/client/CoSkyClient$Namespace;
+}
+
+public final class me/ahoo/cosky/client/CoSkyClient$Namespace {
+	public final fun getConfigs ()Lme/ahoo/cosky/client/CoSkyClient$Namespace$Configs;
+	public final fun getInstances ()Lme/ahoo/cosky/client/CoSkyClient$Namespace$Instances;
+	public final fun loadBalancer (Ljava/lang/String;)Lme/ahoo/cosky/client/LoadBalancer;
+}
+
+public final class me/ahoo/cosky/client/CoSkyClient$Namespace$Configs {
+	public final fun load (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun watch (Ljava/lang/String;)Lkotlinx/coroutines/flow/StateFlow;
+}
+
+public final class me/ahoo/cosky/client/CoSkyClient$Namespace$Instances {
+	public final fun load (Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun register (Ljava/lang/String;Lme/ahoo/cosky/api/v1/Endpoint;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public static synthetic fun register$default (Lme/ahoo/cosky/client/CoSkyClient$Namespace$Instances;Ljava/lang/String;Lme/ahoo/cosky/api/v1/Endpoint;Ljava/lang/String;Ljava/util/Map;Ljava/lang/Integer;Lkotlin/coroutines/Continuation;ILjava/lang/Object;)Ljava/lang/Object;
+	public final fun services (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun watch (Ljava/lang/String;)Lkotlinx/coroutines/flow/StateFlow;
+}
+
+public final class me/ahoo/cosky/client/CoSkyClientOptions {
+	public final fun getCallTimeout-UwyO8pc ()J
+	public final fun getChannelFactory ()Lkotlin/jvm/functions/Function1;
+	public final fun getClientName ()Ljava/lang/String;
+	public final fun getCloseTimeout-UwyO8pc ()J
+	public final fun getEndpoints ()Ljava/util/List;
+	public final fun getKeepAliveTime-UwyO8pc ()J
+	public final fun getKeepAliveTimeout-UwyO8pc ()J
+	public final fun getLeaseTtl-UwyO8pc ()J
+	public final fun getReRegisterJitter-UwyO8pc ()J
+	public final fun getReconnectMax-UwyO8pc ()J
+	public final fun getReconnectMin-UwyO8pc ()J
+	public final fun getResyncInterval-UwyO8pc ()J
+	public final fun getSnapshotDebounce-UwyO8pc ()J
+	public final fun getSnapshotDir ()Ljava/nio/file/Path;
+	public final fun getSnapshotIncludeConfig ()Z
+	public final fun getTls ()Z
+	public final fun getTlsTrustedCertificates ()Ljava/nio/file/Path;
+	public final fun getToken ()Ljava/lang/String;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/client/CoSkyClientOptions$Builder {
+	public fun <init> (Ljava/util/List;)V
+	public final fun build ()Lme/ahoo/cosky/client/CoSkyClientOptions;
+	public final fun getCallTimeout-UwyO8pc ()J
+	public final fun getChannelFactory ()Lkotlin/jvm/functions/Function1;
+	public final fun getClientName ()Ljava/lang/String;
+	public final fun getCloseTimeout-UwyO8pc ()J
+	public final fun getKeepAliveTime-UwyO8pc ()J
+	public final fun getKeepAliveTimeout-UwyO8pc ()J
+	public final fun getLeaseTtl-UwyO8pc ()J
+	public final fun getReRegisterJitter-UwyO8pc ()J
+	public final fun getReconnectMax-UwyO8pc ()J
+	public final fun getReconnectMin-UwyO8pc ()J
+	public final fun getResyncInterval-UwyO8pc ()J
+	public final fun getSnapshotDebounce-UwyO8pc ()J
+	public final fun getSnapshotDir ()Ljava/nio/file/Path;
+	public final fun getSnapshotIncludeConfig ()Z
+	public final fun getTls ()Z
+	public final fun getTlsTrustedCertificates ()Ljava/nio/file/Path;
+	public final fun getToken ()Ljava/lang/String;
+	public final fun setCallTimeout-LRDsOJo (J)V
+	public final fun setChannelFactory (Lkotlin/jvm/functions/Function1;)V
+	public final fun setClientName (Ljava/lang/String;)V
+	public final fun setCloseTimeout-LRDsOJo (J)V
+	public final fun setKeepAliveTime-LRDsOJo (J)V
+	public final fun setKeepAliveTimeout-LRDsOJo (J)V
+	public final fun setLeaseTtl-LRDsOJo (J)V
+	public final fun setReRegisterJitter-LRDsOJo (J)V
+	public final fun setReconnectMax-LRDsOJo (J)V
+	public final fun setReconnectMin-LRDsOJo (J)V
+	public final fun setResyncInterval-LRDsOJo (J)V
+	public final fun setSnapshotDebounce-LRDsOJo (J)V
+	public final fun setSnapshotDir (Ljava/nio/file/Path;)V
+	public final fun setSnapshotIncludeConfig (Z)V
+	public final fun setTls (Z)V
+	public final fun setTlsTrustedCertificates (Ljava/nio/file/Path;)V
+	public final fun setToken (Ljava/lang/String;)V
+}
+
+public final class me/ahoo/cosky/client/CoSkyClientOptionsKt {
+	public static final fun CoSkyClientOptions (Ljava/util/List;Lkotlin/jvm/functions/Function1;)Lme/ahoo/cosky/client/CoSkyClientOptions;
+	public static synthetic fun CoSkyClientOptions$default (Ljava/util/List;Lkotlin/jvm/functions/Function1;ILjava/lang/Object;)Lme/ahoo/cosky/client/CoSkyClientOptions;
+}
+
+public final class me/ahoo/cosky/client/ConnectionState : java/lang/Enum {
+	public static final field CLOSED Lme/ahoo/cosky/client/ConnectionState;
+	public static final field CONNECTING Lme/ahoo/cosky/client/ConnectionState;
+	public static final field DEGRADED Lme/ahoo/cosky/client/ConnectionState;
+	public static final field SYNCED Lme/ahoo/cosky/client/ConnectionState;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lme/ahoo/cosky/client/ConnectionState;
+	public static fun values ()[Lme/ahoo/cosky/client/ConnectionState;
+}
+
+public abstract interface class me/ahoo/cosky/client/LoadBalancer {
+	public abstract fun choose ()Lme/ahoo/cosky/api/v1/Resource;
+}
+
+public final class me/ahoo/cosky/client/LoadBalancerKt {
+	public static final fun getEffectiveWeight (Lme/ahoo/cosky/api/v1/Resource;)I
+}
+
+public final class me/ahoo/cosky/client/Registration {
+	public final fun close (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+	public final fun getInstanceName ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/client/RoundRobinLoadBalancer : me/ahoo/cosky/client/LoadBalancer {
+	public fun <init> (Lkotlinx/coroutines/flow/StateFlow;)V
+	public fun choose ()Lme/ahoo/cosky/api/v1/Resource;
+}
+
+public final class me/ahoo/cosky/client/WeightedRandomLoadBalancer : me/ahoo/cosky/client/LoadBalancer {
+	public fun <init> (Lkotlinx/coroutines/flow/StateFlow;)V
+	public fun choose ()Lme/ahoo/cosky/api/v1/Resource;
+}
+

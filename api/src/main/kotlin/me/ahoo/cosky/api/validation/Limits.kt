@@ -67,6 +67,7 @@ data class Limits(
         }
     }
 
+    @InternalCoSkyApi // The ABI dump does not take it from the class.
     companion object {
         val DEFAULT = Limits()
     }

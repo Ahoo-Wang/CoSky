@@ -33,6 +33,7 @@ data class Violation(
         .setDescription(description)
         .build()
 
+    @InternalCoSkyApi // The ABI dump does not take it from the class.
     companion object {
         fun fromProto(violation: FieldViolation): Violation =
             Violation(violation.field, violation.code, violation.description)

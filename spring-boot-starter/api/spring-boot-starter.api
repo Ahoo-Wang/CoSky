@@ -1,0 +1,292 @@
+public final class me/ahoo/cosky/spring/CoSkyApplicationClient : org/springframework/beans/factory/DisposableBean {
+	public fun destroy ()V
+	public final fun getClient ()Lme/ahoo/cosky/client/CoSkyClient;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration {
+	public fun <init> ()V
+	public fun coSkyApplicationClient (Lme/ahoo/cosky/spring/CoSkyProperties;Lorg/springframework/core/env/Environment;)Lme/ahoo/cosky/spring/CoSkyApplicationClient;
+	public fun coSkyClient (Lme/ahoo/cosky/spring/CoSkyApplicationClient;)Lme/ahoo/cosky/client/CoSkyClient;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Discovery {
+	public fun <init> ()V
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Discovery$Blocking {
+	public fun <init> ()V
+	public fun coSkyDiscoveryClient (Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)Lme/ahoo/cosky/spring/discovery/CoSkyDiscoveryClient;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Discovery$Reactive {
+	public fun <init> ()V
+	public fun coSkyReactiveDiscoveryClient (Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)Lme/ahoo/cosky/spring/discovery/CoSkyReactiveDiscoveryClient;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Health {
+	public fun <init> ()V
+	public fun coSkyHealthIndicator (Lme/ahoo/cosky/client/CoSkyClient;)Lme/ahoo/cosky/spring/CoSkyHealthIndicator;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$LoadBalancingImports {
+	public fun <init> ()V
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Refresh {
+	public fun <init> ()V
+	public fun coSkyConfigRefresher (Lme/ahoo/cosky/spring/CoSkyApplicationClient;Lorg/springframework/context/ApplicationEventPublisher;)Lme/ahoo/cosky/spring/config/CoSkyConfigRefresher;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Registry {
+	public fun <init> ()V
+	public fun coSkyServiceRegistry (Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)Lme/ahoo/cosky/spring/registry/CoSkyServiceRegistry;
+}
+
+public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Registry$AutoRegistration {
+	public fun <init> ()V
+	public fun coSkyAutoServiceRegistration (Lorg/springframework/context/ApplicationContext;Lme/ahoo/cosky/spring/registry/CoSkyServiceRegistry;Lorg/springframework/cloud/client/serviceregistry/AutoServiceRegistrationProperties;Lme/ahoo/cosky/spring/CoSkyProperties;Lorg/springframework/core/env/Environment;Lorg/springframework/cloud/commons/util/InetUtils;)Lme/ahoo/cosky/spring/registry/CoSkyAutoServiceRegistration;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyHealthIndicator : org/springframework/boot/health/contributor/HealthIndicator {
+	public fun <init> (Lme/ahoo/cosky/client/CoSkyClient;)V
+	public fun health ()Lorg/springframework/boot/health/contributor/Health;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyLoadBalancing {
+	public fun <init> ()V
+	public final fun coSkyServiceInstanceListSupplier (Lorg/springframework/core/env/Environment;Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)Lorg/springframework/cloud/loadbalancer/core/ServiceInstanceListSupplier;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties {
+	public static final field Companion Lme/ahoo/cosky/spring/CoSkyProperties$Companion;
+	public static final field PREFIX Ljava/lang/String;
+	public fun <init> ()V
+	public fun <init> (ZLjava/util/List;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Tls;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;Lme/ahoo/cosky/spring/CoSkyProperties$Registry;Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;Lme/ahoo/cosky/spring/CoSkyProperties$Config;)V
+	public synthetic fun <init> (ZLjava/util/List;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Tls;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;Lme/ahoo/cosky/spring/CoSkyProperties$Registry;Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;Lme/ahoo/cosky/spring/CoSkyProperties$Config;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Ljava/util/List;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Lme/ahoo/cosky/spring/CoSkyProperties$Tls;
+	public final fun component5 ()Ljava/lang/String;
+	public final fun component6 ()Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;
+	public final fun component7 ()Lme/ahoo/cosky/spring/CoSkyProperties$Registry;
+	public final fun component8 ()Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;
+	public final fun component9 ()Lme/ahoo/cosky/spring/CoSkyProperties$Config;
+	public final fun copy (ZLjava/util/List;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Tls;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;Lme/ahoo/cosky/spring/CoSkyProperties$Registry;Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;Lme/ahoo/cosky/spring/CoSkyProperties$Config;)Lme/ahoo/cosky/spring/CoSkyProperties;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties;ZLjava/util/List;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Tls;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;Lme/ahoo/cosky/spring/CoSkyProperties$Registry;Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;Lme/ahoo/cosky/spring/CoSkyProperties$Config;ILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getConfig ()Lme/ahoo/cosky/spring/CoSkyProperties$Config;
+	public final fun getConfigLoadTimeout-UwyO8pc ()J
+	public final fun getDiscovery ()Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;
+	public final fun getDiscoveryLoadTimeout-UwyO8pc ()J
+	public final fun getEnabled ()Z
+	public final fun getEndpoints ()Ljava/util/List;
+	public final fun getNamespace ()Ljava/lang/String;
+	public final fun getRegistry ()Lme/ahoo/cosky/spring/CoSkyProperties$Registry;
+	public final fun getSnapshot ()Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;
+	public final fun getTls ()Lme/ahoo/cosky/spring/CoSkyProperties$Tls;
+	public final fun getToken ()Ljava/lang/String;
+	public fun hashCode ()I
+	public final fun toOptions (Ljava/lang/String;)Lme/ahoo/cosky/client/CoSkyClientOptions;
+	public static synthetic fun toOptions$default (Lme/ahoo/cosky/spring/CoSkyProperties;Ljava/lang/String;ILjava/lang/Object;)Lme/ahoo/cosky/client/CoSkyClientOptions;
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Companion {
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Config {
+	public fun <init> ()V
+	public fun <init> (Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;Ljava/time/Duration;)V
+	public synthetic fun <init> (Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;Ljava/time/Duration;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;
+	public final fun component2 ()Ljava/time/Duration;
+	public final fun copy (Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;Ljava/time/Duration;)Lme/ahoo/cosky/spring/CoSkyProperties$Config;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties$Config;Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;Ljava/time/Duration;ILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties$Config;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getLoadTimeout ()Ljava/time/Duration;
+	public final fun getRefresh ()Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Config$Refresh {
+	public fun <init> ()V
+	public fun <init> (Z)V
+	public synthetic fun <init> (ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun copy (Z)Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;ZILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties$Config$Refresh;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEnabled ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Discovery {
+	public fun <init> ()V
+	public fun <init> (ZLjava/time/Duration;)V
+	public synthetic fun <init> (ZLjava/time/Duration;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Ljava/time/Duration;
+	public final fun copy (ZLjava/time/Duration;)Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;ZLjava/time/Duration;ILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEnabled ()Z
+	public final fun getLoadTimeout ()Ljava/time/Duration;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Registry {
+	public fun <init> ()V
+	public fun <init> (ZILjava/util/Map;)V
+	public synthetic fun <init> (ZILjava/util/Map;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()I
+	public final fun component3 ()Ljava/util/Map;
+	public final fun copy (ZILjava/util/Map;)Lme/ahoo/cosky/spring/CoSkyProperties$Registry;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties$Registry;ZILjava/util/Map;ILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties$Registry;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEnabled ()Z
+	public final fun getMetadata ()Ljava/util/Map;
+	public final fun getWeight ()I
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Snapshot {
+	public fun <init> ()V
+	public fun <init> (ZLjava/nio/file/Path;Z)V
+	public synthetic fun <init> (ZLjava/nio/file/Path;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Ljava/nio/file/Path;
+	public final fun component3 ()Z
+	public final fun copy (ZLjava/nio/file/Path;Z)Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;ZLjava/nio/file/Path;ZILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getDir ()Ljava/nio/file/Path;
+	public final fun getEnabled ()Z
+	public final fun getIncludeConfig ()Z
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/CoSkyProperties$Tls {
+	public fun <init> ()V
+	public fun <init> (ZLjava/nio/file/Path;)V
+	public synthetic fun <init> (ZLjava/nio/file/Path;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Z
+	public final fun component2 ()Ljava/nio/file/Path;
+	public final fun copy (ZLjava/nio/file/Path;)Lme/ahoo/cosky/spring/CoSkyProperties$Tls;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/CoSkyProperties$Tls;ZLjava/nio/file/Path;ILjava/lang/Object;)Lme/ahoo/cosky/spring/CoSkyProperties$Tls;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getEnabled ()Z
+	public final fun getTrustedCertificates ()Ljava/nio/file/Path;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/config/CoSkyConfigDataLoader : org/springframework/boot/context/config/ConfigDataLoader {
+	public fun <init> ()V
+	public fun load (Lorg/springframework/boot/context/config/ConfigDataLoaderContext;Lme/ahoo/cosky/spring/config/CoSkyConfigDataResource;)Lorg/springframework/boot/context/config/ConfigData;
+	public synthetic fun load (Lorg/springframework/boot/context/config/ConfigDataLoaderContext;Lorg/springframework/boot/context/config/ConfigDataResource;)Lorg/springframework/boot/context/config/ConfigData;
+}
+
+public final class me/ahoo/cosky/spring/config/CoSkyConfigDataLocationResolver : org/springframework/boot/context/config/ConfigDataLocationResolver {
+	public fun <init> ()V
+	public fun isResolvable (Lorg/springframework/boot/context/config/ConfigDataLocationResolverContext;Lorg/springframework/boot/context/config/ConfigDataLocation;)Z
+	public fun resolve (Lorg/springframework/boot/context/config/ConfigDataLocationResolverContext;Lorg/springframework/boot/context/config/ConfigDataLocation;)Ljava/util/List;
+}
+
+public final class me/ahoo/cosky/spring/config/CoSkyConfigDataResource : org/springframework/boot/context/config/ConfigDataResource {
+	public fun <init> (Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties;Ljava/lang/String;Z)V
+	public synthetic fun <init> (Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties;Ljava/lang/String;ZILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun component1 ()Ljava/lang/String;
+	public final fun component2 ()Lme/ahoo/cosky/spring/CoSkyProperties;
+	public final fun component3 ()Ljava/lang/String;
+	public final fun component4 ()Z
+	public final fun copy (Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties;Ljava/lang/String;Z)Lme/ahoo/cosky/spring/config/CoSkyConfigDataResource;
+	public static synthetic fun copy$default (Lme/ahoo/cosky/spring/config/CoSkyConfigDataResource;Ljava/lang/String;Lme/ahoo/cosky/spring/CoSkyProperties;Ljava/lang/String;ZILjava/lang/Object;)Lme/ahoo/cosky/spring/config/CoSkyConfigDataResource;
+	public fun equals (Ljava/lang/Object;)Z
+	public final fun getApplicationName ()Ljava/lang/String;
+	public final fun getConfig ()Ljava/lang/String;
+	public final fun getOptional ()Z
+	public final fun getProperties ()Lme/ahoo/cosky/spring/CoSkyProperties;
+	public fun hashCode ()I
+	public fun toString ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/config/CoSkyConfigRefresher : org/springframework/beans/factory/DisposableBean, org/springframework/context/ApplicationListener {
+	public fun <init> (Lme/ahoo/cosky/spring/CoSkyApplicationClient;Lorg/springframework/context/ApplicationEventPublisher;)V
+	public fun destroy ()V
+	public fun onApplicationEvent (Lorg/springframework/boot/availability/AvailabilityChangeEvent;)V
+	public synthetic fun onApplicationEvent (Lorg/springframework/context/ApplicationEvent;)V
+}
+
+public final class me/ahoo/cosky/spring/discovery/CoSkyDiscoveryClient : org/springframework/cloud/client/discovery/DiscoveryClient {
+	public fun <init> (Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)V
+	public fun description ()Ljava/lang/String;
+	public fun getInstances (Ljava/lang/String;)Ljava/util/List;
+	public fun getServices ()Ljava/util/List;
+}
+
+public final class me/ahoo/cosky/spring/discovery/CoSkyReactiveDiscoveryClient : org/springframework/cloud/client/discovery/ReactiveDiscoveryClient {
+	public fun <init> (Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)V
+	public fun description ()Ljava/lang/String;
+	public fun getInstances (Ljava/lang/String;)Lreactor/core/publisher/Flux;
+	public fun getServices ()Lreactor/core/publisher/Flux;
+}
+
+public final class me/ahoo/cosky/spring/discovery/CoSkyServiceInstanceListSupplier : org/springframework/cloud/loadbalancer/core/ServiceInstanceListSupplier {
+	public fun <init> (Ljava/lang/String;Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)V
+	public synthetic fun get ()Ljava/lang/Object;
+	public fun get ()Lreactor/core/publisher/Flux;
+	public fun getServiceId ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/registry/CoSkyAutoServiceRegistration : org/springframework/cloud/client/serviceregistry/AbstractAutoServiceRegistration {
+	public fun <init> (Lorg/springframework/context/ApplicationContext;Lme/ahoo/cosky/spring/registry/CoSkyServiceRegistry;Lorg/springframework/cloud/client/serviceregistry/AutoServiceRegistrationProperties;Lme/ahoo/cosky/spring/registry/CoSkyRegistration;)V
+	public synthetic fun getManagementRegistration ()Lorg/springframework/cloud/client/serviceregistry/Registration;
+	public synthetic fun getRegistration ()Lorg/springframework/cloud/client/serviceregistry/Registration;
+	public fun onApplicationEvent (Lorg/springframework/boot/web/server/context/WebServerInitializedEvent;)V
+	public synthetic fun onApplicationEvent (Lorg/springframework/context/ApplicationEvent;)V
+}
+
+public final class me/ahoo/cosky/spring/registry/CoSkyRegistration : org/springframework/cloud/client/serviceregistry/Registration {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;ZLjava/util/Map;)V
+	public fun getHost ()Ljava/lang/String;
+	public fun getMetadata ()Ljava/util/Map;
+	public fun getPort ()I
+	public fun getScheme ()Ljava/lang/String;
+	public fun getServiceId ()Ljava/lang/String;
+	public fun getUri ()Ljava/net/URI;
+	public fun isSecure ()Z
+	public final fun setPort (I)V
+}
+
+public final class me/ahoo/cosky/spring/registry/CoSkyServiceRegistry : org/springframework/cloud/client/serviceregistry/ServiceRegistry {
+	public fun <init> (Lme/ahoo/cosky/client/CoSkyClient;Lme/ahoo/cosky/spring/CoSkyProperties;)V
+	public fun close ()V
+	public fun deregister (Lme/ahoo/cosky/spring/registry/CoSkyRegistration;)V
+	public synthetic fun deregister (Lorg/springframework/cloud/client/serviceregistry/Registration;)V
+	public fun getStatus (Lme/ahoo/cosky/spring/registry/CoSkyRegistration;)Ljava/lang/Object;
+	public synthetic fun getStatus (Lorg/springframework/cloud/client/serviceregistry/Registration;)Ljava/lang/Object;
+	public fun register (Lme/ahoo/cosky/spring/registry/CoSkyRegistration;)V
+	public synthetic fun register (Lorg/springframework/cloud/client/serviceregistry/Registration;)V
+	public fun setStatus (Lme/ahoo/cosky/spring/registry/CoSkyRegistration;Ljava/lang/String;)V
+	public synthetic fun setStatus (Lorg/springframework/cloud/client/serviceregistry/Registration;Ljava/lang/String;)V
+}
+
+public final class me/ahoo/cosky/spring/registry/RegistrationRefusedException : java/lang/IllegalStateException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;Lio/grpc/StatusException;)V
+	public final fun getCode ()Lio/grpc/Status$Code;
+	public final fun getNamespace ()Ljava/lang/String;
+	public final fun getService ()Ljava/lang/String;
+}
+
+public final class me/ahoo/cosky/spring/registry/RegistrationRefusedFailureAnalyzer : org/springframework/boot/diagnostics/AbstractFailureAnalyzer {
+	public fun <init> ()V
+	public synthetic fun analyze (Ljava/lang/Throwable;Ljava/lang/Throwable;)Lorg/springframework/boot/diagnostics/FailureAnalysis;
+}
+
