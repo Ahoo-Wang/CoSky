@@ -107,7 +107,12 @@ internal class LeaseKeeper(
                     giveWay(name, previous)
                     throw e
                 }
-                log.warn("Could not register {} yet, and keeps trying: {}", name, e.status)
+                log.warn(
+                    "Could not register {} at {} yet, and keeps trying: {}",
+                    name,
+                    connection.endpoint(),
+                    describe(e),
+                )
                 pending.add(name)
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 // A call can fail without a status, as one does that starts just as an in-process server stops. That
@@ -185,7 +190,12 @@ internal class LeaseKeeper(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: StatusException) {
-                log.warn("Renewing the lease of namespace {} failed: {}", namespace, e.status)
+                log.warn(
+                    "Renewing the lease of namespace {} at {} failed: {}",
+                    namespace,
+                    connection.endpoint(),
+                    describe(e),
+                )
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 // A call can fail without a status, as one does that starts just as an in-process server stops.
                 // Letting it end this loop would end the renewals for good, and every registration with its lease.

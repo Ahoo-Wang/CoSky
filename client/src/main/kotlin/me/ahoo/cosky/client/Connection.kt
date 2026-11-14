@@ -39,6 +39,9 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
 
     fun channel(): Channel = synchronized(lock) { decorated }
 
+    /** The endpoint the channel leads to, for logs. */
+    fun endpoint(): String = synchronized(lock) { options.endpoints[index] }
+
     /**
      * Moves on from [failed], unless someone else already did or the connection is closed. Cancelling the client does
      * not stop a failure that is already being handled, and a channel opened after closing took the current one would
