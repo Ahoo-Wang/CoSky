@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.server
 
+import com.github.dockerjava.api.model.Capability
+import eu.rekawek.toxiproxy.ToxiproxyClient
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.stub.StreamObserver
@@ -49,12 +51,18 @@ import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.CoSkyClientOptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import org.testcontainers.Testcontainers
+import org.testcontainers.containers.GenericContainer
+import org.testcontainers.containers.Network
+import org.testcontainers.containers.startupcheck.OneShotStartupCheckStrategy
+import org.testcontainers.toxiproxy.ToxiproxyContainer
 import java.io.File
 import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse.BodyHandlers
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
@@ -79,6 +87,8 @@ class LoadMeasurement {
     private val objectsPerNamespace = env("COSKY_LOAD_OBJECTS_PER_NAMESPACE", 50)
     private val replicas = env("COSKY_LOAD_REPLICAS", 3)
     private val writes = env("COSKY_LOAD_WRITES", WRITES)
+    private val redisNetem: String? = System.getenv("COSKY_LOAD_REDIS_NETEM")
+    private val clientNetem: String? = System.getenv("COSKY_LOAD_CLIENT_NETEM")
     private val http = HttpClient.newHttpClient()
 
     private fun env(name: String, default: Int): Int = System.getenv(name)?.toInt() ?: default
@@ -96,6 +106,15 @@ class LoadMeasurement {
             return
         }
         check(!cluster) { "COSKY_LOAD_REDIS_CLUSTER needs COSKY_LOAD_REDIS_URI, a node of the cluster." }
+        if (redisNetem != null) {
+            RedisContainer().withNetwork(NETWORK).withNetworkAliases(REDIS_ALIAS).use { redis ->
+                redis.start()
+                EmulatedLink("$REDIS_ALIAS:${RedisContainer.REDIS_PORT}", redisNetem).use { link ->
+                    block("redis://${link.host}:${link.port}")
+                }
+            }
+            return
+        }
         RedisContainer().use { redis ->
             redis.start()
             block("redis://${redis.host}:${redis.getMappedPort(RedisContainer.REDIS_PORT)}")
@@ -168,6 +187,16 @@ class LoadMeasurement {
                 process.destroyForcibly()
             }
         }
+    }
+
+    private fun network(): String = "redis=${redisNetem ?: LOOPBACK} clients=${clientNetem ?: LOOPBACK}"
+
+    /**
+     * Where clients reach [server] through, when `COSKY_LOAD_CLIENT_NETEM` asks for a network between them.
+     */
+    private fun clientLinkTo(server: ServerProcess): EmulatedLink? = clientNetem?.let {
+        Testcontainers.exposeHostPorts(server.grpcPort)
+        EmulatedLink("host.testcontainers.internal:${server.grpcPort}", it)
     }
 
     /**
@@ -327,7 +356,10 @@ class LoadMeasurement {
         withRedis { redis ->
             ServerProcess(redis).use { server ->
                 report("server ready in ${server.awaitReady()}ms")
-                val writeChannel = channel(server.grpcPort)
+                report("network ${network()}")
+                val clientLink = clientLinkTo(server)
+                val grpcPort = clientLink?.port ?: server.grpcPort
+                val writeChannel = channel(grpcPort)
                 val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(writeChannel).withWaitForReady()
                 resources.put(PutRequest.newBuilder().setResource(namespaceOf(NAMESPACE)).build())
                 val emptyHeap = server.liveHeapMb()
@@ -354,7 +386,7 @@ class LoadMeasurement {
                 val opening = System.nanoTime()
                 val delivered = ConcurrentLinkedQueue<Delivery>()
                 val snapshots = AtomicInteger()
-                val channels = List(connections) { channel(server.grpcPort) }
+                val channels = List(connections) { channel(grpcPort) }
                 val failures = ConcurrentLinkedQueue<String>()
                 val streams = openWatches(channels, delivered, snapshots, failures)
                 val expected = connections * watchesPerConnection
@@ -401,6 +433,7 @@ class LoadMeasurement {
                 streams.forEach { runCatching { it.onCompleted() } }
                 channels.forEach { it.shutdownNow() }
                 writeChannel.shutdownNow()
+                clientLink?.close()
 
                 // --- a replica starting on all of this ---
                 ServerProcess(redis).use { second ->
@@ -573,6 +606,36 @@ class LoadMeasurement {
     }
 
     /**
+     * A link with the delay, jitter and loss of a real network, to [upstream]: a Toxiproxy relay whose interface netem
+     * shapes with [netem], the arguments of `tc qdisc ... netem`. Traffic both ways leaves the relay through that
+     * interface, so each direction gets them once.
+     */
+    private class EmulatedLink(upstream: String, netem: String) : AutoCloseable {
+        private val relay = ToxiproxyContainer(TOXIPROXY_IMAGE).withNetwork(NETWORK).withAccessToHost(true)
+            .also { it.start() }
+
+        init {
+            ToxiproxyClient(relay.host, relay.controlPort).createProxy("link", "0.0.0.0:$RELAY_PORT", upstream)
+            // A queue long enough that a burst, such as an event to every connection, is delayed rather than dropped.
+            GenericContainer(NETEM_IMAGE)
+                .withNetworkMode("container:${relay.containerId}")
+                .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN) }
+                .withCommand(
+                    "sh",
+                    "-c",
+                    "apk add --no-cache -q iproute2-tc && tc qdisc add dev eth0 root netem limit $NETEM_LIMIT $netem",
+                )
+                .withStartupCheckStrategy(OneShotStartupCheckStrategy().withTimeout(Duration.ofMinutes(2)))
+                .use { it.start() }
+        }
+
+        val host: String get() = relay.host
+        val port: Int get() = relay.getMappedPort(RELAY_PORT)
+
+        override fun close() = relay.close()
+    }
+
+    /**
      * The Redis nodes the store writes to, the masters of a cluster, to report what each one did over a while:
      * commands, CPU, and in a cluster the messages its bus received for `PUBLISH`, which a cluster sends to every node.
      */
@@ -638,6 +701,12 @@ class LoadMeasurement {
         const val SERVICES_PER_NAMESPACE = 10
         const val WATCHED_NAMESPACES = 100
         const val PERCENT = 100
+        const val REDIS_ALIAS = "redis"
+        const val LOOPBACK = "loopback"
+        const val TOXIPROXY_IMAGE = "ghcr.io/shopify/toxiproxy:2.12.0"
+        const val NETEM_IMAGE = "alpine:3.20"
+        const val RELAY_PORT = 8666
+        const val NETEM_LIMIT = 100_000
         const val SERVICES = 2_000
         const val MB = 1024.0 * 1024
         const val STOP_SECONDS = 15L
@@ -664,6 +733,7 @@ class LoadMeasurement {
         const val MILLIS_PER_SECOND = 1000
         val PROPAGATION_SETTLE = 5.seconds
         val SETTLE = 5.seconds
+        val NETWORK: Network by lazy { Network.newNetwork() }
         val SAMPLE = 10.seconds
         val WINDOW_WARM_UP = 5.seconds
         val WINDOW_AFTER_KILL = 15.seconds
