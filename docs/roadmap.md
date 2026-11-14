@@ -179,7 +179,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 |---|---|---|
 | Redis Cluster 故障切换 | 本机 Docker 集群(3 主 3 从,节点超时 5 秒)上停掉一个主节点:alpha.5 上该主节点所在槽位的 namespace 在 `docker kill` 后 53 秒不可用,主节点挂住时则一直不可用,而 Redis 约 5 秒就提升了副本。原因是 Cluster 客户端没开拓扑刷新,Lettuce 读拓扑又用起始 URI 的超时(默认 60 秒)等挂住的节点。#1177 打开拓扑刷新(变化迹象触发,另每 5 秒一次),Cluster 超时降到 5 秒:`docker kill` 和 `docker pause` 都降到约 16 秒,期间请求 5 秒后返回 `STORE_UNAVAILABLE`;`RedisStoreClusterFailoverTest` 在 CI 上覆盖 | 本机 Docker 模拟;维护者环境再验 |
 | Redis Cluster 大规模 | 本机模拟(2026-11-14):三个 server 副本跟随 1,000 和 5,000 个 namespace,连单个 Redis 和三主三从 Cluster 对比。Cluster 把空闲轮询和写入的负载均摊到各主节点(5,000 个 namespace 时单个 Redis 空闲 CPU 30%,Cluster 每个主节点 11%);写入吞吐受笔记本限制,两者相近;单 namespace 的 §7.10 目标在 Cluster 上与单个 Redis 一致。顺带发现跟随者每次写入多读一次日志,#1178 去掉后每次写入的 Redis 命令少约 35%。数字见 wiki 性能页 | 本机 Docker 模拟;维护者环境再验 |
-| 真实网络 | 写入和传播延迟只在本机回环测过(设计文档 §7.10);计划在本机用 toxiproxy 或 netem 注入延迟、抖动和丢包,还没开始 | 本机模拟;维护者环境再验 |
+| 真实网络 | 本机模拟(2026-11-14):在 Docker 虚拟机里的 Linux 容器中,用 Toxiproxy 中继加 netem 给 server 到 Redis、客户端到 server 两段链路加延迟、抖动和丢包,5,000 个连接 watch。Redis 和客户端各相距 6 ms 时单个写入者 p99 15 ms,传播 p99 127 ms;丢包 0.1% 时传播 p99 254 ms,各段丢包 1% 时单个写入者 p99 232 ms(TCP 重发超时),传播 p99 361 ms;客户端相距 58 ms、丢包 0.5% 时传播 p99 348 ms。100 个客户端经往返约 200 ms、丢包 5% 的链路 300 秒,看到的 Instance 始终 100 个。§7.10 的目标除丢包 1% 时的写入外都达到。macOS 经虚拟机端口转发会自己丢包,所以必须在 Linux 里跑。数字见 wiki 性能页 | 本机模拟;维护者环境再验 |
 
 **发版**
 
