@@ -13,15 +13,17 @@ sleep 2
 IPS=$(for i in 1 2 3 4 5 6; do echo -n "$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cosky-redis-$i):6379 "; done)
 docker exec cosky-redis-1 redis-cli --cluster create $IPS --cluster-replicas 1 --cluster-yes >/dev/null
 until docker exec cosky-redis-1 redis-cli cluster info | grep -q "cluster_state:ok"; do sleep 1; done
-FIRST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cosky-redis-1)
-for s in $(seq 1 $SERVERS); do
-  docker run -d --name cosky-server-$s --network $NET -p $((8180+s)):8080 -p $((9190+s)):9090 \
-    -e COSKY_STORE_REDIS_URI=redis://$FIRST:6379 -e COSKY_STORE_REDIS_CLUSTER=true -e COSKY_AUTH_ENABLED=false \
-    -e JAVA_OPTS="-Xmx1g -XX:+UseCompactObjectHeaders --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow" \
-    $IMAGE >/dev/null
-done
-for s in $(seq 1 $SERVERS); do
-  until curl -sf localhost:$((8180+s))/actuator/health/readiness >/dev/null; do sleep 1; done
-done
+if [ "$SERVERS" -gt 0 ]; then
+  FIRST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cosky-redis-1)
+  for s in $(seq 1 $SERVERS); do
+    docker run -d --name cosky-server-$s --network $NET -p $((8180+s)):8080 -p $((9190+s)):9090 \
+      -e COSKY_STORE_REDIS_URI=redis://$FIRST:6379 -e COSKY_STORE_REDIS_CLUSTER=true -e COSKY_AUTH_ENABLED=false \
+      -e JAVA_OPTS="-Xmx1g -XX:+UseCompactObjectHeaders --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow" \
+      $IMAGE >/dev/null
+  done
+  for s in $(seq 1 $SERVERS); do
+    until curl -sf localhost:$((8180+s))/actuator/health/readiness >/dev/null; do sleep 1; done
+  done
+fi
 docker exec cosky-redis-1 redis-cli cluster nodes | awk '{print $2, $3}' | sed 's/@.*myself,/ /;s/@[0-9]*//'
-echo "servers ready: http 8181..$((8180+SERVERS)), grpc 9191..$((9190+SERVERS))"
+echo "seed: redis://$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' cosky-redis-1):6379; servers: $SERVERS"
