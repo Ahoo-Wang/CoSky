@@ -491,6 +491,28 @@ Redis replication is asynchronous, so a failover can lose the last writes. To na
 
 If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token, so leave that token set. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
 
+### Credentials and TLS
+
+They go in `cosky.store.redis.uri`:
+
+| Redis with | URI |
+|---|---|
+| A password | `redis://:password@redis:6379` |
+| An ACL user | `redis://cosky:password@redis:6379` |
+| TLS | `rediss://cosky:password@redis:6380` |
+| Sentinel | `redis-sentinel://cosky:password@s1:26379,s2:26379,s3:26379#mymaster`. The credentials are those of the master and its replicas; Sentinels without a password were tried. |
+| A Cluster | `redis://cosky:password@node:6379`, with `cosky.store.redis.cluster=true` |
+
+Over TLS, the server checks Redis's certificate against the JVM's trusted authorities. For a private one, give the image a trust store: `JAVA_OPTS="-Djavax.net.ssl.trustStore=/tls/trust.p12 -Djavax.net.ssl.trustStorePassword=..."`. A certificate the server does not trust stops it at start. `?verifyPeer=NONE` skips the check, for a test only.
+
+An ACL user needs CoSky's keys and channel, which all begin with `cosky:`, and no dangerous command but `INFO`:
+
+```
+ACL SETUSER cosky on >password ~cosky:* &cosky:* +@all -@dangerous +info
+```
+
+It was tried on a single node with every kind of write, Watch and leases expiring, and on Sentinel and a Cluster through a failover. Without `+info`, the server cannot check the prerequisites above: it says so in its log, and starts.
+
 ## Docker
 
 ```bash
@@ -741,7 +763,7 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 ## What is not protected
 
 - Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
-- Anyone who can reach Redis can read and change everything, past all of the above.
+- Anyone who can reach Redis can read and change everything, past all of the above. Give the server a Redis user of its own, over TLS where others share the network: see [Deployment](./deployment.md#credentials-and-tls).
 - Instance metadata is visible to anyone allowed to read the instance.
 - `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
 - gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.
