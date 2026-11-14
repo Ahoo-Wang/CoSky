@@ -15,7 +15,7 @@
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
 > [!IMPORTANT]
-> **8.0 is in beta.** From `8.0.0-beta.1`, the API, the wire format, the configuration and the data in Redis no longer change incompatibly before 8.0.0 ([what it keeps](https://github.com/Ahoo-Wang/CoSky/releases/tag/v8.0.0-beta.1)). It is still a preview, so don't run it for real yet. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+> **8.0 is in beta.** It is complete, but its API, wire format, configuration and Redis data may still change until the release candidate, `8.0.0-rc.1`, freezes them ([what the freeze keeps](CONTRIBUTING.md#releases-and-versioning)). It is still a preview, so don't run it for real yet. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 
 CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 

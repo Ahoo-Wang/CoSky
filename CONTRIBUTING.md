@@ -76,10 +76,11 @@ CoSky follows [Semantic Versioning](https://semver.org):
 - **MINOR** for backward-compatible features.
 - **PATCH** for backward-compatible fixes.
 
-From `8.0.0-beta.1` to `8.0.0`, what the beta's release notes list only grows: the gRPC API, REST, the client's and
-the starter's API and properties, the server's properties, the documented metrics and the data in Redis. A field, call
-or property may be added; none is removed, renumbered, renamed or given another meaning. CI's Proto Compatibility job
-holds the protos to this with `./gradlew :api:bufBreaking` (rules in `api/src/main/proto/buf.yaml`).
+From `8.0.0-rc.1` to `8.0.0`, these only grow: the gRPC API, REST, the client's and the starter's API and properties,
+the server's properties, the documented metrics and the data in Redis. A field, call or property may be added; none is
+removed, renumbered, renamed or given another meaning. Until the release candidate, during the betas, they may still
+change, and the release notes say how. CI's Proto Compatibility job checks the protos against a pull request's base
+with `./gradlew :api:bufBreaking` (rules in `api/src/main/proto/buf.yaml`).
 
 To release:
 

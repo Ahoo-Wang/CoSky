@@ -54,7 +54,7 @@ jobs:
       - name: Integration Test
         run: ./gradlew clean check
 
-  # From 8.0.0-beta.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
+  # From 8.0.0-rc.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
   # pull request, by the rules in api/src/main/proto/buf.yaml.
   proto-compatibility:
     name: Proto Compatibility
