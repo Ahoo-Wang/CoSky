@@ -49,6 +49,17 @@ server 使用 512 MB 堆，反复写同一个 1 MB 的 Config：
 
 它在这份日志上 4 秒完成重启，之后又写入了 50 次。裁剪日志对写入速率没有可见影响：交替运行时，16 个写者分别约为每秒 11,400 和 9,600 次，之前是 11,500 和 10,400 次。
 
+## Redis Cluster 故障切换
+
+在 Docker 中三主三从、node timeout 为 5 秒的集群上，一个 server 每 100 ms 向一个 namespace 写一次 Config，同时停掉这个 namespace 所在的主节点：
+
+| 主节点 | namespace 不可用 |
+|---|---|
+| 被杀掉（`docker kill`） | 15.8 秒 |
+| 被冻结（`docker pause`） | 15.7 秒 |
+
+其中是 node timeout、副本的选举，再加最多 10 秒：server 每 5 秒读一次拓扑，每次读取最多等停掉的节点 5 秒。在此期间，这个 namespace 上的每个请求都在 5 秒后以 `STORE_UNAVAILABLE` 失败。8.0.0-alpha.5 在 kill 之后不可用 53 秒；它不会再次读取拓扑，所以主节点被冻结时，要等到这个节点重新应答才恢复。
+
 ## 没有测量的
 
 - 真实网络或真实机房。

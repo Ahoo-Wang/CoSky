@@ -71,6 +71,10 @@ class RedisStoreClusterFailoverTest {
         }
     }
 
+    private fun synced(port: Int): Boolean = node(port) { info("replication") }.let {
+        "role:slave" !in it || "master_link_status:up" in it
+    }
+
     @Test
     @Timeout(value = 3, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SEPARATE_THREAD)
     fun `the namespaces of a hung master take writes again once its replica takes over`() = runBlocking<Unit> {
@@ -83,40 +87,46 @@ class RedisStoreClusterFailoverTest {
             }
             val master = inspector.partitions.getMasterBySlot(SlotHash.getSlot("cosky:{$namespace}:rev")).uri.port
             RedisStore.open("redis://127.0.0.1:${PORTS.first()}", cluster = true, resources = RESOURCES).use { store ->
+                // A replica that has not synced yet counts its data as too old to take over. What is written while it
+                // syncs can also be missing from it once it has, though it reports having read as far as its master.
+                while (!PORTS.all(::synced)) {
+                    delay(RETRY)
+                }
+                // As the master itself has it: right after the cluster is created, the others may not know yet.
+                val replica = node(master) { info("replication") }
+                    .let { checkNotNull(REPLICA.find(it)) { "No replica of $master: $it" }.groupValues[1].toInt() }
                 store.createNamespace(namespace)
                 store.apply(namespace, listOf(Mutation.Put(config(namespace, "before"))), "test")
-
-                // A replica that has not synced yet counts its data as too old to take over.
-                while (PORTS.any {
-                        node(
-                            it
-                        ) { "role:slave" in info("replication") && "master_link_status:up" !in info("replication") }
-                    }
-                ) {
+                // The replica that takes over holds the namespace, so that only not following it can fail the writes.
+                while (node(replica) { dbsize() } < node(master) { dbsize() }) {
                     delay(RETRY)
                 }
                 // Hung rather than gone: it answers nothing, its cluster bus included, and its connections stay open,
                 // as with a host that vanished. Sent on a connection of its own, which this leaves waiting.
                 val hung = RedisClient.create(RESOURCES, RedisURI.create("127.0.0.1", master))
-                hung.connect().async().dispatch(
-                    CommandType.DEBUG,
-                    StatusOutput(StringCodec.UTF8),
-                    CommandArgs(StringCodec.UTF8).add("SLEEP").add(HANG.inWholeSeconds),
-                )
-                val failed = TimeSource.Monotonic.markNow()
-                var applied = false
-                while (!applied && failed.elapsedNow() < RECOVERY) {
-                    applied = withTimeoutOrNull(ATTEMPT) {
-                        runCatching { store.apply(namespace, listOf(Mutation.Put(config(namespace, "after"))), "test") }
-                            .getOrNull()
-                    } is ApplyResult.Applied
-                    if (!applied) {
-                        delay(RETRY)
+                try {
+                    hung.connect().async().dispatch(
+                        CommandType.DEBUG,
+                        StatusOutput(StringCodec.UTF8),
+                        CommandArgs(StringCodec.UTF8).add("SLEEP").add(HANG.inWholeSeconds),
+                    )
+                    val after = listOf(Mutation.Put(config(namespace, "after")))
+                    val failed = TimeSource.Monotonic.markNow()
+                    // What the last attempt gave, a result or a failure, or null when it took too long.
+                    var last: Any? = null
+                    while (last !is ApplyResult.Applied && failed.elapsedNow() < RECOVERY) {
+                        last = withTimeoutOrNull(ATTEMPT) {
+                            runCatching { store.apply(namespace, after, "test") }.fold({ it }, { it })
+                        }
+                        if (last !is ApplyResult.Applied) {
+                            delay(RETRY)
+                        }
                     }
-                }
 
-                applied.assert().isTrue()
-                hung.shutdown(Duration.ZERO, Duration.ZERO)
+                    last.assert().isInstanceOf(ApplyResult.Applied::class.java)
+                } finally {
+                    hung.shutdown(Duration.ZERO, Duration.ZERO)
+                }
             }
         } finally {
             inspector.shutdown()
@@ -136,6 +146,7 @@ class RedisStoreClusterFailoverTest {
         /** Longer than [RECOVERY], so that only following the failover can make the store take writes again. */
         val HANG = 90.seconds
         val PORTS = (7100..7105).toList()
+        val REPLICA = Regex("slave0:ip=[^,]+,port=(\\d+)")
 
         val CLUSTER: ClusterContainer = ClusterContainer()
             .withExposedPorts(*PORTS.toTypedArray())

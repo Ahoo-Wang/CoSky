@@ -935,7 +935,7 @@ me.ahoo.cosky.server
 |---|---|---|
 | `cosky.store.type` | `redis` | `redis` / `memory`(仅开发) |
 | `cosky.store.redis.uri` | `redis://localhost:6379` | 支持 Sentinel / Cluster URI |
-| `cosky.store.redis.cluster` | `false` | URI 是 Redis Cluster 的种子节点 |
+| `cosky.store.redis.cluster` | `false` | URI 是 Redis Cluster 的种子节点;命令和拓扑读取最多等一个节点 5 秒(URI 设了 `timeout` 时以它为准),拓扑每 5 秒和出现变化迹象时重读,主节点故障后跟上副本 |
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
 | `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发 |
 | `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount;格式同普通 token |
