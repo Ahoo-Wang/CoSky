@@ -101,7 +101,7 @@ paths:
       parameters:
         - name: limit
           in: query
-          description: Revisions to return, newest first. 0 or more than the server's history size returns the full history.
+          description: The most revisions to return over all pages together, newest first. 0 or more than the server's history size returns the full history.
           schema: { type: integer, format: int32, minimum: 0 }
         - $ref: '#/components/parameters/pageToken'
       responses:

@@ -22,6 +22,7 @@ import java.util.concurrent.Executors
  * Coroutines stay the programming model, virtual threads carry them (design D28), so that an occasional blocking call
  * does not hold a platform thread.
  */
+@InternalCoSkyApi
 object VirtualThreads {
     val executor: ExecutorService = Executors.newVirtualThreadPerTaskExecutor()
     val dispatcher: CoroutineDispatcher = executor.asCoroutineDispatcher()

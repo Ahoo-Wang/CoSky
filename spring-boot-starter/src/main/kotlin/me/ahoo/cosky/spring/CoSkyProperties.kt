@@ -59,15 +59,14 @@ data class CoSkyProperties(
         data class Refresh(val enabled: Boolean = true)
     }
 
-    fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(
-        endpoints = endpoints,
-        token = token,
-        clientName = applicationName,
-        snapshotDir = snapshot.dir.takeIf { snapshot.enabled },
-        snapshotIncludeConfig = snapshot.includeConfig,
-        tls = tls.enabled,
-        tlsTrustedCertificates = tls.trustedCertificates,
-    )
+    fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(endpoints) {
+        token = this@CoSkyProperties.token
+        clientName = applicationName
+        snapshotDir = snapshot.dir.takeIf { snapshot.enabled }
+        snapshotIncludeConfig = snapshot.includeConfig
+        tls = this@CoSkyProperties.tls.enabled
+        tlsTrustedCertificates = this@CoSkyProperties.tls.trustedCertificates
+    }
 
     val configLoadTimeout: kotlin.time.Duration
         get() = config.loadTimeout.toKotlinDuration()

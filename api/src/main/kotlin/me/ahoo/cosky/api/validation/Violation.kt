@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.api.validation
 
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.v1.FieldViolation
 import me.ahoo.cosky.api.v1.ViolationCode
 
@@ -20,6 +21,7 @@ import me.ahoo.cosky.api.v1.ViolationCode
  *
  * @param field path in proto field names, e.g. `resource.meta.labels["team"]` or `resource.role.rules[0].kinds`.
  */
+@InternalCoSkyApi
 data class Violation(
     val field: String,
     val code: ViolationCode,

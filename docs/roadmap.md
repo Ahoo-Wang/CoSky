@@ -11,7 +11,7 @@
 - 6.x 进入维护期:只修安全问题和严重缺陷,不再加功能。
 - 版本序列:`8.0.0-alpha.N`(开发预览,API 可变)→ `8.0.0-beta.N`(功能完整,API 仍可调整)→ `8.0.0-rc.N`(API 冻结)→ `8.0.0`。起始版本为 `8.0.0-alpha.1`。
 - M4 之后开始发布,从 `8.0.0-alpha.1` 起:RC 之前(alpha 与 beta)不作兼容性承诺,API、协议、配置和 Redis 键都可能变化,发版说明写明怎么升级。预发布版本只有版本号标签,`latest` 仍指向 6.x。
-- `8.0.0-rc.1` 起冻结,到 8.0.0 只增不改:gRPC API(`cosky.v1`,含错误原因)、REST API、client 与 starter 的公开 API 和配置项、server 的配置项、Deployment 列出的指标、Redis 中的数据(之后的版本不经迁移就能读)。不在其内:server 各模块作为库的 API、Dashboard 界面、日志内容。维护者更正(2026-11-14):冻结从 RC 开始,不是 beta;beta.1、beta.2 的发版说明写的是 beta 冻结。beta 期间的不兼容变更写进当版发版说明。
+- `8.0.0-rc.1` 起冻结,到 8.0.0 只增不改:gRPC API(`cosky.v1`,含错误原因)、REST API、client 与 starter 的公开 API 和配置项、server 的配置项、Deployment 列出的指标、Redis 中的数据(之后的版本不经迁移就能读)。不在其内:`cosky-api` 中标为 `@InternalCoSkyApi` 的共享工具(校验、命名规则、`VirtualThreads` 等,CoSky 自己的模块统一 opt-in,外部使用要显式 opt-in),server、store、migration 和测试模块作为库的 API,Dashboard 界面,日志内容(维护者决定,2026-11-14)。维护者更正(2026-11-14):冻结从 RC 开始,不是 beta;beta.1、beta.2 的发版说明写的是 beta 冻结。beta 期间的不兼容变更写进当版发版说明。
 - 8.0 的范围就是设计文档 §3–§7;明确不做的事见设计文档 D7。
 
 ## 2. 里程碑

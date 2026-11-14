@@ -92,7 +92,7 @@ class LoadBalancerTest {
 
     @Test
     fun `at least one endpoint is required`() {
-        runCatching { CoSkyClientOptions(endpoints = emptyList()) }.exceptionOrNull()
+        runCatching { CoSkyClientOptions(emptyList()) }.exceptionOrNull()
             .assert().isInstanceOf(IllegalArgumentException::class.java)
     }
 

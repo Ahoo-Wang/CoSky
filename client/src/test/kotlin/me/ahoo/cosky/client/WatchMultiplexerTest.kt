@@ -47,13 +47,12 @@ class WatchMultiplexerTest {
         ),
     )
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
-    private val options = CoSkyClientOptions(
-        endpoints = listOf("only"),
-        snapshotDir = null,
-        reconnectMin = 10.milliseconds,
-        reconnectMax = 100.milliseconds,
-        channelFactory = { InProcessChannelBuilder.forName(server.name).build() },
-    )
+    private val options = CoSkyClientOptions(listOf("only")) {
+        snapshotDir = null
+        reconnectMin = 10.milliseconds
+        reconnectMax = 100.milliseconds
+        channelFactory = { InProcessChannelBuilder.forName(server.name).build() }
+    }
     private val connection = Connection(options)
     private val multiplexer = WatchMultiplexer(connection, options, SnapshotStore(options, scope), scope)
 

@@ -49,14 +49,15 @@ import kotlin.time.Duration.Companion.seconds
 
 private val LEASE_TTL = 6.seconds
 
-private fun options(endpoint: String) = CoSkyClientOptions(
-    endpoints = listOf(endpoint),
-    snapshotDir = null,
-    reconnectMin = 20.milliseconds,
-    reconnectMax = 200.milliseconds,
-    reRegisterJitter = Duration.ZERO,
-    leaseTtl = LEASE_TTL,
-)
+private fun options(endpoint: String, settings: CoSkyClientOptions.Builder.() -> Unit = {}) =
+    CoSkyClientOptions(listOf(endpoint)) {
+        snapshotDir = null
+        reconnectMin = 20.milliseconds
+        reconnectMax = 200.milliseconds
+        reRegisterJitter = Duration.ZERO
+        leaseTtl = LEASE_TTL
+        settings()
+    }
 
 /**
  * The real services on the memory store.
@@ -89,7 +90,7 @@ class MemoryProtocolConformanceTest : ProtocolConformanceTest() {
     }
 
     override fun newClient(): CoSkyClient {
-        val options = options("only").copy(channelFactory = { InProcessChannelBuilder.forName(name).build() })
+        val options = options("only") { channelFactory = { InProcessChannelBuilder.forName(name).build() } }
         return CoSkyClient(options).also { clients += it }
     }
 

@@ -72,7 +72,7 @@ message DeleteResponse {
 
 message HistoryRequest {
   ResourceKey key = 1;
-  int32 limit = 2;
+  int32 limit = 2; // the most revisions over all pages together; 0 or more than history-size = all of them
   string page_token = 3; // next_page_token of the previous page; empty = the first page
 }
 

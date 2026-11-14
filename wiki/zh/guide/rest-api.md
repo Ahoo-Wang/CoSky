@@ -86,7 +86,7 @@ description: REST API 的接口及其共同约定。
 |---|---|---|
 | GET | `/v1/namespaces/{ns}/configs` | 列表。`?labelSelector=a=1,b=2` |
 | GET、PUT、DELETE | `/v1/namespaces/{ns}/configs/{name}` | |
-| GET | `/v1/namespaces/{ns}/configs/{name}/history` | 新的在前。`?limit=&pageToken=` |
+| GET | `/v1/namespaces/{ns}/configs/{name}/history` | 新的在前。`?limit=` 是所有页加起来最多返回的版本数，`?pageToken=` 取下一页 |
 | POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{"toRevision": "41"}`。把那份内容写成新 revision，也能恢复已删除的 Config。 |
 | POST | `/v1/namespaces/{ns}/configs:import` | 请求体是 zip 文件；每个条目的路径是 Config 名称 |
 | GET | `/v1/namespaces/{ns}/configs:export` | zip 文件 |

@@ -12,6 +12,7 @@
  */
 package me.ahoo.cosky.api.validation
 
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.DeleteRequest
 import me.ahoo.cosky.api.v1.GetRequest
@@ -37,6 +38,7 @@ import me.ahoo.cosky.api.v1.WatchRequest
  * `INVALID_ARGUMENT` [CoSkyException]. Field paths use proto field names relative to the validated message.
  * Revisions and leases that only the server can judge (existence, CAS) are not checked here.
  */
+@InternalCoSkyApi
 class Validator(private val limits: Limits = Limits.DEFAULT) {
 
     fun validate(resource: Resource): List<Violation> = collect { resource(it, "", resource) }
@@ -179,6 +181,7 @@ class Validator(private val limits: Limits = Limits.DEFAULT) {
 /**
  * Throws an `INVALID_ARGUMENT` [CoSkyException] carrying [violations] when there are any.
  */
+@InternalCoSkyApi
 fun requireValid(violations: List<Violation>) {
     if (violations.isNotEmpty()) {
         throw CoSkyException.invalidArgument(violations)

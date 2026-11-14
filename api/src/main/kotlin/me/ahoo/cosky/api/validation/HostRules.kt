@@ -12,11 +12,14 @@
  */
 package me.ahoo.cosky.api.validation
 
+import me.ahoo.cosky.api.InternalCoSkyApi
+
 /**
  * Endpoint host rule (design §4.2): an RFC 1123 hostname, an IPv4 literal or an IPv6 literal without brackets.
  *
  * Pure syntax checks; nothing is resolved.
  */
+@InternalCoSkyApi
 object HostRules {
     const val MAX_HOSTNAME_LENGTH = 253
 

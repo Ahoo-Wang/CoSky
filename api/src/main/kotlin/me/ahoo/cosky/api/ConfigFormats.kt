@@ -18,6 +18,7 @@ import me.ahoo.cosky.api.v1.ConfigFormat
 /**
  * The format of a Config arriving from where none was declared, a zip entry or 6.x, which only has its file name.
  */
+@InternalCoSkyApi
 fun configFormatOf(name: String): ConfigFormat = when (name.substringAfterLast('.', "").lowercase()) {
     "yaml", "yml" -> ConfigFormat.CONFIG_FORMAT_YAML
     "properties" -> ConfigFormat.CONFIG_FORMAT_PROPERTIES

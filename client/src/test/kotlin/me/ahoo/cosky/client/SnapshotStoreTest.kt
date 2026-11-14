@@ -44,7 +44,10 @@ class SnapshotStoreTest {
 
     private val store by lazy {
         SnapshotStore(
-            CoSkyClientOptions(endpoints = listOf("only"), snapshotDir = directory, snapshotDebounce = Duration.ZERO),
+            CoSkyClientOptions(listOf("only")) {
+                snapshotDir = directory
+                snapshotDebounce = Duration.ZERO
+            },
             scope,
         )
     }

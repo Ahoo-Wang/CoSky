@@ -1,7 +1,7 @@
 {
   "version": 1,
   "files": {
-    "configsApiClient.ts": "ff8223b18513cb1ea8ed206c4ed2dfb9baaba94820334bebdd7b3ae1db857fdf",
+    "configsApiClient.ts": "b391854d29c8a4b2251eb9a99e8f6536f4a036baeba944d473f5149eb5457d9f",
     "identityApiClient.ts": "908ce89df558e0d16644dfc22187608a6f10e4123b4deb915fbf95711a2b8685",
     "index.ts": "50546eb9d770d2357a69fb1cff56af62ad4a3b60626d40b54bb8e18ebf9841fe",
     "instancesApiClient.ts": "10ba4258b5972a4f1567a036a18e953352b0cf0d4f462ba1b7fc7a6e032d9930",
@@ -9,7 +9,7 @@
     "roleBindingsApiClient.ts": "e5bf8b0c62802db3103b428bef8914d406b8b96d5d23cae91f7683810523eff4",
     "rolesApiClient.ts": "d990e3b65543a4716982d6cfaf0c1e194e78124dc899d9bff8d174c49c55b6c7",
     "serviceAccountsApiClient.ts": "b9f0c291e7f5b7af270730bbb21e57394750b6ad4132e20c6333aabe2deac865",
-    "types.ts": "1f84b835536efe2f9777fb94d5664d7a3a02eee39997a7215a1e6db203a8bae0",
+    "types.ts": "3a8860410349b7d5ebae570d7e1f243c2cf8290a2e1aff94924c7db087638f00",
     "viewsApiClient.ts": "42dafd8951181441cc61e4a6e29669af0a5e7029dcbc7955a20c2dfe1657246f",
     "watchApiClient.ts": "4d0d78da0c3a3b1c0cce1933122656b1f8b655ba1543f12e6917427bdf353d81"
   }

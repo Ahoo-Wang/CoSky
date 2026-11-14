@@ -18,6 +18,7 @@ import me.ahoo.cosky.api.v1.Resource
 /**
  * The kind of a resource, determined by which spec is set; [Kind.KIND_UNSPECIFIED] when none is.
  */
+@InternalCoSkyApi
 val Resource.kind: Kind
     get() = when (specCase) {
         Resource.SpecCase.NAMESPACE -> Kind.KIND_NAMESPACE
@@ -32,6 +33,7 @@ val Resource.kind: Kind
 /**
  * Global kinds live in the `_system` namespace; the others belong to a user namespace.
  */
+@InternalCoSkyApi
 val Kind.isGlobal: Boolean
     get() = this == Kind.KIND_NAMESPACE ||
         this == Kind.KIND_SERVICE_ACCOUNT ||
