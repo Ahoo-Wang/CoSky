@@ -55,7 +55,7 @@ jobs:
         run: ./gradlew clean check
 
   # From 8.0.0-beta.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
-  # pull request, with the rules in buf.yaml.
+  # pull request, by the rules in api/src/main/proto/buf.yaml.
   proto-compatibility:
     name: Proto Compatibility
     if: github.event_name == 'pull_request'
@@ -70,11 +70,19 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           path: .base
 
+      - name: Set up JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: |
+            25
+            21
+          distribution: 'temurin'
+          cache: gradle
+
       - name: Breaking changes
         run: >-
-          docker run --rm -v "$PWD:/workspace" -w /workspace
-          bufbuild/buf:1.47.2@sha256:c14957e613e9b95c4bf462fa73afdee48e13a67b8014ed1f951e5615492d457d
-          breaking --against .base/api/src/main/proto --error-format github-actions
+          ./gradlew :api:bufBreaking
+          -PbufAgainst="$GITHUB_WORKSPACE/.base/api/src/main/proto" -PbufErrorFormat=github-actions
 
   # The versions design D31 promises, beyond the one every other test runs on.
   redis-compatibility:
