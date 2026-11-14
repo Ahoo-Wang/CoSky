@@ -13,6 +13,13 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.ScriptOutputType
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.codec.StringCodec
+import io.lettuce.core.output.StatusOutput
+import io.lettuce.core.protocol.AsyncCommand
+import io.lettuce.core.protocol.Command
+import io.lettuce.core.protocol.CommandType
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -20,6 +27,7 @@ import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import java.lang.reflect.Proxy
 import java.util.concurrent.CompletableFuture
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -30,6 +38,18 @@ class RedisReplyTest {
 
         runCatching { cancelled.reply() }.exceptionOrNull()
             .assert().isInstanceOf(StoreUnavailableException::class.java)
+    }
+
+    @Test
+    fun `a script the driver cancels is the store being unavailable`() = runBlocking<Unit> {
+        val cancelled = AsyncCommand(Command(CommandType.EVALSHA, StatusOutput(StringCodec.UTF8))).apply { cancel() }
+        val commands = Proxy.newProxyInstance(
+            RedisClusterAsyncCommands::class.java.classLoader,
+            arrayOf(RedisClusterAsyncCommands::class.java),
+        ) { _, _, _ -> cancelled } as RedisClusterAsyncCommands<String, ByteArray>
+
+        runCatching { RedisScript("tail").run<Any>(commands, ScriptOutputType.MULTI, listOf("key"), emptyList()) }
+            .exceptionOrNull().assert().isInstanceOf(StoreUnavailableException::class.java)
     }
 
     @Test
