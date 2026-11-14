@@ -40,6 +40,8 @@ dependencies {
     implementation("com.google.protobuf:protobuf-java-util")
     implementation("com.google.code.gson:gson")
     implementation("org.springframework.security:spring-security-oauth2-jose")
+    // The OpenAPI document generated from the protos, at /v3/api-docs and in Swagger UI.
+    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui")
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework:spring-test")
     testImplementation(project(":test"))
@@ -50,9 +52,15 @@ dependencies {
 }
 
 // The Dashboard, once `pnpm build` has run in dashboard/. A server built without it still works, without a UI (D11).
+// And the REST API's OpenAPI document as generated from the protos, which springdoc serves.
 tasks.processResources {
     from(rootProject.layout.projectDirectory.dir("dashboard/dist")) {
         into("static")
+    }
+    dependsOn(":api:generateOpenApi")
+    from(project(":api").layout.buildDirectory.file("openapi/cosky.yaml")) {
+        into("cosky")
+        rename { "openapi.yaml" }
     }
 }
 

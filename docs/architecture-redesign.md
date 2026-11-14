@@ -57,7 +57,7 @@ Redis (只有 server 可访问)
 | D15 | server gRPC 接入 | **Spring gRPC** | 与 Spring Boot 生命周期、配置、可观测性统一(§7.4) |
 | D16 | 性能目标 | **采纳 §7.10** | 作为 W4a 验收标准 |
 | D17 | proto 命名 | **遵循 buf STANDARD**(枚举值前缀、服务 `Service` 后缀),仅豁免 `Get` 直接返回资源 | proto 枚举值在包内共享命名空间,无前缀易冲突;Get 返回资源符合 AIP-131(§4.2) |
-| D18 | OpenAPI | **混合生成**:schemas 由 proto 生成,paths 手写,构建时合并 | REST 路由无法由 RPC 自动推导,但 schema 必须与 proto 同步(§4.5) |
+| D18 | OpenAPI | **混合生成**:schemas 由 proto 生成,paths 手写,构建时合并;server 打包这份文档,由 springdoc 在 `/v3/api-docs` 和 Swagger UI(`/swagger-ui.html`)提供,不由 springdoc 扫描路由另生成 | REST 路由无法由 RPC 自动推导,但 schema 必须与 proto 同步(§4.5);函数式路由扫描不出有用的文档,对外的文档只能是这一份 |
 | D19 | Watch 时间线 | **`(epoch, revision)` 才是 Watch 位置**;epoch 是每 namespace 一个随机值,删除重建或丢写后更换,`from_epoch` 不一致即 `gone`;server 与客户端保留低频反熵 | 丢写后 revision 会被复用,只比较数字会让视图静默且永久分叉(§6.4)。namespace 重建后 revision 接着递增(§7.2),epoch 照样更换,所以旧位置同样得到 `gone` |
 | D20 | 租约回收保护 | **恢复宽限 + 大比例到期暂停 + 单轮回收上限**;存储故障不等于租约丢失 | 控制面故障超过 TTL 后恢复时,到期的主要是存活进程的租约,不能把控制面故障放大成数据面故障(§6.2) |
 | D21 | Redis 追尾 | **`PUBLISH` 提示 + 按 namespace 执行非阻塞 `tail.lua` + 兜底轮询**;`store-redis` 不使用阻塞命令 | Cluster 下跨 slot 的 `XREAD` 报 `CROSSSLOT`;每 namespace 一条阻塞连接则连接数随 namespace 增长;提示丢失只影响延迟(§6.1) |

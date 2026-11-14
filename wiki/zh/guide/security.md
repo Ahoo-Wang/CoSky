@@ -165,5 +165,6 @@ management:
 - Config 内容没有加密，无论是在 Redis 还是在客户端[快照](./sdk.md#快照)里。
 - 能访问 Redis 的人可以读取和修改一切，绕过以上所有措施。给 server 一个专用的 Redis 用户，网络与他人共用时再加上 TLS：见[部署](./deployment.md#凭据与-tls)。
 - 实例元数据对任何有权读取该实例的人可见。
+- REST API 的文档 `/v3/api-docs` 和 Swagger UI `/swagger-ui.html` 不需要 token，从中发出的调用需要。`springdoc.api-docs.enabled=false` 同时关闭两者。
 - 8080 端口上的 `/actuator/health`、`/actuator/info` 和 `/actuator/prometheus` 不需要 token，指标中包含 namespace 名称。不要把它们暴露到公网，或者用 `management.server.port` 换一个端口。
 - 9090 端口上的 gRPC 健康检查不需要 token。gRPC 反射默认关闭，可用 `spring.grpc.server.reflection.enabled` 打开。

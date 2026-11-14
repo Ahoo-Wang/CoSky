@@ -7,7 +7,7 @@ lint:
     # ResourceService.Get returns the Resource itself rather than a GetResponse, as Google AIP-131 recommends for
     # standard Get methods (design D17).
     - RPC_RESPONSE_STANDARD_NAME
-# From 8.0.0-beta.1 to 8.0.0 the API only grows (CONTRIBUTING.md). FILE is the strictest set: besides the wire, it keeps
+# From 8.0.0-rc.1 to 8.0.0 the API only grows (CONTRIBUTING.md). FILE is the strictest set: besides the wire, it keeps
 # the generated Kotlin and Java code and the JSON names compatible, which the client's API and REST rely on.
 breaking:
   use:
