@@ -4,3 +4,5 @@ org.springframework.boot.context.config.ConfigDataLoader=\
 me.ahoo.cosky.spring.config.CoSkyConfigDataLoader
 org.springframework.boot.SpringApplicationRunListener=\
 me.ahoo.cosky.spring.CoSkyClientRunListener
+org.springframework.boot.diagnostics.FailureAnalyzer=\
+me.ahoo.cosky.spring.registry.RegistrationRefusedFailureAnalyzer

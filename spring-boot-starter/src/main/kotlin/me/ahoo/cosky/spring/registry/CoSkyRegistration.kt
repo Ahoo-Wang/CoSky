@@ -81,13 +81,20 @@ class CoSkyServiceRegistry(
             .setPort(registration.port)
             .build()
         val instances = client.namespace(properties.namespace).instances
-        registered[registration] = runBlocking(VirtualThreads.dispatcher) {
-            instances.register(
-                service = registration.serviceId,
-                endpoint = endpoint,
-                metadata = registration.metadata,
-                weight = properties.registry.weight,
-            )
+        registered[registration] = try {
+            runBlocking(VirtualThreads.dispatcher) {
+                instances.register(
+                    service = registration.serviceId,
+                    endpoint = endpoint,
+                    metadata = registration.metadata,
+                    weight = properties.registry.weight,
+                )
+            }
+        } catch (e: StatusException) {
+            if (e.status.code in RegistrationRefusedException.CODES) {
+                throw RegistrationRefusedException(registration.serviceId, properties.namespace, e)
+            }
+            throw e
         }
     }
 
