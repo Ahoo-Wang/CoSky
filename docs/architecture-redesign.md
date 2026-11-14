@@ -83,6 +83,7 @@ Redis (只有 server 可访问)
 | D41 | starter 的客户端归属 | **每个应用一个客户端**:第一个导入在 bootstrap 上下文中创建,交给应用上下文随它关闭;启动在交接前失败时由运行监听器关闭 | 共享客户端让同一 JVM 中关闭一个应用就撤销另一个的实例,也让启动失败的应用留下仍在监听的客户端(#1139、#1140)。代价是同一 JVM 中每个应用多一条连接(§7.7) |
 | D42 | 管理员摘流的持续时间 | **持续到应用重新注册**;租约回收时实例已删除,重新注册用应用自己的值;要持久摘流,修改应用的注册权重 | 保留管理修改需要客户端跟踪服务端状态,或服务端另存覆盖值,都是新机制(#1093)(§6.2) |
 | D43 | Namespace 删除的代际 | **标记时在对象上记下 namespace 当前的 epoch(只读字段 `terminating_epoch`),终止与清理都在数据 slot 内原子校验它**;epoch 已不同返回 `SUPERSEDED` 并撤销标记;清理最后才删 epoch,中断后可按同一 epoch 继续;reconciler 删除对象按标记后的 revision CAS | 终止与清理只认名字时,迟到的删除或恢复会作用到重建后的新一代:删掉新对象,或清空新一代的历史(#1155)。复用 epoch 不增加新的存储概念;代价是删除恰好遇上反熵替换 epoch 时以冲突失败,重试即可(§7.2) |
+| D44 | REST 错误体 | **RFC 9457 problem details**,`code`、`reason` 与 ErrorDetail 的成员作为扩展成员;直接替换原先的 `{status, message, detail}`,不并存(维护者决定,2026-11-14) | 标准格式便于通用工具和客户端处理;原格式的 `status`(gRPC code 名)和 `detail`(对象)与 RFC 的类型冲突,无法兼容叠加;RC 之前不作兼容性承诺 |
 
 ---
 
@@ -446,6 +447,8 @@ service ViewService {                                                 // 派生�
 | 存储不可用 / revision 回退 | `UNAVAILABLE` | 503 |
 
 HTTP 状态按**错误原因**映射,而不是按 gRPC code 一刀切;未带 CoSky 原因的 gRPC code 按 `google.rpc.Code` 的标准映射。
+
+REST 的错误体是 RFC 9457 problem details(`application/problem+json`,D44):`type` 每个原因一个,指向 REST API 文档中该原因的行;`title` 是原因的文字,`status` 是 HTTP 状态,`detail` 是这一次的说明,`instance` 是请求路径;扩展成员 `code` 是 gRPC code,`reason` 是原因,ErrorDetail 中该原因带的成员(如 `revisionConflict`)与它们并列。不是 CoSky 原因的错误(如路径不存在)同样是 problem details,类型为 `about:blank`。
 
 ### 4.5 REST 映射
 

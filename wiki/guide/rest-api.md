@@ -42,27 +42,41 @@ The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the fu
 
 **Reading your own writes**: a replica may be slightly behind. `?minRevision=42` waits until it has reached that revision, and answers `504` after 3 seconds.
 
-**Errors** carry a reason that does not change between versions:
+**Errors** are problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), as `application/problem+json`. Beside `type`, `title`, `status`, `detail` and `instance`, `code` is the gRPC status, and `reason` the reason, which does not change between versions. Some reasons add a member that says more. `type` leads to the reason's row below.
 
 ```json
 {
-  "status": "ABORTED",
-  "message": "The revision does not match.",
-  "detail": {"reason": "ERROR_REASON_REVISION_CONFLICT"}
+  "type": "https://cosky.ahoo.me/guide/rest-api#revision-conflict",
+  "title": "Revision conflict",
+  "status": 409,
+  "detail": "KIND_CONFIG prod/app.yaml: expected revision 42, current revision 43.",
+  "instance": "/v1/namespaces/prod/configs/app.yaml",
+  "code": "ABORTED",
+  "reason": "ERROR_REASON_REVISION_CONFLICT",
+  "revisionConflict": {
+    "key": {"namespace": "prod", "kind": "KIND_CONFIG", "name": "app.yaml"},
+    "expectedRevision": "42",
+    "currentRevision": "43"
+  }
 }
 ```
 
-| Reason | HTTP |
-|---|---|
-| `RESOURCE_NOT_FOUND`, `NAMESPACE_NOT_FOUND` | 404 |
-| `INVALID_ARGUMENT` | 400, with the violations in `detail` |
-| `UNAUTHENTICATED` | 401 |
-| `PERMISSION_DENIED` | 403 |
-| `REVISION_CONFLICT`, `NAMESPACE_NOT_EMPTY` | 409 |
-| `LEASE_NOT_FOUND` | 412 |
-| `WATCH_QUOTA_EXCEEDED` | 429 |
-| `STORE_UNAVAILABLE`, `REVISION_REGRESSION` | 503 |
-| `MIN_REVISION_TIMEOUT` | 504 |
+| Reason | HTTP | More |
+|---|---|---|
+| <a id="resource-not-found"></a>`RESOURCE_NOT_FOUND` | 404 | `resourceNotFound`: the key |
+| <a id="namespace-not-found"></a>`NAMESPACE_NOT_FOUND` | 404 | `namespace` |
+| <a id="invalid-argument"></a>`INVALID_ARGUMENT` | 400 | `badRequest`: the violations |
+| <a id="unauthenticated"></a>`UNAUTHENTICATED` | 401 |  |
+| <a id="permission-denied"></a>`PERMISSION_DENIED` | 403 |  |
+| <a id="revision-conflict"></a>`REVISION_CONFLICT` | 409 | `revisionConflict`: the key, the expected and the current revision |
+| <a id="namespace-not-empty"></a>`NAMESPACE_NOT_EMPTY` | 409 | `namespace` |
+| <a id="lease-not-found"></a>`LEASE_NOT_FOUND` | 412 | `leaseNotFound` |
+| <a id="watch-quota-exceeded"></a>`WATCH_QUOTA_EXCEEDED` | 429 | `watchQuotaExceeded`: the limit |
+| <a id="store-unavailable"></a>`STORE_UNAVAILABLE` | 503 |  |
+| <a id="revision-regression"></a>`REVISION_REGRESSION` | 503 | `namespace` |
+| <a id="min-revision-timeout"></a>`MIN_REVISION_TIMEOUT` | 504 | `namespace` |
+
+Failures that are not CoSky's own, such as a path that does not exist, are problem details too, of the type `about:blank`, without `code` or `reason`.
 
 ## Endpoints
 

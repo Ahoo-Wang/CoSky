@@ -13,16 +13,17 @@
 
 import {ExchangeError} from '@ahoo-wang/fetcher';
 import {toast} from 'sonner';
-import type {ErrorResponse} from '@/generated';
+import type {Problem} from '@/generated';
 
 /**
- * The reason the REST API gave for a failed request, when there is one.
+ * The reason the REST API gave for a failed request, when there is one: what its problem details (RFC 9457) say
+ * happened, or else their title.
  */
 export async function errorReason(error: unknown): Promise<string | undefined> {
     if (!(error instanceof ExchangeError)) return error instanceof Error ? error.message : undefined;
     try {
-        const response = await error.exchange.requiredResponse.clone().json() as Partial<ErrorResponse>;
-        return response.message || undefined;
+        const problem = await error.exchange.requiredResponse.clone().json() as Partial<Problem>;
+        return problem.detail || problem.title || undefined;
     } catch {
         return undefined;
     }

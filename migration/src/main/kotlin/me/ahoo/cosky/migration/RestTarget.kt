@@ -158,9 +158,12 @@ internal class RestTarget(private val baseUrl: String, private val token: String
 
     private fun isSuccess(response: HttpResponse<String>) = response.statusCode() in FIRST_SUCCESS..LAST_SUCCESS
 
+    /** What the problem details (RFC 9457) say happened, else their title. */
     private fun messageOf(response: HttpResponse<String>): String =
-        runCatching { JsonParser.parseString(response.body()).asJsonObject["message"].asString }
-            .getOrDefault("HTTP ${response.statusCode()}")
+        runCatching {
+            val problem = JsonParser.parseString(response.body()).asJsonObject
+            (problem["detail"] ?: problem["title"]).asString
+        }.getOrDefault("HTTP ${response.statusCode()}")
 
     private companion object {
         val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(10)

@@ -100,7 +100,7 @@ class RestRoutesTest {
         JsonParser.parseString(expectBody(String::class.java).returnResult().responseBody).asJsonObject
 
     private fun WebTestClient.ResponseSpec.reason(): String =
-        json().getAsJsonObject("detail")["reason"].asString
+        json()["reason"].asString
 
     private fun revisionOf(put: WebTestClient.ResponseSpec): Long = put.expectStatus().isOk.json()["revision"].asLong
 

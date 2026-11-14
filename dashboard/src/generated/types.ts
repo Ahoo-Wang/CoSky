@@ -174,17 +174,6 @@ export enum ErrorReason {
 }
 
 /**
- * - key: ErrorResponse
- * - required: (none)
- */
-export interface ErrorResponse {
-  /** gRPC status code name, e.g. `ABORTED`. */
-  status: string;
-  message: string;
-  detail: ErrorDetail;
-}
-
-/**
  * - key: FieldViolation
  * - required: (none)
  */
@@ -438,6 +427,36 @@ export interface ObjectMeta {
    * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
    */
   lease: string;
+}
+
+/**
+ * RFC 9457 problem details. For CoSky's reasons, `code` and `reason` say what gRPC would beside the standard members, and the member of the error model's detail that the reason has, if any, says more (design §4.4). Other failures, such as a path that does not exist, have the type `about:blank` and neither.
+ * - key: Problem
+ * - required: title, status
+ */
+export interface Problem {
+  /**
+   * The problem type, one for each reason; it leads to the reason's row in the REST API's errors.
+   * - format: uri
+   */
+  type: string;
+  /** The reason in words, e.g. `Revision conflict`. */
+  title: string;
+  /** The HTTP status. */
+  status: number;
+  /** What happened, this time. */
+  detail: string;
+  /** The request's path. */
+  instance: string;
+  /** The gRPC status code name, e.g. `ABORTED`. */
+  code: string;
+  reason: ErrorReason;
+  resourceNotFound: ResourceNotFound;
+  namespace: NamespaceRef;
+  revisionConflict: RevisionConflict;
+  leaseNotFound: LeaseNotFound;
+  badRequest: BadRequest;
+  watchQuotaExceeded: WatchQuotaExceeded;
 }
 
 /**

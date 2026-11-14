@@ -42,27 +42,41 @@ description: REST API 的接口及其共同约定。
 
 **读取自己的写入**：副本可能稍有落后。`?minRevision=42` 会等到它达到这个 revision，3 秒后返回 `504`。
 
-**错误**带有不随版本变化的原因：
+**错误**是 problem details（[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)），以 `application/problem+json` 返回。除了 `type`、`title`、`status`、`detail` 和 `instance`，`code` 是 gRPC 状态，`reason` 是不随版本变化的原因。有些原因还带一个成员，说明更多信息。`type` 指向下表中该原因所在的行。
 
 ```json
 {
-  "status": "ABORTED",
-  "message": "The revision does not match.",
-  "detail": {"reason": "ERROR_REASON_REVISION_CONFLICT"}
+  "type": "https://cosky.ahoo.me/guide/rest-api#revision-conflict",
+  "title": "Revision conflict",
+  "status": 409,
+  "detail": "KIND_CONFIG prod/app.yaml: expected revision 42, current revision 43.",
+  "instance": "/v1/namespaces/prod/configs/app.yaml",
+  "code": "ABORTED",
+  "reason": "ERROR_REASON_REVISION_CONFLICT",
+  "revisionConflict": {
+    "key": {"namespace": "prod", "kind": "KIND_CONFIG", "name": "app.yaml"},
+    "expectedRevision": "42",
+    "currentRevision": "43"
+  }
 }
 ```
 
-| 原因 | HTTP |
-|---|---|
-| `RESOURCE_NOT_FOUND`、`NAMESPACE_NOT_FOUND` | 404 |
-| `INVALID_ARGUMENT` | 400，违规项在 `detail` 中 |
-| `UNAUTHENTICATED` | 401 |
-| `PERMISSION_DENIED` | 403 |
-| `REVISION_CONFLICT`、`NAMESPACE_NOT_EMPTY` | 409 |
-| `LEASE_NOT_FOUND` | 412 |
-| `WATCH_QUOTA_EXCEEDED` | 429 |
-| `STORE_UNAVAILABLE`、`REVISION_REGRESSION` | 503 |
-| `MIN_REVISION_TIMEOUT` | 504 |
+| 原因 | HTTP | 更多信息 |
+|---|---|---|
+| <a id="resource-not-found"></a>`RESOURCE_NOT_FOUND` | 404 | `resourceNotFound`：对象的键 |
+| <a id="namespace-not-found"></a>`NAMESPACE_NOT_FOUND` | 404 | `namespace` |
+| <a id="invalid-argument"></a>`INVALID_ARGUMENT` | 400 | `badRequest`：违规项 |
+| <a id="unauthenticated"></a>`UNAUTHENTICATED` | 401 |  |
+| <a id="permission-denied"></a>`PERMISSION_DENIED` | 403 |  |
+| <a id="revision-conflict"></a>`REVISION_CONFLICT` | 409 | `revisionConflict`：对象的键、期望的和当前的 revision |
+| <a id="namespace-not-empty"></a>`NAMESPACE_NOT_EMPTY` | 409 | `namespace` |
+| <a id="lease-not-found"></a>`LEASE_NOT_FOUND` | 412 | `leaseNotFound` |
+| <a id="watch-quota-exceeded"></a>`WATCH_QUOTA_EXCEEDED` | 429 | `watchQuotaExceeded`：上限 |
+| <a id="store-unavailable"></a>`STORE_UNAVAILABLE` | 503 |  |
+| <a id="revision-regression"></a>`REVISION_REGRESSION` | 503 | `namespace` |
+| <a id="min-revision-timeout"></a>`MIN_REVISION_TIMEOUT` | 504 | `namespace` |
+
+不是 CoSky 自身的错误（例如路径不存在）同样是 problem details，类型为 `about:blank`，没有 `code` 和 `reason`。
 
 ## 接口
 

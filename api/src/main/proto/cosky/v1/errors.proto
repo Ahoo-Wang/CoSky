@@ -12,7 +12,8 @@
 syntax = "proto3";
 
 // Error model (design §4.4). The server packs one ErrorDetail into google.rpc.Status.details
-// (the grpc-status-details-bin trailer); the REST mapping returns the same detail in the JSON error body.
+// (the grpc-status-details-bin trailer); REST answers RFC 9457 problem details, with the reason and the detail's
+// member beside the standard members.
 package cosky.v1;
 
 import "cosky/v1/resource.proto";

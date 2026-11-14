@@ -616,21 +616,52 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/DeleteResponse' }
     Error:
-      description: Error; the HTTP status follows `detail.reason` (design §4.4).
+      description: A problem (RFC 9457); the HTTP status follows `reason` (design §4.4).
       content:
-        application/json:
-          schema: { $ref: '#/components/schemas/ErrorResponse' }
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
   schemas:
-    ErrorResponse:
+    Problem:
       type: object
+      description: >-
+        RFC 9457 problem details. For CoSky's reasons, `code` and `reason` say what gRPC would beside the standard
+        members, and the member of the error model's detail that the reason has, if any, says more (design §4.4).
+        Other failures, such as a path that does not exist, have the type `about:blank` and neither.
+      required: [title, status]
       properties:
+        type:
+          type: string
+          format: uri
+          description: The problem type, one for each reason; it leads to the reason's row in the REST API's errors.
+        title:
+          type: string
+          description: The reason in words, e.g. `Revision conflict`.
         status:
-          type: string
-          description: gRPC status code name, e.g. `ABORTED`.
-        message:
-          type: string
+          type: integer
+          description: The HTTP status.
         detail:
-          $ref: '#/components/schemas/ErrorDetail'
+          type: string
+          description: What happened, this time.
+        instance:
+          type: string
+          description: The request's path.
+        code:
+          type: string
+          description: The gRPC status code name, e.g. `ABORTED`.
+        reason:
+          $ref: '#/components/schemas/ErrorReason'
+        resourceNotFound:
+          $ref: '#/components/schemas/ResourceNotFound'
+        namespace:
+          $ref: '#/components/schemas/NamespaceRef'
+        revisionConflict:
+          $ref: '#/components/schemas/RevisionConflict'
+        leaseNotFound:
+          $ref: '#/components/schemas/LeaseNotFound'
+        badRequest:
+          $ref: '#/components/schemas/BadRequest'
+        watchQuotaExceeded:
+          $ref: '#/components/schemas/WatchQuotaExceeded'
     RollbackRequest:
       type: object
       required: [toRevision]

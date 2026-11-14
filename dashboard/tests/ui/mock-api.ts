@@ -83,8 +83,20 @@ function pageOf(items: Stored[], field: string, url: URL): Json {
     };
 }
 
-const failure = (route: Route, status: number, message: string) =>
-    json(route, {status: 'FAILED', message, detail: {}}, status);
+/** Problem details (RFC 9457), as the server sends them. */
+const failure = (route: Route, status: number, detail: string) => route.fulfill({
+    status,
+    contentType: 'application/problem+json',
+    body: JSON.stringify({
+        type: 'https://cosky.ahoo.me/guide/rest-api#store-unavailable',
+        title: 'Store unavailable',
+        status,
+        detail,
+        instance: new URL(route.request().url()).pathname,
+        code: 'UNAVAILABLE',
+        reason: 'ERROR_REASON_STORE_UNAVAILABLE',
+    }),
+});
 
 function challengeOf(verifier: string): string {
     return createHash('sha256').update(verifier).digest('base64url');
