@@ -170,7 +170,7 @@ export function Topology({consumers, error, onRetry}: TopologyProps) {
                     <Network className="mx-auto size-10 text-muted-foreground/60"/>
                     <div>
                         <p className="font-medium">No service relationships yet</p>
-                        <p className="mt-1 text-sm text-muted-foreground">Topology appears when registered services report dependencies.</p>
+                        <p className="mt-1 text-sm text-muted-foreground">A line appears when an application watches another service, within half a minute.</p>
                     </div>
                 </div>
             </div>
