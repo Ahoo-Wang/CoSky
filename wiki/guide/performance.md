@@ -64,7 +64,7 @@ That is the node timeout, the replica's election, and then up to 10 seconds: the
 
 On a master with one replica and three Sentinels in Docker, which take a master that does not answer for 5 seconds as down, one server wrote a Config every 100 ms while the master was stopped:
 
-| The master | 8.0.0-beta.1 | Since |
+| The master | 8.0.0-beta.1 | 8.0.0-beta.2 |
 |---|---|---|
 | Killed (`docker kill`) | 10.2 seconds | 15.5 seconds |
 | Frozen (`docker pause`) | Until it answered again: not within 240 seconds | 16.2 seconds |
