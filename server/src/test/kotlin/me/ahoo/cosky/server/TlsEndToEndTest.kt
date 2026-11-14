@@ -39,12 +39,14 @@ import kotlin.time.Duration.Companion.seconds
  * Both ports over TLS, with a certificate made for this test: a token should not cross a network in the clear.
  */
 class TlsEndToEndTest {
-    private fun options(tls: Boolean, trusted: Path? = null) = CoSkyClientOptions(
-        endpoints = listOf("localhost:${SERVER.grpcPort}"),
-        snapshotDir = null,
-        tls = tls,
-        tlsTrustedCertificates = trusted,
-    )
+    private fun options(
+        tls: Boolean,
+        trusted: Path? = null
+    ) = CoSkyClientOptions(listOf("localhost:${SERVER.grpcPort}")) {
+        snapshotDir = null
+        this.tls = tls
+        tlsTrustedCertificates = trusted
+    }
 
     private fun syncs(options: CoSkyClientOptions): Boolean = runBlocking {
         CoSkyClient(options).use { client ->

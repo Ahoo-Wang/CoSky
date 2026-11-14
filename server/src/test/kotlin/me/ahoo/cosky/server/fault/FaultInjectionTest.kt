@@ -100,14 +100,13 @@ class FaultInjectionTest {
         RunningServer(properties(grace, protectionMinLeases)).also { server = it }
 
     private fun client(endpoint: String = "localhost:${running.grpcPort}"): CoSkyClient = CoSkyClient(
-        CoSkyClientOptions(
-            endpoints = listOf(endpoint),
-            snapshotDir = null,
-            reconnectMin = 50.milliseconds,
-            reconnectMax = 500.milliseconds,
-            reRegisterJitter = Duration.ZERO,
-            leaseTtl = LEASE_TTL,
-        ),
+        CoSkyClientOptions(listOf(endpoint)) {
+            snapshotDir = null
+            reconnectMin = 50.milliseconds
+            reconnectMax = 500.milliseconds
+            reRegisterJitter = Duration.ZERO
+            leaseTtl = LEASE_TTL
+        },
     ).also { clients += it }
 
     /**
@@ -301,13 +300,12 @@ class FaultInjectionTest {
         val second = RunningServer(properties(GRACE, NO_PROTECTION))
         try {
             val client = CoSkyClient(
-                CoSkyClientOptions(
-                    endpoints = listOf("localhost:${first.grpcPort}", "localhost:${second.grpcPort}"),
-                    snapshotDir = null,
-                    reconnectMin = 50.milliseconds,
-                    reconnectMax = 500.milliseconds,
-                    leaseTtl = LEASE_TTL,
-                ),
+                CoSkyClientOptions(listOf("localhost:${first.grpcPort}", "localhost:${second.grpcPort}")) {
+                    snapshotDir = null
+                    reconnectMin = 50.milliseconds
+                    reconnectMax = 500.milliseconds
+                    leaseTtl = LEASE_TTL
+                },
             ).also { clients += it }
             client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
             val view = client.namespace(NAMESPACE).configs.watch("a")
@@ -335,14 +333,13 @@ class FaultInjectionTest {
         running.createNamespace(NAMESPACE)
         val proxy = proxy("silent-$id", upstreamOf(running))
         val client = CoSkyClient(
-            CoSkyClientOptions(
-                endpoints = listOf("${TOXIPROXY.host}:${mappedPort(proxy)}", "localhost:${running.grpcPort}"),
-                snapshotDir = null,
-                reconnectMin = 50.milliseconds,
-                reconnectMax = 500.milliseconds,
-                keepAliveTime = 10.seconds,
-                keepAliveTimeout = 2.seconds,
-            ),
+            CoSkyClientOptions(listOf("${TOXIPROXY.host}:${mappedPort(proxy)}", "localhost:${running.grpcPort}")) {
+                snapshotDir = null
+                reconnectMin = 50.milliseconds
+                reconnectMax = 500.milliseconds
+                keepAliveTime = 10.seconds
+                keepAliveTimeout = 2.seconds
+            },
         ).also { clients += it }
         val view = client.namespace(NAMESPACE).configs.watch("a")
         running.putConfig(NAMESPACE, "a", "before")

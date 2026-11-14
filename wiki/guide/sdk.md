@@ -13,16 +13,15 @@ implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.3")
 
 ```kotlin
 val client = CoSkyClient(
-    CoSkyClientOptions(
-        endpoints = listOf("cosky-0.internal:9090", "cosky-1.internal:9090"),
-        token = System.getenv("COSKY_TOKEN"),
-        clientName = "order-service",
-    ),
+    CoSkyClientOptions(listOf("cosky-0.internal:9090", "cosky-1.internal:9090")) {
+        token = System.getenv("COSKY_TOKEN")
+        clientName = "order-service"
+    },
 )
 val prod = client.namespace("prod")
 ```
 
-`COSKY_TOKEN` is the application's own token: [Security](./security.md#a-token-for-an-application) shows how to make one.
+`COSKY_TOKEN` is the application's own token: [Security](./security.md#a-token-for-an-application) shows how to make one. Every setting but the endpoints goes in the block, and `CoSkyClientOptions.Builder` lists them with their defaults.
 
 ## Reading Configs
 
@@ -94,11 +93,10 @@ Snapshots are not encrypted. The directory is `0700` and the files `0600`. `snap
 ## TLS
 
 ```kotlin
-CoSkyClientOptions(
-    endpoints = listOf("cosky.internal:9090"),
-    tls = true,
-    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem"), // for a private CA
-)
+CoSkyClientOptions(listOf("cosky.internal:9090")) {
+    tls = true
+    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem") // for a private CA
+}
 ```
 
 See [Security](./security.md#tls). For anything else, `channelFactory` builds the gRPC channel yourself.

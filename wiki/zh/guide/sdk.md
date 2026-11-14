@@ -13,16 +13,15 @@ implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.3")
 
 ```kotlin
 val client = CoSkyClient(
-    CoSkyClientOptions(
-        endpoints = listOf("cosky-0.internal:9090", "cosky-1.internal:9090"),
-        token = System.getenv("COSKY_TOKEN"),
-        clientName = "order-service",
-    ),
+    CoSkyClientOptions(listOf("cosky-0.internal:9090", "cosky-1.internal:9090")) {
+        token = System.getenv("COSKY_TOKEN")
+        clientName = "order-service"
+    },
 )
 val prod = client.namespace("prod")
 ```
 
-`COSKY_TOKEN` 是应用自己的 token：[安全](./security.md#给应用的-token)中说明了怎么创建。
+`COSKY_TOKEN` 是应用自己的 token：[安全](./security.md#给应用的-token)中说明了怎么创建。除端点以外的设置都写在代码块里，`CoSkyClientOptions.Builder` 列出了全部设置和默认值。
 
 ## 读取 Config
 
@@ -94,11 +93,10 @@ registration.close()
 ## TLS
 
 ```kotlin
-CoSkyClientOptions(
-    endpoints = listOf("cosky.internal:9090"),
-    tls = true,
-    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem"), // 用于私有 CA
-)
+CoSkyClientOptions(listOf("cosky.internal:9090")) {
+    tls = true
+    tlsTrustedCertificates = Path.of("/etc/cosky/ca.pem") // 用于私有 CA
+}
 ```
 
 详见[安全](./security.md#tls)。其他情况可以用 `channelFactory` 自己构建 gRPC 通道。
