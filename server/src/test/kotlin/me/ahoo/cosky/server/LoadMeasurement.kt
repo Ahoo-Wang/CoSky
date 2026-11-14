@@ -698,6 +698,7 @@ class LoadMeasurement {
             DockerImageName.parse(RELAY_IMAGE).asCompatibleSubstituteFor(TOXIPROXY_IMAGE),
         )
             .withNetwork(NETWORK)
+            // Docker Desktop and OrbStack know the name; an engine on Linux learns it here.
             .withExtraHost(DOCKER_HOST_ALIAS, "host-gateway")
             .withCreateContainerCmdModifier { it.hostConfig?.withCapAdd(Capability.NET_ADMIN) }
             .also { it.start() }
@@ -825,7 +826,8 @@ class LoadMeasurement {
         /**
          * This machine, as the relays see it. Run in a container on the Docker host's network (`--network host`), the
          * measurement and the relays share one kernel, and this is the gateway of the relays' network. Elsewhere it is
-         * Docker's name for the host, which a VM's port forwarding may stand between, losing packets of its own.
+         * Docker's name for the host, reached through the port forwarding of Docker's VM if there is one, which loses
+         * packets of its own.
          */
         val HOST_FROM_RELAYS: String by lazy {
             if (File("/.dockerenv").exists()) {
