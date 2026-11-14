@@ -9,9 +9,9 @@
 
 - 交付 **CoSky 8.0.0**:按目标架构完整重写,不兼容 6.x 的 API、Redis 键结构和客户端。
 - 6.x 进入维护期:只修安全问题和严重缺陷,不再加功能。
-- 版本序列:`8.0.0-alpha.N`(开发预览,API 可变)→ `8.0.0-beta.N`(API 冻结)→ `8.0.0-rc.N` → `8.0.0`。起始版本为 `8.0.0-alpha.1`。
-- M4 之后开始发布,从 `8.0.0-alpha.1` 起:alpha 不作兼容性承诺,API、协议和 Redis 键都可能变化。预发布版本只有版本号标签,`latest` 仍指向 6.x。
-- `8.0.0-beta.1` 起冻结,到 8.0.0 只增不改:gRPC API(`cosky.v1`,含错误原因)、REST API、client 与 starter 的公开 API 和配置项、server 的配置项、Deployment 列出的指标、Redis 中的数据(之后的版本不经迁移就能读)。不在其内:server 各模块作为库的 API、Dashboard 界面、日志内容。
+- 版本序列:`8.0.0-alpha.N`(开发预览,API 可变)→ `8.0.0-beta.N`(功能完整,API 仍可调整)→ `8.0.0-rc.N`(API 冻结)→ `8.0.0`。起始版本为 `8.0.0-alpha.1`。
+- M4 之后开始发布,从 `8.0.0-alpha.1` 起:RC 之前(alpha 与 beta)不作兼容性承诺,API、协议、配置和 Redis 键都可能变化,发版说明写明怎么升级。预发布版本只有版本号标签,`latest` 仍指向 6.x。
+- `8.0.0-rc.1` 起冻结,到 8.0.0 只增不改:gRPC API(`cosky.v1`,含错误原因)、REST API、client 与 starter 的公开 API 和配置项、server 的配置项、Deployment 列出的指标、Redis 中的数据(之后的版本不经迁移就能读)。不在其内:server 各模块作为库的 API、Dashboard 界面、日志内容。维护者更正(2026-11-14):冻结从 RC 开始,不是 beta;beta.1、beta.2 的发版说明写的是 beta 冻结。beta 期间的不兼容变更写进当版发版说明。
 - 8.0 的范围就是设计文档 §3–§7;明确不做的事见设计文档 D7。
 
 ## 2. 里程碑
@@ -159,7 +159,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W4b Dashboard | 协调会话 | #1032 与本 PR | ✅ 已合并;OIDC 已用 Keycloak 26 实测(D37),其他提供方没有实测 |
 | W4c 迁移工具 | 协调会话 | 本 PR | ✅ 已合并;只支持整体切换(D33);每个 Release 附 `cosky-migrate` zip;已用 6.2.0 server 写出的数据验证 |
 | W4d 文档 | 协调会话 | 本 PR、#1034、#1035 | ✅ 已合并;Mermaid 渲染与 CoCache 一致;写文档时发现并修复了客户端不支持 TLS、Spring 下摘流无效 |
-| 发布 `8.0.0-alpha.1`–`beta.2` | 协调会话 | alpha.2 #1052,alpha.3 #1055,alpha.4 #1152,alpha.5 #1174,beta.1 #1181,beta.2 #1188 | ✅ 都已发布到 Maven Central、GitHub Packages、Docker Hub、GHCR、阿里云;beta.1(2026-11-14)起冻结 API;beta.2(2026-11-14)修复 Sentinel 主节点挂住时不跟随切换;两版发布后都已用公开制品跑通 Getting Started;请用最新一版 |
+| 发布 `8.0.0-alpha.1`–`beta.2` | 协调会话 | alpha.2 #1052,alpha.3 #1055,alpha.4 #1152,alpha.5 #1174,beta.1 #1181,beta.2 #1188 | ✅ 都已发布到 Maven Central、GitHub Packages、Docker Hub、GHCR、阿里云;beta.1、beta.2(2026-11-14),beta.2 修复 Sentinel 主节点挂住时不跟随切换;两版发布后都已用公开制品跑通 Getting Started;请用最新一版 |
 
 ### 到 8.0.0 的剩余工作(`8.0.0-alpha.3` 之后)
 
@@ -173,7 +173,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 
 维护者决定不再验证其他 OIDC 提供方,只实测过 Keycloak 26(D37)。
 
-**beta 前的验证**(beta 冻结 API)
+**beta 前的验证**
 
 | 验证项 | 现状 | 环境 |
 |---|---|---|

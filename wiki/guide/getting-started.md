@@ -6,7 +6,7 @@ description: Run a CoSky server, serve a Config to a Spring Boot application, an
 # Getting Started
 
 ::: warning 8.0 is in beta
-From `8.0.0-beta.1`, the API, the wire format, the configuration and the data in Redis no longer change incompatibly before 8.0.0 ([what it keeps](https://github.com/Ahoo-Wang/CoSky/releases/tag/v8.0.0-beta.1)). It is still a preview, not yet for real traffic. `ahoowang/cosky:latest` is still 6.x, whose documentation is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+It is complete, but there is no compatibility promise before the release candidate: until `8.0.0-rc.1` freezes them, its API, wire format, configuration and Redis data may still change. It is still a preview, not yet for real traffic. `ahoowang/cosky:latest` is still 6.x, whose documentation is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 :::
 
 This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
