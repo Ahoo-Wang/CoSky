@@ -253,11 +253,16 @@ class RedisStore(
                 // What tail.lua compares: the entries of a revision differ, by when each object was created (§5.2).
                 appliedMeta = group.first().meta
             }
-            when {
-                revisions.isNotEmpty() -> readSize = TAIL_BATCH_SIZE
+            if (read.size < readSize) {
+                // The end of the log, as of this read: a write committed since publishes its hint after it, so after
+                // seenHint was taken, and this wakes at once.
+                readSize = TAIL_BATCH_SIZE
+                withTimeoutOrNull(tailPollInterval) { hint.first { it != seenHint } }
+            } else if (revisions.isEmpty()) {
                 // One revision is larger than a read: a lease takes all its Instances along, however many.
-                read.size >= readSize -> readSize *= 2
-                else -> withTimeoutOrNull(tailPollInterval) { hint.first { it != seenHint } }
+                readSize *= 2
+            } else {
+                readSize = TAIL_BATCH_SIZE
             }
         }
     }
