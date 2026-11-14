@@ -31,6 +31,11 @@ spring:
 # /swagger-ui.html, and keeps all its schemas: the protos' messages, beside those the paths name.
 springdoc:
   remove-broken-reference-definitions: false
+  # On by default, which springdoc would otherwise warn of at every start; see Security for turning them off.
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 management:
   tracing:
     sampling:
