@@ -631,7 +631,8 @@ class RedisStore(
          * How long a command, or a read of the topology, waits for a cluster node, rather than Lettuce's minute: the
          * scripts take milliseconds, and a namespace on a master that hangs is unavailable at least this long.
          */
-        private val CLUSTER_TIMEOUT = 5.seconds
+        internal val CLUSTER_TIMEOUT = 5.seconds
+        private val TIMEOUT_PARAMETER = Regex("[?&]timeout=")
         private val NAMESPACE_TERMINATE = RedisScript("namespace_terminate")
         private val NAMESPACE_REMOVE = RedisScript("namespace_remove")
 
@@ -648,19 +649,26 @@ class RedisStore(
             tailPollInterval: Duration = 1.seconds,
             resources: ClientResources? = null,
         ): Store {
-            val redisUri = RedisURI.create(uri)
             return if (cluster) {
-                // Unless the URI says otherwise: Lettuce reads a cluster's topology with the timeout of the URI it
-                // started from, and so waits that long for a node that hangs before it can follow a failover.
-                if ("timeout=" !in uri) {
-                    redisUri.timeout = CLUSTER_TIMEOUT.toJavaDuration()
-                }
+                val redisUri = clusterUri(uri)
                 val client = resources?.let { RedisClusterClient.create(it, redisUri) }
                     ?: RedisClusterClient.create(redisUri)
                 owning(client) { RedisStore.cluster(client, options, tailPollInterval) }
             } else {
+                val redisUri = RedisURI.create(uri)
                 val client = resources?.let { RedisClient.create(it, redisUri) } ?: RedisClient.create(redisUri)
                 owning(client) { RedisStore.standalone(client, options, tailPollInterval) }
+            }
+        }
+
+        /**
+         * The URI of a cluster, with [CLUSTER_TIMEOUT] unless it sets its own: Lettuce reads a cluster's topology with
+         * the timeout of the URI it started from, and so waits that long for a node that hangs before it can follow a
+         * failover.
+         */
+        internal fun clusterUri(uri: String): RedisURI = RedisURI.create(uri).apply {
+            if (!TIMEOUT_PARAMETER.containsMatchIn(uri)) {
+                timeout = CLUSTER_TIMEOUT.toJavaDuration()
             }
         }
 
