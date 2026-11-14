@@ -84,7 +84,10 @@ may the Kotlin API of `cosky-server`, `cosky-store`, `cosky-store-redis`, `cosky
 `cosky-conformance-test`. Before the release candidate there is no compatibility promise:
 an alpha or a beta may change any of them, and its release notes say how to upgrade. CI's Proto Compatibility job checks the protos against a pull request's base
 with `./gradlew :api:bufBreaking` (rules in `api/src/main/proto/buf.yaml`): during the betas it reports, and from the
-release candidate it is a required check.
+release candidate it is a required check. Likewise for the Kotlin API of `cosky-api`, `cosky-client` and
+`cosky-spring-boot-starter`, which each module keeps in `api/<module>.api`: CI's ABI Compatibility job runs
+`./gradlew checkKotlinAbi`, and a pull request that changes that API runs `./gradlew updateKotlinAbi` and commits the
+result, so reviewers see the change.
 
 To release:
 

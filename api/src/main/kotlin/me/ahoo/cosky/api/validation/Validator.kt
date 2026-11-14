@@ -167,6 +167,7 @@ class Validator(private val limits: Limits = Limits.DEFAULT) {
         return checks.result()
     }
 
+    @InternalCoSkyApi // The ABI dump does not take it from the class.
     companion object {
         /** `expected_revision` meaning "the resource must not exist yet". */
         const val MUST_NOT_EXIST = -1L

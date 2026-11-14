@@ -52,7 +52,29 @@ jobs:
           cache: gradle
 
       - name: Integration Test
-        run: ./gradlew clean check
+        # The ABI Compatibility job checks the Kotlin API instead, without blocking, until 8.0.0-rc.1.
+        run: ./gradlew clean check -x checkKotlinAbi
+
+  # The Kotlin API that 8.0.0-rc.1 freezes (CONTRIBUTING.md). A pull request that changes it updates the dumps
+  # (`./gradlew updateKotlinAbi`), so the change shows in review.
+  abi-compatibility:
+    name: ABI Compatibility
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: |
+            25
+            21
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Kotlin API
+        run: ./gradlew checkKotlinAbi
 
   # From 8.0.0-rc.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
   # pull request, by the rules in api/src/main/proto/buf.yaml.
