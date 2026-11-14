@@ -811,15 +811,15 @@ Redis 主从切换或重启可能丢失最后约 1 秒的写入。此后 `rev` �
 
 ```kotlin
 // CoSkyClient 持有一个 CoroutineScope(SupervisorJob),close() 时取消全部 Watch 与保活
-val cosky = CoSkyClient(endpoints = listOf("cosky:9090"), token = System.getenv("COSKY_TOKEN"))
+val cosky = CoSkyClient(CoSkyClientOptions(listOf("cosky:9090")) { token = System.getenv("COSKY_TOKEN") })
 val ns = cosky.namespace("prod")
 
 val config: StateFlow<Resource?> = ns.configs.watch("order-service.yaml")          // 热流,多处订阅共享一个 Watch
 val current = config.first { it != null }                                         // suspend 等待首个值
-val registration = ns.instances.register(service = "order", endpoint = Endpoint("http", host, 8080))  // suspend
+val registration = ns.instances.register(service = "order", endpoint = endpoint { scheme = "http"; this.host = host; port = 8080 })  // suspend
 val payment: StateFlow<List<Resource>> = ns.instances.watch(service = "payment")
 val target = ns.loadBalancer("payment").choose()                                  // 非 suspend:只读本地快照
-registration.close()                                                              // suspend:Revoke 租约
+registration.close()                                                              // suspend:删除实例,最后一个实例连同租约一起撤销
 ```
 
 - 同一 key 的多个 `watch` 调用共享一个底层 Watch,它存活到 client 关闭。热路径只读 `StateFlow.value`,不算订阅,所以订阅数无法判断何时可以取消;一个进程关心的 key 也是有限的。

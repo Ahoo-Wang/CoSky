@@ -63,7 +63,7 @@ Pages are organized by what the reader wants to do, not by code module. Each pag
 
 ## Boundaries
 
-- ✅ Run `node scripts/generate-llms-full.mjs` after adding, removing or renaming a page (and add it to the script's sections)
+- ✅ Run `node scripts/generate-llms-full.mjs` after changing any page, since `llms-full.txt` holds every page's content; add a new page to the script's sections first. CI checks that the output is current
 - ✅ Run `pnpm check:mermaid` after editing any Mermaid diagram
 - ✅ Run `pnpm build`: it fails on dead links
 - ✅ Keep English and Chinese pages in sync (same structure, same filenames)
