@@ -39,7 +39,7 @@ CoSky 为微服务提供**配置管理**和**服务发现**。一个小型 serve
 启动 server。`--dev` 不需要 Redis 和登录，也不保留任何数据：
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.2 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.3 --dev
 ```
 
 在 Spring Boot 4 应用中添加 starter：
@@ -48,7 +48,7 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.2 --dev
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.2"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.3"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.cloud:spring-cloud-context")
 }
