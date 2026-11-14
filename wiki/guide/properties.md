@@ -64,6 +64,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
 | `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
+| `springdoc.api-docs.enabled` | `true` | The REST API's document at `/v3/api-docs`, and Swagger UI on it at `/swagger-ui.html`; `springdoc.swagger-ui.enabled=false` keeps the document only |
 
 ### Fixed limits
 

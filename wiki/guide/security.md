@@ -165,5 +165,6 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 - Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
 - Anyone who can reach Redis can read and change everything, past all of the above. Give the server a Redis user of its own, over TLS where others share the network: see [Deployment](./deployment.md#credentials-and-tls).
 - Instance metadata is visible to anyone allowed to read the instance.
+- The REST API's document, `/v3/api-docs`, and Swagger UI, `/swagger-ui.html`, need no token; calls made from it do. `springdoc.api-docs.enabled=false` turns both off.
 - `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
 - gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.

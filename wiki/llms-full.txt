@@ -765,6 +765,7 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 - Config contents are not encrypted, in Redis or in client [snapshots](./sdk.md#snapshots).
 - Anyone who can reach Redis can read and change everything, past all of the above. Give the server a Redis user of its own, over TLS where others share the network: see [Deployment](./deployment.md#credentials-and-tls).
 - Instance metadata is visible to anyone allowed to read the instance.
+- The REST API's document, `/v3/api-docs`, and Swagger UI, `/swagger-ui.html`, need no token; calls made from it do. `springdoc.api-docs.enabled=false` turns both off.
 - `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
 - gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.
 </doc>
@@ -974,6 +975,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
 | `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
+| `springdoc.api-docs.enabled` | `true` | The REST API's document at `/v3/api-docs`, and Swagger UI on it at `/swagger-ui.html`; `springdoc.swagger-ui.enabled=false` keeps the document only |
 
 ### Fixed limits
 
@@ -1018,7 +1020,7 @@ The service name is `spring.application.name`. `spring.cloud.service-registry.au
 <doc title="REST API" path="guide/rest-api.md">
 # REST API
 
-The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the full OpenAPI 3.1 document to `api/build/openapi/cosky.yaml`, with the same schemas as gRPC, since both come from one set of protos.
+The management API, on port 8080. Its OpenAPI 3.1 document has the same schemas as gRPC, since both come from one set of protos. A server serves it at `/v3/api-docs` (`/v3/api-docs.yaml` as YAML), and shows it in Swagger UI at `/swagger-ui.html`, where **Authorize** takes a token. `./gradlew :api:generateOpenApi` writes it to `api/build/openapi/cosky.yaml`, with the item schema of the Watch's event stream as well, which the server's copy leaves out.
 
 ## Conventions
 

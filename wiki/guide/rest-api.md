@@ -5,7 +5,7 @@ description: The endpoints of the REST API and the conventions they share.
 
 # REST API
 
-The management API, on port 8080. `./gradlew :api:generateOpenApi` writes the full OpenAPI 3.1 document to `api/build/openapi/cosky.yaml`, with the same schemas as gRPC, since both come from one set of protos.
+The management API, on port 8080. Its OpenAPI 3.1 document has the same schemas as gRPC, since both come from one set of protos. A server serves it at `/v3/api-docs` (`/v3/api-docs.yaml` as YAML), and shows it in Swagger UI at `/swagger-ui.html`, where **Authorize** takes a token. `./gradlew :api:generateOpenApi` writes it to `api/build/openapi/cosky.yaml`, with the item schema of the Watch's event stream as well, which the server's copy leaves out.
 
 ## Conventions
 
