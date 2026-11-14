@@ -276,7 +276,9 @@ class WatchSessionTest {
             val sent = watch(create(view.revision, view.epoch), cache = reloading, whileRunning = {
                 delay(SETTLE)
                 failing.failure.complete(Unit)
-                reloading.views.first { it == null }
+                // The view is null only for as long as a reload takes, which a StateFlow may never show: wait for the
+                // view the reload brings instead, the only new one before "b".
+                reloading.views.first { it != null && it !== view }
                 put("b")
             }) { it.hasEvents() }
             sent.single().events.revision.assert().isEqualTo(view.revision + 1)

@@ -49,6 +49,16 @@ jobs:
         run: pnpm run build
         working-directory: wiki
 
+      # llms-full.txt holds every page, so it goes stale with any edit, not only with a new page.
+      - name: Check the LLM indexes are current
+        run: |
+          node scripts/generate-llms-full.mjs
+          git diff --exit-code -- llms-full.txt llms.txt ../llms.txt || {
+            echo "::error::Run 'node wiki/scripts/generate-llms-full.mjs' and commit the result."
+            exit 1
+          }
+        working-directory: wiki
+
       # Mermaid renders in the browser, so a successful build says nothing about a diagram's syntax.
       - name: Validate Mermaid diagrams
         run: pnpm check:mermaid

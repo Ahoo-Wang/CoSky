@@ -103,7 +103,7 @@ internal class WatchMultiplexer(
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                log.warn("The watch stream to {} failed: {}", connection.endpoint(), describe(e))
+                log.warn("The watch stream to {} failed: {}", channel.authority(), describe(e))
             }
             synchronized(lock) { requests = null }
             connectionState.compareAndSet(ConnectionState.SYNCED, ConnectionState.DEGRADED)
