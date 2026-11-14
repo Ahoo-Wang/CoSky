@@ -132,6 +132,33 @@ tasks.check {
     dependsOn(bufLint)
 }
 
+/*
+ * `buf breaking` holds the protos to what an earlier copy of them allows, by the rules in src/main/proto/buf.yaml. CI
+ * runs it against a pull request's base: `-PbufAgainst=<the base's api/src/main/proto>`, and `-PbufErrorFormat`.
+ */
+val bufBreaking by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks the protos for breaking changes against -PbufAgainst, an earlier api/src/main/proto."
+    val bufExecutable = buf.elements.map { it.single().asFile }
+    val against = providers.gradleProperty("bufAgainst")
+    val errorFormat = providers.gradleProperty("bufErrorFormat").orElse("text")
+    inputs.files(buf)
+    workingDir(rootDir)
+    doFirst {
+        check(against.isPresent) { "Give the earlier protos with -PbufAgainst=<a directory>." }
+        bufExecutable.get().setExecutable(true)
+        executable = bufExecutable.get().absolutePath
+        args(
+            "breaking",
+            layout.projectDirectory.dir("src/main/proto").asFile.relativeTo(rootDir).path,
+            "--against",
+            file(against.get()).absolutePath,
+            "--error-format",
+            errorFormat.get(),
+        )
+    }
+}
+
 fun bufClassifier(): String {
     val os = System.getProperty("os.name").lowercase()
     val arch = when (System.getProperty("os.arch").lowercase()) {
