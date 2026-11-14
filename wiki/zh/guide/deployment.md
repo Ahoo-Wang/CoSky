@@ -20,6 +20,28 @@ Redis 复制是异步的，故障切换可能丢失最后的写入。为了缩�
 
 如果 Redis 丢失了全部数据，server 会在大约 30 秒内自行按首次启动的方式重建：系统 namespace、`default`，以及由 bootstrap token 生成的管理员，所以不要移除这个 token。其余内容都已丢失：其他 namespace、Config、Role、RoleBinding，以及 ServiceAccount 和它们的 token。需要重新创建，或者导入你保存的 Config [zip 导出](./configuration.md#导入与导出)。开启鉴权时，应用会继续提供已知的数据，但在拿到新 token 之前都不会重新注册。关闭鉴权时，等它的 namespace 重新存在后，应用会跟随其中的内容，并重新注册自己。
 
+### 凭据与 TLS
+
+都写在 `cosky.store.redis.uri` 里：
+
+| Redis 使用 | URI |
+|---|---|
+| 密码 | `redis://:password@redis:6379` |
+| ACL 用户 | `redis://cosky:password@redis:6379` |
+| TLS | `rediss://cosky:password@redis:6380` |
+| Sentinel | `redis-sentinel://cosky:password@s1:26379,s2:26379,s3:26379#mymaster`。凭据是主节点和副本的；试过的 Sentinel 没有设密码。 |
+| Cluster | `redis://cosky:password@node:6379`，并设置 `cosky.store.redis.cluster=true` |
+
+使用 TLS 时，server 按 JVM 信任的证书机构校验 Redis 的证书。私有证书机构需要给镜像一个信任库：`JAVA_OPTS="-Djavax.net.ssl.trustStore=/tls/trust.p12 -Djavax.net.ssl.trustStorePassword=..."`。不受信任的证书会让 server 启动失败。`?verifyPeer=NONE` 跳过校验，只用于测试。
+
+ACL 用户需要 CoSky 的键和频道（都以 `cosky:` 开头），危险命令中只需要 `INFO`：
+
+```
+ACL SETUSER cosky on >password ~cosky:* &cosky:* +@all -@dangerous +info
+```
+
+它在单节点上试过各种写入、Watch 和租约过期，在 Sentinel 和 Cluster 上试过故障切换。没有 `+info` 时，server 无法检查上面的前置条件：它会在日志中说明，然后照常启动。
+
 ## Docker
 
 ```bash

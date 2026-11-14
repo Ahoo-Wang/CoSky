@@ -27,5 +27,5 @@ fork and released as a patch version; the release notes credit the reporter unle
 
 - Turn on [TLS](wiki/guide/security.md#tls) on both ports, and in the clients: without it, tokens cross the network in the clear.
 - Revoke the bootstrap token once real accounts exist, and grant each subject only what it needs through roles.
-- Keep Redis on a private network with authentication enabled: whoever reaches it can read and change everything.
+- Keep Redis on a private network with authentication enabled, and TLS where others share the network: whoever reaches it can read and change everything. [Deployment](wiki/guide/deployment.md#credentials-and-tls) shows the URIs and an ACL user that is enough.
 - Never run with `cosky.auth.enabled: false` or `--dev` outside development.
