@@ -580,7 +580,7 @@ sealed interface ApplyResult {
 | `cosky:{ns}:lease:attach` | Sorted Set | member = Instance name,score = lease id |
 | `cosky:{ns}:lease:seq` | String | 租约 id 的序号;id = 秒级时间 × 2^20 + 序号,序号丢失后也不会重复客户端还持有的 id;小于 2^53,作为 score 不丢精度 |
 | `cosky:{ns}:topology` | Sorted Set | member = `<consumer>\0<producer>`,score = 到期时间(ms,Redis `TIME`);软状态(D30) |
-| `cosky:leader:reaper` | String | 回收 Leader 锁,`SET NX PX` |
+| `cosky:lock:reaper` | String | 回收 Leader 锁,`SET NX PX` |
 
 另有 Pub/Sub 频道 `cosky:hint`,只用作追尾的唤醒提示(§6.1)。
 
@@ -743,7 +743,7 @@ client                         server                         Redis
 - 存储不可用时 KeepAlive 流以 `UNAVAILABLE` 结束,**不代表租约丢失**:客户端保留注册信息,重连成功后立即续期,不等下一周期。
 - 一个进程在一个 namespace 只持有一个租约,心跳成本 O(进程数),与实例数无关。
 - 持久实例 = 不挂租约的 Instance,无特殊分支。
-- Reaper 由 `cosky:leader:reaper` 锁选主(PX 15s,每 5s 续约);Leader 失效最多延迟一个锁周期加一个恢复宽限,只影响回收时效,不影响正确性。
+- Reaper 由 `cosky:lock:reaper` 锁选主(PX 15s,每 5s 续约);Leader 失效最多延迟一个锁周期加一个恢复宽限,只影响回收时效,不影响正确性。
 
 **回收保护(D20)**:控制面故障超过 TTL 后恢复时,到期的主要是仍然存活的进程。如果立即回收,所有实例都会被删除,
 消费者读到空列表,客户端再集中重新注册。Reaper 每轮依次判断:
@@ -1032,11 +1032,11 @@ cosky:
 
 | 指标 | 类型 | 说明 |
 |---|---|---|
-| `cosky_store_apply_seconds` | Timer | 写入耗时 |
+| `cosky_store_apply_seconds` | Timer(直方图,1 ms 到 10 s 的固定桶) | 写入耗时;各副本的桶可以相加后取分位数 |
 | `cosky_cache_revision{namespace}` | Gauge | 已应用 revision |
 | `cosky_cache_lag_seconds{namespace}` | Gauge | 写入 → 进入缓存的延迟 |
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
-| `cosky_watch_events_sent_total` | Counter | |
+| `cosky_watch_events_sent_total` | Counter | 发给 watcher 的事件数 |
 | `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active{namespace}` / `cosky_lease_expired_total` | Gauge / Counter | 由回收 Leader 上报 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2) |
@@ -1047,7 +1047,7 @@ cosky:
 - 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠比较各副本的 `cosky_cache_revision` 发现。
 - 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。
 - 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
-- 客户端暴露连接状态、watch 延迟、快照年龄、低频重建发现差异的指标。
+- 客户端:`CoSkyClient.connectionState` 给出连接状态,starter 据此提供健康检查。watch 延迟、快照年龄等客户端指标留作后续:指标只增不改,RC 之后也可以加。
 
 ### 7.10 性能目标
 

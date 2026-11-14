@@ -227,7 +227,10 @@ export interface GrantResponse {
  */
 export interface HistoryRequest {
   key: ResourceKey;
-  /** - format: int32 */
+  /**
+   * the most revisions over all pages together; 0 or more than history-size = all of them
+   * - format: int32
+   */
   limit: number;
   /** next_page_token of the previous page; empty = the first page */
   pageToken: string;

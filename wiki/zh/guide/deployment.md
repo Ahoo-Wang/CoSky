@@ -108,8 +108,9 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 |---|---|
 | `cosky_cache_lag_seconds{namespace}` | 写入到达副本的耗时 |
 | `cosky_cache_revision{namespace}` | 副本之间长时间不一致：其中一个和 Redis 断开了 |
-| `cosky_store_apply_seconds` | 写入延迟 |
+| `cosky_store_apply_seconds` | 写入延迟，直方图：`histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` 是所有副本合起来的 p99 |
 | `cosky_watch_active` | 这个副本上的 watch 数 |
+| `cosky_watch_events_sent_total` | 发给 watcher 的事件数 |
 | `cosky_watch_gone_total{reason}` | 客户端不得不重新开始：`slow`、`compacted`、`epoch`、`regression` |
 | `cosky_lease_active{namespace}`、`cosky_lease_expired_total` | 已注册的进程和到期数 |
 | `cosky_lease_protection_active{namespace}` | 回收因大面积到期而暂停 |

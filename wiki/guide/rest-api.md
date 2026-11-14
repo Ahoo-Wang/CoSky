@@ -86,7 +86,7 @@ Failures that are not CoSky's own, such as a path that does not exist, are probl
 |---|---|---|
 | GET | `/v1/namespaces/{ns}/configs` | List. `?labelSelector=a=1,b=2` |
 | GET, PUT, DELETE | `/v1/namespaces/{ns}/configs/{name}` | |
-| GET | `/v1/namespaces/{ns}/configs/{name}/history` | Newest first. `?limit=&pageToken=` |
+| GET | `/v1/namespaces/{ns}/configs/{name}/history` | Newest first. `?limit=` is the most revisions over all pages together, and `?pageToken=` the next page |
 | POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{"toRevision": "41"}`. Writes that content as a new revision, and brings back a deleted Config. |
 | POST | `/v1/namespaces/{ns}/configs:import` | A zip file as the body; each entry path is a Config name |
 | GET | `/v1/namespaces/{ns}/configs:export` | A zip file |

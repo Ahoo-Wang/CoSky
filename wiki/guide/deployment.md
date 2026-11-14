@@ -108,8 +108,9 @@ Metrics are at `/actuator/prometheus`:
 |---|---|
 | `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
 | `cosky_cache_revision{namespace}` | Replicas that disagree for long: one of them is cut off from Redis |
-| `cosky_store_apply_seconds` | Write latency |
+| `cosky_store_apply_seconds` | Write latency, a histogram: `histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` is the p99 over every replica |
 | `cosky_watch_active` | Watches on this replica |
+| `cosky_watch_events_sent_total` | Events sent to watchers |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
 | `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
 | `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
