@@ -44,7 +44,7 @@ export class ConfigsApiClient implements ApiMetadataCapable {
    * - operationId: `getConfigHistory`
    * - path: `/v1/namespaces/{namespace}/configs/{name}/history`
    * @param name - Config name as one path segment; `/` in the name is encoded as `%2F`.
-   * @param limit - Revisions to return, newest first. 0 or more than the server's history size returns the full history.
+   * @param limit - The most revisions to return over all pages together, newest first. 0 or more than the server's history size returns the full history.
    * @param pageToken - `nextPageToken` of the previous page. A token stops being valid when the namespace epoch changes (400); list again from the first page. 
    */
   @get('/v1/namespaces/{namespace}/configs/{name}/history')

@@ -18,6 +18,7 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tags
 import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -52,7 +53,12 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
     private val gauges = ConcurrentHashMap<Pair<String, String>, AtomicLong>()
     private val counters = ConcurrentHashMap<Pair<String, String>, Counter>()
 
-    val applyTimer: Timer = registry.timer("cosky_store_apply_seconds")
+    /**
+     * A histogram, so that a percentile can be taken over every replica.
+     */
+    val applyTimer: Timer = Timer.builder("cosky_store_apply_seconds")
+        .serviceLevelObjectives(*APPLY_BUCKETS)
+        .register(registry)
 
     fun watchStarted() {
         watchesActive.incrementAndGet()
@@ -124,5 +130,12 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
 
     private companion object {
         const val NAMESPACE = "namespace"
+
+        /**
+         * From a write on one Redis to one waiting out a failover.
+         */
+        val APPLY_BUCKETS: Array<Duration> = arrayOf(1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000, 10000)
+            .map { Duration.ofMillis(it.toLong()) }
+            .toTypedArray()
     }
 }

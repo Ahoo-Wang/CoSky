@@ -60,7 +60,7 @@ class DevelopmentModeTest {
                 get("/actuator/health/liveness").statusCode().assert().isEqualTo(200)
                 val metrics = get("/actuator/prometheus")
                 metrics.statusCode().assert().isEqualTo(200)
-                metrics.body().assert().contains("cosky_store_apply_seconds")
+                metrics.body().assert().contains("cosky_store_apply_seconds_bucket")
                 metrics.body().assert().contains("cosky_cache_revision")
                 get("/v1/namespaces/trial/configs/a").statusCode().assert().isEqualTo(200)
             }
