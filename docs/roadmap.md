@@ -159,7 +159,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W4b Dashboard | 协调会话 | #1032 与本 PR | ✅ 已合并;OIDC 已用 Keycloak 26 实测(D37),其他提供方没有实测 |
 | W4c 迁移工具 | 协调会话 | 本 PR | ✅ 已合并;只支持整体切换(D33);每个 Release 附 `cosky-migrate` zip;已用 6.2.0 server 写出的数据验证 |
 | W4d 文档 | 协调会话 | 本 PR、#1034、#1035 | ✅ 已合并;Mermaid 渲染与 CoCache 一致;写文档时发现并修复了客户端不支持 TLS、Spring 下摘流无效 |
-| 发布 `8.0.0-alpha.1`–`beta.1` | 协调会话 | alpha.2 #1052,alpha.3 #1055,alpha.4 #1152,alpha.5 #1174,beta.1 本 PR | ✅ alpha.1–alpha.5 已发布到 Maven Central、GitHub Packages、Docker Hub、GHCR、阿里云;请用最新一版,前两版删除 Config 后旧值要重启才消失 |
+| 发布 `8.0.0-alpha.1`–`beta.1` | 协调会话 | alpha.2 #1052,alpha.3 #1055,alpha.4 #1152,alpha.5 #1174,beta.1 #1181 | ✅ 都已发布到 Maven Central、GitHub Packages、Docker Hub、GHCR、阿里云;beta.1(2026-11-14)起冻结 API,发布后已用公开制品跑通 Getting Started;请用最新一版 |
 
 ### 到 8.0.0 的剩余工作(`8.0.0-alpha.3` 之后)
 
