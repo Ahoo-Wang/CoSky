@@ -45,6 +45,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
+import io.grpc.Channel as GrpcChannel
 
 /**
  * Keeps one lease per namespace alive and remembers every registration, so that they can be restored when the lease is
@@ -90,11 +91,14 @@ internal class LeaseKeeper(
         mutex.withLock {
             val name = resource.meta.name
             val previous = registrations.put(name, resource)
+            // One channel for the whole attempt, so that a failure names where it happened, even if a stream has
+            // moved the connection on meanwhile.
+            val channel = connection.channel()
             try {
                 if (lease == 0L) {
-                    lease = grant()
+                    lease = grant(channel)
                 }
-                put(resource)
+                put(resource, channel = channel)
                 confirmed[name] = resource
                 pending.remove(name)
             } catch (e: CancellationException) {
@@ -110,7 +114,7 @@ internal class LeaseKeeper(
                 log.warn(
                     "Could not register {} at {} yet, and keeps trying: {}",
                     name,
-                    connection.endpoint(),
+                    channel.authority(),
                     describe(e),
                 )
                 pending.add(name)
@@ -193,7 +197,7 @@ internal class LeaseKeeper(
                 log.warn(
                     "Renewing the lease of namespace {} at {} failed: {}",
                     namespace,
-                    connection.endpoint(),
+                    channel.authority(),
                     describe(e),
                 )
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
@@ -330,22 +334,26 @@ internal class LeaseKeeper(
         false
     }
 
-    private suspend fun grant(): Long = leases().timed().grant(
+    private suspend fun grant(channel: GrpcChannel = connection.channel()): Long = leases(channel).timed().grant(
         GrantRequest.newBuilder()
             .setNamespace(namespace)
             .setTtlSeconds(options.leaseTtl.inWholeSeconds.toInt())
             .build(),
     ).lease
 
-    private suspend fun put(resource: Resource, expectedRevision: Long = NO_CHECK) {
+    private suspend fun put(
+        resource: Resource,
+        expectedRevision: Long = NO_CHECK,
+        channel: GrpcChannel = connection.channel(),
+    ) {
         try {
-            resources().timed().put(putRequest(resource, expectedRevision))
+            resources(channel).timed().put(putRequest(resource, expectedRevision))
         } catch (e: StatusException) {
             if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_LEASE_NOT_FOUND) {
                 throw e
             }
-            lease = grant()
-            resources().timed().put(putRequest(resource, expectedRevision))
+            lease = grant(channel)
+            resources(channel).timed().put(putRequest(resource, expectedRevision))
         }
     }
 
@@ -360,9 +368,11 @@ internal class LeaseKeeper(
         .setName(name)
         .build()
 
-    private fun leases() = LeaseServiceGrpcKt.LeaseServiceCoroutineStub(connection.channel())
+    private fun leases(channel: GrpcChannel = connection.channel()) =
+        LeaseServiceGrpcKt.LeaseServiceCoroutineStub(channel)
 
-    private fun resources() = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(connection.channel())
+    private fun resources(channel: GrpcChannel = connection.channel()) =
+        ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel)
 
     /**
      * For a single call: a server that accepts it and never answers must not hold up everything behind the mutex.

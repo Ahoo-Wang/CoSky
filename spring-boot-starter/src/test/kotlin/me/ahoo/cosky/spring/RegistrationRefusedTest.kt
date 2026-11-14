@@ -42,4 +42,9 @@ class RegistrationRefusedTest {
 
         analysis.action.assert().contains("Bind").contains("order").contains("prod").doesNotContain("COSKY_TOKEN")
     }
+
+    @Test
+    fun `a status without a description says no null`() {
+        analysis(Status.UNAUTHENTICATED).description.assert().endsWith("UNAUTHENTICATED").doesNotContain("null")
+    }
 }
