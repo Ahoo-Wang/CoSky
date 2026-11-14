@@ -39,7 +39,7 @@ CoSky provides **configuration management** and **service discovery** for micros
 Start a server. `--dev` needs no Redis and no sign-in, and keeps nothing:
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.1 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.2 --dev
 ```
 
 Add the starter to a Spring Boot 4 application:
@@ -48,7 +48,7 @@ Add the starter to a Spring Boot 4 application:
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.1"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.2"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.cloud:spring-cloud-context")
 }

@@ -14,7 +14,7 @@ This takes a server in development mode and a Spring Boot 4 application. [Requir
 ## 1. Start a server
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.1 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.2 --dev
 ```
 
 `--dev` needs no Redis and no sign-in. Nothing survives a restart, so never run it for real: [Deployment](./deployment.md) shows how. Port 9090 serves applications over gRPC. Port 8080 serves the REST API and the Dashboard, at <http://localhost:8080>.
@@ -25,7 +25,7 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.1 --dev
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.1"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.2"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context") // for live refresh
