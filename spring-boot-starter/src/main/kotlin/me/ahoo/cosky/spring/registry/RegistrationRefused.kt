@@ -27,8 +27,8 @@ class RegistrationRefusedException(
     val namespace: String,
     cause: StatusException,
 ) : IllegalStateException(
-    "CoSky refused to register service $service in namespace $namespace: ${cause.status.code}: " +
-        cause.status.description,
+    "CoSky refused to register service $service in namespace $namespace: " +
+        listOfNotNull(cause.status.code.name, cause.status.description).joinToString(": "),
     cause,
 ) {
     val code: Status.Code = cause.status.code
