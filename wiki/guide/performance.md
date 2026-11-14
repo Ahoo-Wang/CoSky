@@ -49,6 +49,17 @@ A server with 512 MB of heap, with one 1 MB Config written over and over:
 
 It restarted on that log in 4 seconds, and took 50 more writes. Trimming the log made no visible difference to write speed: in alternating runs, 16 writers reached about 11,400 and 9,600 writes per second, against 11,500 and 10,400 before.
 
+## A Redis Cluster failover
+
+On a cluster of three masters and three replicas in Docker, with a node timeout of 5 seconds, one server wrote a Config every 100 ms to a namespace while its master was stopped:
+
+| The master | The namespace unavailable |
+|---|---|
+| Killed (`docker kill`) | 15.8 seconds |
+| Frozen (`docker pause`) | 15.7 seconds |
+
+That is the node timeout, the replica's election, and then up to 10 seconds: the server reads the topology every 5 seconds, and each read waits up to 5 seconds for the stopped node. Meanwhile each request on that namespace failed with `STORE_UNAVAILABLE` after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
+
 ## Not measured
 
 - A real network, or a real data center.
