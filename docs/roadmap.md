@@ -177,7 +177,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 | 验证项 | 现状 | 环境 |
 |---|---|---|
 | Redis Cluster 故障切换 | 本机 Docker 集群(3 主 3 从,节点超时 5 秒)上停掉一个主节点:alpha.5 上该主节点所在槽位的 namespace 在 `docker kill` 后 53 秒不可用,主节点挂住时则一直不可用,而 Redis 约 5 秒就提升了副本。原因是 Cluster 客户端没开拓扑刷新,Lettuce 读拓扑又用起始 URI 的超时(默认 60 秒)等挂住的节点。#1177 打开拓扑刷新(变化迹象触发,另每 5 秒一次),Cluster 超时降到 5 秒:`docker kill` 和 `docker pause` 都降到约 16 秒,期间请求 5 秒后返回 `STORE_UNAVAILABLE`;`RedisStoreClusterFailoverTest` 在 CI 上覆盖 | 本机 Docker 模拟;维护者环境再验 |
-| Redis Cluster 大规模 | conformance 覆盖 Cluster,没有大规模压测;本机 Docker 集群的压测还没开始 | 本机 Docker 模拟;维护者环境再验 |
+| Redis Cluster 大规模 | 本机模拟(2026-11-14):三个 server 副本跟随 1,000 和 5,000 个 namespace,连单个 Redis 和三主三从 Cluster 对比。Cluster 把空闲轮询和写入的负载均摊到各主节点(5,000 个 namespace 时单个 Redis 空闲 CPU 30%,Cluster 每个主节点 11%);写入吞吐受笔记本限制,两者相近;单 namespace 的 §7.10 目标在 Cluster 上与单个 Redis 一致。顺带发现跟随者每次写入多读一次日志,#1178 去掉后每次写入的 Redis 命令少约 35%。数字见 wiki 性能页 | 本机 Docker 模拟;维护者环境再验 |
 | 真实网络 | 写入和传播延迟只在本机回环测过(设计文档 §7.10);计划在本机用 toxiproxy 或 netem 注入延迟、抖动和丢包,还没开始 | 本机模拟;维护者环境再验 |
 
 **发版**

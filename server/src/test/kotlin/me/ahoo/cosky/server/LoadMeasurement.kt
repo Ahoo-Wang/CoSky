@@ -16,6 +16,10 @@ package me.ahoo.cosky.server
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import io.grpc.stub.StreamObserver
+import io.lettuce.core.RedisClient
+import io.lettuce.core.RedisURI
+import io.lettuce.core.cluster.RedisClusterClient
+import io.lettuce.core.models.role.RedisInstance
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -70,6 +74,11 @@ class LoadMeasurement {
     private val configs = env("COSKY_LOAD_CONFIGS", 10_000)
     private val propagationWrites = env("COSKY_LOAD_PROPAGATION_WRITES", PROPAGATION_WRITES)
     private val propagationPause = env("COSKY_LOAD_PROPAGATION_PAUSE_MS", DEFAULT_PROPAGATION_PAUSE_MS).milliseconds
+    private val cluster = System.getenv("COSKY_LOAD_REDIS_CLUSTER").toBoolean()
+    private val namespaceCount = env("COSKY_LOAD_NAMESPACES", 1_000)
+    private val objectsPerNamespace = env("COSKY_LOAD_OBJECTS_PER_NAMESPACE", 50)
+    private val replicas = env("COSKY_LOAD_REPLICAS", 3)
+    private val writes = env("COSKY_LOAD_WRITES", WRITES)
     private val http = HttpClient.newHttpClient()
 
     private fun env(name: String, default: Int): Int = System.getenv(name)?.toInt() ?: default
@@ -78,6 +87,7 @@ class LoadMeasurement {
 
     /**
      * A Redis of its own, or `COSKY_LOAD_REDIS_URI`: inside a container, the ports of another one may not be reachable.
+     * A Redis Cluster, with `COSKY_LOAD_REDIS_CLUSTER=true`, is always one you started, whose nodes this can reach.
      */
     private suspend fun withRedis(block: suspend (uri: String) -> Unit) {
         val given = System.getenv("COSKY_LOAD_REDIS_URI")
@@ -85,6 +95,7 @@ class LoadMeasurement {
             block(given)
             return
         }
+        check(!cluster) { "COSKY_LOAD_REDIS_CLUSTER needs COSKY_LOAD_REDIS_URI, a node of the cluster." }
         RedisContainer().use { redis ->
             redis.start()
             block("redis://${redis.host}:${redis.getMappedPort(RedisContainer.REDIS_PORT)}")
@@ -97,6 +108,7 @@ class LoadMeasurement {
     ) : AutoCloseable {
         val httpPort = ServerSocket(0).use { it.localPort }
         val grpcPort = ServerSocket(0).use { it.localPort }
+        private val started = System.nanoTime()
         private val process: Process = ProcessBuilder(
             File(System.getProperty("java.home"), "bin/java").path,
             "-Xmx$heap",
@@ -108,6 +120,7 @@ class LoadMeasurement {
             "--spring.grpc.server.port=$grpcPort",
             "--cosky.auth.enabled=false",
             "--cosky.store.redis.uri=$redisUri",
+            "--cosky.store.redis.cluster=$cluster",
             "--logging.level.root=WARN",
             "--cosky.watch.window=${env("COSKY_LOAD_WINDOW", DEFAULT_WINDOW)}",
         )
@@ -115,8 +128,10 @@ class LoadMeasurement {
             .redirectOutput(File.createTempFile("cosky-load", ".log").also { report("server log $it") })
             .start()
 
+        /**
+         * How long the process took to become ready, from its start.
+         */
         suspend fun awaitReady(): Long {
-            val started = System.nanoTime()
             while (!ready()) {
                 delay(50.milliseconds)
             }
@@ -162,32 +177,41 @@ class LoadMeasurement {
     private fun channel(port: Int): ManagedChannel =
         ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().directExecutor().build()
 
-    private fun instance(name: String, service: String, sentAt: Long = 0): Resource = resource {
-        meta = objectMeta {
-            namespace = NAMESPACE
-            this.name = name
-            labels.put("team", "order")
-            labels.put("zone", "az1")
+    private fun instance(name: String, service: String, sentAt: Long = 0, namespace: String = NAMESPACE): Resource =
+        resource {
+            meta = objectMeta {
+                this.namespace = namespace
+                this.name = name
+                labels.put("team", "order")
+                labels.put("zone", "az1")
+            }
+            instance = instanceSpec {
+                this.service = service
+                weight = 1
+                endpoint = ENDPOINT
+                metadata.put("version", "1.2.3")
+                metadata.put("region", "cn-east")
+                metadata.put("sent-at", sentAt.toString())
+            }
         }
-        instance = instanceSpec {
-            this.service = service
-            weight = 1
-            endpoint = ENDPOINT
-            metadata.put("version", "1.2.3")
-            metadata.put("region", "cn-east")
-            metadata.put("sent-at", sentAt.toString())
-        }
-    }
 
-    private fun config(name: String): Resource = resource {
+    private fun config(name: String, namespace: String = NAMESPACE): Resource = resource {
         meta = objectMeta {
-            namespace = NAMESPACE
+            this.namespace = namespace
             this.name = name
         }
         config = configSpec {
             format = ConfigFormat.CONFIG_FORMAT_YAML
             content = "datasource:\n  url: jdbc:mysql://db/$name\n  pool: 16\n"
         }
+    }
+
+    private fun namespaceOf(name: String): Resource = resource {
+        meta = objectMeta {
+            namespace = "_system"
+            this.name = name
+        }
+        namespace = namespaceSpec {}
     }
 
     private fun percentiles(samples: List<Long>): String {
@@ -228,6 +252,7 @@ class LoadMeasurement {
         resources: ResourceServiceGrpcKt.ResourceServiceCoroutineStub,
         writers: Int,
         writesEach: Int,
+        item: (writer: Int, index: Int) -> Resource = { writer, index -> config("latency-$writer-${index % 16}") },
     ) = coroutineScope {
         val samples = ConcurrentLinkedQueue<Long>()
         val started = System.nanoTime()
@@ -235,9 +260,7 @@ class LoadMeasurement {
             launch {
                 repeat(writesEach) { index ->
                     val before = System.nanoTime()
-                    resources.put(
-                        PutRequest.newBuilder().setResource(config("latency-$writer-${index % 16}")).build(),
-                    )
+                    resources.put(PutRequest.newBuilder().setResource(item(writer, index)).build())
                     samples += TimeUnit.NANOSECONDS.toMicros(System.nanoTime() - before)
                 }
             }
@@ -249,12 +272,15 @@ class LoadMeasurement {
 
     /**
      * One stream per connection, and a watch per service on it, as an application watching what it calls.
+     *
+     * @param targets the namespace and service of each watch on a stream.
      */
     private fun openWatches(
         channels: List<ManagedChannel>,
         delivered: ConcurrentLinkedQueue<Delivery>,
         snapshots: AtomicInteger,
         failures: ConcurrentLinkedQueue<String>,
+        targets: List<Pair<String, String>> = List(watchesPerConnection) { NAMESPACE to "service-$it" },
     ): List<StreamObserver<WatchRequest>> = channels.map { channel ->
         val responses = object : StreamObserver<WatchResponse> {
             override fun onNext(response: WatchResponse) {
@@ -281,14 +307,14 @@ class LoadMeasurement {
             override fun onCompleted() = Unit
         }
         val requests = WatchServiceGrpc.newStub(channel).watch(responses)
-        repeat(watchesPerConnection) { index ->
+        targets.forEachIndexed { index, (namespace, service) ->
             requests.onNext(
                 WatchRequest.newBuilder().apply {
                     createBuilder
                         .setWatchId(index.toLong())
-                        .setNamespace(NAMESPACE)
+                        .setNamespace(namespace)
                         .setKind(Kind.KIND_INSTANCE)
-                        .setService("service-$index")
+                        .setService(service)
                 }.build(),
             )
         }
@@ -303,14 +329,7 @@ class LoadMeasurement {
                 report("server ready in ${server.awaitReady()}ms")
                 val writeChannel = channel(server.grpcPort)
                 val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(writeChannel).withWaitForReady()
-                val namespace = resource {
-                    meta = objectMeta {
-                        this.namespace = "_system"
-                        name = NAMESPACE
-                    }
-                    this.namespace = namespaceSpec {}
-                }
-                resources.put(PutRequest.newBuilder().setResource(namespace).build())
+                resources.put(PutRequest.newBuilder().setResource(namespaceOf(NAMESPACE)).build())
                 val emptyHeap = server.liveHeapMb()
 
                 // --- scale of one namespace ---
@@ -328,8 +347,8 @@ class LoadMeasurement {
                 )
 
                 // --- write latency ---
-                writeLatency(resources, 1, WRITES)
-                writeLatency(resources, WRITERS, WRITES / WRITERS)
+                writeLatency(resources, 1, writes)
+                writeLatency(resources, WRITERS, writes / WRITERS)
 
                 // --- connections and watches ---
                 val opening = System.nanoTime()
@@ -412,14 +431,7 @@ class LoadMeasurement {
         second.awaitReady()
         val channel = channel(second.grpcPort)
         val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(channel).withWaitForReady()
-        val namespace = resource {
-            meta = objectMeta {
-                this.namespace = "_system"
-                name = NAMESPACE
-            }
-            this.namespace = namespaceSpec {}
-        }
-        resources.put(PutRequest.newBuilder().setResource(namespace).build())
+        resources.put(PutRequest.newBuilder().setResource(namespaceOf(NAMESPACE)).build())
 
         val clientCount = env("COSKY_LOAD_WINDOW_CLIENTS", WINDOW_CLIENTS)
         val clients = List(clientCount) {
@@ -470,12 +482,162 @@ class LoadMeasurement {
     }
 
     /**
+     * Many namespaces, spread over the shards of a Redis Cluster, followed by several replicas: what each Redis node
+     * does at rest and under writes, how long a replica takes to load them all, and how fast a write made through one
+     * replica reaches a watcher on another, by a hint and a read of the namespace's log.
+     */
+    @Suppress("LongMethod") // One measurement after another, in order.
+    @Test
+    fun `many namespaces on several replicas`() = runBlocking<Unit>(Dispatchers.Default) {
+        withRedis { redis ->
+            RedisNodes(redis).use { nodes ->
+                val heap = System.getenv("COSKY_LOAD_SERVER_HEAP") ?: "2g"
+                ServerProcess(redis, heap).use { first ->
+                    report("first replica ready in ${first.awaitReady()}ms")
+                    val writeChannel = channel(first.grpcPort)
+                    val resources = ResourceServiceGrpcKt.ResourceServiceCoroutineStub(writeChannel).withWaitForReady()
+                    val names = List(namespaceCount) { "ns-$it" }
+                    val loading = System.nanoTime()
+                    putAll(resources, names.map(::namespaceOf))
+                    putAll(
+                        resources,
+                        names.flatMap { namespace ->
+                            List(objectsPerNamespace) {
+                                instance("i-$it", "service-${it % SERVICES_PER_NAMESPACE}", namespace = namespace)
+                            }
+                        },
+                    )
+                    report(
+                        "namespaces=$namespaceCount objects=${namespaceCount * objectsPerNamespace} written in " +
+                            "${TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - loading)}s, " +
+                            "on ${nodes.size} Redis node(s), cluster=$cluster",
+                    )
+
+                    val others = List(replicas - 1) { ServerProcess(redis, heap) }
+                    try {
+                        others.forEach { report("another replica ready in ${it.awaitReady()}ms") }
+                        delay(SETTLE)
+                        nodes.measure("at rest, $replicas replicas") { delay(SAMPLE) }
+                        nodes.measure("writes") {
+                            writeLatency(resources, WRITERS, writes / WRITERS) { writer, index ->
+                                config("latency-$writer-${index % 16}", names.random())
+                            }
+                        }
+                        propagationAcross(resources, others.first(), names)
+                        report("first replica heap ${first.liveHeapMb()}MB")
+                    } finally {
+                        others.forEach { it.close() }
+                    }
+                    writeChannel.shutdownNow()
+                }
+            }
+        }
+    }
+
+    /**
+     * Writes through one replica, one at a time, to namespaces a client watches on another.
+     */
+    private suspend fun propagationAcross(
+        resources: ResourceServiceGrpcKt.ResourceServiceCoroutineStub,
+        watching: ServerProcess,
+        names: List<String>,
+    ) {
+        val watched = names.shuffled().take(WATCHED_NAMESPACES)
+        val delivered = ConcurrentLinkedQueue<Delivery>()
+        val snapshots = AtomicInteger()
+        val failures = ConcurrentLinkedQueue<String>()
+        val channel = channel(watching.grpcPort)
+        val streams = openWatches(listOf(channel), delivered, snapshots, failures, watched.map { it to "service-0" })
+        val opening = System.nanoTime()
+        while (snapshots.get() < watched.size && failures.isEmpty()) {
+            delay(200.milliseconds)
+            check(TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - opening) < OPEN_TIMEOUT_SECONDS) {
+                "Only ${snapshots.get()} of ${watched.size} snapshots"
+            }
+        }
+        failures.forEach { report("failed stream: $it") }
+        repeat(propagationWrites) { index ->
+            val sentAt = System.nanoTime()
+            val written = instance("propagating", "service-0", sentAt, watched[index % watched.size])
+                .toBuilder().apply { metaBuilder.putLabels("write", index.toString()) }.build()
+            resources.put(PutRequest.newBuilder().setResource(written).build())
+            delay(propagationPause)
+        }
+        delay(PROPAGATION_SETTLE)
+        report(
+            "propagation across replicas namespaces=${watched.size} writes=$propagationWrites " +
+                percentiles(delivered.map { it.millis }.ifEmpty { listOf(-1L) }),
+        )
+        streams.forEach { runCatching { it.onCompleted() } }
+        channel.shutdownNow()
+    }
+
+    /**
+     * The Redis nodes the store writes to, the masters of a cluster, to report what each one did over a while:
+     * commands, CPU, and in a cluster the messages its bus received for `PUBLISH`, which a cluster sends to every node.
+     */
+    private inner class RedisNodes(uri: String) : AutoCloseable {
+        private val client = RedisClient.create()
+        private val connections = if (cluster) {
+            val seed = RedisClusterClient.create(uri)
+            try {
+                seed.partitions.filter { it.role == RedisInstance.Role.UPSTREAM }.map { it.uri }
+            } finally {
+                seed.shutdown()
+            }
+        } else {
+            listOf(RedisURI.create(uri))
+        }.associate { "${it.host}:${it.port}" to client.connect(it) }
+
+        val size: Int get() = connections.size
+
+        private fun counters(): List<Counters> = connections.map { (node, connection) ->
+            val commands = connection.sync()
+            val info = commands.info() + if (cluster) commands.clusterInfo() else ""
+            fun field(name: String): Double =
+                info.lineSequence().firstOrNull { it.startsWith("$name:") }?.substringAfter(':')?.trim()?.toDouble()
+                    ?: 0.0
+            Counters(
+                node,
+                field("total_commands_processed"),
+                field("used_cpu_sys") + field("used_cpu_user"),
+                field("cluster_stats_messages_publish_received"),
+            )
+        }
+
+        suspend fun measure(label: String, block: suspend () -> Unit) {
+            val before = counters()
+            val started = System.nanoTime()
+            block()
+            val after = counters()
+            val seconds = (System.nanoTime() - started) / NANOS_PER_SECOND
+            before.zip(after).forEach { (from, to) ->
+                report(
+                    "redis $label node=${to.node} commands=${((to.commands - from.commands) / seconds).toInt()}/s " +
+                        "cpu=${((to.cpuSeconds - from.cpuSeconds) / seconds * PERCENT).toInt()}% " +
+                        "publishes received=${((to.publishes - from.publishes) / seconds).toInt()}/s",
+                )
+            }
+        }
+
+        override fun close() {
+            connections.values.forEach { it.close() }
+            client.shutdown()
+        }
+    }
+
+    private data class Counters(val node: String, val commands: Double, val cpuSeconds: Double, val publishes: Double)
+
+    /**
      * @param at the wall clock, to set against GC logs.
      */
     private data class Delivery(val write: Int, val millis: Long, val at: Long)
 
     private companion object {
         const val NAMESPACE = "load"
+        const val SERVICES_PER_NAMESPACE = 10
+        const val WATCHED_NAMESPACES = 100
+        const val PERCENT = 100
         const val SERVICES = 2_000
         const val MB = 1024.0 * 1024
         const val STOP_SECONDS = 15L
@@ -501,6 +663,8 @@ class LoadMeasurement {
         const val MILLIS_PER_TICK = 100L
         const val MILLIS_PER_SECOND = 1000
         val PROPAGATION_SETTLE = 5.seconds
+        val SETTLE = 5.seconds
+        val SAMPLE = 10.seconds
         val WINDOW_WARM_UP = 5.seconds
         val WINDOW_AFTER_KILL = 15.seconds
         val ENDPOINT: Endpoint = Endpoint.newBuilder().setScheme("http").setHost("10.0.0.1").setPort(8080).build()

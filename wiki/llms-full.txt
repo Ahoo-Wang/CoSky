@@ -1208,7 +1208,7 @@ Each replica follows each namespace's log, and keeps an immutable view of the na
 
 Watchers read those views without any lock. A slow watcher only misses intermediate views, then finds what it missed in the window. It holds back nobody else. If it falls out of the window, it gets `gone` and starts over from a snapshot of what it watches, which is the only cost.
 
-So Redis load grows with the number of namespaces and replicas, and not with the number of clients.
+So Redis load grows with the number of namespaces and replicas, and not with the number of clients. [Performance](./performance.md#many-namespaces-and-a-redis-cluster) measures it, on one Redis and on a Cluster.
 
 Every 5 minutes, a replica also compares its view with the store. Any difference should be impossible, so it counts as a lost timeline, as below.
 
@@ -1317,11 +1317,29 @@ On a cluster of three masters and three replicas in Docker, with a node timeout 
 
 That is the node timeout, the replica's election, and then up to 10 seconds: the server reads the topology every 5 seconds, and each read waits up to 5 seconds for the stopped node. Meanwhile each request on that namespace failed with `STORE_UNAVAILABLE` after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
 
+## Many namespaces, and a Redis Cluster
+
+Three replicas followed many namespaces of 50 Instances each, on Redis 7.4 alone and on a Redis Cluster of three masters and three replicas, all in one container on the same laptop. 16 writers wrote 32,000 Configs through one replica, each to a namespace picked at random, and a client on another replica watched 100 of the namespaces.
+
+| | 1,000 namespaces, one Redis | 1,000 namespaces, Cluster | 5,000 namespaces, one Redis | 5,000 namespaces, Cluster |
+|---|---|---|---|---|
+| The second and third replicas ready | 3.3 and 4.0 s | 3.4 and 4.1 s | 4.7 and 6.7 s | 5.2 and 7.5 s |
+| Redis at rest | 21,000 commands/s, 11% CPU | 6,700 commands/s and 4% CPU on each master | 129,000 commands/s, 30% CPU | 42,000 commands/s and 11% CPU on each master |
+| Writes | 8,354/s, p99 5 ms | 7,809/s, p99 7 ms | 6,739/s, p99 9 ms | 6,240/s, p99 9 ms |
+| Redis while writing | 77% CPU | 39 to 43% CPU on each master | 84% CPU | 48 to 55% CPU on each master |
+| A write reaching the watcher on another replica, p99 | 14 ms | 23 ms | 8 ms | 16 ms |
+
+At rest, each replica reads each namespace once a second, should a hint have been lost: about seven Redis commands a read. That load grows with the namespaces times the replicas, and not with clients. On one Redis it reached 30% of its CPU at 5,000 namespaces and three replicas; a Cluster spreads it over its masters, and a longer `cosky.store.redis.tail-poll-interval` lowers it, at the cost of a slower recovery from a lost hint.
+
+A write cost about 35 Redis commands with three replicas: the write itself, and one read of the namespace by each replica. In a Cluster, the hint that a write publishes reaches every node, which showed as 4,000 to 5,000 messages a second received by each master, at no visible cost. Here the laptop, not Redis, limited the writes: one Redis was close to saturated, while the masters of the Cluster had half their CPU left.
+
+The targets above, measured again on a Cluster, matched one Redis: one namespace of 50,000 Instances and 10,000 Configs, 17,500 writes per second with 16 writers at p99 2 ms, 5,000 connections watching, propagation p99 103 ms, and a second replica ready in 2.9 seconds.
+
 ## Not measured
 
 - A real network, or a real data center.
 - More than one server replica under connection load.
-- Redis Cluster at this scale.
+- A Cluster of more than three masters, or more than three replicas.
 - Long runs: memory over days, and leaks.
 
 ## Reproducing
@@ -1330,7 +1348,13 @@ That is the node timeout, the replica's election, and then up to 10 seconds: the
 COSKY_MEASURE=load COSKY_MEASURE_HEAP=4g ./gradlew :server:test --tests '*LoadMeasurement*'
 ```
 
-`COSKY_LOAD_CONNECTIONS`, `COSKY_LOAD_WATCHES_PER_CONNECTION`, `COSKY_LOAD_PROPAGATION_PAUSE_MS`, `COSKY_LOAD_RATES`, `COSKY_LOAD_WINDOW` and `COSKY_LOAD_WINDOW_CLIENTS` set the shape. `COSKY_LOAD_SERVER_HEAP` sizes the server, and `COSKY_LOAD_REDIS_URI` uses a Redis you started, which a run inside a container needs. The hot paths of the client are JMH benchmarks:
+`COSKY_LOAD_CONNECTIONS`, `COSKY_LOAD_WATCHES_PER_CONNECTION`, `COSKY_LOAD_PROPAGATION_PAUSE_MS`, `COSKY_LOAD_RATES`, `COSKY_LOAD_WINDOW` and `COSKY_LOAD_WINDOW_CLIENTS` set the shape. `COSKY_LOAD_SERVER_HEAP` sizes the server, and `COSKY_LOAD_REDIS_URI` uses a Redis you started, which a run inside a container needs. With `COSKY_LOAD_REDIS_CLUSTER=true` it is a node of a Redis Cluster, whose nodes must announce addresses the run can reach. Many namespaces on several replicas is another test, shaped by `COSKY_LOAD_NAMESPACES`, `COSKY_LOAD_OBJECTS_PER_NAMESPACE`, `COSKY_LOAD_REPLICAS` and `COSKY_LOAD_WRITES`:
+
+```bash
+COSKY_MEASURE=load COSKY_MEASURE_HEAP=2g COSKY_LOAD_SERVER_HEAP=2g ./gradlew :server:test --tests '*LoadMeasurement.many namespaces*'
+```
+
+The hot paths of the client are JMH benchmarks:
 
 ```bash
 ./gradlew :client:jmh
