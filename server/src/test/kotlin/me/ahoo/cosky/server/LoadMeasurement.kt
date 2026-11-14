@@ -78,6 +78,7 @@ class LoadMeasurement {
     private val namespaceCount = env("COSKY_LOAD_NAMESPACES", 1_000)
     private val objectsPerNamespace = env("COSKY_LOAD_OBJECTS_PER_NAMESPACE", 50)
     private val replicas = env("COSKY_LOAD_REPLICAS", 3)
+    private val writes = env("COSKY_LOAD_WRITES", WRITES)
     private val http = HttpClient.newHttpClient()
 
     private fun env(name: String, default: Int): Int = System.getenv(name)?.toInt() ?: default
@@ -346,8 +347,8 @@ class LoadMeasurement {
                 )
 
                 // --- write latency ---
-                writeLatency(resources, 1, WRITES)
-                writeLatency(resources, WRITERS, WRITES / WRITERS)
+                writeLatency(resources, 1, writes)
+                writeLatency(resources, WRITERS, writes / WRITERS)
 
                 // --- connections and watches ---
                 val opening = System.nanoTime()
@@ -518,7 +519,7 @@ class LoadMeasurement {
                         delay(SETTLE)
                         nodes.measure("at rest, $replicas replicas") { delay(SAMPLE) }
                         nodes.measure("writes") {
-                            writeLatency(resources, WRITERS, WRITES / WRITERS) { writer, index ->
+                            writeLatency(resources, WRITERS, writes / WRITERS) { writer, index ->
                                 config("latency-$writer-${index % 16}", names.random())
                             }
                         }
