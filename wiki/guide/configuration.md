@@ -39,7 +39,7 @@ The application compares against what it loaded, so a change made between loadin
 
 When an `optional:` Config is deleted, its values leave the application on that refresh. A required one keeps its last values and logs a warning, because there is nothing to fall back on, and picks up again when the Config comes back. This also holds for an application starting from a [snapshot](./sdk.md#snapshots) that the server no longer agrees with: it starts with what the snapshot holds, then follows the server once connected.
 
-A Config that only another Config's `spring.config.import` names leaves the application on the refresh after that import is removed, unless another import still names it. That holds for a refresh the application makes itself with `ContextRefresher.refresh()` as well.
+A Config that only another Config's `spring.config.import` names leaves the application on the first refresh that succeeds after that import is removed, unless another import still names it, and the application stops watching it. That holds for a refresh the application makes itself with `ContextRefresher.refresh()` as well.
 
 ## Writing
 

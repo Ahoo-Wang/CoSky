@@ -79,18 +79,18 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
             return ConfigData.EMPTY
         }
         val application = CoSkyApplicationClient.of(context.bootstrapContext, properties, resource.applicationName)
-        val namespace = application.client.namespace(properties.namespace)
+        val hold = application.holdOf(properties.namespace, resource.config)
         var refusal: CoSkyException? = null
         val config = try {
             runBlocking(VirtualThreads.dispatcher) {
-                withTimeoutOrNull(properties.configLoadTimeout) { namespace.configs.load(resource.config) }
+                withTimeoutOrNull(properties.configLoadTimeout) { hold.load() }
             }
         } catch (e: CoSkyException) {
             refusal = e
             null
         }
         // Also when there is nothing: an optional Config that appears later is a change too.
-        application.markImported(properties.namespace, resource.config, config)
+        application.markImported(this, properties.namespace, resource.config, config)
         // A required Config that goes away leaves what it held so far: there is nothing to fall back on.
         if (config == null && !resource.optional) {
             throw ConfigDataResourceNotFoundException(resource, refusal)

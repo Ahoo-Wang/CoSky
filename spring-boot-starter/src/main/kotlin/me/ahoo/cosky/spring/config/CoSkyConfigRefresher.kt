@@ -65,10 +65,9 @@ class CoSkyConfigRefresher(
         }
         // Imports a refresh adds are followed as well, once each, and those it removes no longer.
         application.onDropped { namespace, config -> following.remove(namespace to config)?.cancel() }
-        application.eachImport { namespace, config, loaded ->
-            val configs = application.client.namespace(namespace).configs
+        application.eachImport { namespace, config, loaded, changes ->
             following[namespace to config] = scope.launch {
-                configs.watch(config).dropWhile { it.orNone() == loaded }.collect { refresh(config) }
+                changes.dropWhile { it.orNone() == loaded }.collect { refresh(config) }
             }
         }
     }

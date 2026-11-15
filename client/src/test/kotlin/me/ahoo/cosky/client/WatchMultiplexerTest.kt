@@ -70,7 +70,13 @@ class WatchMultiplexerTest {
         server.close()
     }
 
-    private fun watch(config: String): WatchState = multiplexer.watch(WatchKey(NAMESPACE, Kind.KIND_CONFIG, config))
+    private fun watch(config: String): WatchState = multiplexer.watch(keyOf(config))
+
+    private fun hold(config: String): WatchState = multiplexer.hold(keyOf(config))
+
+    private fun keyOf(config: String) = WatchKey(NAMESPACE, Kind.KIND_CONFIG, config)
+
+    private fun known(state: WatchState) = runBlocking { withTimeout(10.seconds) { state.awaitKnown() } }
 
     private fun write(config: String, content: String): Unit = runBlocking {
         val resource = resource {
@@ -156,6 +162,43 @@ class WatchMultiplexerTest {
         routes()[id].assert().isSameAs(watch)
         write("order.yaml", "fresh")
         awaitUntil { watch.view.value["order.yaml"]?.config?.content == "fresh" }
+    }
+
+    @Test
+    fun `a watch released by every hold ends on the server, and makes room for another`() {
+        val held = List(OLD + NEW) { "held-$it" }
+        held.forEach { known(hold(it)) }
+        val twice = hold(held.first())
+
+        held.forEach { multiplexer.release(keyOf(it)) }
+        // Held twice, it still follows its Config.
+        write(held.first(), "fresh")
+        awaitUntil { twice.view.value[held.first()]?.config?.content == "fresh" }
+
+        // Room for all but that one: had the others gone on, the server would refuse these.
+        List(OLD + NEW - 1) { "again-$it" }.forEach { known(hold(it)) }
+        server.watchStreams.last().map { it.name }.assert().contains("again-0")
+    }
+
+    @Test
+    fun `a watch also returned by watch lives as long as the client`() {
+        val state = hold("order.yaml")
+        watch("order.yaml").assert().isSameAs(state)
+        multiplexer.release(keyOf("order.yaml"))
+
+        write("order.yaml", "fresh")
+        awaitUntil { state.view.value["order.yaml"]?.config?.content == "fresh" }
+        hold("order.yaml").assert().isSameAs(state)
+    }
+
+    @Test
+    fun `a config held again after its watch ended is followed afresh`() {
+        known(hold("order.yaml"))
+        multiplexer.release(keyOf("order.yaml"))
+        write("order.yaml", "fresh")
+
+        val again = hold("order.yaml")
+        awaitUntil { again.view.value["order.yaml"]?.config?.content == "fresh" }
     }
 
     @Suppress("UNCHECKED_CAST")
