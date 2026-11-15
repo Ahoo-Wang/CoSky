@@ -15,6 +15,7 @@ package me.ahoo.cosky.spring
 
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.config.CoSkyConfigRefresher
+import me.ahoo.cosky.spring.config.CoSkyImportReconciler
 import me.ahoo.cosky.spring.discovery.CoSkyDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyReactiveDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyServiceInstanceListSupplier
@@ -36,6 +37,7 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationC
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
 import org.springframework.cloud.commons.util.InetUtils
 import org.springframework.cloud.commons.util.UtilAutoConfiguration
+import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.cloud.loadbalancer.annotation.LoadBalancerClients
 import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier
@@ -45,6 +47,8 @@ import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Import
+import org.springframework.context.event.SmartApplicationListener
+import org.springframework.core.env.ConfigurableEnvironment
 import org.springframework.core.env.Environment
 
 /**
@@ -88,6 +92,19 @@ class CoSkyAutoConfiguration {
             application: CoSkyApplicationClient,
             publisher: ApplicationEventPublisher,
         ): CoSkyConfigRefresher = CoSkyConfigRefresher(application, publisher)
+    }
+
+    /**
+     * Whether Configs refresh by themselves or not: a refresh can also come from the application, or an endpoint.
+     */
+    @Configuration(proxyBeanMethods = false)
+    @ConditionalOnClass(RefreshScopeRefreshedEvent::class)
+    class Imports {
+        @Bean
+        fun coSkyImportReconciler(
+            application: CoSkyApplicationClient,
+            environment: ConfigurableEnvironment,
+        ): SmartApplicationListener = CoSkyImportReconciler(application, environment)
     }
 
     /**

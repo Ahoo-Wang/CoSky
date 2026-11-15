@@ -21,6 +21,7 @@ import org.springframework.boot.SpringApplicationRunListener
 import org.springframework.boot.bootstrap.BootstrapRegistry.InstanceSupplier
 import org.springframework.boot.bootstrap.ConfigurableBootstrapContext
 import org.springframework.context.ConfigurableApplicationContext
+import org.springframework.core.env.ConfigurableEnvironment
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -43,7 +44,11 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
     private val sources = ConcurrentHashMap<Pair<String, String>, Set<String>>()
     private var handedOver = false
 
+    /** The Configs imports have loaded since the application started, or since the last refresh that succeeded. */
+    private val loaded = ConcurrentHashMap.newKeySet<Pair<String, String>>()
+
     private val importListeners = mutableListOf<(namespace: String, config: String, seen: Resource) -> Unit>()
+    private val dropListeners = mutableListOf<(namespace: String, config: String) -> Unit>()
 
     /**
      * Remembers a Config this application loaded and what it saw, so that a change to it can trigger a refresh once the
@@ -51,6 +56,7 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
      * listeners too.
      */
     internal fun markImported(namespace: String, config: String, seen: Resource?) = synchronized(importListeners) {
+        loaded += namespace to config
         val first = imported.computeIfAbsent(namespace) { ConcurrentHashMap() }.put(config, seen.orNone()) == null
         if (first) {
             importListeners.forEach { it(namespace, config, seen.orNone()) }
@@ -78,9 +84,41 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
         }
 
     /**
-     * Remembers the property sources a Config makes up now, along with all it made up before. None is forgotten: a
-     * refresh that fails keeps the Environment as it was, old sources included, and a load cannot tell whether its
-     * refresh will.
+     * Calls [listener] for every Config [reconcile] drops. It must not block.
+     */
+    internal fun onDropped(listener: (namespace: String, config: String) -> Unit) = synchronized(importListeners) {
+        dropListeners += listener
+    }
+
+    /**
+     * Once the application has started: what a refresh loads counts from here.
+     */
+    internal fun started() = loaded.clear()
+
+    /**
+     * After a refresh that succeeded, drops every Config no import loaded this time, such as one that only another
+     * Config's `spring.config.import` named, until that import was removed. A refresh only adds and replaces property
+     * sources, and a Config no longer imported has no load left to replace them by nothing (design §7.7).
+     *
+     * A refresh that loaded no Config at all is left alone: it may not have run the imports.
+     */
+    internal fun reconcile(environment: ConfigurableEnvironment) = synchronized(importListeners) {
+        if (loaded.isEmpty()) {
+            return@synchronized
+        }
+        val known = sources.keys + imported.flatMap { (namespace, configs) -> configs.keys.map { namespace to it } }
+        (known - loaded).forEach { key ->
+            sources.remove(key)?.forEach { environment.propertySources.remove(it) }
+            imported[key.first]?.remove(key.second)
+            dropListeners.forEach { it(key.first, key.second) }
+        }
+        loaded.clear()
+    }
+
+    /**
+     * Remembers the property sources a Config makes up now, along with all it made up before. None is forgotten until
+     * [reconcile]: a refresh that fails keeps the Environment as it was, old sources included, and a load cannot tell
+     * whether its refresh will.
      *
      * @return every property source the Config has made up.
      */

@@ -39,6 +39,8 @@ classpath 中有 `spring-cloud-context` 时，被导入的 Config 发生变化�
 
 `optional:` 的 Config 被删除时，它的值会在这次刷新中从应用里消失。必选的 Config 会保留最后的值并记录警告，因为没有可以回退的值，等 Config 恢复后再继续跟随。应用从与 server 不一致的[快照](./sdk.md#快照)启动时也是如此：先使用快照中的内容，连接后再跟随 server。
 
+只由另一个 Config 的 `spring.config.import` 引入的 Config，在那条导入被去掉后的下一次刷新中从应用里消失，除非还有别的导入引用它。应用自己调用 `ContextRefresher.refresh()` 的刷新也是如此。
+
 ## 写入
 
 使用 [Dashboard](./dashboard.md) 或 [REST API](./rest-api.md)。一次写入替换整个 Config：
