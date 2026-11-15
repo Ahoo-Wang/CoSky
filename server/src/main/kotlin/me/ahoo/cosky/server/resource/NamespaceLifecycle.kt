@@ -111,6 +111,11 @@ class NamespaceLifecycle(
     /**
      * Drops the data of the namespace the [marked] object was for, then the object.
      */
+    /**
+     * The Namespace object as of the store's latest write: a view that is behind may not show a deletion's mark yet.
+     */
+    suspend fun latest(key: ResourceKey): Resource? = latestViewOf(NamingRules.SYSTEM_NAMESPACE).objects[key]
+
     suspend fun finish(marked: Resource) {
         store.dropNamespace(marked.meta.name, marked.namespace.terminatingEpoch)
         deleteObject(marked)

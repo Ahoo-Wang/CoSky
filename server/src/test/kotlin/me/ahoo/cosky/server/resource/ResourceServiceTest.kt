@@ -488,6 +488,18 @@ class ResourceServiceTest {
     }
 
     @Test
+    fun `a namespace write the store rejects leaves no namespace behind`() = scenario {
+        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+        errorOf {
+            put(
+                namespace("missing"),
+                expected = 42
+            )
+        }.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+        store.namespaceState("missing").assert().isNull()
+    }
+
+    @Test
     fun `a namespace with objects cannot be deleted, and is not even marked`() = scenario {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
         val revision = put(namespace(NAMESPACE)).revision
