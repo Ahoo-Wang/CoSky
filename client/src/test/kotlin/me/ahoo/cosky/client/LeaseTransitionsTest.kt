@@ -375,6 +375,11 @@ class LeaseTransitionsTest {
     }
 
     /** Calls of [method] fail with UNAVAILABLE while [failing] is set, as when the server is out of reach. */
+    /**
+     * Fails the calls of [method] while [failing]: one started then is refused, and on a stream started before, what is
+     * sent then is lost. Else the renewals of a stream that opened just before would still reach the server, and keep
+     * alive a lease that a test lets run out.
+     */
     private fun failingWhile(method: String, failing: AtomicBoolean): ClientInterceptor = object : ClientInterceptor {
         override fun <Req, Resp> interceptCall(
             descriptor: MethodDescriptor<Req, Resp>,
@@ -382,18 +387,29 @@ class LeaseTransitionsTest {
             next: Channel,
         ): ClientCall<Req, Resp> {
             val call = next.newCall(descriptor, options)
-            if (descriptor.bareMethodName != method || !failing.get()) {
+            if (descriptor.bareMethodName != method) {
                 return call
             }
+            val refused = failing.get()
+            val streaming = !descriptor.type.clientSendsOneMessage()
             return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
-                override fun start(responseListener: Listener<Resp>, headers: Metadata) =
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) = if (refused) {
                     responseListener.onClose(Status.UNAVAILABLE.withDescription("Out of reach on purpose."), Metadata())
+                } else {
+                    super.start(responseListener, headers)
+                }
 
-                override fun request(numMessages: Int) = Unit
+                override fun request(numMessages: Int) {
+                    if (!refused) super.request(numMessages)
+                }
 
-                override fun sendMessage(message: Req) = Unit
+                override fun sendMessage(message: Req) {
+                    if (!refused && !(streaming && failing.get())) super.sendMessage(message)
+                }
 
-                override fun halfClose() = Unit
+                override fun halfClose() {
+                    if (!refused) super.halfClose()
+                }
             }
         }
     }
