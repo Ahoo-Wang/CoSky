@@ -94,6 +94,28 @@ test('keeps apart relationships whose names differ only in where a hyphen falls'
     expect(edges.map(({source, target}) => ({consumer: source, producer: target}))).toEqual(relationships);
 });
 
+test('keeps apart consumers whose names belong to Object.prototype', () => {
+    const relationships = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf']
+        .map(consumer => ({consumer, producer: 'order'}));
+
+    const consumers = toConsumers(relationships);
+
+    expect(Object.keys(consumers)).toEqual(relationships.map(({consumer}) => consumer));
+    for (const {consumer, producer} of relationships) {
+        expect(consumers[consumer], consumer).toEqual([producer]);
+    }
+});
+
+test('lays out consumers whose names shadow an Object.prototype member', () => {
+    const {nodes, edges} = toReactFlowTopology(toConsumers([
+        {consumer: 'constructor', producer: 'order'},
+        {consumer: 'gateway', producer: 'constructor'},
+    ]));
+
+    expect(nodes.map(node => node.id).sort()).toEqual(['constructor', 'gateway', 'order']);
+    expect(edges.map(edge => edge.id).sort()).toEqual(['constructor->order', 'gateway->constructor']);
+});
+
 test('wraps crowded layers without overlapping nodes', () => {
     const topology = Object.fromEntries(
         Array.from({length: 7}, (_, index) => [`service-${index}`, []]),

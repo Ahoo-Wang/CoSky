@@ -75,11 +75,18 @@ export function getConnectedNodeIds(nodeId: string, edges: Edge[]): Set<string> 
  * What each consumer depends on, from the edges the server recorded.
  */
 export function toConsumers(edges: Array<{consumer: string; producer: string}>): Record<string, string[]> {
-    const consumers: Record<string, string[]> = {};
+    const consumers = new Map<string, string[]>();
     for (const {consumer, producer} of edges) {
-        (consumers[consumer] ??= []).push(producer);
+        const producers = consumers.get(consumer);
+        if (producers) {
+            producers.push(producer);
+        } else {
+            consumers.set(consumer, [producer]);
+        }
     }
-    return consumers;
+    // A service name may be any name, including one that Object.prototype already holds (`constructor`, `__proto__`,
+    // `toString`). fromEntries writes each key as an own property, so such a name stays a name.
+    return Object.fromEntries(consumers);
 }
 
 export function toReactFlowTopology(
