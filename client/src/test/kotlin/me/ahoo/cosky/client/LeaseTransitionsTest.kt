@@ -273,6 +273,34 @@ class LeaseTransitionsTest {
     }
 
     /** The Put of [name] never leaves the client, and is never answered; [sent] completes once it would have gone. */
+    @Test
+    fun `closing a registration again leaves the one that replaced it`() = scenario {
+        val instances = instances()
+        val old = instances.register("order", ENDPOINT, instanceName = "reused")
+        old.close()
+        val replacement = instances.register("order", ENDPOINT, instanceName = "reused")
+
+        old.close()
+
+        // Revoking its lease would have taken it too.
+        instancesOnServer().map { it.meta.name }.assert().containsExactly("reused")
+        replacement.close()
+        instancesOnServer().assert().isEmpty()
+    }
+
+    @Test
+    fun `a registration replaced by another of the same name closes nothing`() = scenario {
+        val instances = instances()
+        val first = instances.register("order", ENDPOINT, instanceName = "reused")
+        val second = instances.register("order", ENDPOINT, instanceName = "reused", metadata = mapOf("v" to "2"))
+
+        first.close()
+
+        instancesOnServer().single().instance.metadataMap.assert().containsEntry("v", "2")
+        second.close()
+        instancesOnServer().assert().isEmpty()
+    }
+
     private fun unsentPutOf(name: String, sent: CompletableDeferred<Unit>): ClientInterceptor =
         object : ClientInterceptor {
             override fun <Req, Resp> interceptCall(
