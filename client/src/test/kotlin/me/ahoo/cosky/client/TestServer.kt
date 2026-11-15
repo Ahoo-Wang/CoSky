@@ -36,10 +36,15 @@ import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.memory.MemoryStore
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZoneOffset
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.toJavaDuration
 
 /**
  * The real server code on an in-process transport and a memory store, which a test can stop and start while the store
@@ -47,7 +52,10 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 internal class TestServer(private val properties: CoSkyProperties = CoSkyProperties()) : AutoCloseable {
     val name = "cosky-${UUID.randomUUID()}"
-    val store = MemoryStore(keepRevisions = 64)
+
+    /** Moved on, it lets a lease run out without the test waiting for it. */
+    val clock = OffsetClock()
+    val store = MemoryStore(clock = clock, keepRevisions = 64)
     val authorizations = CopyOnWriteArrayList<String>()
     val clientNames = CopyOnWriteArrayList<String>()
 
@@ -141,4 +149,22 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
         val AUTHORIZATION: Metadata.Key<String> = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER)
         val CLIENT_NAME: Metadata.Key<String> = Metadata.Key.of("cosky-client-name", Metadata.ASCII_STRING_MARSHALLER)
     }
+}
+
+/**
+ * The system's clock, moved on by what [advance] has added.
+ */
+internal class OffsetClock : Clock() {
+    @Volatile
+    private var offset: java.time.Duration = java.time.Duration.ZERO
+
+    fun advance(by: kotlin.time.Duration) {
+        offset = offset.plus(by.toJavaDuration())
+    }
+
+    override fun getZone(): ZoneId = ZoneOffset.UTC
+
+    override fun withZone(zone: ZoneId?): Clock = this
+
+    override fun instant(): Instant = Instant.now().plus(offset)
 }

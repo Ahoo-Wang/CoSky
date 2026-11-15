@@ -30,6 +30,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.DeleteRequest
 import me.ahoo.cosky.api.v1.ErrorReason
+import me.ahoo.cosky.api.v1.GetRequest
 import me.ahoo.cosky.api.v1.GrantRequest
 import me.ahoo.cosky.api.v1.KeepAliveRequest
 import me.ahoo.cosky.api.v1.KeepAliveResponse
@@ -75,6 +76,13 @@ internal class LeaseKeeper(
      */
     private val pending = ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * Registrations of new names cancelled on their way, which the server took for all the caller knows, with the
+     * lease they were sent on. The Instance would live on with the lease the other registrations renew, and nobody
+     * would hold a handle to close it, so each is withdrawn unless its name is registered again first.
+     */
+    private val withdrawals = ConcurrentHashMap<String, Resource>()
+
     private var renewal: Job? = null
 
     @Volatile
@@ -91,6 +99,7 @@ internal class LeaseKeeper(
         mutex.withLock {
             val name = resource.meta.name
             val previous = registrations.put(name, resource)
+            withdrawals.remove(name)
             // One channel for the whole attempt, so that a failure names where it happened, even if a stream has
             // moved the connection on meanwhile.
             val channel = connection.channel()
@@ -103,6 +112,10 @@ internal class LeaseKeeper(
                 pending.remove(name)
             } catch (e: CancellationException) {
                 giveWay(name, previous)
+                if (previous == null) {
+                    withdrawals[name] = resource.toBuilder().apply { metaBuilder.lease = lease }.build()
+                    scope.launch { withdraw() }
+                }
                 throw e
             } catch (e: StatusException) {
                 if (e.status.code !in OUT_OF_REACH) {
@@ -244,6 +257,7 @@ internal class LeaseKeeper(
      * putting back creates only what is missing.
      */
     private suspend fun catchUp(attachedCount: Int) {
+        withdraw()
         putUnconfirmed()
         if (attachedCount < registrations.size) {
             putBack()
@@ -296,6 +310,50 @@ internal class LeaseKeeper(
             log.error("The server refused {}, registered while it was out of reach: {}", name, e.status)
             giveWay(name, previous)
             pending.remove(name)
+        }
+    }
+
+    /**
+     * Deletes what cancelled registrations may have created: only an Instance still on the lease it was sent on, and at
+     * the revision read, so that one written since, by this client or anyone, stays. One that cannot be read or deleted
+     * now is tried again with the next renewal.
+     */
+    private suspend fun withdraw() {
+        if (withdrawals.isEmpty()) {
+            return
+        }
+        mutex.withLock {
+            withdrawals.toList().forEach { (name, sent) ->
+                if (registrations.containsKey(name) || tryWithdraw(sent)) {
+                    withdrawals.remove(name, sent)
+                }
+            }
+        }
+    }
+
+    /**
+     * @return whether nothing is left to withdraw, deleted or not.
+     */
+    private suspend fun tryWithdraw(sent: Resource): Boolean = try {
+        val key = keyOf(sent.meta.name)
+        val current = resources().timed().get(GetRequest.newBuilder().setKey(key).build())
+        if (sent.meta.lease != 0L && current.meta.lease == sent.meta.lease) {
+            resources().timed().delete(
+                DeleteRequest.newBuilder().setKey(key).setExpectedRevision(current.meta.revision).build(),
+            )
+            log.info("Withdrew {}, whose registration was cancelled after the server took it.", sent.meta.name)
+        }
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: StatusException) {
+        when (CoSkyException.from(e)?.reason) {
+            // Never created, or changed since by someone who now owns it.
+            ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND, ErrorReason.ERROR_REASON_REVISION_CONFLICT -> true
+            else -> {
+                log.warn("Could not withdraw {} yet: {}", sent.meta.name, describe(e))
+                e.status.code !in OUT_OF_REACH
+            }
         }
     }
 
@@ -352,9 +410,33 @@ internal class LeaseKeeper(
             if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_LEASE_NOT_FOUND) {
                 throw e
             }
-            lease = grant(channel)
+            replaceLease(channel, except = resource.meta.name)
             resources(channel).timed().put(putRequest(resource, expectedRevision))
         }
+    }
+
+    /**
+     * The lease is lost, as when renewing finds it gone (design §7.5): a new one is granted, and every other
+     * registration goes onto it now, before the reaper removes the old lease with them. One that cannot go now is sent
+     * with the next renewal. Called with the lock held, by whoever put first.
+     */
+    private suspend fun replaceLease(channel: GrpcChannel, except: String) {
+        val lost = lease
+        lease = grant(channel)
+        val others = registrations.filterKeys { it != except }
+        pending += others.keys
+        others.forEach { (name, resource) ->
+            try {
+                resources(channel).timed().put(putRequest(resource, NO_CHECK))
+                confirmed[name] = resource
+                pending.remove(name)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: StatusException) {
+                log.warn("Could not move {} from lease {} onto {} yet: {}", name, lost, lease, describe(e))
+            }
+        }
+        log.info("Lease {} of namespace {} was lost; {} is its replacement.", lost, namespace, lease)
     }
 
     private fun putRequest(resource: Resource, expectedRevision: Long): PutRequest = PutRequest.newBuilder()
