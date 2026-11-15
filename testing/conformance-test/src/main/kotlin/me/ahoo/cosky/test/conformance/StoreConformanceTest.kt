@@ -346,10 +346,12 @@ abstract class StoreConformanceTest {
         repeat(3) { batch ->
             store.apply(namespace, List(2) { Mutation.Put(config("c$batch$it", "x".repeat(1000))) }, ACTOR)
         }
-        val size = store.recentChanges(namespace, 3, 100).last().serializedSize
-        store.recentChanges(namespace, 3, 100, size * 2).map { it.revision }.assert().containsExactly(2L, 3L)
-        store.recentChanges(namespace, 3, 100, size * 2 - 1).map { it.revision }.assert().containsExactly(3L)
-        store.recentChanges(namespace, 3, 100, size - 1).assert().isEmpty()
+        // Each batch measured on its own: their timestamps make them differ by a byte or two.
+        val sizes = store.recentChanges(namespace, 3, 100).associate { it.revision to it.serializedSize }
+        val lastTwo = sizes.getValue(2L) + sizes.getValue(3L)
+        store.recentChanges(namespace, 3, 100, lastTwo).map { it.revision }.assert().containsExactly(2L, 3L)
+        store.recentChanges(namespace, 3, 100, lastTwo - 1).map { it.revision }.assert().containsExactly(3L)
+        store.recentChanges(namespace, 3, 100, sizes.getValue(3L) - 1).assert().isEmpty()
     }
 
     @Test
