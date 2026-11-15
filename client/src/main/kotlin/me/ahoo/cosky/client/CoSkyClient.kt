@@ -16,12 +16,15 @@ package me.ahoo.cosky.client
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.api.v1.InstanceSpec
@@ -30,6 +33,7 @@ import me.ahoo.cosky.api.v1.ObjectMeta
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.validation.NamingRules
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * The CoSky client (design §6.5): everything it knows is a local view that keeps following the server, so reads never
@@ -96,7 +100,20 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
                 return state.view.value[config]
             }
 
-            private fun stateOf(config: String) = watches.watch(WatchKey(name, Kind.KIND_CONFIG, name = config))
+            /**
+             * Follows one Config until the hold is closed. The watch of [watch] and [load] lasts as long as the client;
+             * this one ends with the last hold of the Config, unless one of them was called for it too. For the
+             * starter, whose imports come and go with refreshes.
+             */
+            @InternalCoSkyApi
+            fun hold(config: String): ConfigHold {
+                val key = keyOf(config)
+                return ConfigHold(config, watches.hold(key)) { watches.release(key) }
+            }
+
+            private fun stateOf(config: String) = watches.watch(keyOf(config))
+
+            private fun keyOf(config: String) = WatchKey(name, Kind.KIND_CONFIG, name = config)
         }
 
         inner class Instances internal constructor() {
@@ -157,6 +174,39 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
 
             private fun sorted(objects: Map<String, Resource>): List<Resource> =
                 objects.values.sortedBy { it.meta.name }
+        }
+    }
+}
+
+/**
+ * One Config followed until [close], from [CoSkyClient.Namespace.Configs.hold].
+ */
+@InternalCoSkyApi
+class ConfigHold internal constructor(
+    private val config: String,
+    private val state: WatchState,
+    private val release: () -> Unit,
+) : AutoCloseable {
+    private val closed = AtomicBoolean()
+
+    /**
+     * The Config now and as it changes, null while unknown or deleted.
+     */
+    val changes: Flow<Resource?> = state.view.map { it[config] }.distinctUntilChanged()
+
+    /**
+     * Waits until the view is known, then reads it, as [CoSkyClient.Namespace.Configs.load] does.
+     *
+     * @throws CoSkyException if the server refuses, say for lack of permission, and no snapshot knows better.
+     */
+    suspend fun load(): Resource? {
+        state.awaitKnown()
+        return state.view.value[config]
+    }
+
+    override fun close() {
+        if (closed.compareAndSet(false, true)) {
+            release()
         }
     }
 }

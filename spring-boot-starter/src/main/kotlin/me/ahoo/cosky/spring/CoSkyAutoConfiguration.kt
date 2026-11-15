@@ -37,7 +37,7 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationC
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
 import org.springframework.cloud.commons.util.InetUtils
 import org.springframework.cloud.commons.util.UtilAutoConfiguration
-import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent
+import org.springframework.cloud.context.environment.EnvironmentChangeEvent
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.cloud.loadbalancer.annotation.LoadBalancerClients
 import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier
@@ -98,7 +98,7 @@ class CoSkyAutoConfiguration {
      * Whether Configs refresh by themselves or not: a refresh can also come from the application, or an endpoint.
      */
     @Configuration(proxyBeanMethods = false)
-    @ConditionalOnClass(RefreshScopeRefreshedEvent::class)
+    @ConditionalOnClass(EnvironmentChangeEvent::class)
     class Imports {
         @Bean
         fun coSkyImportReconciler(

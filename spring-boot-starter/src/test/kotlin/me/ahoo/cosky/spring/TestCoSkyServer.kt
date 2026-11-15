@@ -61,7 +61,7 @@ import me.ahoo.cosky.server.CoSkyProperties as ServerProperties
 /**
  * The real server code on a real port, so that the starter goes through the client's default transport.
  */
-internal class TestCoSkyServer : AutoCloseable {
+internal class TestCoSkyServer(properties: ServerProperties = ServerProperties()) : AutoCloseable {
     val store = MemoryStore()
     val topology = TopologyRecorder(store, 1.minutes)
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
@@ -89,7 +89,7 @@ internal class TestCoSkyServer : AutoCloseable {
             .addService(LeaseGrpcService(LeaseService(store)))
             .addService(
                 ServerInterceptors.intercept(
-                    WatchGrpcService(WatchService(caches, ServerProperties(), topology = topology)),
+                    WatchGrpcService(WatchService(caches, properties, topology = topology)),
                     ClientNameInterceptor(),
                 ),
             )

@@ -44,6 +44,12 @@ internal class WatchMultiplexer(
     private val scope: CoroutineScope,
 ) {
     private val watches = ConcurrentHashMap<WatchKey, WatchState>()
+
+    /** The keys [watch] returned a watch for, which lives as long as the client. */
+    private val kept = ConcurrentHashMap.newKeySet<WatchKey>()
+
+    /** How many holds each watch [hold] returned has, under [lock]. */
+    private val holds = HashMap<WatchKey, Int>()
     private val byId = ConcurrentHashMap<Long, WatchState>()
     private val ids = AtomicLong()
     private val started = AtomicBoolean()
@@ -64,10 +70,44 @@ internal class WatchMultiplexer(
         get() = connectionState
 
     /**
-     * The same key always shares one watch, which lives as long as the client.
+     * The same key always shares one watch. Once returned from here, it lives as long as the client: a view read by its
+     * value alone is not subscribed to, so nothing could tell when it is no longer needed.
      */
-    fun watch(key: WatchKey): WatchState {
-        val watch = watches[key] ?: add(key)
+    fun watch(key: WatchKey): WatchState = watches[key]?.takeIf { key in kept } ?: use(key) { kept += key }
+
+    /**
+     * The same watch as [watch], for a key followed only for a while: once [release] has been called for every hold,
+     * and [watch] was never called for the key, the watch ends, on the server too, where it counts against the
+     * stream's quota.
+     */
+    fun hold(key: WatchKey): WatchState = use(key) { holds.merge(key, 1, Int::plus) }
+
+    fun release(key: WatchKey) = synchronized(lock) {
+        val left = checkNotNull(holds[key]) { "Watch $key is not held." } - 1
+        if (left > 0) {
+            holds[key] = left
+        } else {
+            holds -= key
+            if (key !in kept) {
+                watches.remove(key)?.let { end(it) }
+            }
+        }
+    }
+
+    /**
+     * Reads the snapshot before taking the lock, since that reads a file. Losing a race only wastes the read, or, for a
+     * key released meanwhile, starts its watch without one.
+     */
+    private fun use(key: WatchKey, mark: () -> Unit): WatchState {
+        val snapshot = if (watches.containsKey(key)) null else snapshots.load(key)
+        val watch = synchronized(lock) {
+            watches.getOrPut(key) {
+                if (snapshot != null) {
+                    connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
+                }
+                WatchState(key, snapshot).also { created -> requests?.let { create(it, created) } }
+            }.also { mark() }
+        }
         if (started.compareAndSet(false, true)) {
             scope.launch { run() }
             scope.launch { resync() }
@@ -76,17 +116,12 @@ internal class WatchMultiplexer(
     }
 
     /**
-     * Reads the snapshot before taking the lock, since that reads a file. Losing a race only wastes the read.
+     * Ends a watch no longer held, on the stream it is on. Its responses still on the way find no route.
      */
-    private fun add(key: WatchKey): WatchState {
-        val snapshot = snapshots.load(key)
-        return synchronized(lock) {
-            watches.getOrPut(key) {
-                if (snapshot != null) {
-                    connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
-                }
-                WatchState(key, snapshot).also { created -> requests?.let { create(it, created) } }
-            }
+    private fun end(watch: WatchState) {
+        byId.filterValues { it === watch }.keys.forEach { id ->
+            byId -= id
+            requests?.trySend(cancelOf(id))
         }
     }
 
@@ -148,7 +183,8 @@ internal class WatchMultiplexer(
         scope.launch {
             delay(CANCELED_RETRY)
             synchronized(lock) {
-                if (requests === outgoing) {
+                // Unless the watch ended meanwhile.
+                if (requests === outgoing && watches[watch.key] === watch) {
                     recreate(outgoing, watch)
                 }
             }
