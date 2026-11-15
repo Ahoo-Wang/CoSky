@@ -25,6 +25,10 @@ import io.grpc.inprocess.InProcessServerBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.server.CoSkyProperties
@@ -35,6 +39,9 @@ import me.ahoo.cosky.server.lease.LeaseService
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchService
+import me.ahoo.cosky.store.ChangeBatch
+import me.ahoo.cosky.store.Position
+import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.time.Clock
 import java.time.Instant
@@ -52,6 +59,9 @@ import kotlin.time.toJavaDuration
  */
 internal class TestServer(private val properties: CoSkyProperties = CoSkyProperties()) : AutoCloseable {
     val name = "cosky-${UUID.randomUUID()}"
+
+    /** Off, the server's view stops following the store, as a replica's view that is behind; writes still land. */
+    val cacheFollows = MutableStateFlow(true)
 
     /** Moved on, it lets a lease run out without the test waiting for it. */
     val clock = OffsetClock()
@@ -74,7 +84,7 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
     private var server: Server? = null
 
     fun start() {
-        val caches = WatchCache(store, WINDOW, scope)
+        val caches = WatchCache(GatedStore(store, cacheFollows), WINDOW, scope)
         server = InProcessServerBuilder.forName(name)
             .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
             .addService(ServerInterceptors.intercept(LeaseGrpcService(LeaseService(store)), silencing))
@@ -167,4 +177,13 @@ internal class OffsetClock : Clock() {
     override fun withZone(zone: ZoneId?): Clock = this
 
     override fun instant(): Instant = Instant.now().plus(offset)
+}
+
+/**
+ * Hands changes on only while [follows] is set.
+ */
+private class GatedStore(private val delegate: Store, private val follows: MutableStateFlow<Boolean>) :
+    Store by delegate {
+    override fun changes(namespace: String, from: Position): Flow<ChangeBatch> =
+        delegate.changes(namespace, from).onEach { follows.first { it } }
 }

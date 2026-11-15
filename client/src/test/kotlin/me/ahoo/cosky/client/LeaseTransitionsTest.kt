@@ -104,6 +104,25 @@ class LeaseTransitionsTest {
     }
 
     @Test
+    fun `a withdrawal that finds nothing in a view behind tries again, until the store's count says`() = scenario {
+        val answered = CompletableDeferred<Unit>()
+        val missed = CompletableDeferred<Unit>()
+        val instances = instances(answerLostFor("cancelled", answered), notFoundSignal(missed))
+        instances.register("order", ENDPOINT, instanceName = "companion")
+        // The view stops following: the cancelled Put lands in the store all the same.
+        server.cacheFollows.value = false
+        val registering = launch { instances.register("order", ENDPOINT, instanceName = "cancelled") }
+        answered.await()
+        registering.cancelAndJoin()
+        // The withdrawal reads the view, which has not seen it yet.
+        missed.await()
+
+        server.cacheFollows.value = true
+
+        eventually { instancesOnServer().map { it.meta.name } == listOf("companion") }
+    }
+
+    @Test
     fun `a name registered again after its registration was cancelled stays`() = scenario {
         val answered = CompletableDeferred<Unit>()
         val instances = instances(answerLostFor("again", answered))
@@ -200,6 +219,31 @@ class LeaseTransitionsTest {
         delay(5.seconds)
 
         instancesOnServer().map { it.meta.name }.sorted().assert().containsExactly("companion", "taken")
+    }
+
+    /** [missed] completes once a Get is answered NOT_FOUND. */
+    private fun notFoundSignal(missed: CompletableDeferred<Unit>): ClientInterceptor = object : ClientInterceptor {
+        override fun <Req, Resp> interceptCall(
+            descriptor: MethodDescriptor<Req, Resp>,
+            options: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            val call = next.newCall(descriptor, options)
+            if (descriptor.bareMethodName != "Get") {
+                return call
+            }
+            return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) = super.start(
+                    object : ForwardingClientCallListener.SimpleForwardingClientCallListener<Resp>(responseListener) {
+                        override fun onClose(status: Status, trailers: Metadata) {
+                            if (status.code == Status.Code.NOT_FOUND) missed.complete(Unit)
+                            super.onClose(status, trailers)
+                        }
+                    },
+                    headers,
+                )
+            }
+        }
     }
 
     /** Puts of [name] fail with UNAVAILABLE while [failing] is set, every other call going through. */
