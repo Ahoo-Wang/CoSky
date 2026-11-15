@@ -186,7 +186,7 @@ async function listAll<T>(
         const page = await list(pageToken ? undefined : minRevision, pageToken || undefined, {abortController}) as
             Wire<ListResponse>;
         if (!pageToken) {
-            readUpTo(namespace, page.revision);
+            readUpTo(namespace, page.revision, page.epoch);
         }
         items.push(...(page.items ?? []).map(item => toResource(item as WireResource)));
         pageToken = page.nextPageToken ?? '';

@@ -12,28 +12,75 @@
  */
 
 /**
- * How far this page has seen each namespace's revision, by its watch and by its reads (design §6.1). A read asks for no
- * less than the watch has seen, so that a replica that is behind cannot answer with less than the page knows has
- * changed; and a bookmark of a revision no read has reached yet has the page read again.
+ * How far this page has seen each namespace, by its watch and by its reads (design §6.1), on the timeline of one epoch
+ * (design §6.4): revisions compare only within an epoch, and a new one may start lower.
+ *
+ * - A read asks for no less than the watch has seen, so that a replica that is behind cannot answer with less than the
+ *   page knows has changed.
+ * - A bookmark has the page read again while any read since the watch last reported a change is behind it: one read
+ *   that reached a replica further on must not vouch for another that did not.
+ * - A snapshot of another epoch starts over from its revision, and forgets the reads of the old timeline. A read or an
+ *   event that says it belongs to another epoch than the latest snapshot counts for nothing.
  */
-const watched = new Map<string, bigint>();
-const read = new Map<string, bigint>();
+interface Position {
+    epoch?: string;
+    watched?: bigint;
+    /** The lowest revision the reads since the last reported change were answered at. */
+    read?: bigint;
+}
 
-const raise = (seen: Map<string, bigint>, namespace: string, revision: string | undefined) => {
-    if (revision && (seen.get(namespace) ?? -1n) < BigInt(revision)) {
-        seen.set(namespace, BigInt(revision));
+const positions = new Map<string, Position>();
+
+const positionOf = (namespace: string): Position => {
+    let position = positions.get(namespace);
+    if (!position) {
+        position = {};
+        positions.set(namespace, position);
+    }
+    return position;
+};
+
+const ofAnotherEpoch = (position: Position, epoch: string | undefined) =>
+    epoch !== undefined && position.epoch !== undefined && epoch !== position.epoch;
+
+/**
+ * A watch of the namespace reached this revision, on the epoch of its snapshot. [snapshot] says whether it is that
+ * snapshot, which starts the namespace over on a new epoch.
+ */
+export const watchedUpTo = (namespace: string, revision: string | undefined, epoch?: string, snapshot = false) => {
+    const position = positionOf(namespace);
+    if (snapshot && epoch !== undefined && epoch !== position.epoch) {
+        positions.set(namespace, {epoch, watched: revision ? BigInt(revision) : undefined});
+        return;
+    }
+    if (!revision || ofAnotherEpoch(position, epoch)) {
+        return;
+    }
+    if ((position.watched ?? -1n) < BigInt(revision)) {
+        position.watched = BigInt(revision);
     }
 };
 
-/** A watch of the namespace reached this revision. */
-export const watchedUpTo = (namespace: string, revision: string | undefined) => raise(watched, namespace, revision);
+/** The page reads again for a change the watch reported: the reads from here on are what counts. */
+export const readingAgain = (namespace: string) => {
+    positionOf(namespace).read = undefined;
+};
 
-/** A read of the namespace was answered as of this revision. */
-export const readUpTo = (namespace: string, revision: string | undefined) => raise(read, namespace, revision);
+/** A read of the namespace was answered as of this revision, on this epoch if the answer says so. */
+export const readUpTo = (namespace: string, revision: string | undefined, epoch?: string) => {
+    const position = positionOf(namespace);
+    if (!revision || ofAnotherEpoch(position, epoch)) {
+        return;
+    }
+    const answered = BigInt(revision);
+    if (position.read === undefined || answered < position.read) {
+        position.read = answered;
+    }
+};
 
 /** The least revision a read of the namespace asks for, once a watch has seen one. */
-export const minRevisionOf = (namespace: string): string | undefined => watched.get(namespace)?.toString();
+export const minRevisionOf = (namespace: string): string | undefined => positions.get(namespace)?.watched?.toString();
 
-/** Whether no read of the namespace has reached the revision yet. */
+/** Whether a read since the last reported change is behind the revision, or none has been answered yet. */
 export const readsBehind = (namespace: string, revision: string): boolean =>
-    (read.get(namespace) ?? -1n) < BigInt(revision);
+    (positions.get(namespace)?.read ?? -1n) < BigInt(revision);

@@ -752,6 +752,26 @@ test.describe('configuration', () => {
         await expect.poll(() => asked().at(-1)).toBe('600');
     });
 
+    test('after a failover, a snapshot of the new epoch reads from its revision, though lower', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        const asked = () => api.requests
+            .filter(request => request.path === '/v1/namespaces/default/configs' && !request.query.has('pageToken'))
+            .map(request => request.query.get('minRevision'));
+        const watches = () => api.requests.filter(request => request.path.endsWith('/watch')).length;
+        await expect.poll(watches).toBe(1);
+
+        api.releaseWatch({snapshot: {epoch: 'before', revision: '100'}});
+        await expect.poll(() => asked().at(-1)).toBe('100');
+
+        // Redis lost writes: the new timeline starts lower, and 100 will not come on it for a while.
+        await expect.poll(watches).toBe(2);
+        api.releaseWatch({snapshot: {epoch: 'after', revision: '90'}});
+        await expect.poll(() => asked().at(-1)).toBe('90');
+    });
+
     test('a snapshot covers whatever was missed while no stream was open', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
