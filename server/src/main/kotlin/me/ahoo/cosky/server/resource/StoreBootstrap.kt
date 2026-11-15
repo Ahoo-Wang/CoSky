@@ -13,7 +13,6 @@
 
 package me.ahoo.cosky.server.resource
 
-import kotlinx.coroutines.flow.firstOrNull
 import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
@@ -36,11 +35,15 @@ class StoreBootstrap(private val store: Store, private val auth: CoSkyProperties
     }
 
     /**
-     * `default` exists from the first start on, but it stays deleted if someone deletes it.
+     * `default` exists from the first start on, but it stays deleted if someone deletes it, the last namespace too.
+     *
+     * Whether the store was set up shows in the system namespace's revision, not in its Namespace objects, of which
+     * deleting the last one leaves none either: putting `default` is the first write to it, and a revision never goes
+     * back. Still 0, the store was never set up, or lost everything.
      */
     private suspend fun createInitialNamespaces() {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
-        if (store.readAll(NamingRules.SYSTEM_NAMESPACE).firstOrNull { it.hasNamespace() } != null) {
+        if ((store.position(NamingRules.SYSTEM_NAMESPACE)?.revision ?: 0) > 0) {
             return
         }
         store.createNamespace(DEFAULT_NAMESPACE)

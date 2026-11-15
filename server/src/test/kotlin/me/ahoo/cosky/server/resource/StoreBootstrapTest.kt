@@ -21,6 +21,7 @@ import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
+import me.ahoo.cosky.api.v1.resourceKey
 import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.CoSkyProperties
@@ -70,6 +71,41 @@ class StoreBootstrapTest {
         )
         StoreBootstrap(store, auth).run()
         store.namespaceState("default").assert().isNull()
+    }
+
+    private suspend fun deleteDefault() {
+        val epoch = checkNotNull(store.position("default")).epoch
+        store.terminateNamespace("default", epoch)
+        store.dropNamespace("default", epoch)
+        val key = resourceKey {
+            namespace = NamingRules.SYSTEM_NAMESPACE
+            kind = Kind.KIND_NAMESPACE
+            name = "default"
+        }
+        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Delete(key)), "test")
+    }
+
+    @Test
+    fun `default deleted as the last namespace stays deleted when a server starts again`() = runBlocking<Unit> {
+        StoreBootstrap(store, auth).run()
+        deleteDefault()
+
+        StoreBootstrap(store, auth).run()
+
+        store.namespaceState("default").assert().isNotEqualTo(NamespaceState.ACTIVE)
+        objects().none { it.hasNamespace() }.assert().isTrue()
+    }
+
+    @Test
+    fun `with auth off as well, where default was all the system namespace held`() = runBlocking<Unit> {
+        val off = CoSkyProperties.Auth(enabled = false)
+        StoreBootstrap(store, off).run()
+        deleteDefault()
+
+        StoreBootstrap(store, off).run()
+
+        store.namespaceState("default").assert().isNotEqualTo(NamespaceState.ACTIVE)
+        objects().assert().isEmpty()
     }
 
     @Test
