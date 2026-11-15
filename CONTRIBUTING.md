@@ -103,6 +103,10 @@ To release:
    their labels ([.github/release.yml](.github/release.yml)).
 3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, and the Docker images.
 
+If the Release workflow stops partway, run it again: it creates the release if it is missing, and starts each
+publishing workflow that has not run on the tag. A publishing workflow that failed is not started again, since part of
+the release may already be out; the Release workflow fails and names the run whose failed jobs to re-run.
+
 A 6.x bug-fix release works the same way, with the pull request against `v6`.
 
 ## License
