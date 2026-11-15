@@ -21,6 +21,7 @@ import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.TerminateResult
+import me.ahoo.cosky.store.key
 import org.slf4j.LoggerFactory
 import java.time.Clock
 import java.time.Duration
@@ -28,9 +29,9 @@ import java.time.Instant
 
 /**
  * Compares the Namespace objects with the state of each namespace, for what no request is left to fix (design §7.2).
- * The object is written after the namespace is created, marked as terminating before a deletion touches anything, and
- * deleted after the namespace is dropped, so any difference that lasts means a deletion was interrupted, or the shard
- * lost its data.
+ * The namespace is created after its object is written, the object is marked as terminating before a deletion touches
+ * anything, and deleted after the namespace is dropped. So any difference that lasts means a creation or a deletion was
+ * interrupted, or the shard lost its data.
  *
  * @param markedGrace how long a deletion that marked its object is left to its own request, which is still under way
  * most of the time: finishing it from here as well would race with it.
@@ -57,13 +58,16 @@ class NamespaceReconciler(
                 when (store.namespaceState(name)) {
                     NamespaceState.ACTIVE -> if (terminating && isLeftBehind(namespace)) finishOrUndo(namespace)
 
-                    NamespaceState.TERMINATING -> finish(namespace)
+                    NamespaceState.TERMINATING -> if (terminating) finish(namespace) else createdAgain(namespace)
 
                     // Whatever a namespace on its way out lost, it is deleted all the same.
                     null -> if (terminating) {
                         namespaces.deleteObject(namespace)
                     } else {
-                        log.error("Namespace {} has no state: its shard lost data. Creating it anew.", name)
+                        log.error(
+                            "Namespace {} has no state: its creation stopped, or its shard lost data. Creating it.",
+                            name,
+                        )
                         store.createNamespace(name)
                     }
                 }
@@ -87,6 +91,21 @@ class NamespaceReconciler(
         }
         log.info("Namespace {} is not empty, or another one: undoing a deletion that stopped half way.", name)
         namespaces.unmark(namespace)
+    }
+
+    /**
+     * An object no deletion has marked, over the tombstone of an earlier deletion: a creation that stopped before it
+     * made the namespace. Read again as of the latest write first, since in a view that is behind, a deletion under
+     * way may not show its mark yet.
+     */
+    private suspend fun createdAgain(namespace: Resource) {
+        val latest = namespaces.latest(namespace.key) ?: return
+        if (latest.namespace.terminating) {
+            finish(latest)
+        } else {
+            log.info("Creating namespace {}, whose creation stopped after its object was written.", latest.meta.name)
+            store.createNamespace(latest.meta.name)
+        }
     }
 
     private suspend fun finish(namespace: Resource) {

@@ -133,15 +133,17 @@ class ResourceService(
         return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
             authorizePut(request, key, caller.principal)
             val write = withStoredTokens(withContentHash(namespaces.guard(request)))
-            if (key.kind == Kind.KIND_NAMESPACE) {
-                store.createNamespace(key.name)
-            }
             val applied = apply(
                 key,
                 Mutation.Put(write.resource, write.expectedRevision),
                 write.expectedRevision,
                 caller.principal.id,
             )
+            if (key.kind == Kind.KIND_NAMESPACE) {
+                // Once the directory has it: a write it rejects must leave no namespace behind, which the reconciler,
+                // going by the directory, would never find. One that stops in between, the reconciler creates.
+                store.createNamespace(key.name)
+            }
             PutResponse.newBuilder().setRevision(applied.revision).setChanged(applied.changed > 0).build()
         }
     }

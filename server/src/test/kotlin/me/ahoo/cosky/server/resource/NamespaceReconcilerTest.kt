@@ -125,6 +125,21 @@ class NamespaceReconcilerTest {
         store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
     }
 
+    @Test
+    fun `a namespace created again over a deletion, stopped before its state, is created`() = runBlocking<Unit> {
+        store.createNamespace(NAME)
+        val epoch = checkNotNull(store.position(NAME)).epoch
+        store.terminateNamespace(NAME, epoch)
+        store.dropNamespace(NAME, epoch)
+        // Its object written again, as a creation writes it first, and nothing after.
+        objectOf(NAME)
+
+        reconciler.reconcile()
+
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+        objectOrNull(NAME).assert().isNotNull()
+    }
+
     private suspend fun objectOrNull(name: String): Resource? =
         store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().singleOrNull { it.meta.name == name }
 
