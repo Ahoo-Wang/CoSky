@@ -14,6 +14,7 @@
 package me.ahoo.cosky.spring.config
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
@@ -30,6 +31,7 @@ import org.springframework.boot.availability.ReadinessState
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.context.ApplicationListener
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -47,6 +49,7 @@ class CoSkyConfigRefresher(
 ) : ApplicationListener<AvailabilityChangeEvent<ReadinessState>>, DisposableBean {
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val started = AtomicBoolean()
+    private val following = ConcurrentHashMap<Pair<String, String>, Job>()
 
     /**
      * A platform thread, unlike everything else here: the imports block inside the synchronized
@@ -60,10 +63,11 @@ class CoSkyConfigRefresher(
         if (event.state != ReadinessState.ACCEPTING_TRAFFIC || !started.compareAndSet(false, true)) {
             return
         }
-        // Imports a refresh adds are followed as well, once each.
+        // Imports a refresh adds are followed as well, once each, and those it removes no longer.
+        application.onDropped { namespace, config -> following.remove(namespace to config)?.cancel() }
         application.eachImport { namespace, config, loaded ->
             val configs = application.client.namespace(namespace).configs
-            scope.launch {
+            following[namespace to config] = scope.launch {
                 configs.watch(config).dropWhile { it.orNone() == loaded }.collect { refresh(config) }
             }
         }
