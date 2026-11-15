@@ -138,8 +138,8 @@ jobs:
           test "$(kubectl get pods -l app=cosky -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}')" = "0 0 0"
           kubectl port-forward service/cosky 18080:8080 &
           forward=$!
-          sleep 3
-          curl -sf http://localhost:18080/actuator/health/readiness
+          # The forward listens a moment after it starts: retry a refused connection rather than guess how long.
+          curl -sf --retry 15 --retry-connrefused --retry-delay 1 http://localhost:18080/actuator/health/readiness
           curl -sf -H "Authorization: Bearer $token" http://localhost:18080/v1/namespaces/default/configs
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18080/v1/namespaces/default/configs)" = 401
           kill "$forward"
