@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
+import kotlin.time.TimeSource
 import io.grpc.Channel as GrpcChannel
 
 /**
@@ -77,11 +78,11 @@ internal class LeaseKeeper(
     private val pending = ConcurrentHashMap.newKeySet<String>()
 
     /**
-     * Registrations of new names cancelled on their way, which the server took for all the caller knows, with the
-     * lease they were sent on. The Instance would live on with the lease the other registrations renew, and nobody
-     * would hold a handle to close it, so each is withdrawn unless its name is registered again first.
+     * Registrations of new names cancelled on their way, which the server took for all the caller knows. The Instance
+     * would live on with the lease the other registrations renew, and nobody would hold a handle to close it, so each
+     * is withdrawn unless its name is registered again first.
      */
-    private val withdrawals = ConcurrentHashMap<String, Resource>()
+    private val withdrawals = ConcurrentHashMap<String, Withdrawal>()
 
     private var renewal: Job? = null
 
@@ -113,7 +114,10 @@ internal class LeaseKeeper(
             } catch (e: CancellationException) {
                 giveWay(name, previous)
                 if (previous == null) {
-                    withdrawals[name] = resource.toBuilder().apply { metaBuilder.lease = lease }.build()
+                    withdrawals[name] = Withdrawal(
+                        resource.toBuilder().apply { metaBuilder.lease = lease }.build(),
+                        TimeSource.Monotonic.markNow() + options.callTimeout,
+                    )
                     scope.launch { withdraw() }
                 }
                 throw e
@@ -257,7 +261,7 @@ internal class LeaseKeeper(
      * putting back creates only what is missing.
      */
     private suspend fun catchUp(attachedCount: Int) {
-        withdraw(attachedCount)
+        withdraw()
         putUnconfirmed()
         if (attachedCount < registrations.size) {
             putBack()
@@ -315,61 +319,80 @@ internal class LeaseKeeper(
 
     /**
      * Deletes what cancelled registrations may have created: only an Instance still on the lease it was sent on, and at
-     * the revision read, so that one written since, by this client or anyone, stays. One that cannot be read or deleted
-     * now is tried again with the next renewal.
-     *
-     * A read that finds nothing proves nothing, since it comes from a replica's view, which may not have the write
-     * yet. What ends a withdrawal without deleting is the store's own count of the Instances on the lease, [attached],
-     * from a renewal: when it is no more than the registrations the server confirmed, the cancelled one is not among
-     * them.
+     * the revision the store holds, so that one written since, by this client or anyone, stays. One that cannot be
+     * settled now is tried again with the next renewal.
      */
-    private suspend fun withdraw(attached: Int? = null) {
+    private suspend fun withdraw() {
         if (withdrawals.isEmpty()) {
             return
         }
         mutex.withLock {
-            val noneExtra = attached != null && attached <= registrations.size - pending.size
-            withdrawals.toList().forEach { (name, sent) ->
+            withdrawals.toList().forEach { (name, withdrawal) ->
+                val lease = withdrawal.sent.meta.lease
                 val done = registrations.containsKey(name) ||
                     // Cancelled before a lease was granted, so before anything was sent.
-                    sent.meta.lease == 0L ||
+                    lease == 0L ||
                     // On a lease no longer renewed, which the reaper removes with the Instances on it.
-                    sent.meta.lease != lease ||
-                    noneExtra ||
-                    tryWithdraw(sent)
+                    lease != this.lease ||
+                    tryWithdraw(withdrawal)
                 if (done) {
-                    withdrawals.remove(name, sent)
+                    withdrawals.remove(name, withdrawal)
                 }
             }
         }
     }
 
     /**
-     * @return whether nothing is left to withdraw: deleted, or no longer this client's.
+     * Asks the store, not a replica's view, which may not have the write yet: a Delete at a revision nothing has
+     * answers with the revision the Instance is at, 0 when there is none, and changes nothing. Then the Instance is
+     * read as of that revision, to see whose it is.
+     *
+     * @return whether nothing is left to withdraw: deleted, never there, or no longer this client's.
      */
-    private suspend fun tryWithdraw(sent: Resource): Boolean = try {
-        val key = keyOf(sent.meta.name)
-        val current = resources().timed().get(GetRequest.newBuilder().setKey(key).build())
-        if (current.meta.lease == sent.meta.lease) {
-            resources().timed().delete(
-                DeleteRequest.newBuilder().setKey(key).setExpectedRevision(current.meta.revision).build(),
-            )
-            log.info("Withdrew {}, whose registration was cancelled after the server took it.", sent.meta.name)
+    private suspend fun tryWithdraw(withdrawal: Withdrawal): Boolean = try {
+        val key = keyOf(withdrawal.sent.meta.name)
+        val revision = storedRevision(key)
+        when {
+            // Absent for good only once the cancelled Put can no longer land.
+            revision == 0L -> withdrawal.settled.hasPassedNow()
+            else -> {
+                val current = resources().timed()
+                    .get(GetRequest.newBuilder().setKey(key).setMinRevision(revision).build())
+                if (current.meta.revision == revision && current.meta.lease == withdrawal.sent.meta.lease) {
+                    resources().timed()
+                        .delete(DeleteRequest.newBuilder().setKey(key).setExpectedRevision(revision).build())
+                    log.info("Withdrew {}, whose registration was cancelled after the server took it.", key.name)
+                }
+                true
+            }
         }
-        true
     } catch (e: CancellationException) {
         throw e
     } catch (e: StatusException) {
         when (CoSkyException.from(e)?.reason) {
-            // Changed since by someone who now owns it.
-            ErrorReason.ERROR_REASON_REVISION_CONFLICT -> true
-            // Not in the replica's view: not created, or not there yet. A renewal tells.
-            ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND -> false
+            // Changed, or deleted, since the store answered: by someone who owns it now.
+            ErrorReason.ERROR_REASON_REVISION_CONFLICT, ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND -> true
             else -> {
-                log.warn("Could not withdraw {} yet: {}", sent.meta.name, describe(e))
+                log.warn("Could not withdraw {} yet: {}", withdrawal.sent.meta.name, describe(e))
                 e.status.code !in OUT_OF_REACH
             }
         }
+    }
+
+    /**
+     * The revision the store holds [key] at, 0 if none, from the conflict of a Delete at a revision that cannot match.
+     */
+    private suspend fun storedRevision(key: ResourceKey): Long {
+        try {
+            resources().timed().delete(DeleteRequest.newBuilder().setKey(key).setExpectedRevision(UNMATCHABLE).build())
+        } catch (e: StatusException) {
+            val conflict = CoSkyException.from(e)
+            if (conflict?.reason == ErrorReason.ERROR_REASON_REVISION_CONFLICT) {
+                return conflict.detail.revisionConflict.currentRevision
+            }
+            throw e
+        }
+        error("A Delete of ${key.name} applied at revision $UNMATCHABLE.")
     }
 
     /** Takes back a registration of [name], so that the one it would have replaced, if any, is what stays. */
@@ -483,6 +506,14 @@ internal class LeaseKeeper(
 
         /** `expected_revision` meaning no check at all. */
         const val NO_CHECK = 0L
+
+        /** An `expected_revision` beyond any a namespace reaches. */
+        const val UNMATCHABLE = Long.MAX_VALUE
         val OUT_OF_REACH = setOf(Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED)
     }
 }
+
+/**
+ * A registration to withdraw, as sent: with the lease it went on, and when the Put can no longer land, its deadline.
+ */
+private class Withdrawal(val sent: Resource, val settled: TimeSource.Monotonic.ValueTimeMark)
