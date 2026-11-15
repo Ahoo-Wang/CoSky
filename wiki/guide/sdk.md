@@ -67,6 +67,8 @@ registration.close()
 
 The client keeps the lease alive, and registers everything again if the lease is lost. Closing the last registration ends the lease.
 
+Registering a name again replaces its registration, and the new handle is the one that closes it. Closing a handle again, or one whose name was registered again since, does nothing. A close that fails, as when no server answers, leaves the instance registered and renewed, and can be tried again.
+
 ## Closing
 
 `client.close()` revokes its leases within 3 seconds. After that the server expires them.

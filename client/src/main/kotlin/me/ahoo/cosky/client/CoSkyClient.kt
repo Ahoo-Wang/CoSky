@@ -168,8 +168,7 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
                     .setMeta(ObjectMeta.newBuilder().setNamespace(name).setName(instanceName))
                     .setInstance(spec)
                     .build()
-                leases.register(resource)
-                return Registration(instanceName, leases)
+                return leases.register(resource)
             }
 
             private fun sorted(objects: Map<String, Resource>): List<Resource> =
@@ -218,7 +217,14 @@ class Registration internal constructor(
     val instanceName: String,
     private val leases: LeaseKeeper,
 ) {
+    /**
+     * Removes the instance. Once it is closed, or the name registered again, which the new handle closes, this does
+     * nothing.
+     *
+     * @throws StatusException when the instance cannot be removed now: it stays registered and renewed, and closing
+     * can be tried again.
+     */
     suspend fun close() {
-        leases.deregister(instanceName)
+        leases.deregister(this)
     }
 }

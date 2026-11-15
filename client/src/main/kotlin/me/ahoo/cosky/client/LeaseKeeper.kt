@@ -84,6 +84,12 @@ internal class LeaseKeeper(
      */
     private val withdrawals = ConcurrentHashMap<String, Withdrawal>()
 
+    /**
+     * The handle of each name's latest registration, the only one that closes it: one closed already, or replaced by a
+     * later registration of the name, would otherwise delete what that one registered.
+     */
+    private val owners = ConcurrentHashMap<String, Registration>()
+
     private var renewal: Job? = null
 
     @Volatile
@@ -93,10 +99,11 @@ internal class LeaseKeeper(
      * Returns once the client holds the registration. A server out of reach is no reason to fail: the registration is
      * remembered, and goes out as soon as one answers (design §7.5).
      *
+     * @return the handle that closes it, until the name is registered again.
      * @throws StatusException when the server refuses it. Then, as when the call is cancelled, the client holds what it
      * held before: the caller has no [Registration] to close, so nothing may stay behind that would be put again.
      */
-    suspend fun register(resource: Resource) {
+    suspend fun register(resource: Resource): Registration =
         mutex.withLock {
             val name = resource.meta.name
             val previous = registrations.put(name, resource)
@@ -144,22 +151,30 @@ internal class LeaseKeeper(
             if (renewal == null) {
                 renewal = scope.launch { keepRenewing() }
             }
+            Registration(name, this).also { owners[name] = it }
         }
-    }
 
     /**
+     * Deletes the Instance of [registration], unless it was closed already or its name registered again since: then
+     * this does nothing.
+     *
      * Throws when the Instance cannot be deleted, and then leaves the registration as it was: its renewals go on, and
      * closing it can be tried again. Once the Instance is deleted nothing fails it: revoking the lease after the last
      * one is best effort.
      */
-    suspend fun deregister(name: String) {
+    suspend fun deregister(registration: Registration) {
         mutex.withLock {
+            val name = registration.instanceName
+            if (owners[name] !== registration) {
+                return
+            }
             // In this order: if the server cannot be reached the registration stays, and with it the renewals of an
             // Instance that is still there.
             resources().timed().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
             registrations.remove(name)
             confirmed.remove(name)
             pending.remove(name)
+            owners.remove(name)
             if (registrations.isEmpty()) {
                 revoke()
             }
