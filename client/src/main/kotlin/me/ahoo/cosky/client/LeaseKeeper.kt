@@ -257,7 +257,7 @@ internal class LeaseKeeper(
      * putting back creates only what is missing.
      */
     private suspend fun catchUp(attachedCount: Int) {
-        withdraw()
+        withdraw(attachedCount)
         putUnconfirmed()
         if (attachedCount < registrations.size) {
             putBack()
@@ -317,14 +317,27 @@ internal class LeaseKeeper(
      * Deletes what cancelled registrations may have created: only an Instance still on the lease it was sent on, and at
      * the revision read, so that one written since, by this client or anyone, stays. One that cannot be read or deleted
      * now is tried again with the next renewal.
+     *
+     * A read that finds nothing proves nothing, since it comes from a replica's view, which may not have the write
+     * yet. What ends a withdrawal without deleting is the store's own count of the Instances on the lease, [attached],
+     * from a renewal: when it is no more than the registrations the server confirmed, the cancelled one is not among
+     * them.
      */
-    private suspend fun withdraw() {
+    private suspend fun withdraw(attached: Int? = null) {
         if (withdrawals.isEmpty()) {
             return
         }
         mutex.withLock {
+            val noneExtra = attached != null && attached <= registrations.size - pending.size
             withdrawals.toList().forEach { (name, sent) ->
-                if (registrations.containsKey(name) || tryWithdraw(sent)) {
+                val done = registrations.containsKey(name) ||
+                    // Cancelled before a lease was granted, so before anything was sent.
+                    sent.meta.lease == 0L ||
+                    // On a lease no longer renewed, which the reaper removes with the Instances on it.
+                    sent.meta.lease != lease ||
+                    noneExtra ||
+                    tryWithdraw(sent)
+                if (done) {
                     withdrawals.remove(name, sent)
                 }
             }
@@ -332,12 +345,12 @@ internal class LeaseKeeper(
     }
 
     /**
-     * @return whether nothing is left to withdraw, deleted or not.
+     * @return whether nothing is left to withdraw: deleted, or no longer this client's.
      */
     private suspend fun tryWithdraw(sent: Resource): Boolean = try {
         val key = keyOf(sent.meta.name)
         val current = resources().timed().get(GetRequest.newBuilder().setKey(key).build())
-        if (sent.meta.lease != 0L && current.meta.lease == sent.meta.lease) {
+        if (current.meta.lease == sent.meta.lease) {
             resources().timed().delete(
                 DeleteRequest.newBuilder().setKey(key).setExpectedRevision(current.meta.revision).build(),
             )
@@ -348,8 +361,10 @@ internal class LeaseKeeper(
         throw e
     } catch (e: StatusException) {
         when (CoSkyException.from(e)?.reason) {
-            // Never created, or changed since by someone who now owns it.
-            ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND, ErrorReason.ERROR_REASON_REVISION_CONFLICT -> true
+            // Changed since by someone who now owns it.
+            ErrorReason.ERROR_REASON_REVISION_CONFLICT -> true
+            // Not in the replica's view: not created, or not there yet. A renewal tells.
+            ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND -> false
             else -> {
                 log.warn("Could not withdraw {} yet: {}", sent.meta.name, describe(e))
                 e.status.code !in OUT_OF_REACH
