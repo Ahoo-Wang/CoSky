@@ -12,6 +12,8 @@ jobs:
   codecov:
     name: Codecov
     runs-on: ubuntu-latest
+    # It runs every test, as Integration Test does: a hang should fail in an hour, not in GitHub's six.
+    timeout-minutes: 60
     services:
       redis:
         image: redis
@@ -39,6 +41,15 @@ jobs:
 
       - name: Build Code Coverage Report
         run: ./gradlew codeCoverageReport --stacktrace
+
+      # A test that times out leaves every thread's stack in its report.
+      - name: Keep the test reports
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: codecov-test-results
+          path: '**/build/test-results/test/*.xml'
+          retention-days: 7
 
       - name: Upload Code Coverage Report to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6

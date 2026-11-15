@@ -1,6 +1,6 @@
 [versions]
 # libraries
-spring-boot = "4.1.0"
+spring-boot = "4.1.2"
 spring-cloud = "2025.1.2"
 guava = "33.5.0-jre"
 kotlin-logging = "8.0.4"
@@ -10,10 +10,10 @@ junit = "6.0.3"
 fluent-assert = "0.2.8"
 mockk = "1.14.9"
 jmh = "1.37"
-# Aligned with what Spring gRPC 1.1 is built on: its POM asks for gRPC 1.81 while Boot 4.1 manages 1.80, and a mix of
-# the two fails at runtime with AbstractMethodError.
-protobuf = "4.34.2"
-grpc-java = "1.81.0"
+# Aligned with what Spring gRPC is built on, as a mix of gRPC versions fails at runtime with AbstractMethodError: Boot
+# 4.1.2 brings Spring gRPC 1.1.2, whose POM asks for gRPC 1.84.1, and manages protobuf 4.36.2, which protoc then matches.
+protobuf = "4.36.2"
+grpc-java = "1.84.1"
 grpc-kotlin = "1.5.0"
 kotlinx-coroutines = "1.10.2"
 testcontainers = "2.0.5"

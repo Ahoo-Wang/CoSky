@@ -25,8 +25,8 @@ Every pull request runs against Redis 7.0, Redis 7.4 and Valkey 8, on a single n
 | Library | Version |
 |---|---|
 | Kotlin | 2.4, compiled to Java 21. Compiling against it takes Kotlin 2.3 or later. |
-| gRPC | 1.81 |
-| Protobuf | 4.34 |
+| gRPC | 1.84 |
+| Protobuf | 4.36 |
 | Spring gRPC | 1.1 |
 | Lettuce | 7.5 |
 
