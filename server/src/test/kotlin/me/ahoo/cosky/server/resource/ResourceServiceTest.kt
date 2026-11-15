@@ -686,6 +686,19 @@ class ResourceServiceTest {
         HistoryRequest.newBuilder().setKey(configKey("a")).setLimit(limit).setPageToken(token).build()
 
     @Test
+    fun `a deleted Config keeps its history, and a rollback that brings it back starts a new one`() = scenario {
+        val old = put(config("a", "old"))
+        val deleted = resources.delete(DeleteRequest.newBuilder().setKey(configKey("a")).build(), CALLER)
+        caches.viewAt(NAMESPACE, deleted.revision, SHORT_TIMEOUT)
+        resources.history(history(), CALLER).revisionsList.map { it.config.content }.assert().containsExactly("old")
+
+        val restored = resources.rollback(configKey("a"), old.revision, 0, CALLER)
+
+        resources.history(history(), CALLER).revisionsList.map { it.meta.revision }.assert()
+            .containsExactly(restored.revision)
+    }
+
+    @Test
     fun `history is newest first, up to the limit`() = scenario {
         repeat(3) { put(config("a", "v$it")) }
         resources.history(

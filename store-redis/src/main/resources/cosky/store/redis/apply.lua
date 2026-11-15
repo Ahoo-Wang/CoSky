@@ -62,6 +62,10 @@ for i, op in ipairs(changed) do
       end
     end
     if op.kind == 'config' then
+      -- A Config created again, rolled back to or not, starts a history of its own (design 7.1).
+      if not op.cur then
+        redis.call('DEL', op.hist)
+      end
       redis.call('ZADD', op.hist, rev, m .. '\0' .. op.bytes)
       redis.call('ZREMRANGEBYRANK', op.hist, 0, -(tonumber(ARGV[5]) + 1))
       redis.call('SADD', KEYS[6], op.name)

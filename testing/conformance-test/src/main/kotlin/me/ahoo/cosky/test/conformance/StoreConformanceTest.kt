@@ -552,6 +552,14 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `a config created again starts its history anew`() = scenario { store ->
+        store.put(config(content = "old"))
+        store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+        store.put(config(content = "new"))
+        store.history(configKey(), 0).map { it.config.content }.assert().containsExactly("new")
+    }
+
+    @Test
     fun `only configs have history`() = scenario { store ->
         store.put(instance("order-1"))
         store.history(instanceKey("order-1"), 0).assert().isEmpty()
