@@ -35,6 +35,7 @@ import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.store.Mutation
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -137,6 +138,100 @@ class LeaseTransitionsTest {
             server.store.expireLease(NAMESPACE, old, "test", force = false).assert().isTrue()
             instancesOnServer().map { it.meta.name }.sorted().assert().containsExactly("first", "second")
         }
+
+    @Test
+    fun `a registration that cannot move onto the new lease at once goes with the next renewal`() = scenario {
+        val renewalsFail = AtomicBoolean()
+        val firstPutFails = AtomicBoolean()
+        val instances = instances(failingWhile("KeepAlive", renewalsFail), failingPutOf("first", firstPutFails))
+        instances.register("order", ENDPOINT, instanceName = "first")
+        val old = instancesOnServer().single().meta.lease
+        renewalsFail.set(true)
+        server.clock.advance(10.seconds)
+        firstPutFails.set(true)
+
+        instances.register("order", ENDPOINT, instanceName = "second")
+
+        instancesOnServer().associate { it.meta.name to it.meta.lease }.getValue("first").assert().isEqualTo(old)
+        firstPutFails.set(false)
+        renewalsFail.set(false)
+        eventually {
+            val leases = instancesOnServer().associate { it.meta.name to it.meta.lease }
+            leases["first"] == leases["second"]
+        }
+    }
+
+    @Test
+    fun `a withdrawal the server cannot take now is tried again with a renewal`() = scenario {
+        val answered = CompletableDeferred<Unit>()
+        val getsFail = AtomicBoolean(true)
+        val instances = instances(answerLostFor("cancelled", answered), failingWhile("Get", getsFail))
+        instances.register("order", ENDPOINT, instanceName = "companion")
+        val registering = launch { instances.register("order", ENDPOINT, instanceName = "cancelled") }
+        answered.await()
+        registering.cancelAndJoin()
+        delay(SETTLE)
+        instancesOnServer().map { it.meta.name }.sorted().assert().containsExactly("cancelled", "companion")
+
+        getsFail.set(false)
+
+        eventually { instancesOnServer().map { it.meta.name } == listOf("companion") }
+    }
+
+    @Test
+    fun `a withdrawal leaves an Instance that is no longer on the lease it was sent on`() = scenario {
+        val answered = CompletableDeferred<Unit>()
+        val getsFail = AtomicBoolean(true)
+        val instances = instances(answerLostFor("taken", answered), failingWhile("Get", getsFail))
+        instances.register("order", ENDPOINT, instanceName = "companion")
+        val registering = launch { instances.register("order", ENDPOINT, instanceName = "taken") }
+        answered.await()
+        registering.cancelAndJoin()
+        // Someone else writes it meanwhile, with no lease: it is theirs now.
+        val taken = instancesOnServer().single { it.meta.name == "taken" }
+        server.store.apply(
+            NAMESPACE,
+            listOf(Mutation.Put(taken.toBuilder().apply { metaBuilder.lease = 0 }.build())),
+            "operator",
+        )
+
+        getsFail.set(false)
+        // Two renewals, each of which tries the withdrawal again.
+        delay(5.seconds)
+
+        instancesOnServer().map { it.meta.name }.sorted().assert().containsExactly("companion", "taken")
+    }
+
+    /** Puts of [name] fail with UNAVAILABLE while [failing] is set, every other call going through. */
+    private fun failingPutOf(name: String, failing: AtomicBoolean): ClientInterceptor = object : ClientInterceptor {
+        override fun <Req, Resp> interceptCall(
+            descriptor: MethodDescriptor<Req, Resp>,
+            options: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            val call = next.newCall(descriptor, options)
+            if (descriptor.bareMethodName != "Put") {
+                return call
+            }
+            return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                private var listener: Listener<Resp>? = null
+
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) {
+                    listener = responseListener
+                    super.start(responseListener, headers)
+                }
+
+                override fun sendMessage(message: Req) {
+                    if (failing.get() && (message as PutRequest).resource.meta.name == name) {
+                        cancel("Out of reach on purpose.", null)
+                        listener?.onClose(Status.UNAVAILABLE.withDescription("Out of reach on purpose."), Metadata())
+                        return
+                    }
+                    super.sendMessage(message)
+                }
+            }
+        }
+    }
 
     /** Calls of [method] fail with UNAVAILABLE while [failing] is set, as when the server is out of reach. */
     private fun failingWhile(method: String, failing: AtomicBoolean): ClientInterceptor = object : ClientInterceptor {
