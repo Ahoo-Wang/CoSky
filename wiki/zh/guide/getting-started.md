@@ -88,6 +88,12 @@ fun webClientBuilder(): WebClient.Builder = WebClient.builder()
 builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
 ```
 
+在 Apple 芯片的 Mac 上，这个应用启动时会记录一条错误：Netty 无法加载 `MacOSDnsServerAddressStreamProvider`。Reactor Netty 只带了 Intel 版的这个库，加上另一个就不会再报：
+
+```kotlin
+runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
+```
+
 ## 6. 看一看
 
 打开 <http://localhost:8080> 的 [Dashboard](./dashboard.md)。实例显示在 **Service** 下，旁边标着 **Leased**；首页的拓扑图显示谁在调用谁。服务端每 30 秒记录一次拓扑（[`cosky.view.topology-flush-interval`](./properties.md)），所以 consumer 启动后最多半分钟才出现在那里和下面的结果中：

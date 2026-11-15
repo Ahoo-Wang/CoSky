@@ -25,10 +25,13 @@ body:
     attributes:
       label: Component
       options:
-        - Configuration (service or Spring Cloud starter)
-        - Discovery (registry, discovery, load balancing or Spring Cloud starter)
-        - REST API server or security
+        - Server (gRPC, REST, store, leases)
+        - Client (cosky-client)
+        - Spring Boot starter (configuration, discovery, registration)
+        - Security (tokens, roles, OIDC, TLS)
         - Dashboard
+        - Migration from 6.x (cosky-migrate)
+        - Deployment (image, Kubernetes, Redis modes)
         - Documentation
         - Other
     validations:
@@ -37,7 +40,7 @@ body:
     id: cosky-version
     attributes:
       label: CoSky version
-      placeholder: 6.2.0
+      placeholder: 8.0.0-beta.5
     validations:
       required: true
   - type: input
@@ -45,7 +48,7 @@ body:
     attributes:
       label: Environment
       description: Redis version and mode (standalone, sentinel, cluster), Java and Spring Boot versions.
-      placeholder: Redis 7.2 standalone, Java 21, Spring Boot 4.1
+      placeholder: Redis 7.2 standalone, Java 21, Spring Boot 4.1.2
   - type: textarea
     id: logs
     attributes:

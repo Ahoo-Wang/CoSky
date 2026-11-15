@@ -88,6 +88,12 @@ fun webClientBuilder(): WebClient.Builder = WebClient.builder()
 builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
 ```
 
+On a Mac with Apple silicon, this application logs an error at start that Netty cannot load `MacOSDnsServerAddressStreamProvider`. Reactor Netty brings the Intel build of that library only. Add the other to quiet it:
+
+```kotlin
+runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
+```
+
 ## 6. Look around
 
 Open the [Dashboard](./dashboard.md) at <http://localhost:8080>. Instances show up under **Service**, with **Leased** next to them, and the topology on the first page shows who calls whom. The server records the topology every 30 seconds ([`cosky.view.topology-flush-interval`](./properties.md)), so the consumer shows up there, and here, up to half a minute after it starts:

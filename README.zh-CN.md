@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![GitHub release](https://img.shields.io/github/release/Ahoo-Wang/CoSky.svg)](https://github.com/Ahoo-Wang/CoSky/releases)
-[![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-client)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
+[![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-client)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-client)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9e31358946b645abb283e83b10e85e2d)](https://www.codacy.com/gh/Ahoo-Wang/CoSky/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Ahoo-Wang/CoSky&amp;utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/Ahoo-Wang/CoSky/branch/main/graph/badge.svg?token=N114DHHBUI)](https://codecov.io/gh/Ahoo-Wang/CoSky)
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
@@ -15,7 +15,7 @@
 > **[文档](https://cosky.ahoo.me/zh/)** | [English Documentation](https://cosky.ahoo.me/) | [English README](README.md)
 
 > [!IMPORTANT]
-> **8.0 处于 beta 阶段。** 功能已经完整，但候选版本之前不作兼容性承诺：在 `8.0.0-rc.1` 冻结之前，API、协议、配置和 Redis 中的数据都可能变化（[冻结的范围](CONTRIBUTING.md#releases-and-versioning)）。它仍是预览版，请暂时不要用于生产环境。稳定版本是 6.x，`ahoowang/cosky:latest` 目前仍是 6.x。它由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG，文档在该分支的 [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide) 中。
+> **8.0 处于 beta 阶段。** 功能已经完整，但候选版本之前不作兼容性承诺：在 `8.0.0-rc.1` 冻结之前，API、协议、配置和 Redis 中的数据都可能变化（[冻结的范围](CONTRIBUTING.md#releases-and-versioning)）。它仍是预览版，请暂时不要用于生产环境，但欢迎试用：遇到问题或意外，请[告诉我们](https://github.com/Ahoo-Wang/CoSky/issues/new/choose)。稳定版本是 6.x，`ahoowang/cosky:latest` 目前仍是 6.x。它由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG，文档在该分支的 [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide) 中。
 
 CoSky 为微服务提供**配置管理**和**服务发现**。一个小型 server 位于 **Redis** 前面，应用只和这个 server 通信。
 
@@ -50,6 +50,7 @@ dependencies {
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
     implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.4"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context")
 }
 ```
