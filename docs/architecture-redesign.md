@@ -822,7 +822,7 @@ val target = ns.loadBalancer("payment").choose()                                
 registration.close()                                                              // suspend:删除实例,最后一个实例连同租约一起撤销
 ```
 
-- 同一 key 的多个 `watch` 调用共享一个底层 Watch,它存活到 client 关闭。热路径只读 `StateFlow.value`,不算订阅,所以订阅数无法判断何时可以取消;一个进程关心的 key 也是有限的。
+- 同一 key 的多个 `watch` 调用共享一个底层 Watch,它存活到 client 关闭。热路径只读 `StateFlow.value`,不算订阅,所以订阅数无法判断何时可以取消;一个进程关心的 key 也是有限的。例外是 starter 的导入(§7.7),它随刷新增减:导入通过内部的 `configs.hold` 持有 Watch,最后一个持有者关闭、且没有 `watch`/`load` 用过这个 key 时,向 server 发 Cancel 结束它,不再占用单条流的配额(#1235)。
 - 热路径(`choose()`、`config.value`)只读 `StateFlow.value`,不挂起、不分配。
 - 一条 gRPC 连接承载全部 Watch 与 KeepAlive;多个 server 端点轮换重连,重连带 `from_revision` 和 `from_epoch`。
 - 快照落盘(§7.5):有快照时启动先加载,立即可用,连接成功后从快照位置续传。
@@ -993,7 +993,7 @@ cosky:
 | 集成点 | 实现 |
 |---|---|
 | 配置加载 | `ConfigDataLocationResolver` + `ConfigDataLoader`,前缀 `cosky:`;按 `ConfigSpec.format` 选择解析器:YAML 和 JSON 用 YAML 解析器,PROPERTIES 用 properties 解析器,TEXT 整体成为一个以配置名命名的属性。Config 不存在,或超过 `config.load-timeout` 仍无法确定时,没有 `optional:` 的导入使启动失败 |
-| 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效)。以加载时看到的内容为基准(丢写后 revision 可能重复),所以加载后、开始监听前的变化不会漏;启动时不存在的 `optional:` Config 出现后同样触发。刷新失败(如内容无法解析)只记日志,旧值不变,下次变化继续刷新。Spring Cloud 刷新时只添加或替换属性源,从不删除,所以 `optional` 的 Config 消失时用同名的空属性源替换旧值;必选的 Config 消失时保留旧值并告警。某个 Config 的 `spring.config.import` 去掉了另一个 Config 时,后者的加载器不再运行,无从替换:每次刷新成功后(`RefreshScopeRefreshedEvent`,自动刷新和应用自己调用 `ContextRefresher.refresh` 都会发出),把这一轮没有任何导入加载过的 Config 的属性源从 Environment 中移除并停止监听,再为移除的键发布 `EnvironmentChangeEvent`,让 `@ConfigurationProperties` 重新绑定;仍被另一个导入引用的照常保留。刷新失败不发事件,Environment 不变;一轮什么都没加载时不清理,以免误删(#1221)。 |
+| 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效)。以加载时看到的内容为基准(丢写后 revision 可能重复),所以加载后、开始监听前的变化不会漏;启动时不存在的 `optional:` Config 出现后同样触发。刷新失败(如内容无法解析)只记日志,旧值不变,下次变化继续刷新。Spring Cloud 刷新时只添加或替换属性源,从不删除,所以 `optional` 的 Config 消失时用同名的空属性源替换旧值;必选的 Config 消失时保留旧值并告警。某个 Config 的 `spring.config.import` 去掉了另一个 Config 时,后者的加载器不再运行,无从替换:每次刷新把这一轮导入的结果写进 Environment 后(刷新发布的 `EnvironmentChangeEvent`,在清空刷新作用域之前;自动刷新、应用自己调用 `ContextRefresher.refresh` 或只调用 `refreshEnvironment` 都会发出),把这一轮没有任何导入加载过的 Config 的属性源从 Environment 中移除,结束它的 Watch,再为移除的键发布 `EnvironmentChangeEvent`,让 `@ConfigurationProperties` 重新绑定;仍被另一个导入引用的照常保留。一轮导入以加载器实例为界:Spring 每轮都新建加载器。刷新失败不发事件,Environment 不变,它加载过什么也不计入下一轮;一轮什么都没加载时不清理,以免误删(#1221)。 |
 | 服务发现 | `DiscoveryClient` 和 `ReactiveDiscoveryClient` 读本地视图;首次读取一个 service 时最多等待 `discovery.load-timeout`,避免把未知当成空。`getServices` 会 watch 整个 namespace 的 Instance,只在确实需要全量列表时才有这个开销 |
 | 负载均衡 | 提供 Spring Cloud LoadBalancer 的 `ServiceInstanceListSupplier`,LB 算法交给 Spring Cloud |
 | 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |

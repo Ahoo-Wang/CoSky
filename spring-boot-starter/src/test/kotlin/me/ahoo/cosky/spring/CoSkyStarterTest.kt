@@ -288,7 +288,7 @@ class CoSkyStarterTest {
         val current = application.client.namespace(TestCoSkyServer.NAMESPACE).configs.load("order.yaml")
         // As after a Redis that lost writes: the same revision, and other content.
         val other = current?.toBuilder()?.apply { configBuilder.content = "order:\n  limit: 20" }?.build()
-        application.markImported(TestCoSkyServer.NAMESPACE, "order.yaml", other)
+        application.markImported(Any(), TestCoSkyServer.NAMESPACE, "order.yaml", other)
         val events = CopyOnWriteArrayList<Any>()
         val refresher = CoSkyConfigRefresher(application) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.ACCEPTING_TRAFFIC))
@@ -417,7 +417,7 @@ class CoSkyStarterTest {
         val properties = context.getBean(CoSkyProperties::class.java)
         val application = context.getBean(CoSkyApplicationClient::class.java)
         // Stands in for that gap: this refresher starts from something other than what the view holds.
-        application.markImported(TestCoSkyServer.NAMESPACE, "order.yaml", null)
+        application.markImported(Any(), TestCoSkyServer.NAMESPACE, "order.yaml", null)
         val events = CopyOnWriteArrayList<Any>()
         val refresher = CoSkyConfigRefresher(application) { events += it }
         refresher.onApplicationEvent(AvailabilityChangeEvent(context, ReadinessState.REFUSING_TRAFFIC))
