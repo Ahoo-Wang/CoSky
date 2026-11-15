@@ -195,7 +195,11 @@ internal data class NamespaceData(
             log = log.adding(entry),
             logBytes = logBytes + entry.bytes,
             history = when (key.kind) {
-                Kind.KIND_CONFIG -> history.putting(key, prepended(history[key], stored, settings.historySize))
+                // A Config created again, rolled back to or not, starts a history of its own (design §7.1).
+                Kind.KIND_CONFIG -> history.putting(
+                    key,
+                    prepended(history[key].takeIf { objects[key] != null }, stored, settings.historySize),
+                )
                 else -> history
             },
             attachments = when {
