@@ -75,11 +75,17 @@ export function getConnectedNodeIds(nodeId: string, edges: Edge[]): Set<string> 
  * What each consumer depends on, from the edges the server recorded.
  */
 export function toConsumers(edges: Array<{consumer: string; producer: string}>): Record<string, string[]> {
-    const consumers: Record<string, string[]> = {};
+    // Gathered in a Map: a plain object finds what its prototype has under a name such as `constructor`.
+    const consumers = new Map<string, string[]>();
     for (const {consumer, producer} of edges) {
-        (consumers[consumer] ??= []).push(producer);
+        const producers = consumers.get(consumer);
+        if (producers) {
+            producers.push(producer);
+        } else {
+            consumers.set(consumer, [producer]);
+        }
     }
-    return consumers;
+    return Object.fromEntries(consumers);
 }
 
 export function toReactFlowTopology(
