@@ -586,6 +586,23 @@ class CoSkyStarterTest {
     }
 
     @Test
+    fun `a separate management port is not the instance's, also when registering again`() = runBlocking<Unit> {
+        val context = application("--management.server.port=0", web = true)
+        eventually { server.instances().isNotEmpty() }
+        val port = context.environment.getProperty("local.server.port", Int::class.java)
+        context.environment.getProperty("local.management.port", Int::class.java).assert().isNotEqualTo(port)
+        server.instances().single().instance.endpoint.port.assert().isEqualTo(port)
+
+        val registration = context.getBean(CoSkyAutoServiceRegistration::class.java)
+        registration.stop()
+        eventually { server.instances().isEmpty() }
+        registration.start()
+        eventually { server.instances().isNotEmpty() }
+
+        server.instances().single().instance.endpoint.port.assert().isEqualTo(port)
+    }
+
+    @Test
     fun `an application serving tls says so, whichever way it is set up`() {
         fun servesTls(vararg properties: Pair<String, Any>): Boolean = StandardEnvironment().apply {
             propertySources.addFirst(MapPropertySource("test", mapOf(*properties)))

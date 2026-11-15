@@ -21,6 +21,7 @@ import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.CoSkyProperties
 import me.ahoo.cosky.spring.discovery.toUri
 import org.slf4j.LoggerFactory
+import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.boot.web.server.context.WebServerInitializedEvent
 import org.springframework.cloud.client.serviceregistry.AbstractAutoServiceRegistration
 import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationProperties
@@ -141,8 +142,14 @@ class CoSkyAutoServiceRegistration(
 
     override fun isEnabled(): Boolean = true
 
+    /**
+     * The port of a separate management server is not the service's. The parent leaves its event alone, and so does
+     * this, or registering again, after [stop] and [start], would put that port in the instance.
+     */
     override fun onApplicationEvent(event: WebServerInitializedEvent) {
-        registration.setPort(event.webServer.port)
+        if (!WebServerApplicationContext.hasServerNamespace(event.applicationContext, MANAGEMENT)) {
+            registration.setPort(event.webServer.port)
+        }
         super.onApplicationEvent(event)
     }
 
@@ -162,6 +169,9 @@ class CoSkyAutoServiceRegistration(
 
     private companion object {
         val log = LoggerFactory.getLogger(CoSkyAutoServiceRegistration::class.java)
+
+        /** The server namespace of a separate management server's context. */
+        const val MANAGEMENT = "management"
     }
 
     /**
