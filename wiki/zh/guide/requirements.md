@@ -25,8 +25,8 @@ description: CoSky 需要并经过测试的版本。
 | 库 | 版本 |
 |---|---|
 | Kotlin | 2.4，编译到 Java 21。基于它编译需要 Kotlin 2.3 或更高版本。 |
-| gRPC | 1.81 |
-| Protobuf | 4.34 |
+| gRPC | 1.84 |
+| Protobuf | 4.36 |
 | Spring gRPC | 1.1 |
 | Lettuce | 7.5 |
 

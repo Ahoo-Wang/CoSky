@@ -46,7 +46,7 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.3 --dev
 
 ```kotlin
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.0"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
     implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.3"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
