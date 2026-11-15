@@ -15,9 +15,14 @@ package me.ahoo.cosky.spring
 
 import io.grpc.Attributes
 import io.grpc.Grpc
+import io.grpc.Metadata
 import io.grpc.Server
+import io.grpc.ServerCall
+import io.grpc.ServerCallHandler
+import io.grpc.ServerInterceptor
 import io.grpc.ServerInterceptors
 import io.grpc.ServerTransportFilter
+import io.grpc.Status
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -49,6 +54,7 @@ import java.net.InetSocketAddress
 import java.net.SocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.minutes
 import me.ahoo.cosky.server.CoSkyProperties as ServerProperties
 
@@ -64,6 +70,11 @@ internal class TestCoSkyServer : AutoCloseable {
     val endpoint: String
 
     /**
+     * How many of the next Deletes fail with UNAVAILABLE, as on a server that is briefly away.
+     */
+    val failingDeletes = AtomicInteger()
+
+    /**
      * Where the clients connected now are, one connection for each: a closed client leaves nothing here.
      */
     val connections: Set<SocketAddress>
@@ -72,7 +83,9 @@ internal class TestCoSkyServer : AutoCloseable {
     init {
         val caches = WatchCache(store, WINDOW, scope)
         server = NettyServerBuilder.forAddress(InetSocketAddress("localhost", 0))
-            .addService(ResourceGrpcService(ResourceService(store, caches)))
+            .addService(
+                ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), FailingDeletes()),
+            )
             .addService(LeaseGrpcService(LeaseService(store)))
             .addService(
                 ServerInterceptors.intercept(
@@ -113,6 +126,22 @@ internal class TestCoSkyServer : AutoCloseable {
 
     fun instances(): List<Resource> = runBlocking {
         store.readAll(NAMESPACE).toList().filter { it.hasInstance() }
+    }
+
+    private inner class FailingDeletes : ServerInterceptor {
+        override fun <ReqT, RespT> interceptCall(
+            call: ServerCall<ReqT, RespT>,
+            headers: Metadata,
+            next: ServerCallHandler<ReqT, RespT>,
+        ): ServerCall.Listener<ReqT> {
+            val failing = call.methodDescriptor.bareMethodName == "Delete" &&
+                failingDeletes.getAndUpdate { maxOf(it - 1, 0) } > 0
+            if (failing) {
+                call.close(Status.UNAVAILABLE.withDescription("A Delete failed on purpose."), Metadata())
+                return object : ServerCall.Listener<ReqT>() {}
+            }
+            return next.startCall(call, headers)
+        }
     }
 
     override fun close() {

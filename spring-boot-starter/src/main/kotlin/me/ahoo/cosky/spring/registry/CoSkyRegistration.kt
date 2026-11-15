@@ -67,10 +67,6 @@ class CoSkyServiceRegistry(
     private val client: CoSkyClient,
     private val properties: CoSkyProperties,
 ) : ServiceRegistry<CoSkyRegistration> {
-    private companion object {
-        val log = LoggerFactory.getLogger(CoSkyServiceRegistry::class.java)
-    }
-
     private val registered = ConcurrentHashMap<CoSkyRegistration, ClientRegistration>()
 
     override fun register(registration: CoSkyRegistration?) {
@@ -98,14 +94,23 @@ class CoSkyServiceRegistry(
         }
     }
 
+    /**
+     * Deletes the instance. When that fails it stays registered and renewed, and this throws: call it again. Only the
+     * handle this call closed is forgotten, not one a registration made meanwhile.
+     */
     override fun deregister(registration: CoSkyRegistration?) {
-        val current = registered.remove(registration) ?: return
+        val current = registered[registration ?: return] ?: return
         try {
             runBlocking(VirtualThreads.dispatcher) { current.close() }
         } catch (e: StatusException) {
-            // This runs while the application shuts down: closing the client gives up the lease, which then expires.
-            log.warn("Could not deregister {}: {}", registration?.serviceId, e.status)
+            throw IllegalStateException(
+                "Could not deregister service ${registration.serviceId} from namespace ${properties.namespace}: " +
+                    listOfNotNull(e.status.code.name, e.status.description).joinToString(": ") +
+                    ". It stays registered and renewed; call deregister again.",
+                e,
+            )
         }
+        registered.remove(registration, current)
     }
 
     /**
@@ -142,6 +147,22 @@ class CoSkyAutoServiceRegistration(
     }
 
     override fun getRegistration(): CoSkyRegistration = registration
+
+    /**
+     * On shutdown, where a failure is worth a warning only: closing the client right after gives up the lease, which
+     * then expires.
+     */
+    override fun deregister() {
+        try {
+            super.deregister()
+        } catch (e: IllegalStateException) {
+            log.warn(e.message)
+        }
+    }
+
+    private companion object {
+        val log = LoggerFactory.getLogger(CoSkyAutoServiceRegistration::class.java)
+    }
 
     /**
      * Never used: a separate management port is not an instance of the service, see [shouldRegisterManagement].
