@@ -41,6 +41,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -120,6 +121,26 @@ class LeaseTransitionsTest {
         server.cacheFollows.value = true
 
         eventually { instancesOnServer().map { it.meta.name } == listOf("companion") }
+    }
+
+    @Test
+    fun `a withdrawal of what never reached the server ends with a renewal, deleting nothing`() = scenario {
+        val sent = CompletableDeferred<Unit>()
+        val gets = AtomicInteger()
+        val instances = instances(unsentPutOf("never", sent), countingGets(gets))
+        instances.register("order", ENDPOINT, instanceName = "companion")
+        val registering = launch { instances.register("order", ENDPOINT, instanceName = "never") }
+        sent.await()
+        registering.cancelAndJoin()
+
+        // The view finds nothing, which proves nothing; the store's count on the next renewals does.
+        eventually { gets.get() > 0 }
+        delay(5.seconds)
+        val settled = gets.get()
+        delay(5.seconds)
+
+        gets.get().assert().isEqualTo(settled)
+        instancesOnServer().map { it.meta.name }.assert().containsExactly("companion")
     }
 
     @Test
@@ -219,6 +240,52 @@ class LeaseTransitionsTest {
         delay(5.seconds)
 
         instancesOnServer().map { it.meta.name }.sorted().assert().containsExactly("companion", "taken")
+    }
+
+    /** The Put of [name] never leaves the client, and is never answered; [sent] completes once it would have gone. */
+    private fun unsentPutOf(name: String, sent: CompletableDeferred<Unit>): ClientInterceptor =
+        object : ClientInterceptor {
+            override fun <Req, Resp> interceptCall(
+                descriptor: MethodDescriptor<Req, Resp>,
+                options: CallOptions,
+                next: Channel,
+            ): ClientCall<Req, Resp> {
+                val call = next.newCall(descriptor, options)
+                if (descriptor.bareMethodName != "Put") {
+                    return call
+                }
+                return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                    @Volatile
+                    private var held = false
+
+                    override fun sendMessage(message: Req) {
+                        if ((message as PutRequest).resource.meta.name == name) {
+                            held = true
+                            sent.complete(Unit)
+                            return
+                        }
+                        super.sendMessage(message)
+                    }
+
+                    override fun halfClose() {
+                        if (!held) super.halfClose()
+                    }
+                }
+            }
+        }
+
+    /** Counts the Gets the client makes. */
+    private fun countingGets(gets: AtomicInteger): ClientInterceptor = object : ClientInterceptor {
+        override fun <Req, Resp> interceptCall(
+            descriptor: MethodDescriptor<Req, Resp>,
+            options: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            if (descriptor.bareMethodName == "Get") {
+                gets.incrementAndGet()
+            }
+            return next.newCall(descriptor, options)
+        }
     }
 
     /** [missed] completes once a Get is answered NOT_FOUND. */
