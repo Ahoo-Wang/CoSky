@@ -63,4 +63,8 @@ internal object ProtoJson {
     fun invalid(field: String, description: String): CoSkyException = CoSkyException.invalidArgument(
         listOf(Violation(field, ViolationCode.VIOLATION_CODE_INVALID_FORMAT, description)),
     )
+
+    fun outOfRange(field: String, description: String): CoSkyException = CoSkyException.invalidArgument(
+        listOf(Violation(field, ViolationCode.VIOLATION_CODE_OUT_OF_RANGE, description)),
+    )
 }

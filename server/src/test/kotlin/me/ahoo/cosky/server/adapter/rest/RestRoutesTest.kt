@@ -184,6 +184,20 @@ class RestRoutesTest {
     }
 
     @Test
+    fun `a number beyond 32 bits is refused, rather than cut down to one that passes`() {
+        val client = client()
+        client.putConfig("a")
+        listOf(
+            "configs?pageSize=4294967297",
+            "configs?pageSize=-4294967295",
+            "configs/a/history?limit=4294967297",
+            "configs/a/history?limit=-4294967295",
+        ).forEach { path ->
+            client.get().uri("/v1/namespaces/$NAMESPACE/$path").exchange().expectStatus().isBadRequest
+        }
+    }
+
+    @Test
     fun `an unknown object is 404 and a stale read is 504`() {
         val client = client()
         get(client, "missing", 0).expectStatus().isNotFound.reason().assert()
@@ -306,6 +320,38 @@ class RestRoutesTest {
         val client = client()
         client.import("this is no zip".encodeToByteArray()).expectStatus().isBadRequest
         client.import(archiveOf("huge.txt" to ByteArray(2 * 1024 * 1024))).expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `an archive cut short, or only the start of one, is refused`() {
+        val client = client()
+        val archive = archiveOf("a.txt" to "important".repeat(100).encodeToByteArray())
+        val centralDirectory = (archive.size - CEN.size downTo 0).first { at ->
+            CEN.indices.all { archive[at + it] == CEN[it] }
+        }
+        listOf(
+            "PK".encodeToByteArray(),
+            "PKnot-a-zip".encodeToByteArray(),
+            archive.copyOf(10),
+            archive.copyOf(40),
+            archive.copyOf(archive.size - 1),
+            // Its end intact, and its data cut short.
+            archive.copyOf(40) + archive.copyOfRange(centralDirectory, archive.size),
+        ).forEach { client.import(it).expectStatus().isBadRequest }
+        client.get().uri("/v1/namespaces/$NAMESPACE/configs/a.txt").exchange().expectStatus().isNotFound
+    }
+
+    @Test
+    fun `an archive with a comment is an archive`() {
+        val archive = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.setComment("exported by hand")
+                zip.putNextEntry(ZipEntry("a.txt"))
+                zip.write("a".encodeToByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        client().import(archive).expectStatus().isOk.json().getAsJsonArray("items").size().assert().isEqualTo(1)
     }
 
     @Test
@@ -495,5 +541,8 @@ class RestRoutesTest {
 
     private companion object {
         const val NAMESPACE = "prod"
+
+        /** How a zip archive's central directory begins. */
+        val CEN = byteArrayOf('P'.code.toByte(), 'K'.code.toByte(), 1, 2)
     }
 }
