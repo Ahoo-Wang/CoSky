@@ -6,7 +6,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202-4EB1BA.svg)](https://www.apache.org/licenses/LICENSE-2.0.html)
 [![GitHub release](https://img.shields.io/github/release/Ahoo-Wang/CoSky.svg)](https://github.com/Ahoo-Wang/CoSky/releases)
-[![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-client)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-core)
+[![Maven Central Version](https://img.shields.io/maven-central/v/me.ahoo.cosky/cosky-client)](https://central.sonatype.com/artifact/me.ahoo.cosky/cosky-client)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/9e31358946b645abb283e83b10e85e2d)](https://www.codacy.com/gh/Ahoo-Wang/CoSky/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Ahoo-Wang/CoSky&amp;utm_campaign=Badge_Grade)
 [![codecov](https://codecov.io/gh/Ahoo-Wang/CoSky/branch/main/graph/badge.svg?token=N114DHHBUI)](https://codecov.io/gh/Ahoo-Wang/CoSky)
 [![Integration Test Status](https://github.com/Ahoo-Wang/CoSky/actions/workflows/integration-test.yml/badge.svg)](https://github.com/Ahoo-Wang/CoSky)
@@ -15,7 +15,7 @@
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
 > [!IMPORTANT]
-> **8.0 is in beta.** It is complete, but there is no compatibility promise before the release candidate: until `8.0.0-rc.1` freezes them, its API, wire format, configuration and Redis data may still change ([what the freeze keeps](CONTRIBUTING.md#releases-and-versioning)). It is still a preview, so don't run it for real yet. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+> **8.0 is in beta.** It is complete, but there is no compatibility promise before the release candidate: until `8.0.0-rc.1` freezes them, its API, wire format, configuration and Redis data may still change ([what the freeze keeps](CONTRIBUTING.md#releases-and-versioning)). It is still a preview, so don't run it for real yet, but do try it: [tell us](https://github.com/Ahoo-Wang/CoSky/issues/new/choose) what breaks or surprises you. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 
 CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 
@@ -50,6 +50,7 @@ dependencies {
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
     implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.4"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context")
 }
 ```
