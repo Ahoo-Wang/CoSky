@@ -305,6 +305,16 @@ test.describe('the shell', () => {
         await expect(edge(card, 'order', 'billing')).toHaveCount(0);
     });
 
+    test('a service named like a property every object has is in the topology', async ({page}) => {
+        const api = await installApiMock(page);
+        api.topology = [{consumer: 'constructor', producer: 'order'}];
+        await login(page);
+        const card = page.locator('[data-slot="card"]').filter({hasText: 'Service Topology'});
+
+        await expect(card.getByRole('group', {name: 'constructor', exact: true})).toBeVisible();
+        await expect(card.getByRole('group', {name: 'Edge from constructor to order', exact: true})).toBeAttached();
+    });
+
     test('the longest service names stay inside their nodes, which stay clear of one another', async ({page}) => {
         const api = await installApiMock(page);
         // 63 characters, as many as a service name may have, some of them as wide as letters get; and a short one
