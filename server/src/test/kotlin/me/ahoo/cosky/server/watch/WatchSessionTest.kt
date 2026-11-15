@@ -21,12 +21,15 @@ import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -83,8 +86,13 @@ class WatchSessionTest {
         val failure = CompletableDeferred<Unit>()
         private val failed = AtomicBoolean()
 
+        /**
+         * How many times the cache has started following: once after each load, so a second time after a reload.
+         */
+        val follows = MutableStateFlow(0)
+
         override fun changes(namespace: String, from: Position): Flow<ChangeBatch> = merge(
-            delegate.changes(namespace, from),
+            delegate.changes(namespace, from).onStart { follows.update { it + 1 } },
             flow {
                 failure.await()
                 check(failed.getAndSet(true)) { "The store is gone." }
@@ -276,9 +284,10 @@ class WatchSessionTest {
             val sent = watch(create(view.revision, view.epoch), cache = reloading, whileRunning = {
                 delay(SETTLE)
                 failing.failure.complete(Unit)
-                // The view is null only for as long as a reload takes, which a StateFlow may never show: wait for the
-                // view the reload brings instead, the only new one before "b".
-                reloading.views.first { it != null && it !== view }
+                // Not by watching the view: its null lasts only as long as the reload, and the view the reload brings
+                // can equal the old one, which a StateFlow does not emit again. The cache follows again only once the
+                // reloaded view is in place.
+                failing.follows.first { it >= 2 }
                 put("b")
             }) { it.hasEvents() }
             sent.single().events.revision.assert().isEqualTo(view.revision + 1)
