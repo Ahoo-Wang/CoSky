@@ -15,19 +15,25 @@ package me.ahoo.cosky.spring.config
 
 import me.ahoo.cosky.spring.CoSkyApplicationClient
 import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.cloud.context.environment.EnvironmentChangeEvent
 import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent
 import org.springframework.context.ApplicationEvent
+import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.context.event.SmartApplicationListener
-import org.springframework.core.env.ConfigurableEnvironment
+import org.springframework.core.Ordered
 
 /**
  * Keeps the Environment to what the imports load (design §7.7): after every refresh that succeeded, the Configs no
  * import loaded leave it. Counting starts once the application has started. A refresh that fails publishes nothing, and
  * leaves the Environment as it was.
+ *
+ * First among the listeners of a refresh, so that the others see the Environment as it is now. What left is announced
+ * as an [EnvironmentChangeEvent], as a refresh announces what it changed, so that `@ConfigurationProperties` beans are
+ * bound again without it.
  */
 internal class CoSkyImportReconciler(
     private val application: CoSkyApplicationClient,
-    private val environment: ConfigurableEnvironment,
+    private val context: ConfigurableApplicationContext,
 ) : SmartApplicationListener {
     override fun supportsEventType(eventType: Class<out ApplicationEvent>): Boolean =
         ApplicationReadyEvent::class.java.isAssignableFrom(eventType) ||
@@ -36,7 +42,14 @@ internal class CoSkyImportReconciler(
     override fun onApplicationEvent(event: ApplicationEvent) {
         when (event) {
             is ApplicationReadyEvent -> application.started()
-            is RefreshScopeRefreshedEvent -> application.reconcile(environment)
+            is RefreshScopeRefreshedEvent -> {
+                val left = application.reconcile(context.environment)
+                if (left.isNotEmpty()) {
+                    context.publishEvent(EnvironmentChangeEvent(context, left))
+                }
+            }
         }
     }
+
+    override fun getOrder(): Int = Ordered.HIGHEST_PRECEDENCE
 }

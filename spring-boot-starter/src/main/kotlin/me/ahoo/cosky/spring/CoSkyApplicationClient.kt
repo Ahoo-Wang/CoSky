@@ -22,6 +22,7 @@ import org.springframework.boot.bootstrap.BootstrapRegistry.InstanceSupplier
 import org.springframework.boot.bootstrap.ConfigurableBootstrapContext
 import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.core.env.ConfigurableEnvironment
+import org.springframework.core.env.EnumerablePropertySource
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -101,18 +102,25 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
      * sources, and a Config no longer imported has no load left to replace them by nothing (design §7.7).
      *
      * A refresh that loaded no Config at all is left alone: it may not have run the imports.
+     *
+     * @return the properties that left with them.
      */
-    internal fun reconcile(environment: ConfigurableEnvironment) = synchronized(importListeners) {
+    internal fun reconcile(environment: ConfigurableEnvironment): Set<String> = synchronized(importListeners) {
         if (loaded.isEmpty()) {
-            return@synchronized
+            return@synchronized emptySet()
         }
         val known = sources.keys + imported.flatMap { (namespace, configs) -> configs.keys.map { namespace to it } }
+        val left = mutableSetOf<String>()
         (known - loaded).forEach { key ->
-            sources.remove(key)?.forEach { environment.propertySources.remove(it) }
+            sources.remove(key)?.forEach { name ->
+                val removed = environment.propertySources.remove(name)
+                (removed as? EnumerablePropertySource<*>)?.let { left += it.propertyNames }
+            }
             imported[key.first]?.remove(key.second)
             dropListeners.forEach { it(key.first, key.second) }
         }
         loaded.clear()
+        left
     }
 
     /**

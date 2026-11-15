@@ -30,7 +30,7 @@ public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Health {
 
 public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$Imports {
 	public fun <init> ()V
-	public fun coSkyImportReconciler (Lme/ahoo/cosky/spring/CoSkyApplicationClient;Lorg/springframework/core/env/ConfigurableEnvironment;)Lorg/springframework/context/event/SmartApplicationListener;
+	public fun coSkyImportReconciler (Lme/ahoo/cosky/spring/CoSkyApplicationClient;Lorg/springframework/context/ConfigurableApplicationContext;)Lorg/springframework/context/event/SmartApplicationListener;
 }
 
 public class me/ahoo/cosky/spring/CoSkyAutoConfiguration$LoadBalancingImports {

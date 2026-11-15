@@ -22,8 +22,14 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cloud.context.refresh.ContextRefresher
+import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent
+import org.springframework.context.ApplicationListener
 import org.springframework.context.ConfigurableApplicationContext
+import org.springframework.context.annotation.Bean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -35,8 +41,26 @@ class RemovedImportTest {
     private val server = TestCoSkyServer()
     private val contexts = mutableListOf<ConfigurableApplicationContext>()
 
+    @ConfigurationProperties("child")
+    class ChildProperties {
+        var value: String? = null
+    }
+
+    /** Counts the refreshes that have finished, the reconciliation included, which listens first. */
+    class Refreshes : ApplicationListener<RefreshScopeRefreshedEvent> {
+        val count = AtomicInteger()
+
+        override fun onApplicationEvent(event: RefreshScopeRefreshedEvent) {
+            count.incrementAndGet()
+        }
+    }
+
     @EnableAutoConfiguration
-    class Application
+    @EnableConfigurationProperties(ChildProperties::class)
+    class Application {
+        @Bean
+        fun refreshes() = Refreshes()
+    }
 
     private fun application(vararg arguments: String): ConfigurableApplicationContext =
         SpringApplicationBuilder(Application::class.java).run(
@@ -64,25 +88,34 @@ class RemovedImportTest {
         }
     }
 
+    /** Makes a change, and waits for the refresh it asks for to finish. */
+    private suspend fun refreshedAfter(context: ConfigurableApplicationContext, change: () -> Unit) {
+        val refreshes = context.getBean(Refreshes::class.java).count
+        val before = refreshes.get()
+        change()
+        eventually { refreshes.get() > before }
+    }
+
     @Test
     fun `a config whose import is removed leaves, on the refresh the change asks for`() = runBlocking<Unit> {
         server.put(TestCoSkyServer.config("parent.yaml", "parent: before\nspring.config.import: cosky:child.yaml"))
-        server.put(TestCoSkyServer.config("child.yaml", "child: gone"))
+        server.put(TestCoSkyServer.config("child.yaml", "child:\n  value: gone"))
         val context = application("--spring.config.import=cosky:parent.yaml")
-        context.environment.getProperty("child").assert().isEqualTo("gone")
+        context.getBean(ChildProperties::class.java).value.assert().isEqualTo("gone")
 
         // child.yaml stays on the server, for whoever else imports it.
-        server.put(TestCoSkyServer.config("parent.yaml", "parent: after"))
+        refreshedAfter(context) { server.put(TestCoSkyServer.config("parent.yaml", "parent: after")) }
 
-        eventually { context.environment.getProperty("parent") == "after" }
-        context.environment.getProperty("child").assert().isNull()
+        context.environment.getProperty("parent").assert().isEqualTo("after")
+        context.environment.getProperty("child.value").assert().isNull()
         context.environment.propertySources.map { it.name }.assert().doesNotContain("cosky:child.yaml")
+        context.getBean(ChildProperties::class.java).value.assert().isNull()
     }
 
     @Test
     fun `a config whose import is removed leaves, on a refresh the application makes itself`() = runBlocking<Unit> {
         server.put(TestCoSkyServer.config("parent.yaml", "parent: before\nspring.config.import: cosky:child.yaml"))
-        server.put(TestCoSkyServer.config("child.yaml", "child: gone"))
+        server.put(TestCoSkyServer.config("child.yaml", "child:\n  value: gone"))
         val context = application("--spring.config.import=cosky:parent.yaml", "--cosky.config.refresh.enabled=false")
         server.put(TestCoSkyServer.config("parent.yaml", "parent: after"))
         val parent = context.getBean(CoSkyClient::class.java).namespace(TestCoSkyServer.NAMESPACE).configs
@@ -92,7 +125,8 @@ class RemovedImportTest {
         context.getBean(ContextRefresher::class.java).refresh()
 
         context.environment.getProperty("parent").assert().isEqualTo("after")
-        context.environment.getProperty("child").assert().isNull()
+        context.environment.getProperty("child.value").assert().isNull()
+        context.getBean(ChildProperties::class.java).value.assert().isNull()
     }
 
     @Test
@@ -102,18 +136,20 @@ class RemovedImportTest {
         server.put(TestCoSkyServer.config("shared.yaml", "shared: here"))
         val context = application("--spring.config.import=cosky:a.yaml,cosky:b.yaml")
 
-        server.put(TestCoSkyServer.config("a.yaml", "a: 2"))
-        eventually { context.environment.getProperty("a") == "2" }
+        refreshedAfter(context) { server.put(TestCoSkyServer.config("a.yaml", "a: 2")) }
+        context.environment.getProperty("a").assert().isEqualTo("2")
         context.environment.getProperty("shared").assert().isEqualTo("here")
 
-        server.put(TestCoSkyServer.config("b.yaml", "b: 2"))
-        eventually { context.environment.getProperty("b") == "2" }
+        refreshedAfter(context) { server.put(TestCoSkyServer.config("b.yaml", "b: 2")) }
+        context.environment.getProperty("b").assert().isEqualTo("2")
         context.environment.getProperty("shared").assert().isNull()
 
         // Back, and followed again.
-        server.put(TestCoSkyServer.config("a.yaml", "a: 3\nspring.config.import: cosky:shared.yaml"))
-        eventually { context.environment.getProperty("shared") == "here" }
-        server.put(TestCoSkyServer.config("shared.yaml", "shared: changed"))
-        eventually { context.environment.getProperty("shared") == "changed" }
+        refreshedAfter(context) {
+            server.put(TestCoSkyServer.config("a.yaml", "a: 3\nspring.config.import: cosky:shared.yaml"))
+        }
+        context.environment.getProperty("shared").assert().isEqualTo("here")
+        refreshedAfter(context) { server.put(TestCoSkyServer.config("shared.yaml", "shared: changed")) }
+        context.environment.getProperty("shared").assert().isEqualTo("changed")
     }
 }
