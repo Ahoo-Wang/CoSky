@@ -119,6 +119,7 @@ curl -X POST localhost:8080/v1/serviceaccounts/order/tokens \
 - 任一绑定角色的任一规则匹配，调用就被允许。规则只在它自己的 namespace 与绑定的 namespace 重叠的范围内生效。
 - `names` 留空匹配所有对象；否则是精确值，或以 `*` 结尾的前缀，匹配 Config 名称、Instance 的**服务名**或对象名。
 - 全局类型（Namespace、ServiceAccount、Role、RoleBinding）位于 namespace `_system`。
+- 能写 ServiceAccount（因而能为它创建 token）、Role 或 RoleBinding 的人，可以给自己任何角色，包括 `admin`。这些权限只授予管理员。
 - `GET` 包括列表，列表中只出现规则允许的对象。
 - 租约属于创建它的主体，所以一个账号不能把实例挂到别人的租约上。
 - 角色的变化会影响已打开的 Watch 流：失去权限的流会被取消。
