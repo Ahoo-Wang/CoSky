@@ -452,7 +452,7 @@ Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the
 
 The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume.
 
-Snapshots are not encrypted. The directory is `0700` and the files `0600`. `snapshotIncludeConfig = false` keeps Config contents off the disk, and `snapshotDir = null` turns snapshots off.
+Snapshots are not encrypted. The directory is `0700` and the files `0600`; a file system without POSIX permissions, as on Windows, gives them those of the directory they are in, which in the user's home are the user's own. `snapshotIncludeConfig = false` keeps Config contents off the disk, and `snapshotDir = null` turns snapshots off.
 
 ## TLS
 

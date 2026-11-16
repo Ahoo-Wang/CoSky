@@ -90,7 +90,7 @@ registration.close()
 
 客户端把视图写入 `~/.cosky`（`snapshotDir`，starter 中为 `cosky.snapshot.dir`），重启后先从这里恢复，状态为 `DEGRADED`，直到连上 server。这对在同一块磁盘上重启的进程有用。在 Kubernetes 中需要持久卷。
 
-快照没有加密，目录权限是 `0700`，文件权限是 `0600`。`snapshotIncludeConfig = false` 让 Config 内容不落盘，`snapshotDir = null` 关闭快照。
+快照没有加密，目录权限是 `0700`，文件权限是 `0600`；没有 POSIX 权限的文件系统（如 Windows）沿用所在目录的权限，在用户主目录下即只有该用户可读写。`snapshotIncludeConfig = false` 让 Config 内容不落盘，`snapshotDir = null` 关闭快照。
 
 ## TLS
 
