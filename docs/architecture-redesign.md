@@ -919,7 +919,7 @@ me.ahoo.cosky.server
 - **快照文件**:`<snapshotDir>/<serverKey>/<namespace>/<kind>[-<filter>].pb`,内容为当前视图(含 epoch 和 revision);变化后 1 秒防抖写入,先写临时文件再原子 rename。
   `<filter>` 是 Config 名或服务名的 SHA-256:253 字符的 Config 名加上前后缀会超过文件名上限,不区分大小写的文件系统上只差大小写的名字也会共用一个文件。
   `serverKey` 是端点列表和 token ID 的哈希,不需要新增 RPC,还能隔离同一主机上不同身份的进程。`snapshotDir` 默认 `~/.cosky`,可关闭。
-- **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`;`snapshot-include-config = false` 时 Config 不落盘。
+- **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`,没有 POSIX 权限的文件系统(如 Windows)沿用所在目录的权限;`snapshot-include-config = false` 时 Config 不落盘。
 - **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新创建缺失的实例(D31)。
