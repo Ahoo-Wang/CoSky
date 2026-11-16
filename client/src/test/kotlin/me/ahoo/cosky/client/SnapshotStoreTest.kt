@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.client
 
+import com.google.common.jimfs.Configuration
+import com.google.common.jimfs.Jimfs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
@@ -35,6 +38,7 @@ import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class SnapshotStoreTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -131,5 +135,28 @@ class SnapshotStoreTest {
         val LATER_WRITE_TIME = 500.milliseconds
         const val ROUNDS = 8
         const val WATCHES = 32
+    }
+
+    @Test
+    fun `a file system without POSIX permissions, as on Windows, keeps snapshots too`() = runBlocking<Unit> {
+        Jimfs.newFileSystem(Configuration.windows()).use { windows ->
+            val onWindows = SnapshotStore(
+                CoSkyClientOptions(listOf("only")) {
+                    snapshotDir = windows.getPath("C:\\Users\\order\\.cosky")
+                    snapshotDebounce = Duration.ZERO
+                },
+                scope,
+            )
+            val snapshot = ListResponse.newBuilder().setEpoch("e").setRevision(7).build()
+
+            onWindows.schedule(config("order.yaml")) { snapshot }
+
+            withTimeout(5.seconds) {
+                while (onWindows.load(config("order.yaml")) == null) {
+                    delay(10.milliseconds)
+                }
+            }
+            onWindows.load(config("order.yaml")).assert().isEqualTo(snapshot)
+        }
     }
 }

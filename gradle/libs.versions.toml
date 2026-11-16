@@ -9,6 +9,7 @@ springdoc = "3.2.0"
 junit = "6.0.3"
 fluent-assert = "0.2.8"
 mockk = "1.14.9"
+jimfs = "1.3.0"
 jmh = "1.37"
 # Aligned with what Spring gRPC is built on, as a mix of gRPC versions fails at runtime with AbstractMethodError: Boot
 # 4.1.2 brings Spring gRPC 1.1.2, whose POM asks for gRPC 1.84.1, and manages protobuf 4.36.2, which protoc then matches.
@@ -37,6 +38,7 @@ springdoc-openapi-starter-webflux-ui = { module = "org.springdoc:springdoc-opena
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 fluent-assert-bom = { module = "me.ahoo.test:fluent-assert-bom", version.ref = "fluent-assert" }
 mockk = { module = "io.mockk:mockk", version.ref = "mockk" }
+jimfs = { module = "com.google.jimfs:jimfs", version.ref = "jimfs" }
 detekt-formatting = { module = "io.gitlab.arturbosch.detekt:detekt-formatting", version.ref = "detekt" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }

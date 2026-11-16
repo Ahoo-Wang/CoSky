@@ -17,4 +17,6 @@ dependencies {
     testImplementation(project(":server"))
     testImplementation(project(":store"))
     testImplementation("io.grpc:grpc-inprocess")
+    // A file system without POSIX permissions, as on Windows.
+    testImplementation("com.google.jimfs:jimfs")
 }
