@@ -21,42 +21,54 @@ import kotlin.time.toKotlinDuration
 
 /**
  * Client settings (design §7.7). Bound before the context exists as well, since configuration loading needs them.
+ *
+ * Bound through its setters, as Spring Boot's own settings are, so that a setting added later is one more property
+ * rather than another constructor. Every class here can be made empty and then set.
  */
 @Suppress("MagicNumber") // The defaults of design §7.5 and §7.7.
 @ConfigurationProperties(CoSkyProperties.PREFIX)
-data class CoSkyProperties(
-    val enabled: Boolean = true,
-    val endpoints: List<String> = listOf("localhost:9090"),
-    val token: String? = null,
-    val tls: Tls = Tls(),
-    val namespace: String = "default",
-    val snapshot: Snapshot = Snapshot(),
-    val registry: Registry = Registry(),
-    val discovery: Discovery = Discovery(),
-    val config: Config = Config(),
-) {
-    /**
-     * @param trustedCertificates a PEM file of the certificates to trust, for a private CA. The JVM's trust store
-     * decides otherwise.
-     */
-    data class Tls(val enabled: Boolean = false, val trustedCertificates: Path? = null)
+class CoSkyProperties {
+    var enabled: Boolean = true
+    var endpoints: List<String> = listOf("localhost:9090")
+    var token: String? = null
+    var tls: Tls = Tls()
+    var namespace: String = "default"
+    var snapshot: Snapshot = Snapshot()
+    var registry: Registry = Registry()
+    var discovery: Discovery = Discovery()
+    var config: Config = Config()
 
-    data class Snapshot(
-        val enabled: Boolean = true,
-        val dir: Path = Path.of(System.getProperty("user.home"), ".cosky"),
-        val includeConfig: Boolean = true,
-    )
+    class Tls {
+        var enabled: Boolean = false
 
-    data class Registry(
-        val enabled: Boolean = true,
-        val weight: Int = 1,
-        val metadata: Map<String, String> = emptyMap(),
-    )
+        /** A PEM file of the certificates to trust, for a private CA. The JVM's trust store decides otherwise. */
+        var trustedCertificates: Path? = null
+    }
 
-    data class Discovery(val enabled: Boolean = true, val loadTimeout: Duration = Duration.ofSeconds(5))
+    class Snapshot {
+        var enabled: Boolean = true
+        var dir: Path = Path.of(System.getProperty("user.home"), ".cosky")
+        var includeConfig: Boolean = true
+    }
 
-    data class Config(val refresh: Refresh = Refresh(), val loadTimeout: Duration = Duration.ofSeconds(5)) {
-        data class Refresh(val enabled: Boolean = true)
+    class Registry {
+        var enabled: Boolean = true
+        var weight: Int = 1
+        var metadata: Map<String, String> = emptyMap()
+    }
+
+    class Discovery {
+        var enabled: Boolean = true
+        var loadTimeout: Duration = Duration.ofSeconds(5)
+    }
+
+    class Config {
+        var refresh: Refresh = Refresh()
+        var loadTimeout: Duration = Duration.ofSeconds(5)
+
+        class Refresh {
+            var enabled: Boolean = true
+        }
     }
 
     fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(endpoints) {
