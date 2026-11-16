@@ -8,7 +8,7 @@ description: The Kotlin client without Spring, its snapshots and connection stat
 `cosky-client` is a coroutine client with no dependency on Spring or Redis. The starter is built on it. It needs JDK 21 or later.
 
 ```kotlin
-implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.4")
+implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.5")
 ```
 
 ```kotlin
@@ -66,6 +66,8 @@ registration.close()
 ```
 
 The client keeps the lease alive, and registers everything again if the lease is lost. Closing the last registration ends the lease.
+
+Registering a name again replaces its registration, and the new handle is the one that closes it. Closing a handle again, or one whose name was registered again since, does nothing. A close that fails, as when no server answers, leaves the instance registered and renewed, and can be tried again.
 
 ## Closing
 

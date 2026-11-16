@@ -13,8 +13,10 @@
 
 package me.ahoo.cosky.spring
 
+import kotlinx.coroutines.flow.Flow
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.client.CoSkyClient
+import me.ahoo.cosky.client.ConfigHold
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.support.DefaultSingletonBeanRegistry
 import org.springframework.boot.SpringApplicationRunListener
@@ -41,85 +43,115 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
      * Named by `spring.application.name` in the server's topology view.
      */
     val client = CoSkyClient(properties.toOptions(applicationName))
-    private val imported = ConcurrentHashMap<String, MutableMap<String, Resource>>()
-    private val sources = ConcurrentHashMap<Pair<String, String>, Set<String>>()
+    private val imports = ConcurrentHashMap<Pair<String, String>, Import>()
     private var handedOver = false
 
-    /** The Configs imports have loaded since the application started, or since the last refresh that succeeded. */
-    private val loaded = ConcurrentHashMap.newKeySet<Pair<String, String>>()
+    /** Held while imports, the run below and the listeners change. */
+    private val lock = Any()
 
-    private val importListeners = mutableListOf<(namespace: String, config: String, seen: Resource) -> Unit>()
+    /**
+     * The run of the imports that [loaded] belongs to: Spring builds the loaders afresh for each, at startup and in
+     * every refresh, so a loader stands for its run. Null once the run has been reconciled, or was the one at startup.
+     */
+    private var run: Any? = null
+    private val loaded = HashSet<Pair<String, String>>()
+
+    private val importListeners = mutableListOf<ImportListener>()
     private val dropListeners = mutableListOf<(namespace: String, config: String) -> Unit>()
 
     /**
-     * Remembers a Config this application loaded and what it saw, so that a change to it can trigger a refresh once the
-     * context exists. A Config imported for the first time, say by a refresh that added an import, goes to the
-     * listeners too.
+     * What this application keeps of a Config its imports load: the hold its loads and its refreshes read through,
+     * what the last load saw, and every property source it has made up.
      */
-    internal fun markImported(namespace: String, config: String, seen: Resource?) = synchronized(importListeners) {
+    private class Import(val hold: ConfigHold) {
+        var seen: Resource? = null
+        var sources: Set<String> = emptySet()
+    }
+
+    private fun importOf(key: Pair<String, String>): Import =
+        imports.computeIfAbsent(key) { (namespace, config) -> Import(client.namespace(namespace).configs.hold(config)) }
+
+    /**
+     * What an import of the Config reads through, until [reconcile] drops the Config.
+     */
+    internal fun holdOf(namespace: String, config: String): ConfigHold = importOf(namespace to config).hold
+
+    /**
+     * Remembers a Config [run] loaded and what it saw, so that a change to it can trigger a refresh once the context
+     * exists. A Config imported for the first time, say by a refresh that added an import, goes to the listeners too.
+     */
+    internal fun markImported(run: Any, namespace: String, config: String, seen: Resource?) = synchronized(lock) {
+        if (this.run !== run) {
+            // A run that failed is not reconciled, and does not count towards the next.
+            this.run = run
+            loaded.clear()
+        }
         loaded += namespace to config
-        val first = imported.computeIfAbsent(namespace) { ConcurrentHashMap() }.put(config, seen.orNone()) == null
+        val import = importOf(namespace to config)
+        val first = import.seen == null
+        import.seen = seen.orNone()
         if (first) {
-            importListeners.forEach { it(namespace, config, seen.orNone()) }
+            importListeners.forEach { it(namespace, config, seen.orNone(), import.hold.changes) }
         }
     }
 
-    internal fun importedBy(namespace: String): Map<String, Resource> = imported[namespace].orEmpty()
+    internal fun importedBy(namespace: String): Map<String, Resource> = imports.entries
+        .mapNotNull { (key, import) -> import.seen?.takeIf { key.first == namespace }?.let { key.second to it } }
+        .toMap()
 
     /**
-     * Calls [listener] once for every Config imported so far, with what its load saw, and once for every Config
-     * imported for the first time later. It must not block.
+     * Calls [listener] once for every Config imported so far, with what its load saw and its changes from then on, and
+     * once for every Config imported for the first time later. It must not block.
      */
-    internal fun eachImport(listener: (namespace: String, config: String, seen: Resource) -> Unit) =
-        synchronized(importListeners) {
-            imported.forEach { (namespace, configs) ->
-                configs.forEach { (config, seen) ->
-                    listener(
-                        namespace,
-                        config,
-                        seen
-                    )
-                }
-            }
-            importListeners += listener
+    internal fun eachImport(listener: ImportListener) = synchronized(lock) {
+        imports.forEach { (key, import) ->
+            import.seen?.let { listener(key.first, key.second, it, import.hold.changes) }
         }
+        importListeners += listener
+    }
 
     /**
      * Calls [listener] for every Config [reconcile] drops. It must not block.
      */
-    internal fun onDropped(listener: (namespace: String, config: String) -> Unit) = synchronized(importListeners) {
+    internal fun onDropped(listener: (namespace: String, config: String) -> Unit) = synchronized(lock) {
         dropListeners += listener
     }
 
     /**
      * Once the application has started: what a refresh loads counts from here.
      */
-    internal fun started() = loaded.clear()
+    internal fun started() = synchronized(lock) {
+        run = null
+        loaded.clear()
+    }
 
     /**
-     * After a refresh that succeeded, drops every Config no import loaded this time, such as one that only another
-     * Config's `spring.config.import` named, until that import was removed. A refresh only adds and replaces property
-     * sources, and a Config no longer imported has no load left to replace them by nothing (design §7.7).
+     * Once a refresh has applied what its run of the imports loaded, drops every Config the run did not load, such as
+     * one that only another Config's `spring.config.import` named, until that import was removed. A refresh only adds
+     * and replaces property sources, and a Config no longer imported has no load left to replace them by nothing
+     * (design §7.7). Its watch ends with it.
      *
      * A refresh that loaded no Config at all is left alone: it may not have run the imports.
      *
      * @return the properties that left with them.
      */
-    internal fun reconcile(environment: ConfigurableEnvironment): Set<String> = synchronized(importListeners) {
-        if (loaded.isEmpty()) {
+    internal fun reconcile(environment: ConfigurableEnvironment): Set<String> = synchronized(lock) {
+        if (run == null) {
             return@synchronized emptySet()
         }
-        val known = sources.keys + imported.flatMap { (namespace, configs) -> configs.keys.map { namespace to it } }
+        val dropped = imports.keys - loaded
+        run = null
+        loaded.clear()
         val left = mutableSetOf<String>()
-        (known - loaded).forEach { key ->
-            sources.remove(key)?.forEach { name ->
+        dropped.forEach { key ->
+            val import = checkNotNull(imports.remove(key))
+            import.sources.forEach { name ->
                 val removed = environment.propertySources.remove(name)
                 (removed as? EnumerablePropertySource<*>)?.let { left += it.propertyNames }
             }
-            imported[key.first]?.remove(key.second)
             dropListeners.forEach { it(key.first, key.second) }
+            import.hold.close()
         }
-        loaded.clear()
         left
     }
 
@@ -130,8 +162,11 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
      *
      * @return every property source the Config has made up.
      */
-    internal fun addSources(namespace: String, config: String, names: Set<String>): Set<String> =
-        sources.merge(namespace to config, names) { before, now -> before + now }.orEmpty()
+    internal fun addSources(namespace: String, config: String, names: Set<String>): Set<String> = synchronized(lock) {
+        val import = importOf(namespace to config)
+        import.sources += names
+        import.sources
+    }
 
     /**
      * A singleton registered as it is gets no destruction callback, so this asks for one as well.
@@ -188,6 +223,12 @@ internal class CoSkyClientRunListener : SpringApplicationRunListener {
         bootstrap?.getOrElse(CoSkyApplicationClient::class.java, null)?.closeUnlessHandedOver()
     }
 }
+
+/**
+ * Told of a Config imported, with what its load saw and its changes from then on.
+ */
+internal typealias ImportListener =
+    (namespace: String, config: String, seen: Resource, changes: Flow<Resource?>) -> Unit
 
 /**
  * Something to compare a Config with, whether or not it exists.

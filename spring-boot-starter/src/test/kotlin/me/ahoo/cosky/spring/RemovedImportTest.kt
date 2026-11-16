@@ -14,6 +14,7 @@
 package me.ahoo.cosky.spring
 
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.client.CoSkyClient
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Bean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import me.ahoo.cosky.server.CoSkyProperties as ServerProperties
 
 /**
  * A Config only another Config's `spring.config.import` named leaves the application once no import names it, though
@@ -151,5 +153,74 @@ class RemovedImportTest {
         context.environment.getProperty("shared").assert().isEqualTo("here")
         refreshedAfter(context) { server.put(TestCoSkyServer.config("shared.yaml", "shared: changed")) }
         context.environment.getProperty("shared").assert().isEqualTo("changed")
+    }
+
+    @Test
+    fun `a refresh that failed does not count towards the next`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("parent.yaml", "parent: before\nspring.config.import: cosky:child.yaml"))
+        server.put(TestCoSkyServer.config("child.yaml", "child:\n  value: gone"))
+        val context = application("--spring.config.import=cosky:parent.yaml", "--cosky.config.refresh.enabled=false")
+        val configs = context.getBean(CoSkyClient::class.java).namespace(TestCoSkyServer.NAMESPACE).configs
+        val refresher = context.getBean(ContextRefresher::class.java)
+
+        // It loads child.yaml, which does not parse, and leaves the Environment as it was.
+        server.put(TestCoSkyServer.config("child.yaml", "child: ["))
+        eventually { configs.watch("child.yaml").value?.config?.content == "child: [" }
+        runCatching { refresher.refresh() }.exceptionOrNull().assert().isNotNull()
+        context.environment.getProperty("child.value").assert().isEqualTo("gone")
+
+        server.put(TestCoSkyServer.config("parent.yaml", "parent: after"))
+        eventually { configs.watch("parent.yaml").value?.config?.content == "parent: after" }
+        refresher.refresh()
+
+        context.environment.getProperty("parent").assert().isEqualTo("after")
+        context.environment.getProperty("child.value").assert().isNull()
+    }
+}
+
+/**
+ * A Config no import names any more stops counting against the server's watches on one stream.
+ */
+class RemovedImportWatchTest {
+    private val server = TestCoSkyServer(ServerProperties(watch = ServerProperties.Watch(maxPerStream = 2)))
+    private var context: ConfigurableApplicationContext? = null
+
+    @AfterEach
+    fun stop() {
+        context?.close()
+        server.close()
+    }
+
+    @Test
+    fun `a config whose import is removed ends its watch`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("parent.yaml", "parent: before\nspring.config.import: cosky:first.yaml"))
+        server.put(TestCoSkyServer.config("first.yaml", "first: present"))
+        server.put(TestCoSkyServer.config("second.yaml", "second: expected"))
+        val context = SpringApplicationBuilder(RemovedImportTest.Application::class.java).run(
+            "--spring.application.name=order",
+            "--spring.grpc.server.enabled=false",
+            "--spring.main.web-application-type=none",
+            "--spring.cloud.compatibility-verifier.enabled=false",
+            "--cosky.snapshot.enabled=false",
+            "--cosky.endpoints=${server.endpoint}",
+            "--cosky.namespace=${TestCoSkyServer.NAMESPACE}",
+            "--cosky.config.refresh.enabled=false",
+            "--spring.config.import=cosky:parent.yaml",
+        ).also { context = it }
+        val parent = context.getBean(CoSkyClient::class.java).namespace(TestCoSkyServer.NAMESPACE).configs
+            .watch("parent.yaml")
+        val refresher = context.getBean(ContextRefresher::class.java)
+
+        server.put(TestCoSkyServer.config("parent.yaml", "parent: alone"))
+        withTimeout(15.seconds) { parent.first { it?.config?.content == "parent: alone" } }
+        refresher.refresh()
+        context.environment.getProperty("first").assert().isNull()
+
+        // Two watches, as before: parent.yaml's and second.yaml's.
+        val changed = "parent: after\nspring.config.import: cosky:second.yaml"
+        server.put(TestCoSkyServer.config("parent.yaml", changed))
+        withTimeout(15.seconds) { parent.first { it?.config?.content == changed } }
+        refresher.refresh()
+        context.environment.getProperty("second").assert().isEqualTo("expected")
     }
 }

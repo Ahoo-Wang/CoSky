@@ -159,7 +159,7 @@ W4  端到端+示例 ∥ Dashboard ∥ 迁移工具 ∥ 文档
 | W4b Dashboard | 协调会话 | #1032 与本 PR | ✅ 已合并;OIDC 已用 Keycloak 26 实测(D37),其他提供方没有实测 |
 | W4c 迁移工具 | 协调会话 | 本 PR | ✅ 已合并;只支持整体切换(D33);每个 Release 附 `cosky-migrate` zip;已用 6.2.0 server 写出的数据验证 |
 | W4d 文档 | 协调会话 | 本 PR、#1034、#1035 | ✅ 已合并;Mermaid 渲染与 CoCache 一致;写文档时发现并修复了客户端不支持 TLS、Spring 下摘流无效 |
-| 发布 `8.0.0-alpha.1`–`beta.4` | 协调会话 | alpha.2 #1052,alpha.3 #1055,alpha.4 #1152,alpha.5 #1174,beta.1 #1181,beta.2 #1188,beta.3 #1195,beta.4 #1207 | ✅ 都已发布到 Maven Central、GitHub Packages、Docker Hub、GHCR、阿里云(2026-11-14 发布 beta.1–beta.3,2026-11-15 发布 beta.4);beta.2 修复 Sentinel 主节点挂住时不跟随切换,beta.3 的 REST 错误改为 problem+json 并提供 OpenAPI 文档与 Swagger UI;每版发布后都已用公开制品跑通 Getting Started;请用最新一版;beta.4 收录 RC 前的 API 审查(客户端选项改为构建器、`@InternalCoSkyApi`、ABI 检查)、易用性修复,以及 Reactor Netty 1.3.8 修复的 keep-alive 连接挂起(Spring Boot 4.1.2,#1210) |
+| 发布 `8.0.0-alpha.1`–`beta.5` | 协调会话 | alpha.2 #1052,alpha.3 #1055,alpha.4 #1152,alpha.5 #1174,beta.1 #1181,beta.2 #1188,beta.3 #1195,beta.4 #1207,beta.5 #1250 | ✅ 都已发布到 Maven Central、GitHub Packages、Docker Hub、GHCR、阿里云(2026-11-14 发布 beta.1–beta.3,2026-11-15 发布 beta.4 和 beta.5);beta.2 修复 Sentinel 主节点挂住时不跟随切换,beta.3 的 REST 错误改为 problem+json 并提供 OpenAPI 文档与 Swagger UI;每版发布后都已用公开制品跑通 Getting Started;请用最新一版;beta.4 收录 RC 前的 API 审查(客户端选项改为构建器、`@InternalCoSkyApi`、ABI 检查)、易用性修复,以及 Reactor Netty 1.3.8 修复的 keep-alive 连接挂起(Spring Boot 4.1.2,#1210);beta.5 供开发者试用,收录 beta.4 之后审查发现的注册、配置导入、命名空间、REST 输入与 Dashboard 问题的修复 |
 
 ### 到 8.0.0 的剩余工作(`8.0.0-alpha.3` 之后)
 
@@ -195,7 +195,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 
 - Renovate 有一批大版本升级等批准(如 TypeScript 7、Node 24、pnpm 12、GitHub Actions)。#931 里的 simba、cosec、cosid `main` 已不用,可能来自 v6 分支。
 - Dashboard 已从弃用的 `@ahoo-wang/fetcher-generator` 迁到 `@ahoo-wang/wow-generator` 9.9,fetcher 各包随之从 3.x 升到 6.0(2026-11-14)。生成的客户端改为按参数传路径、查询和请求头,返回解析好的对象;`src/services` 随之改写,单元、UI(含覆盖率)和真实后端测试都通过。wow-generator 包里的迁移指南链接是 404。
-- #5(2021 年询问掉线告警)还开着。
+- #5(2021 年询问掉线告警)已答复并按维护者决定关闭为不计划(2026-11-15)。
 - 依赖告警已核对:19 个都在 Dashboard 的锁文件里,没有一个进入生产包。Monaco 0.55.1 自带的 DOMPurify 3.2.7 不在严重告警的范围内,更新的 Monaco 自带 3.4.x 反而在,所以先不升级 Monaco。`deepmerge` 还没有修复版本。
 
 ## 6. 设计问题

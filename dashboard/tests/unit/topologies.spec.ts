@@ -106,14 +106,18 @@ test('keeps apart consumers whose names belong to Object.prototype', () => {
     }
 });
 
-test('lays out consumers whose names shadow an Object.prototype member', () => {
-    const {nodes, edges} = toReactFlowTopology(toConsumers([
+test('takes a service named like a property every object has for a service', () => {
+    const consumers = toConsumers([
         {consumer: 'constructor', producer: 'order'},
+        {consumer: 'constructor', producer: 'payment'},
         {consumer: 'gateway', producer: 'constructor'},
-    ]));
+    ]);
 
-    expect(nodes.map(node => node.id).sort()).toEqual(['constructor', 'gateway', 'order']);
-    expect(edges.map(edge => edge.id).sort()).toEqual(['constructor->order', 'gateway->constructor']);
+    expect(consumers).toEqual({constructor: ['order', 'payment'], gateway: ['constructor']});
+    const {nodes, edges} = toReactFlowTopology(consumers);
+    expect(nodes.map(node => node.id).sort()).toEqual(['constructor', 'gateway', 'order', 'payment']);
+    expect(edges.map(edge => edge.id).sort())
+        .toEqual(['constructor->order', 'constructor->payment', 'gateway->constructor']);
 });
 
 test('wraps crowded layers without overlapping nodes', () => {

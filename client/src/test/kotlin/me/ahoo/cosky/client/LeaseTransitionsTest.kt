@@ -36,11 +36,13 @@ import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -65,13 +67,17 @@ class LeaseTransitionsTest {
         server.close()
     }
 
-    private fun instances(vararg interceptors: ClientInterceptor): CoSkyClient.Namespace.Instances = CoSkyClient(
+    private fun instances(
+        vararg interceptors: ClientInterceptor,
+        callTimeout: Duration = 10.seconds,
+    ): CoSkyClient.Namespace.Instances = CoSkyClient(
         CoSkyClientOptions(listOf("only")) {
             snapshotDir = null
             reconnectMin = 10.milliseconds
             reconnectMax = 100.milliseconds
             reRegisterJitter = Duration.ZERO
             leaseTtl = 6.seconds
+            this.callTimeout = callTimeout
             channelFactory = { InProcessChannelBuilder.forName(server.name).intercept(*interceptors).build() }
         },
     ).also { clients += it }.namespace(NAMESPACE).instances
@@ -104,23 +110,68 @@ class LeaseTransitionsTest {
     }
 
     @Test
-    fun `a withdrawal that finds nothing in a view behind tries again, until the store's count says`() = scenario {
+    fun `a withdrawal reads as of the revision the store holds, however far behind the view is`() = scenario {
         val answered = CompletableDeferred<Unit>()
-        val missed = CompletableDeferred<Unit>()
-        val instances = instances(answerLostFor("cancelled", answered), notFoundSignal(missed))
+        val waited = CompletableDeferred<Unit>()
+        val instances = instances(answerLostFor("cancelled", answered), failedGetSignal(waited))
         instances.register("order", ENDPOINT, instanceName = "companion")
         // The view stops following: the cancelled Put lands in the store all the same.
         server.cacheFollows.value = false
         val registering = launch { instances.register("order", ENDPOINT, instanceName = "cancelled") }
         answered.await()
         registering.cancelAndJoin()
-        // The withdrawal reads the view, which has not seen it yet.
-        missed.await()
+        // The store says it is there; the view does not reach that revision in time.
+        waited.await()
 
         server.cacheFollows.value = true
 
         eventually { instancesOnServer().map { it.meta.name } == listOf("companion") }
     }
+
+    @Test
+    fun `a withdrawal goes by the name, not by how many Instances the lease holds`() = scenario {
+        val answered = CompletableDeferred<Unit>()
+        val getsFail = AtomicBoolean(true)
+        val instances = instances(answerLostFor("cancelled", answered), failingWhile("Get", getsFail))
+        instances.register("order", ENDPOINT, instanceName = "companion")
+        // The first renewal is in.
+        delay(SETTLE)
+        val registering = launch { instances.register("order", ENDPOINT, instanceName = "cancelled") }
+        answered.await()
+        registering.cancelAndJoin()
+        // The companion goes, as an operator or a lost write can make it: the lease holds one Instance, as the client
+        // has one registration, but not the same one.
+        val companion = instancesOnServer().single { it.meta.name == "companion" }
+        server.store.apply(NAMESPACE, listOf(Mutation.Delete(companion.key)), "operator")
+        delay(5.seconds)
+
+        getsFail.set(false)
+        delay(7.seconds)
+
+        // The cancelled one withdrawn, and the companion found missing and put back.
+        instancesOnServer().map { it.meta.name }.assert().containsExactly("companion")
+    }
+
+    @Test
+    fun `a withdrawal of what never reached the server ends once the Put could no longer land, deleting nothing`() =
+        scenario {
+            val sent = CompletableDeferred<Unit>()
+            val deletes = AtomicInteger()
+            val instances = instances(unsentPutOf("never", sent), counting("Delete", deletes), callTimeout = 2.seconds)
+            instances.register("order", ENDPOINT, instanceName = "companion")
+            val registering = launch { instances.register("order", ENDPOINT, instanceName = "never") }
+            sent.await()
+            registering.cancelAndJoin()
+
+            // The store answers that there is none; that is final only past the Put's deadline, after a renewal or two.
+            eventually { deletes.get() > 0 }
+            delay(5.seconds)
+            val settled = deletes.get()
+            delay(5.seconds)
+
+            deletes.get().assert().isEqualTo(settled)
+            instancesOnServer().map { it.meta.name }.assert().containsExactly("companion")
+        }
 
     @Test
     fun `a name registered again after its registration was cancelled stays`() = scenario {
@@ -221,8 +272,82 @@ class LeaseTransitionsTest {
         instancesOnServer().map { it.meta.name }.sorted().assert().containsExactly("companion", "taken")
     }
 
-    /** [missed] completes once a Get is answered NOT_FOUND. */
-    private fun notFoundSignal(missed: CompletableDeferred<Unit>): ClientInterceptor = object : ClientInterceptor {
+    /** The Put of [name] never leaves the client, and is never answered; [sent] completes once it would have gone. */
+    @Test
+    fun `closing a registration again leaves the one that replaced it`() = scenario {
+        val instances = instances()
+        val old = instances.register("order", ENDPOINT, instanceName = "reused")
+        old.close()
+        val replacement = instances.register("order", ENDPOINT, instanceName = "reused")
+
+        old.close()
+
+        // Revoking its lease would have taken it too.
+        instancesOnServer().map { it.meta.name }.assert().containsExactly("reused")
+        replacement.close()
+        instancesOnServer().assert().isEmpty()
+    }
+
+    @Test
+    fun `a registration replaced by another of the same name closes nothing`() = scenario {
+        val instances = instances()
+        val first = instances.register("order", ENDPOINT, instanceName = "reused")
+        val second = instances.register("order", ENDPOINT, instanceName = "reused", metadata = mapOf("v" to "2"))
+
+        first.close()
+
+        instancesOnServer().single().instance.metadataMap.assert().containsEntry("v", "2")
+        second.close()
+        instancesOnServer().assert().isEmpty()
+    }
+
+    private fun unsentPutOf(name: String, sent: CompletableDeferred<Unit>): ClientInterceptor =
+        object : ClientInterceptor {
+            override fun <Req, Resp> interceptCall(
+                descriptor: MethodDescriptor<Req, Resp>,
+                options: CallOptions,
+                next: Channel,
+            ): ClientCall<Req, Resp> {
+                val call = next.newCall(descriptor, options)
+                if (descriptor.bareMethodName != "Put") {
+                    return call
+                }
+                return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                    @Volatile
+                    private var held = false
+
+                    override fun sendMessage(message: Req) {
+                        if ((message as PutRequest).resource.meta.name == name) {
+                            held = true
+                            sent.complete(Unit)
+                            return
+                        }
+                        super.sendMessage(message)
+                    }
+
+                    override fun halfClose() {
+                        if (!held) super.halfClose()
+                    }
+                }
+            }
+        }
+
+    /** Counts the calls of [method] the client makes. */
+    private fun counting(method: String, calls: AtomicInteger): ClientInterceptor = object : ClientInterceptor {
+        override fun <Req, Resp> interceptCall(
+            descriptor: MethodDescriptor<Req, Resp>,
+            options: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            if (descriptor.bareMethodName == method) {
+                calls.incrementAndGet()
+            }
+            return next.newCall(descriptor, options)
+        }
+    }
+
+    /** [failed] completes once a Get fails. */
+    private fun failedGetSignal(failed: CompletableDeferred<Unit>): ClientInterceptor = object : ClientInterceptor {
         override fun <Req, Resp> interceptCall(
             descriptor: MethodDescriptor<Req, Resp>,
             options: CallOptions,
@@ -236,7 +361,7 @@ class LeaseTransitionsTest {
                 override fun start(responseListener: Listener<Resp>, headers: Metadata) = super.start(
                     object : ForwardingClientCallListener.SimpleForwardingClientCallListener<Resp>(responseListener) {
                         override fun onClose(status: Status, trailers: Metadata) {
-                            if (status.code == Status.Code.NOT_FOUND) missed.complete(Unit)
+                            if (!status.isOk) failed.complete(Unit)
                             super.onClose(status, trailers)
                         }
                     },
@@ -278,6 +403,11 @@ class LeaseTransitionsTest {
     }
 
     /** Calls of [method] fail with UNAVAILABLE while [failing] is set, as when the server is out of reach. */
+    /**
+     * Fails the calls of [method] while [failing]: one started then is refused, and on a stream started before, what is
+     * sent then is lost. Else the renewals of a stream that opened just before would still reach the server, and keep
+     * alive a lease that a test lets run out.
+     */
     private fun failingWhile(method: String, failing: AtomicBoolean): ClientInterceptor = object : ClientInterceptor {
         override fun <Req, Resp> interceptCall(
             descriptor: MethodDescriptor<Req, Resp>,
@@ -285,18 +415,29 @@ class LeaseTransitionsTest {
             next: Channel,
         ): ClientCall<Req, Resp> {
             val call = next.newCall(descriptor, options)
-            if (descriptor.bareMethodName != method || !failing.get()) {
+            if (descriptor.bareMethodName != method) {
                 return call
             }
+            val refused = failing.get()
+            val streaming = !descriptor.type.clientSendsOneMessage()
             return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
-                override fun start(responseListener: Listener<Resp>, headers: Metadata) =
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) = if (refused) {
                     responseListener.onClose(Status.UNAVAILABLE.withDescription("Out of reach on purpose."), Metadata())
+                } else {
+                    super.start(responseListener, headers)
+                }
 
-                override fun request(numMessages: Int) = Unit
+                override fun request(numMessages: Int) {
+                    if (!refused) super.request(numMessages)
+                }
 
-                override fun sendMessage(message: Req) = Unit
+                override fun sendMessage(message: Req) {
+                    if (!refused && !(streaming && failing.get())) super.sendMessage(message)
+                }
 
-                override fun halfClose() = Unit
+                override fun halfClose() {
+                    if (!refused) super.halfClose()
+                }
             }
         }
     }

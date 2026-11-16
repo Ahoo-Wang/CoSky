@@ -200,7 +200,7 @@ class RestRoutes(
             .setNamespace(namespace)
             .setKind(kind)
             .setMinRevision(longParam(request, MIN_REVISION) ?: 0)
-            .setPageSize((longParam(request, "pageSize") ?: 0).toInt())
+            .setPageSize(intParam(request, "pageSize") ?: 0)
             .setPageToken(request.queryParam("pageToken").getOrNull().orEmpty())
             .setService(request.queryParam("service").getOrNull().orEmpty())
             .putAllLabelSelector(labelSelector(request))
@@ -248,7 +248,7 @@ class RestRoutes(
     private suspend fun history(request: ServerRequest): ServerResponse {
         val history = HistoryRequest.newBuilder()
             .setKey(keyOf(request, Kind.KIND_CONFIG, request.pathVariable(NAMESPACE)))
-            .setLimit((longParam(request, "limit") ?: 0).toInt())
+            .setLimit(intParam(request, "limit") ?: 0)
             .setPageToken(request.queryParam("pageToken").getOrNull().orEmpty())
         return ServerResponse.ok().json(resources.history(history.build(), callerOf(request)))
     }
@@ -440,6 +440,17 @@ class RestRoutes(
     private fun longParam(request: ServerRequest, name: String): Long? {
         val value = request.queryParam(name).getOrNull() ?: return null
         return value.toLongOrNull() ?: throw ProtoJson.invalid(name, "This must be a whole number.")
+    }
+
+    /**
+     * For a field of 32 bits: a number beyond them is refused, rather than cut down to one that may pass for another.
+     */
+    private fun intParam(request: ServerRequest, name: String): Int? {
+        val value = longParam(request, name) ?: return null
+        if (value !in Int.MIN_VALUE..Int.MAX_VALUE) {
+            throw ProtoJson.outOfRange(name, "This must be within [${Int.MIN_VALUE}, ${Int.MAX_VALUE}].")
+        }
+        return value.toInt()
     }
 
     private suspend fun ServerResponse.BodyBuilder.json(message: Message): ServerResponse =

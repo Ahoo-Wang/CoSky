@@ -8,7 +8,7 @@ description: 不依赖 Spring 使用 Kotlin 客户端，了解快照和连接状
 `cosky-client` 是一个协程客户端，不依赖 Spring 或 Redis，starter 就构建在它之上。需要 JDK 21 或更高版本。
 
 ```kotlin
-implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.4")
+implementation("me.ahoo.cosky:cosky-client:8.0.0-beta.5")
 ```
 
 ```kotlin
@@ -66,6 +66,8 @@ registration.close()
 ```
 
 客户端负责维持租约，租约丢失时重新注册全部实例。关闭最后一个注册时租约结束。
+
+同一个名字再次注册会替换原来的注册，由新的句柄关闭它。再次关闭一个句柄，或关闭名字已被再次注册的旧句柄，都不做任何事。关闭失败时（例如没有 server 应答），实例仍然注册并续约，可以再试一次。
 
 ## 关闭
 

@@ -75,6 +75,7 @@ export function getConnectedNodeIds(nodeId: string, edges: Edge[]): Set<string> 
  * What each consumer depends on, from the edges the server recorded.
  */
 export function toConsumers(edges: Array<{consumer: string; producer: string}>): Record<string, string[]> {
+    // Gathered in a Map: a plain object finds what its prototype has under a name such as `constructor`.
     const consumers = new Map<string, string[]>();
     for (const {consumer, producer} of edges) {
         const producers = consumers.get(consumer);
@@ -84,8 +85,6 @@ export function toConsumers(edges: Array<{consumer: string; producer: string}>):
             consumers.set(consumer, [producer]);
         }
     }
-    // A service name may be any name, including one that Object.prototype already holds (`constructor`, `__proto__`,
-    // `toString`). fromEntries writes each key as an own property, so such a name stays a name.
     return Object.fromEntries(consumers);
 }
 

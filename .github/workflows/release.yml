@@ -15,6 +15,8 @@
 # then starts the publishing workflows.
 # A release or tag created with GITHUB_TOKEN does not trigger other workflows, so they are dispatched explicitly
 # (workflow_dispatch is exempt from that rule). Releases created by hand still trigger them as before.
+# Running it again finishes a release it left half done: it creates the release if it is missing, and starts each
+# publishing workflow that has not run on the tag.
 name: Release
 on:
   push:
@@ -49,25 +51,48 @@ jobs:
             latest=(--prerelease --latest=false)
           fi
           if gh release view "$tag" --repo "$REPO" > /dev/null 2>&1; then
-            echo "Release $tag already exists, nothing to do."
-            exit 0
+            echo "Release $tag exists."
+          else
+            # The newest release of this major version, pre-releases included; gh release view only knows the latest
+            # stable one, which would be 6.x for all of 8.0.
+            major="${version%%.*}"
+            previous="$(gh release list --repo "$REPO" --limit 100 --json tagName -q '.[].tagName' 2> /dev/null \
+              | grep -m1 "^v${major}\." || gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null || true)"
+            args=(-f tag_name="$tag" -f target_commitish="$GITHUB_SHA")
+            if [[ -n "$previous" ]]; then
+              args+=(-f previous_tag_name="$previous")
+            fi
+            gh api "repos/$REPO/releases/generate-notes" "${args[@]}" -q .body > generated-notes.md
+
+            # Optional hand-written introduction, e.g. highlights and upgrade notes.
+            intro=".github/release-notes/${tag}.md"
+            { if [[ -f "$intro" ]]; then cat "$intro"; echo; fi; cat generated-notes.md; } > release-notes.md
+
+            gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" --title "$tag" --notes-file release-notes.md "${latest[@]}"
           fi
 
-          # The newest release of this major version, pre-releases included; gh release view only knows the latest
-          # stable one, which would be 6.x for all of 8.0.
-          major="${version%%.*}"
-          previous="$(gh release list --repo "$REPO" --limit 100 --json tagName -q '.[].tagName' 2> /dev/null \
-            | grep -m1 "^v${major}\." || gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null || true)"
-          args=(-f tag_name="$tag" -f target_commitish="$GITHUB_SHA")
-          if [[ -n "$previous" ]]; then
-            args+=(-f previous_tag_name="$previous")
-          fi
-          gh api "repos/$REPO/releases/generate-notes" "${args[@]}" -q .body > generated-notes.md
-
-          # Optional hand-written introduction, e.g. highlights and upgrade notes.
-          intro=".github/release-notes/${tag}.md"
-          { if [[ -f "$intro" ]]; then cat "$intro"; echo; fi; cat generated-notes.md; } > release-notes.md
-
-          gh release create "$tag" --repo "$REPO" --target "$GITHUB_SHA" --title "$tag" --notes-file release-notes.md "${latest[@]}"
-          gh workflow run package-deploy.yml --repo "$REPO" --ref "$tag"
-          gh workflow run docker-deploy.yml --repo "$REPO" --ref "$tag"
+          # Each publishing workflow runs once on the tag. One that never started, say since this job stopped before
+          # it, starts now. One that failed is re-run instead: it may have published part of the release already,
+          # which cannot be published twice.
+          failed=0
+          for workflow in package-deploy.yml docker-deploy.yml; do
+            state="$(gh run list --repo "$REPO" --workflow "$workflow" --branch "$tag" --limit 20 \
+              --json databaseId,status,conclusion \
+              --jq 'if length == 0 then "none"
+                elif any(.[]; .status != "completed" or .conclusion == "success") then "running or done"
+                else "failed \(.[0].databaseId)" end')"
+            case "$state" in
+              none)
+                gh workflow run "$workflow" --repo "$REPO" --ref "$tag"
+                echo "Started $workflow on $tag."
+                ;;
+              "running or done")
+                echo "$workflow is running on $tag, or has run."
+                ;;
+              *)
+                echo "::error::$workflow failed on $tag. Re-run it: gh run rerun ${state#failed } --failed --repo $REPO"
+                failed=1
+                ;;
+            esac
+          done
+          exit "$failed"
