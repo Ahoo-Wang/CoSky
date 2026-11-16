@@ -47,6 +47,7 @@ import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.auth.TokenService
+import me.ahoo.cosky.server.auth.bearerCredentials
 import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
@@ -174,7 +175,7 @@ class RestRoutes(
         }
         val remote = request.remoteAddress().getOrNull()?.toString()
         val principal = try {
-            access.authenticate(request.headers().firstHeader(HttpHeaders.AUTHORIZATION)?.removePrefix(BEARER))
+            access.authenticate(bearerCredentials(request.headers().firstHeader(HttpHeaders.AUTHORIZATION)))
         } catch (e: CoSkyException) {
             metrics.authFailure(e.reason.name)
             val path = request.path()
@@ -374,9 +375,11 @@ class RestRoutes(
 
     private suspend fun createToken(request: ServerRequest): ServerResponse {
         val body = request.awaitBodyOrNull<String>()?.takeIf { it.isNotBlank() }?.let { ProtoJson.objectOf(it) }
-        val expiresAt = body?.get("expiresAt")?.asString?.let { value ->
+        val expiresAt = body?.get("expiresAt")?.takeUnless { it.isJsonNull }?.let { value ->
+            val text = value.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
+                ?: throw ProtoJson.invalid("expiresAt", "A time looks like \"2026-12-31T00:00:00Z\".")
             try {
-                Instant.parse(value)
+                Instant.parse(text)
             } catch (e: DateTimeParseException) {
                 throw ProtoJson.invalid("expiresAt", e.message.orEmpty())
             }
@@ -465,7 +468,6 @@ class RestRoutes(
         const val NAMESPACE = "namespace"
         const val NAME = "name"
         const val MIN_REVISION = "minRevision"
-        const val BEARER = "Bearer "
         const val UNKNOWN_SUBJECT = "unknown"
         const val CALLER = "cosky.caller"
         val ZIP = MediaType.parseMediaType("application/zip")

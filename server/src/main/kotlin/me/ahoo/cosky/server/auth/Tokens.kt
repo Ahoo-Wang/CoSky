@@ -60,3 +60,13 @@ object Tokens {
 
     private fun base62(length: Int): String = String(CharArray(length) { ALPHABET[random.nextInt(ALPHABET.length)] })
 }
+
+private const val BEARER = "Bearer "
+
+/**
+ * The credentials of an `Authorization` header, after a Bearer scheme in any case: a scheme is named without regard
+ * to case (RFC 9110). A header without the scheme is taken as it is.
+ */
+fun bearerCredentials(authorization: String?): String? = authorization?.let {
+    if (it.startsWith(BEARER, ignoreCase = true)) it.substring(BEARER.length) else it
+}
