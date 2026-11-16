@@ -1011,7 +1011,7 @@ cosky:
 - **授权判定(D24)**:请求 `(subject, verb, kind, namespace, name)` 命中任一绑定角色的任一规则即放行。
   规则生效的 namespace 是 `Rule.namespaces` 与 `RoleBinding.namespaces` 的交集;全局对象的 namespace 为 `_system`。
 - **`Rule.names`**:为空匹配全部;否则是精确值或以 `*` 结尾的前缀,比较 Config 名、Instance 的 `spec.service`、其他 kind 的对象名。
-  Instance 按服务授权,否则账号可以冒充其他服务注册:Put 校验新对象的 `spec.service`,覆盖已有对象时还校验旧对象的;Delete 校验现有对象。
+  Instance 按服务授权,否则账号可以冒充其他服务注册:Put 校验新对象的 `spec.service`,覆盖已有对象时还校验旧对象的;Delete 校验现有对象。校验的必须是写入实际作用的那个对象:请求带期望 revision 时按该 revision 读取,由存储的 CAS 保证;不带时按存储的最新写入读取,再用读到的 revision 做 CAS,中途有写入就重新读取判定,避免落后的副本把写入放到它还没看到的、别的服务的实例上;期望 revision 超出存储已到达的位置时不可能匹配,直接交给存储拒绝,返回对象当前的 revision,不等副本追上。
   List / Watch 整个 kind 时按规则过滤结果,不拒绝请求。
 - **Views**:需要对应 namespace 的 `INSTANCE` `GET` 权限,且规则的 `names` 为空,因为视图是全量数据。
 - **租约**:Lease 不是资源。Grant 需要该 namespace 的 `INSTANCE` `PUT` 权限,调用者记为所有者;KeepAlive、Revoke,以及把 Instance 挂到租约上都只允许所有者,否则 `PERMISSION_DENIED`;Instance 留在原租约上不算挂载,有写权限即可修改,这样运维才能摘流应用注册的实例。

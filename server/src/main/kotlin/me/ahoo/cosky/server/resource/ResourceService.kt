@@ -131,14 +131,19 @@ class ResourceService(
         requireValid(validator.validate(request))
         val key = request.resource.key
         return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
-            authorizePut(request, key, caller.principal)
-            val write = withStoredTokens(withContentHash(namespaces.guard(request)))
-            val applied = apply(
-                key,
-                Mutation.Put(write.resource, write.expectedRevision),
-                write.expectedRevision,
-                caller.principal.id,
-            )
+            val applied = if (key.kind == Kind.KIND_INSTANCE) {
+                putInstance(request, key, caller.principal)
+            } else {
+                val permission = permissionOf(caller.principal, Verb.VERB_PUT, key.kind, key.namespace)
+                requireAllowed(permission, request.resource.authorizedName)
+                val write = withStoredTokens(withContentHash(namespaces.guard(request)))
+                apply(
+                    key,
+                    Mutation.Put(write.resource, write.expectedRevision),
+                    write.expectedRevision,
+                    caller.principal.id,
+                )
+            }
             if (key.kind == Kind.KIND_NAMESPACE) {
                 // Once the directory has it: a write it rejects must leave no namespace behind, which the reconciler,
                 // going by the directory, would never find. One that stops in between, the reconciler creates.
@@ -152,12 +157,26 @@ class ResourceService(
         requireValid(validator.validate(request))
         val key = request.key
         return audit.audited(caller, Verb.VERB_DELETE, key, DeleteResponse::getRevision) {
-            authorizeDelete(key, caller.principal)
-            if (key.kind == Kind.KIND_NAMESPACE) {
-                return@audited namespaces.delete(key, request.expectedRevision, caller.principal.id)
+            val permission = permissionOf(caller.principal, Verb.VERB_DELETE, key.kind, key.namespace)
+            val applied = when (key.kind) {
+                Kind.KIND_INSTANCE -> {
+                    judgedAgainstStored(key, request.expectedRevision, caller.principal.id) { existing, expected ->
+                        existing?.let { requireAllowed(permission, it.authorizedName) }
+                        Mutation.Delete(key, expected)
+                    }
+                }
+
+                Kind.KIND_NAMESPACE -> {
+                    requireAllowed(permission, key.name)
+                    return@audited namespaces.delete(key, request.expectedRevision, caller.principal.id)
+                }
+
+                else -> {
+                    requireAllowed(permission, key.name)
+                    val mutation = Mutation.Delete(key, request.expectedRevision)
+                    apply(key, mutation, request.expectedRevision, caller.principal.id)
+                }
             }
-            val mutation = Mutation.Delete(key, request.expectedRevision)
-            val applied = apply(key, mutation, request.expectedRevision, caller.principal.id)
             DeleteResponse.newBuilder().setRevision(applied.revision).setDeleted(applied.changed > 0).build()
         }
     }
@@ -238,44 +257,77 @@ class ResourceService(
     }
 
     /**
-     * For an Instance both the new and any existing service count, or an account could take over another service's
+     * For an Instance both the new and the existing service count, or an account could take over another service's
      * instance, and only after that does it matter that the service cannot change (design §7.1). Attaching one to a
      * lease is only for the lease's owner (design §7.8); keeping it on the lease it is on is not attaching, or an
      * operator could not drain an instance an application registered.
      */
-    private suspend fun authorizePut(request: PutRequest, key: ResourceKey, principal: Principal) {
+    private suspend fun putInstance(request: PutRequest, key: ResourceKey, principal: Principal): ApplyResult.Applied {
         val resource = request.resource
         val permission = permissionOf(principal, Verb.VERB_PUT, key.kind, key.namespace)
         requireAllowed(permission, resource.authorizedName)
-        if (key.kind != Kind.KIND_INSTANCE) {
-            return
-        }
-        val existing = viewOf(key.namespace, request.expectedRevision.coerceAtLeast(0)).objects[key]
-        existing?.let { requireAllowed(permission, it.authorizedName) }
-        if (existing != null && existing.instance.service != resource.instance.service) {
-            throw CoSkyException.invalidArgument(
-                listOf(
-                    Violation(
-                        "resource.instance.service",
-                        ViolationCode.VIOLATION_CODE_NOT_ALLOWED,
-                        "An Instance stays in its service: delete it, then create it again.",
+        return judgedAgainstStored(key, request.expectedRevision, principal.id) { existing, expected ->
+            existing?.let { requireAllowed(permission, it.authorizedName) }
+            if (existing != null && existing.instance.service != resource.instance.service) {
+                throw CoSkyException.invalidArgument(
+                    listOf(
+                        Violation(
+                            "resource.instance.service",
+                            ViolationCode.VIOLATION_CODE_NOT_ALLOWED,
+                            "An Instance stays in its service: delete it, then create it again.",
+                        ),
                     ),
-                ),
-            )
-        }
-        val lease = resource.meta.lease
-        if (lease != 0L && lease != existing?.meta?.lease) {
-            leases.requireOwner(key.namespace, lease, principal)
+                )
+            }
+            val lease = resource.meta.lease
+            if (lease != 0L && lease != existing?.meta?.lease) {
+                leases.requireOwner(key.namespace, lease, principal)
+            }
+            Mutation.Put(resource, expected)
         }
     }
 
-    private suspend fun authorizeDelete(key: ResourceKey, principal: Principal) {
-        val permission = permissionOf(principal, Verb.VERB_DELETE, key.kind, key.namespace)
-        if (key.kind == Kind.KIND_INSTANCE) {
-            viewOf(key.namespace, 0).objects[key]?.let { requireAllowed(permission, it.authorizedName) }
-        } else {
-            requireAllowed(permission, key.name)
+    /**
+     * Applies the mutation [judge] makes once it has judged the object [key] holds, which must be the object the
+     * mutation applies to:
+     * - With an expected revision, the object is read as of it, and the store checks it.
+     * - Without one, it is read as of the store's latest write, and the mutation is kept to it by compare-and-set. A
+     *   replica that is behind would otherwise let it through to an object the replica has not seen yet. A write in
+     *   between has the object judged again.
+     * - A revision the store has not reached cannot match, and waiting for this replica would not change that. The
+     *   store refuses it at once, with the revision the object is at, whatever this replica has seen.
+     *
+     * @param judge gets the object, and the revision the mutation is to expect.
+     */
+    private suspend fun judgedAgainstStored(
+        key: ResourceKey,
+        expected: Long,
+        actor: String,
+        judge: suspend (existing: Resource?, expected: Long) -> Mutation,
+    ): ApplyResult.Applied {
+        var result: ApplyResult = ApplyResult.Conflict(0, null)
+        repeat(JUDGE_ATTEMPTS) {
+            val stored = store.position(key.namespace)?.revision ?: 0
+            val unreached = expected > stored
+            val existing = viewOf(
+                key.namespace,
+                when {
+                    unreached -> 0
+                    expected == Mutation.NO_CHECK -> stored
+                    else -> expected.coerceAtLeast(0)
+                },
+            ).objects[key]
+            val kept = when {
+                unreached -> UNMATCHABLE
+                expected == Mutation.NO_CHECK -> existing?.meta?.revision ?: Mutation.MUST_NOT_EXIST
+                else -> expected
+            }
+            result = store.apply(key.namespace, listOf(judge(existing, kept)), actor)
+            if (result !is ApplyResult.Conflict || expected != Mutation.NO_CHECK) {
+                return result.requireApplied(key, expected)
+            }
         }
+        return result.requireApplied(key, expected)
     }
 
     /**
@@ -334,6 +386,14 @@ class ResourceService(
         expected: Long,
         actor: String,
     ): ApplyResult.Applied = store.apply(key.namespace, listOf(mutation), actor).requireApplied(key, expected)
+
+    private companion object {
+        /** Writes in between that a write without an expected revision outlasts, before it gives up as a conflict. */
+        const val JUDGE_ATTEMPTS = 3
+
+        /** An expected revision beyond any a namespace reaches. */
+        const val UNMATCHABLE = Long.MAX_VALUE
+    }
 }
 
 /**
