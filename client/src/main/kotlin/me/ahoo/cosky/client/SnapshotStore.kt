@@ -27,6 +27,7 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.nio.file.attribute.FileAttribute
 import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
@@ -35,7 +36,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Views on disk, so that a process restarting on the same disk can serve before it reaches a server (design §7.5).
  *
  * Snapshots are not encrypted, since a client has nowhere safe to keep a key: directories are `0700`, files `0600`, and
- * Config contents can stay off the disk altogether. Failing to write one is never fatal.
+ * Config contents can stay off the disk altogether. A file system without POSIX permissions, as on Windows, gives them
+ * those of the directory they are in, which in the user's home are the user's own. Failing to write one is never
+ * fatal.
  */
 internal class SnapshotStore(private val options: CoSkyClientOptions, private val scope: CoroutineScope) {
     private val root: Path? = options.snapshotDir?.resolve(serverKey(options))
@@ -75,15 +78,23 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
     private fun write(key: WatchKey, snapshot: ListResponse) {
         val path = pathOf(key) ?: return
         try {
+            val posix = POSIX in path.fileSystem.supportedFileAttributeViews()
             // Unlike looking first, this accepts a directory that another watch's write created in the meantime.
-            Files.createDirectories(path.parent, OWNER_ONLY_DIRECTORY)
-            val temporary = Files.createTempFile(path.parent, path.fileName.toString(), ".tmp", OWNER_ONLY_FILE)
+            Files.createDirectories(path.parent, *ownerOnly(posix, OWNER_ONLY_DIRECTORY))
+            val temporary =
+                Files.createTempFile(path.parent, path.fileName.toString(), ".tmp", *ownerOnly(posix, OWNER_ONLY_FILE))
             Files.newOutputStream(temporary).use { snapshot.writeTo(it) }
             move(temporary, path)
         } catch (e: IOException) {
             log.warn("Could not write the snapshot {}.", path, e)
         }
     }
+
+    /**
+     * A file system that has no POSIX permissions refuses them, rather than leaving them out.
+     */
+    private fun ownerOnly(posix: Boolean, attribute: FileAttribute<*>): Array<FileAttribute<*>> =
+        if (posix) arrayOf(attribute) else emptyArray()
 
     private fun move(from: Path, to: Path) {
         try {
@@ -109,6 +120,7 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
 
     private companion object {
         val log = LoggerFactory.getLogger(SnapshotStore::class.java)
+        const val POSIX = "posix"
         val OWNER_ONLY_DIRECTORY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
         val OWNER_ONLY_FILE = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))
         const val KEY_LENGTH = 16

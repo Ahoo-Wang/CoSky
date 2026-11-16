@@ -25,6 +25,7 @@ dependencies {
         api(libs.commons.io)
         api(libs.springdoc.openapi.starter.webflux.ui)
         api(libs.mockk)
+        api(libs.jimfs)
         api(libs.jmh.core)
         api(libs.jmh.generator.annprocess)
         api(libs.detekt.formatting)
