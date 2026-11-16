@@ -403,7 +403,10 @@ class CoSkyStarterTest {
     @Test
     fun `the TLS settings reach the client`() {
         val certificates = Path.of("/etc/cosky/ca.pem")
-        val options = CoSkyProperties(tls = CoSkyProperties.Tls(true, certificates)).toOptions()
+        val options = CoSkyProperties().apply {
+            tls.enabled = true
+            tls.trustedCertificates = certificates
+        }.toOptions()
 
         options.tls.assert().isTrue()
         options.tlsTrustedCertificates.assert().isEqualTo(certificates)
@@ -519,11 +522,11 @@ class CoSkyStarterTest {
     @Test
     fun `a balancer's first list does not take an unknown service for an empty one`() {
         server.put(TestCoSkyServer.instance("order-1", "order"))
-        val properties = CoSkyProperties(
-            endpoints = listOf(server.endpoint),
-            namespace = TestCoSkyServer.NAMESPACE,
-            snapshot = CoSkyProperties.Snapshot(enabled = false),
-        )
+        val properties = CoSkyProperties().apply {
+            endpoints = listOf(server.endpoint)
+            namespace = TestCoSkyServer.NAMESPACE
+            snapshot.enabled = false
+        }
         // Asked as soon as the watch starts, before any answer can have arrived.
         CoSkyClient(properties.toOptions()).use { client ->
             val supplier = CoSkyServiceInstanceListSupplier("order", client, properties)

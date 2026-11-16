@@ -25,11 +25,11 @@ import org.junit.jupiter.api.Test
  */
 class CoSkyServiceRegistryTest {
     private val server = TestCoSkyServer()
-    private val properties = CoSkyProperties(
-        endpoints = listOf(server.endpoint),
-        namespace = TestCoSkyServer.NAMESPACE,
-        snapshot = CoSkyProperties.Snapshot(enabled = false),
-    )
+    private val properties = CoSkyProperties().apply {
+        endpoints = listOf(server.endpoint)
+        namespace = TestCoSkyServer.NAMESPACE
+        snapshot.enabled = false
+    }
     private val client = CoSkyClient(properties.toOptions())
     private val registry = CoSkyServiceRegistry(client, properties)
     private val registration = CoSkyRegistration("order", "localhost", false, emptyMap()).apply { setPort(PORT) }

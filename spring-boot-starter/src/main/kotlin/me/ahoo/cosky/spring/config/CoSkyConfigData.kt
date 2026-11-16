@@ -35,18 +35,27 @@ import org.springframework.boot.env.YamlPropertySourceLoader
 import org.springframework.core.env.MapPropertySource
 import org.springframework.core.env.PropertySource
 import org.springframework.core.io.ByteArrayResource
+import java.util.Objects
 
 private const val PREFIX = "cosky:"
 
 /**
- * One Config named by `spring.config.import=cosky:<name>` (design §7.7).
+ * One Config named by `spring.config.import=cosky:<name>` (design §7.7). Spring loads one only once in a run of the
+ * imports, however many imports name it: the same Config, of the same namespace, the same way.
  */
-data class CoSkyConfigDataResource(
+class CoSkyConfigDataResource internal constructor(
     val config: String,
     val properties: CoSkyProperties,
     val applicationName: String?,
     val optional: Boolean = false,
 ) : ConfigDataResource() {
+    override fun equals(other: Any?): Boolean = other is CoSkyConfigDataResource &&
+        config == other.config &&
+        properties.namespace == other.properties.namespace &&
+        optional == other.optional
+
+    override fun hashCode(): Int = Objects.hash(config, properties.namespace, optional)
+
     /**
      * What Spring reports it by. The rest holds the token.
      */
