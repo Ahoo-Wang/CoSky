@@ -514,6 +514,30 @@ class RestRoutesTest {
     }
 
     @Test
+    fun `an expiry left null never expires, and one that is not text is refused`() = runBlocking<Unit> {
+        bootstrapAdmin()
+        val client = client(authenticated = true)
+        val uri = "/v1/serviceaccounts/root/tokens"
+        listOf("""{"expiresAt":{}}""", """{"expiresAt":["2000-01-01T00:00:00Z"]}""", "[]").forEach { body ->
+            client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body).exchange().expectStatus().isBadRequest
+        }
+        client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
+            .bodyValue("""{"expiresAt":null}""").exchange().expectStatus().isOk
+            .json().has("expiresAt").assert().isFalse()
+    }
+
+    @Test
+    fun `the bearer scheme is named in any case`() = runBlocking<Unit> {
+        bootstrapAdmin()
+        val client = client(authenticated = true)
+        val token = bearer().removePrefix("Bearer ")
+        listOf("bearer", "BEARER", "Bearer").forEach { scheme ->
+            client.get().uri("/v1/me").header("Authorization", "$scheme $token").exchange().expectStatus().isOk
+        }
+    }
+
+    @Test
     fun `an account holds at most two valid tokens`() = runBlocking<Unit> {
         bootstrapAdmin()
         val client = client(authenticated = true)

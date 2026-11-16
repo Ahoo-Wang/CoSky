@@ -24,6 +24,7 @@ import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.bearerCredentials
 import me.ahoo.cosky.server.observe.CoSkyMetrics
 
 /**
@@ -54,7 +55,7 @@ class AuthInterceptor(
         }
         val remote = call.attributes[Grpc.TRANSPORT_ATTR_REMOTE_ADDR]?.toString()
         val principal = try {
-            access.authenticate(headers[AUTHORIZATION]?.removePrefix(BEARER))
+            access.authenticate(bearerCredentials(headers[AUTHORIZATION]))
         } catch (e: CoSkyException) {
             val failure = e.toStatusRuntimeException()
             metrics.authFailure(e.reason.name)
@@ -77,7 +78,6 @@ class AuthInterceptor(
 
     private companion object {
         const val COSKY_SERVICES = "cosky."
-        const val BEARER = "Bearer "
         const val UNKNOWN_SUBJECT = "unknown"
         val AUTHORIZATION: Metadata.Key<String> = Metadata.Key.of("authorization", Metadata.ASCII_STRING_MARSHALLER)
     }
