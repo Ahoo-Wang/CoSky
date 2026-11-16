@@ -94,6 +94,18 @@ test('keeps apart relationships whose names differ only in where a hyphen falls'
     expect(edges.map(({source, target}) => ({consumer: source, producer: target}))).toEqual(relationships);
 });
 
+test('keeps apart consumers whose names belong to Object.prototype', () => {
+    const relationships = ['constructor', '__proto__', 'toString', 'hasOwnProperty', 'valueOf']
+        .map(consumer => ({consumer, producer: 'order'}));
+
+    const consumers = toConsumers(relationships);
+
+    expect(Object.keys(consumers)).toEqual(relationships.map(({consumer}) => consumer));
+    for (const {consumer, producer} of relationships) {
+        expect(consumers[consumer], consumer).toEqual([producer]);
+    }
+});
+
 test('takes a service named like a property every object has for a service', () => {
     const consumers = toConsumers([
         {consumer: 'constructor', producer: 'order'},
