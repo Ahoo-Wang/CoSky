@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.server.auth
 
+import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 
@@ -38,5 +39,16 @@ class TokensTest {
         listOf("", "cosky_", "cosky_a", "cosky_a_", "cosky__b", "other_a_b", "cosky_a_b_c", "cosky_a!_b").forEach {
             Tokens.parse(it).assert().isNull()
         }
+    }
+
+    @Test
+    fun `secrets stay out of what is printed`() {
+        val token = Tokens.generate()
+        token.toString().assert().contains(token.id).doesNotContain(token.secret)
+        val auth = CoSkyProperties.Auth(bootstrapToken = token.plaintext).toString()
+        auth.assert().doesNotContain(token.secret)
+        CoSkyProperties.Redis(uri = "redis://cosky:hunter2@redis:6379/0").toString()
+            .assert().contains("redis:6379/0").doesNotContain("hunter2").doesNotContain("cosky:")
+        CoSkyProperties.Redis(uri = "rediss://:hunter2@redis:6379").toString().assert().doesNotContain("hunter2")
     }
 }

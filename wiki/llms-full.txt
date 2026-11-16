@@ -730,6 +730,7 @@ Your own roles look like this:
 - A call is allowed when any rule of any bound role matches it. A rule applies only where its own namespaces and the binding's overlap.
 - `names` left empty matches everything. Otherwise it holds exact values, or prefixes ending in `*`, matched against the Config name, the Instance's **service**, or the object name.
 - Global kinds (Namespace, ServiceAccount, Role, RoleBinding) live in the namespace `_system`.
+- Whoever may write ServiceAccounts, and so create their tokens, or Roles or RoleBindings, can give themselves any role, `admin` included. Grant that only to admins.
 - `GET` includes lists, and only what the rule allows shows up in them.
 - A lease belongs to whoever took it, so one account cannot attach its instances to another's lease.
 - A change to a role reaches open Watch streams: one that lost permission is canceled.

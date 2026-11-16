@@ -29,6 +29,11 @@ data class ParsedToken(val id: String, val secret: String) {
     fun matches(sha256Hex: String): Boolean =
         MessageDigest.isEqual(Tokens.sha256Hex(secret).encodeToByteArray(), sha256Hex.encodeToByteArray())
 
+    /**
+     * Leaves the secret out, should one ever be logged or put in a message.
+     */
+    override fun toString(): String = "ParsedToken(id=$id)"
+
     companion object {
         const val PREFIX = "cosky_"
         const val SEPARATOR = "_"

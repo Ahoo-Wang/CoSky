@@ -37,7 +37,13 @@ data class CoSkyProperties(
      * @param bootstrapToken becomes the admin ServiceAccount on the first start (design §6.3).
      * @param oidc lets people sign in, when its issuer is set.
      */
-    data class Auth(val enabled: Boolean = true, val bootstrapToken: String? = null, val oidc: Oidc = Oidc())
+    data class Auth(val enabled: Boolean = true, val bootstrapToken: String? = null, val oidc: Oidc = Oidc()) {
+        /**
+         * Leaves the token out, should these settings ever be logged or put in a message.
+         */
+        override fun toString(): String =
+            "Auth(enabled=$enabled, bootstrapToken=${bootstrapToken?.let { REDACTED }}, oidc=$oidc)"
+    }
 
     /**
      * @param clientId the Dashboard's client, which it signs people in with.
@@ -61,7 +67,13 @@ data class CoSkyProperties(
         val uri: String = "redis://localhost:6379",
         val cluster: Boolean = false,
         val tailPollInterval: Duration = Duration.ofSeconds(1),
-    )
+    ) {
+        /**
+         * Leaves out the user and password a URI may hold.
+         */
+        override fun toString(): String = "Redis(uri=${uri.replace(USER_INFO, "//$REDACTED@")}, cluster=$cluster, " +
+            "tailPollInterval=$tailPollInterval)"
+    }
 
     data class Read(val minRevisionTimeout: Duration = Duration.ofSeconds(3))
 
@@ -90,5 +102,7 @@ data class CoSkyProperties(
     companion object {
         const val REDIS = "redis"
         const val MEMORY = "memory"
+        private const val REDACTED = "****"
+        private val USER_INFO = Regex("//[^/@]*@")
     }
 }
