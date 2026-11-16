@@ -518,7 +518,13 @@ class RestRoutesTest {
         bootstrapAdmin()
         val client = client(authenticated = true)
         val uri = "/v1/serviceaccounts/root/tokens"
-        listOf("""{"expiresAt":{}}""", """{"expiresAt":["2000-01-01T00:00:00Z"]}""", "[]").forEach { body ->
+        val notText = listOf(
+            """{"expiresAt":{}}""",
+            """{"expiresAt":["2000-01-01T00:00:00Z"]}""",
+            """{"expiresAt":0}""",
+            "[]",
+        )
+        notText.forEach { body ->
             client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(body).exchange().expectStatus().isBadRequest
         }
@@ -535,6 +541,9 @@ class RestRoutesTest {
         listOf("bearer", "BEARER", "Bearer").forEach { scheme ->
             client.get().uri("/v1/me").header("Authorization", "$scheme $token").exchange().expectStatus().isOk
         }
+        // Without a scheme, the header is taken as it is; another scheme is not a token.
+        client.get().uri("/v1/me").header("Authorization", token).exchange().expectStatus().isOk
+        client.get().uri("/v1/me").header("Authorization", "Basic $token").exchange().expectStatus().isUnauthorized
     }
 
     @Test
