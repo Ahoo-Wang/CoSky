@@ -314,7 +314,8 @@ internal class LeaseKeeper(
 
     /**
      * Puts a registration and remembers that the server has it. One the server refuses, having never accepted it, gives
-     * way to the registration it would have replaced, as in [register], rather than being sent again and again.
+     * way to the registration it would have replaced, as in [register], rather than being sent again and again. Where
+     * there was none, its handle closes nothing: whatever holds the name now is not this client's.
      */
     private suspend fun send(name: String, resource: Resource) {
         try {
@@ -329,6 +330,9 @@ internal class LeaseKeeper(
             log.error("The server refused {}, registered while it was out of reach: {}", name, e.status)
             giveWay(name, previous)
             pending.remove(name)
+            if (previous == null) {
+                owners.remove(name)
+            }
         }
     }
 

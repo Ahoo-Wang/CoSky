@@ -301,6 +301,27 @@ class LeaseTransitionsTest {
         instancesOnServer().assert().isEmpty()
     }
 
+    @Test
+    fun `a registration the server refuses once it answers leaves the name to whoever holds it`() = scenario {
+        val payment = Resource.newBuilder().apply {
+            metaBuilder.setNamespace(NAMESPACE).setName("taken")
+            instanceBuilder.setService("payment").setEndpoint(ENDPOINT)
+        }.build()
+        server.store.apply(NAMESPACE, listOf(Mutation.Put(payment)), "operator")
+        val putsFail = AtomicBoolean(true)
+        val puts = AtomicInteger()
+        val instances = instances(failingPutOf("taken", putsFail), counting("Put", puts))
+        // Taken while no server answers: it goes out once one does.
+        val registration = instances.register("order", ENDPOINT, instanceName = "taken")
+
+        putsFail.set(false)
+        // An Instance stays in its service, so the server refuses it, and the client gives the name up.
+        eventually { puts.get() > 1 }
+        registration.close()
+
+        instancesOnServer().single().instance.service.assert().isEqualTo("payment")
+    }
+
     private fun unsentPutOf(name: String, sent: CompletableDeferred<Unit>): ClientInterceptor =
         object : ClientInterceptor {
             override fun <Req, Resp> interceptCall(
