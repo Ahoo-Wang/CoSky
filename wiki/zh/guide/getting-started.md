@@ -90,6 +90,12 @@ builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().
 runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
 ```
 
+在设置了系统代理的 Mac 上，这次调用会失败，常见的是代理返回 503。macOS 上的 JDK 会把系统代理读作 `http.proxyHost`，Spring Boot 4.2 的 `WebClient` 会跟随它，于是调用 provider 的请求经过代理，而代理连不上 provider 注册的地址。启动这个应用时让它不走代理：
+
+```bash
+-Dhttp.nonProxyHosts='*'
+```
+
 ## 6. 看一看
 
 打开 <http://localhost:8080> 的 [Dashboard](./dashboard.md)。实例显示在 **Service** 下，旁边标着 **Leased**；首页的拓扑图显示谁在调用谁。服务端每 30 秒记录一次拓扑（[`cosky.view.topology-flush-interval`](./properties.md)），所以 consumer 启动后最多半分钟才出现在那里和下面的结果中：
