@@ -80,8 +80,8 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.6 --dev
 
 ```kotlin
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
-    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.2.0"))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2026.0.0"))
     implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.6"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
@@ -102,10 +102,6 @@ spring:
     name: provider
   config:
     import: "optional:cosky:provider.yaml"
-  cloud:
-    # Spring Cloud 2025.1 declares Spring Boot 4.0. Remove this once on Spring Cloud 2026.0.
-    compatibility-verifier:
-      enabled: false
 cosky:
   endpoints: localhost:9090
   namespace: default
@@ -905,7 +901,7 @@ Read `cosky-migration-report.md`:
 
 **3. Rebuild people and permissions.** The report lists every 6.x role with the 8.0 rule each grant corresponds to, and every user with their roles. Create those roles and bindings, and a ServiceAccount with a token for each application. An application without a token cannot do anything on a server with auth on.
 
-**4. Prepare the applications.** Replace the starters, move `bootstrap.yaml` into `application.yaml`, and set the token. On Spring Boot 4.1, also set `spring.cloud.compatibility-verifier.enabled: false` until Spring Cloud 2026.0:
+**4. Prepare the applications.** Replace the starters, move `bootstrap.yaml` into `application.yaml`, and set the token. The applications run on Spring Boot 4.2 and Spring Cloud 2026.0:
 
 ```yaml
 spring:
@@ -1209,8 +1205,8 @@ Computed from the server's memory, read-only.
 | Client and starter | JDK 21 or later | |
 | `cosky-migrate` | JDK 21 or later | |
 | Building from source | JDK 21 and JDK 25 | Gradle does not download them |
-| Spring Boot | 4.1.2 | For the starter. Earlier 4.1 releases manage an older gRPC than the client is built on, and a mix of gRPC versions fails at runtime |
-| Spring Cloud | 2025.1 | Declares Spring Boot 4.0, so set `spring.cloud.compatibility-verifier.enabled: false` until 2026.0 |
+| Spring Boot | 4.2.0 | For the starter, which is built and tested on it. A release that manages an older gRPC than the client is built on mixes gRPC versions, which fails at runtime |
+| Spring Cloud | 2026.0 | Declares Spring Boot 4.2, so its compatibility verifier can stay on |
 | Redis | 7.0 or later, with `maxmemory-policy noeviction` | The server checks both at start, and refuses to run otherwise |
 | Valkey | 8 | |
 | Kubernetes | Anything with Kustomize | The manifests were checked with `kubectl kustomize`, and have not run on a real cluster yet |

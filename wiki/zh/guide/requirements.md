@@ -11,8 +11,8 @@ description: CoSky 需要并经过测试的版本。
 | 客户端和 starter | JDK 21 或更高 | |
 | `cosky-migrate` | JDK 21 或更高 | |
 | 从源码构建 | JDK 21 和 JDK 25 | Gradle 不会下载它们 |
-| Spring Boot | 4.1.2 | starter 需要。更早的 4.1 版本管理的 gRPC 比客户端编译时用的旧，混用不同版本的 gRPC 会在运行时出错 |
-| Spring Cloud | 2025.1 | 声明的是 Spring Boot 4.0，所以在 2026.0 之前请设置 `spring.cloud.compatibility-verifier.enabled: false` |
+| Spring Boot | 4.2.0 | starter 需要，它在这个版本上构建和测试。若某个版本管理的 gRPC 比客户端编译时用的旧，混用不同版本的 gRPC 会在运行时出错 |
+| Spring Cloud | 2026.0 | 声明的是 Spring Boot 4.2，兼容性检查无需关闭 |
 | Redis | 7.0 或更高，`maxmemory-policy noeviction` | server 启动时检查这两项，不满足就拒绝运行 |
 | Valkey | 8 | |
 | Kubernetes | 支持 Kustomize 即可 | 清单用 `kubectl kustomize` 检查过，还没有在真实集群上运行过 |

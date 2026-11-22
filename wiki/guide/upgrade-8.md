@@ -73,7 +73,7 @@ Read `cosky-migration-report.md`:
 
 **3. Rebuild people and permissions.** The report lists every 6.x role with the 8.0 rule each grant corresponds to, and every user with their roles. Create those roles and bindings, and a ServiceAccount with a token for each application. An application without a token cannot do anything on a server with auth on.
 
-**4. Prepare the applications.** Replace the starters, move `bootstrap.yaml` into `application.yaml`, and set the token. On Spring Boot 4.1, also set `spring.cloud.compatibility-verifier.enabled: false` until Spring Cloud 2026.0:
+**4. Prepare the applications.** Replace the starters, move `bootstrap.yaml` into `application.yaml`, and set the token. The applications run on Spring Boot 4.2 and Spring Cloud 2026.0:
 
 ```yaml
 spring:

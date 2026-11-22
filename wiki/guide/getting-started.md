@@ -23,8 +23,8 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.6 --dev
 
 ```kotlin
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
-    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.2.0"))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2026.0.0"))
     implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.6"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
@@ -45,10 +45,6 @@ spring:
     name: provider
   config:
     import: "optional:cosky:provider.yaml"
-  cloud:
-    # Spring Cloud 2025.1 declares Spring Boot 4.0. Remove this once on Spring Cloud 2026.0.
-    compatibility-verifier:
-      enabled: false
 cosky:
   endpoints: localhost:9090
   namespace: default
