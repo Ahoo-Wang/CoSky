@@ -21,6 +21,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.future.await
 import me.ahoo.cosky.store.StoreUnavailableException
+import java.io.IOException
 import java.security.MessageDigest
 import java.util.concurrent.CompletionStage
 import kotlin.coroutines.cancellation.CancellationException
@@ -50,10 +51,10 @@ internal class RedisScript(name: String, vararg includes: String) {
             commands.evalsha<T>(digest, output, keyArray, *argArray).await()
         } catch (_: RedisNoScriptException) {
             commands.eval<T>(source, output, keyArray, *argArray).reply()
-        } catch (e: RedisException) {
-            throw unavailable(e)
         } catch (e: CancellationException) {
             throw cancelled(e)
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            throw failureOf(e)
         }
     }
 }
@@ -64,13 +65,20 @@ internal class RedisScript(name: String, vararg includes: String) {
  */
 internal suspend fun <T> CompletionStage<T>.reply(): T = try {
     await()
-} catch (e: RedisException) {
-    throw unavailable(e)
 } catch (e: CancellationException) {
     throw cancelled(e)
+} catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+    throw failureOf(e)
 }
 
-private fun unavailable(e: RedisException) = StoreUnavailableException("Redis: ${e.message}", e)
+/**
+ * Redis out of reach, however the driver says so: a connection reset fails the command waiting on it with the
+ * `IOException` itself, not a `RedisException`. Anything else is not the store's to answer for, and goes on as it is.
+ */
+private fun failureOf(e: Exception): Exception = when (e) {
+    is RedisException, is IOException -> StoreUnavailableException("Redis: ${e.message}", e)
+    else -> e
+}
 
 /**
  * Lettuce cancels the commands waiting on a connection it closes, as when it follows a failover to another node. That

@@ -28,6 +28,7 @@ import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import java.net.SocketException
 import java.util.concurrent.CompletableFuture
 import kotlin.coroutines.cancellation.CancellationException
 
@@ -37,6 +38,25 @@ class RedisReplyTest {
         val cancelled = CompletableFuture<String>().apply { cancel(false) }
 
         runCatching { cancelled.reply() }.exceptionOrNull()
+            .assert().isInstanceOf(StoreUnavailableException::class.java)
+    }
+
+    @Test
+    fun `a command on a connection reset is the store being unavailable`() = runBlocking<Unit> {
+        val reset = CompletableFuture<String>().apply { completeExceptionally(SocketException("Connection reset")) }
+
+        runCatching { reset.reply() }.exceptionOrNull()
+            .assert().isInstanceOf(StoreUnavailableException::class.java)
+    }
+
+    @Test
+    fun `a script on a connection reset is the store being unavailable`() = runBlocking<Unit> {
+        val commands = commandsAnswering { method, _ ->
+            check(method.name == "evalsha") { "Only evalsha was expected, not ${method.name}." }
+            command().apply { completeExceptionally(SocketException("Connection reset")) }
+        }
+
+        runCatching { runScript(commands) }.exceptionOrNull()
             .assert().isInstanceOf(StoreUnavailableException::class.java)
     }
 
