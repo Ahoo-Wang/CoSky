@@ -90,6 +90,12 @@ On a Mac with Apple silicon, this application logs an error at start that Netty 
 runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
 ```
 
+On a Mac with a system proxy, the call fails, often with a 503 from the proxy. The JDK on macOS takes the system's proxy as `http.proxyHost`, and Spring Boot 4.2's `WebClient` follows it, so the call to the provider goes through the proxy, which cannot reach the address the provider registered. Start this application with the proxy left out:
+
+```bash
+-Dhttp.nonProxyHosts='*'
+```
+
 ## 6. Look around
 
 Open the [Dashboard](./dashboard.md) at <http://localhost:8080>. Instances show up under **Service**, with **Leased** next to them, and the topology on the first page shows who calls whom. The server records the topology every 30 seconds ([`cosky.view.topology-flush-interval`](./properties.md)), so the consumer shows up there, and here, up to half a minute after it starts:
