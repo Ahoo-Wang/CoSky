@@ -280,6 +280,33 @@ class WatchSessionTest {
     }
 
     @Test
+    fun `a slow first load is waited out by a new watch, but not by one with a position`() {
+        val loading = CompletableDeferred<Unit>()
+        val slow = NamespaceCache(
+            NAMESPACE,
+            object : Store by store {
+                override fun readAll(namespace: String): Flow<Resource> = flow {
+                    loading.await()
+                    emitAll(store.readAll(namespace))
+                }
+            },
+            WINDOW,
+        )
+        scenario(slow) {
+            put("a")
+            val resuming = runCatching { WatchSession(create(1, "any"), slow, 1024, SETTLE) {}.run() }
+            (resuming.exceptionOrNull() as CoSkyException).detail.reason.assert()
+                .isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+
+            val sent = watch(create(), cache = slow, whileRunning = {
+                delay(SETTLE)
+                loading.complete(Unit)
+            }) { it.hasSnapshot() }
+            sent.single().snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
+        }
+    }
+
+    @Test
     fun `a position the store does not have either is gone`() = scenario {
         val view = cache.awaitView()
         val sent = watch(create(5, view.epoch), catchUpTimeout = SETTLE) { it.hasGone() }
