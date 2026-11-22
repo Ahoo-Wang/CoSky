@@ -73,12 +73,22 @@ internal suspend fun <T> CompletionStage<T>.reply(): T = try {
 
 /**
  * Redis out of reach, however the driver says so: a connection reset fails the command waiting on it with the
- * `IOException` itself, not a `RedisException`. Anything else is not the store's to answer for, and goes on as it is.
+ * `IOException` itself, not a `RedisException`, and either may come wrapped in something else. Anything else is not
+ * the store's to answer for, and goes on as it is.
  */
-private fun failureOf(e: Exception): Exception = when (e) {
-    is RedisException, is IOException -> StoreUnavailableException("Redis: ${e.message}", e)
-    else -> e
-}
+private fun failureOf(e: Exception): Exception =
+    if (causesOf(e).any { it is RedisException || it is IOException }) {
+        StoreUnavailableException("Redis: ${e.message}", e)
+    } else {
+        e
+    }
+
+/**
+ * [e] and what caused it, as far as a chain of causes goes in practice.
+ */
+private fun causesOf(e: Throwable): Sequence<Throwable> = generateSequence(e) { it.cause }.take(MAX_CAUSES)
+
+private const val MAX_CAUSES = 8
 
 /**
  * Lettuce cancels the commands waiting on a connection it closes, as when it follows a failover to another node. That

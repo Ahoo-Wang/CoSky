@@ -57,8 +57,8 @@ import java.net.http.HttpRequest
 import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse
 import java.util.UUID
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -74,18 +74,23 @@ class FaultInjectionTest {
         .withNetwork(NETWORK)
         .withNetworkAliases(redisAlias)
         .also { it.start() }
+
+    /** Before any proxy, which it keeps for the end of the test. */
+    private val proxies = mutableListOf<Proxy>()
     private val redisProxy = redisProxy("redis-$id")
     private val clients = mutableListOf<CoSkyClient>()
     private var server: RunningServer? = null
     private val replicas = mutableListOf<RunningServer>()
-    private val http = HttpClient.newHttpClient()
 
     private val running: RunningServer
         get() = checkNotNull(server)
 
+    /**
+     * A proxy on one of the ports the container maps, which goes back to the others once the test is over.
+     */
     private fun proxy(name: String, upstream: String): Proxy {
-        val port = TOXIPROXY_FIRST_PORT + NEXT_PROXY.getAndIncrement()
-        return TOXIPROXY_CLIENT.createProxy(name, "0.0.0.0:$port", upstream)
+        val port = checkNotNull(FREE_PORTS.poll()) { "Every port the Toxiproxy container maps is in use." }
+        return TOXIPROXY_CLIENT.createProxy(name, "0.0.0.0:$port", upstream).also { proxies += it }
     }
 
     private fun redisProxy(name: String): Proxy = proxy(name, "$redisAlias:${RedisContainer.REDIS_PORT}")
@@ -140,7 +145,7 @@ class FaultInjectionTest {
     }
 
     private suspend fun send(server: RunningServer, path: String, build: HttpRequest.Builder.() -> Unit = {}) =
-        http.sendAsync(
+        HTTP.sendAsync(
             HttpRequest.newBuilder(URI("http://localhost:${server.httpPort}$path")).apply(build).build(),
             HttpResponse.BodyHandlers.ofString(),
         ).await()
@@ -217,7 +222,10 @@ class FaultInjectionTest {
         clients.forEach { it.close() }
         replicas.forEach { it.close() }
         server?.close()
-        redisProxy.delete()
+        proxies.forEach {
+            it.delete()
+            FREE_PORTS += it.listen.substringAfterLast(':').toInt()
+        }
         redis.stop()
     }
 
@@ -457,7 +465,6 @@ class FaultInjectionTest {
         running.putConfig(NAMESPACE, "a", "after")
 
         view.first { it?.config?.content == "after" }
-        proxy.delete()
     }
 
     // --- replicas ---
@@ -491,7 +498,6 @@ class FaultInjectionTest {
         eventually { cacheRevision(cutOff) == cacheRevision(healthy) }
         ready(cutOff).assert().isTrue()
         cutOff.resources.get(getRequest { key = configKey("a") }).config.content.assert().isEqualTo("during")
-        cutOffRedis.delete()
     }
 
     /**
@@ -520,7 +526,8 @@ class FaultInjectionTest {
         val loaded = withTimeout(FIRST_LOAD) { client.namespace(NAMESPACE).configs.load("a") }
 
         loaded?.config?.content.assert().isEqualTo("healthy")
-        cutOffRedis.delete()
+        // Not served by the first endpoint: it never had a view of the namespace to serve it from.
+        cutOff.bean(WatchCache::class.java).of(NAMESPACE).views.value.assert().isNull()
     }
 
     private fun configKey(name: String): ResourceKey = RunningServer.config(NAMESPACE, name, "").key
@@ -554,7 +561,6 @@ class FaultInjectionTest {
         deletions(seen).assert().isEmpty()
         instances().associate { it.meta.name to it.meta.lease }.assert().isEqualTo(leases)
         observer.cancel()
-        partitioned.forEach { it.delete() }
     }
 
     @Test
@@ -579,7 +585,6 @@ class FaultInjectionTest {
         proxy.enable()
         eventually { instances().firstOrNull { it.meta.name == "cut-off" }?.meta?.lease?.let { it != lease } == true }
         observer.cancel()
-        proxy.delete()
     }
 
     // --- timelines ---
@@ -617,8 +622,9 @@ class FaultInjectionTest {
 
     private companion object {
         const val NAMESPACE = "faults"
-        const val TOXIPROXY_FIRST_PORT = 8666
         const val CLIENTS = 3
+        const val FIRST_PROXY_PORT = 8666
+        const val LAST_PROXY_PORT = 8697
         const val OK = 200
         const val SERVICE_UNAVAILABLE = 503
 
@@ -644,7 +650,10 @@ class FaultInjectionTest {
         val POLL = 100.milliseconds
         val SCENARIO_TIMEOUT = 120.seconds
         val ENDPOINT: Endpoint = Endpoint.newBuilder().setScheme("http").setHost("localhost").setPort(8080).build()
-        val NEXT_PROXY = AtomicInteger()
+
+        /** The ports the Toxiproxy container maps for proxies, 8666 to 8697, of which a test takes a few. */
+        val FREE_PORTS = ConcurrentLinkedQueue((FIRST_PROXY_PORT..LAST_PROXY_PORT).toList())
+        val HTTP: HttpClient = HttpClient.newHttpClient()
         val NETWORK: Network = Network.newNetwork()
         val TOXIPROXY: ToxiproxyContainer = ToxiproxyContainer("ghcr.io/shopify/toxiproxy:2.12.0")
             .withNetwork(NETWORK)

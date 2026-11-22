@@ -50,6 +50,25 @@ class RedisReplyTest {
     }
 
     @Test
+    fun `a connection reset the driver wraps is the store being unavailable`() = runBlocking<Unit> {
+        val wrapped = RuntimeException("Decoding failed", SocketException("Connection reset"))
+        val reset = CompletableFuture<String>().apply { completeExceptionally(wrapped) }
+
+        val error = runCatching { reset.reply() }.exceptionOrNull()
+
+        error.assert().isInstanceOf(StoreUnavailableException::class.java)
+        error?.cause.assert().isSameAs(wrapped)
+    }
+
+    @Test
+    fun `a failure that is not redis being out of reach goes on as it is`() = runBlocking<Unit> {
+        val bug = IllegalStateException("Not the store's doing")
+        val failed = CompletableFuture<String>().apply { completeExceptionally(bug) }
+
+        runCatching { failed.reply() }.exceptionOrNull().assert().isSameAs(bug)
+    }
+
+    @Test
     fun `a script on a connection reset is the store being unavailable`() = runBlocking<Unit> {
         val commands = commandsAnswering { method, _ ->
             check(method.name == "evalsha") { "Only evalsha was expected, not ${method.name}." }
