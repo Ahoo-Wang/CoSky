@@ -243,9 +243,13 @@ class RestRoutesTest {
             .contentType(MediaType.APPLICATION_JSON)
             .bodyValue("""{"toRevision":$value}""")
             .exchange()
-        listOf("null", "{}", "[$first, $first]", "[$first]", "true", "1.5", "\"x\"").forEach { value ->
-            rollback(value).expectStatus().isBadRequest
-        }
+        listOf("null", "{}", "[$first, $first]", "[$first]", "true", "1.5", "\"x\"", "\"99999999999999999999\"")
+            .forEach { value -> rollback(value).expectStatus().isBadRequest }
+        client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue("{}")
+            .exchange()
+            .expectStatus().isBadRequest
         get(client, "a", 0).expectStatus().isOk.json().getAsJsonObject("config")["content"].asString
             .assert().isEqualTo("after")
         revisionOf(rollback("$first"))

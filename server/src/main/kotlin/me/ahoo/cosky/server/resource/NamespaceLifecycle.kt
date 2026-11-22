@@ -71,7 +71,8 @@ class NamespaceLifecycle(
      * deletion of an earlier namespace have got past the mark, the namespace it made again is nobody's, and invisible
      * to the reconciler, which goes by the objects. So the object is read again after the step, which no deletion can
      * pass unseen, and a namespace that turns out to be late is terminated by its own epoch, after which a creation
-     * meanwhile that took it for its own makes its own (#1262).
+     * meanwhile that took it for its own makes its own (#1262). One whose epoch was replaced meanwhile, say by
+     * anti-entropy, is looked at again under the epoch it has now.
      */
     suspend fun create(key: ResourceKey) {
         do {
@@ -85,14 +86,15 @@ class NamespaceLifecycle(
     }
 
     /**
-     * @return whether a creation since wants the namespace again.
+     * @return whether to create the namespace again, and look once more.
      */
     private suspend fun undoLate(key: ResourceKey, epoch: String): Boolean {
         val name = key.name
         when (store.terminateNamespace(name, epoch)) {
             TerminateResult.TERMINATED -> store.dropNamespace(name, epoch)
-            // Created again by another, which is for that one to keep.
-            TerminateResult.SUPERSEDED, TerminateResult.NOT_FOUND -> return false
+            // Another epoch, or no state, since: a creation meanwhile has its object to show, which the next look
+            // finds; anything else is late as well.
+            TerminateResult.SUPERSEDED, TerminateResult.NOT_FOUND -> return true
             TerminateResult.NOT_EMPTY -> {
                 log.error(
                     "Namespace {} was made again by a creation that came after its deletion, and took a write " +

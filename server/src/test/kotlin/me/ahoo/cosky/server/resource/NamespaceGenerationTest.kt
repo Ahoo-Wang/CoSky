@@ -267,6 +267,70 @@ class NamespaceGenerationTest {
         caches.latestViewAt(NAME, 3.seconds).objects.assert().hasSize(1)
     }
 
+    @Test
+    fun `a creation that comes late, while the deletion of the one before finishes, drops what it made`() =
+        runBlocking<Unit> {
+            createNamespace()
+            val creating = armed(CREATE)
+            val update = async { createNamespace(mapOf("team" to "orders")) }
+            creating.reached.await()
+            eventually { stored()?.meta?.labelsMap?.containsKey("team") == true }
+            // The deletion has dropped the namespace, and stops before it deletes the object, which shows its mark.
+            val deletingObject = armed(DELETE_OBJECT)
+            val deleting = async { resources.delete(DeleteRequest.newBuilder().setKey(key).build(), Caller.ANONYMOUS) }
+            withTimeout(10.seconds) { deletingObject.reached.await() }
+
+            creating.resumed.complete(Unit)
+            update.await()
+            store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+
+            deletingObject.resumed.complete(Unit)
+            deleting.await().deleted.assert().isTrue()
+            stored().assert().isNull()
+            store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+        }
+
+    @Test
+    fun `a namespace a late creation made, which took a write meanwhile, stays`() = runBlocking<Unit> {
+        createNamespace()
+        val creating = armed(CREATE)
+        val update = async { createNamespace(mapOf("team" to "orders")) }
+        creating.reached.await()
+        deleteNamespace()
+        val terminating = armed(TERMINATE)
+        creating.resumed.complete(Unit)
+        withTimeout(10.seconds) { terminating.reached.await() }
+        writeConfig()
+
+        terminating.resumed.complete(Unit)
+        update.await()
+
+        // It holds what was written, which is not for a creation to drop: the error log tells of it.
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+        stored().assert().isNull()
+    }
+
+    @Test
+    fun `a namespace a late creation made, whose epoch is replaced meanwhile, is dropped all the same`() =
+        runBlocking<Unit> {
+            createNamespace()
+            val creating = armed(CREATE)
+            val update = async { createNamespace(mapOf("team" to "orders")) }
+            creating.reached.await()
+            deleteNamespace()
+            val terminating = armed(TERMINATE)
+            creating.resumed.complete(Unit)
+            withTimeout(10.seconds) { terminating.reached.await() }
+            // As anti-entropy would, before the late creation terminates the epoch it made.
+            store.rotateEpoch(NAME, checkNotNull(store.position(NAME)).epoch)
+
+            terminating.resumed.complete(Unit)
+            update.await()
+
+            store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+            stored().assert().isNull()
+        }
+
     private companion object {
         const val NAME = "orders"
         const val TERMINATE = "terminate"
