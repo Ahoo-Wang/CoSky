@@ -16,16 +16,21 @@ package me.ahoo.cosky.server.fault
 import eu.rekawek.toxiproxy.Proxy
 import eu.rekawek.toxiproxy.ToxiproxyClient
 import eu.rekawek.toxiproxy.model.ToxicDirection
+import io.grpc.Status
+import io.grpc.StatusException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.DeleteRequest
 import me.ahoo.cosky.api.v1.Endpoint
+import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListRequest
 import me.ahoo.cosky.api.v1.Resource
@@ -37,6 +42,7 @@ import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.CoSkyClientOptions
 import me.ahoo.cosky.server.RedisContainer
 import me.ahoo.cosky.server.RunningServer
+import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
@@ -45,6 +51,11 @@ import org.junit.jupiter.api.Test
 import org.testcontainers.Testcontainers
 import org.testcontainers.containers.Network
 import org.testcontainers.toxiproxy.ToxiproxyContainer
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpRequest.BodyPublishers
+import java.net.http.HttpResponse
 import java.util.UUID
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -63,9 +74,11 @@ class FaultInjectionTest {
         .withNetwork(NETWORK)
         .withNetworkAliases(redisAlias)
         .also { it.start() }
-    private val redisProxy = proxy("redis-$id", "$redisAlias:${RedisContainer.REDIS_PORT}")
+    private val redisProxy = redisProxy("redis-$id")
     private val clients = mutableListOf<CoSkyClient>()
     private var server: RunningServer? = null
+    private val replicas = mutableListOf<RunningServer>()
+    private val http = HttpClient.newHttpClient()
 
     private val running: RunningServer
         get() = checkNotNull(server)
@@ -74,6 +87,8 @@ class FaultInjectionTest {
         val port = TOXIPROXY_FIRST_PORT + NEXT_PROXY.getAndIncrement()
         return TOXIPROXY_CLIENT.createProxy(name, "0.0.0.0:$port", upstream)
     }
+
+    private fun redisProxy(name: String): Proxy = proxy(name, "$redisAlias:${RedisContainer.REDIS_PORT}")
 
     private fun mappedPort(proxy: Proxy): Int = TOXIPROXY.getMappedPort(proxy.listen.substringAfterLast(':').toInt())
 
@@ -85,19 +100,64 @@ class FaultInjectionTest {
         return "host.testcontainers.internal:${server.grpcPort}"
     }
 
-    private fun properties(grace: Duration, protectionMinLeases: Int): Map<String, Any> = mapOf(
-        "spring.main.web-application-type" to "none",
-        "cosky.store.redis.uri" to "redis://${TOXIPROXY.host}:${mappedPort(redisProxy)}",
+    /**
+     * @param via the proxy this server reaches Redis through.
+     * @param web whether it serves HTTP as well: the REST API and the probes and metrics an operator sees.
+     */
+    private fun properties(
+        grace: Duration,
+        protectionMinLeases: Int,
+        via: Proxy = redisProxy,
+        web: Boolean = false,
+    ): Map<String, Any> = mapOf(
+        "cosky.store.redis.uri" to "redis://${TOXIPROXY.host}:${mappedPort(via)}",
         "cosky.store.redis.tail-poll-interval" to "100ms",
         "cosky.lease.reaper-interval" to "200ms",
         "cosky.lease.reaper-grace" to "${grace.inWholeMilliseconds}ms",
         "cosky.lease.protection-min-leases" to protectionMinLeases,
         "cosky.lease.lock-ttl" to "500ms",
         "cosky.auth.enabled" to "false",
-    )
+    ) + if (web) emptyMap() else mapOf("spring.main.web-application-type" to "none")
 
-    private fun startServer(grace: Duration = GRACE, protectionMinLeases: Int = NO_PROTECTION): RunningServer =
-        RunningServer(properties(grace, protectionMinLeases)).also { server = it }
+    private fun startServer(
+        grace: Duration = GRACE,
+        protectionMinLeases: Int = NO_PROTECTION,
+        web: Boolean = false,
+    ): RunningServer = RunningServer(properties(grace, protectionMinLeases, web = web)).also { server = it }
+
+    /**
+     * A server next to [running], on Redis through a proxy of its own, which a test can cut for this one alone.
+     */
+    private fun replica(via: Proxy, web: Boolean = false): RunningServer =
+        RunningServer(properties(GRACE, NO_PROTECTION, via, web)).also { replicas += it }
+
+    /**
+     * Sets a parameter on Redis itself, past every proxy.
+     */
+    private fun configSet(parameter: String, value: String) {
+        val result = redis.execInContainer("redis-cli", "CONFIG", "SET", parameter, value)
+        check(result.stdout.trim() == "OK") { "CONFIG SET $parameter $value: $result" }
+    }
+
+    private suspend fun send(server: RunningServer, path: String, build: HttpRequest.Builder.() -> Unit = {}) =
+        http.sendAsync(
+            HttpRequest.newBuilder(URI("http://localhost:${server.httpPort}$path")).apply(build).build(),
+            HttpResponse.BodyHandlers.ofString(),
+        ).await()
+
+    private suspend fun ready(server: RunningServer): Boolean =
+        send(server, "/actuator/health/readiness").statusCode() == OK
+
+    /**
+     * What a replica reports as `cosky_cache_revision` of [NAMESPACE], as Prometheus scrapes it; null before its cache
+     * has applied a write.
+     */
+    private suspend fun cacheRevision(server: RunningServer): Long? = send(server, "/actuator/prometheus").body()
+        .lineSequence()
+        .firstOrNull { it.startsWith("cosky_cache_revision{") && "namespace=\"$NAMESPACE\"" in it }
+        ?.substringAfterLast(' ')
+        ?.toDouble()
+        ?.toLong()
 
     private fun client(endpoint: String = "localhost:${running.grpcPort}"): CoSkyClient = CoSkyClient(
         CoSkyClientOptions(listOf(endpoint)) {
@@ -155,6 +215,7 @@ class FaultInjectionTest {
     @AfterEach
     fun stop() {
         clients.forEach { it.close() }
+        replicas.forEach { it.close() }
         server?.close()
         redisProxy.delete()
         redis.stop()
@@ -255,6 +316,52 @@ class FaultInjectionTest {
         }
     }
 
+    /**
+     * Redis answers, and reads go on, but under `noeviction` (design D31) it refuses whatever would take memory:
+     * renewals, writes, and the reaper's lock.
+     */
+    @Test
+    fun `a full redis refusing writes for longer than the ttl deletes no live instance`() = scenario {
+        startServer(web = true).createNamespace(NAMESPACE)
+        val (client, clientProxy) = clientBehindProxy()
+        client.namespace(NAMESPACE).instances.register("order", ENDPOINT, instanceName = "order-1")
+        val lease = instances().single().meta.lease
+        val seen = CopyOnWriteArrayList<WatchResponse>()
+        val observer = observe(seen)
+        delay(SETTLE)
+
+        configSet("maxmemory", "1")
+        val refused = runCatching { withTimeout(WRITE_TIMEOUT) { running.putConfig(NAMESPACE, "a", "during") } }
+            .exceptionOrNull()
+        refused.assert().isInstanceOf(StatusException::class.java)
+        (refused as StatusException).status.code.assert().isEqualTo(Status.Code.UNAVAILABLE)
+        CoSkyException.from(refused)?.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+        withTimeout(WRITE_TIMEOUT) { putOverRest("a", "during") }.assert().isEqualTo(SERVICE_UNAVAILABLE)
+        delay(LONGER_THAN_TTL)
+        // Renewals failed all along, and would be the first to succeed: they must not be what saves the lease.
+        clientProxy.disable()
+        delay(SETTLE)
+        configSet("maxmemory", "0")
+        delay(WITHIN_GRACE)
+        clientProxy.enable()
+        delay(PAST_GRACE)
+
+        deletions(seen).assert().isEmpty()
+        eventually { instances().singleOrNull()?.meta?.lease == lease }
+        running.putConfig(NAMESPACE, "a", "after")
+        putOverRest("a", "after").assert().isEqualTo(OK)
+        observer.cancel()
+    }
+
+    /**
+     * Puts a Config through the REST API of [running], answering the status.
+     */
+    private suspend fun putOverRest(name: String, content: String): Int =
+        send(running, "/v1/namespaces/$NAMESPACE/configs/$name") {
+            header("Content-Type", "application/json")
+            PUT(BodyPublishers.ofString("""{"config":{"format":"CONFIG_FORMAT_TEXT","content":"$content"}}"""))
+        }.statusCode()
+
     // --- servers ---
 
     @Test
@@ -353,6 +460,71 @@ class FaultInjectionTest {
         proxy.delete()
     }
 
+    // --- replicas ---
+
+    /**
+     * Readiness does not depend on Redis, on purpose (design §7.9): such a replica serves what it last knew, and its
+     * `cosky_cache_revision`, behind the others' for as long as it is cut off, is what tells.
+     */
+    @Test
+    fun `a replica cut off from redis on its own stays ready, its cache revision behind until it heals`() = scenario {
+        val healthy = startServer(web = true)
+        healthy.createNamespace(NAMESPACE)
+        val cutOffRedis = redisProxy("replica-$id")
+        val cutOff = replica(cutOffRedis, web = true)
+        // Being asked for readiness loads every namespace.
+        eventually { ready(healthy) && ready(cutOff) }
+        healthy.putConfig(NAMESPACE, "a", "before")
+        eventually { cacheRevision(healthy) != null && cacheRevision(cutOff) == cacheRevision(healthy) }
+        val before = checkNotNull(cacheRevision(cutOff))
+
+        cutOffRedis.disable()
+        healthy.putConfig(NAMESPACE, "a", "during")
+        eventually { checkNotNull(cacheRevision(healthy)) > before }
+        // Long enough for its reads of Redis to fail, not only to wait.
+        delay(CUT_OFF)
+
+        ready(cutOff).assert().isTrue()
+        cacheRevision(cutOff).assert().isEqualTo(before)
+        cutOff.resources.get(getRequest { key = configKey("a") }).config.content.assert().isEqualTo("before")
+        cutOffRedis.enable()
+        eventually { cacheRevision(cutOff) == cacheRevision(healthy) }
+        ready(cutOff).assert().isTrue()
+        cutOff.resources.get(getRequest { key = configKey("a") }).config.content.assert().isEqualTo("during")
+        cutOffRedis.delete()
+    }
+
+    /**
+     * The first endpoint of a client without a snapshot runs, but cannot load the namespace: the client must not wait
+     * on it, with the next endpoint able to answer (#1264).
+     */
+    @Test
+    fun `a new client whose first endpoint is cut off from redis loads from the next one`() = scenario {
+        val healthy = startServer()
+        healthy.createNamespace(NAMESPACE)
+        healthy.putConfig(NAMESPACE, "a", "healthy")
+        val cutOffRedis = redisProxy("cold-$id")
+        // Without HTTP nothing asks for its readiness, so it loads no namespace before a watch asks for one.
+        val cutOff = replica(cutOffRedis)
+        // It knows the namespace exists: only its objects are out of reach.
+        cutOff.bean(WatchCache::class.java).of(NamingRules.SYSTEM_NAMESPACE).awaitView()
+        cutOffRedis.disable()
+        val client = CoSkyClient(
+            CoSkyClientOptions(listOf("localhost:${cutOff.grpcPort}", "localhost:${healthy.grpcPort}")) {
+                snapshotDir = null
+                reconnectMin = 50.milliseconds
+                reconnectMax = 500.milliseconds
+            },
+        ).also { clients += it }
+
+        val loaded = withTimeout(FIRST_LOAD) { client.namespace(NAMESPACE).configs.load("a") }
+
+        loaded?.config?.content.assert().isEqualTo("healthy")
+        cutOffRedis.delete()
+    }
+
+    private fun configKey(name: String): ResourceKey = RunningServer.config(NAMESPACE, name, "").key
+
     // --- partitions ---
 
     @Test
@@ -447,6 +619,8 @@ class FaultInjectionTest {
         const val NAMESPACE = "faults"
         const val TOXIPROXY_FIRST_PORT = 8666
         const val CLIENTS = 3
+        const val OK = 200
+        const val SERVICE_UNAVAILABLE = 503
 
         /** Beyond any number of leases here, which turns the pause on mass expiry off. */
         const val NO_PROTECTION = 1000
@@ -457,6 +631,16 @@ class FaultInjectionTest {
         val BETWEEN_RECONNECTS = 1.seconds
         val PAST_GRACE = 7.seconds
         val SETTLE = 300.milliseconds
+
+        /** What a refused write may take: the commands get an answer, only not the one they wanted. */
+        val WRITE_TIMEOUT = 2.seconds
+
+        /** Past the time a command to Redis waits for an answer, `RedisStore.COMMAND_TIMEOUT`. */
+        val CUT_OFF = 6.seconds
+
+        /** That wait, and the client trying the next endpoint. */
+        val FIRST_LOAD = 10.seconds
+
         val POLL = 100.milliseconds
         val SCENARIO_TIMEOUT = 120.seconds
         val ENDPOINT: Endpoint = Endpoint.newBuilder().setScheme("http").setHost("localhost").setPort(8080).build()
