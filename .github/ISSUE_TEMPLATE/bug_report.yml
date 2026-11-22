@@ -48,7 +48,7 @@ body:
     attributes:
       label: Environment
       description: Redis version and mode (standalone, sentinel, cluster), Java and Spring Boot versions.
-      placeholder: Redis 7.2 standalone, Java 21, Spring Boot 4.1.2
+      placeholder: Redis 7.2 standalone, Java 21, Spring Boot 4.2.0
   - type: textarea
     id: logs
     attributes:

@@ -96,7 +96,6 @@ class CoSkyStarterTest {
             "--spring.application.name=$name",
             "--spring.grpc.server.enabled=false",
             "--spring.main.web-application-type=${if (web) "reactive" else "none"}",
-            "--spring.cloud.compatibility-verifier.enabled=false",
             "--server.port=0",
             snapshots?.let { "--cosky.snapshot.dir=$it" } ?: "--cosky.snapshot.enabled=false",
             "--cosky.config.load-timeout=3s",

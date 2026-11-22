@@ -73,7 +73,7 @@ cosky-migrate --source redis://6x-redis:6379 --target http://cosky:8080 --dry-ru
 
 **3. 重建人员和权限。** 报告列出每个 6.x 角色及其每条授权对应的 8.0 规则，以及每个用户和他们的角色。创建这些角色和绑定，并为每个应用创建一个带 token 的 ServiceAccount。在开启认证的 server 上，没有 token 的应用什么也做不了。
 
-**4. 准备应用。** 替换 starter，把 `bootstrap.yaml` 的内容移到 `application.yaml`，并设置 token。在 Spring Boot 4.1 上，在 Spring Cloud 2026.0 发布之前还要设置 `spring.cloud.compatibility-verifier.enabled: false`：
+**4. 准备应用。** 替换 starter，把 `bootstrap.yaml` 的内容移到 `application.yaml`，并设置 token。应用运行在 Spring Boot 4.2 和 Spring Cloud 2026.0 上：
 
 ```yaml
 spring:

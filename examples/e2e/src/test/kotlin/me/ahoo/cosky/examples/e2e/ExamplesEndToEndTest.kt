@@ -43,8 +43,12 @@ class ExamplesEndToEndTest {
     private fun start(name: String, mainClass: String, vararg arguments: String): Process {
         val logs = File(System.getProperty("cosky.logs")).apply { mkdirs() }
         val java = File(System.getProperty("java.home"), "bin/java").path
+        // They call each other on this machine. Spring Boot 4.2 has WebClient follow the proxy system properties, which
+        // the JDK on macOS sets from the system's proxy, whose exceptions it may name in a form Reactor Netty does not
+        // read: that proxy would carry the calls elsewhere.
         return ProcessBuilder(
-            listOf(java, "-cp", System.getProperty("cosky.classpath.$name"), mainClass) + arguments,
+            listOf(java, "-Dhttp.nonProxyHosts=*", "-cp", System.getProperty("cosky.classpath.$name"), mainClass) +
+                arguments,
         )
             .redirectErrorStream(true)
             .redirectOutput(File(logs, "$name.log"))

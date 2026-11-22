@@ -46,8 +46,8 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.6 --dev
 
 ```kotlin
 dependencies {
-    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.1.2"))
-    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2025.1.2"))
+    implementation(platform("org.springframework.boot:spring-boot-dependencies:4.2.0"))
+    implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2026.0.0"))
     implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.6"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
@@ -65,9 +65,6 @@ spring:
     name: order-service          # 注册为 order-service
   config:
     import: "optional:cosky:order-service.yaml"
-  cloud:
-    compatibility-verifier:
-      enabled: false             # 直到 Spring Cloud 2026.0，它才声明 Spring Boot 4.1
 cosky:
   endpoints: localhost:9090
 ```
