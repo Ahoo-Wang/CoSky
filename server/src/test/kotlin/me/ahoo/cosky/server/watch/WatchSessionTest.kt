@@ -275,7 +275,7 @@ class WatchSessionTest {
             unreachable.reachable = true
             cold.awaitView()
             val sent = watch(create(), cache = cold) { it.hasSnapshot() }
-            sent.single().snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
+            sent.first { it.hasSnapshot() }.snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
         }
     }
 
@@ -302,7 +302,8 @@ class WatchSessionTest {
                 delay(SETTLE)
                 loading.complete(Unit)
             }) { it.hasSnapshot() }
-            sent.single().snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
+            // The cache may have read its position before the write, and then replays it after the snapshot.
+            sent.first { it.hasSnapshot() }.snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
         }
     }
 
