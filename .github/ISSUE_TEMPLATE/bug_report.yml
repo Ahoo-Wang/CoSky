@@ -40,7 +40,7 @@ body:
     id: cosky-version
     attributes:
       label: CoSky version
-      placeholder: 8.0.0-beta.7
+      placeholder: 8.0.0-beta.8
     validations:
       required: true
   - type: input
