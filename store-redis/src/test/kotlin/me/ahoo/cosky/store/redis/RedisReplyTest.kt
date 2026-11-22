@@ -13,6 +13,14 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.RedisNoScriptException
+import io.lettuce.core.ScriptOutputType
+import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.codec.StringCodec
+import io.lettuce.core.output.StatusOutput
+import io.lettuce.core.protocol.AsyncCommand
+import io.lettuce.core.protocol.Command
+import io.lettuce.core.protocol.CommandType
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
@@ -33,6 +41,50 @@ class RedisReplyTest {
     }
 
     @Test
+    fun `a script the driver cancels is the store being unavailable`() = runBlocking<Unit> {
+        val commands = commandsAnswering { method, _ ->
+            check(method.name == "evalsha") { "Only evalsha was expected, not ${method.name}." }
+            command().apply { cancel() }
+        }
+
+        runCatching { runScript(commands) }.exceptionOrNull()
+            .assert().isInstanceOf(StoreUnavailableException::class.java)
+    }
+
+    @Test
+    fun `a script loaded again, which the driver cancels, is the store being unavailable`() = runBlocking<Unit> {
+        val commands = commandsAnswering { method, _ ->
+            when (method.name) {
+                "evalsha" -> command().apply { completeExceptionally(RedisNoScriptException("NOSCRIPT")) }
+                "eval" -> command().apply { cancel() }
+                else -> error("Only evalsha and eval were expected, not ${method.name}.")
+            }
+        }
+
+        runCatching { runScript(commands) }.exceptionOrNull()
+            .assert().isInstanceOf(StoreUnavailableException::class.java)
+    }
+
+    @Test
+    fun `the caller being cancelled while a script runs stays cancellation`() = runBlocking<Unit> {
+        val commands = commandsAnswering { _, _ -> command() }
+        var thrown: Throwable? = null
+        val waiting = launch(start = CoroutineStart.UNDISPATCHED) {
+            try {
+                runScript(commands)
+            } catch (e: CancellationException) {
+                thrown = e
+                throw e
+            }
+        }
+
+        waiting.cancelAndJoin()
+
+        thrown.assert().isInstanceOf(CancellationException::class.java)
+            .isNotInstanceOf(StoreUnavailableException::class.java)
+    }
+
+    @Test
     fun `the caller being cancelled stays cancellation`() = runBlocking<Unit> {
         var thrown: Throwable? = null
         val waiting = launch(start = CoroutineStart.UNDISPATCHED) {
@@ -49,4 +101,10 @@ class RedisReplyTest {
         thrown.assert().isInstanceOf(CancellationException::class.java)
             .isNotInstanceOf(StoreUnavailableException::class.java)
     }
+
+    /** A command no reply has completed yet. */
+    private fun command() = AsyncCommand(Command(CommandType.EVALSHA, StatusOutput(StringCodec.UTF8)))
+
+    private suspend fun runScript(commands: RedisClusterAsyncCommands<String, ByteArray>): Any =
+        RedisScript("tail").run(commands, ScriptOutputType.MULTI, listOf("key"), emptyList())
 }

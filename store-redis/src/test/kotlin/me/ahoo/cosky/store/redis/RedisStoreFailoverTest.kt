@@ -42,7 +42,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
-import java.lang.reflect.Proxy
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
@@ -189,15 +188,12 @@ class RedisStoreFailoverTest {
             val failing = AtomicBoolean()
             val connection = client.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
             val commands = connection.async() as RedisClusterAsyncCommands<String, ByteArray>
-            val flaky = Proxy.newProxyInstance(
-                RedisClusterAsyncCommands::class.java.classLoader,
-                arrayOf(RedisClusterAsyncCommands::class.java),
-            ) { _, method, args ->
+            val flaky = commandsAnswering { method, args ->
                 if (failing.get()) {
                     throw RedisCommandTimeoutException("The primary is gone.")
                 }
-                method.invoke(commands, *args.orEmpty())
-            } as RedisClusterAsyncCommands<String, ByteArray>
+                method.invoke(commands, *args)
+            }
             val hints = client.connectPubSub(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE))
             val following = RedisStore(flaky, hints, tailPollInterval = 50.milliseconds)
             val caughtUp = CompletableDeferred<Unit>()
