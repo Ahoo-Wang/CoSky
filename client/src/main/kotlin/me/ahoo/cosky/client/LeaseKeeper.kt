@@ -121,11 +121,7 @@ internal class LeaseKeeper(
             } catch (e: CancellationException) {
                 giveWay(name, previous)
                 if (previous == null) {
-                    withdrawals[name] = Withdrawal(
-                        resource.toBuilder().apply { metaBuilder.lease = lease }.build(),
-                        TimeSource.Monotonic.markNow() + options.callTimeout,
-                    )
-                    scope.launch { withdraw() }
+                    withdrawLater(resource)
                 }
                 throw e
             } catch (e: StatusException) {
@@ -156,7 +152,8 @@ internal class LeaseKeeper(
 
     /**
      * Deletes the Instance of [registration], unless it was closed already or its name registered again since: then
-     * this does nothing.
+     * this does nothing. One no server has accepted yet is not deleted by its name, which may be another's: whatever
+     * of it landed after all is withdrawn from this client's lease instead.
      *
      * Throws when the Instance cannot be deleted, and then leaves the registration as it was: its renewals go on, and
      * closing it can be tried again. Once the Instance is deleted nothing fails it: revoking the lease after the last
@@ -168,9 +165,15 @@ internal class LeaseKeeper(
             if (owners[name] !== registration) {
                 return
             }
-            // In this order: if the server cannot be reached the registration stays, and with it the renewals of an
-            // Instance that is still there.
-            resources().timed().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
+            if (confirmed.containsKey(name)) {
+                // In this order: if the server cannot be reached the registration stays, and with it the renewals of
+                // an Instance that is still there.
+                resources().timed().delete(DeleteRequest.newBuilder().setKey(keyOf(name)).build())
+            } else {
+                // Not yet out, or out without an answer: the Instance of that name, if any, is someone else's, unless
+                // a Put landed after all, which only this client's lease on it would show.
+                registrations[name]?.let { withdrawLater(it) }
+            }
             registrations.remove(name)
             confirmed.remove(name)
             pending.remove(name)
@@ -412,6 +415,18 @@ internal class LeaseKeeper(
             throw e
         }
         error("A Delete of ${key.name} applied at revision $UNMATCHABLE.")
+    }
+
+    /**
+     * Withdraws what [resource] may have created on the current lease, unless its name is registered again first: a Put
+     * that did not answer may still land.
+     */
+    private fun withdrawLater(resource: Resource) {
+        withdrawals[resource.meta.name] = Withdrawal(
+            resource.toBuilder().apply { metaBuilder.lease = lease }.build(),
+            TimeSource.Monotonic.markNow() + options.callTimeout,
+        )
+        scope.launch { withdraw() }
     }
 
     /** Takes back a registration of [name], so that the one it would have replaced, if any, is what stays. */

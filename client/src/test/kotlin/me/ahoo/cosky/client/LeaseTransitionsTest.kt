@@ -315,10 +315,34 @@ class LeaseTransitionsTest {
         val registration = instances.register("order", ENDPOINT, instanceName = "taken")
 
         putsFail.set(false)
+        // A Put started before that fails as the first did: wait for one that reaches the server.
+        val failed = puts.get()
         // An Instance stays in its service, so the server refuses it, and the client gives the name up.
-        eventually { puts.get() > 1 }
+        eventually { puts.get() > failed }
         registration.close()
 
+        instancesOnServer().single().instance.service.assert().isEqualTo("payment")
+    }
+
+    @Test
+    fun `closing a registration no server has taken yet leaves the name to whoever holds it`() = scenario {
+        val payment = Resource.newBuilder().apply {
+            metaBuilder.setNamespace(NAMESPACE).setName("taken")
+            instanceBuilder.setService("payment").setEndpoint(ENDPOINT)
+        }.build()
+        server.store.apply(NAMESPACE, listOf(Mutation.Put(payment)), "operator")
+        val putsFail = AtomicBoolean(true)
+        val puts = AtomicInteger()
+        val instances = instances(failingPutOf("taken", putsFail), counting("Put", puts))
+        val registration = instances.register("order", ENDPOINT, instanceName = "taken")
+
+        registration.close()
+        val closedAt = puts.get()
+        putsFail.set(false)
+        // Past a renewal, which would have sent it, had it still been waiting to go out.
+        delay(RENEWAL_AND_SOME)
+
+        puts.get().assert().isEqualTo(closedAt)
         instancesOnServer().single().instance.service.assert().isEqualTo("payment")
     }
 
@@ -509,5 +533,8 @@ class LeaseTransitionsTest {
         const val NAMESPACE = "prod"
         val ENDPOINT: Endpoint = Endpoint.newBuilder().setScheme("http").setHost("10.0.0.1").setPort(8080).build()
         val SETTLE = 300.milliseconds
+
+        /** A third of the lease's TTL, at which it is renewed, and some. */
+        val RENEWAL_AND_SOME = 3.seconds
     }
 }
