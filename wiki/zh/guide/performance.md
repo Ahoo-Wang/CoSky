@@ -53,22 +53,22 @@ server 使用 512 MB 堆，反复写同一个 1 MB 的 Config：
 
 在 Docker 中三主三从、node timeout 为 5 秒的集群上，一个 server 每 100 ms 向一个 namespace 写一次 Config，同时停掉这个 namespace 所在的主节点：
 
-| 主节点 | namespace 不可用 |
+| 主节点 | namespace 不可用，8.0.0-beta.7 |
 |---|---|
-| 被杀掉（`docker kill`） | 15.8 秒 |
-| 被冻结（`docker pause`） | 15.7 秒 |
+| 被杀掉（`docker kill`） | 10.5 到 15.8 秒，测了三次 |
+| 被冻结（`docker pause`） | 15.6 秒 |
 
-其中是 node timeout、副本的选举，再加最多 10 秒：server 每 5 秒读一次拓扑，每次读取最多等停掉的节点 5 秒。在此期间，这个 namespace 上的每个请求都在 5 秒后以 `STORE_UNAVAILABLE` 失败。8.0.0-alpha.5 在 kill 之后不可用 53 秒；它不会再次读取拓扑，所以主节点被冻结时，要等到这个节点重新应答才恢复。
+其中是 node timeout、副本的选举，再加最多 10 秒：server 每 5 秒读一次拓扑，每次读取最多等停掉的节点 5 秒。这 10 秒用掉多少，取决于读取落在什么时候：三次 kill 中，两次在 10.5 和 10.6 秒后恢复，一次在 15.8 秒后。在此期间，这个 namespace 上的每个请求都在 5 秒后以 `STORE_UNAVAILABLE` 失败。8.0.0-alpha.5 在 kill 之后不可用 53 秒；它不会再次读取拓扑，所以主节点被冻结时，要等到这个节点重新应答才恢复。
 
 ## Redis Sentinel 故障切换
 
 在 Docker 中一主一从、三个 Sentinel 的部署上（主节点 5 秒不应答即判为下线），一个 server 每 100 ms 写一次 Config，同时停掉主节点：
 
-| 主节点 | 8.0.0-beta.1 | 8.0.0-beta.2 |
-|---|---|---|
-| 被杀掉（`docker kill`） | 10.2 秒 | 15.5 秒 |
-| 被冻结（`docker pause`） | 直到它重新应答：240 秒内没有恢复 | 16.2 秒 |
-| 主动交接（`SENTINEL FAILOVER`） | 立即 | 立即 |
+| 主节点 | 8.0.0-beta.1 | 8.0.0-beta.2 | 8.0.0-beta.7 |
+|---|---|---|---|
+| 被杀掉（`docker kill`） | 10.2 秒 | 15.5 秒 | 15.5 秒 |
+| 被冻结（`docker pause`） | 直到它重新应答：240 秒内没有恢复 | 16.2 秒 | 16.2 秒 |
+| 主动交接（`SENTINEL FAILOVER`） | 立即 | 立即 | 立即：Sentinel 在 1.1 秒后完成交接，期间没有写入失败 |
 
 普通连接只在建立时向 Sentinel 询问主节点。挂住的主节点不会关闭连接，所以 beta.1 一直发给它，每个请求一分钟后才失败。现在 server 跟随 Sentinel 公布的变化，请求在 5 秒后以 `STORE_UNAVAILABLE` 失败。被杀掉时，beta.1 的第一个请求等了 10.2 秒后成功，比客户端等一次调用的时间（10 秒）还长；现在在 server 跟上之前，每个请求 5 秒后失败。Sentinel 主动交接时会自己关闭客户端的连接，所以两者都立即跟上。
 
@@ -153,6 +153,13 @@ docker run --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -v "
   -e TESTCONTAINERS_HOST_OVERRIDE=localhost -e COSKY_MEASURE=load -e COSKY_MEASURE_HEAP=3g -e COSKY_LOAD_SERVER_HEAP=2g \
   -e COSKY_LOAD_CLIENT_NETEM='delay 25ms 5ms loss 0.5%' eclipse-temurin:21-jdk \
   ./gradlew :server:test --tests '*LoadMeasurement.the targets*' -Porg.gradle.java.installations.paths=/opt/jdk25
+```
+
+故障切换的数据来自 [`testing/failover`](https://github.com/Ahoo-Wang/CoSky/tree/main/testing/failover) 中的脚本，它们在 Docker 中启动 Redis 和一个 server，默认使用 `gradle.properties` 中版本的镜像，也可以指定别的镜像：
+
+```bash
+testing/failover/cluster/up.sh && testing/failover/cluster/measure.py 8181 kill && testing/failover/cluster/down.sh
+testing/failover/sentinel/up.sh && testing/failover/sentinel/measure.py pause && testing/failover/sentinel/down.sh
 ```
 
 客户端的热路径是 JMH 基准：

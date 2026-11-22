@@ -1373,22 +1373,22 @@ It restarted on that log in 4 seconds, and took 50 more writes. Trimming the log
 
 On a cluster of three masters and three replicas in Docker, with a node timeout of 5 seconds, one server wrote a Config every 100 ms to a namespace while its master was stopped:
 
-| The master | The namespace unavailable |
+| The master | The namespace unavailable, 8.0.0-beta.7 |
 |---|---|
-| Killed (`docker kill`) | 15.8 seconds |
-| Frozen (`docker pause`) | 15.7 seconds |
+| Killed (`docker kill`) | 10.5 to 15.8 seconds, in three runs |
+| Frozen (`docker pause`) | 15.6 seconds |
 
-That is the node timeout, the replica's election, and then up to 10 seconds: the server reads the topology every 5 seconds, and each read waits up to 5 seconds for the stopped node. Meanwhile each request on that namespace failed with `STORE_UNAVAILABLE` after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
+That is the node timeout, the replica's election, and then up to 10 seconds: the server reads the topology every 5 seconds, and each read waits up to 5 seconds for the stopped node. How much of those 10 seconds a run takes depends on when the reads fall: of three kills, two were over after 10.5 and 10.6 seconds, one after 15.8. Meanwhile each request on that namespace failed with `STORE_UNAVAILABLE` after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
 
 ## A Redis Sentinel failover
 
 On a master with one replica and three Sentinels in Docker, which take a master that does not answer for 5 seconds as down, one server wrote a Config every 100 ms while the master was stopped:
 
-| The master | 8.0.0-beta.1 | 8.0.0-beta.2 |
-|---|---|---|
-| Killed (`docker kill`) | 10.2 seconds | 15.5 seconds |
-| Frozen (`docker pause`) | Until it answered again: not within 240 seconds | 16.2 seconds |
-| Handed over (`SENTINEL FAILOVER`) | At once | At once |
+| The master | 8.0.0-beta.1 | 8.0.0-beta.2 | 8.0.0-beta.7 |
+|---|---|---|---|
+| Killed (`docker kill`) | 10.2 seconds | 15.5 seconds | 15.5 seconds |
+| Frozen (`docker pause`) | Until it answered again: not within 240 seconds | 16.2 seconds | 16.2 seconds |
+| Handed over (`SENTINEL FAILOVER`) | At once | At once | At once: no write failed while the Sentinels handed over, 1.1 seconds after |
 
 A plain connection asks the Sentinels for the master only when it connects. A master that hangs keeps its connections open, so beta.1 went on sending to it, and each request failed after a minute. The server now follows what the Sentinels announce, and a request fails with `STORE_UNAVAILABLE` after 5 seconds instead. After a kill, beta.1's first request waited 10.2 seconds and then succeeded, longer than a client waits for a call, 10 seconds; now requests fail after 5 seconds each until the server has followed. A Sentinel that hands the master over closes its clients' connections itself, so both follow at once.
 
@@ -1473,6 +1473,13 @@ docker run --rm --network host -v /var/run/docker.sock:/var/run/docker.sock -v "
   -e TESTCONTAINERS_HOST_OVERRIDE=localhost -e COSKY_MEASURE=load -e COSKY_MEASURE_HEAP=3g -e COSKY_LOAD_SERVER_HEAP=2g \
   -e COSKY_LOAD_CLIENT_NETEM='delay 25ms 5ms loss 0.5%' eclipse-temurin:21-jdk \
   ./gradlew :server:test --tests '*LoadMeasurement.the targets*' -Porg.gradle.java.installations.paths=/opt/jdk25
+```
+
+The failovers come from the scripts in [`testing/failover`](https://github.com/Ahoo-Wang/CoSky/tree/main/testing/failover), which start Redis and a server in Docker, on the image of the version in `gradle.properties` unless given another:
+
+```bash
+testing/failover/cluster/up.sh && testing/failover/cluster/measure.py 8181 kill && testing/failover/cluster/down.sh
+testing/failover/sentinel/up.sh && testing/failover/sentinel/measure.py pause && testing/failover/sentinel/down.sh
 ```
 
 The hot paths of the client are JMH benchmarks:
