@@ -42,6 +42,7 @@ import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.memory.MemoryStore
 import java.time.Clock
 import java.time.Instant
@@ -62,6 +63,10 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
 
     /** Off, the server's view stops following the store, as a replica's view that is behind; writes still land. */
     val cacheFollows = MutableStateFlow(true)
+
+    /** Off, the server's view cannot read the store, as on a replica that cannot reach it; writes still land. */
+    @Volatile
+    var cacheReachesStore = true
 
     /** Moved on, it lets a lease run out without the test waiting for it. */
     val clock = OffsetClock()
@@ -84,7 +89,7 @@ internal class TestServer(private val properties: CoSkyProperties = CoSkyPropert
     private var server: Server? = null
 
     fun start() {
-        val caches = WatchCache(GatedStore(store, cacheFollows), WINDOW, scope)
+        val caches = WatchCache(GatedStore(store, cacheFollows) { cacheReachesStore }, WINDOW, scope)
         server = InProcessServerBuilder.forName(name)
             .addService(ServerInterceptors.intercept(ResourceGrpcService(ResourceService(store, caches)), recording))
             .addService(ServerInterceptors.intercept(LeaseGrpcService(LeaseService(store)), silencing))
@@ -180,10 +185,20 @@ internal class OffsetClock : Clock() {
 }
 
 /**
- * Hands changes on only while [follows] is set.
+ * Hands changes on only while [follows] is set, and reads nothing unless [reachable].
  */
-private class GatedStore(private val delegate: Store, private val follows: MutableStateFlow<Boolean>) :
-    Store by delegate {
+private class GatedStore(
+    private val delegate: Store,
+    private val follows: MutableStateFlow<Boolean>,
+    private val reachable: () -> Boolean,
+) : Store by delegate {
     override fun changes(namespace: String, from: Position): Flow<ChangeBatch> =
         delegate.changes(namespace, from).onEach { follows.first { it } }
+
+    override suspend fun position(namespace: String): Position? {
+        if (!reachable()) {
+            throw StoreUnavailableException("This replica cannot reach its store.")
+        }
+        return delegate.position(namespace)
+    }
 }

@@ -147,7 +147,7 @@ class ResourceService(
             if (key.kind == Kind.KIND_NAMESPACE) {
                 // Once the directory has it: a write it rejects must leave no namespace behind, which the reconciler,
                 // going by the directory, would never find. One that stops in between, the reconciler creates.
-                store.createNamespace(key.name)
+                namespaces.create(key)
             }
             PutResponse.newBuilder().setRevision(applied.revision).setChanged(applied.changed > 0).build()
         }

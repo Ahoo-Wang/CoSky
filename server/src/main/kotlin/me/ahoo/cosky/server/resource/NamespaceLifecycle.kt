@@ -26,6 +26,7 @@ import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.key
+import org.slf4j.LoggerFactory
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -62,6 +63,47 @@ class NamespaceLifecycle(
                 },
             )
             .build()
+    }
+
+    /**
+     * Makes the namespace of the Namespace object [key] active, once the object was written, whether for a write or
+     * for the reconciler finishing one. The step may come late: should the object have been deleted since, or a
+     * deletion of an earlier namespace have got past the mark, the namespace it made again is nobody's, and invisible
+     * to the reconciler, which goes by the objects. So the object is read again after the step, which no deletion can
+     * pass unseen, and a namespace that turns out to be late is terminated by its own epoch, after which a creation
+     * meanwhile that took it for its own makes its own (#1262).
+     */
+    suspend fun create(key: ResourceKey) {
+        do {
+            val epoch = store.createNamespace(key.name).epoch
+        } while (isLate(key, epoch) && undoLate(key, epoch))
+    }
+
+    private suspend fun isLate(key: ResourceKey, epoch: String): Boolean {
+        val latest = latest(key) ?: return true
+        return latest.namespace.terminating && latest.namespace.terminatingEpoch != epoch
+    }
+
+    /**
+     * @return whether a creation since wants the namespace again.
+     */
+    private suspend fun undoLate(key: ResourceKey, epoch: String): Boolean {
+        val name = key.name
+        when (store.terminateNamespace(name, epoch)) {
+            TerminateResult.TERMINATED -> store.dropNamespace(name, epoch)
+            // Created again by another, which is for that one to keep.
+            TerminateResult.SUPERSEDED, TerminateResult.NOT_FOUND -> return false
+            TerminateResult.NOT_EMPTY -> {
+                log.error(
+                    "Namespace {} was made again by a creation that came after its deletion, and took a write " +
+                        "meanwhile: it has no Namespace object, and stays until one is created and deleted.",
+                    name,
+                )
+                return false
+            }
+        }
+        log.info("Namespace {} was deleted before its creation finished: dropped the one it made again.", name)
+        return latest(key)?.namespace?.terminating == false
     }
 
     /**
@@ -166,5 +208,6 @@ class NamespaceLifecycle(
 
     private companion object {
         const val ACTOR = "system"
+        val log = LoggerFactory.getLogger(NamespaceLifecycle::class.java)
     }
 }

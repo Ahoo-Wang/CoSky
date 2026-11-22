@@ -256,7 +256,10 @@ class RestRoutes(
 
     private suspend fun rollback(request: ServerRequest): ServerResponse {
         val body = ProtoJson.objectOf(request.awaitBody<String>())
-        val toRevision = body["toRevision"]?.asString?.toLongOrNull()
+        // An int64 is a number or a string in JSON; Gson would read a one-element array as its element.
+        val toRevision = body["toRevision"]
+            ?.takeIf { it.isJsonPrimitive && (it.asJsonPrimitive.isNumber || it.asJsonPrimitive.isString) }
+            ?.asString?.toLongOrNull()
             ?: throw ProtoJson.invalid("toRevision", "A revision from the history is required.")
         val response = resources.rollback(
             keyOf(request, Kind.KIND_CONFIG, request.pathVariable(NAMESPACE)),

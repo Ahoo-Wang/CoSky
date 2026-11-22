@@ -235,6 +235,24 @@ class RestRoutesTest {
     }
 
     @Test
+    fun `a rollback takes a revision as a number or a string, and refuses any other JSON`() {
+        val client = client()
+        val first = revisionOf(client.putConfig("a"))
+        revisionOf(client.putConfig("a", """{"config":{"format":"CONFIG_FORMAT_TEXT","content":"after"}}"""))
+        fun rollback(value: String) = client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback")
+            .contentType(MediaType.APPLICATION_JSON)
+            .bodyValue("""{"toRevision":$value}""")
+            .exchange()
+        listOf("null", "{}", "[$first, $first]", "[$first]", "true", "1.5", "\"x\"").forEach { value ->
+            rollback(value).expectStatus().isBadRequest
+        }
+        get(client, "a", 0).expectStatus().isOk.json().getAsJsonObject("config")["content"].asString
+            .assert().isEqualTo("after")
+        revisionOf(rollback("$first"))
+        rollback("\"$first\"").expectStatus().isOk
+    }
+
+    @Test
     fun `a rollback to what a config holds reports no entity tag, though the namespace has moved on`() {
         val client = client()
         val first = revisionOf(client.putConfig("a"))

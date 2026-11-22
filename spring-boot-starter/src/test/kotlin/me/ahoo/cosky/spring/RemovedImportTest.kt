@@ -25,6 +25,8 @@ import org.springframework.boot.autoconfigure.EnableAutoConfiguration
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.cloud.context.environment.EnvironmentChangeEvent
+import org.springframework.cloud.context.environment.EnvironmentManager
 import org.springframework.cloud.context.refresh.ContextRefresher
 import org.springframework.cloud.context.scope.refresh.RefreshScopeRefreshedEvent
 import org.springframework.context.ApplicationListener
@@ -175,6 +177,43 @@ class RemovedImportTest {
 
         context.environment.getProperty("parent").assert().isEqualTo("after")
         context.environment.getProperty("child.value").assert().isNull()
+    }
+
+    @Test
+    fun `a change of something else after a refresh that failed leaves every config`() = runBlocking<Unit> {
+        server.put(TestCoSkyServer.config("a.yaml", "a: good"))
+        server.put(TestCoSkyServer.config("b.yaml", "b: good"))
+        val context = application(
+            "--spring.config.import=cosky:a.yaml,cosky:b.yaml",
+            "--cosky.config.refresh.enabled=false",
+        )
+        val configs = context.getBean(CoSkyClient::class.java).namespace(TestCoSkyServer.NAMESPACE).configs
+        val refresher = context.getBean(ContextRefresher::class.java)
+
+        // It loads b.yaml first, which does not parse, and never gets to a.yaml.
+        server.put(TestCoSkyServer.config("b.yaml", "b: ["))
+        eventually { configs.watch("b.yaml").value?.config?.content == "b: [" }
+        runCatching { refresher.refresh() }.exceptionOrNull().assert().isNotNull()
+        context.environment.getProperty("a").assert().isEqualTo("good")
+
+        EnvironmentManager(context.environment).apply {
+            setApplicationEventPublisher(context)
+            setProperty("unrelated", "value")
+        }
+        context.publishEvent(EnvironmentChangeEvent(context, setOf("unrelated")))
+
+        context.environment.getProperty("unrelated").assert().isEqualTo("value")
+        context.environment.getProperty("a").assert().isEqualTo("good")
+        context.environment.getProperty("b").assert().isEqualTo("good")
+
+        // Still followed: the next refresh that goes through applies both.
+        server.put(TestCoSkyServer.config("b.yaml", "b: fixed"))
+        server.put(TestCoSkyServer.config("a.yaml", "a: changed"))
+        eventually { configs.watch("a.yaml").value?.config?.content == "a: changed" }
+        eventually { configs.watch("b.yaml").value?.config?.content == "b: fixed" }
+        refresher.refresh()
+        context.environment.getProperty("a").assert().isEqualTo("changed")
+        context.environment.getProperty("b").assert().isEqualTo("fixed")
     }
 }
 

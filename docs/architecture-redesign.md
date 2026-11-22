@@ -698,6 +698,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - `min_revision`:缓存 revision 未达到时挂起等待(默认最多 3 秒),实现跨副本的"读己之写"。
 - 客户端 `from_epoch` 不一致或 `from_revision` 早于窗口 → 返回 `gone`,客户端重新 List 后从新位置 Watch。
 - `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `gone`。超过 `read.min-revision-timeout` 后读一次 Store:Store 有这个位置,说明只是本副本落后,以 `UNAVAILABLE` 结束整条流,客户端换端点重连;Store 也没有,说明这个位置来自无人发现的被丢弃时间线(§6.4 的残余风险),发 `gone`,否则客户端会一直重连。
+- `from_revision = 0` 的 watch 等副本首次加载完成,加载多久都等;但本副本加载失败(如连不上 Store)时以 `UNAVAILABLE` 结束整条流,客户端换端点,而不是停在一个只发 `progress` 的副本上(#1264)。带位置的 watch 同样不再等满超时。
 - 重新加载期间 watcher 只是等待,不会被结束。新视图的 epoch 不变且位置仍在窗口内就继续,所以一次 Store 读取失败不会让所有客户端重新 List。namespace 不再是 active 时,watcher 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - 裁剪可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
 - 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。
@@ -860,7 +861,7 @@ registration.close()                                                            
 ### 7.2 Namespace 生命周期
 
 - `_system` 在 server 首次启动时自动创建;`default` namespace 在 bootstrap 时创建。
-- **创建**:先 `Store.createNamespace`(`state = active`,新 epoch),再 Put `_system` 中的 Namespace 对象。
+- **创建**:先 Put `_system` 中的 Namespace 对象,再 `Store.createNamespace`(`state = active`,新 epoch),所以被拒的 Put 不留下 reconciler 找不到的 namespace(#1241);中途停下的创建由 reconciler 补完。完成创建的这一步可能迟到:对象此后已被删除,或对象上的删除标记记的是更早的一代,说明它重建的 namespace 无人认领,而 reconciler 只按对象巡检,发现不了。所以 `createNamespace` 之后再按最新写入读一次对象,迟到时按自己得到的 epoch 终止并清理这一代;清理后若有并发的创建写下了未标记的对象(它可能把这一代当成了自己的),再创建一次。创建请求与 reconciler 都走这一步(#1262)。
 - **写入(D25)**:`apply.lua`、`lease_grant.lua` 要求 `state = active`,否则返回 `NOT_FOUND`(detail `NAMESPACE_NOT_FOUND`)。判断在脚本内完成,不依赖缓存,所以迟到的写入不会让已删除的 namespace 复活。
 - **只允许删除空 namespace**(无 Config、无 Instance),否则返回 `FAILED_PRECONDITION` / HTTP 409(`NAMESPACE_NOT_EMPTY`),防止误删整片数据。删除先标记,再分三步,每步都可重入:
   0. **标记**:按 `expected_revision`(未给出时用读到的 revision)对 `_system` 中的 Namespace 对象 CAS,置 `terminating = true`,并在 `terminating_epoch` 中记下该 namespace 当前的 epoch,此后每一步都只针对这一代(D43)。对象与 namespace 的数据不在同一 slot,无法一起原子更新,所以由这一步在 `_system` 内决出删除与并发更新的先后,此前不做任何不可逆操作(#1109)。明显不空的 namespace 在标记前就被拒绝,不留痕迹;
@@ -993,7 +994,7 @@ cosky:
 | 集成点 | 实现 |
 |---|---|
 | 配置加载 | `ConfigDataLocationResolver` + `ConfigDataLoader`,前缀 `cosky:`;按 `ConfigSpec.format` 选择解析器:YAML 和 JSON 用 YAML 解析器,PROPERTIES 用 properties 解析器,TEXT 整体成为一个以配置名命名的属性。Config 不存在,或超过 `config.load-timeout` 仍无法确定时,没有 `optional:` 的导入使启动失败 |
-| 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效)。以加载时看到的内容为基准(丢写后 revision 可能重复),所以加载后、开始监听前的变化不会漏;启动时不存在的 `optional:` Config 出现后同样触发。刷新失败(如内容无法解析)只记日志,旧值不变,下次变化继续刷新。Spring Cloud 刷新时只添加或替换属性源,从不删除,所以 `optional` 的 Config 消失时用同名的空属性源替换旧值;必选的 Config 消失时保留旧值并告警。某个 Config 的 `spring.config.import` 去掉了另一个 Config 时,后者的加载器不再运行,无从替换:每次刷新把这一轮导入的结果写进 Environment 后(刷新发布的 `EnvironmentChangeEvent`,在清空刷新作用域之前;自动刷新、应用自己调用 `ContextRefresher.refresh` 或只调用 `refreshEnvironment` 都会发出),把这一轮没有任何导入加载过的 Config 的属性源从 Environment 中移除,结束它的 Watch,再为移除的键发布 `EnvironmentChangeEvent`,让 `@ConfigurationProperties` 重新绑定;仍被另一个导入引用的照常保留。一轮导入以加载器实例为界:Spring 每轮都新建加载器。刷新失败不发事件,Environment 不变,它加载过什么也不计入下一轮;一轮什么都没加载时不清理,以免误删(#1221)。 |
+| 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效)。以加载时看到的内容为基准(丢写后 revision 可能重复),所以加载后、开始监听前的变化不会漏;启动时不存在的 `optional:` Config 出现后同样触发。刷新失败(如内容无法解析)只记日志,旧值不变,下次变化继续刷新。Spring Cloud 刷新时只添加或替换属性源,从不删除,所以 `optional` 的 Config 消失时用同名的空属性源替换旧值;必选的 Config 消失时保留旧值并告警。某个 Config 的 `spring.config.import` 去掉了另一个 Config 时,后者的加载器不再运行,无从替换:每次刷新把这一轮导入的结果写进 Environment 后(刷新发布的 `EnvironmentChangeEvent`,在清空刷新作用域之前;自动刷新、应用自己调用 `ContextRefresher.refresh` 或只调用 `refreshEnvironment` 都会发出),把这一轮没有任何导入加载过的 Config 的属性源从 Environment 中移除,结束它的 Watch,再为移除的键发布 `EnvironmentChangeEvent`,让 `@ConfigurationProperties` 重新绑定;仍被另一个导入引用的照常保留。一轮导入以加载器实例为界:Spring 每轮都新建加载器。一轮还以 `EnvironmentPostProcessor` 为界:导入之前的一个开始新的一轮,最后一个标记这一轮完整走完。刷新失败不发事件,Environment 不变,它加载过什么也不计入下一轮;此后别处发布的 `EnvironmentChangeEvent`(如通过 `env` 端点设置属性)遇到的是没有走完的一轮,同样不清理(#1263);一轮什么都没加载时不清理,以免误删(#1221)。 |
 | 服务发现 | `DiscoveryClient` 和 `ReactiveDiscoveryClient` 读本地视图;首次读取一个 service 时最多等待 `discovery.load-timeout`,避免把未知当成空。`getServices` 会 watch 整个 namespace 的 Instance,只在确实需要全量列表时才有这个开销 |
 | 负载均衡 | 提供 Spring Cloud LoadBalancer 的 `ServiceInstanceListSupplier`,LB 算法交给 Spring Cloud |
 | 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |

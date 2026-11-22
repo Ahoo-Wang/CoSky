@@ -56,6 +56,11 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
     private var run: Any? = null
     private val loaded = HashSet<Pair<String, String>>()
 
+    /**
+     * Whether the [run] went through, rather than failed half way: only then is [loaded] all that the imports load.
+     */
+    private var complete = false
+
     private val importListeners = mutableListOf<ImportListener>()
     private val dropListeners = mutableListOf<(namespace: String, config: String) -> Unit>()
 
@@ -85,6 +90,7 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
             // A run that failed is not reconciled, and does not count towards the next.
             this.run = run
             loaded.clear()
+            complete = false
         }
         loaded += namespace to config
         val import = importOf(namespace to config)
@@ -123,6 +129,23 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
     internal fun started() = synchronized(lock) {
         run = null
         loaded.clear()
+        complete = false
+    }
+
+    /**
+     * Before the imports load, in a refresh: whatever an earlier run that failed loaded does not count.
+     */
+    internal fun runBegins() = synchronized(lock) {
+        run = null
+        loaded.clear()
+        complete = false
+    }
+
+    /**
+     * Once a run went through: what it loaded is what the imports load now.
+     */
+    internal fun runEnds() = synchronized(lock) {
+        complete = run != null
     }
 
     /**
@@ -131,17 +154,19 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
      * and replaces property sources, and a Config no longer imported has no load left to replace them by nothing
      * (design §7.7). Its watch ends with it.
      *
-     * A refresh that loaded no Config at all is left alone: it may not have run the imports.
+     * A refresh that loaded no Config at all is left alone: it may not have run the imports. So is a run that failed,
+     * which a refresh does not apply, should something else announce a change before the next run (#1263).
      *
      * @return the properties that left with them.
      */
     internal fun reconcile(environment: ConfigurableEnvironment): Set<String> = synchronized(lock) {
-        if (run == null) {
+        if (run == null || !complete) {
             return@synchronized emptySet()
         }
         val dropped = imports.keys - loaded
         run = null
         loaded.clear()
+        complete = false
         val left = mutableSetOf<String>()
         dropped.forEach { key ->
             val import = checkNotNull(imports.remove(key))
