@@ -25,6 +25,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.fold
@@ -196,7 +197,21 @@ class NamespaceCache(
     var isDiverged: Boolean = false
         private set
 
+    /**
+     * Whether the last attempt to load failed, say on a store out of reach, until one loads.
+     */
+    private val failing = MutableStateFlow(false)
+
     suspend fun awaitView(): NamespaceView = views.filterNotNull().first()
+
+    /**
+     * The view, once loaded; null should loading fail before, or have failed last time. Loading can take a while, and a
+     * watcher with nothing to go on waits that out, but not for a store this replica cannot read: another replica may
+     * well serve it (#1264).
+     */
+    suspend fun awaitLoaded(): NamespaceView? =
+        combine(state, failing) { view, failed -> view to failed }.first { (view, failed) -> view != null || failed }
+            .first
 
     /**
      * The position in the store itself, which this cache may be behind.
@@ -268,6 +283,7 @@ class NamespaceCache(
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 log.warn("Following namespace {} failed; loading it again.", namespace, e)
+                failing.value = true
                 delay(RETRY_DELAY)
             }
         }
@@ -287,6 +303,7 @@ class NamespaceCache(
             return true
         }
         state.value = load(position)
+        failing.value = false
         isDiverged = false
         followed = position
         return try {

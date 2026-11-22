@@ -6,3 +6,6 @@ org.springframework.boot.SpringApplicationRunListener=\
 me.ahoo.cosky.spring.CoSkyClientRunListener
 org.springframework.boot.diagnostics.FailureAnalyzer=\
 me.ahoo.cosky.spring.registry.RegistrationRefusedFailureAnalyzer
+org.springframework.boot.EnvironmentPostProcessor=\
+me.ahoo.cosky.spring.config.CoSkyImportRunBegins,\
+me.ahoo.cosky.spring.config.CoSkyImportRunEnds

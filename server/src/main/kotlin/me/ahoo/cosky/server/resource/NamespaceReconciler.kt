@@ -68,7 +68,7 @@ class NamespaceReconciler(
                             "Namespace {} has no state: its creation stopped, or its shard lost data. Creating it.",
                             name,
                         )
-                        store.createNamespace(name)
+                        namespaces.create(namespace.key)
                     }
                 }
             }
@@ -104,7 +104,7 @@ class NamespaceReconciler(
             finish(latest)
         } else {
             log.info("Creating namespace {}, whose creation stopped after its object was written.", latest.meta.name)
-            store.createNamespace(latest.meta.name)
+            namespaces.create(latest.key)
         }
     }
 

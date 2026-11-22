@@ -39,6 +39,7 @@ import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
+import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
 import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -62,6 +63,13 @@ class NamespaceGenerationTest {
      * Stops before the steps a test names, once each, until the test lets it go on.
      */
     private val store: Store = object : Store by memory {
+        override suspend fun createNamespace(namespace: String): Position {
+            if (namespace == NAME) {
+                pauseAt(CREATE)
+            }
+            return memory.createNamespace(namespace)
+        }
+
         override suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult {
             pauseAt(TERMINATE)
             return memory.terminateNamespace(namespace, epoch)
@@ -107,12 +115,13 @@ class NamespaceGenerationTest {
         scope.cancel()
     }
 
-    private suspend fun createNamespace() {
+    private suspend fun createNamespace(labels: Map<String, String> = emptyMap()) {
         store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
         val namespace = resource {
             meta = objectMeta {
                 namespace = NamingRules.SYSTEM_NAMESPACE
                 name = NAME
+                this.labels.putAll(labels)
             }
             this.namespace = namespaceSpec {}
         }
@@ -193,9 +202,75 @@ class NamespaceGenerationTest {
         config.meta.name.assert().isEqualTo("order.yaml")
     }
 
+    private suspend fun deleteNamespace() {
+        resources.delete(DeleteRequest.newBuilder().setKey(key).build(), Caller.ANONYMOUS).deleted.assert().isTrue()
+        stored().assert().isNull()
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+    }
+
+    @Test
+    fun `a creation that comes late, after the reconciler finished it and a deletion, leaves it deleted`() =
+        runBlocking<Unit> {
+            store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+            val creating = armed(CREATE)
+            val put = async { createNamespace() }
+            creating.reached.await()
+            eventually { stored() != null }
+            reconciler.reconcile()
+            store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+            deleteNamespace()
+
+            creating.resumed.complete(Unit)
+            put.await()
+
+            store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+            runCatching { writeConfig() }.isFailure.assert().isTrue()
+            reconciler.reconcile()
+            store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+        }
+
+    @Test
+    fun `an update that comes late, after a deletion, leaves the namespace deleted`() = runBlocking<Unit> {
+        createNamespace()
+        val creating = armed(CREATE)
+        val update = async { createNamespace(mapOf("team" to "orders")) }
+        creating.reached.await()
+        eventually { stored()?.meta?.labelsMap?.containsKey("team") == true }
+        deleteNamespace()
+
+        creating.resumed.complete(Unit)
+        update.await()
+
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.TERMINATING)
+        stored().assert().isNull()
+    }
+
+    @Test
+    fun `a creation meanwhile keeps the namespace a late one made again`() = runBlocking<Unit> {
+        createNamespace()
+        val creating = armed(CREATE)
+        val update = async { createNamespace(mapOf("team" to "orders")) }
+        creating.reached.await()
+        deleteNamespace()
+        // The late creation makes the namespace again, finds it deleted, and stops before it terminates it.
+        val terminating = armed(TERMINATE)
+        creating.resumed.complete(Unit)
+        withTimeout(10.seconds) { terminating.reached.await() }
+        createNamespace()
+
+        terminating.resumed.complete(Unit)
+        update.await()
+
+        stored()?.namespace?.terminating.assert().isEqualTo(false)
+        store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+        writeConfig()
+        caches.latestViewAt(NAME, 3.seconds).objects.assert().hasSize(1)
+    }
+
     private companion object {
         const val NAME = "orders"
         const val TERMINATE = "terminate"
         const val DELETE_OBJECT = "delete-object"
+        const val CREATE = "create"
     }
 }

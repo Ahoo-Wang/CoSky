@@ -24,7 +24,8 @@ import org.springframework.core.Ordered
 /**
  * Keeps the Environment to what the imports load (design §7.7): once a refresh has applied what its run of the imports
  * loaded, the Configs that run did not load leave it. Counting starts once the application has started. A refresh that
- * fails publishes nothing, and leaves the Environment as it was.
+ * fails publishes nothing, and leaves the Environment as it was; an [EnvironmentChangeEvent] of something else after
+ * it, say of a property set through the `env` endpoint, finds its run not gone through, and leaves it as well.
  *
  * On the [EnvironmentChangeEvent] a refresh publishes once the Environment is up to date, which comes before its
  * refresh scope is cleared, and also where the application only calls `ContextRefresher.refreshEnvironment`. First

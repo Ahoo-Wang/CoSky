@@ -53,6 +53,7 @@ import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.ObjectVersion
 import me.ahoo.cosky.store.Position
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
@@ -241,6 +242,40 @@ class WatchSessionTest {
             val session = WatchSession(create(2, view.epoch), behind, 1024, SETTLE) {}
             val error = runCatching { session.run() }.exceptionOrNull() as CoSkyException
             error.detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+        }
+    }
+
+    /**
+     * Its position fails while [reachable] is off, as for a replica that cannot reach its store.
+     */
+    private class UnreachableStore(private val delegate: Store) : Store by delegate {
+        @Volatile
+        var reachable = false
+
+        override suspend fun position(namespace: String): Position? {
+            if (!reachable) {
+                throw StoreUnavailableException("This replica cannot reach its store.")
+            }
+            return delegate.position(namespace)
+        }
+    }
+
+    @Test
+    fun `a new watch on a replica that cannot read its store goes elsewhere, until it can`() {
+        val unreachable = UnreachableStore(store)
+        val cold = NamespaceCache(NAMESPACE, unreachable, WINDOW)
+        scenario(cold) {
+            put("a")
+            val error = runCatching { WatchSession(create(), cold, 1024, SETTLE) {}.run() }.exceptionOrNull()
+            (error as CoSkyException).detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+            val resuming = runCatching { WatchSession(create(1, "any"), cold, 1024, 5.seconds) {}.run() }
+            (resuming.exceptionOrNull() as CoSkyException).detail.reason.assert()
+                .isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+
+            unreachable.reachable = true
+            cold.awaitView()
+            val sent = watch(create(), cache = cold) { it.hasSnapshot() }
+            sent.single().snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
         }
     }
 

@@ -66,7 +66,7 @@ class WatchSession(
     }
 
     private suspend fun serve() {
-        val start = if (create.fromRevision == 0L) cache.awaitView() else firstViewToResumeOn()
+        val start = if (create.fromRevision == 0L) firstView() else firstViewToResumeOn()
         when {
             start.isClosed -> sendClosed()
 
@@ -85,11 +85,21 @@ class WatchSession(
     }
 
     /**
+     * A client with nothing to go on waits as long as loading the namespace takes, however large, but not for a store
+     * this replica cannot read: it goes to another replica, which may well serve it (#1264).
+     */
+    private suspend fun firstView(): NamespaceView = cache.awaitLoaded() ?: throw cannotLoad()
+
+    /**
      * A client with a position got it from some replica, which may well serve it now: one that has not loaded the
      * namespace within the catch-up timeout sends it elsewhere rather than keep it waiting (design D29).
      */
-    private suspend fun firstViewToResumeOn(): NamespaceView = withTimeoutOrNull(catchUpTimeout) { cache.awaitView() }
-        ?: throw CoSkyException.storeUnavailable("This replica has not loaded namespace ${create.namespace} yet.")
+    private suspend fun firstViewToResumeOn(): NamespaceView =
+        withTimeoutOrNull(catchUpTimeout) { cache.awaitLoaded() ?: throw cannotLoad() }
+            ?: throw CoSkyException.storeUnavailable("This replica has not loaded namespace ${create.namespace} yet.")
+
+    private fun cannotLoad(): CoSkyException =
+        CoSkyException.storeUnavailable("This replica cannot load namespace ${create.namespace} from its store.")
 
     /**
      * Waits for this replica to reach the position of the client, which came from another replica.

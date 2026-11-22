@@ -302,6 +302,17 @@ class CoSkyClientTest {
     }
 
     @Test
+    fun `a client with nothing to go on leaves an endpoint that cannot read its store for one that can`() = scenario {
+        TestServer().use { cold ->
+            cold.cacheReachesStore = false
+            cold.start()
+            write(config(content = "healthy"))
+            val client = client(endpoints = listOf("cold", "healthy")) { if (it == "cold") cold.name else server.name }
+            client.namespace(NAMESPACE).configs.load(CONFIG)?.config?.content.assert().isEqualTo("healthy")
+        }
+    }
+
+    @Test
     fun `the token is sent as a bearer`() = scenario {
         client(token = "cosky_id_secret").namespace(NAMESPACE).instances.register("order", ENDPOINT)
         server.authorizations.first().assert().isEqualTo("Bearer cosky_id_secret")
