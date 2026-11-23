@@ -20,6 +20,7 @@ import type {ServiceAccountResource} from '@/services/resources';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {failureMessage} from '@/lib/actions';
+import {copyWithFeedback} from '@/lib/clipboard';
 
 /** The label of the account the server gives each namespace (design D45). */
 const NAMESPACE_LABEL = 'cosky.namespace';
@@ -42,7 +43,7 @@ function Snippet({label, text}: {label: string; text: string}) {
                     variant="ghost"
                     size="sm"
                     aria-label={`Copy ${label}`}
-                    onClick={() => void navigator.clipboard.writeText(text)}
+                    onClick={() => void copyWithFeedback(text, label)}
                 >
                     <Copy/> Copy
                 </Button>

@@ -27,6 +27,7 @@ import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {Input} from '@/components/ui/input';
 import {failureMessage, runAction} from '@/lib/actions';
+import {copyWithFeedback} from '@/lib/clipboard';
 
 /**
  * The only time anyone sees the plaintext of a token.
@@ -88,7 +89,7 @@ export function ServiceAccountPage() {
                     description: 'It is shown only once: copy it now.',
                     duration: Infinity,
                     closeButton: true,
-                    action: {label: 'Copy token', onClick: () => void navigator.clipboard.writeText(token)},
+                    action: {label: 'Copy token', onClick: () => void copyWithFeedback(token, 'the token')},
                 });
             }
             loadAccounts();
