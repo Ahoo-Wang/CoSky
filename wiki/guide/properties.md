@@ -89,6 +89,7 @@ These cannot be set in 8.0.
 | `cosky.enabled` | `true` | Everything below |
 | `cosky.endpoints` | `localhost:9090` | Servers to try in turn |
 | `cosky.token` | — | Sent on every call |
+| `cosky.token-file` | — | A file holding the token instead, such as a mounted secret. Read again once it changes, so a rotated token needs no restart. |
 | `cosky.namespace` | `default` | |
 | `cosky.tls.enabled` | `false` | Connect over TLS |
 | `cosky.tls.trusted-certificates` | — | A PEM file to trust, for a private CA. The JVM's trust store decides otherwise. |

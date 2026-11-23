@@ -89,6 +89,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | `cosky.enabled` | `true` | 控制以下全部功能 |
 | `cosky.endpoints` | `localhost:9090` | 依次尝试的 server |
 | `cosky.token` | — | 每次调用都发送 |
+| `cosky.token-file` | — | 改从文件读 token，比如挂载的 Secret。文件变化后重新读取，轮换 token 不用重启。 |
 | `cosky.namespace` | `default` | |
 | `cosky.tls.enabled` | `false` | 通过 TLS 连接 |
 | `cosky.tls.trusted-certificates` | — | 要信任的 PEM 文件，用于私有 CA。否则由 JVM 的信任库决定。 |

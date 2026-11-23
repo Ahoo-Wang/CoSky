@@ -21,7 +21,7 @@ val client = CoSkyClient(
 val prod = client.namespace("prod")
 ```
 
-`COSKY_TOKEN` is the application's own token: [Security](./security.md#a-token-for-an-application) shows how to make one. Every setting but the endpoints goes in the block, and `CoSkyClientOptions.Builder` lists them with their defaults.
+`COSKY_TOKEN` is the application's own token: [Security](./security.md#a-token-for-an-application) shows how to make one. `tokenFile` reads it from a file instead, again once the file changes, so that a token rotated on disk needs no restart. Every setting but the endpoints goes in the block, and `CoSkyClientOptions.Builder` lists them with their defaults.
 
 ## Reading Configs
 

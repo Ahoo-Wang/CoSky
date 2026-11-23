@@ -31,6 +31,9 @@ class CoSkyProperties {
     var enabled: Boolean = true
     var endpoints: List<String> = listOf("localhost:9090")
     var token: String? = null
+
+    /** A file holding the token, read again once it changes: a rotated token needs no restart. */
+    var tokenFile: Path? = null
     var tls: Tls = Tls()
     var namespace: String = "default"
     var snapshot: Snapshot = Snapshot()
@@ -73,6 +76,7 @@ class CoSkyProperties {
 
     fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(endpoints) {
         token = this@CoSkyProperties.token
+        tokenFile = this@CoSkyProperties.tokenFile
         clientName = applicationName
         snapshotDir = snapshot.dir.takeIf { snapshot.enabled }
         snapshotIncludeConfig = snapshot.includeConfig

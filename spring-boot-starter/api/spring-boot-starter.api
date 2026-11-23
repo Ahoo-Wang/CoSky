@@ -77,6 +77,7 @@ public final class me/ahoo/cosky/spring/CoSkyProperties {
 	public final fun getSnapshot ()Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;
 	public final fun getTls ()Lme/ahoo/cosky/spring/CoSkyProperties$Tls;
 	public final fun getToken ()Ljava/lang/String;
+	public final fun getTokenFile ()Ljava/nio/file/Path;
 	public final fun setConfig (Lme/ahoo/cosky/spring/CoSkyProperties$Config;)V
 	public final fun setDiscovery (Lme/ahoo/cosky/spring/CoSkyProperties$Discovery;)V
 	public final fun setEnabled (Z)V
@@ -86,6 +87,7 @@ public final class me/ahoo/cosky/spring/CoSkyProperties {
 	public final fun setSnapshot (Lme/ahoo/cosky/spring/CoSkyProperties$Snapshot;)V
 	public final fun setTls (Lme/ahoo/cosky/spring/CoSkyProperties$Tls;)V
 	public final fun setToken (Ljava/lang/String;)V
+	public final fun setTokenFile (Ljava/nio/file/Path;)V
 	public final fun toOptions (Ljava/lang/String;)Lme/ahoo/cosky/client/CoSkyClientOptions;
 	public static synthetic fun toOptions$default (Lme/ahoo/cosky/spring/CoSkyProperties;Ljava/lang/String;ILjava/lang/Object;)Lme/ahoo/cosky/client/CoSkyClientOptions;
 	public fun toString ()Ljava/lang/String;
