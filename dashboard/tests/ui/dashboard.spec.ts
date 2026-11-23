@@ -1139,6 +1139,44 @@ test.describe('namespaces', () => {
         await expect(page.getByRole('row').filter({hasText: 'staging'})).toHaveCount(0);
     });
 
+    test('a namespace shows how to connect an application, and makes its shared token when asked', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/serviceaccounts/default', {
+            meta: {labels: {'cosky.namespace': 'default', 'cosky.generation': '1'}},
+            serviceAccount: {description: 'The applications of namespace default', tokens: []},
+        });
+        await login(page);
+        await page.getByRole('link', {name: 'Namespace'}).click();
+
+        await row(page, 'default').getByRole('button', {name: 'Connect'}).click();
+        const settings = page.getByLabel('application.yaml', {exact: true});
+        await expect(settings).toContainText('namespace: default');
+        await expect(settings).toContainText(':9090');
+        await expect(page.getByText('It holds 0 of at most 2 tokens')).toBeVisible();
+
+        await page.getByRole('button', {name: 'Create token'}).click();
+        await expect(page.getByRole('textbox', {name: 'New token'})).toHaveValue(/^cosky_.*_plaintextsecret$/);
+        await expect(page.getByLabel('Kubernetes secret', {exact: true}))
+            .toContainText('kubectl create secret generic cosky-default --from-literal=token=cosky_');
+        await page.getByRole('button', {name: 'Done'}).click();
+
+        // Full: nothing more to make until one is revoked.
+        api.put('/v1/serviceaccounts/default', {
+            meta: {labels: {'cosky.namespace': 'default', 'cosky.generation': '1'}},
+            serviceAccount: {tokens: [{id: 'a', sha256: 'hash'}, {id: 'b', sha256: 'hash'}]},
+        });
+        await row(page, 'default').getByRole('button', {name: 'Connect'}).click();
+        await expect(page.getByRole('button', {name: 'Create token'})).toBeDisabled();
+        await expect(page.getByText('Revoke one under Security first.')).toBeVisible();
+        await page.getByRole('button', {name: 'Done'}).click();
+
+        // An account of that name someone made, without the label, is not the namespace's.
+        api.put('/v1/serviceaccounts/prod', {meta: {}, serviceAccount: {description: 'Someone\'s own', tokens: []}});
+        await row(page, 'prod').getByRole('button', {name: 'Connect'}).click();
+        await expect(page.getByText('Namespace prod has no account of its own.')).toBeVisible();
+        await expect(page.getByRole('button', {name: 'Create token'})).toHaveCount(0);
+    });
+
     test('the list follows namespaces added elsewhere', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
