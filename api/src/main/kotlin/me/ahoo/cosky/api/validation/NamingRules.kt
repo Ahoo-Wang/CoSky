@@ -35,7 +35,7 @@ object NamingRules {
     /**
      * Roles every server has (design §6.3). A Role cannot take these names, since it would be ignored in their favour.
      */
-    val BUILT_IN_ROLES: Set<String> = setOf("admin", "viewer", "client")
+    val BUILT_IN_ROLES: Set<String> = setOf("admin", "viewer", "client", "service")
     const val MAX_GLOBAL_NAME_LENGTH = 63
 
     /** The longest name rule plus the trailing `*`. */

@@ -66,30 +66,44 @@ curl -X PUT localhost:8080/v1/rolebindings/devs-view \
 
 ## 谁能做什么
 
-**Role** 持有规则，**RoleBinding** 在某些 namespace 中把角色授予主体。有三个内置角色，Role 不能使用它们的名称：
+**Role** 持有规则，**RoleBinding** 在某些 namespace 中把角色授予主体。有四个内置角色，Role 不能使用它们的名称：
 
 | 角色 | 允许 |
 |---|---|
 | `admin` | 一切 |
 | `viewer` | 读取和 watch 一切 |
 | `client` | 读取和 watch Config，读取、watch 和写入 Instance |
+| `service` | 同 `client`，但只能写服务名与主体同名的 Instance |
 
 ### 给应用的 token
 
-应用需要一个自己的 ServiceAccount，在它的 namespace 中绑定 `client`，再用这个账号的一个 token。`COSKY_TOKEN` 中是管理员的 token 时：
+每个 namespace 都自带一个同名的 ServiceAccount，在这个 namespace 中绑定了 `client`。同一个 namespace 的应用共用它的 token 就能接入，不需要别的准备。token 只需创建一次：在 Dashboard 的 **Security** 下，对与 namespace 同名的账号点 **Create token**；或者在 `COSKY_TOKEN` 中放管理员的 token，然后：
+
+```bash
+curl -X POST localhost:8080/v1/serviceaccounts/prod/tokens \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
+
+返回的就是 token，只显示一次。把它作为 `cosky.token`（`COSKY_TOKEN`）交给应用。没有 token，或者 token 的角色不允许时，应用会在启动时停下并说明原因。
+
+- **只对这个 namespace 的这一代有效。** namespace 删除后再创建就是新的一代，账号也是新的，没有 token：旧 token 什么也访问不了。
+- **你自己建的不会被改动。** 已有同名的 ServiceAccount 或 RoleBinding 是你自己建的时，server 不动它们，这个 namespace 就没有自带的账号。
+- **关闭：** `cosky.auth.namespace-accounts: false`。已经建好的账号会保留，直到你删除它们。
+
+要区分各个应用、单独吊销某一个，或者在审计日志里看出是谁做的，就给应用建一个与服务同名的 ServiceAccount，绑定 `service`：它只能注册这个服务，读取的范围和 `client` 一样。
 
 ```bash
 curl -X PUT localhost:8080/v1/serviceaccounts/order \
   -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
   -d '{"serviceAccount":{"description":"The order service"}}'
-curl -X PUT localhost:8080/v1/rolebindings/order-client \
+curl -X PUT localhost:8080/v1/rolebindings/order-service \
   -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"roleBinding":{"role":"client","subjects":[{"type":"TYPE_SERVICE_ACCOUNT","name":"order"}],"namespaces":["prod"]}}'
+  -d '{"roleBinding":{"role":"service","subjects":[{"type":"TYPE_SERVICE_ACCOUNT","name":"order"}],"namespaces":["prod"]}}'
 curl -X POST localhost:8080/v1/serviceaccounts/order/tokens \
   -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{}'
 ```
 
-最后一条命令返回应用的 token，只显示一次。把它作为 `cosky.token`（`COSKY_TOKEN`）交给应用。在 Dashboard 的 **Security** 下也能完成：建 service account、建 role binding，再 **Create token**。没有 token，或者 token 的角色不允许时，应用会在启动时停下并说明原因。
+范围还要更小，比如只读自己的 Config，就自定义角色。
 
 自定义角色如下：
 

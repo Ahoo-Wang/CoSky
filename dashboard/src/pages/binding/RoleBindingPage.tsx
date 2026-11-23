@@ -28,7 +28,7 @@ import {runAction} from '@/lib/actions';
 import {enumLabel} from '@/lib/utils';
 
 /** Every server has these, and they are not among the Roles it lists. */
-const BUILT_IN_ROLES = ['admin', 'viewer', 'client'];
+const BUILT_IN_ROLES = ['admin', 'viewer', 'client', 'service'];
 
 export function RoleBindingPage() {
     const {openDrawer} = useDrawer();

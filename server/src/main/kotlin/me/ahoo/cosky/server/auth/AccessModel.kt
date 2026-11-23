@@ -33,15 +33,28 @@ internal class AccessModel(objects: Collection<Resource>) {
     private val roles: Map<String, List<Rule>> = objects.filter { it.hasRole() }
         .associate { it.meta.name to it.role.rulesList } + BUILT_IN_ROLES
 
-    private val bindings = objects.filter { it.hasRoleBinding() }.map { it.roleBinding }
+    /** The `create_revision` of each Namespace object: which generation a namespace's own account is for. */
+    private val generations: Map<String, Long> = objects.filter { it.hasNamespace() }
+        .associate { it.meta.name to it.meta.createRevision }
+
+    /**
+     * A namespace's own binding counts only for the generation of the namespace it was made for (design D45): one
+     * left behind by a namespace deleted and created again grants nothing, however late it is cleaned up.
+     */
+    private val bindings = objects.filter { it.hasRoleBinding() && isCurrent(it) }.map { it.roleBinding }
 
     private val rulesByPrincipal = ConcurrentHashMap<Principal, List<EffectiveRule>>()
 
     /**
-     * Whether anyone has been granted anything; if not, the first start still has to bootstrap.
+     * Whether anyone has been granted anything, the bindings the server makes for namespaces aside; if not, the first
+     * start still has to bootstrap.
      */
-    val hasBindings: Boolean
-        get() = bindings.isNotEmpty()
+    val hasBindings: Boolean = objects.any { it.hasRoleBinding() && !NamespaceAccounts.isManaged(it) }
+
+    private fun isCurrent(binding: Resource): Boolean {
+        val generation = NamespaceAccounts.generationOf(binding) ?: return !NamespaceAccounts.isManaged(binding)
+        return generations[NamespaceAccounts.namespaceOf(binding)] == generation
+    }
 
     /**
      * @return the account and the token, by the id in the token's plaintext.
@@ -67,8 +80,21 @@ internal class AccessModel(objects: Collection<Resource>) {
     ) {
         bindings.filter { binding -> binding.subjectsList.any { matches(it, principal) } }
             .flatMap { binding ->
-                roles[binding.role].orEmpty().map { EffectiveRule(it, binding.namespacesList.toSet()) }
+                rulesOf(binding.role, principal).map { EffectiveRule(it, binding.namespacesList.toSet()) }
             }
+    }
+
+    /**
+     * `service` is the one role whose rules depend on who holds it: Instances only of the service its own name names.
+     */
+    private fun rulesOf(role: String, principal: Principal): List<Rule> = when (role) {
+        SERVICE_ROLE -> listOf(
+            rule(listOf(Kind.KIND_CONFIG), READ),
+            rule(listOf(Kind.KIND_INSTANCE), READ),
+            rule(listOf(Kind.KIND_INSTANCE), WRITE).toBuilder().addNames(principal.name).build(),
+        )
+
+        else -> roles[role].orEmpty()
     }
 
     private fun matches(subject: Subject, principal: Principal): Boolean = when (subject.type) {
@@ -116,17 +142,19 @@ internal class AccessModel(objects: Collection<Resource>) {
 
         /**
          * They hold in every namespace, and a RoleBinding narrows that (design §6.3). A Role of the same name does not
-         * replace them.
+         * replace them. `service` is built in too, but its rules are those of whoever holds it, see [rulesOf].
          */
         private val BUILT_IN_ROLES: Map<String, List<Rule>> = mapOf(
             "admin" to listOf(rule(ALL_KINDS, READ + WRITE)),
             "viewer" to listOf(rule(ALL_KINDS, READ)),
-            "client" to listOf(
+            CLIENT_ROLE to listOf(
                 rule(listOf(Kind.KIND_CONFIG), READ),
                 rule(listOf(Kind.KIND_INSTANCE), READ + WRITE),
             ),
         )
 
         const val ADMIN_ROLE = "admin"
+        const val CLIENT_ROLE = "client"
+        const val SERVICE_ROLE = "service"
     }
 }

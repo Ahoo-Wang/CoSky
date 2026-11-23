@@ -38,6 +38,7 @@ import me.ahoo.cosky.api.validation.requireValid
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.NamespaceAccounts
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.auth.Tokens
@@ -66,6 +67,7 @@ class ResourceService(
     private val audit: AuditLogger = AuditLogger(),
     private val leases: LeaseService = LeaseService(store, authorizer, limits),
     private val namespaces: NamespaceLifecycle = NamespaceLifecycle(store, caches, minRevisionTimeout),
+    private val accounts: NamespaceAccounts? = null,
 ) {
     private val validator = Validator(limits)
 
@@ -148,6 +150,7 @@ class ResourceService(
                 // Once the directory has it: a write it rejects must leave no namespace behind, which the reconciler,
                 // going by the directory, would never find. One that stops in between, the reconciler creates.
                 namespaces.create(key)
+                namespaces.latest(key)?.takeIf { !it.namespace.terminating }?.let { accounts?.tryEnsure(it) }
             }
             PutResponse.newBuilder().setRevision(applied.revision).setChanged(applied.changed > 0).build()
         }
@@ -168,7 +171,9 @@ class ResourceService(
 
                 Kind.KIND_NAMESPACE -> {
                     requireAllowed(permission, key.name)
-                    return@audited namespaces.delete(key, request.expectedRevision, caller.principal.id)
+                    val deleted = namespaces.delete(key, request.expectedRevision, caller.principal.id)
+                    accounts?.tryRemove(key.name)
+                    return@audited deleted
                 }
 
                 else -> {

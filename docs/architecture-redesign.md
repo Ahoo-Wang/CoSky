@@ -84,6 +84,7 @@ Redis (只有 server 可访问)
 | D42 | 管理员摘流的持续时间 | **持续到应用重新注册**;租约回收时实例已删除,重新注册用应用自己的值;要持久摘流,修改应用的注册权重 | 保留管理修改需要客户端跟踪服务端状态,或服务端另存覆盖值,都是新机制(#1093)(§6.2) |
 | D43 | Namespace 删除的代际 | **标记时在对象上记下 namespace 当前的 epoch(只读字段 `terminating_epoch`),终止与清理都在数据 slot 内原子校验它**;epoch 已不同返回 `SUPERSEDED` 并撤销标记;清理最后才删 epoch,中断后可按同一 epoch 继续;reconciler 删除对象按标记后的 revision CAS | 终止与清理只认名字时,迟到的删除或恢复会作用到重建后的新一代:删掉新对象,或清空新一代的历史(#1155)。复用 epoch 不增加新的存储概念;代价是删除恰好遇上反熵替换 epoch 时以冲突失败,重试即可(§7.2) |
 | D44 | REST 错误体 | **RFC 9457 problem details**,`code`、`reason` 与 ErrorDetail 的成员作为扩展成员;直接替换原先的 `{status, message, detail}`,不并存(维护者决定,2026-11-14) | 标准格式便于通用工具和客户端处理;原格式的 `status`(gRPC code 名)和 `detail`(对象)与 RFC 的类型冲突,无法兼容叠加;RC 之前不作兼容性承诺 |
+| D45 | 接入凭据 | **每个 namespace 自带一个默认 ServiceAccount**:与 namespace 同名,绑定内置 `client` 角色、只限这个 namespace,由 server 随 namespace 创建和删除;默认开启,`cosky.auth.namespace-accounts=false` 关闭。另加内置角色 `service`:只能写与自己同名的服务的 Instance(维护者决定,2026-11-22) | 每个服务一个账号、一个绑定、一个 token,接入成本太高;而 `client` 本来就允许写任意服务的 Instance,分账号换来的只有审计和单独吊销。一个环境一个 token 不依赖任何运行平台。默认账号只对创建它的那一代 namespace 有效,删除重建后旧 token 进不了新的一代;要隔离时给服务建同名账号、绑定 `service`,不必写自定义 Role(§6.3、§7.8) |
 
 ---
 
@@ -770,8 +771,14 @@ client                         server                         Redis
   `sub` → `USER`、`groups` claim → `GROUP`。未配置 OIDC 时,Dashboard 使用 ServiceAccount token 登录。
 - **Bootstrap**:首次启动若 `_system` 中无任何 RoleBinding,读取环境变量 `COSKY_BOOTSTRAP_TOKEN`
   创建 `admin` ServiceAccount 并绑定内置 `admin` 角色(`namespaces = ["*"]`)。
-- **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(Config GET/WATCH,Instance 全部)。Role 不能使用这些名称,否则写入成功却被内置角色覆盖。
-  内置角色的规则对所有 namespace 生效,由 RoleBinding 的 `namespaces` 限定范围;按服务隔离时用自定义 Role(§7.8)。
+- **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(Config GET/WATCH,Instance 全部)、`service`(同 `client`,但只能写 `spec.service` 与主体同名的 Instance)。Role 不能使用这些名称,否则写入成功却被内置角色覆盖。
+  内置角色的规则对所有 namespace 生效,由 RoleBinding 的 `namespaces` 限定范围;按服务隔离时给服务建同名 ServiceAccount 并绑定 `service`,更细的范围用自定义 Role(§7.8)。
+- **Namespace 默认账号(D45)**:`cosky.auth.namespace-accounts`(默认 `true`)开启时,每个 namespace 都有一个同名 ServiceAccount 和同名 RoleBinding(内置 `client`,`namespaces` 只含这个 namespace),同一个环境的应用共用它的 token 即可接入。
+  - 两者带标签 `cosky.namespace`(namespace 名)和 `cosky.generation`(Namespace 对象的 `create_revision`)。带这两个标签的 RoleBinding 只在同名 Namespace 对象存在、且其 `create_revision` 等于 `generation` 时生效:删除后重建的 namespace 是新的一代,旧 token 不能访问它,也不依赖清理及时。
+  - 创建 Namespace 对象后立即写入两者(`MUST_NOT_EXIST`);reconciler 补建缺失的、替换代际不符的,并删除 Namespace 对象已不存在的,所以升级前已有的 namespace 也会有。删除 namespace 时一并删除。
+  - 已有同名但没有这两个标签的 ServiceAccount 或 RoleBinding 时,server 不动它们,记 WARN,这个 namespace 没有默认账号。`_system` 没有默认账号。
+  - token 与其他 ServiceAccount 一样由 token 端点创建、轮换和吊销(§7.8)。关闭开关后不再创建和清理,已有的照常生效,需要时手工删除。
+  - Bootstrap 判断"是否已有 RoleBinding"时不计带这两个标签的绑定,否则 `default` 的默认绑定会让管理员永远建不出来。
 - **审计**:每个 revision 的 `updated_by` + Config 历史即变更追溯;每次写入和认证事件另输出一行结构化审计日志(§7.8),
   由运维的日志系统收集,server 不存储审计数据。
 - **拓扑视图(D30)**:server 记录"consumer × Watch 的服务",即 consumer → producer 边,无需客户端额外写入。只记录按 service 过滤的 Instance watch:watch 整个 namespace 不代表依赖全部服务。
@@ -1018,7 +1025,8 @@ cosky:
 - **租约**:Lease 不是资源。Grant 需要该 namespace 的 `INSTANCE` `PUT` 权限,调用者记为所有者;KeepAlive、Revoke,以及把 Instance 挂到租约上都只允许所有者,否则 `PERMISSION_DENIED`;Instance 留在原租约上不算挂载,有写权限即可修改,这样运维才能摘流应用注册的实例。
   `ObjectMeta.lease` 对读者可见,所以安全性不依赖 id 保密。管理员清理实例用 Delete。server 在一条 KeepAlive 流内缓存校验结果,只有首次访问存储。
 
-  按服务隔离的自定义 Role 示例(RoleBinding 再用 `namespaces = ["prod"]` 限定范围):
+  内置 `service` 角色按主体展开:Instance 的 PUT / DELETE 规则的 `names` 是主体自己的名字,所以 ServiceAccount `order` 绑定 `service` 后只能注册服务 `order`,Config 和其他服务的 Instance 仍可读。
+  更细的范围(只读自己的 Config 等)用自定义 Role,示例(RoleBinding 再用 `namespaces = ["prod"]` 限定范围):
 
   ```yaml
   rules:
