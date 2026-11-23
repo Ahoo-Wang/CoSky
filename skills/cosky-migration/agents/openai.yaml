@@ -1,0 +1,4 @@
+interface:
+  display_name: "CoSky Migration"
+  short_description: "Move from CoSky 5.x/6.x to 8.0"
+  default_prompt: "Use $cosky-migration to move this service and its Configs from CoSky 6.x to CoSky 8.0, with a cutover plan."

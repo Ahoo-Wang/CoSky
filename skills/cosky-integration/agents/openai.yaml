@@ -1,0 +1,4 @@
+interface:
+  display_name: "CoSky Integration"
+  short_description: "Connect a Spring Boot application to CoSky 8"
+  default_prompt: "Use $cosky-integration to connect this Spring Boot service to CoSky 8: Configs, registration, discovery and its token."

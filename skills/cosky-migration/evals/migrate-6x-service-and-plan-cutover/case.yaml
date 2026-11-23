@@ -1,0 +1,13 @@
+schema_version: "1.1"
+name: migrate-6x-service-and-plan-cutover
+expected_outcome: |
+  order-service moves to Spring Boot 4.2.0 and Spring Cloud 2026.0 with cosky-spring-boot-starter from the
+  8.0.0-beta.9 BOM; the 6.x starters, spring-cloud-starter-bootstrap, bootstrap.yaml and the Redis settings
+  only CoSky used are gone. application.yaml imports cosky:order-service.yaml, sets cosky.namespace dev
+  (not {dev}), cosky.endpoints on the gRPC port, the token from a file or Secret, and keeps weight 2 and
+  zone az1 under cosky.registry. MIGRATION.md runs cosky-migrate with --cluster, the password in
+  COSKY_SOURCE_URI and an admin token in COSKY_TOKEN, first with --dry-run, then to import; it switches
+  order-service, payment-service and inventory-service together, freezes Config edits on 6.x first, uses
+  one token for the dev namespace's account, and rolls back by redeploying the 6.x builds.
+context:
+  scaffold_script: place-files.sh

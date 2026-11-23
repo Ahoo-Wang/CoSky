@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: order-service
+  cloud:
+    cosky:
+      namespace: "{dev}"
+      config:
+        config-id: order-service.yaml
+      discovery:
+        registry:
+          weight: 2
+          metadata:
+            zone: az1

@@ -1,0 +1,9 @@
+schema_version: "1.1"
+name: diagnose-permission-denied-wrong-namespace
+expected_outcome: |
+  DIAGNOSIS.md explains that the token in cosky-dev belongs to the dev namespace's own account
+  (ServiceAccount dev), bound to client in dev only, so it may not read anything in staging. The fix is to give
+  staging services the staging namespace's own account token (ServiceAccount staging), in a Secret of their own
+  such as cosky-staging, created once by an admin through the Dashboard's Connect or
+  POST /v1/serviceaccounts/staging/tokens, and mounted for cosky.token-file. It does not suggest widening
+  dev's binding to staging, binding admin, or turning auth off.
