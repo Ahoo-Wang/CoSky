@@ -34,6 +34,10 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
     private val lock = Any()
     private var index = 0
     private var raw: ManagedChannel = options.channelFactory(options.endpoints[0])
+
+    /** Before the first channel, which [decorate] gives it. */
+    private val tokens = TokenSource(options)
+
     private var decorated: Channel = decorate(raw)
     private var closed = false
 
@@ -77,12 +81,14 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
 
     private fun decorate(channel: ManagedChannel): Channel {
         val headers = Metadata()
-        options.token?.let { headers.put(AUTHORIZATION, "Bearer $it") }
         options.clientName?.let { headers.put(CLIENT_NAME, it) }
-        return ClientInterceptors.intercept(channel, ExtraHeaders(headers))
+        return ClientInterceptors.intercept(channel, ExtraHeaders(headers, tokens))
     }
 
-    private class ExtraHeaders(private val extra: Metadata) : ClientInterceptor {
+    /**
+     * The token is taken as each call starts, so that a rotated one goes out from then on.
+     */
+    private class ExtraHeaders(private val extra: Metadata, private val tokens: TokenSource) : ClientInterceptor {
         override fun <Req, Resp> interceptCall(
             method: MethodDescriptor<Req, Resp>,
             callOptions: CallOptions,
@@ -91,6 +97,7 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
             object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(next.newCall(method, callOptions)) {
                 override fun start(responseListener: Listener<Resp>, headers: Metadata) {
                     headers.merge(extra)
+                    tokens.current()?.let { headers.put(AUTHORIZATION, "Bearer $it") }
                     super.start(responseListener, headers)
                 }
             }

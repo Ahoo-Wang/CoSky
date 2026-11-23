@@ -41,6 +41,7 @@ import kotlin.time.Duration.Companion.seconds
 class CoSkyClientOptions private constructor(builder: Builder) {
     val endpoints: List<String> = builder.endpoints.toList()
     val token: String? = builder.token
+    val tokenFile: Path? = builder.tokenFile
     val clientName: String? = builder.clientName
     val snapshotDir: Path? = builder.snapshotDir
     val snapshotIncludeConfig: Boolean = builder.snapshotIncludeConfig
@@ -60,6 +61,7 @@ class CoSkyClientOptions private constructor(builder: Builder) {
 
     init {
         require(endpoints.isNotEmpty()) { "At least one endpoint is required." }
+        require(token == null || tokenFile == null) { "Set token or tokenFile, not both." }
         // A lease lasts whole seconds within the protocol's range. Anything else would reach the server as 0, which
         // asks for its default, while renewals still followed this value.
         val ttlRange = Limits.DEFAULT.minLeaseTtlSeconds..Limits.DEFAULT.maxLeaseTtlSeconds
@@ -94,6 +96,12 @@ class CoSkyClientOptions private constructor(builder: Builder) {
     class Builder(internal val endpoints: List<String>) {
         /** Sent as `Authorization: Bearer` when set. */
         var token: String? = null
+
+        /**
+         * A file holding the token, instead of [token]. It is read again once it changes, so that a token rotated on
+         * disk, such as a mounted secret, goes out from the next call on, with no restart.
+         */
+        var tokenFile: Path? = null
 
         /** Names this application in the server's topology view (design D30); only a label. */
         var clientName: String? = null

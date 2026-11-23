@@ -21,7 +21,7 @@ val client = CoSkyClient(
 val prod = client.namespace("prod")
 ```
 
-`COSKY_TOKEN` 是应用自己的 token：[安全](./security.md#给应用的-token)中说明了怎么创建。除端点以外的设置都写在代码块里，`CoSkyClientOptions.Builder` 列出了全部设置和默认值。
+`COSKY_TOKEN` 是应用自己的 token：[安全](./security.md#给应用的-token)中说明了怎么创建。`tokenFile` 改从文件读取，文件变化后重新读，在磁盘上轮换 token 不用重启。除端点以外的设置都写在代码块里，`CoSkyClientOptions.Builder` 列出了全部设置和默认值。
 
 ## 读取 Config
 

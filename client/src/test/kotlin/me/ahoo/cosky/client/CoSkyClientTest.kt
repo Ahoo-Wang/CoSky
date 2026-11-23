@@ -62,6 +62,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
@@ -96,6 +97,7 @@ class CoSkyClientTest {
         snapshotDir: Path? = null,
         includeConfig: Boolean = true,
         token: String? = null,
+        tokenFile: Path? = null,
         clientName: String? = null,
         leaseTtl: Duration = 30.seconds,
         resync: Duration = 30.minutes,
@@ -106,6 +108,7 @@ class CoSkyClientTest {
     ): CoSkyClient = CoSkyClient(
         CoSkyClientOptions(endpoints) {
             this.token = token
+            this.tokenFile = tokenFile
             this.clientName = clientName
             this.snapshotDir = snapshotDir
             snapshotIncludeConfig = includeConfig
@@ -310,6 +313,32 @@ class CoSkyClientTest {
             val client = client(endpoints = listOf("cold", "healthy")) { if (it == "cold") cold.name else server.name }
             client.namespace(NAMESPACE).configs.load(CONFIG)?.config?.content.assert().isEqualTo("healthy")
         }
+    }
+
+    @Test
+    fun `a token in a file is sent, and one rotated on disk from the next call on`() = scenario {
+        val file = snapshots.resolve("token")
+        Files.writeString(file, "cosky_first_secret\n")
+        val instances = client(tokenFile = file).namespace(NAMESPACE).instances
+        instances.register("order", ENDPOINT, instanceName = "first")
+        server.authorizations.last().assert().isEqualTo("Bearer cosky_first_secret")
+
+        Files.writeString(file, "cosky_second_secret")
+        Files.setLastModifiedTime(file, FileTime.fromMillis(Files.getLastModifiedTime(file).toMillis() + 2_000))
+        instances.register("order", ENDPOINT, instanceName = "second")
+
+        server.authorizations.last().assert().isEqualTo("Bearer cosky_second_secret")
+    }
+
+    @Test
+    fun `a token is set or read from a file, not both`() {
+        val refused = runCatching {
+            CoSkyClientOptions(listOf("a:1")) {
+                token = "cosky_id_secret"
+                tokenFile = Path.of("token")
+            }
+        }
+        refused.exceptionOrNull().assert().isInstanceOf(IllegalArgumentException::class.java)
     }
 
     @Test

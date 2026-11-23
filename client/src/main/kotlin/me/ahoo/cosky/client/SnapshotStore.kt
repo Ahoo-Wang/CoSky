@@ -130,7 +130,7 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
          * id goes in, never its secret.
          */
         fun serverKey(options: CoSkyClientOptions): String {
-            val tokenId = options.token?.split("_")?.getOrNull(1).orEmpty()
+            val tokenId = TokenSource(options).current()?.split("_")?.getOrNull(1).orEmpty()
             return sha256(*(options.endpoints.sorted() + tokenId).toTypedArray()).take(KEY_LENGTH)
         }
 

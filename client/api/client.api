@@ -43,6 +43,7 @@ public final class me/ahoo/cosky/client/CoSkyClientOptions {
 	public final fun getTls ()Z
 	public final fun getTlsTrustedCertificates ()Ljava/nio/file/Path;
 	public final fun getToken ()Ljava/lang/String;
+	public final fun getTokenFile ()Ljava/nio/file/Path;
 	public fun toString ()Ljava/lang/String;
 }
 
@@ -66,6 +67,7 @@ public final class me/ahoo/cosky/client/CoSkyClientOptions$Builder {
 	public final fun getTls ()Z
 	public final fun getTlsTrustedCertificates ()Ljava/nio/file/Path;
 	public final fun getToken ()Ljava/lang/String;
+	public final fun getTokenFile ()Ljava/nio/file/Path;
 	public final fun setCallTimeout-LRDsOJo (J)V
 	public final fun setChannelFactory (Lkotlin/jvm/functions/Function1;)V
 	public final fun setClientName (Ljava/lang/String;)V
@@ -83,6 +85,7 @@ public final class me/ahoo/cosky/client/CoSkyClientOptions$Builder {
 	public final fun setTls (Z)V
 	public final fun setTlsTrustedCertificates (Ljava/nio/file/Path;)V
 	public final fun setToken (Ljava/lang/String;)V
+	public final fun setTokenFile (Ljava/nio/file/Path;)V
 }
 
 public final class me/ahoo/cosky/client/CoSkyClientOptionsKt {
