@@ -24,6 +24,7 @@ cosky:
 ```
 
 - The service is `spring.application.name`, which must be a DNS-style name: lowercase letters, digits, `-` and `.`, up to 63 characters. `OrderService` is refused.
+- A listener of Spring Cloud's `InstancePreRegisteredEvent` may add to the registration's metadata, as with Spring Cloud's other registries; what it adds is registered, and is registered again after a lost lease, while `cosky.registry.metadata` stays as configured.
 - A separate management port is not registered.
 - `spring.cloud.service-registry.auto-registration.enabled: false` turns registering off.
 

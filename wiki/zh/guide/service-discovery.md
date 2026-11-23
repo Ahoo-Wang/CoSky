@@ -24,6 +24,7 @@ cosky:
 ```
 
 - 服务名就是 `spring.application.name`，必须是 DNS 风格的名称：小写字母、数字、`-` 和 `.`，最长 63 个字符。`OrderService` 会被拒绝。
+- Spring Cloud 的 `InstancePreRegisteredEvent` 的监听器可以向注册的 metadata 中添加条目，与 Spring Cloud 的其他注册中心一样；添加的条目会被注册，丢失租约后重新注册时也在，而 `cosky.registry.metadata` 保持配置的值不变。
 - 单独的管理端口不会注册。
 - `spring.cloud.service-registry.auto-registration.enabled: false` 可以关闭注册。
 
