@@ -116,18 +116,18 @@ class TokenService(
      */
     private suspend fun update(account: String, caller: Caller, change: (List<TokenRef>) -> List<TokenRef>): Long {
         val key = accountKey(account)
-        var minRevision = 0L
+        var minRevision: Long? = null
         repeat(ATTEMPTS) {
             val current = currentOf(key, minRevision)
             val updated = withTokens(current, change(current.serviceAccount.tokensList))
             val mutation = Mutation.Put(updated, current.meta.revision)
             when (val result = store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(mutation), caller.principal.id)) {
                 is ApplyResult.Applied -> return result.revision
-                is ApplyResult.Conflict -> minRevision = result.currentRevision ?: 0
+                is ApplyResult.Conflict -> minRevision = result.currentRevision
                 else -> throw failureOf(account, result)
             }
         }
-        throw CoSkyException.revisionConflict(key, 0, minRevision)
+        throw CoSkyException.revisionConflict(key, 0, minRevision ?: 0)
     }
 
     private fun failureOf(account: String, result: ApplyResult): Exception = when (result) {
@@ -135,9 +135,15 @@ class TokenService(
         else -> IllegalStateException("Updating the tokens of $account failed: $result.")
     }
 
-    private suspend fun currentOf(key: ResourceKey, minRevision: Long): Resource =
-        caches.viewAt(NamingRules.SYSTEM_NAMESPACE, minRevision, timeout).objects[key]
-            ?: throw CoSkyException.resourceNotFound(key)
+    /**
+     * The account as of [minRevision], or, with none to go by, as of the store's latest write: an account written a
+     * moment ago, perhaps through another replica, is there to take a token.
+     */
+    private suspend fun currentOf(key: ResourceKey, minRevision: Long?): Resource {
+        val view = minRevision?.let { caches.viewAt(NamingRules.SYSTEM_NAMESPACE, it, timeout) }
+            ?: caches.latestViewAt(NamingRules.SYSTEM_NAMESPACE, timeout)
+        return view.objects[key] ?: throw CoSkyException.resourceNotFound(key)
+    }
 
     private fun withTokens(account: Resource, tokens: List<TokenRef>): Resource = account.toBuilder()
         .apply { serviceAccountBuilder.clearTokens().addAllTokens(tokens) }
