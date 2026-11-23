@@ -30,11 +30,14 @@ import org.slf4j.LoggerFactory
 
 /**
  * The first start: with nothing bound yet, the bootstrap token becomes an `admin` ServiceAccount (design §6.3). Later
- * starts find a RoleBinding and ignore the token, so removing it from the environment changes nothing.
+ * starts find a RoleBinding and ignore the token, so removing it from the environment changes nothing. The bindings the
+ * server gives namespaces do not count (design D45): `default` would have one before anyone could sign in.
  */
 class AuthBootstrap(private val store: Store) {
     suspend fun run(bootstrapToken: String?) {
-        if (store.readAll(NamingRules.SYSTEM_NAMESPACE).firstOrNull { it.hasRoleBinding() } != null) {
+        val bound = store.readAll(NamingRules.SYSTEM_NAMESPACE)
+            .firstOrNull { it.hasRoleBinding() && !NamespaceAccounts.isManaged(it) }
+        if (bound != null) {
             return
         }
         if (bootstrapToken.isNullOrEmpty()) {

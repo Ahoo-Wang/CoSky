@@ -17,6 +17,7 @@ import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.validation.NamingRules
+import me.ahoo.cosky.server.auth.NamespaceAccounts
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Store
@@ -43,6 +44,7 @@ class NamespaceReconciler(
     private val clock: Clock = Clock.systemUTC(),
     private val markedGrace: Duration = Duration.ofMinutes(1),
     private val namespaces: NamespaceLifecycle = NamespaceLifecycle(store, caches),
+    private val accounts: NamespaceAccounts? = null,
 ) {
     suspend fun reconcile() {
         if (store.namespaceState(NamingRules.SYSTEM_NAMESPACE) == null) {
@@ -72,6 +74,7 @@ class NamespaceReconciler(
                     }
                 }
             }
+        accounts?.reconcile()
     }
 
     private fun isLeftBehind(namespace: Resource): Boolean {

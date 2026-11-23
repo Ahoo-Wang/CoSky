@@ -66,30 +66,44 @@ curl -X PUT localhost:8080/v1/rolebindings/devs-view \
 
 ## Who may do what
 
-A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces. Three roles are built in, and a Role cannot take their names:
+A **Role** holds rules, and a **RoleBinding** gives a role to subjects in some namespaces. Four roles are built in, and a Role cannot take their names:
 
 | Role | Allows |
 |---|---|
 | `admin` | Everything |
 | `viewer` | Reading and watching everything |
 | `client` | Reading and watching Configs, and reading, watching and writing Instances |
+| `service` | As `client`, but writing only the Instances of the service named like the subject |
 
 ### A token for an application
 
-An application needs a ServiceAccount of its own, bound to `client` in its namespaces, and one of the account's tokens. With an admin's token in `COSKY_TOKEN`:
+Every namespace comes with a ServiceAccount of its own name, bound to `client` there. The applications of a namespace share its token and need nothing else. Create the token once, in the Dashboard under **Security** with **Create token** on the account named like the namespace, or with an admin's token in `COSKY_TOKEN`:
+
+```bash
+curl -X POST localhost:8080/v1/serviceaccounts/prod/tokens \
+  -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{}'
+```
+
+It answers the token, once. Give it to the applications as `cosky.token` (`COSKY_TOKEN`). An application without a token, or with one its roles do not allow, stops at start and says which.
+
+- **For this namespace only, and this one only.** Deleted and created again, a namespace is new, and so is its account, without tokens: the old token reaches nothing.
+- **Yours stays yours.** A ServiceAccount or RoleBinding of that name you made yourself is left alone, and that namespace then has no account of its own.
+- **Off:** `cosky.auth.namespace-accounts: false`. The accounts made already stay until you delete them.
+
+To tell applications apart, to revoke one alone or to see in the audit log who did what, give an application a ServiceAccount named like its service, bound to `service`: it registers that service and no other, and reads like `client`.
 
 ```bash
 curl -X PUT localhost:8080/v1/serviceaccounts/order \
   -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
   -d '{"serviceAccount":{"description":"The order service"}}'
-curl -X PUT localhost:8080/v1/rolebindings/order-client \
+curl -X PUT localhost:8080/v1/rolebindings/order-service \
   -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' \
-  -d '{"roleBinding":{"role":"client","subjects":[{"type":"TYPE_SERVICE_ACCOUNT","name":"order"}],"namespaces":["prod"]}}'
+  -d '{"roleBinding":{"role":"service","subjects":[{"type":"TYPE_SERVICE_ACCOUNT","name":"order"}],"namespaces":["prod"]}}'
 curl -X POST localhost:8080/v1/serviceaccounts/order/tokens \
   -H "Authorization: Bearer $COSKY_TOKEN" -H 'Content-Type: application/json' -d '{}'
 ```
 
-The last answers the application's token, once. Give it to the application as `cosky.token` (`COSKY_TOKEN`). The Dashboard does the same under **Security**: a service account, a role binding, then **Create token**. An application without a token, or with one its roles do not allow, stops at start and says which.
+For less still, such as reading its own Configs only, write a role of your own.
 
 Your own roles look like this:
 

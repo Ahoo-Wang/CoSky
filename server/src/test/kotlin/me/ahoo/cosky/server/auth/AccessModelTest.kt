@@ -18,6 +18,7 @@ import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.Rule
 import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.cosky.api.v1.Verb
+import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.roleBindingSpec
@@ -68,6 +69,71 @@ class AccessModelTest {
         NamingRules.BUILT_IN_ROLES.forEach { name ->
             AccessModel(listOf(binding(name, subject = subject()))).rulesOf(account).assert().isNotEmpty()
         }
+    }
+
+    @Test
+    fun `service writes the Instances of its own service alone, and reads the rest`() {
+        val model = AccessModel(listOf(binding("service")))
+
+        model.permission(account, Verb.VERB_PUT, Kind.KIND_INSTANCE, "prod").assert()
+            .isEqualTo(Permission.Names(setOf("order")))
+        model.permission(account, Verb.VERB_DELETE, Kind.KIND_INSTANCE, "prod").assert()
+            .isEqualTo(Permission.Names(setOf("order")))
+        model.permission(account, Verb.VERB_GET, Kind.KIND_INSTANCE, "prod").assert().isEqualTo(Permission.All)
+        model.config().assert().isEqualTo(Permission.All)
+        model.config(Verb.VERB_PUT).assert().isEqualTo(Permission.None)
+        model.config(namespace = "test").assert().isEqualTo(Permission.None)
+    }
+
+    @Test
+    fun `service names the service of whoever holds it`() {
+        val payment = Principal(Subject.Type.TYPE_SERVICE_ACCOUNT, "payment")
+        val model = AccessModel(listOf(binding("service", subject = subject(name = "payment"))))
+
+        model.permission(payment, Verb.VERB_PUT, Kind.KIND_INSTANCE, "prod").assert()
+            .isEqualTo(Permission.Names(setOf("payment")))
+        model.permission(account, Verb.VERB_PUT, Kind.KIND_INSTANCE, "prod").assert().isEqualTo(Permission.None)
+    }
+
+    private fun namespaceObject(name: String, createRevision: Long): Resource = resource {
+        meta = objectMeta {
+            this.name = name
+            this.createRevision = createRevision
+        }
+        namespace = namespaceSpec {}
+    }
+
+    private fun namespaceBinding(namespace: String, generation: Long): Resource = resource {
+        meta = objectMeta {
+            name = namespace
+            labels.put(NamespaceAccounts.NAMESPACE_LABEL, namespace)
+            labels.put(NamespaceAccounts.GENERATION_LABEL, generation.toString())
+        }
+        roleBinding = roleBindingSpec {
+            role = "client"
+            subjects += subject(name = namespace)
+            namespaces += namespace
+        }
+    }
+
+    @Test
+    fun `a namespace's own binding counts for the generation it was made for`() {
+        val dev = Principal(Subject.Type.TYPE_SERVICE_ACCOUNT, "dev")
+        fun AccessModel.read() = permission(dev, Verb.VERB_GET, Kind.KIND_CONFIG, "dev")
+
+        AccessModel(listOf(namespaceObject("dev", 5), namespaceBinding("dev", 5))).read().assert()
+            .isEqualTo(Permission.All)
+        // Deleted and created again: the token of the generation before reaches nothing.
+        AccessModel(listOf(namespaceObject("dev", 9), namespaceBinding("dev", 5))).read().assert()
+            .isEqualTo(Permission.None)
+        AccessModel(listOf(namespaceBinding("dev", 5))).read().assert().isEqualTo(Permission.None)
+    }
+
+    @Test
+    fun `the bindings the server gives namespaces leave the first start to bootstrap`() {
+        AccessModel(listOf(namespaceObject("default", 1), namespaceBinding("default", 1))).hasBindings.assert()
+            .isFalse()
+        AccessModel(listOf(binding("admin"))).hasBindings.assert().isTrue()
     }
 
     @Test

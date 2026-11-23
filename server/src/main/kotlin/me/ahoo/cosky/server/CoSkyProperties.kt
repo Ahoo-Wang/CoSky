@@ -36,13 +36,21 @@ data class CoSkyProperties(
      * @param enabled off only for development: everyone may then do everything.
      * @param bootstrapToken becomes the admin ServiceAccount on the first start (design §6.3).
      * @param oidc lets people sign in, when its issuer is set.
+     * @param namespaceAccounts gives every namespace a ServiceAccount of its own name, bound to `client` there, whose
+     * token its applications share (design D45).
      */
-    data class Auth(val enabled: Boolean = true, val bootstrapToken: String? = null, val oidc: Oidc = Oidc()) {
+    data class Auth(
+        val enabled: Boolean = true,
+        val bootstrapToken: String? = null,
+        val oidc: Oidc = Oidc(),
+        val namespaceAccounts: Boolean = true,
+    ) {
         /**
          * Leaves the token out, should these settings ever be logged or put in a message.
          */
         override fun toString(): String =
-            "Auth(enabled=$enabled, bootstrapToken=${bootstrapToken?.let { REDACTED }}, oidc=$oidc)"
+            "Auth(enabled=$enabled, bootstrapToken=${bootstrapToken?.let { REDACTED }}, oidc=$oidc, " +
+                "namespaceAccounts=$namespaceAccounts)"
     }
 
     /**

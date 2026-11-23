@@ -32,6 +32,7 @@ import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.Authorizer
+import me.ahoo.cosky.server.auth.NamespaceAccounts
 import me.ahoo.cosky.server.auth.OidcAuthenticator
 import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.lease.LeaseReaper
@@ -213,6 +214,18 @@ class CoSkyServerApplication : DisposableBean {
     fun namespaceLifecycle(store: Store, caches: WatchCache, properties: CoSkyProperties): NamespaceLifecycle =
         NamespaceLifecycle(store, caches, properties.read.minRevisionTimeout.toKotlinDuration())
 
+    /**
+     * Only where auth is on: without it, nobody needs an account.
+     */
+    @Bean
+    fun namespaceAccounts(store: Store, caches: WatchCache, properties: CoSkyProperties): NamespaceAccounts =
+        NamespaceAccounts(
+            store,
+            caches,
+            enabled = properties.auth.enabled && properties.auth.namespaceAccounts,
+            minRevisionTimeout = properties.read.minRevisionTimeout.toKotlinDuration(),
+        )
+
     @Bean
     fun resourceService(
         store: Store,
@@ -222,6 +235,7 @@ class CoSkyServerApplication : DisposableBean {
         audit: AuditLogger,
         leases: LeaseService,
         namespaces: NamespaceLifecycle,
+        accounts: NamespaceAccounts,
     ): ResourceService = ResourceService(
         store,
         caches,
@@ -230,6 +244,7 @@ class CoSkyServerApplication : DisposableBean {
         audit = audit,
         leases = leases,
         namespaces = namespaces,
+        accounts = accounts,
     )
 
     @Bean
@@ -242,6 +257,7 @@ class CoSkyServerApplication : DisposableBean {
         caches: WatchCache,
         bootstrap: StoreBootstrap,
         namespaces: NamespaceLifecycle,
+        accounts: NamespaceAccounts,
         properties: CoSkyProperties,
         metrics: CoSkyMetrics,
     ): LeaseReaper {
@@ -262,7 +278,13 @@ class CoSkyServerApplication : DisposableBean {
                 protectionMinLeases = lease.protectionMinLeases,
                 protectionMaxDuration = lease.protectionMaxDuration,
             ),
-            maintenance = NamespaceReconciler(store, caches, bootstrap, namespaces = namespaces)::reconcile,
+            maintenance = NamespaceReconciler(
+                store,
+                caches,
+                bootstrap,
+                namespaces = namespaces,
+                accounts = accounts,
+            )::reconcile,
             metrics = metrics,
         )
     }
