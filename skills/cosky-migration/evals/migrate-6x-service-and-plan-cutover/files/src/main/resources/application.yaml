@@ -1,0 +1,16 @@
+server:
+  port: 8080
+spring:
+  data:
+    redis:
+      # Only CoSky uses Redis in this service.
+      host: redis-dev-redis-cluster.dev.svc.cluster.local
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      cluster:
+        nodes: redis-dev-redis-cluster.dev.svc.cluster.local:6379
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 2000

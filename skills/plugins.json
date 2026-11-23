@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "plugins": [
+    {
+      "name": "ahoo-cosky-skills",
+      "description": "CoSky skills for connecting Spring Boot applications to a CoSky 8 server for configuration and service discovery, and for moving applications and their Configs from CoSky 5.x/6.x to 8.0.",
+      "skills": {
+        "include": [
+          "cosky-integration",
+          "cosky-migration"
+        ],
+        "exclude": [
+          "*-workspace"
+        ]
+      },
+      "keywords": [
+        "cosky",
+        "configuration",
+        "service-discovery",
+        "service-registry",
+        "spring-boot",
+        "spring-cloud",
+        "grpc",
+        "kubernetes",
+        "migration"
+      ],
+      "category": "development",
+      "interface": {
+        "displayName": "Ahoo CoSky Skills",
+        "capabilities": [
+          "Skills"
+        ],
+        "defaultPrompt": "Help me connect a Spring Boot service to CoSky 8, or move services and their Configs from CoSky 6.x to 8.0."
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      }
+    }
+  ]
+}
