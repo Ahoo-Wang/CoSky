@@ -78,7 +78,11 @@ class SourceClusterTest {
                     "redis-server --port $port --cluster-enabled yes --cluster-config-file n$port.conf " +
                         "--daemonize yes --save '' --appendonly no &&"
                 } + " sleep 1 && redis-cli --cluster create " + PORTS.joinToString(" ") { "127.0.0.1:$it" } +
-                    " --cluster-yes && echo CLUSTER_READY && tail -f /dev/null",
+                    " --cluster-yes && " +
+                    // The slots are assigned when the command returns, but a node may say CLUSTERDOWN a moment longer.
+                    PORTS.joinToString(" && ") {
+                        "until redis-cli -p $it cluster info | grep -q cluster_state:ok; do sleep 0.1; done"
+                    } + " && echo CLUSTER_READY && tail -f /dev/null",
             )
             .waitingFor(Wait.forLogMessage(".*CLUSTER_READY.*", 1))
             .also { it.start() }
