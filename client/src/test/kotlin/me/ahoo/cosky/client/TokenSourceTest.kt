@@ -63,6 +63,21 @@ class TokenSourceTest {
     }
 
     @Test
+    fun `a file that cannot be read leaves the last token`() {
+        val source = TokenSource(null, file)
+        write("cosky_first_secret", at = 1_000_000)
+        source.current().assert().isEqualTo("cosky_first_secret")
+
+        // Something that has a modification time but no content to read.
+        Files.delete(file)
+        Files.createDirectory(file)
+        Files.setLastModifiedTime(file, FileTime.fromMillis(2_000_000))
+
+        source.current().assert().isEqualTo("cosky_first_secret")
+        TokenSource(null, file).current().assert().isNull()
+    }
+
+    @Test
     fun `no file yet is no token yet`() {
         TokenSource(null, file).current().assert().isNull()
     }
