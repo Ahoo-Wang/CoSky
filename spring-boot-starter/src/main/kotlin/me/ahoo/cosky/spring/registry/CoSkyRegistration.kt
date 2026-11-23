@@ -36,13 +36,17 @@ import me.ahoo.cosky.client.Registration as ClientRegistration
  * This application as an instance of its service. The port is known only once the web server has started.
  *
  * The host is as the protocol has it, an IPv6 one without brackets; the URI has them.
+ *
+ * The metadata is a copy of what it is given, which a listener of `InstancePreRegisteredEvent` may add to before the
+ * registration is made, as with Spring Cloud's other registries, without changing the configured properties.
  */
 class CoSkyRegistration(
     private val service: String,
     private val host: String,
     private val secure: Boolean,
-    private val metadata: Map<String, String>,
+    metadata: Map<String, String>,
 ) : Registration {
+    private val metadata: MutableMap<String, String> = LinkedHashMap(metadata)
     private var currentPort = 0
 
     override fun getServiceId(): String = service
@@ -59,7 +63,7 @@ class CoSkyRegistration(
 
     override fun getUri(): URI = toUri()
 
-    override fun getMetadata(): Map<String, String> = metadata
+    override fun getMetadata(): MutableMap<String, String> = metadata
 
     override fun getScheme(): String = if (secure) "https" else "http"
 }
