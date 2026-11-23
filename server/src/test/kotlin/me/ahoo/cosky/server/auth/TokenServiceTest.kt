@@ -33,6 +33,7 @@ import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
@@ -142,24 +143,35 @@ class TokenServiceTest {
         (error as CoSkyException).reason.assert().isEqualTo(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
     }
 
-    /** A store where someone else writes the account just before each of the first [times] writes. */
-    private fun racing(times: Int): Store = object : Store by store {
-        private var left = times
+    /** A store where someone else writes, just before each of the token's writes, the next of [others]. */
+    private fun racing(others: List<Mutation>): Store = object : Store by store {
+        private val left = ArrayDeque(others)
 
         override suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult {
-            if (left > 0) {
-                left--
-                val changed = accountNamed(ACCOUNT).toBuilder().apply { metaBuilder.putLabels("left", "$left") }.build()
-                store.apply(namespace, listOf(Mutation.Put(changed)), "other")
-            }
+            left.removeFirstOrNull()?.let { store.apply(namespace, listOf(it), "other") }
             return store.apply(namespace, mutations, actor)
         }
     }
 
+    private fun changed(times: Int): Mutation = Mutation.Put(
+        accountNamed(ACCOUNT).toBuilder().apply { metaBuilder.putLabels("changed", "$times") }.build(),
+    )
+
+    private val deleted: Mutation = Mutation.Delete(
+        ResourceKey.newBuilder()
+            .setNamespace(NamingRules.SYSTEM_NAMESPACE)
+            .setKind(Kind.KIND_SERVICE_ACCOUNT)
+            .setName(ACCOUNT)
+            .build(),
+    )
+
+    private suspend fun reasonOf(tokens: TokenService): ErrorReason? =
+        (runCatching { tokens.create(ACCOUNT, null, Caller.ANONYMOUS) }.exceptionOrNull() as? CoSkyException)?.reason
+
     @Test
     fun `a token whose account changed meanwhile is written again, on the account as it is now`() =
         runBlocking<Unit> {
-            val created = TokenService(racing(1), caches).create(ACCOUNT, null, Caller.ANONYMOUS).token
+            val created = TokenService(racing(listOf(changed(1))), caches).create(ACCOUNT, null, Caller.ANONYMOUS).token
 
             val account = caches.latestViewAt(NamingRules.SYSTEM_NAMESPACE, 3.seconds).objects.values
                 .single { it.hasServiceAccount() && it.meta.name == ACCOUNT }
@@ -168,10 +180,29 @@ class TokenServiceTest {
 
     @Test
     fun `a token whose account changes at every attempt ends in a revision conflict`() = runBlocking<Unit> {
-        val tokens = TokenService(racing(Int.MAX_VALUE), caches)
-        val error = runCatching { tokens.create(ACCOUNT, null, Caller.ANONYMOUS) }.exceptionOrNull()
+        reasonOf(TokenService(racing(List(3) { changed(it) }), caches))
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+    }
 
-        (error as CoSkyException).reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+    @Test
+    fun `a token whose account is deleted meanwhile is refused as not found`() = runBlocking<Unit> {
+        reasonOf(TokenService(racing(listOf(deleted)), caches))
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
+    }
+
+    @Test
+    fun `a token whose account is deleted at the last attempt ends in a revision conflict`() = runBlocking<Unit> {
+        reasonOf(TokenService(racing(listOf(changed(1), changed(2), deleted)), caches))
+            .assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+    }
+
+    @Test
+    fun `a token the store refuses for its namespace is refused as not found`() = runBlocking<Unit> {
+        val closed = object : Store by store {
+            override suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult =
+                ApplyResult.NamespaceNotActive
+        }
+        reasonOf(TokenService(closed, caches)).assert().isEqualTo(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND)
     }
 
     private companion object {
