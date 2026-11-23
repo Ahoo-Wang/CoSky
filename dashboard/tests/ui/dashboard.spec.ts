@@ -1177,6 +1177,37 @@ test.describe('namespaces', () => {
         await expect(page.getByRole('button', {name: 'Create token'})).toHaveCount(0);
     });
 
+    test('copying works without the Clipboard API, as over plain HTTP', async ({page}) => {
+        // Over plain HTTP, on any host but localhost, browsers give a page no navigator.clipboard.
+        await page.addInitScript(() => {
+            Object.defineProperty(navigator, 'clipboard', {value: undefined, configurable: true});
+            const state = {copied: [] as string[], refuse: false};
+            Object.assign(window, {clipboardState: state});
+            document.execCommand = (command: string) => {
+                const field = document.activeElement;
+                if (command !== 'copy' || state.refuse || !(field instanceof HTMLTextAreaElement)) return false;
+                state.copied.push(field.value.substring(field.selectionStart, field.selectionEnd));
+                return true;
+            };
+        });
+        await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Namespace'}).click();
+        await row(page, 'default').getByRole('button', {name: 'Connect'}).click();
+
+        await page.getByRole('button', {name: 'Copy application.yaml'}).click();
+        await expect(toast(page, 'Copied application.yaml')).toBeVisible();
+        const copied = await page.evaluate(() => (window as unknown as {clipboardState: {copied: string[]}}).clipboardState.copied);
+        expect(copied).toEqual([expect.stringContaining('namespace: default')]);
+
+        // A browser that allows no copying at all: the text is on screen, so it says to copy it by hand.
+        await page.evaluate(() => {
+            (window as unknown as {clipboardState: {refuse: boolean}}).clipboardState.refuse = true;
+        });
+        await page.getByRole('button', {name: 'Copy application.yaml'}).click();
+        await expect(toast(page, 'Could not copy application.yaml')).toBeVisible();
+    });
+
     test('the list follows namespaces added elsewhere', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
