@@ -140,8 +140,11 @@ class TokenService(
      * moment ago, perhaps through another replica, is there to take a token.
      */
     private suspend fun currentOf(key: ResourceKey, minRevision: Long?): Resource {
-        val view = minRevision?.let { caches.viewAt(NamingRules.SYSTEM_NAMESPACE, it, timeout) }
-            ?: caches.latestViewAt(NamingRules.SYSTEM_NAMESPACE, timeout)
+        val view = if (minRevision == null) {
+            caches.latestViewAt(NamingRules.SYSTEM_NAMESPACE, timeout)
+        } else {
+            caches.viewAt(NamingRules.SYSTEM_NAMESPACE, minRevision, timeout)
+        }
         return view.objects[key] ?: throw CoSkyException.resourceNotFound(key)
     }
 

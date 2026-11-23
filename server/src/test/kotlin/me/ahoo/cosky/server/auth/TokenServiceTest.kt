@@ -134,6 +134,14 @@ class TokenServiceTest {
             created.await().token.id.assert().isNotEmpty()
         }
 
+    @Test
+    fun `a token for an account there is not is refused as not found`() = runBlocking<Unit> {
+        val error = runCatching { TokenService(store, caches).create("nobody", null, Caller.ANONYMOUS) }
+            .exceptionOrNull()
+
+        (error as CoSkyException).reason.assert().isEqualTo(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
+    }
+
     /** A store where someone else writes the account just before each of the first [times] writes. */
     private fun racing(times: Int): Store = object : Store by store {
         private var left = times
