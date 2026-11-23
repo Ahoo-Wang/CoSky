@@ -11,16 +11,19 @@
  * limitations under the License.
  */
 
-import {Trash2} from 'lucide-react';
+import {Plug, Trash2} from 'lucide-react';
 import {Kind} from '@/generated';
+import {useDrawer} from '@/contexts/DrawerContext';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
 import {useWatchRefresh} from '@/hooks/useWatchRefresh';
 import {namespaces as namespacesApi, SYSTEM_NAMESPACE} from '@/services/resources';
 import type {NamespaceResource} from '@/services/resources';
 import {AddNamespaceForm} from '@/pages/namespace/AddNamespaceForm';
+import {ConnectApplication} from '@/pages/namespace/ConnectApplication';
 import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
 import {PageHeader} from '@/components/layout/PageHeader';
+import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
@@ -29,6 +32,7 @@ import {runAction} from '@/lib/actions';
 export function NamespacePage() {
     const {currentNamespace} = useCurrentNamespaceContext();
     const {namespaces, loading, error, refresh} = useNamespacesContext();
+    const {openDrawer} = useDrawer();
     useWatchRefresh(SYSTEM_NAMESPACE, Kind.KIND_NAMESPACE, refresh);
 
     const handleDelete = async (name: string) => {
@@ -52,19 +56,31 @@ export function NamespacePage() {
         {
             header: 'Action',
             key: 'action',
-            className: 'w-36 text-right',
+            className: 'w-56 text-right',
             cell: namespace => (
-                <ConfirmButton
-                    title="Are you sure to delete this namespace?"
-                    description={`Namespace “${namespace.name}” will be deleted. Only an empty namespace can be.`}
-                    onConfirm={() => handleDelete(namespace.name)}
-                    variant="ghost"
-                    size="sm"
-                    className="text-destructive"
-                    disabled={namespace.name === currentNamespace}
-                >
-                    <Trash2/> Delete
-                </ConfirmButton>
+                <>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openDrawer(
+                            close => <ConnectApplication namespace={namespace.name} onClose={close}/>,
+                            {title: `Connect an application to ${namespace.name}`},
+                        )}
+                    >
+                        <Plug/> Connect
+                    </Button>
+                    <ConfirmButton
+                        title="Are you sure to delete this namespace?"
+                        description={`Namespace “${namespace.name}” will be deleted. Only an empty namespace can be.`}
+                        onConfirm={() => handleDelete(namespace.name)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive"
+                        disabled={namespace.name === currentNamespace}
+                    >
+                        <Trash2/> Delete
+                    </ConfirmButton>
+                </>
             ),
         },
     ];
