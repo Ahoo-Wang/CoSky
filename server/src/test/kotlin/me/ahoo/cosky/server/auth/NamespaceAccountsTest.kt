@@ -36,11 +36,15 @@ import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.watch.WatchCache
+import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -201,6 +205,40 @@ class NamespaceAccountsTest {
         NamespaceAccounts.isManaged(account("legacy")!!).assert().isTrue()
         NamespaceAccounts.isManaged(binding("legacy")!!).assert().isTrue()
         binding("gone").assert().isNull()
+    }
+
+    @Test
+    fun `a namespace written while its account cannot be is written all the same, and the reconciler adds it`() =
+        scenario {
+            val failing = AtomicBoolean(true)
+            val flaky = object : Store by store {
+                override suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult {
+                    if (failing.get() && mutations.any { it is Mutation.Put && it.resource.hasServiceAccount() }) {
+                        throw StoreUnavailableException("Out of reach for the account.")
+                    }
+                    return store.apply(namespace, mutations, actor)
+                }
+            }
+            val accountsOnFlaky = NamespaceAccounts(flaky, caches)
+            val service = ResourceService(flaky, caches, accounts = accountsOnFlaky)
+
+            service.put(PutRequest.newBuilder().setResource(namespaceOf("dev")).build(), Caller.ANONYMOUS)
+
+            stored(Kind.KIND_NAMESPACE, "dev").assert().isNotNull()
+            account("dev").assert().isNull()
+            failing.set(false)
+            accountsOnFlaky.reconcile()
+            NamespaceAccounts.isManaged(account("dev")!!).assert().isTrue()
+        }
+
+    @Test
+    fun `removing the account of a namespace that is still there leaves it`() = scenario {
+        create("dev")
+
+        accounts.remove("dev")
+
+        NamespaceAccounts.isManaged(account("dev")!!).assert().isTrue()
+        binding("dev").assert().isNotNull()
     }
 
     @Test
