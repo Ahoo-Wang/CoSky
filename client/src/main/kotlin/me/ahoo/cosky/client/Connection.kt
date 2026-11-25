@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.Attributes
 import io.grpc.CallOptions
 import io.grpc.Channel
 import io.grpc.ClientCall
@@ -34,12 +35,12 @@ import kotlin.time.Duration
 internal class Connection(private val options: CoSkyClientOptions) : AutoCloseable {
     private val lock = Any()
     private var index = 0
-    private var raw: ManagedChannel = options.channelFactory(options.endpoints[0])
+    private var generation = Generation(options.channelFactory(options.endpoints[0]))
 
     /** Before the first channel, which [decorate] gives it. */
     private val tokens = TokenSource(options)
 
-    private var decorated: Channel = decorate(raw)
+    private var decorated: Channel = decorate(generation)
     private var closed = false
 
     /** The channel being moved on from while the next one is built, so that a failure is handled once. */
@@ -83,22 +84,26 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
         val previous = synchronized(lock) {
             leaving = null
             if (closed) {
-                created
+                null
             } else {
                 index = next
-                raw.also {
-                    raw = created
-                    decorated = decorate(created)
+                generation.also {
+                    generation = Generation(created)
+                    decorated = decorate(generation)
                 }
             }
         }
-        previous.shutdown()
+        if (previous == null) {
+            created.shutdown()
+        } else {
+            previous.retire()
+        }
     }
 
     override fun close() {
         val channel = synchronized(lock) {
             closed = true
-            raw
+            generation.own
         }
         channel.shutdown()
         if (!channel.awaitTermination(1, TimeUnit.SECONDS)) {
@@ -106,27 +111,102 @@ internal class Connection(private val options: CoSkyClientOptions) : AutoCloseab
         }
     }
 
-    private fun decorate(channel: ManagedChannel): Channel {
+    private fun decorate(channel: Generation): Channel {
         val headers = Metadata()
         options.clientName?.let { headers.put(CLIENT_NAME, it) }
-        return ClientInterceptors.intercept(Generation(channel), ExtraHeaders(headers, tokens))
+        return ClientInterceptors.intercept(channel, ExtraHeaders(headers, tokens))
     }
 
     /**
-     * One channel of the connection. A call started on it once a rotation has shut it down goes to the channel that
+     * One channel of the connection. A call that starts on it once a rotation has moved on goes to the channel that
      * took over: a caller may have taken it just before, for an attempt of several calls such as a registration, which
      * would otherwise fail for no fault of the server's. Calls under way finish where they are.
      */
-    private inner class Generation(private val own: ManagedChannel) : Channel() {
+    private inner class Generation(val own: ManagedChannel) : Channel() {
+        /** Guarded by this: set once a rotation has moved on, before [own] is shut down. */
+        private var retired = false
+
+        /**
+         * A call either starts on [own] before this, and finishes there, or after, and goes to the channel that took
+         * over: none starts on [own] once it is shut down.
+         */
+        fun retire() {
+            synchronized(this) { retired = true }
+            own.shutdown()
+        }
+
         override fun <Req, Resp> newCall(
             method: MethodDescriptor<Req, Resp>,
             callOptions: CallOptions,
-        ): ClientCall<Req, Resp> {
-            val target = if (own.isShutdown) synchronized(lock) { raw } else own
-            return target.newCall(method, callOptions)
-        }
+        ): ClientCall<Req, Resp> = OnStart(method, callOptions)
 
         override fun authority(): String = own.authority()
+
+        /**
+         * Makes a call and starts it on [own], or on the channel that took over once this one is retired. Both are
+         * quick, which is why they may run in a monitor (design §7.5): gRPC neither blocks nor waits as a call starts.
+         */
+        fun <Req, Resp> startOn(
+            method: MethodDescriptor<Req, Resp>,
+            callOptions: CallOptions,
+            start: (ClientCall<Req, Resp>) -> Unit,
+        ): ClientCall<Req, Resp> = synchronized(this) {
+            val current = if (retired) synchronized(lock) { generation } else this
+            if (current === this) {
+                own.newCall(method, callOptions).also(start)
+            } else {
+                current.startOn(method, callOptions, start)
+            }
+        }
+
+        /**
+         * A call that picks its channel as it starts rather than as it is made: a stub makes a call and starts it a
+         * moment later, and a rotation in between would otherwise leave it on a channel shut down under it.
+         */
+        private inner class OnStart<Req, Resp>(
+            private val method: MethodDescriptor<Req, Resp>,
+            private val callOptions: CallOptions,
+        ) : ClientCall<Req, Resp>() {
+            /** Guarded by this, as is [cancelled]: the call it started, once it has. */
+            private var delegate: ClientCall<Req, Resp>? = null
+
+            /** A cancellation that came before the start, which gRPC allows. */
+            private var cancelled: Pair<String?, Throwable?>? = null
+
+            override fun start(responseListener: Listener<Resp>, headers: Metadata) {
+                synchronized(this) {
+                    val call = this@Generation.startOn(method, callOptions) { it.start(responseListener, headers) }
+                    delegate = call
+                    cancelled?.let { (message, cause) -> call.cancel(message, cause) }
+                }
+            }
+
+            override fun cancel(message: String?, cause: Throwable?) {
+                synchronized(this) {
+                    val call = delegate
+                    if (call == null) {
+                        cancelled = message to cause
+                    } else {
+                        call.cancel(message, cause)
+                    }
+                }
+            }
+
+            override fun request(numMessages: Int) = started().request(numMessages)
+
+            override fun halfClose() = started().halfClose()
+
+            override fun sendMessage(message: Req) = started().sendMessage(message)
+
+            override fun setMessageCompression(enabled: Boolean) = started().setMessageCompression(enabled)
+
+            override fun isReady(): Boolean = synchronized(this) { delegate }?.isReady ?: false
+
+            override fun getAttributes(): Attributes = synchronized(this) { delegate }?.attributes ?: Attributes.EMPTY
+
+            private fun started(): ClientCall<Req, Resp> =
+                checkNotNull(synchronized(this) { delegate }) { "The call has not started." }
+        }
     }
 
     /**

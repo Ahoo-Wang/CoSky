@@ -20,6 +20,8 @@ import io.grpc.ManagedChannel
 import io.grpc.Metadata
 import io.grpc.MethodDescriptor
 import me.ahoo.cosky.api.v1.LeaseServiceGrpc
+import me.ahoo.cosky.api.v1.RevokeRequest
+import me.ahoo.cosky.api.v1.RevokeResponse
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import java.io.IOException
@@ -33,6 +35,9 @@ class ConnectionTest {
 
         /** Calls started on it, which go nowhere. */
         var calls = 0
+
+        /** Of the calls started on it, those cancelled. */
+        var cancelled = 0
 
         /**
          * Runs while the channel shuts down, which is when the connection has let go of its lock.
@@ -57,19 +62,20 @@ class ConnectionTest {
         override fun <Req : Any?, Resp : Any?> newCall(
             method: MethodDescriptor<Req, Resp>,
             options: CallOptions,
-        ): ClientCall<Req, Resp> {
-            calls += 1
-            return object : ClientCall<Req, Resp>() {
-                override fun start(responseListener: Listener<Resp>, headers: Metadata) = Unit
-
-                override fun request(numMessages: Int) = Unit
-
-                override fun cancel(message: String?, cause: Throwable?) = Unit
-
-                override fun halfClose() = Unit
-
-                override fun sendMessage(message: Req) = Unit
+        ): ClientCall<Req, Resp> = object : ClientCall<Req, Resp>() {
+            override fun start(responseListener: Listener<Resp>, headers: Metadata) {
+                calls += 1
             }
+
+            override fun request(numMessages: Int) = Unit
+
+            override fun cancel(message: String?, cause: Throwable?) {
+                cancelled += 1
+            }
+
+            override fun halfClose() = Unit
+
+            override fun sendMessage(message: Req) = Unit
         }
 
         override fun authority(): String = endpoint
@@ -103,21 +109,49 @@ class ConnectionTest {
         connection.channel().assert().isNotSameAs(channel)
     }
 
+    private fun Channel.call(): ClientCall<RevokeRequest, RevokeResponse> =
+        newCall(LeaseServiceGrpc.getRevokeMethod(), CallOptions.DEFAULT)
+
+    private fun ClientCall<RevokeRequest, RevokeResponse>.start() =
+        start(object : ClientCall.Listener<RevokeResponse>() {}, Metadata())
+
     @Test
     fun `a call started on a channel that was moved on from goes to the one that took over`() {
         val connection = connection("only")
         // Taken for a registration, say, just before a stream failed.
         val taken = connection.channel()
         connection.rotate(taken)
-        taken.newCall(LeaseServiceGrpc.getRevokeMethod(), CallOptions.DEFAULT)
+        taken.call().start()
+        channels.map { it.calls }.assert().containsExactly(0, 1)
+    }
+
+    @Test
+    fun `a call made before the move, and started after it, goes to the one that took over`() {
+        val connection = connection("only")
+        // As a stub makes a call and starts it a moment later, while a failing stream moves on in between.
+        val call = connection.channel().call()
+        connection.rotate(connection.channel())
+        call.start()
         channels.map { it.calls }.assert().containsExactly(0, 1)
     }
 
     @Test
     fun `a call on the current channel stays on it`() {
         val connection = connection("only")
-        connection.channel().newCall(LeaseServiceGrpc.getRevokeMethod(), CallOptions.DEFAULT)
+        connection.channel().call().start()
         channels.single().calls.assert().isEqualTo(1)
+    }
+
+    @Test
+    fun `a call cancelled before it starts is cancelled as it starts`() {
+        val connection = connection("only")
+        val call = connection.channel().call()
+        call.cancel("No longer wanted.", null)
+        channels.single().cancelled.assert().isEqualTo(0)
+        call.start()
+        channels.single().cancelled.assert().isEqualTo(1)
+        call.cancel("Again.", null)
+        channels.single().cancelled.assert().isEqualTo(2)
     }
 
     @Test
