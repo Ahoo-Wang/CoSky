@@ -79,7 +79,7 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
   -e COSKY_BOOTSTRAP_TOKEN \
   -e MANAGEMENT_SERVER_PORT=8081 \
-  ahoowang/cosky:8.0.0-beta.15
+  ahoowang/cosky:8.0.0-rc.1
 ```
 
 - **Kubernetes:** `k8s/base` does this. It probes the port named `management` (8081) and leaves it out of the Service, so nothing that reaches the API through the Service, such as an Ingress, reaches Actuator. Prometheus scrapes the pods directly, by the `prometheus.io/*` annotations or with a PodMonitor on the port `management`, and needs no Service for it.
