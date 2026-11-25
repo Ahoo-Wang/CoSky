@@ -13,7 +13,7 @@
 
 import type {Locator, Page} from '@playwright/test';
 import {expect, test} from './coverage';
-import {installApiMock, login} from './mock-api';
+import {behindProxy, installApiMock, login, TOKEN} from './mock-api';
 import type {MockApi} from './mock-api';
 
 const browserErrors = new WeakMap<Page, string[]>();
@@ -1735,5 +1735,66 @@ test.describe('security', () => {
         await expect(page.getByRole('main')).toContainText('No roles yet.');
         await page.getByRole('link', {name: 'Role Binding'}).click();
         await expect(page.getByRole('main')).toContainText('No role bindings yet.');
+    });
+});
+
+test.describe('under a path prefix', () => {
+    // Where a reverse proxy serves the Dashboard, stripping it before it passes a request on to the server.
+    const PREFIX = '/cosky';
+
+    test('the page, its API and its watch stay under the prefix, and a route survives a reload', async ({page, baseURL}) => {
+        const origin = new URL(baseURL!).origin;
+        const outside = await behindProxy(page, origin, PREFIX);
+        const api = await installApiMock(page, {prefix: PREFIX});
+
+        await page.goto(`${PREFIX}/`);
+        await page.waitForURL(`**${PREFIX}/#/login`);
+        await page.getByLabel('Token', {exact: true}).fill(TOKEN);
+        await page.getByRole('button', {name: 'Sign In', exact: true}).click();
+        await page.waitForURL(`**${PREFIX}/#/home`);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')?.headers.authorization)
+            .toBe(`Bearer ${TOKEN}`);
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('9090');
+        await page.getByRole('button', {name: 'Cancel'}).click();
+
+        await page.reload();
+
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        expect(page.url()).toBe(`${origin}${PREFIX}/#/config`);
+        expect(outside).toEqual([]);
+    });
+
+    test('OIDC sends the provider back to the Dashboard under its prefix, and so does signing out', async ({page, baseURL}) => {
+        const origin = new URL(baseURL!).origin;
+        const outside = await behindProxy(page, origin, PREFIX);
+        await installApiMock(page, {oidc: true, prefix: PREFIX});
+        await page.goto(`${PREFIX}/#/login`);
+
+        const authorization = page.waitForRequest(request => request.url().includes('/authorize'));
+        await page.getByRole('button', {name: 'Sign in with idp.example'}).click();
+        expect(new URL((await authorization).url()).searchParams.get('redirect_uri')).toBe(`${origin}${PREFIX}/`);
+        await page.waitForURL(`**${PREFIX}/#/home`);
+        expect(page.url()).not.toContain('code=');
+
+        const logout = page.waitForRequest(request => request.url().includes('/logout'));
+        await page.locator('[data-slot="account-menu-trigger"]').click();
+        await page.getByRole('menuitem', {name: 'Sign out'}).click();
+        expect(new URL((await logout).url()).searchParams.get('post_logout_redirect_uri')).toBe(`${origin}${PREFIX}/`);
+        await page.waitForURL(`**${PREFIX}/#/login`);
+        expect(outside).toEqual([]);
+    });
+
+    test('OIDC returns to the Dashboard\'s address, though the page was opened as index.html', async ({page, baseURL}) => {
+        await installApiMock(page, {oidc: true});
+        await page.goto('/index.html#/login');
+
+        const authorization = page.waitForRequest(request => request.url().includes('/authorize'));
+        await page.getByRole('button', {name: 'Sign in with idp.example'}).click();
+
+        expect(new URL((await authorization).url()).searchParams.get('redirect_uri')).toBe(`${new URL(baseURL!).origin}/`);
+        await page.waitForURL('**/#/home');
     });
 });

@@ -8,6 +8,9 @@ const exclude = [/src\/generated/, /node_modules/]
 const coverage = process.env.COSKY_COVERAGE === '1'
 
 export default defineConfig({
+  // Relative asset URLs: the same build works at the root, as the server hosts it, and under any prefix a reverse proxy
+  // serves it at, such as https://example.com/cosky/. The API's URLs follow the page as well (src/lib/base.ts).
+  base: './',
   plugins: [
     react({
       exclude,

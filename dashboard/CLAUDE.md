@@ -25,6 +25,8 @@ Run `lint`, `build`, `test:unit` and `test:ui` before committing.
 
 The API always shares the page's origin, since the server has no CORS (design D34). `pnpm build` leaves `dist/`, which the server build bundles. Routes live in the URL fragment, so that no server needs a fallback route.
 
+Nothing assumes the site root, so that the same `dist/` works at `/` and under any prefix a reverse proxy serves it at (wiki/guide/dashboard.md): Vite builds with `base: './'`, and the fetcher's base URL and the OIDC redirect URI come from the page's address (`src/lib/base.ts`); never address anything from the site root, such as a `fetch('/v1/...')` past the fetcher or an `href="/..."`. The tests under "under a path prefix" in `tests/ui/dashboard.spec.ts` serve it at `/cosky/` behind a proxy (`behindProxy`), which refuses anything outside the prefix.
+
 ## Stack
 
 - React 19 + TypeScript, Vite with the React Compiler, React Router 7.

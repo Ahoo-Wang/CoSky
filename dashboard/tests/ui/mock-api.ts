@@ -133,11 +133,21 @@ function challengeOf(verifier: string): string {
     return createHash('sha256').update(verifier).digest('base64url');
 }
 
+export interface MockOptions extends Pick<MockApi, 'auth' | 'oidc' | 'empty'> {
+    /**
+     * Where a reverse proxy serves the Dashboard, such as `/cosky`: the API answers only under it, and what the page
+     * asks for anywhere else goes on to the routes installed before, such as [behindProxy]'s. Requests are recorded
+     * without it.
+     */
+    prefix: string;
+}
+
 /**
  * The 8.0 REST API in memory, answering the way the server does: proto3 JSON leaves empty fields out, a list comes in
  * pages, and writes honour If-Match and If-None-Match.
  */
-export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 'auth' | 'oidc' | 'empty'>> = {}) {
+export async function installApiMock(page: Page, options: Partial<MockOptions> = {}) {
+    const prefix = options.prefix ?? '';
     let revision = 100;
     const nextRevision = () => String(++revision);
     // Where a replica that is behind stays, for the lists that ask for no more.
@@ -266,8 +276,12 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
     await page.route('**/v1/**', async route => {
         const request = route.request();
         const url = new URL(request.url());
+        if (!url.pathname.startsWith(`${prefix}/v1/`)) {
+            await route.fallback();
+            return;
+        }
         // Names arrive encoded, as one path segment.
-        const path = decodeURIComponent(url.pathname);
+        const path = decodeURIComponent(url.pathname.slice(prefix.length));
         const method = request.method();
         const headers = await request.allHeaders();
         mockApi.requests.push({
@@ -503,6 +517,27 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
     });
 
     return mockApi;
+}
+
+/**
+ * A reverse proxy in front of the server [origin] points at, which serves it under [prefix], such as `/cosky`, and
+ * strips that before passing a request on. Install it before [installApiMock], so that the mock answers the API first.
+ *
+ * @return the paths the page asked [origin] for outside the prefix, which a real proxy would not pass on to CoSky.
+ */
+export async function behindProxy(page: Page, origin: string, prefix: string): Promise<string[]> {
+    const outside: string[] = [];
+    await page.route(url => url.origin === origin, async route => {
+        const url = new URL(route.request().url());
+        if (!url.pathname.startsWith(`${prefix}/`)) {
+            outside.push(url.pathname);
+            await route.fulfill({status: 404, contentType: 'text/plain', body: `${url.pathname} is not under ${prefix}/.`});
+            return;
+        }
+        url.pathname = url.pathname.slice(prefix.length);
+        await route.fulfill({response: await route.fetch({url: url.toString()})});
+    });
+    return outside;
 }
 
 export async function login(page: Page) {

@@ -102,7 +102,7 @@ Draining a node stops its replica the same way. The PodDisruptionBudget lets one
 
 ## The Dashboard on its own
 
-The image serves the Dashboard at `/`. To host it elsewhere, put it behind a reverse proxy that also forwards `/v1` to the server: the page expects the API on its own origin, and the server has no CORS.
+The image serves the Dashboard at `/`. To serve it under a path of its own, such as `https://example.com/cosky/`, or to host its files elsewhere, put it behind a reverse proxy that also forwards `v1/` under the same path to the server's `/v1`: the page expects the API next to it, on its own origin, and the server has no CORS. [Dashboard](./dashboard.md#behind-a-reverse-proxy) has what the proxy needs, with an nginx example.
 
 ## Observability
 
