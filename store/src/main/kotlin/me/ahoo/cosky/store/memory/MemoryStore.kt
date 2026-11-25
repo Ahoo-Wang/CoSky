@@ -275,8 +275,10 @@ class MemoryStore(
         return active(namespace)?.topology.orEmpty().filterValues { it.isAfter(now) }.keys
     }
 
+    /** Only of an active namespace, as `epoch_rotate.lua`: a deletion drops one by its epoch (D43). */
     private fun rotateIfExpected(namespace: String, expected: String): Position = transition(namespace) { current ->
-        val next = if (current?.epoch == expected) current.copy(epoch = newEpoch()) else current
+        val rotate = current?.state == NamespaceState.ACTIVE && current.epoch == expected
+        val next = if (rotate) requireNotNull(current).copy(epoch = newEpoch()) else current
         next to requireNotNull(next).position
     }
 

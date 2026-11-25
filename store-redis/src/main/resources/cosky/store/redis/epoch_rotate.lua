@@ -6,10 +6,12 @@
 -- specific language governing permissions and limitations under the License.
 
 -- Replaces the epoch if it is still the expected one, so that replicas finding the same fork rotate it once (§6.4).
--- KEYS: epoch, rev
+-- Only of an active namespace: a deletion terminates and drops one by its epoch (D43), and a rotation in between would
+-- leave the drop nothing to do, and the data of the namespace behind.
+-- KEYS: state, epoch, rev
 -- ARGV: expected, next, namespace
-if redis.call('GET', KEYS[1]) == ARGV[1] then
-  redis.call('SET', KEYS[1], ARGV[2])
+if redis.call('GET', KEYS[1]) == 'active' and redis.call('GET', KEYS[2]) == ARGV[1] then
+  redis.call('SET', KEYS[2], ARGV[2])
   redis.call('PUBLISH', 'cosky:hint', ARGV[3])
 end
-return {redis.call('GET', KEYS[1]) or '', redis.call('GET', KEYS[2]) or '0'}
+return {redis.call('GET', KEYS[2]) or '', redis.call('GET', KEYS[3]) or '0'}
