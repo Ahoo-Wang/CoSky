@@ -56,9 +56,36 @@ class ProblemDetailsTest {
         }
     }
 
+    @Test
+    fun `a body larger than any request can need is refused as problem details`() {
+        val development = mapOf("cosky.store.type" to CoSkyProperties.MEMORY, "cosky.auth.enabled" to "false")
+
+        RunningServer(development).use { server ->
+            val body = """{"config":{"format":"CONFIG_FORMAT_TEXT","content":"a"}}""".padEnd(OVERSIZED)
+            val put = HttpRequest.newBuilder(URI("http://localhost:${server.httpPort}/v1/namespaces/default/configs/a"))
+                .header("Content-Type", "application/json")
+                // Spares sending what is refused anyway.
+                .expectContinue(true)
+                .PUT(HttpRequest.BodyPublishers.ofString(body))
+                .build()
+            val refused = http.send(put, HttpResponse.BodyHandlers.ofString())
+
+            refused.statusCode().assert().isEqualTo(BAD_REQUEST)
+            refused.headers().firstValue("Content-Type").get().assert().isEqualTo(PROBLEM)
+            val violation = JsonParser.parseString(refused.body()).asJsonObject
+                .getAsJsonObject("badRequest").getAsJsonArray("violations").single().asJsonObject
+            violation["field"].asString.assert().isEqualTo("resource")
+            violation["code"].asString.assert().isEqualTo("VIOLATION_CODE_TOO_LONG")
+        }
+    }
+
     private companion object {
+        const val BAD_REQUEST = 400
         const val UNAUTHORIZED = 401
         const val NOT_FOUND = 404
         const val PROBLEM = "application/problem+json"
+
+        /** Past the 12 MiB the largest resource can take in JSON. */
+        const val OVERSIZED = 13 * 1024 * 1024
     }
 }

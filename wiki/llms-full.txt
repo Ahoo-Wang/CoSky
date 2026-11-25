@@ -631,6 +631,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
 | `cosky_cache_revision{namespace}` | Replicas that disagree for long: one of them is cut off from Redis |
 | `cosky_store_apply_seconds` | Write latency, a histogram: `histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` is the p99 over every replica |
+| `cosky_store_failures_total{operation}` | This replica failing to reach the store, by the store's operation, such as `tryLock` or `apply`. The replica stays ready meanwhile, and every replica's reaper asks the store for its lock each second, so one cut off from Redis counts even when idle: alert on `rate(cosky_store_failures_total[1m]) > 0` for a few minutes |
 | `cosky_watch_active` | Watches on this replica |
 | `cosky_watch_events_sent_total` | Events sent to watchers |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
@@ -1047,6 +1048,14 @@ A duration takes a unit, such as `500ms`, `30s` or `5m`. Without one it is in se
 
 Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
 
+A value that cannot work stops the start, with a message that names the property and the value:
+
+- a duration, count or size of 0 or less. `reaper-grace` and `protection-max-duration` may be 0, which turns the grace or the pause off, as may `protection-min-leases`;
+- a `protection-threshold` outside 0 to 1;
+- a `lock-ttl` no longer than `reaper-interval`: the lock would lapse between two renewals, and leadership change hands.
+
+Keys the server does not know are ignored, such as `COSKY_SERVICE_HOST` and `COSKY_PORT`, which Kubernetes sets for a Service named `cosky`.
+
 ### Store
 
 | Property | Default | Meaning |
@@ -1123,6 +1132,7 @@ These cannot be set in 8.0.
 | Tokens per ServiceAccount | 2 |
 | One message | 2 MiB; larger results come in pages or parts |
 | One page of a list | 500 by default, 1000 at most |
+| A REST request's body | 12 MiB, what the largest object takes in JSON with every character escaped; an archive to import 64 MiB |
 
 ## Spring Boot starter
 
@@ -1195,6 +1205,8 @@ A write whose condition fails answers `409` `REVISION_CONFLICT`, not the `412` o
 **Reading your own writes**: a replica may be slightly behind. `?minRevision=42` waits until it has reached that revision, and answers `504` after 3 seconds.
 
 **Violations** in a `400` name the field as gRPC does, by its proto path in the request: a parameter or header by the field it sets (`pageSize` is `page_size`, `labelSelector` is `label_selector`, `minRevision` is `min_revision`, `If-Match` and `If-None-Match` are `expected_revision`, `toRevision` is `to_revision`, `expiresAt` is `expires_at`, the Watch's `kind` is `create.kind`), and a body by the field it carries: `resource` for a `PUT`, and the path of a member it does not have, such as `resource.meta.lables`.
+
+**A body** may take 12 MiB, what the largest object takes in JSON with every character escaped, and an archive to import 64 MiB. A larger one is refused with `400`, a `VIOLATION_CODE_TOO_LONG` on the field the body carries, before the server reads the rest of it.
 
 **Errors** are problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), as `application/problem+json`. Beside `type`, `title`, `status`, `detail` and `instance`, `code` is the gRPC status, and `reason` the reason, which does not change between versions. Some reasons add a member that says more. `type` leads to the reason's row below.
 
@@ -1269,7 +1281,7 @@ Server-sent events, one proto3 JSON message per `data:` line:
 | `snapshot` | The current state, when `fromRevision` is 0. Holds the `epoch` to resume with. |
 | `events` | One revision's changes |
 | `progress` | A bookmark, every 10 seconds while idle |
-| `positionGone` | Your position is no longer valid, and the stream ends: start over without one. It holds the `earliestRevision` and `epoch` there are now, and the `reason`: `GONE_REASON_COMPACTED` (older than the window), `GONE_REASON_SLOW` (fell out of it), `GONE_REASON_EPOCH` (another timeline) or `GONE_REASON_REGRESSION` (a lost one) |
+| `positionGone` | Your position is no longer valid, and the stream ends: start over without one. It holds the `earliestRevision` and `epoch` there are now, and the `reason`: `GONE_REASON_COMPACTED` (older than the window), `GONE_REASON_SLOW` (fell out of it), `GONE_REASON_EPOCH` (another timeline), `GONE_REASON_REGRESSION` (a lost one) or `GONE_REASON_PERMISSION` (what you may see changed). Start over whatever the reason, also for one added later |
 | `canceled` | The stream ends, for the reason given |
 
 Large snapshots and revisions span several messages, marked by `more`. An `EventSource` cannot send a token: use `fetch` with a stream reader, as the Dashboard does.
@@ -1407,7 +1419,7 @@ As a safety net, a client also starts over from a fresh snapshot every 30 minute
 
 A process holds one lease per namespace, and attaches its instances to it, so renewing costs the same however many it has. An Instance without a lease is simply permanent, with no special handling.
 
-One replica at a time runs the **reaper**, under a lock in Redis. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
+One replica at a time runs the **reaper**, under a lock in Redis, which a stopping replica gives up so that another takes over at once rather than when the lock expires. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
 
 1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped. When the store fails on one namespace only, such as one on a Redis Cluster shard that is down, only that namespace waits, counting from its last failure, and the others are reaped as usual.
 2. **Delay**: a lease is reaped a third of its TTL after expiry. Leases cut off by one partition expire over that span, since they renew at different moments. Reaping at once would remove them one by one, and the next step would never see them together.

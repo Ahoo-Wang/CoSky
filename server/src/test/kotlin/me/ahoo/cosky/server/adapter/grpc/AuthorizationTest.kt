@@ -516,7 +516,7 @@ class AuthorizationTest {
     }
 
     @Test
-    fun `seeing other names starts a running watch over, for no reason a position is lost for`() = scenario {
+    fun `seeing other names starts a running watch over, for a change of permissions`() = scenario {
         system(customRole("reader", rule(Kind.KIND_CONFIG, listOf(Verb.VERB_WATCH), listOf("a"))))
         val reader = account("narrow", "reader")
         val seen = mutableListOf<WatchResponse>()
@@ -527,7 +527,7 @@ class AuthorizationTest {
             }
         }
         val gone = seen.last().positionGone
-        gone.reason.assert().isEqualTo(GoneReason.GONE_REASON_UNSPECIFIED)
+        gone.reason.assert().isEqualTo(GoneReason.GONE_REASON_PERMISSION)
         gone.epoch.assert().isEqualTo(seen.first().snapshot.epoch)
     }
 

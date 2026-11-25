@@ -226,11 +226,11 @@ class WatchService(
 
         /**
          * No position fails here, but what the watch delivered no longer is what it may see: it starts over from where
-         * the namespace stands, for none of the reasons a position is lost for.
+         * the namespace stands. Not counted as gone: that metric is for sizing the window.
          */
         private fun goneOf(id: Long, namespace: String): WatchResponse {
             val view = caches.of(namespace).views.value
-            return WatchSession.gone(id, view?.earliest ?: 0, view?.epoch.orEmpty(), GoneReason.GONE_REASON_UNSPECIFIED)
+            return WatchSession.gone(id, view?.earliest ?: 0, view?.epoch.orEmpty(), GoneReason.GONE_REASON_PERMISSION)
         }
 
         /**

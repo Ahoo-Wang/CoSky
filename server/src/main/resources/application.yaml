@@ -35,10 +35,6 @@ spring:
     # Failures that are not CoSky's own, such as a path that does not exist, are problem details (RFC 9457) as well.
     problemdetails:
       enabled: true
-  http:
-    codecs:
-      # A Config of 1 MiB, or an archive of them.
-      max-in-memory-size: 64MB
 # springdoc serves the REST API's document as generated from the protos, at /v3/api-docs and in Swagger UI at
 # /swagger-ui.html, and keeps all its schemas: the protos' messages, beside those the paths name.
 springdoc:

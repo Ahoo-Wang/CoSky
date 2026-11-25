@@ -64,7 +64,7 @@ As a safety net, a client also starts over from a fresh snapshot every 30 minute
 
 A process holds one lease per namespace, and attaches its instances to it, so renewing costs the same however many it has. An Instance without a lease is simply permanent, with no special handling.
 
-One replica at a time runs the **reaper**, under a lock in Redis. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
+One replica at a time runs the **reaper**, under a lock in Redis, which a stopping replica gives up so that another takes over at once rather than when the lock expires. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
 
 1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped. When the store fails on one namespace only, such as one on a Redis Cluster shard that is down, only that namespace waits, counting from its last failure, and the others are reaped as usual.
 2. **Delay**: a lease is reaped a third of its TTL after expiry. Leases cut off by one partition expire over that span, since they renew at different moments. Reaping at once would remove them one by one, and the next step would never see them together.

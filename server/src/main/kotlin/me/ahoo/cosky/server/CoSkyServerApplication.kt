@@ -308,7 +308,8 @@ class CoSkyServerApplication : DisposableBean {
     ): ApplicationRunner = ApplicationRunner {
         runBlocking(VirtualThreads.dispatcher) { bootstrap.run() }
         caches.of(NamingRules.SYSTEM_NAMESPACE)
-        scope.launch { reaper.run() }
+        // Closed as a bean, before the store it uses: a leader lets go of its lock, and another replica leads at once.
+        reaper.start(scope)
         scope.launch { topology.run() }
     }
 
