@@ -27,3 +27,11 @@ internal fun describe(failure: Throwable): String {
     val under = (status?.cause ?: failure.cause)?.message
     return if (under == null || under in said) said else "$said ($under)"
 }
+
+/**
+ * Whether a stream that [worked] ended the way a server ends one in its ordinary course: with `UNAVAILABLE`, as when
+ * it ends a connection that reached its maximum age, or shuts down in a rolling update. The client reconnects as
+ * after any failure, but this is no failure worth a warning.
+ */
+internal fun isOrdinaryEnd(worked: Boolean, failure: Throwable): Boolean =
+    worked && Status.fromThrowable(failure).code == Status.Code.UNAVAILABLE
