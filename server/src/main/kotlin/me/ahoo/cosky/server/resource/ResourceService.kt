@@ -205,6 +205,16 @@ class ResourceService(
      * read as of the store's latest write and kept by compare-and-set, so that neither a replica that is behind nor a
      * write meanwhile has its labels or format undone.
      */
+    /**
+     * Refuses what importing Config [name] would be refused for whatever the store holds: its name, and who may write
+     * it. An archive is checked this way before any of it is written, so that one refused for it leaves nothing behind.
+     */
+    fun requireImportable(namespace: String, name: String, caller: Caller) {
+        val key = ResourceKey.newBuilder().setNamespace(namespace).setKind(Kind.KIND_CONFIG).setName(name).build()
+        requireValid(validator.validate(key))
+        requireAllowed(permissionOf(caller.principal, Verb.VERB_PUT, Kind.KIND_CONFIG, namespace), name)
+    }
+
     suspend fun importConfig(namespace: String, name: String, content: String, caller: Caller): PutResponse {
         val key = ResourceKey.newBuilder().setNamespace(namespace).setKind(Kind.KIND_CONFIG).setName(name).build()
         val existing = latestViewOf(namespace).objects[key]

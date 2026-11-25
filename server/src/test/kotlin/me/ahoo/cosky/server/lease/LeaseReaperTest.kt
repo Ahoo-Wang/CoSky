@@ -121,6 +121,30 @@ class LeaseReaperTest {
         instances().assert().containsExactly("a")
     }
 
+    @Test
+    fun `a round that takes long, as with many namespaces, is no outage`() = scenario {
+        val namespaces = (1..12).map { "busy-$it" }
+        namespaces.forEach { store.createNamespace(it) }
+        // Each namespace answers well within the time a hang takes, and all of them together take longer.
+        val busy = object : Store by store {
+            override suspend fun leaseStats(namespace: String): LeaseStats {
+                if (namespace != NAMESPACE) clock.advance(Duration.ofMillis(500))
+                return store.leaseStats(namespace)
+            }
+        }
+        val reaper = LeaseReaper(busy, { namespaces + NAMESPACE }, options, clock)
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        register("a", ttlSeconds = 2)
+        repeat(4) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        instances().assert().isEmpty()
+    }
+
     /**
      * The worst moment for a store to hang: when it answers, what it says has expired only did during the outage.
      */

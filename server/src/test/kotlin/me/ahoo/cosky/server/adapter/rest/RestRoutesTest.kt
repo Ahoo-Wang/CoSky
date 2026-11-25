@@ -38,7 +38,10 @@ import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchService
+import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
+import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -63,10 +66,11 @@ class RestRoutesTest {
     private fun client(
         authenticated: Boolean = false,
         oidc: CoSkyProperties.Oidc = CoSkyProperties.Oidc(),
+        resourceStore: Store = store,
     ): WebTestClient {
         val authorizer: Authorizer = if (authenticated) access else Authorizer.ALLOW_ALL
         val routes = RestRoutes(
-            ResourceService(store, caches, authorizer = authorizer),
+            ResourceService(resourceStore, caches, authorizer = authorizer),
             ViewService(store, caches, authorizer),
             TokenService(store, caches, authorizer),
             WatchService(caches, CoSkyProperties(), authorizer),
@@ -404,6 +408,27 @@ class RestRoutesTest {
         config.getAsJsonObject("config")["content"].asString.assert().isEqualTo("b: 1")
         config.getAsJsonObject("config")["format"].asString.assert().isEqualTo("CONFIG_FORMAT_YAML")
         config.getAsJsonObject("meta").getAsJsonObject("labels")["team"].asString.assert().isEqualTo("core")
+    }
+
+    @Test
+    fun `an archive with an entry that would be refused writes nothing`() {
+        val client = client()
+        client.import(archiveOf("a.txt" to "a".encodeToByteArray(), "not a name!" to "b".encodeToByteArray()))
+            .expectStatus().isBadRequest
+        client.get().uri("/v1/namespaces/$NAMESPACE/configs/a.txt").exchange().expectStatus().isNotFound
+    }
+
+    @Test
+    fun `an import that fails halfway says what it wrote`() {
+        val failing = object : Store by store {
+            override suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult {
+                if (mutations.any { it.key.name == "b.txt" }) throw StoreUnavailableException("Redis went away.")
+                return store.apply(namespace, mutations, actor)
+            }
+        }
+        val archive = archiveOf("a.txt" to "a".encodeToByteArray(), "b.txt" to "b".encodeToByteArray())
+        val problem = client(resourceStore = failing).import(archive).expectStatus().isEqualTo(503).json()
+        problem["detail"].asString.assert().contains("Imported 1 Configs (a.txt) before b.txt")
     }
 
     @Test

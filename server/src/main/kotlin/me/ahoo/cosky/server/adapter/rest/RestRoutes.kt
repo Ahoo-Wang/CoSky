@@ -274,10 +274,27 @@ class RestRoutes(
     private suspend fun importConfigs(request: ServerRequest): ServerResponse {
         val namespace = request.pathVariable(NAMESPACE)
         val caller = callerOf(request)
+        val archive = request.awaitBody<ByteArray>()
+        // Everything that can be told before writing: an entry that cannot be read, a name, who may write it.
+        ConfigArchive.read(archive, limits.maxConfigContentBytes) { entries ->
+            entries.forEach { (name, _) -> resources.requireImportable(namespace, name, caller) }
+        }
         val items = JsonArray()
-        ConfigArchive.read(request.awaitBody<ByteArray>(), limits.maxConfigContentBytes) { entries ->
+        val imported = mutableListOf<String>()
+        ConfigArchive.read(archive, limits.maxConfigContentBytes) { entries ->
             entries.forEach { (name, content) ->
-                val response = resources.importConfig(namespace, name, content, caller)
+                val response = try {
+                    resources.importConfig(namespace, name, content, caller)
+                } catch (e: CoSkyException) {
+                    throw importedBefore(imported, name, e)
+                } catch (e: StoreUnavailableException) {
+                    throw importedBefore(
+                        imported,
+                        name,
+                        CoSkyException.storeUnavailable("The store is unavailable.", e)
+                    )
+                }
+                imported += name
                 items.add(
                     JsonObject().apply {
                         addProperty("name", name)
@@ -290,6 +307,22 @@ class RestRoutes(
         val body = JsonObject().apply { add("items", items) }
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).bodyValueAndAwait(body.toString())
     }
+
+    /**
+     * What a write that failed halfway through an archive, as one that lost a race does, left written: the client
+     * cannot tell otherwise.
+     */
+    private fun importedBefore(imported: List<String>, name: String, failure: CoSkyException): CoSkyException =
+        if (imported.isEmpty()) {
+            failure
+        } else {
+            val names = imported.joinToString(limit = IMPORTED_NAMED) { it }
+            CoSkyException(
+                failure.detail,
+                "Imported ${imported.size} Configs ($names) before $name, which failed: ${failure.message}",
+                failure,
+            )
+        }
 
     private suspend fun exportConfigs(request: ServerRequest): ServerResponse {
         val namespace = request.pathVariable(NAMESPACE)
@@ -473,6 +506,9 @@ class RestRoutes(
         const val MIN_REVISION = "minRevision"
         const val UNKNOWN_SUBJECT = "unknown"
         const val CALLER = "cosky.caller"
+
+        /** Of the Configs an import wrote before it failed, how many the error names; it says how many there were. */
+        const val IMPORTED_NAMED = 20
         val ZIP = MediaType.parseMediaType("application/zip")
     }
 }

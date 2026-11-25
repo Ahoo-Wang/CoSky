@@ -22,6 +22,7 @@ import io.lettuce.core.codec.ByteArrayCodec
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.v1.Resource
@@ -170,6 +171,31 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
             store.apply(namespace, listOf(Mutation.Put(config(namespace, "large", "$it".padEnd(50_000)))), "test")
             CONNECTION.async().get(keys.logBytes).await().toLong().assert().isLessThanOrEqualTo(maxBytes)
         }
+    }
+
+    @Test
+    fun `dropping takes a lease's ttl before the lease, and the leases before what expiring them writes`() {
+        val keys = RedisKeys("drop-order")
+        // Enough names with history that, in the order this replaced, the lease and its ttl fell in two batches.
+        val removed = RedisStore.removalBatches(keys, (1..85).map { keys.history("c$it") })
+        val order = removed.flatten()
+        order.indexOf(keys.leaseTtl).assert().isLessThan(order.indexOf(keys.lease))
+        order.indexOf(keys.lease).assert().isLessThan(order.indexOf(keys.log))
+        order.indexOf(keys.lease).assert().isLessThan(order.indexOf(keys.logBytes))
+        removed.last().assert().containsExactly(keys.epoch)
+        order.assert().doesNotContain(keys.revision).doesNotContain(keys.state)
+    }
+
+    @Test
+    fun `a subscription confirmed again wakes every follower, since hints were lost while it was down`() {
+        val hints = mapOf("a" to MutableStateFlow(0L), "b" to MutableStateFlow(0L))
+        val listener = HintListener(hints)
+
+        listener.message(RedisKeys.HINT_CHANNEL, "a".encodeToByteArray())
+        hints.mapValues { it.value.value }.assert().isEqualTo(mapOf("a" to 1L, "b" to 0L))
+
+        listener.subscribed(RedisKeys.HINT_CHANNEL, 1)
+        hints.mapValues { it.value.value }.assert().isEqualTo(mapOf("a" to 2L, "b" to 1L))
     }
 
     private fun config(namespace: String, name: String, content: String): Resource = resource {

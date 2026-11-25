@@ -180,7 +180,13 @@ class MemoryStore(
             current to current.position
         } else {
             val revision = current?.revision ?: 0
-            val created = NamespaceData(revision = revision, epoch = newEpoch(), state = NamespaceState.ACTIVE)
+            // The lease ids go on too: a client of the namespace deleted may still renew or revoke one it holds.
+            val created = NamespaceData(
+                revision = revision,
+                epoch = newEpoch(),
+                state = NamespaceState.ACTIVE,
+                leaseSequence = current?.leaseSequence ?: 0,
+            )
             created to created.position
         }
     }
@@ -207,7 +213,12 @@ class MemoryStore(
             if (current == null || current.state == NamespaceState.ACTIVE || current.epoch != epoch) {
                 return@transition current to Unit
             }
-            NamespaceData(revision = current.revision, epoch = "", state = NamespaceState.TERMINATING) to Unit
+            NamespaceData(
+                revision = current.revision,
+                epoch = "",
+                state = NamespaceState.TERMINATING,
+                leaseSequence = current.leaseSequence,
+            ) to Unit
         }
     }
 
