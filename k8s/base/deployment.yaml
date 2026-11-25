@@ -33,9 +33,15 @@ spec:
           labelSelector:
             matchLabels:
               app: cosky
+      # The server needs nothing of the Kubernetes API.
+      automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 999
+        runAsGroup: 999
+        # What Pod Security's "restricted" level asks for.
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cosky
           # The tag comes from kustomization.yaml.
@@ -90,5 +96,13 @@ spec:
                 command: [sleep, "5"]
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
+          # The only place the server writes: the JVM's performance data, and Netty's native libraries as it loads them.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}

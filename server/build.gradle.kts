@@ -19,6 +19,18 @@ plugins {
 application {
     applicationName = "cosky-server"
     mainClass = "me.ahoo.cosky.server.CoSkyServerApplicationKt"
+    // In the start script, ahead of JAVA_OPTS and COSKY_SERVER_OPTS, which add to them: setting JAVA_OPTS for a trust
+    // store must not drop the heap size. Compact object headers save about 9% of memory on the Watch Cache (design
+    // 7.10). Netty loads its epoll transport, which sets the TCP user timeout, through a restricted method that a later
+    // JDK refuses unless native access is enabled. Protobuf still reads arrays through sun.misc.Unsafe, which JDK 25
+    // warns about at every start. A JVM out of memory is in no state to serve: it exits, and is started again.
+    applicationDefaultJvmArgs = listOf(
+        "-XX:+UseCompactObjectHeaders",
+        "-XX:MaxRAMPercentage=75",
+        "-XX:+ExitOnOutOfMemoryError",
+        "--enable-native-access=ALL-UNNAMED",
+        "--sun-misc-unsafe-memory-access=allow",
+    )
 }
 
 dependencies {
@@ -69,6 +81,13 @@ tasks.processResources {
 
 // The server runs on JDK 25 and compiles to Java 21 like every other module (design D27).
 val javaToolchains = the<JavaToolchainService>()
+
+// The flags above are for JDK 25, which `run` uses as well.
+tasks.named<JavaExec>("run") {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+}
 
 tasks.withType<Test> {
     javaLauncher = javaToolchains.launcherFor {
