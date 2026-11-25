@@ -42,12 +42,13 @@ private const val PREFIX = "cosky:"
 
 /**
  * One Config named by `spring.config.import=cosky:<name>` (design §7.7). Spring loads one only once in a run of the
- * imports, however many imports name it: the same Config, of the same namespace, the same way.
+ * imports, however many imports name it: the same Config, of the same namespace, the same way. The settings it loads
+ * with stay inside, since they hold the token.
  */
 class CoSkyConfigDataResource internal constructor(
     val config: String,
-    val properties: CoSkyProperties,
-    val applicationName: String?,
+    internal val properties: CoSkyProperties,
+    internal val applicationName: String?,
     val optional: Boolean = false,
 ) : ConfigDataResource() {
     override fun equals(other: Any?): Boolean = other is CoSkyConfigDataResource &&

@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.spring
 
+import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.discovery.CoSkyDiscoveryClient
 import me.ahoo.cosky.spring.discovery.CoSkyReactiveDiscoveryClient
 import me.ahoo.cosky.spring.registry.CoSkyAutoServiceRegistration
@@ -21,7 +22,10 @@ import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.springframework.boot.autoconfigure.AutoConfigurations
+import org.springframework.boot.health.autoconfigure.registry.HealthContributorRegistryAutoConfiguration
+import org.springframework.boot.health.contributor.Health
 import org.springframework.boot.health.contributor.HealthIndicator
+import org.springframework.boot.health.registry.HealthContributorRegistry
 import org.springframework.boot.test.context.FilteredClassLoader
 import org.springframework.boot.test.context.assertj.AssertableApplicationContext
 import org.springframework.boot.test.context.runner.ApplicationContextRunner
@@ -29,6 +33,8 @@ import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.cloud.commons.util.UtilAutoConfiguration
 import org.springframework.cloud.endpoint.event.RefreshEvent
 import org.springframework.cloud.loadbalancer.core.ServiceInstanceListSupplier
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 
 /**
  * Which parts of the starter apply, by the classpath, the kind of application and the switches.
@@ -61,7 +67,7 @@ class CoSkyConditionsTest {
                 context.containsBean("coSkyDiscoveryClient").assert().isTrue()
                 context.containsBean("coSkyServiceRegistry").assert().isTrue()
                 context.containsBean("coSkyConfigRefresher").assert().isFalse()
-                context.containsBean("coSkyHealthIndicator").assert().isFalse()
+                context.containsBean("coskyHealthIndicator").assert().isFalse()
                 context.containsBean("coSkyAutoServiceRegistration").assert().isFalse()
             }
     }
@@ -102,5 +108,62 @@ class CoSkyConditionsTest {
                 context.getBeansOfType(CoSkyAutoServiceRegistration::class.java).assert().isEmpty()
                 context.getBeansOfType(CoSkyServiceRegistry::class.java).assert().hasSize(1)
             }
+    }
+
+    @Test
+    fun `the health indicator reports as cosky, and can be switched off`() {
+        val health = runner().withConfiguration(
+            AutoConfigurations.of(
+                CoSkyAutoConfiguration::class.java,
+                HealthContributorRegistryAutoConfiguration::class.java,
+            ),
+        )
+        health.run { context ->
+            val registry = context.getBean(HealthContributorRegistry::class.java)
+            registry.getContributor("cosky").assert().isInstanceOf(CoSkyHealthIndicator::class.java)
+            registry.getContributor("coSky").assert().isNull()
+        }
+        health.withPropertyValues("management.health.cosky.enabled=false").run { context ->
+            context.getBeansOfType(CoSkyHealthIndicator::class.java).assert().isEmpty()
+            context.getBean(HealthContributorRegistry::class.java).getContributor("cosky").assert().isNull()
+        }
+        health.withPropertyValues("management.health.defaults.enabled=false").run { context ->
+            context.getBeansOfType(CoSkyHealthIndicator::class.java).assert().isEmpty()
+        }
+    }
+
+    @Test
+    fun `an application's own beans take the place of the starter's`() {
+        runner()
+            .withConfiguration(
+                AutoConfigurations.of(UtilAutoConfiguration::class.java, CoSkyAutoConfiguration::class.java)
+            )
+            .withUserConfiguration(OwnBeans::class.java)
+            .run { context ->
+                context.startupFailure.assert().isNull()
+                context.getBeansOfType(CoSkyDiscoveryClient::class.java).keys.assert().containsExactly("ownDiscovery")
+                context.getBeansOfType(CoSkyReactiveDiscoveryClient::class.java).keys
+                    .assert().containsExactly("ownReactiveDiscovery")
+                context.getBeansOfType(CoSkyServiceRegistry::class.java).keys.assert().containsExactly("ownRegistry")
+                context.getBeansOfType(HealthIndicator::class.java).keys
+                    .assert().containsExactly("coskyHealthIndicator")
+                context.getBean("coskyHealthIndicator").assert().isNotInstanceOf(CoSkyHealthIndicator::class.java)
+            }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    class OwnBeans {
+        @Bean
+        fun ownDiscovery(client: CoSkyClient, properties: CoSkyProperties) = CoSkyDiscoveryClient(client, properties)
+
+        @Bean
+        fun ownReactiveDiscovery(client: CoSkyClient, properties: CoSkyProperties) =
+            CoSkyReactiveDiscoveryClient(client, properties)
+
+        @Bean
+        fun ownRegistry(client: CoSkyClient, properties: CoSkyProperties) = CoSkyServiceRegistry(client, properties)
+
+        @Bean
+        fun coskyHealthIndicator() = HealthIndicator { Health.up().build() }
     }
 }

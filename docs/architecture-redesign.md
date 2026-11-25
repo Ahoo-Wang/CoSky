@@ -988,6 +988,8 @@ me.ahoo.cosky.server
 - **被拒绝的 Watch**:收到 `canceled` 后每 5 秒重试,因为权限和 namespace 都可能变化。视图还未知时 `load()` 立即抛出该错误,不必等到超时;有快照时继续用快照服务。
 - **低频重建**:每 `resync-interval`(默认 30 分钟,±20% 抖动)以 `from_revision = 0` 重建 Watch,用新快照替换视图,发现差异时记录指标。
 - **关闭**:`close()` 在 3 秒内 Revoke 租约,超时则放弃,由 server 到期回收。
+- **异常**:读取(`load` 等)抛 `CoSkyException`;写入(`Instances.register`、`Registration.close`)抛 gRPC 的 `StatusException`,带 server 返回的状态,`CoSkyException.from(e)` 在 server 给出原因时取出它(Java 中为静态方法)。server 不可达时注册照常返回,不抛异常。
+- **token**:空白的 `token`(如 `${COSKY_TOKEN:}` 在变量未设置时)视为未设置,可以与 `tokenFile` 同时出现。
 - **负载均衡**:`weight = 0` 的实例不参与选择;无可用实例时 `choose()` 返回 `null`。
 - **虚拟线程(D28)**:快照写入等阻塞操作跑在虚拟线程上。客户端可能运行在 JDK 21–23,这些版本中 `synchronized` 内阻塞会占住载体线程(JEP 491 在 JDK 24 解决),所以客户端不在 `synchronized` 内阻塞;server 运行在 JDK 25,没有这个限制。
 
@@ -1001,6 +1003,7 @@ me.ahoo.cosky.server
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
 | `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发;对 Redis 存储关闭时启动记 ERROR,`cosky_auth_enabled` 为 0(D47) |
 | `cosky.auth.bootstrap-token` | — | 没有 RoleBinding 时(首次启动、store 丢失全部数据后)创建 admin ServiceAccount;格式同普通 token,secret 至少 22 个 base62 字符(D47) |
+| `cosky.auth.namespace-accounts` | `true` | 每个 namespace 有一个同名 ServiceAccount,在该 namespace 绑定 `client`,它的应用共用这个账号的 token(D45) |
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` / `scopes` | — / — / — / `groups` / `openid,profile` | 不配置则不启用 OIDC;`scopes` 是 Dashboard 登录时申请的范围,有些提供方要显式申请才返回分组 |
 | `cosky.watch.window` | `10000` | 事件窗口,按事件计数,同时是日志的条数上限;应不小于 峰值事件速率 × 最长重连间隙(D29) |
 | `cosky.view.topology-flush-interval` | `30s` | 拓扑边的写入间隔,保留 3 倍间隔(D30) |
@@ -1017,6 +1020,8 @@ me.ahoo.cosky.server
 
 单条消息上限(2 MiB,§4.6)、租约 TTL(默认 30 秒,范围 5–300 秒)和 Config 历史(20 个 revision)在 8.0 是固定值(`Limits`),不可配置。
 
+时长属性不带单位时按秒计算(`@DurationUnit(SECONDS)`),环境变量 `COSKY_LEASE_REAPER_GRACE=30` 即 30 秒;带单位(`500ms`、`5m`)时以单位为准。starter 的时长属性相同。server 和 starter 都随 jar 提供 `META-INF/spring-configuration-metadata.json`,描述与默认值同 wiki 的属性参考一致,测试对照两者和代码。
+
 ### 7.7 Spring Boot Starter
 
 配置加载改用 Spring Boot **ConfigData API**,不再依赖 Spring Cloud bootstrap 上下文:
@@ -1027,7 +1032,8 @@ spring:
   config.import: "optional:cosky:order-service.yaml,cosky:shared/datasource.yaml"
 cosky:
   endpoints: cosky.internal:9090
-  token: ${COSKY_TOKEN}
+  token: ${COSKY_TOKEN:}   # 空白视为未设置
+  # token-file: /var/run/secrets/cosky/token   # 或从文件读取(如挂载的 Secret),文件变化后重新读取,与 token 二选一
   tls:
     enabled: true          # 默认 false;信任 JVM 的信任库
     trusted-certificates: /etc/cosky/ca.pem   # 可选,私有 CA
@@ -1054,9 +1060,11 @@ cosky:
 | 服务发现 | `DiscoveryClient` 和 `ReactiveDiscoveryClient` 读本地视图;首次读取一个 service 时最多等待 `discovery.load-timeout`,避免把未知当成空。`getServices` 会 watch 整个 namespace 的 Instance,只在确实需要全量列表时才有这个开销 |
 | 负载均衡 | 提供 Spring Cloud LoadBalancer 的 `ServiceInstanceListSupplier`,LB 算法交给 Spring Cloud |
 | 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |
-| 健康检查 | `HealthIndicator` 映射 `ConnectionState`:只有 `CLOSED` 为 DOWN,`DEGRADED` 仍为 UP(应用靠本地视图继续工作,重启无益);状态写入 `connection` 明细 |
+| 健康检查 | `HealthIndicator` 映射 `ConnectionState`:只有 `CLOSED` 为 DOWN,`DEGRADED` 仍为 UP(应用靠本地视图继续工作,重启无益);状态写入 `connection` 明细。bean 名 `coskyHealthIndicator`,所以在 `/actuator/health` 中名为 `cosky`;`management.health.cosky.enabled=false` 关闭它 |
 
 每个应用有自己的客户端,以 `spring.application.name` 命名,关闭一个应用不影响同一 JVM 中的其他应用:第一个导入在 bootstrap 上下文中创建它,刷新沿用它;bootstrap 上下文关闭时交给应用上下文,随应用上下文关闭;启动时没有导入则由自动配置创建,并放进 Spring Cloud 为刷新保留的 bootstrap 上下文,刷新新增的导入同样沿用它;启动在应用上下文能关闭它之前失败(如必选 Config 不存在,或交接之后、上下文刷新之前失败)时立即关闭。
+
+应用自己定义的 bean 取代 starter 的:名为 `coskyHealthIndicator` 的 bean,或类型为 `CoSkyDiscoveryClient`、`CoSkyReactiveDiscoveryClient`、`CoSkyServiceRegistry`、`CoSkyAutoServiceRegistration` 的 bean(`@ConditionalOnMissingBean`)。starter 的公开 API 是 `CoSkyAutoConfiguration`(供 exclude)、`CoSkyProperties` 的属性、Spring Cloud 接口的实现和 `RegistrationRefusedException` 的属性;嵌套的配置类、`CoSkyLoadBalancing`、`CoSkyProperties.toOptions` 等是 `internal`,`CoSkyApplicationClient` 是 `@InternalCoSkyApi`。`@Bean` 方法不能是 `internal`:Kotlin 会改写它的 JVM 名,bean 名随之改变。
 
 刷新事件在专用的平台线程上发布,这是 D28 的例外:`ContextRefresher.refresh` 是 `synchronized` 的,导入又在其中阻塞,JDK 21–23 上放在虚拟线程会占住 client 自己也需要的载体线程。
 
@@ -1107,12 +1115,14 @@ cosky:
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
 | `cosky_watch_events_sent_total` | Counter | 发给 watcher 的事件数 |
 | `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;滚动重启后看这个指标判断窗口是否够大(D29) |
-| `cosky_lease_active{namespace}` / `cosky_lease_expired_total` | Gauge / Counter | 由回收 Leader 上报 |
-| `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2) |
+| `cosky_lease_active{namespace}` / `cosky_lease_expired_total{namespace}` | Gauge / Counter | 只由回收 Leader 上报:卸任时移除 gauge,不再管理的 namespace 也移除;跨副本对 gauge 取 `max`,Leader 切换的一刻也不会重复 |
+| `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2),同样只由回收 Leader 上报 |
 | `cosky_revision_regression_total` | Counter | §6.4 |
 | `cosky_anti_entropy_drift_total{namespace}` | Counter | 反熵发现不一致(§6.1) |
-| `cosky_auth_failures_total{reason}` | Counter | |
+| `cosky_auth_failures_total{reason}` | Counter | `missing`:没有 token(或为空);`invalid`:格式不对、未知、已吊销或已过期的 token,或 OIDC 校验不通过的 ID token;`unavailable`:无法判定,如访问规则加载中、身份提供方不可达。告警看 `missing` 和 `invalid`,不看 `unavailable`:它随故障出现,由其他指标发现 |
 | `cosky_auth_enabled` | Gauge | 1 开启鉴权,0 关闭:关闭时所有调用者都是 admin(D47) |
+
+namespace 删除(或本副本不再跟随它)时,它的 `cosky_cache_revision`、`cosky_cache_lag_seconds`、租约 gauge 和计数器随之移除,不留下停在最后一个值的序列。
 
 - 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠比较各副本的 `cosky_cache_revision` 发现。
 - 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。

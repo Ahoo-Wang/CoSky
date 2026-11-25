@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.VirtualThreads
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
@@ -42,6 +43,7 @@ import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.server.watch.WatchSession
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -159,19 +161,96 @@ class ObservabilityTest {
     }
 
     @Test
-    fun `an expired lease counts, as does a pause on mass expiry`() = scenario {
+    fun `an expired lease counts in its namespace, as does a pause on mass expiry`() = scenario {
         val options = LeaseReaper.Options(grace = Duration.ZERO, protectionMinLeases = 2, protectionThreshold = 0.5)
         val reaper = LeaseReaper(store, { listOf(NAMESPACE) }, options, metrics = metrics)
         store.grantLease(NAMESPACE, 1.milliseconds, "test")
         delay(20.milliseconds)
         reaper.tick()
-        registry.counter("cosky_lease_expired_total").count().assert().isEqualTo(1.0)
+        registry.get("cosky_lease_expired_total").tag("namespace", NAMESPACE).counter().count()
+            .assert().isEqualTo(1.0)
 
         repeat(2) { store.grantLease(NAMESPACE, 1.milliseconds, "test") }
         delay(20.milliseconds)
         reaper.tick()
         registry.get("cosky_lease_protection_active").gauge().value().assert().isEqualTo(1.0)
         registry.get("cosky_lease_active").gauge().value().assert().isEqualTo(2.0)
+    }
+
+    @Test
+    fun `a replica that is no longer the reaper's leader stops reporting leases`() = scenario {
+        val options = LeaseReaper.Options(grace = Duration.ZERO, protectionMinLeases = 2, protectionThreshold = 0.5)
+        val reaper = LeaseReaper(store, { listOf(NAMESPACE) }, options, owner = "first", metrics = metrics)
+        repeat(2) { store.grantLease(NAMESPACE, 1.milliseconds, "test") }
+        delay(20.milliseconds)
+        reaper.tick()
+        registry.find("cosky_lease_active").gauge().assert().isNotNull()
+        registry.find("cosky_lease_protection_active").gauge().assert().isNotNull()
+
+        store.unlock(LeaseReaper.LOCK, "first")
+        store.tryLock(LeaseReaper.LOCK, "second", 60.seconds).assert().isTrue()
+        reaper.tick()
+
+        // The new leader reports them now: two replicas reporting would add up to twice as many.
+        registry.find("cosky_lease_active").gauge().assert().isNull()
+        registry.find("cosky_lease_protection_active").gauge().assert().isNull()
+    }
+
+    @Test
+    fun `the reaper's leader stops reporting a namespace it no longer looks after`() = scenario {
+        var namespaces = listOf(NAMESPACE)
+        val reaper = LeaseReaper(store, { namespaces }, LeaseReaper.Options(grace = Duration.ZERO), metrics = metrics)
+        store.grantLease(NAMESPACE, 30.seconds, "test")
+        reaper.tick()
+        registry.get("cosky_lease_active").tag("namespace", NAMESPACE).gauge().value().assert().isEqualTo(1.0)
+
+        namespaces = emptyList()
+        reaper.tick()
+
+        registry.find("cosky_lease_active").gauge().assert().isNull()
+        registry.find("cosky_lease_protection_active").gauge().assert().isNull()
+    }
+
+    @Test
+    fun `a namespace that is gone takes its series along`() = scenario {
+        val caches = WatchCache(store, WINDOW, scope, metrics = metrics)
+        caches.of(NAMESPACE).views.first { it != null }
+        store.apply(NAMESPACE, listOf(Mutation.Put(config("a"))), "test")
+        store.apply(NAMESPACE, listOf(Mutation.Delete(config("a").key)), "test")
+        while (registry.find("cosky_cache_revision").gauge()?.value() != 2.0) {
+            delay(10.milliseconds)
+        }
+        metrics.leases(NAMESPACE, 1)
+        metrics.antiEntropyDrift(NAMESPACE)
+
+        val epoch = checkNotNull(store.position(NAMESPACE)).epoch
+        store.terminateNamespace(NAMESPACE, epoch)
+        store.dropNamespace(NAMESPACE, epoch)
+
+        while (registry.find("cosky_cache_revision").gauge() != null) {
+            delay(10.milliseconds)
+        }
+        registry.find("cosky_cache_lag_seconds").gauge().assert().isNull()
+        registry.find("cosky_lease_active").gauge().assert().isNull()
+        registry.find("cosky_anti_entropy_drift_total").counter().assert().isNull()
+    }
+
+    @Test
+    fun `an authentication failure says whether a token was missing, no good, or could not be told`() {
+        val invalid = CoSkyException.unauthenticated("A valid token is required.")
+        val unknown = CoSkyException.storeUnavailable("Access rules are loading.")
+        AuthFailure.of(null, invalid).assert().isEqualTo(AuthFailure.MISSING)
+        AuthFailure.of(" ", invalid).assert().isEqualTo(AuthFailure.MISSING)
+        AuthFailure.of("cosky_id_secret", invalid).assert().isEqualTo(AuthFailure.INVALID)
+        AuthFailure.of("cosky_id_secret", unknown).assert().isEqualTo(AuthFailure.UNAVAILABLE)
+        AuthFailure.entries.map { it.tag }.assert().containsExactly("missing", "invalid", "unavailable")
+
+        AuthFailure.entries.forEach { reason ->
+            registry.get("cosky_auth_failures_total").tag("reason", reason.tag).counter().count()
+                .assert().isEqualTo(0.0)
+        }
+        metrics.authFailure(AuthFailure.INVALID)
+        registry.get("cosky_auth_failures_total").tag("reason", "invalid").counter().count().assert().isEqualTo(1.0)
     }
 
     @Test

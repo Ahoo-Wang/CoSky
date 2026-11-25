@@ -33,9 +33,11 @@ import com.google.rpc.Status as RpcStatus
 /**
  * A CoSky error: a reason with its typed [detail], convertible to and from a gRPC status (design §4.4).
  *
- * On the wire the [detail] travels packed in `google.rpc.Status.details`, so any gRPC client can read it.
+ * On the wire the [detail] travels packed in `google.rpc.Status.details`, so any gRPC client can read it, and [from]
+ * reads it back from what a call threw. The factories that make one are CoSky's own ([InternalCoSkyApi]); the
+ * constructor refuses, with an `IllegalArgumentException`, a [detail] whose reason has no [ErrorCodes] entry.
  */
-class CoSkyException(
+class CoSkyException @JvmOverloads constructor(
     val detail: ErrorDetail,
     message: String,
     cause: Throwable? = null,
@@ -52,34 +54,42 @@ class CoSkyException(
     val errorCode: ErrorCode
         get() = ErrorCodes.of(reason)
 
+    @InternalCoSkyApi
     fun toRpcStatus(): RpcStatus = RpcStatus.newBuilder()
         .setCode(errorCode.grpcCode.value())
         .setMessage(message.orEmpty())
         .addDetails(Any.pack(detail))
         .build()
 
+    /**
+     * The gRPC status this error travels as, with [detail] in its details.
+     */
     fun toStatusRuntimeException(): StatusRuntimeException = StatusProto.toStatusRuntimeException(toRpcStatus())
 
     /**
      * Ends a single watch with this error while its stream stays open (§7.3).
      */
+    @InternalCoSkyApi
     fun toWatchCanceled(): WatchResponse.Canceled = WatchResponse.Canceled.newBuilder()
         .setMessage(message.orEmpty())
         .setDetail(detail)
         .build()
 
     companion object {
+        @InternalCoSkyApi
         fun resourceNotFound(key: ResourceKey): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND)
                 .setResourceNotFound(ResourceNotFound.newBuilder().setKey(key)),
             "${key.kind} ${key.namespace}/${key.name} not found.",
         )
 
+        @InternalCoSkyApi
         fun namespaceNotFound(namespace: String): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND).setNamespace(namespaceRef(namespace)),
             "Namespace $namespace not found.",
         )
 
+        @InternalCoSkyApi
         fun namespaceNotEmpty(namespace: String): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY).setNamespace(namespaceRef(namespace)),
             "Namespace $namespace still holds Configs or Instances.",
@@ -88,6 +98,7 @@ class CoSkyException(
         /**
          * @param currentRevision 0 when the resource does not exist.
          */
+        @InternalCoSkyApi
         fun revisionConflict(key: ResourceKey, expectedRevision: Long, currentRevision: Long): CoSkyException =
             CoSkyException(
                 detail(ErrorReason.ERROR_REASON_REVISION_CONFLICT).setRevisionConflict(
@@ -100,6 +111,7 @@ class CoSkyException(
                     "current revision $currentRevision.",
             )
 
+        @InternalCoSkyApi
         fun leaseNotFound(namespace: String, lease: Long): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_LEASE_NOT_FOUND).setLeaseNotFound(
                 LeaseNotFound.newBuilder().setNamespace(namespace).setLease(lease),
@@ -130,17 +142,21 @@ class CoSkyException(
             return error
         }
 
+        @InternalCoSkyApi
         fun unauthenticated(message: String): CoSkyException =
             CoSkyException(detail(ErrorReason.ERROR_REASON_UNAUTHENTICATED).build(), message)
 
+        @InternalCoSkyApi
         fun permissionDenied(message: String): CoSkyException =
             CoSkyException(detail(ErrorReason.ERROR_REASON_PERMISSION_DENIED).build(), message)
 
+        @InternalCoSkyApi
         fun minRevisionTimeout(namespace: String, minRevision: Long): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT).setNamespace(namespaceRef(namespace)),
             "Namespace $namespace did not reach revision $minRevision in time.",
         )
 
+        @InternalCoSkyApi
         fun storeUnavailable(message: String, cause: Throwable? = null): CoSkyException =
             CoSkyException(detail(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE).build(), message, cause)
 
@@ -148,6 +164,7 @@ class CoSkyException(
          * The OIDC provider, or its signing keys, cannot be reached: it says nothing of the token, which another try
          * may well accept.
          */
+        @InternalCoSkyApi
         fun identityProviderUnavailable(message: String, cause: Throwable? = null): CoSkyException =
             CoSkyException(detail(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE).build(), message, cause)
 
@@ -155,11 +172,13 @@ class CoSkyException(
          * This replica is still loading [namespace], or is behind what was asked of it, where another replica may
          * well serve it (design D29).
          */
+        @InternalCoSkyApi
         fun replicaNotReady(namespace: String, message: String): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_REPLICA_NOT_READY).setNamespace(namespaceRef(namespace)),
             message,
         )
 
+        @InternalCoSkyApi
         fun revisionRegression(namespace: String): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_REVISION_REGRESSION).setNamespace(namespaceRef(namespace)),
             "Namespace $namespace diverged from the store and is reloading.",
@@ -168,6 +187,7 @@ class CoSkyException(
         /**
          * @param limit watches allowed on one stream.
          */
+        @InternalCoSkyApi
         fun watchQuotaExceeded(limit: Int): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_WATCH_QUOTA_EXCEEDED).setWatchQuotaExceeded(
                 WatchQuotaExceeded.newBuilder().setLimit(limit),
@@ -179,6 +199,7 @@ class CoSkyException(
          * Recovers the CoSky error from a gRPC `StatusException` / `StatusRuntimeException` (or anything wrapping
          * one); null when [throwable] carries no [ErrorDetail].
          */
+        @JvmStatic
         fun from(throwable: Throwable): CoSkyException? {
             val status = StatusProto.fromThrowable(throwable) ?: return null
             val detail = status.detailsList.firstOrNull { it.`is`(ErrorDetail::class.java) } ?: return null
@@ -194,6 +215,7 @@ class CoSkyException(
         /**
          * Recovers the CoSky error from a canceled watch; null when it carries no known reason.
          */
+        @JvmStatic
         fun from(canceled: WatchResponse.Canceled): CoSkyException? = try {
             CoSkyException(canceled.detail, canceled.message)
         } catch (_: IllegalArgumentException) {

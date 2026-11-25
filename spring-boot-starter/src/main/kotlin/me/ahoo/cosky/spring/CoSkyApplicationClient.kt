@@ -14,6 +14,7 @@
 package me.ahoo.cosky.spring
 
 import kotlinx.coroutines.flow.Flow
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.ConfigHold
@@ -38,7 +39,11 @@ import java.util.concurrent.atomic.AtomicBoolean
  * application that fails to start before its context could close it has it closed by [CoSkyClientRunListener]. An
  * application that imports nothing at startup gets it from the auto-configuration, which puts it in that bootstrap
  * context too, so that a refresh adding the first import loads through it rather than creating another.
+ *
+ * Public only because the auto-configuration's bean is, and internal to CoSky all the same: applications use the
+ * [CoSkyClient] bean.
  */
+@InternalCoSkyApi
 class CoSkyApplicationClient internal constructor(
     properties: CoSkyProperties,
     applicationName: String?,

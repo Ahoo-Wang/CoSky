@@ -55,6 +55,7 @@ import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.auth.bearerCredentials
+import me.ahoo.cosky.server.observe.AuthFailure
 import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
@@ -179,10 +180,11 @@ class RestRoutes(
             return request
         }
         val remote = request.remoteAddress().getOrNull()?.toString()
+        val credentials = bearerCredentials(request.headers().firstHeader(HttpHeaders.AUTHORIZATION))
         val principal = try {
-            access.authenticate(bearerCredentials(request.headers().firstHeader(HttpHeaders.AUTHORIZATION)))
+            access.authenticate(credentials)
         } catch (e: CoSkyException) {
-            metrics.authFailure(e.reason.name)
+            metrics.authFailure(AuthFailure.of(credentials, e))
             val path = request.path()
             audit.record(UNKNOWN_SUBJECT, null, null, null, path, null, e.errorCode.grpcCode.name, remote)
             throw e
