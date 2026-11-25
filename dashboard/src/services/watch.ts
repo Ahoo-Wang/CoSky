@@ -11,7 +11,8 @@
  * limitations under the License.
  */
 
-import type {Kind, WatchResponse} from '@/generated';
+import {ExchangeError} from '@ahoo-wang/fetcher';
+import {ErrorReason, type Kind, type WatchResponse} from '@/generated';
 import {watchClient} from '@/services/clients';
 import {readingAgain, readsBehind, watchedUpTo} from '@/services/revisions';
 
@@ -20,6 +21,7 @@ const MAX_RETRY_MS = 30_000;
 // The server sends a bookmark while idle, every 10 seconds by default: silence for longer means the stream is dead,
 // which a proxy can do without closing it. Opening it again costs little, should a server send them less often.
 const SILENCE_MS = 30_000;
+const FORBIDDEN = 403;
 
 export interface FollowOptions {
     namespace: string;
@@ -79,8 +81,12 @@ export async function followChanges({namespace, kind, service, signal, onChange}
             for (let next = await readOrSilence(reader); next && !next.done; next = await readOrSilence(reader)) {
                 retry = MIN_RETRY_MS;
                 const message = next.value.data as Partial<WatchResponse>;
-                // Nothing more will come: the namespace is gone, or this subject may not watch it.
                 if (message.canceled) {
+                    // The token it was opened with expired: the next one carries the token renewed meanwhile.
+                    if (message.canceled.detail?.reason === ErrorReason.ERROR_REASON_UNAUTHENTICATED) {
+                        break;
+                    }
+                    // Nothing more will come: the namespace is gone, or this subject may not watch it.
                     return;
                 }
                 if (message.snapshot) {
@@ -105,8 +111,12 @@ export async function followChanges({namespace, kind, service, signal, onChange}
                 }
             }
             await reader.cancel();
-        } catch {
-            // Told apart by the loop: an abort ends it, and anything else opens the stream again.
+        } catch (error) {
+            // Nothing more will come of one this subject may not watch, as of a canceled stream. An abort ends the loop
+            // by itself, and anything else opens the stream again.
+            if (error instanceof ExchangeError && error.exchange.response?.status === FORBIDDEN) {
+                return;
+            }
         } finally {
             signal.removeEventListener('abort', abort);
         }

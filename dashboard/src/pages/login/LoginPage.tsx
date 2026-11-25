@@ -26,7 +26,7 @@ import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {failureMessage} from '@/lib/actions';
 import {cn} from '@/lib/utils';
-import {beginSignIn, completeSignIn} from '@/security/oidc';
+import {beginSignIn, completeSignIn, signInWithToken} from '@/security/oidc';
 import {session} from '@/security/session';
 import {identityClient} from '@/services/clients';
 
@@ -88,7 +88,7 @@ export function LoginPage() {
         event.preventDefault();
         const token = String(new FormData(event.currentTarget).get('token')).trim();
         setSigningIn(true);
-        session.signIn(token);
+        signInWithToken(token);
         try {
             await identityClient.getMe();
             navigate('/home');

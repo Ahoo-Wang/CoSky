@@ -13,11 +13,14 @@
 
 package me.ahoo.cosky.server.audit
 
+import io.grpc.Status
+import kotlinx.coroutines.CancellationException
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.store.StoreUnavailableException
 import org.slf4j.LoggerFactory
 import java.time.Clock
 
@@ -27,18 +30,30 @@ import java.time.Clock
  */
 class AuditLogger(private val clock: Clock = Clock.systemUTC()) {
     /**
-     * Records a write and how it ended (design §7.8).
+     * Records a write and how it ended (design §7.8), whatever ended it: a write whose answer timed out, or whose
+     * caller went away, may well have landed, with `updated_by` naming who made it.
      */
     inline fun <T> audited(caller: Caller, verb: Verb, key: ResourceKey, revisionOf: (T) -> Long, write: () -> T): T {
         val response = try {
             write()
-        } catch (e: CoSkyException) {
-            record(caller, verb, key, null, e.errorCode.grpcCode.name)
+        } catch (@Suppress("TooGenericExceptionCaught") e: Throwable) {
+            record(caller, verb, key, null, resultOf(e))
             throw e
         }
         record(caller, verb, key, revisionOf(response), RESULT_OK)
         return response
     }
+
+    /**
+     * The gRPC code the caller gets for [failure].
+     */
+    @PublishedApi
+    internal fun resultOf(failure: Throwable): String = when (failure) {
+        is CoSkyException -> failure.errorCode.grpcCode
+        is StoreUnavailableException -> Status.Code.UNAVAILABLE
+        is CancellationException -> Status.Code.CANCELLED
+        else -> Status.Code.UNKNOWN
+    }.name
 
     @PublishedApi
     internal fun record(caller: Caller, verb: Verb, key: ResourceKey, revision: Long?, result: String) {

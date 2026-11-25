@@ -67,7 +67,8 @@ class AccessControl(
     }
 
     override fun isValid(principal: Principal): Boolean {
-        val id = principal.tokenId ?: return true
+        val expired = principal.validUntil?.let { !clock.instant().isBefore(it) } ?: false
+        val id = principal.tokenId ?: return !expired
         val ref = model().token(id)?.second ?: return false
         return !isExpired(ref)
     }

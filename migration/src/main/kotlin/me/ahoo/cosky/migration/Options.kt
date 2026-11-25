@@ -89,7 +89,8 @@ internal data class Options(
                     ?: usage("--source or \$$SOURCE_VARIABLE is required."),
                 cluster = "--cluster" in flags,
                 target = (values["--target"] ?: usage("--target is required.")).trimEnd('/'),
-                token = environment[TOKEN_VARIABLE],
+                // A Kubernetes Secret made from a file ends in a line break, which no header can carry.
+                token = environment[TOKEN_VARIABLE]?.trim()?.ifEmpty { null }?.also(::requireHeaderValue),
                 history = "--history" in flags,
                 dryRun = "--dry-run" in flags,
                 namespaces = namespaces,
@@ -107,6 +108,13 @@ internal data class Options(
         }
 
         private fun usage(problem: String): Nothing = throw UsageException(problem)
+
+        /** Says what is wrong without the token, which would end up in a job's log. */
+        private fun requireHeaderValue(token: String) {
+            if (token.any { it.isISOControl() }) {
+                usage("\$$TOKEN_VARIABLE holds a character a header cannot carry, such as a line break within it.")
+            }
+        }
 
         private fun Iterator<String>.valueOf(flag: String): String {
             return if (hasNext()) next() else usage("$flag needs a value.")

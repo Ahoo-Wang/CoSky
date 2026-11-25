@@ -46,7 +46,7 @@ Dashboard 通过带 PKCE 的授权码流程登录，所以要把 `cosky-dashboar
 
 `scopes` 默认是 `openid` 和 `profile`。只有提供方确实有某个 scope 时才添加，因为它会拒绝不认识的 scope。有些提供方要求某个 scope 才返回分组，有些要求 `offline_access` 才发放 refresh token。
 
-- **保持登录。** Dashboard 在 ID token 到期前用 refresh token 续期。如果提供方不发放 refresh token，token 到期后就要重新登录，默认配置的 Keycloak 上是 5 分钟。refresh token 和 ID token 一样保存在标签页中，随标签页结束。
+- **保持登录。** Dashboard 在 ID token 到期前用 refresh token 续期。如果提供方不发放 refresh token，token 到期后就要重新登录，默认配置的 Keycloak 上是 5 分钟。refresh token 和 ID token 一样保存在标签页中，随标签页结束。实时视图在打开它的 ID token 到期时结束，Dashboard 用续期后的 token 重新打开：在提供方被移出某个组的人，最迟一个 token 的有效期后就看不到该组能看的内容。
 - **退出登录**时，如果提供方提供 `end_session_endpoint`，也会结束提供方的会话，下次登录会要求输入密码。
 - **提供方不可用时**，server 仍能启动，应用继续使用自己的 token 工作。已登录的用户在 ID token 到期前不受影响，新的登录会失败：server 返回 `UNAVAILABLE`，而不是认为 token 无效。请保留一个 ServiceAccount token，以便在此期间登录。
 

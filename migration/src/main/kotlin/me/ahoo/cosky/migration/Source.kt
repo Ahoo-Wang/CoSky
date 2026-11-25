@@ -19,6 +19,7 @@ import io.lettuce.core.RedisURI
 import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.cluster.api.sync.RedisClusterCommands
 import io.lettuce.core.resource.ClientResources
+import java.net.URISyntaxException
 import java.time.Duration
 
 internal data class SourceRole(
@@ -110,16 +111,29 @@ internal class SourceConnection private constructor(
 
     companion object {
         private val QUIET = Duration.ZERO
+
+        /**
+         * What is wrong with a source, without the source: it may hold a password, which would end up in a job's log.
+         */
+        private fun withoutSources(e: IllegalArgumentException, sources: List<String>): String {
+            val syntax = e.cause as? URISyntaxException
+            return syntax?.let { "${it.reason} at index ${it.index}." }
+                ?: sources.fold(e.message.orEmpty()) { message, source -> message.replace(source, "<source>") }
+        }
         private val SHUTDOWN_TIMEOUT = Duration.ofSeconds(2)
 
         /**
          * @param resources shut down with the connection.
          */
         fun open(options: Options, resources: ClientResources = ClientResources.create()): SourceConnection {
+            val sources = options.source.split(',')
             val uris = try {
-                options.source.split(',').map(RedisURI::create)
+                sources.map(RedisURI::create)
             } catch (@Suppress("SwallowedException") e: IllegalArgumentException) {
-                throw UsageException("The source is not a Redis URI: ${e.message}")
+                throw UsageException("The source is not a Redis URI: ${withoutSources(e, sources)}")
+            }
+            if (uris.size > 1 && !options.cluster) {
+                throw UsageException("Several sources are the nodes of a Cluster, which takes --cluster.")
             }
             val connected: Pair<AbstractRedisClient, RedisClusterCommands<String, String>> = if (options.cluster) {
                 RedisClusterClient.create(resources, uris).let { it to it.connect().sync() }

@@ -447,11 +447,30 @@ class MigrationTest {
             listOf("--source", REDIS_URI, "--target", URL, "--namespace", "no-separator") to "--namespace looks like",
             listOf("--source", REDIS_URI, "--target", "localhost:8080") to "must be an http",
             listOf("--source", "not-a-uri", "--target", URL) to "not a Redis URI",
+            listOf("--source", "$REDIS_URI,$REDIS_URI", "--target", URL) to "takes --cluster",
         ).forEach { (arguments, message) ->
             output.reset()
             migrate(arguments, emptyMap(), PrintStream(output)).assert().isEqualTo(EXIT_UNABLE)
             output.toString().assert().contains(message)
         }
+    }
+
+    @Test
+    fun `neither the token nor the source is printed, however malformed`() {
+        val arguments = listOf("--source", REDIS_URI, "--target", URL, "--dry-run", "--report", "$directory/r.md")
+        // As a Kubernetes Secret made from a file gives it.
+        migrate(arguments, mapOf(Options.TOKEN_VARIABLE to "$TOKEN\n"), PrintStream(output))
+            .assert().isEqualTo(EXIT_DONE)
+
+        output.reset()
+        migrate(arguments, mapOf(Options.TOKEN_VARIABLE to "cosky_x_SECRET\nmore"), PrintStream(output))
+            .assert().isEqualTo(EXIT_UNABLE)
+        output.toString().assert().contains(Options.TOKEN_VARIABLE).doesNotContain("SECRET")
+
+        output.reset()
+        migrate(listOf("--source", "redis://:s3cr%t@localhost:6379", "--target", URL), emptyMap(), PrintStream(output))
+            .assert().isEqualTo(EXIT_UNABLE)
+        output.toString().assert().contains("not a Redis URI").doesNotContain("s3cr")
     }
 
     @Test

@@ -33,8 +33,10 @@ import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
+import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.toKotlinDuration
+import java.time.Duration as JavaDuration
 
 /**
  * Watches as both protocols serve them (design §4.3, §7.3): a watch is checked, limited, bookmarked and re-evaluated
@@ -48,6 +50,7 @@ class WatchService(
     private val authorizer: Authorizer = Authorizer.ALLOW_ALL,
     private val topology: TopologyRecorder? = null,
     private val limits: Limits = Limits.DEFAULT,
+    private val clock: Clock = Clock.systemUTC(),
 ) {
     private val validator = Validator(limits)
 
@@ -59,10 +62,20 @@ class WatchService(
     fun permissionOf(principal: Principal, create: WatchRequest.Create): Permission {
         requireValid(validator.validate(WatchRequest.newBuilder().setCreate(create).build()))
         val permission = authorizer.permission(principal, Verb.VERB_WATCH, create.kind, create.namespace)
-        if (permission == Permission.None) {
+        if (!permission.admits(create)) {
             throw denied(principal, create)
         }
         return permission
+    }
+
+    /**
+     * A watch of the whole kind is filtered by the rules, and refused only by none at all; one of a single name, or of
+     * the Instances of one service, is refused when the rules leave that out, as a Get of it is (design §7.8).
+     * Filtering it would show a client that has no right to the object an object that does not exist.
+     */
+    private fun Permission.admits(create: WatchRequest.Create): Boolean {
+        val scope = if (create.kind == Kind.KIND_INSTANCE) create.service else create.name
+        return this != Permission.None && (scope.isEmpty() || allows(scope))
     }
 
     private fun denied(principal: Principal, create: WatchRequest.Create): CoSkyException =
@@ -162,13 +175,21 @@ class WatchService(
          * Sends progress bookmarks, one timer for all the watches, and re-evaluates what the subject may see, until
          * the stream ends.
          *
-         * @throws CoSkyException `UNAUTHENTICATED` when the token is no longer valid, which ends the stream.
+         * @throws CoSkyException `UNAUTHENTICATED` when the token is no longer valid, which ends the stream: when it is
+         * revoked, or when the OIDC token it was opened with expires. A client renews that token and opens the stream
+         * again, so that a person removed from a group at the provider stops seeing what the group may.
          */
         suspend fun maintain(): Unit = coroutineScope {
             launch {
                 while (true) {
                     delay(properties.watch.progressInterval.toKotlinDuration())
                     watches.forEach { (id, watch) -> send(WatchSession.progress(id, watch.session.cursor.get())) }
+                }
+            }
+            principal.validUntil?.let { validUntil ->
+                launch {
+                    delay(JavaDuration.between(clock.instant(), validUntil).toKotlinDuration())
+                    throw CoSkyException.unauthenticated("The token has expired.")
                 }
             }
             authorizer.changes.collect { reevaluate() }
@@ -188,7 +209,7 @@ class WatchService(
                     watches.remove(id)
                     watch.job.cancel()
                     send(
-                        if (now == Permission.None) {
+                        if (!now.admits(watch.create)) {
                             WatchSession.canceled(id, denied(principal, watch.create))
                         } else {
                             WatchSession.gone(id, 0)

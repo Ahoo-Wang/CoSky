@@ -231,10 +231,10 @@ class AuthorizationTest {
     private suspend fun codeOf(block: suspend () -> Unit): Status.Code =
         (runCatching { block() }.exceptionOrNull() as StatusException).status.code
 
-    private fun watch(kind: Kind): Flow<WatchRequest> = flow {
+    private fun watch(kind: Kind, name: String = "", service: String = ""): Flow<WatchRequest> = flow {
         emit(
             WatchRequest.newBuilder().apply {
-                createBuilder.setWatchId(1).setNamespace(NAMESPACE).setKind(kind)
+                createBuilder.setWatchId(1).setNamespace(NAMESPACE).setKind(kind).setName(name).setService(service)
             }.build(),
         )
         CompletableDeferred<Unit>().await()
@@ -475,6 +475,25 @@ class AuthorizationTest {
         val reader = account("narrow", "reader")
         val snapshot = reader.watches.watch(watch(Kind.KIND_CONFIG)).first { it.hasSnapshot() }.snapshot
         snapshot.itemsList.map { it.meta.name }.assert().containsExactly("a")
+    }
+
+    @Test
+    fun `a watch of one name or one service the rules leave out is refused, not shown as empty`() = scenario {
+        system(
+            customRole(
+                "narrow",
+                rule(Kind.KIND_CONFIG, listOf(Verb.VERB_WATCH), listOf("a")),
+                rule(Kind.KIND_INSTANCE, listOf(Verb.VERB_WATCH), listOf("order")),
+            ),
+        )
+        val client = account("narrow", "narrow")
+        listOf(watch(Kind.KIND_CONFIG, name = "b"), watch(Kind.KIND_INSTANCE, service = "payment")).forEach {
+            client.watches.watch(it).first().canceled.detail.reason
+                .assert().isEqualTo(ErrorReason.ERROR_REASON_PERMISSION_DENIED)
+        }
+        listOf(watch(Kind.KIND_CONFIG, name = "a"), watch(Kind.KIND_INSTANCE, service = "order")).forEach {
+            client.watches.watch(it).first().hasSnapshot().assert().isTrue()
+        }
     }
 
     @Test

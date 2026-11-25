@@ -39,7 +39,12 @@ class OidcAuthenticator(private val decoder: JwtDecoder, private val groupsClaim
     fun authenticate(token: String): Principal {
         val jwt = decode(token)
         val subject = jwt.subject ?: throw CoSkyException.unauthenticated("The token names no subject.")
-        return Principal(Subject.Type.TYPE_USER, subject, jwt.getClaimAsStringList(groupsClaim).orEmpty().toSet())
+        return Principal(
+            Subject.Type.TYPE_USER,
+            subject,
+            jwt.getClaimAsStringList(groupsClaim).orEmpty().toSet(),
+            expiresAt = jwt.expiresAt,
+        )
     }
 
     private fun decode(token: String): Jwt = try {

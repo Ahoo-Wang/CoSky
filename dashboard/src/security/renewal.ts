@@ -25,6 +25,33 @@ export function renewAt(issuedAt: number, expiresAt: number): number {
     return (expiresAt - Math.min(MARGIN_SECONDS, (expiresAt - issuedAt) / LIFETIME_SHARE)) * 1000;
 }
 
+/**
+ * When to renew a token and when it expires, by this computer's clock, which need not agree with the provider's: what
+ * counts is how long the token lasts from when it arrived. Ahead, renewing at once would never end; behind, the
+ * server would refuse the token before it is renewed. Without `iat`, or that moment, `exp` is all there is.
+ *
+ * @param receivedAt milliseconds; [issuedAt] and [expiresAt] are the token's claims, in seconds.
+ */
+export function localTimes(
+    issuedAt: number | undefined,
+    expiresAt: number,
+    receivedAt: number | null,
+): {renewAt: number, expiresAt: number} {
+    if (issuedAt === undefined || receivedAt === null) {
+        return {renewAt: renewAt(issuedAt ?? Date.now() / 1000, expiresAt), expiresAt: expiresAt * 1000};
+    }
+    const shift = receivedAt - issuedAt * 1000;
+    return {renewAt: renewAt(issuedAt, expiresAt) + shift, expiresAt: expiresAt * 1000 + shift};
+}
+
+function timesOf(claims: Record<string, unknown>): {renewAt: number, expiresAt: number} | null {
+    if (typeof claims.exp !== 'number') {
+        return null;
+    }
+    const issuedAt = typeof claims.iat === 'number' ? claims.iat : undefined;
+    return localTimes(issuedAt, claims.exp, session.receivedAt());
+}
+
 let renewing: Promise<boolean> | null = null;
 
 function renew(): Promise<boolean> {
@@ -47,8 +74,9 @@ function renew(): Promise<boolean> {
  */
 export async function currentToken(): Promise<string | null> {
     const token = session.token();
-    const expiresAt = idTokenClaims(token)?.exp;
-    if (typeof expiresAt === 'number' && expiresAt * 1000 <= Date.now() && canRenew()) {
+    const claims = idTokenClaims(token);
+    const times = claims && timesOf(claims);
+    if (times && times.expiresAt <= Date.now() && canRenew()) {
         await renew();
         return session.token();
     }
@@ -66,18 +94,17 @@ export function startRenewing(): () => void {
     const schedule = () => {
         clearTimeout(timer);
         const claims = idTokenClaims(session.token());
-        if (!claims || !canRenew()) {
+        const times = claims && timesOf(claims);
+        if (!times || !canRenew()) {
             return;
         }
-        const expiresAt = claims.exp as number;
-        const issuedAt = (claims.iat as number | undefined) ?? Date.now() / 1000;
         timer = setTimeout(async () => {
             if (await renew()) {
                 schedule();
             } else {
                 timer = setTimeout(schedule, RETRY_MILLISECONDS);
             }
-        }, Math.max(renewAt(issuedAt, expiresAt) - Date.now(), 0));
+        }, Math.max(times.renewAt - Date.now(), 0));
     };
 
     const stop = session.subscribe(schedule);

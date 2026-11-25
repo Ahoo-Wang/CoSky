@@ -32,6 +32,7 @@ import java.security.KeyPairGenerator
 import java.security.interfaces.RSAPublicKey
 import java.time.Duration
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.Date
 
 class OidcAuthenticatorTest {
@@ -67,9 +68,11 @@ class OidcAuthenticatorTest {
     }
 
     @Test
-    fun `a valid token names the person and their groups`() {
-        val principal = authenticator.authenticate(token())
-        principal.assert().isEqualTo(Principal(Subject.Type.TYPE_USER, "ann", setOf("devs")))
+    fun `a valid token names the person and their groups, and when it expires`() {
+        // JWT times are in seconds.
+        val expiresAt = Instant.now().plusSeconds(60).truncatedTo(ChronoUnit.SECONDS)
+        val principal = authenticator.authenticate(token(expiresAt = expiresAt))
+        principal.assert().isEqualTo(Principal(Subject.Type.TYPE_USER, "ann", setOf("devs"), expiresAt = expiresAt))
         principal.id.assert().isEqualTo("user:ann")
     }
 
