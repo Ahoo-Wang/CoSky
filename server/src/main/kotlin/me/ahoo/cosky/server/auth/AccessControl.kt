@@ -29,14 +29,19 @@ import me.ahoo.cosky.server.watch.NamespaceView
 import me.ahoo.cosky.server.watch.WatchCache
 import java.time.Clock
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Authentication and authorization from the Watch Cache of `_system`, which needs no trip to the store (design §6.3).
+ *
+ * @param timeout how long a grant waits for this replica to catch up with the store's latest write to `_system`.
  */
 class AccessControl(
     private val caches: WatchCache,
     private val clock: Clock = Clock.systemUTC(),
     private val oidc: OidcAuthenticator? = null,
+    private val timeout: Duration = 3.seconds,
 ) : Authorizer {
     private class Snapshot(val epoch: String, val revision: Long, val model: AccessModel)
 
@@ -75,6 +80,15 @@ class AccessControl(
 
     override fun permission(principal: Principal, verb: Verb, kind: Kind, namespace: String): Permission =
         model().permission(principal, verb, kind, namespace)
+
+    /**
+     * By the rules as of the store's latest write rather than this replica's view, or a replica that has not yet seen
+     * what was taken from [principal] would let it give that away.
+     */
+    override suspend fun requireHeld(principal: Principal, grant: Grant) {
+        val model = modelOf(caches.latestViewAt(NamingRules.SYSTEM_NAMESPACE, timeout))
+        model.escalationOf(principal, grant)?.let { throw CoSkyException.permissionDenied(it) }
+    }
 
     /**
      * What a principal may do, for `/v1/me`.

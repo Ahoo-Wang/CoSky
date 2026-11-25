@@ -32,6 +32,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.CoSkyProperties
+import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
@@ -47,7 +48,7 @@ class NamespaceReconcilerTest {
     private val store = MemoryStore()
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val caches = WatchCache(store, 64, scope)
-    private val auth = CoSkyProperties.Auth(bootstrapToken = "cosky_abc_def")
+    private val auth = CoSkyProperties.Auth(bootstrapToken = Tokens.generate().plaintext)
     private val reconciler = NamespaceReconciler(store, caches, StoreBootstrap(store, auth))
 
     @AfterEach

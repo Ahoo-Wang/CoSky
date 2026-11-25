@@ -35,6 +35,7 @@ import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.ApplyResult
 import me.ahoo.cosky.store.Mutation
@@ -88,7 +89,7 @@ class NamespaceGenerationTest {
     private val reconciler = NamespaceReconciler(
         store,
         caches,
-        StoreBootstrap(store, CoSkyProperties.Auth(bootstrapToken = "cosky_abc_def")),
+        StoreBootstrap(store, CoSkyProperties.Auth(bootstrapToken = Tokens.generate().plaintext)),
         markedGrace = Duration.ZERO,
     )
     private val key = ResourceKey.newBuilder()

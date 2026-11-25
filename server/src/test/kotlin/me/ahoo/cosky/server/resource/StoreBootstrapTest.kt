@@ -25,6 +25,7 @@ import me.ahoo.cosky.api.v1.resourceKey
 import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.CoSkyProperties
+import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.memory.MemoryStore
@@ -33,7 +34,7 @@ import org.junit.jupiter.api.Test
 
 class StoreBootstrapTest {
     private val store = MemoryStore()
-    private val auth = CoSkyProperties.Auth(bootstrapToken = "cosky_abc_def")
+    private val auth = CoSkyProperties.Auth(bootstrapToken = Tokens.generate().plaintext)
 
     private suspend fun objects() = store.readAll(NamingRules.SYSTEM_NAMESPACE).toList()
 
