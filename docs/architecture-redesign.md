@@ -953,7 +953,7 @@ registration.close()                                                            
 
 技术栈:Spring Boot 4 + WebFlux(协程)+ Spring gRPC(grpc-kotlin stub),运行在 JDK 25(D27)。两个端口:`8080` HTTP(REST、SSE、
 Dashboard 静态资源、Actuator),`9090` gRPC。Actuator 不需要 token,指标中有 namespace 名称,所以 `k8s/base` 用
-`management.server.port` 把它移到 `8081`:探针和 Prometheus 直接访问 Pod,客户端用的 Service 不含这个端口。server 的默认值
+`management.server.port` 把它移到 `8081`:探针和 Prometheus 直接访问 Pod,客户端用的 Service 不含这个端口;这个端口只提供 Actuator,API 和 Dashboard 在它上面返回 404(Spring 的管理上下文会继承应用上下文的路由,由 `ManagementPortFilter` 拦下)。server 的默认值
 在 8.0 中仍是 `8080`,已经指向它的探针和抓取配置不受影响。
 
 ```

@@ -72,7 +72,7 @@ Any [property](./properties.md) can be set as an environment variable or an argu
 
 ## Actuator on its own port
 
-Actuator's health, info and metrics need no token, and the metrics name your namespaces. On port 8080 they are open to anyone who reaches the API, so in production give them a port that only the probes and Prometheus reach. `MANAGEMENT_SERVER_PORT` (`management.server.port`) moves all of Actuator there, and port 8080 then answers 404 for `/actuator`:
+Actuator's health, info and metrics need no token, and the metrics name your namespaces. On port 8080 they are open to anyone who reaches the API, so in production give them a port that only the probes and Prometheus reach. `MANAGEMENT_SERVER_PORT` (`management.server.port`) moves all of Actuator there. Port 8080 then answers 404 for `/actuator`, and the new port answers nothing but `/actuator`:
 
 ```bash
 docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.1:8081:8081 \

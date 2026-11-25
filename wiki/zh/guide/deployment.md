@@ -72,7 +72,7 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
 
 ## Actuator 使用单独端口
 
-Actuator 的健康检查、信息和指标不需要 token，而指标中包含 namespace 名称。在 8080 端口上，能访问 API 的人都能访问它们，所以生产环境中请给它们一个只有探针和 Prometheus 能访问的端口。`MANAGEMENT_SERVER_PORT`（`management.server.port`）把整个 Actuator 移到那里，之后 8080 端口对 `/actuator` 返回 404：
+Actuator 的健康检查、信息和指标不需要 token，而指标中包含 namespace 名称。在 8080 端口上，能访问 API 的人都能访问它们，所以生产环境中请给它们一个只有探针和 Prometheus 能访问的端口。`MANAGEMENT_SERVER_PORT`（`management.server.port`）把整个 Actuator 移到那里。之后 8080 端口对 `/actuator` 返回 404，新端口也只提供 `/actuator`：
 
 ```bash
 docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.1:8081:8081 \
