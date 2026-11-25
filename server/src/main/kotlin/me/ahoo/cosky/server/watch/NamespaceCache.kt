@@ -67,6 +67,12 @@ data class NamespaceView(
     val windowBytes: Long = window.sumOf { it.serializedSize },
     private val instancesByService: PersistentMap<String, PersistentMap<ResourceKey, Resource>> =
         indexByService(objects.values),
+    /**
+     * Where the store was when loading this view ended. Loading reads the objects after it takes its position, so
+     * they may be newer than [revision], deleted ones missing; once the view has followed this far, its objects are
+     * the store's as of its revision.
+     */
+    val settled: Long = revision,
 ) {
     /**
      * The namespace is not active, or does not exist.
@@ -251,8 +257,9 @@ class NamespaceCache(
         val before = store.position(namespace) ?: return false
         val scanned = store.versions(namespace).toList().associate { it.key to it.revision }
         val after = store.position(namespace) ?: return false
+        // And past where a view loaded since got to: until then its objects may be ahead of its window.
         val view = withTimeoutOrNull(CATCH_UP_TIMEOUT) {
-            state.first { it != null && (it.epoch != before.epoch || it.revision >= after.revision) }
+            state.first { it != null && (it.epoch != before.epoch || it.revision >= maxOf(after.revision, it.settled)) }
         }
         // Without the changes since the scan began, nothing can be said this time.
         if (view == null || view.epoch != before.epoch || view.earliest > before.revision) {
@@ -340,8 +347,10 @@ class NamespaceCache(
             all[resource.key] = resource
             all
         }
+        val loaded = store.position(namespace)?.takeIf { it.epoch == position.epoch }
         val recent = store.recentChanges(namespace, position.revision, windowSize, windowBytes)
         return NamespaceView(
+            settled = maxOf(position.revision, loaded?.revision ?: position.revision),
             epoch = position.epoch,
             revision = position.revision,
             earliest = recent.firstOrNull()?.let { it.revision - 1 } ?: position.revision,

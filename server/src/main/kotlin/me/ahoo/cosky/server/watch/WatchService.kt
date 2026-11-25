@@ -156,13 +156,17 @@ class WatchService(
                 send,
             )
             val edge = recordTopology(create)
+            lateinit var active: ActiveWatch
             // Starts once it is on record, since it can end at once and take itself off.
             val job = scope.launch(start = CoroutineStart.LAZY) {
                 session.run()
-                watches.remove(create.watchId)
+                // Only itself: once it can no longer be canceled, a Cancel and a Create of its id may have come in,
+                // and the watch they made would go on out of reach of Cancel, the quota and a change of permissions.
+                watches.remove(create.watchId, active)
             }
             job.invokeOnCompletion { edge?.close() }
-            watches[create.watchId] = ActiveWatch(create, permission, session, job)
+            active = ActiveWatch(create, permission, session, job)
+            watches[create.watchId] = active
             job.start()
             return job
         }

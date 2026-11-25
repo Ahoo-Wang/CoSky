@@ -503,21 +503,7 @@ class RedisStore(
     private suspend fun removeData(namespace: String, epoch: String) {
         val keys = RedisKeys(namespace)
         val history = commands.smembers(keys.historyIndex).reply().map { keys.history(it.decodeToString()) }
-        val objects = RedisKeys.KINDS.flatMap { listOf(keys.objects(it), keys.versions(it)) }
-        // The revision stays with the state: a namespace created again goes on counting, so that no revision of the
-        // old one, such as an If-Match a client still holds, names an object of the new (design §7.2).
-        val fixed = listOf(
-            keys.log,
-            keys.logBytes,
-            keys.lease,
-            keys.leaseTtl,
-            keys.leaseOwner,
-            keys.leaseAttach,
-            keys.leaseSequence,
-            keys.topology,
-        )
-        // The epoch last: until it goes, a removal cut short is taken up again under it.
-        ((history + objects + fixed + keys.historyIndex).chunked(REMOVE_BATCH_SIZE) + listOf(listOf(keys.epoch)))
+        removalBatches(keys, history)
             .forEach {
                 NAMESPACE_REMOVE.run<Long>(
                     commands,
@@ -549,13 +535,7 @@ class RedisStore(
 
     private fun hintsOf(namespace: String): MutableStateFlow<Long> {
         if (subscribed.compareAndSet(false, true)) {
-            hintConnection.addListener(
-                object : RedisPubSubAdapter<String, ByteArray>() {
-                    override fun message(channel: String, message: ByteArray) {
-                        hints[message.decodeToString()]?.let { it.value += 1 }
-                    }
-                },
-            )
+            hintConnection.addListener(HintListener(hints))
             hintConnection.async().subscribe(RedisKeys.HINT_CHANNEL)
         }
         return hints.computeIfAbsent(namespace) { MutableStateFlow(0) }
@@ -598,6 +578,22 @@ class RedisStore(
     }
 
     companion object {
+        /**
+         * What [removeData] removes, batch by batch, in order. The leases first, and of each lease its TTL first:
+         * renewing and expiring do not look at the state, only at those keys, and either would write back what an
+         * earlier batch removed, a renewal the `lease` key, an expiry the log. The revision stays with the state: a
+         * namespace created again goes on counting, so that no revision of the old one, such as an If-Match a client
+         * still holds, names an object of the new (design §7.2). The epoch last: until it goes, a removal cut short is
+         * taken up again under it.
+         */
+        internal fun removalBatches(keys: RedisKeys, history: List<String>): List<List<String>> {
+            val leases = listOf(keys.leaseTtl, keys.lease, keys.leaseOwner, keys.leaseAttach, keys.leaseSequence)
+            val objects = RedisKeys.KINDS.flatMap { listOf(keys.objects(it), keys.versions(it)) }
+            val rest = listOf(keys.log, keys.logBytes, keys.topology)
+            return (leases + history + objects + rest + keys.historyIndex).chunked(REMOVE_BATCH_SIZE) +
+                listOf(listOf(keys.epoch))
+        }
+
         private val log = LoggerFactory.getLogger(RedisStore::class.java)
         private const val STATE_ACTIVE = "active"
         private const val NOT_ACTIVE = "NOT_ACTIVE"
@@ -788,5 +784,22 @@ class RedisStore(
             .adaptiveRefreshTriggersTimeout(ADAPTIVE_REFRESH_INTERVAL.toJavaDuration())
             .enablePeriodicRefresh(PERIODIC_REFRESH.toJavaDuration())
             .build()
+    }
+}
+
+/**
+ * Turns hints into wake-ups of the followers of their namespaces (design §6.1).
+ *
+ * A confirmed subscription wakes every follower too: Lettuce subscribes again after it reconnects, and the hints of
+ * writes made while the connection was down are gone, so followers read at once rather than at their next poll.
+ */
+internal class HintListener(private val hints: Map<String, MutableStateFlow<Long>>) :
+    RedisPubSubAdapter<String, ByteArray>() {
+    override fun message(channel: String, message: ByteArray) {
+        hints[message.decodeToString()]?.let { it.value += 1 }
+    }
+
+    override fun subscribed(channel: String, count: Long) {
+        hints.values.forEach { it.value += 1 }
     }
 }

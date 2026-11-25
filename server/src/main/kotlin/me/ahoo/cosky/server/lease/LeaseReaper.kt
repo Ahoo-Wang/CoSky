@@ -56,7 +56,7 @@ class LeaseReaper(
 
     private var leaderSince: Instant? = null
     private var lastFailure: Instant? = null
-    private var lastTick: Instant? = null
+    private var lastTickEnded: Instant? = null
     private var lastMaintenance: Instant? = null
     private val pausedSince = ConcurrentHashMap<String, Instant>()
 
@@ -82,10 +82,17 @@ class LeaseReaper(
     }
 
     suspend fun tick() {
+        try {
+            leadOrStepDown()
+        } finally {
+            lastTickEnded = clock.instant()
+        }
+    }
+
+    private suspend fun leadOrStepDown() {
         val acquired = store.tryLock(LOCK, owner, options.lockTtl.toKotlinDuration())
         val now = clock.instant()
         noteStall(now)
-        lastTick = now
         if (!acquired) {
             stepDown()
             return
@@ -133,10 +140,13 @@ class LeaseReaper(
     }
 
     /**
-     * A store that hangs instead of failing is an outage too: nothing renewed while the ticks stood still.
+     * A store that hangs instead of failing is an outage too: nothing renewed while the ticks stood still. Measured
+     * from where the previous tick ended, so that a round that takes long, reaping many namespaces, is not one: every
+     * call to the store within a tick is timed by itself ([hung]), and what this covers is the time in between, the
+     * lock included.
      */
     private fun noteStall(now: Instant) {
-        val previous = lastTick ?: return
+        val previous = lastTickEnded ?: return
         if (Duration.between(previous, now) > options.interval.multipliedBy(STALL_INTERVALS)) {
             lastFailure = now
         }

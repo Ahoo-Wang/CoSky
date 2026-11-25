@@ -47,19 +47,23 @@ class TopologyRecorder(private val store: Store, private val flushInterval: Dura
     suspend fun run() {
         while (true) {
             delay(flushInterval)
-            try {
-                flush()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                log.warn("Recording the topology failed; the next round tries again.", e)
-            }
+            flush()
         }
     }
 
+    /**
+     * Each namespace on its own: in a Redis Cluster one may sit on a shard that is down, and the edges of the others,
+     * on shards that are up, would expire meanwhile.
+     */
     suspend fun flush() {
         live.forEach { (namespace, edges) ->
-            store.recordTopology(namespace, edges.keys.toList(), flushInterval * RETAINED_INTERVALS)
+            try {
+                store.recordTopology(namespace, edges.keys.toList(), flushInterval * RETAINED_INTERVALS)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                log.warn("Recording the topology of {} failed; the next round tries again.", namespace, e)
+            }
         }
     }
 
