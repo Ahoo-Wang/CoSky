@@ -331,7 +331,7 @@ class RedisStore(
         val reply = EPOCH_ROTATE.run<List<Any?>>(
             commands,
             ScriptOutputType.MULTI,
-            listOf(keys.epoch, keys.revision),
+            listOf(keys.state, keys.epoch, keys.revision),
             listOf(expected.arg(), newEpoch().arg(), namespace.arg()),
         )
         return Position(reply[0].asText(), reply[1].asText().toLong())
@@ -581,13 +581,13 @@ class RedisStore(
         /**
          * What [removeData] removes, batch by batch, in order. The leases first, and of each lease its TTL first:
          * renewing and expiring do not look at the state, only at those keys, and either would write back what an
-         * earlier batch removed, a renewal the `lease` key, an expiry the log. The revision stays with the state: a
-         * namespace created again goes on counting, so that no revision of the old one, such as an If-Match a client
-         * still holds, names an object of the new (design §7.2). The epoch last: until it goes, a removal cut short is
-         * taken up again under it.
+         * earlier batch removed, a renewal the `lease` key, an expiry the log. The revision and the lease sequence stay
+         * with the state: a namespace created again goes on counting, so that no revision of the old one, such as an
+         * If-Match a client still holds, names an object of the new, and no lease id a client still holds names a lease
+         * of the new (design §7.2). The epoch last: until it goes, a removal cut short is taken up again under it.
          */
         internal fun removalBatches(keys: RedisKeys, history: List<String>): List<List<String>> {
-            val leases = listOf(keys.leaseTtl, keys.lease, keys.leaseOwner, keys.leaseAttach, keys.leaseSequence)
+            val leases = listOf(keys.leaseTtl, keys.lease, keys.leaseOwner, keys.leaseAttach)
             val objects = RedisKeys.KINDS.flatMap { listOf(keys.objects(it), keys.versions(it)) }
             val rest = listOf(keys.log, keys.logBytes, keys.topology)
             return (leases + history + objects + rest + keys.historyIndex).chunked(REMOVE_BATCH_SIZE) +

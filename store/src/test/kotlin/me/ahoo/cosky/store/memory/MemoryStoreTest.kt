@@ -17,12 +17,10 @@ import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
-import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.test.asserts.assert
 import me.ahoo.test.asserts.assertThrownBy
 import org.junit.jupiter.api.Test
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * What only the in-memory store has; everything shared is in [MemoryStoreConformanceTest].
@@ -55,21 +53,6 @@ class MemoryStoreTest {
         val position = store.createNamespace(NAMESPACE)
         store.loseWritesAfter(NAMESPACE, 0)
         store.position(NAMESPACE).assert().isEqualTo(position)
-    }
-
-    @Test
-    fun `a lease id is not given out again once the namespace is created again`() = runBlocking<Unit> {
-        val store = MemoryStore()
-        store.createNamespace(NAMESPACE)
-        val old = (store.grantLease(NAMESPACE, 30.seconds, "test") as GrantResult.Granted).lease.id
-        val epoch = checkNotNull(store.position(NAMESPACE)).epoch
-        store.terminateNamespace(NAMESPACE, epoch)
-        store.dropNamespace(NAMESPACE, epoch)
-        store.createNamespace(NAMESPACE)
-
-        // A client of the old namespace may still renew or revoke the one it holds.
-        val new = (store.grantLease(NAMESPACE, 30.seconds, "test") as GrantResult.Granted).lease.id
-        new.assert().isNotEqualTo(old)
     }
 
     private companion object {

@@ -183,7 +183,7 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
         order.indexOf(keys.lease).assert().isLessThan(order.indexOf(keys.log))
         order.indexOf(keys.lease).assert().isLessThan(order.indexOf(keys.logBytes))
         removed.last().assert().containsExactly(keys.epoch)
-        order.assert().doesNotContain(keys.revision).doesNotContain(keys.state)
+        order.assert().doesNotContain(keys.revision).doesNotContain(keys.state).doesNotContain(keys.leaseSequence)
     }
 
     @Test
