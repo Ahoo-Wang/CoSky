@@ -119,7 +119,7 @@ Server-sent events，每个 `data:` 行是一条 proto3 JSON 消息：
 | `snapshot` | `fromRevision` 为 0 时的当前状态，带有用于续传的 `epoch`。 |
 | `events` | 一个 revision 的变化 |
 | `progress` | 书签，空闲时每 10 秒一次 |
-| `positionGone` | 你的位置已失效，流随之结束：不带位置重新开始。其中有现在的 `earliestRevision` 和 `epoch`，以及原因 `reason`：`GONE_REASON_COMPACTED`（早于窗口）、`GONE_REASON_SLOW`（掉出窗口）、`GONE_REASON_EPOCH`（换了时间线）或 `GONE_REASON_REGRESSION`（来自丢失的时间线） |
+| `positionGone` | 你的位置已失效，流随之结束：不带位置重新开始。其中有现在的 `earliestRevision` 和 `epoch`，以及原因 `reason`：`GONE_REASON_COMPACTED`（早于窗口）、`GONE_REASON_SLOW`（掉出窗口）、`GONE_REASON_EPOCH`（换了时间线）、`GONE_REASON_REGRESSION`（来自丢失的时间线）或 `GONE_REASON_PERMISSION`（你能看到的范围变了）。无论什么原因都重新开始，以后新增的原因也一样 |
 | `canceled` | 流结束，并给出原因 |
 
 较大的快照和 revision 会分成多条消息，用 `more` 标记。`EventSource` 无法发送 token：请像 Dashboard 那样使用 `fetch` 和流读取器。

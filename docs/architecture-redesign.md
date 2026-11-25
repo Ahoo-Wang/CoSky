@@ -417,12 +417,13 @@ message WatchResponse {
   }
 }
 
-enum GoneReason {                       // cosky_watch_gone_total 的 reason(§7.9)
-  GONE_REASON_UNSPECIFIED = 0;          // 不属于以下任何一种,如可见范围随权限变化(§7.3)
+enum GoneReason {                       // COMPACTED 到 REGRESSION 是 cosky_watch_gone_total 的 reason(§7.9)
+  GONE_REASON_UNSPECIFIED = 0;          // 不属于以下任何一种
   GONE_REASON_COMPACTED = 1;            // 创建时 from_revision 早于窗口
   GONE_REASON_SLOW = 2;                 // 跟随过程中掉出窗口
   GONE_REASON_EPOCH = 3;                // epoch 已更换
   GONE_REASON_REGRESSION = 4;           // 位置来自已丢失的时间线(D29)
+  GONE_REASON_PERMISSION = 5;           // 主体的可见范围变了,watch 从快照重新开始(§7.3)
 }
 
 service LeaseService {                                                // 授权见 §7.8
@@ -935,11 +936,12 @@ registration.close()                                                            
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
   `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `position_gone`;`r` 大于当前 revision → 等副本追上,超时后 Store 有这个位置则以 `UNAVAILABLE`(`REPLICA_NOT_READY`)结束流,否则 `position_gone`(D29)。
 - **位置失效**:`position_gone` 是一条 `Gone` 消息,带现在最早可续传的 revision、当前 epoch 和原因 `GoneReason`:`COMPACTED`(创建时早于窗口)、`SLOW`(跟随中掉出窗口)、
-  `EPOCH`(epoch 已更换)、`REGRESSION`(位置来自已丢失的时间线);可见范围随权限变化而重新开始的 watch 原因为 `UNSPECIFIED`。该 watch 随之结束,客户端重新 List 或不带位置重新 Watch。
+  `EPOCH`(epoch 已更换)、`REGRESSION`(位置来自已丢失的时间线)、`PERMISSION`(可见范围随权限变化,从快照重新开始)。该 watch 随之结束,客户端重新 List 或不带位置重新 Watch;
+  客户端不必区分原因,任何原因都同样重新开始,以后新增的原因也一样。
   原字段 `int64 gone = 5` 已删除,字段号和名称保留(`reserved`)。
 - **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `position_gone`(`SLOW`)结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
-- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`),仍有权限但可见范围变了的收到 `position_gone`(`UNSPECIFIED`)后重新开始。
+- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`),仍有权限但可见范围变了的收到 `position_gone`(`PERMISSION`)后重新开始。
   store 丢失数据后 `_system` 以新 epoch 重建,由新的 `NamespaceCache` 跟随,存量流跟着它继续重新评估;`_system` 不存在期间没有人能写它,不算权限变化,重建后的规则加载完成时按它评估一次。
 - **配额**:单条流最多 1,000 个 watch,超出时该 Create 收到 `canceled`(`WATCH_QUOTA_EXCEEDED`;REST 侧为 429),流本身不中断。
 
@@ -1119,7 +1121,7 @@ cosky:
 | `cosky_cache_lag_seconds{namespace}` | Gauge | 写入 → 进入缓存的延迟 |
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
 | `cosky_watch_events_sent_total` | Counter | 发给 watcher 的事件数 |
-| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;滚动重启后看这个指标判断窗口是否够大(D29) |
+| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;不计 `PERMISSION`,它与窗口无关;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active{namespace}` / `cosky_lease_expired_total{namespace}` | Gauge / Counter | 只由回收 Leader 上报:卸任时移除 gauge,不再管理的 namespace 也移除;跨副本对 gauge 取 `max`,Leader 切换的一刻也不会重复 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2),同样只由回收 Leader 上报 |
 | `cosky_reaper_failures_total{namespace}` | Counter | 回收 Leader 回收或巡检这个 namespace 时存储失败的次数,其他 namespace 照常进行(§6.2) |

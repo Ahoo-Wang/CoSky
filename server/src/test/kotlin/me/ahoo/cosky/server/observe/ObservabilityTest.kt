@@ -29,6 +29,7 @@ import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.WatchRequest
@@ -158,6 +159,14 @@ class ObservabilityTest {
         WatchSession(create(view.revision + 5, view.epoch), cache, 1024, 10.milliseconds, metrics = metrics) {}.run()
         goneCount("regression").assert().isEqualTo(1.0)
         following.cancel()
+    }
+
+    @Test
+    fun `a watch that starts over for a change of permissions is not counted, since the window is not to blame`() {
+        metrics.gone(GoneReason.GONE_REASON_PERMISSION)
+        metrics.gone(GoneReason.GONE_REASON_UNSPECIFIED)
+        registry.find("cosky_watch_gone_total").counters().associate { it.id.getTag("reason") to it.count() }
+            .assert().isEqualTo(mapOf("compacted" to 0.0, "slow" to 0.0, "epoch" to 0.0, "regression" to 0.0))
     }
 
     @Test

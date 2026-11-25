@@ -119,7 +119,7 @@ Server-sent events, one proto3 JSON message per `data:` line:
 | `snapshot` | The current state, when `fromRevision` is 0. Holds the `epoch` to resume with. |
 | `events` | One revision's changes |
 | `progress` | A bookmark, every 10 seconds while idle |
-| `positionGone` | Your position is no longer valid, and the stream ends: start over without one. It holds the `earliestRevision` and `epoch` there are now, and the `reason`: `GONE_REASON_COMPACTED` (older than the window), `GONE_REASON_SLOW` (fell out of it), `GONE_REASON_EPOCH` (another timeline) or `GONE_REASON_REGRESSION` (a lost one) |
+| `positionGone` | Your position is no longer valid, and the stream ends: start over without one. It holds the `earliestRevision` and `epoch` there are now, and the `reason`: `GONE_REASON_COMPACTED` (older than the window), `GONE_REASON_SLOW` (fell out of it), `GONE_REASON_EPOCH` (another timeline), `GONE_REASON_REGRESSION` (a lost one) or `GONE_REASON_PERMISSION` (what you may see changed). Start over whatever the reason, also for one added later |
 | `canceled` | The stream ends, for the reason given |
 
 Large snapshots and revisions span several messages, marked by `more`. An `EventSource` cannot send a token: use `fetch` with a stream reader, as the Dashboard does.
