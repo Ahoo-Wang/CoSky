@@ -26,6 +26,8 @@ server 在 8080 端口的 `/` 提供 Dashboard，反向代理也可以把它放�
 | **Service Account** | 账号及其 token。新 token 只显示一次，请当时复制。 |
 | **Role** 和 **Role Binding** | 谁能做什么，在哪里 |
 
+列表每页显示 10 行。列表下方的 **Rows per page** 可以改为每页 20、50 或 100 行，浏览器会为每个列表分别记住这一选择。搜索覆盖所有页。
+
 ![Configuration](/dashboard-config.png)
 
 ## 保持最新

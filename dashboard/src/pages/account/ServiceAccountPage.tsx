@@ -174,6 +174,7 @@ export function ServiceAccountPage() {
                     error={error}
                     onRetry={loadAccounts}
                     getRowKey={account => account.name}
+                    pagination={{storageKey: 'service-accounts'}}
                     expandable={{
                         render: account => (
                             <DataTable

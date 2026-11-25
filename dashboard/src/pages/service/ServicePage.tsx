@@ -101,6 +101,7 @@ export function ServicePage() {
                     error={error}
                     onRetry={loadServices}
                     getRowKey={summary => summary.service}
+                    pagination={{storageKey: 'services'}}
                     expandable={{
                         render: summary => (
                             <ServiceInstanceTable

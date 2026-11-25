@@ -1738,6 +1738,122 @@ test.describe('security', () => {
     });
 });
 
+test.describe('lists', () => {
+    /** 25 Configs more than the 2 there are, read one page each, as a server may split a list. */
+    function manyConfigs(api: MockApi) {
+        for (let index = 1; index <= 25; index++) {
+            api.put(`/v1/namespaces/default/configs/app-${String(index).padStart(2, '0')}.yaml`, {
+                meta: {},
+                config: {format: 'CONFIG_FORMAT_YAML', content: `index: ${index}\n`, sha256: `sha${index}`},
+            });
+        }
+    }
+
+    const rowsOf = (page: Page) => page.getByRole('main').locator('[data-slot="table-body"] > [data-slot="table-row"]');
+
+    const pageSizeOf = (page: Page) => page.getByRole('main').getByRole('combobox', {name: 'Rows per page'})
+        .locator('[data-slot="select-value"]');
+
+    test('every list offers how many rows it shows, and remembers the choice for that list alone', async ({page}) => {
+        const api = await installApiMock(page);
+        manyConfigs(api);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const main = page.getByRole('main');
+        await expect(main.getByText('27 items')).toBeVisible();
+        await expect(pageSizeOf(page)).toHaveText('10');
+        await expect(main.getByText('1 / 3')).toBeVisible();
+        await expect(rowsOf(page)).toHaveCount(10);
+
+        await choose(page, 'Rows per page', '20');
+        await expect(main.getByText('1 / 2')).toBeVisible();
+        await expect(rowsOf(page)).toHaveCount(20);
+        await choose(page, 'Rows per page', '50');
+        await expect(main.getByText('1 / 1')).toBeVisible();
+        await expect(rowsOf(page)).toHaveCount(27);
+
+        await page.reload();
+        await expect(pageSizeOf(page)).toHaveText('50');
+        await expect(rowsOf(page)).toHaveCount(27);
+        // The size chosen is how many rows are shown: every page the server splits the list into is still read, to the
+        // 27th Config on the last one, with as many as the server gives at once.
+        const configReads = api.requests.filter(request => request.path === '/v1/namespaces/default/configs');
+        expect(configReads.some(request => request.query.get('pageToken')?.startsWith('26@'))).toBe(true);
+        expect(configReads.every(request => !request.query.has('pageSize'))).toBe(true);
+
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await expect(row(page, 'database')).toBeVisible();
+        await expect(pageSizeOf(page)).toHaveText('10');
+        await choose(page, 'Rows per page', '100');
+        await page.getByRole('link', {name: 'Namespace'}).click();
+        await expect(row(page, 'prod')).toBeVisible();
+        await expect(pageSizeOf(page)).toHaveText('10');
+        await page.getByRole('button', {name: 'Security'}).click();
+        for (const [link, name] of [['Service Account', 'admin'], ['Role', 'admin'], ['Role Binding', 'admin']]) {
+            await page.getByRole('link', {name: link, exact: true}).click();
+            await expect(row(page, name)).toBeVisible();
+            await expect(pageSizeOf(page)).toHaveText('10');
+        }
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await expect(pageSizeOf(page)).toHaveText('100');
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(pageSizeOf(page)).toHaveText('50');
+    });
+
+    test('a new page size keeps the rows at the top of the page on screen, and a search covers every page', async ({page}) => {
+        const api = await installApiMock(page);
+        manyConfigs(api);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const main = page.getByRole('main');
+        await expect(main.getByText('1 / 3')).toBeVisible();
+        await main.getByRole('button', {name: 'Next page'}).click();
+        await main.getByRole('button', {name: 'Next page'}).click();
+        await expect(main.getByText('3 / 3')).toBeVisible();
+        await expect(rowsOf(page)).toHaveCount(7);
+        const top = await rowsOf(page).first().getByRole('cell').nth(1).innerText();
+
+        // Rows 21 to 27 are rows 21 to 40 now.
+        await choose(page, 'Rows per page', '20');
+        await expect(main.getByText('2 / 2')).toBeVisible();
+        await expect(rowsOf(page)).toHaveCount(7);
+        await expect(rowsOf(page).first()).toContainText(top);
+        await choose(page, 'Rows per page', '10');
+        await expect(main.getByText('3 / 3')).toBeVisible();
+        await expect(rowsOf(page).first()).toContainText(top);
+
+        await page.getByLabel('Search configurations...').fill('app-0');
+        await expect(main.getByText('9 matching items', {exact: true})).toBeVisible();
+        await expect(main.getByText('1 / 1')).toBeVisible();
+        await expect(rowsOf(page)).toHaveCount(9);
+    });
+
+    test('a browser that keeps nothing still pages, and forgets the choice', async ({page}) => {
+        await page.addInitScript(() => {
+            const setItem = Storage.prototype.setItem;
+            Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+                if (this === window.localStorage) {
+                    throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+                }
+                setItem.call(this, key, value);
+            };
+        });
+        const api = await installApiMock(page);
+        manyConfigs(api);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(rowsOf(page)).toHaveCount(10);
+
+        await choose(page, 'Rows per page', '20');
+        await expect(pageSizeOf(page)).toHaveText('20');
+        await expect(rowsOf(page)).toHaveCount(20);
+
+        await page.reload();
+        await expect(pageSizeOf(page)).toHaveText('10');
+        await expect(rowsOf(page)).toHaveCount(10);
+    });
+});
+
 test.describe('under a path prefix', () => {
     // Where a reverse proxy serves the Dashboard, stripping it before it passes a request on to the server.
     const PREFIX = '/cosky';

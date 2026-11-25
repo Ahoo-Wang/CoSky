@@ -26,6 +26,8 @@ The namespace selector in the header decides what every page shows.
 | **Service Account** | Accounts and their tokens. A new token shows once, so copy it then. |
 | **Role** and **Role Binding** | Who may do what, and where |
 
+A list shows 10 rows a page. **Rows per page**, under the list, shows 20, 50 or 100 instead, and the browser remembers the choice for each list. A search covers every page.
+
 ![Configuration](/dashboard-config.png)
 
 ## Staying current

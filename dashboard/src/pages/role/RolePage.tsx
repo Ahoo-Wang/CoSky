@@ -103,6 +103,7 @@ export function RolePage() {
                     error={error}
                     onRetry={loadRoles}
                     getRowKey={role => role.name}
+                    pagination={{storageKey: 'roles'}}
                     search={{placeholder: 'Search roles...', getValue: role => role.name}}
                     emptyMessage="No roles yet."
                 />

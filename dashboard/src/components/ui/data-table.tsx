@@ -16,6 +16,7 @@ import type {ReactNode} from 'react';
 import {AlertTriangle, ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Inbox, RotateCcw, Search, SearchX} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Skeleton} from '@/components/ui/skeleton';
 import {
     Table,
@@ -25,9 +26,12 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import {DEFAULT_PAGE_SIZE, PAGE_SIZES, pageHolding, storedPageSize, storePageSize} from '@/lib/pageSize';
 import {cn} from '@/lib/utils';
 
 const EMPTY_DATA: never[] = [];
+
+const PAGE_SIZE_ITEMS = PAGE_SIZES.map(size => ({label: String(size), value: size}));
 
 export interface DataTableColumn<T> {
     key: string;
@@ -53,6 +57,8 @@ interface DataTablePagination {
     pageSize?: number;
     total?: number;
     onChange?: (page: number, pageSize: number) => void;
+    /** Under what name this browser remembers the page size chosen for the list, so that it outlasts a reload. */
+    storageKey?: string;
 }
 
 interface DataTableProps<T> {
@@ -88,11 +94,15 @@ export function DataTable<T>({
     const [sortKey, setSortKey] = useState<string>();
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
     const [localPage, setLocalPage] = useState(1);
+    const storageKey = pagination === false ? undefined : pagination.storageKey;
+    const [localPageSize, setLocalPageSize] = useState(
+        () => storageKey ? storedPageSize(storageKey) : DEFAULT_PAGE_SIZE,
+    );
     const [expandedRows, setExpandedRows] = useState<Set<string | number>>(new Set());
     // Reading again keeps what is on screen, since pages follow live changes.
     const firstLoad = Boolean(loading) && data.length === 0;
     const page = pagination === false ? 1 : (pagination.page ?? localPage);
-    const pageSize = pagination === false ? Math.max(data.length, 1) : (pagination.pageSize ?? 10);
+    const pageSize = pagination === false ? Math.max(data.length, 1) : (pagination.pageSize ?? localPageSize);
 
     const filteredRows = useMemo(() => {
         const normalizedQuery = query.trim().toLowerCase();
@@ -120,6 +130,16 @@ export function DataTable<T>({
             pagination.onChange?.(safePage, pageSize);
         }
         setLocalPage(safePage);
+    };
+
+    // The rows at the top of the page stay on it.
+    const changePageSize = (nextPageSize: number) => {
+        if (pagination === false || nextPageSize === pageSize) return;
+        const nextPage = pageHolding(safePage, pageSize, nextPageSize);
+        setLocalPageSize(nextPageSize);
+        setLocalPage(nextPage);
+        if (storageKey) storePageSize(storageKey, nextPageSize);
+        pagination.onChange?.(nextPage, nextPageSize);
     };
 
     const changeSort = (column: DataTableColumn<T>) => {
@@ -256,9 +276,30 @@ export function DataTable<T>({
                 </Table>
             </div>
             {pagination !== false && total > 0 && (
-                <div className="flex items-center justify-between gap-4 text-sm text-muted-foreground">
-                    <span>{total} {hasFilter ? `matching item${total === 1 ? '' : 's'} on this page` : `item${total === 1 ? '' : 's'}`}</span>
+                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                    <span>
+                        {total} {hasFilter ? 'matching ' : ''}item{total === 1 ? '' : 's'}
+                        {/* A search covers the rows read, which are all of them unless the server pages the list. */}
+                        {hasFilter && pagination.total !== undefined && ' on this page'}
+                    </span>
                     <div className="flex items-center gap-2">
+                        <span className="max-sm:hidden">Rows per page</span>
+                        <Select
+                            items={PAGE_SIZE_ITEMS}
+                            value={pageSize}
+                            onValueChange={next => {
+                                if (next !== null) changePageSize(next);
+                            }}
+                        >
+                            <SelectTrigger size="sm" aria-label="Rows per page" className="mr-2">
+                                <SelectValue/>
+                            </SelectTrigger>
+                            <SelectContent alignItemWithTrigger={false} className="min-w-20">
+                                {PAGE_SIZE_ITEMS.map(item => (
+                                    <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <Button variant="outline" size="icon-sm" disabled={safePage <= 1} onClick={() => changePage(safePage - 1)} aria-label="Previous page">
                             <ChevronLeft/>
                         </Button>

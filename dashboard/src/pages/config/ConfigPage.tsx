@@ -159,6 +159,7 @@ export function ConfigPage() {
                     columns={columns}
                     data={result}
                     getRowKey={config => config.name}
+                    pagination={{storageKey: 'configs'}}
                     loading={loading}
                     error={error}
                     onRetry={loadConfigs}
