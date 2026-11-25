@@ -27,6 +27,7 @@ import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.adapter.grpc.AuthInterceptor
 import me.ahoo.cosky.server.adapter.grpc.ClientNameInterceptor
+import me.ahoo.cosky.server.adapter.rest.ManagementPortFilter
 import me.ahoo.cosky.server.adapter.rest.OpenApiDocument
 import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
@@ -56,6 +57,7 @@ import me.ahoo.cosky.store.redis.RedisStore
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.ObjectProvider
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
@@ -197,6 +199,14 @@ class CoSkyServerApplication : DisposableBean {
     ).routes()
 
     /**
+     * Actuator's own port, once `management.server.port` gives it one, answers Actuator alone (design §7.4).
+     */
+    @Bean
+    fun managementPortFilter(
+        @Value("\${management.endpoints.web.base-path:/actuator}") basePath: String,
+    ): ManagementPortFilter = ManagementPortFilter(basePath)
+
+    /**
      * What springdoc serves at `/v3/api-docs` and shows in Swagger UI.
      */
     @Bean
@@ -308,7 +318,8 @@ class CoSkyServerApplication : DisposableBean {
     ): ApplicationRunner = ApplicationRunner {
         runBlocking(VirtualThreads.dispatcher) { bootstrap.run() }
         caches.of(NamingRules.SYSTEM_NAMESPACE)
-        scope.launch { reaper.run() }
+        // Closed as a bean, before the store it uses: a leader lets go of its lock, and another replica leads at once.
+        reaper.start(scope)
         scope.launch { topology.run() }
     }
 

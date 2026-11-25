@@ -19,13 +19,20 @@ spec:
     metadata:
       labels:
         app: cosky
+      # For a Prometheus that finds pods by these annotations. With the Prometheus Operator, a PodMonitor on the port
+      # named management does the same: Prometheus scrapes the pods, and no Service needs the port.
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8080"
+        prometheus.io/port: "8081"
         prometheus.io/path: /actuator/prometheus
     spec:
-      # 5 seconds of preStop, 5 of the gRPC grace period, and the rest is for the JVM to stop.
+      # 5 seconds of preStop, then up to 5 for the gRPC streams and 5 for the REST ones (one shutdown phase each), and
+      # the rest is for the JVM to stop.
       terminationGracePeriodSeconds: 25
+      # Soft, so that a cluster with fewer nodes than replicas still runs them all. pod-template-hash counts only the
+      # pods of the same rollout, or a rolling update would place the new ones around the old ones about to go.
+      # Spreading across zones belongs in an overlay, for nodes that carry topology.kubernetes.io/zone: the scheduler
+      # ignores a node that lacks the key of any constraint, so on nodes without it the spread across nodes would go too.
       topologySpreadConstraints:
         - maxSkew: 1
           topologyKey: kubernetes.io/hostname
@@ -33,8 +40,13 @@ spec:
           labelSelector:
             matchLabels:
               app: cosky
+          matchLabelKeys:
+            - pod-template-hash
       # The server needs nothing of the Kubernetes API.
       automountServiceAccountToken: false
+      # The Service is named cosky, so Kubernetes would also give each pod COSKY_SERVICE_HOST, COSKY_PORT and the like,
+      # which Spring reads as cosky.* properties. The server finds Redis by its URI and needs none of them.
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         runAsUser: 999
@@ -58,6 +70,10 @@ spec:
                 secretKeyRef:
                   name: cosky-auth
                   key: bootstrap-token
+            # Actuator (health, info and the metrics, which name every namespace) on a port of its own, which the
+            # Service leaves out: whoever reaches the API does not reach them. The kubelet and Prometheus come to the pod.
+            - name: MANAGEMENT_SERVER_PORT
+              value: "8081"
           ports:
             - name: http
               containerPort: 8080
@@ -65,27 +81,35 @@ spec:
             - name: grpc
               containerPort: 9090
               protocol: TCP
+            - name: management
+              containerPort: 8081
+              protocol: TCP
           startupProbe:
             httpGet:
-              port: http
+              port: management
               path: /actuator/health/liveness
             periodSeconds: 2
             failureThreshold: 60
           # Ready once every namespace has loaded; asking also starts the loading (design 7.9).
           readinessProbe:
             httpGet:
-              port: http
+              port: management
               path: /actuator/health/readiness
             periodSeconds: 2
           livenessProbe:
             httpGet:
-              port: http
+              port: management
               path: /actuator/health/liveness
           resources:
-            # About 1 KB per instance and per watch on top of the JVM (design 7.10); size the limit to the fleet.
+            # The JVM takes 75% of the memory limit for its heap (-XX:MaxRAMPercentage=75) and keeps what it grew to,
+            # so the request is the limit: a lower one lets the node promise that memory to others, and under memory
+            # pressure the kubelet evicts first the pods above their request. About 1 KB per instance and per watch on
+            # top of the JVM (design 7.10): size both to the fleet, together.
+            # No CPU limit: throttling would pause the JVM whenever it briefly wants more, as when loading the
+            # namespaces at start or collecting garbage. The request guarantees its share.
             requests:
               cpu: 500m
-              memory: 1Gi
+              memory: 2Gi
             limits:
               memory: 2Gi
           # A stopping pod and the Service learn of it at the same moment, so connections keep arriving for a moment.
@@ -104,5 +128,7 @@ spec:
             - name: tmp
               mountPath: /tmp
       volumes:
+        # Kilobytes in practice: the limit keeps anything unexpected, such as a crash report, from filling the node's disk.
         - name: tmp
-          emptyDir: {}
+          emptyDir:
+            sizeLimit: 64Mi

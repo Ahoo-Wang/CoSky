@@ -13,8 +13,14 @@
 
 package me.ahoo.cosky.server.lease
 
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.v1.endpoint
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
@@ -566,6 +572,71 @@ class LeaseReaperTest {
         clock.advance(Duration.ofSeconds(1))
         reaper.tick()
         instances().size.assert().isEqualTo(2)
+    }
+
+    /**
+     * A store that says when the reaper asked it for the lock, and how many times to let go of it.
+     */
+    private open class LockWatching(private val delegate: Store) : Store by delegate {
+        val asked = CompletableDeferred<Boolean>()
+
+        @Volatile
+        var unlocks = 0
+
+        override suspend fun tryLock(name: String, owner: String, ttl: kotlin.time.Duration): Boolean =
+            delegate.tryLock(name, owner, ttl).also { asked.complete(it) }
+
+        override suspend fun unlock(name: String, owner: String) {
+            unlocks++
+            delegate.unlock(name, owner)
+        }
+    }
+
+    /**
+     * Starts a reaper on [store] as the server does, and closes it once it asked for the lock.
+     *
+     * @return how long closing it took.
+     */
+    private suspend fun startAndClose(store: LockWatching): Duration {
+        val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+        try {
+            val reaper = LeaseReaper(store, { listOf(NAMESPACE) }, options, clock)
+            reaper.start(scope)
+            store.asked.await()
+            val started = System.nanoTime()
+            reaper.close()
+            return Duration.ofNanos(System.nanoTime() - started)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `a leader that stops lets go of the lock, so that another replica leads at once`() = scenario {
+        val watching = LockWatching(store)
+        startAndClose(watching)
+        watching.asked.await().assert().isTrue()
+
+        store.tryLock(LeaseReaper.LOCK, "another server", 15.seconds).assert().isTrue()
+    }
+
+    @Test
+    fun `a store out of reach holds up a leader that stops for a moment only`() = scenario {
+        val unreachable = object : LockWatching(store) {
+            override suspend fun unlock(name: String, owner: String) = awaitCancellation()
+        }
+        startAndClose(unreachable).assert().isLessThan(Duration.ofSeconds(3))
+    }
+
+    @Test
+    fun `a replica that does not lead has no lock to let go of`() = scenario {
+        store.tryLock(LeaseReaper.LOCK, "another server", 3600.seconds)
+        val watching = LockWatching(store)
+        startAndClose(watching)
+        watching.asked.await().assert().isFalse()
+
+        watching.unlocks.assert().isEqualTo(0)
+        store.tryLock(LeaseReaper.LOCK, "yet another server", 15.seconds).assert().isFalse()
     }
 
     @Test

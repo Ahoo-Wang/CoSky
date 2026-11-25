@@ -23,9 +23,31 @@ import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.springframework.beans.factory.BeanCreationException
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 
+@ExtendWith(OutputCaptureExtension::class)
 class StartupFailuresTest {
+    @Test
+    fun `a setting that cannot work stops the start, saying which and what it must be`(output: CapturedOutput) {
+        val failure = runCatching {
+            RunningServer(
+                mapOf(
+                    "cosky.store.type" to CoSkyProperties.MEMORY,
+                    "cosky.auth.enabled" to "false",
+                    "cosky.lease.reaper-interval" to "0s",
+                ),
+            ).close()
+        }.exceptionOrNull()
+
+        failure.assert().isNotNull()
+        val report = output.out.substringAfter("APPLICATION FAILED TO START")
+        report.assert().contains("cosky.lease.reaper-interval is 0s: it must be longer than 0.")
+            .contains("Set cosky.lease.reaper-interval (COSKY_LEASE_REAPER_INTERVAL)")
+    }
+
     @Test
     fun `a Redis out of reach at start says what to set, or how to do without`() {
         val failure = BeanCreationException("store", RedisConnectionException("Unable to connect to localhost:6379"))

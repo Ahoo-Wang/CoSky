@@ -9,7 +9,7 @@ server 是一个镜像，`ahoowang/cosky`（也可用 `ghcr.io/ahoo-wang/cosky`�
 
 | 端口 | 提供 |
 |---|---|
-| `8080` | REST API、Dashboard、Actuator |
+| `8080` | REST API、Dashboard，以及没有[单独端口](#actuator-使用单独端口)时的 Actuator |
 | `9090` | gRPC，供应用使用 |
 
 ## Redis
@@ -70,6 +70,24 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
 
 所有[属性](./properties.md)都可以用环境变量或参数设置。`--dev` 在内存中运行，不需要登录，只用于试用。
 
+## Actuator 使用单独端口
+
+Actuator 的健康检查、信息和指标不需要 token，而指标中包含 namespace 名称。在 8080 端口上，能访问 API 的人都能访问它们，所以生产环境中请给它们一个只有探针和 Prometheus 能访问的端口。`MANAGEMENT_SERVER_PORT`（`management.server.port`）把整个 Actuator 移到那里。之后 8080 端口对 `/actuator` 返回 404，新端口也只提供 `/actuator`：
+
+```bash
+docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.1:8081:8081 \
+  -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
+  -e COSKY_BOOTSTRAP_TOKEN \
+  -e MANAGEMENT_SERVER_PORT=8081 \
+  ahoowang/cosky:8.0.0-beta.15
+```
+
+- **Kubernetes：**`k8s/base` 就是这样做的。它的探针访问名为 `management` 的端口（8081），Service 中不包含这个端口，所以经 Service 访问 API 的一方，比如 Ingress，访问不到 Actuator。Prometheus 直接抓取 Pod：按 `prometheus.io/*` 注解，或者用一个指向 `management` 端口的 PodMonitor，不需要为此建 Service。
+- **镜像的健康检查**跟随 `MANAGEMENT_SERVER_PORT`。请用这个变量设置端口，或者用 `--health-cmd` 给容器单独配置健康检查。
+- **默认端口在 8.0 中仍是 8080**，已经指向它的探针和抓取配置在你修改之前照常工作。
+- **探针检查的是管理端口的服务**，而不是 8080 端口本身。如果也要检查 8080，`management.endpoint.health.probes.add-additional-paths=true` 在 8080 的 `/livez` 和 `/readyz` 提供存活和就绪状态，只返回状态。
+- **开启 TLS 时**，Actuator 的端口也使用 HTTPS，除非在那里关闭它，详见[安全](./security.md#tls)。
+
 ## Kubernetes
 
 仓库中有 [Kustomize](https://kustomize.io) 清单：一个三副本的 Deployment、一个 Service 和一个 PodDisruptionBudget。
@@ -88,7 +106,9 @@ kubectl apply -k k8s/base
 
 使用 Redis Cluster 时，改为应用 `k8s/overlays/redis-cluster`。你自己的 overlay 只要几行，就能设置 namespace、镜像标签或资源，可以照它的样子写。
 
-探针使用 `/actuator/health/liveness` 和 `/actuator/health/readiness`。副本加载完 namespace 后才报告就绪，50,000 个实例和 10,000 个 Config [用时 2 到 3.5 秒](./performance.md)。
+每个副本请求半个 CPU，不限制 CPU；请求 2 GiB 内存，这也是它的内存上限，原因见[容量规划](#容量规划)：两个内存值要一起修改。节点足够时副本分散在不同节点上，清单中的注释说明了每项设置的原因。
+
+探针在 [Actuator 的单独端口](#actuator-使用单独端口)上使用 `/actuator/health/liveness` 和 `/actuator/health/readiness`。副本加载完 namespace 后才报告就绪，50,000 个实例和 10,000 个 Config [用时 2 到 3.5 秒](./performance.md)。
 
 Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共享依赖，否则一次故障切换就会让所有副本同时退出 Service，而它们其实还能提供已知的数据。代价是：单独和 Redis 断开的副本会继续提供它最后知道的数据。各副本的 `cosky_cache_revision{namespace}` 超过一分钟不一致就说明出现了这种情况，重启该副本即可。
 
@@ -102,7 +122,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 ## 单独部署 Dashboard
 
-镜像在 `/` 提供 Dashboard。要托管在别处，请把它放在反向代理后面，并把 `/v1` 也转发给 server：页面要求 API 与它同源，server 不提供 CORS。
+镜像在 `/` 提供 Dashboard。要把它放在自己的路径下（例如 `https://example.com/cosky/`），或者把它的文件托管在别处，请把它放在反向代理后面，并把同一路径下的 `v1/` 也转发到 server 的 `/v1`：页面要求 API 就在它旁边、与它同源，server 不提供 CORS。代理需要做什么以及 nginx 示例，见[控制台](./dashboard.md#在反向代理后面)。
 
 ## 可观测性
 
@@ -113,6 +133,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 | `cosky_cache_lag_seconds{namespace}` | 写入到达副本的耗时 |
 | `cosky_cache_revision{namespace}` | 副本之间长时间不一致：其中一个和 Redis 断开了 |
 | `cosky_store_apply_seconds` | 写入延迟，直方图：`histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` 是所有副本合起来的 p99 |
+| `cosky_store_failures_total{operation}` | 这个副本访问存储失败的次数，按存储操作区分，如 `tryLock`、`apply`。其间副本仍然就绪，而每个副本的回收器每秒都向存储申请锁，所以与 Redis 断开的副本空闲时也会计数：告警可设为 `rate(cosky_store_failures_total[1m]) > 0` 持续几分钟 |
 | `cosky_watch_active` | 这个副本上的 watch 数 |
 | `cosky_watch_events_sent_total` | 发给 watcher 的事件数 |
 | `cosky_watch_gone_total{reason}` | 客户端不得不重新开始：`slow`、`compacted`、`epoch`、`regression` |
@@ -132,7 +153,7 @@ namespace 删除后，它的序列随之消失。
 
 ## 容量规划
 
-测量结果见[性能](./performance.md)。作为起点，512 MB 堆可以轻松容纳 10,000 个对象的 namespace，内存按每个对象约 1.5 KB 增长。镜像设置了 `-XX:MaxRAMPercentage=75` 和紧凑对象头，所以给容器的内存应该是期望的堆大小再加四分之一。
+测量结果见[性能](./performance.md)。作为起点，512 MB 堆可以轻松容纳 10,000 个对象的 namespace，内存按每个对象约 1.5 KB 增长。镜像设置了 `-XX:MaxRAMPercentage=75` 和紧凑对象头，所以堆是容器内存上限的四分之三：给容器的内存应该比期望的堆大小多三分之一，并且内存请求等于上限，就像 `k8s/base` 那样：2 GiB 的容器，1.5 GiB 的堆。
 
 大 Config 需要单独考虑，因为为续传保留的内容包括 Config 的内容：
 

@@ -106,6 +106,14 @@ jobs:
           # 143 is the JVM's exit on SIGTERM: anything else means it had to be killed.
           status="$(docker inspect cosky --format '{{.State.ExitCode}}')"
           test "$status" = 143 -o "$status" = 0
+          # Actuator on a port of its own, as in k8s/base: the image's health check follows it.
+          docker run -d --name cosky-management --health-interval=2s -e MANAGEMENT_SERVER_PORT=8081 cosky-server:test --dev
+          for _ in $(seq 1 60); do
+            test "$(docker inspect cosky-management --format '{{.State.Health.Status}}')" = healthy && break
+            sleep 2
+          done
+          test "$(docker inspect cosky-management --format '{{.State.Health.Status}}')" = healthy
+          docker rm -f cosky-management
 
       # Rendering manifests says little: this is what finds a probe, a user id or a shutdown that does not work.
       - name: Deploy the image on a real Kubernetes cluster
@@ -136,13 +144,21 @@ jobs:
           kubectl apply -k k8s/base
           kubectl rollout status deployment/cosky --timeout=240s
           test "$(kubectl get pods -l app=cosky -o jsonpath='{.items[*].status.containerStatuses[*].restartCount}')" = "0 0 0"
+          # Clients reach REST and gRPC through the Service. Actuator has a port of its own, which the Service leaves out.
+          test "$(kubectl get service cosky -o jsonpath='{.spec.ports[*].port}')" = "8080 9090"
           kubectl port-forward service/cosky 18080:8080 &
           forward=$!
-          # The forward listens a moment after it starts: retry a refused connection rather than guess how long.
-          curl -sf --retry 15 --retry-connrefused --retry-delay 1 http://localhost:18080/actuator/health/readiness
-          curl -sf -H "Authorization: Bearer $token" http://localhost:18080/v1/namespaces/default/configs
+          kubectl port-forward deployment/cosky 18081:8081 &
+          management=$!
+          # A forward listens a moment after it starts: retry a refused connection rather than guess how long.
+          curl -sf --retry 15 --retry-connrefused --retry-delay 1 http://localhost:18081/actuator/health/readiness
+          curl -sf --retry 15 --retry-connrefused --retry-delay 1 -H "Authorization: Bearer $token" \
+            http://localhost:18080/v1/namespaces/default/configs
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18080/v1/namespaces/default/configs)" = 401
-          kill "$forward"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:18080/actuator/health/readiness)" = 404
+          metrics="$(curl -sf http://localhost:18081/actuator/prometheus)"
+          grep -q '^cosky_auth_enabled 1' <<< "$metrics"
+          kill "$forward" "$management"
           # A rolling update has to finish, and leave every replica ready.
           kubectl rollout restart deployment/cosky
           kubectl rollout status deployment/cosky --timeout=120s

@@ -13,11 +13,15 @@
 
 import {fetcher} from '@ahoo-wang/fetcher';
 import {toast} from 'sonner';
+import {dashboardBase} from '@/lib/base';
 import {currentToken} from '@/security/renewal';
 import {session} from '@/security/session';
 
 const UNAUTHORIZED = 401;
 
+// The generated clients ask for `/v1/...`, which would leave a prefix the page is served under behind: the API is
+// where the page is, as `https://example.com/cosky/v1/...` behind a proxy that serves it under `/cosky/`.
+fetcher.urlBuilder.baseURL = dashboardBase();
 fetcher.timeout = 1000 * 60 * 2;
 
 fetcher.interceptors.request.use({

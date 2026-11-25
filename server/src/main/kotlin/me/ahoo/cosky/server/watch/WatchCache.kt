@@ -14,7 +14,16 @@
 package me.ahoo.cosky.server.watch
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
@@ -23,6 +32,7 @@ import me.ahoo.cosky.store.Store
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The namespaces this server follows; each starts on first use.
@@ -36,6 +46,7 @@ class WatchCache(
     private val windowBytes: Long = Long.MAX_VALUE,
 ) {
     private val caches = ConcurrentHashMap<String, NamespaceCache>()
+    private val followers = ConcurrentHashMap<String, Flow<NamespaceView>>()
 
     fun of(namespace: String): NamespaceCache = caches.computeIfAbsent(namespace) {
         NamespaceCache(namespace, store, windowSize, antiEntropyInterval, metrics, windowBytes).also { cache ->
@@ -46,6 +57,25 @@ class WatchCache(
                 caches.remove(namespace, cache)
             }
         }
+    }
+
+    /**
+     * The views of [namespace] for as long as they are collected, from whichever cache follows it. A cache stops when
+     * its namespace stops being active, and a namespace created again, under a new epoch, as the system namespace is
+     * after the store lost its data, has a cache of its own: collecting the views of one cache would stop there for
+     * good. A namespace that is gone has no views, and is looked for again every second.
+     *
+     * Its collectors share one follower, so that a namespace that is gone is looked for once however many wait for it,
+     * and each sees the latest view, as with a cache's own: a slow one misses those in between.
+     */
+    fun follow(namespace: String): Flow<NamespaceView> = followers.computeIfAbsent(namespace) {
+        flow {
+            while (true) {
+                emitAll(of(namespace).views.filterNotNull().takeWhile { !it.isClosed })
+                // The cache that stopped goes once it has; until then, of() still gives it.
+                delay(FOLLOW_RETRY)
+            }
+        }.conflate().shareIn(scope, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), replay = 1)
     }
 
     /**
@@ -75,5 +105,9 @@ class WatchCache(
             cache.views.value == null -> CoSkyException.replicaNotReady(namespace, "Namespace $namespace is loading.")
             else -> CoSkyException.minRevisionTimeout(namespace, minRevision)
         }
+    }
+
+    private companion object {
+        val FOLLOW_RETRY = 1.seconds
     }
 }

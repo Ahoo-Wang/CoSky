@@ -218,13 +218,14 @@ export interface GetRequest {
 }
 
 /**
- * Why a watch's position is gone; cosky_watch_gone_total counts each (§7.9).
+ * Why a watch's position is gone; cosky_watch_gone_total counts COMPACTED through REGRESSION (§7.9).
  *
- * - `GONE_REASON_UNSPECIFIED`
+ * - `GONE_REASON_UNSPECIFIED`: none of the reasons below
  * - `GONE_REASON_COMPACTED`: from_revision was older than the window when it was created
  * - `GONE_REASON_SLOW`: it fell out of the window while following
  * - `GONE_REASON_EPOCH`: another epoch began: the namespace was created again, or its timeline replaced (§6.4)
  * - `GONE_REASON_REGRESSION`: from_revision is beyond what the store holds: it came from a timeline that was lost
+ * - `GONE_REASON_PERMISSION`: what the subject may see changed, so the watch restarts from a snapshot (§7.3)
  * - key: GoneReason
  */
 export enum GoneReason {
@@ -232,7 +233,8 @@ export enum GoneReason {
   GONE_REASON_COMPACTED = 'GONE_REASON_COMPACTED',
   GONE_REASON_SLOW = 'GONE_REASON_SLOW',
   GONE_REASON_EPOCH = 'GONE_REASON_EPOCH',
-  GONE_REASON_REGRESSION = 'GONE_REASON_REGRESSION'
+  GONE_REASON_REGRESSION = 'GONE_REASON_REGRESSION',
+  GONE_REASON_PERMISSION = 'GONE_REASON_PERMISSION'
 }
 
 /**

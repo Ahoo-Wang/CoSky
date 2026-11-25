@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
+import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.CoSkyProperties
 import me.ahoo.cosky.server.audit.AuditLogger
@@ -36,7 +37,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.http.MediaType
 import org.springframework.test.web.reactive.server.WebTestClient
+import reactor.core.publisher.Flux
+import java.io.ByteArrayOutputStream
 import java.net.URI
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import kotlin.random.Random
 
 /**
  * How REST reads a request (design §4.4, §4.5): strictly, with conditions that exclude one another, a label selector
@@ -48,7 +54,10 @@ class RestRequestsTest {
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val caches = WatchCache(store, 64, scope)
 
-    private fun client(): WebTestClient {
+    private fun client(
+        limits: Limits = Limits.DEFAULT,
+        maxArchiveBytes: Int = ConfigArchive.MAX_ARCHIVE_BYTES,
+    ): WebTestClient {
         val routes = RestRoutes(
             ResourceService(store, caches),
             ViewService(store, caches),
@@ -56,6 +65,8 @@ class RestRequestsTest {
             WatchService(caches, CoSkyProperties()),
             null,
             AuditLogger(),
+            limits = limits,
+            maxArchiveBytes = maxArchiveBytes,
         ).routes()
         return WebTestClient.bindToRouterFunction(routes).build()
     }
@@ -263,9 +274,73 @@ class RestRequestsTest {
             .expectStatus().isOk.json()["deleted"].asBoolean.assert().isTrue()
     }
 
+    @Test
+    fun `a body larger than the largest resource can take in JSON is refused, also when it does not say how large`() {
+        val client = client(SMALL)
+        // Each character escaped, as a printer that escapes for HTML writes it: six times the Config, and it fits.
+        val escaped = "\\u003c".repeat(SMALL.maxConfigContentBytes)
+        client.putConfig("a", """{"config":{"format":"CONFIG_FORMAT_TEXT","content":"$escaped"}}""").expectStatus().isOk
+        client.putConfig("b", config.padEnd(MAX_BODY_BYTES)).expectStatus().isOk
+
+        client.putConfig("c", config.padEnd(MAX_BODY_BYTES + 1))
+            .violations().assert().containsExactly("resource" to TOO_LONG)
+        val streamed = Flux.just(config, " ".repeat(MAX_BODY_BYTES))
+        client.put().uri("/v1/namespaces/$NAMESPACE/configs/d").contentType(MediaType.APPLICATION_JSON)
+            .body(streamed, String::class.java).exchange()
+            .violations().assert().containsExactly("resource" to TOO_LONG)
+        client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback").contentType(MediaType.APPLICATION_JSON)
+            .bodyValue("""{"toRevision":"1"}""".padEnd(MAX_BODY_BYTES + 1)).exchange()
+            .violations().assert().containsExactly("to_revision" to TOO_LONG)
+        client.putAccount("app").expectStatus().isOk
+        client.post().uri("/v1/serviceaccounts/app/tokens").contentType(MediaType.APPLICATION_JSON)
+            .bodyValue("{}".padEnd(MAX_BODY_BYTES + 1)).exchange()
+            .violations().assert().containsExactly("expires_at" to TOO_LONG)
+    }
+
+    @Test
+    fun `an archive to import may be larger than any other body, up to its own limit`() {
+        val client = client(SMALL, maxArchiveBytes = MAX_ARCHIVE_BYTES)
+        val archive = archiveOf(ARCHIVED)
+        (archive.size in MAX_BODY_BYTES + 1..MAX_ARCHIVE_BYTES).assert().isTrue()
+        client.import(archive).expectStatus().isOk.json().getAsJsonArray("items").size().assert().isEqualTo(ARCHIVED)
+
+        val larger = archiveOf(ARCHIVED * 4)
+        (larger.size > MAX_ARCHIVE_BYTES).assert().isTrue()
+        client.import(larger).violations().assert().containsExactly("resource" to TOO_LONG)
+    }
+
+    private fun WebTestClient.import(archive: ByteArray) = post().uri("/v1/namespaces/$NAMESPACE/configs:import")
+        .contentType(MediaType.parseMediaType("application/zip"))
+        .bodyValue(archive)
+        .exchange()
+
+    /**
+     * Configs of [SMALL]'s largest size, of letters and digits that do not compress much.
+     */
+    private fun archiveOf(configs: Int): ByteArray {
+        val random = Random(configs)
+        val letters = ('a'..'z') + ('A'..'Z') + ('0'..'9')
+        val bytes = ByteArrayOutputStream()
+        ZipOutputStream(bytes).use { zip ->
+            repeat(configs) { index ->
+                zip.putNextEntry(ZipEntry("c$index.txt"))
+                zip.write(String(CharArray(SMALL.maxConfigContentBytes) { letters.random(random) }).encodeToByteArray())
+                zip.closeEntry()
+            }
+        }
+        return bytes.toByteArray()
+    }
+
     private companion object {
         const val NAMESPACE = "prod"
         const val INVALID_FORMAT = "VIOLATION_CODE_INVALID_FORMAT"
         const val NOT_ALLOWED = "VIOLATION_CODE_NOT_ALLOWED"
+        const val TOO_LONG = "VIOLATION_CODE_TOO_LONG"
+
+        /** Resources of 2 KiB at most, so that a body that exceeds what they take is quick to send. */
+        val SMALL = Limits(maxConfigContentBytes = 1024, maxMessageBytes = 2048)
+        val MAX_BODY_BYTES = SMALL.maxMessageBytes * 6
+        const val MAX_ARCHIVE_BYTES = 64 * 1024
+        const val ARCHIVED = 20
     }
 }

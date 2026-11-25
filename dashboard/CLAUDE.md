@@ -25,6 +25,8 @@ Run `lint`, `build`, `test:unit` and `test:ui` before committing.
 
 The API always shares the page's origin, since the server has no CORS (design D34). `pnpm build` leaves `dist/`, which the server build bundles. Routes live in the URL fragment, so that no server needs a fallback route.
 
+Nothing assumes the site root, so that the same `dist/` works at `/` and under any prefix a reverse proxy serves it at (wiki/guide/dashboard.md): Vite builds with `base: './'`, and the fetcher's base URL and the OIDC redirect URI come from the page's address (`src/lib/base.ts`); never address anything from the site root, such as a `fetch('/v1/...')` past the fetcher or an `href="/..."`. The tests under "under a path prefix" in `tests/ui/dashboard.spec.ts` serve it at `/cosky/` behind a proxy (`behindProxy`), which refuses anything outside the prefix.
+
 ## Stack
 
 - React 19 + TypeScript, Vite with the React Compiler, React Router 7.
@@ -56,4 +58,5 @@ The API always shares the page's origin, since the server has no CORS (design D3
 - **Adding components**: `npx shadcn add <name>`, then restore the license header, drop `"use client"`, and import `cn` from `@/lib/utils`.
 - **Operations**: wrap a mutation in `runAction(operation, {success, failure})`. Only an operation whose result you need uses try/catch, with `toast.error(await failureMessage('…', error))`.
 - **Edits**: send the revision the edit started from (`If-Match`), and create with none (`If-None-Match: *`), so that nobody overwrites a change they did not see; a delete sends the revision of the row the user confirmed. `resources.ts` does this when given the revision, and has every read after a write ask for at least its revision (`minRevision`).
+- **Lists**: a paged `DataTable` takes `pagination={{storageKey: '<list>'}}`, under which the browser remembers its page size (`src/lib/pageSize.ts`). Lists read every page the server splits them into, so that search and sort cover them all, and page in the browser.
 - **Tests**: select elements by role, label, or `data-slot`, not by class name. New pages need an end-to-end test in `tests/ui` and a mock in `mock-api.ts`.

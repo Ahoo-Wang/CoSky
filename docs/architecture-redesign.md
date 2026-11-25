@@ -417,12 +417,13 @@ message WatchResponse {
   }
 }
 
-enum GoneReason {                       // cosky_watch_gone_total 的 reason(§7.9)
-  GONE_REASON_UNSPECIFIED = 0;          // 不属于以下任何一种,如可见范围随权限变化(§7.3)
+enum GoneReason {                       // COMPACTED 到 REGRESSION 是 cosky_watch_gone_total 的 reason(§7.9)
+  GONE_REASON_UNSPECIFIED = 0;          // 不属于以下任何一种
   GONE_REASON_COMPACTED = 1;            // 创建时 from_revision 早于窗口
   GONE_REASON_SLOW = 2;                 // 跟随过程中掉出窗口
   GONE_REASON_EPOCH = 3;                // epoch 已更换
   GONE_REASON_REGRESSION = 4;           // 位置来自已丢失的时间线(D29)
+  GONE_REASON_PERMISSION = 5;           // 主体的可见范围变了,watch 从快照重新开始(§7.3)
 }
 
 service LeaseService {                                                // 授权见 §7.8
@@ -502,6 +503,9 @@ Put 的响应带 `ETag: "<revision>"`,`revision` 始终是对象自己的 revisi
 返回对象已有的 revision,`ETag` 照样带上,两者都可以直接用作下一次的 `expected_revision` / `If-Match`。Delete 的 `revision` 在 `deleted = true` 时是删除操作的 revision;
 `deleted = false`(对象不存在)时是应答时 namespace 的 revision,对象在这个 revision 上不存在。两种响应的 `revision` 都可用作 `min_revision`。
 Watch 的 SSE 流只承载一个 watch,权限变化时发出 `position_gone` 或 `canceled` 后结束,客户端重新连接。
+
+**请求体大小**:普通请求体最多读 12 MiB,即最大资源(序列化 2 MiB,§4.6)在 JSON 中的上限:字符串的每个字节最多写成 6 个(`\u001f`,或为 HTML 转义的 `\u003c`);导入的 zip 最多 64 MiB。
+`Content-Length` 超限时不读请求体,没有长度时读到上限即停止,都返回 400 `INVALID_ARGUMENT`(请求体承载的字段,`TOO_LONG`),与资源本身超过 `max-message-bytes` 时相同。
 
 REST 请求严格解析,以下情况返回 400 `INVALID_ARGUMENT`(带违规字段)而不是悄悄接受:请求体中有消息没有的成员(否则拼错的 `lables` 会在 Put 时清空标签);
 请求体的 `meta.namespace` / `meta.name` 不为空且与路径不同;`If-None-Match` 不是 `*`;`If-Match` 与 `If-None-Match` 同时出现。
@@ -789,6 +793,7 @@ client                         server                         Redis
 - 一个进程在一个 namespace 只持有一个租约,心跳成本 O(进程数),与实例数无关。
 - 持久实例 = 不挂租约的 Instance,无特殊分支。
 - Reaper 由 `cosky:lock:reaper` 锁选主(PX 15s,每 5s 续约);Leader 失效最多延迟一个锁周期加一个恢复宽限,只影响回收时效,不影响正确性。
+  副本停止时,Reaper 作为 bean 先于 store 关闭:Leader 停止回收后释放锁(最多等存储 1 秒,超时则任其过期),其他副本下一轮即可接手,不必等满锁周期。
 
 **回收保护(D20)**:控制面故障超过 TTL 后恢复时,到期的主要是仍然存活的进程。如果立即回收,所有实例都会被删除,
 消费者读到空列表,客户端再集中重新注册。Reaper 每轮依次判断:
@@ -935,17 +940,21 @@ registration.close()                                                            
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
   `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `position_gone`;`r` 大于当前 revision → 等副本追上,超时后 Store 有这个位置则以 `UNAVAILABLE`(`REPLICA_NOT_READY`)结束流,否则 `position_gone`(D29)。
 - **位置失效**:`position_gone` 是一条 `Gone` 消息,带现在最早可续传的 revision、当前 epoch 和原因 `GoneReason`:`COMPACTED`(创建时早于窗口)、`SLOW`(跟随中掉出窗口)、
-  `EPOCH`(epoch 已更换)、`REGRESSION`(位置来自已丢失的时间线);可见范围随权限变化而重新开始的 watch 原因为 `UNSPECIFIED`。该 watch 随之结束,客户端重新 List 或不带位置重新 Watch。
+  `EPOCH`(epoch 已更换)、`REGRESSION`(位置来自已丢失的时间线)、`PERMISSION`(可见范围随权限变化,从快照重新开始)。该 watch 随之结束,客户端重新 List 或不带位置重新 Watch;
+  客户端不必区分原因,任何原因都同样重新开始,以后新增的原因也一样。
   原字段 `int64 gone = 5` 已删除,字段号和名称保留(`reserved`)。
 - **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `position_gone`(`SLOW`)结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
-- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`),仍有权限但可见范围变了的收到 `position_gone`(`UNSPECIFIED`)后重新开始。
+- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`),仍有权限但可见范围变了的收到 `position_gone`(`PERMISSION`)后重新开始。
+  store 丢失数据后 `_system` 以新 epoch 重建,由新的 `NamespaceCache` 跟随,存量流跟着它继续重新评估;`_system` 不存在期间没有人能写它,不算权限变化,重建后的规则加载完成时按它评估一次。
 - **配额**:单条流最多 1,000 个 watch,超出时该 Create 收到 `canceled`(`WATCH_QUOTA_EXCEEDED`;REST 侧为 429),流本身不中断。
 
 ### 7.4 Server 内部结构
 
 技术栈:Spring Boot 4 + WebFlux(协程)+ Spring gRPC(grpc-kotlin stub),运行在 JDK 25(D27)。两个端口:`8080` HTTP(REST、SSE、
-Dashboard 静态资源、Actuator),`9090` gRPC。
+Dashboard 静态资源、Actuator),`9090` gRPC。Actuator 不需要 token,指标中有 namespace 名称,所以 `k8s/base` 用
+`management.server.port` 把它移到 `8081`:探针和 Prometheus 直接访问 Pod,客户端用的 Service 不含这个端口;这个端口只提供 Actuator,API 和 Dashboard 在它上面返回 404(Spring 的管理上下文会继承应用上下文的路由,由 `ManagementPortFilter` 拦下)。server 的默认值
+在 8.0 中仍是 `8080`,已经指向它的探针和抓取配置不受影响。
 
 ```
 me.ahoo.cosky.server
@@ -1023,6 +1032,8 @@ me.ahoo.cosky.server
 | `cosky.read.min-revision-timeout` | `3s` | |
 
 单条消息上限(2 MiB,§4.6)、租约 TTL(默认 30 秒,范围 5–300 秒)和 Config 历史(20 个 revision)在 8.0 是固定值(`Limits`),不可配置。
+
+启动时校验取值,不能工作的值以 StartupFailure 拒绝启动,消息写明属性和值:时长、数量、大小必须大于 0,只有 `reaper-grace`、`protection-max-duration`、`protection-min-leases` 可以为 0(关闭对应的保护);`protection-threshold` 在 0 到 1 之间;`lock-ttl` 必须长于 `reaper-interval`,否则锁在两次续期之间失效。只校验已知属性的值,不拒绝未知的 `cosky.*` 键:Kubernetes 会给每个 pod 注入名为 `cosky` 的 Service 的 `COSKY_SERVICE_HOST`、`COSKY_PORT` 等变量。
 
 时长属性不带单位时按秒计算(`@DurationUnit(SECONDS)`),环境变量 `COSKY_LEASE_REAPER_GRACE=30` 即 30 秒;带单位(`500ms`、`5m`)时以单位为准。starter 的时长属性相同。server 和 starter 都随 jar 提供 `META-INF/spring-configuration-metadata.json`,描述与默认值同 wiki 的属性参考一致,测试对照两者和代码。
 
@@ -1114,11 +1125,12 @@ cosky:
 | 指标 | 类型 | 说明 |
 |---|---|---|
 | `cosky_store_apply_seconds` | Timer(直方图,1 ms 到 10 s 的固定桶) | 写入耗时;各副本的桶可以相加后取分位数 |
+| `cosky_store_failures_total{operation}` | Counter | 本副本访问存储失败(`StoreUnavailableException`)的次数,`operation` 是 Store SPI 的方法名,如 `tryLock`、`apply`;每个副本的 Reaper 每个间隔都申请锁,所以断开的副本空闲时也计数。Redis store 跟随 namespace 的 tail 自己重试,不计入 |
 | `cosky_cache_revision{namespace}` | Gauge | 已应用 revision |
 | `cosky_cache_lag_seconds{namespace}` | Gauge | 写入 → 进入缓存的延迟 |
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
 | `cosky_watch_events_sent_total` | Counter | 发给 watcher 的事件数 |
-| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;滚动重启后看这个指标判断窗口是否够大(D29) |
+| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;不计 `PERMISSION`,它与窗口无关;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active{namespace}` / `cosky_lease_expired_total{namespace}` | Gauge / Counter | 只由回收 Leader 上报:卸任时移除 gauge,不再管理的 namespace 也移除;跨副本对 gauge 取 `max`,Leader 切换的一刻也不会重复 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2),同样只由回收 Leader 上报 |
 | `cosky_reaper_failures_total{namespace}` | Counter | 回收 Leader 回收或巡检这个 namespace 时存储失败的次数,其他 namespace 照常进行(§6.2) |
@@ -1129,7 +1141,7 @@ cosky:
 
 namespace 删除(或本副本不再跟随它)时,它的 `cosky_cache_revision`、`cosky_cache_lag_seconds`、租约 gauge 和计数器随之移除,不留下停在最后一个值的序列。
 
-- 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠比较各副本的 `cosky_cache_revision` 发现。
+- 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠 `cosky_store_failures_total` 或比较各副本的 `cosky_cache_revision` 发现。
 - 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。
 - 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
 - 关闭鉴权:对 Redis 存储关闭时,启动记一条 ERROR 日志,说明所有调用者都是 admin;内存存储(开发)记 WARN。不拒绝启动(D47)。

@@ -14,9 +14,17 @@
 package me.ahoo.cosky.server.lease
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.store.Store
 import org.slf4j.LoggerFactory
@@ -25,6 +33,7 @@ import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.toKotlinDuration
 
 /**
@@ -34,6 +43,9 @@ import kotlin.time.toKotlinDuration
  * checks in order: a recovery grace, a pause on mass expiry, and a cap per tick. The store failing on one namespace
  * gives that namespace a grace of its own, while the others are reaped as usual; failing as a whole, to lock or to list
  * the namespaces, or hanging anywhere, gives every namespace one.
+ *
+ * Closing it stops it, and a leader lets go of the lock, so that another replica leads at once rather than once the
+ * lock expired.
  */
 class LeaseReaper(
     private val store: Store,
@@ -43,7 +55,7 @@ class LeaseReaper(
     private val owner: String = UUID.randomUUID().toString(),
     private val maintenance: suspend () -> Unit = {},
     private val metrics: CoSkyMetrics = CoSkyMetrics(),
-) {
+) : AutoCloseable {
     @Suppress("MagicNumber") // The defaults of design §7.6.
     data class Options(
         val interval: Duration = Duration.ofSeconds(1),
@@ -57,6 +69,13 @@ class LeaseReaper(
     )
 
     private var leaderSince: Instant? = null
+
+    /** Whether the lock may be this replica's: it was at the last tick that got an answer from the store. */
+    @Volatile
+    private var mayHoldLock = false
+
+    @Volatile
+    private var running: Job? = null
     private var lastFailure: Instant? = null
     private var lastTickEnded: Instant? = null
     private var lastMaintenance: Instant? = null
@@ -77,18 +96,55 @@ class LeaseReaper(
     val paused: Set<String>
         get() = pausedSince.keys
 
+    /**
+     * Runs in [scope] until closed.
+     */
+    fun start(scope: CoroutineScope) {
+        running = scope.launch { run() }
+    }
+
     suspend fun run() {
-        while (currentCoroutineContext().isActive) {
-            try {
-                tick()
-            } catch (e: CancellationException) {
-                throw e
-            } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
-                lastFailure = clock.instant()
-                stepDown()
-                log.warn("A reaper tick failed.", e)
+        try {
+            while (currentCoroutineContext().isActive) {
+                try {
+                    tick()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    lastFailure = clock.instant()
+                    stepDown()
+                    log.warn("A reaper tick failed.", e)
+                }
+                delay(options.interval.toKotlinDuration())
             }
-            delay(options.interval.toKotlinDuration())
+        } finally {
+            withContext(NonCancellable) { release() }
+        }
+    }
+
+    /**
+     * Stops what [start] started, waiting for the lock to be let go of, but not for long: a store out of reach would
+     * hold up the shutdown, and the lock expires by itself.
+     */
+    override fun close() {
+        val job = running ?: return
+        runBlocking { withTimeoutOrNull(STOP_TIMEOUT) { job.cancelAndJoin() } }
+    }
+
+    private suspend fun release() {
+        if (!mayHoldLock) {
+            return
+        }
+        stepDown()
+        try {
+            if (withTimeoutOrNull(RELEASE_TIMEOUT) { store.unlock(LOCK, owner) } != null) {
+                mayHoldLock = false
+                log.info("Stopped reaping; another replica may lead at once.")
+            } else {
+                log.warn("The store did not answer in time to let go of the reaper's lock; it expires by itself.")
+            }
+        } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+            log.warn("Letting go of the reaper's lock failed; it expires by itself.", e)
         }
     }
 
@@ -102,6 +158,7 @@ class LeaseReaper(
 
     private suspend fun leadOrStepDown() {
         val acquired = store.tryLock(LOCK, owner, options.lockTtl.toKotlinDuration())
+        mayHoldLock = acquired
         val now = clock.instant()
         noteStall(now)
         if (!acquired) {
@@ -291,6 +348,10 @@ class LeaseReaper(
         const val LOCK = "reaper"
         const val ACTOR = "system"
         private const val STALL_INTERVALS = 5L
+        private val RELEASE_TIMEOUT = 1.seconds
+
+        /** Time for the tick under way to stop, and the lock to be let go of. */
+        private val STOP_TIMEOUT = 2.seconds
         private val log = LoggerFactory.getLogger(LeaseReaper::class.java)
     }
 }

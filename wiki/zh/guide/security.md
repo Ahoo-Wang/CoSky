@@ -188,7 +188,7 @@ cosky:
 
 目前还不支持双向 TLS：客户端用 token 证明身份。
 
-开启 TLS 后，8080 端口只接受 HTTPS，而镜像的健康检查和 `k8s/base` 中的探针使用 HTTP。给它们一个单独的明文端口：
+开启 TLS 后，8080 端口只接受 HTTPS，[Actuator 的单独端口](./deployment.md#actuator-使用单独端口)沿用同样的设置，也只接受 HTTPS，而镜像的健康检查和 `k8s/base` 中的探针使用 HTTP。让 Actuator 的端口保持明文：
 
 ```yaml
 management:
@@ -198,7 +198,7 @@ management:
       enabled: false
 ```
 
-然后把探针指向这个端口，容器的健康检查也一样：`docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`。
+`k8s/base` 的探针已经访问 8081 端口：在它的环境变量中加上 `MANAGEMENT_SERVER_SSL_ENABLED=false`。镜像的健康检查跟随 `MANAGEMENT_SERVER_PORT`，所以请这样设置端口，或者给容器单独配置健康检查：`docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`。
 
 ## 审计
 
@@ -210,5 +210,5 @@ management:
 - 能访问 Redis 的人可以读取和修改一切，绕过以上所有措施。给 server 一个专用的 Redis 用户，网络与他人共用时再加上 TLS：见[部署](./deployment.md#凭据与-tls)。
 - 实例元数据对任何有权读取该实例的人可见。
 - REST API 的文档 `/v3/api-docs` 和 Swagger UI `/swagger-ui.html` 不需要 token，从中发出的调用需要。`springdoc.api-docs.enabled=false` 同时关闭两者。
-- 8080 端口上的 `/actuator/health`、`/actuator/info` 和 `/actuator/prometheus` 不需要 token，指标中包含 namespace 名称。不要把它们暴露到公网，或者用 `management.server.port` 换一个端口。
+- `/actuator/health`、`/actuator/info` 和 `/actuator/prometheus` 不需要 token，指标中包含 namespace 名称。没有移走时它们在 8080 端口上：请像 `k8s/base` 那样给它们一个[单独的端口](./deployment.md#actuator-使用单独端口)，只让探针和 Prometheus 访问。
 - 9090 端口上的 gRPC 健康检查不需要 token。gRPC 反射默认关闭，可用 `spring.grpc.server.reflection.enabled` 打开。

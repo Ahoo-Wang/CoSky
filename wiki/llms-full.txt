@@ -507,7 +507,7 @@ The server is one image, `ahoowang/cosky` (also `ghcr.io/ahoo-wang/cosky`), hold
 
 | Port | Serves |
 |---|---|
-| `8080` | REST API, Dashboard, Actuator |
+| `8080` | REST API, Dashboard, and Actuator unless it has [a port of its own](#actuator-on-its-own-port) |
 | `9090` | gRPC, for applications |
 
 ## Redis
@@ -568,6 +568,24 @@ Keep that token: it is the admin of a new installation, as [Security](./security
 
 Any [property](./properties.md) can be set as an environment variable or an argument. `--dev` runs in memory without sign-in, for trying things out only.
 
+## Actuator on its own port
+
+Actuator's health, info and metrics need no token, and the metrics name your namespaces. On port 8080 they are open to anyone who reaches the API, so in production give them a port that only the probes and Prometheus reach. `MANAGEMENT_SERVER_PORT` (`management.server.port`) moves all of Actuator there. Port 8080 then answers 404 for `/actuator`, and the new port answers nothing but `/actuator`:
+
+```bash
+docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.1:8081:8081 \
+  -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
+  -e COSKY_BOOTSTRAP_TOKEN \
+  -e MANAGEMENT_SERVER_PORT=8081 \
+  ahoowang/cosky:8.0.0-beta.15
+```
+
+- **Kubernetes:** `k8s/base` does this. It probes the port named `management` (8081) and leaves it out of the Service, so nothing that reaches the API through the Service, such as an Ingress, reaches Actuator. Prometheus scrapes the pods directly, by the `prometheus.io/*` annotations or with a PodMonitor on the port `management`, and needs no Service for it.
+- **The image's health check** follows `MANAGEMENT_SERVER_PORT`. Set the port with that variable, or give the container a check of its own with `--health-cmd`.
+- **The default stays 8080** in 8.0, so probes and scrapers already pointed there keep working until you move them.
+- **The probes then ask the management server**, not port 8080 itself. To ask 8080 too, `management.endpoint.health.probes.add-additional-paths=true` serves liveness and readiness there, at `/livez` and `/readyz`, with the status alone.
+- **With TLS,** Actuator's port speaks HTTPS too, unless you turn it off there: see [Security](./security.md#tls).
+
 ## Kubernetes
 
 The repository holds [Kustomize](https://kustomize.io) manifests: a Deployment of three replicas, a Service and a PodDisruptionBudget.
@@ -586,7 +604,9 @@ kubectl apply -k k8s/base
 
 For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overlay of a few lines can set the namespace, the image tag or the resources: that one shows the shape.
 
-Probes use `/actuator/health/liveness` and `/actuator/health/readiness`. A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
+Each replica requests half a CPU, with no CPU limit, and 2 GiB of memory, which is also its memory limit, as [Sizing](#sizing) explains: change both memory values together. Replicas spread across nodes where they can, and the comments in the manifests say why each setting is there.
+
+Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
 
 A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it.
 
@@ -600,7 +620,7 @@ Draining a node stops its replica the same way. The PodDisruptionBudget lets one
 
 ## The Dashboard on its own
 
-The image serves the Dashboard at `/`. To host it elsewhere, put it behind a reverse proxy that also forwards `/v1` to the server: the page expects the API on its own origin, and the server has no CORS.
+The image serves the Dashboard at `/`. To serve it under a path of its own, such as `https://example.com/cosky/`, or to host its files elsewhere, put it behind a reverse proxy that also forwards `v1/` under the same path to the server's `/v1`: the page expects the API next to it, on its own origin, and the server has no CORS. [Dashboard](./dashboard.md#behind-a-reverse-proxy) has what the proxy needs, with an nginx example.
 
 ## Observability
 
@@ -611,6 +631,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_cache_lag_seconds{namespace}` | Writes taking long to reach a replica |
 | `cosky_cache_revision{namespace}` | Replicas that disagree for long: one of them is cut off from Redis |
 | `cosky_store_apply_seconds` | Write latency, a histogram: `histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` is the p99 over every replica |
+| `cosky_store_failures_total{operation}` | This replica failing to reach the store, by the store's operation, such as `tryLock` or `apply`. The replica stays ready meanwhile, and every replica's reaper asks the store for its lock each second, so one cut off from Redis counts even when idle: alert on `rate(cosky_store_failures_total[1m]) > 0` for a few minutes |
 | `cosky_watch_active` | Watches on this replica |
 | `cosky_watch_events_sent_total` | Events sent to watchers |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
@@ -630,7 +651,7 @@ A namespace's series go when it is deleted.
 
 ## Sizing
 
-[Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so give the container what the heap should be, plus a quarter.
+[Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so the heap is three quarters of the container's memory limit: give the container a third more than the heap should be, and request as much memory as the limit, as `k8s/base` does with 2 GiB for a heap of 1.5 GiB.
 
 Large Configs need their own thought, because what is kept for resuming includes their content:
 
@@ -824,7 +845,7 @@ cosky:
 
 Mutual TLS is not supported yet: a client proves who it is with its token.
 
-With TLS on, port 8080 speaks only HTTPS, while the image's health check and the probes in `k8s/base` use HTTP. Give them a plain port of their own:
+With TLS on, port 8080 speaks only HTTPS, and so does [Actuator's own port](./deployment.md#actuator-on-its-own-port), which takes the same settings, while the image's health check and the probes in `k8s/base` use HTTP. Keep Actuator's port plain:
 
 ```yaml
 management:
@@ -834,7 +855,7 @@ management:
       enabled: false
 ```
 
-Then point the probes at it, and the container's check too: `docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`.
+`k8s/base` already probes port 8081: add `MANAGEMENT_SERVER_SSL_ENABLED=false` to its environment. The image's health check follows `MANAGEMENT_SERVER_PORT`, so set the port that way, or give the container a check of its own: `docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`.
 
 ## Audit
 
@@ -846,14 +867,14 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 - Anyone who can reach Redis can read and change everything, past all of the above. Give the server a Redis user of its own, over TLS where others share the network: see [Deployment](./deployment.md#credentials-and-tls).
 - Instance metadata is visible to anyone allowed to read the instance.
 - The REST API's document, `/v3/api-docs`, and Swagger UI, `/swagger-ui.html`, need no token; calls made from it do. `springdoc.api-docs.enabled=false` turns both off.
-- `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
+- `/actuator/health`, `/actuator/info` and `/actuator/prometheus` need no token, and the metrics name your namespaces. They are on port 8080 unless moved: give them [a port of their own](./deployment.md#actuator-on-its-own-port) that only the probes and Prometheus reach, as `k8s/base` does.
 - gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.
 </doc>
 
 <doc title="Dashboard" path="guide/dashboard.md">
 # Dashboard
 
-The server hosts the Dashboard at `/`, on port 8080. It uses only the public [REST API](./rest-api.md), so it can do nothing you could not do with `curl`, and your [roles](./security.md#who-may-do-what) apply to it. A refused action shows the server's reason.
+The server hosts the Dashboard at `/`, on port 8080, and a reverse proxy can serve it under a path of its own ([Behind a reverse proxy](#behind-a-reverse-proxy)). It uses only the public [REST API](./rest-api.md), so it can do nothing you could not do with `curl`, and your [roles](./security.md#who-may-do-what) apply to it. A refused action shows the server's reason.
 
 ![Dashboard](/dashboard-dashboard.png)
 
@@ -874,6 +895,8 @@ The namespace selector in the header decides what every page shows.
 | **Service Account** | Accounts and their tokens. A new token shows once, so copy it then. |
 | **Role** and **Role Binding** | Who may do what, and where |
 
+A list shows 10 rows a page. **Rows per page**, under the list, shows 20, 50 or 100 instead, and the browser remembers the choice for each list. A search covers every page.
+
 ![Configuration](/dashboard-config.png)
 
 ## Staying current
@@ -883,6 +906,31 @@ The Configuration and Service pages follow changes as they happen, over a server
 ## Editing safely
 
 An edit remembers the revision it started from. If someone changed the object in the meantime, saving fails with the server's reason and changes nothing, so reload and try again.
+
+## Behind a reverse proxy
+
+The same Dashboard works at the root and under any path, such as `https://example.com/cosky/`, without being built again. It loads its files and calls the API relative to its own address, and keeps its routes in the fragment (`#/config`), so a reload or a link to one of its pages only ever asks for that address. Signing in with [OIDC](./security.md#oidc) returns to it as well: register `https://example.com/cosky/` with the provider.
+
+A proxy that serves the Dashboard under a path has to:
+
+- **Pass on everything under the path, without it**: `/cosky/` reaches the server's `/`, `/cosky/assets/...` its `/assets/...`, and `/cosky/v1/...` the REST API at `/v1/...`.
+- **Redirect the path without its trailing slash**, `/cosky`, to `/cosky/`. Without the slash, the browser resolves the page's addresses against `/`.
+- **Not buffer responses**, so that the changes of [Staying current](#staying-current) arrive when they are sent. An idle stream carries a bookmark every [`cosky.watch.progress-interval`](./properties.md) (10 seconds), so any read timeout longer than that holds.
+
+With nginx:
+
+```nginx
+location /cosky/ {
+    # The trailing slash of the URI replaces /cosky/ with /, and has nginx redirect /cosky to /cosky/.
+    proxy_pass http://cosky-server:8080/;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    # Server-sent events: pass each one on as it comes.
+    proxy_buffering off;
+}
+```
+
+To serve the files of `dashboard/dist` from somewhere else instead, serve them at the path, and pass on only `/cosky/v1/` to the server's `/v1/`, unbuffered: the page expects the API next to it, on its own origin, since the server has no CORS.
 </doc>
 
 <doc title="Moving from 6.x" path="guide/upgrade-8.md">
@@ -1002,6 +1050,14 @@ A duration takes a unit, such as `500ms`, `30s` or `5m`. Without one it is in se
 
 Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
 
+A value that cannot work stops the start, with a message that names the property and the value:
+
+- a duration, count or size of 0 or less. `reaper-grace` and `protection-max-duration` may be 0, which turns the grace or the pause off, as may `protection-min-leases`;
+- a `protection-threshold` outside 0 to 1;
+- a `lock-ttl` no longer than `reaper-interval`: the lock would lapse between two renewals, and leadership change hands.
+
+Keys the server does not know are ignored, such as `COSKY_SERVICE_HOST` and `COSKY_PORT`, which Kubernetes sets for a Service named `cosky`.
+
 ### Store
 
 | Property | Default | Meaning |
@@ -1053,6 +1109,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `server.port` | `8080` | REST, Dashboard and Actuator |
+| `management.server.port` | `server.port` | Actuator on [a port of its own](./deployment.md#actuator-on-its-own-port), as in `k8s/base` |
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
@@ -1077,6 +1134,7 @@ These cannot be set in 8.0.
 | Tokens per ServiceAccount | 2 |
 | One message | 2 MiB; larger results come in pages or parts |
 | One page of a list | 500 by default, 1000 at most |
+| A REST request's body | 12 MiB, what the largest object takes in JSON with every character escaped; an archive to import 64 MiB |
 
 ## Spring Boot starter
 
@@ -1149,6 +1207,8 @@ A write whose condition fails answers `409` `REVISION_CONFLICT`, not the `412` o
 **Reading your own writes**: a replica may be slightly behind. `?minRevision=42` waits until it has reached that revision, and answers `504` after 3 seconds.
 
 **Violations** in a `400` name the field as gRPC does, by its proto path in the request: a parameter or header by the field it sets (`pageSize` is `page_size`, `labelSelector` is `label_selector`, `minRevision` is `min_revision`, `If-Match` and `If-None-Match` are `expected_revision`, `toRevision` is `to_revision`, `expiresAt` is `expires_at`, the Watch's `kind` is `create.kind`), and a body by the field it carries: `resource` for a `PUT`, and the path of a member it does not have, such as `resource.meta.lables`.
+
+**A body** may take 12 MiB, what the largest object takes in JSON with every character escaped, and an archive to import 64 MiB. A larger one is refused with `400`, a `VIOLATION_CODE_TOO_LONG` on the field the body carries, before the server reads the rest of it.
 
 **Errors** are problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), as `application/problem+json`. Beside `type`, `title`, `status`, `detail` and `instance`, `code` is the gRPC status, and `reason` the reason, which does not change between versions. Some reasons add a member that says more. `type` leads to the reason's row below.
 
@@ -1223,7 +1283,7 @@ Server-sent events, one proto3 JSON message per `data:` line:
 | `snapshot` | The current state, when `fromRevision` is 0. Holds the `epoch` to resume with. |
 | `events` | One revision's changes |
 | `progress` | A bookmark, every 10 seconds while idle |
-| `positionGone` | Your position is no longer valid, and the stream ends: start over without one. It holds the `earliestRevision` and `epoch` there are now, and the `reason`: `GONE_REASON_COMPACTED` (older than the window), `GONE_REASON_SLOW` (fell out of it), `GONE_REASON_EPOCH` (another timeline) or `GONE_REASON_REGRESSION` (a lost one) |
+| `positionGone` | Your position is no longer valid, and the stream ends: start over without one. It holds the `earliestRevision` and `epoch` there are now, and the `reason`: `GONE_REASON_COMPACTED` (older than the window), `GONE_REASON_SLOW` (fell out of it), `GONE_REASON_EPOCH` (another timeline), `GONE_REASON_REGRESSION` (a lost one) or `GONE_REASON_PERMISSION` (what you may see changed). Start over whatever the reason, also for one added later |
 | `canceled` | The stream ends, for the reason given |
 
 Large snapshots and revisions span several messages, marked by `more`. An `EventSource` cannot send a token: use `fetch` with a stream reader, as the Dashboard does.
@@ -1361,7 +1421,7 @@ As a safety net, a client also starts over from a fresh snapshot every 30 minute
 
 A process holds one lease per namespace, and attaches its instances to it, so renewing costs the same however many it has. An Instance without a lease is simply permanent, with no special handling.
 
-One replica at a time runs the **reaper**, under a lock in Redis. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
+One replica at a time runs the **reaper**, under a lock in Redis, which a stopping replica gives up so that another takes over at once rather than when the lock expires. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
 
 1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped. When the store fails on one namespace only, such as one on a Redis Cluster shard that is down, only that namespace waits, counting from its last failure, and the others are reaped as usual.
 2. **Delay**: a lease is reaped a third of its TTL after expiry. Leases cut off by one partition expire over that span, since they renew at different moments. Reaping at once would remove them one by one, and the next step would never see them together.

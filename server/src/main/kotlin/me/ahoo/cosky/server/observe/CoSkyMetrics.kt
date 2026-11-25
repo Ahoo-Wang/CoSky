@@ -80,6 +80,7 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
     /** The series of a namespace, by meter name and namespace. */
     private val gauges = ConcurrentHashMap<Pair<String, String>, Series>()
     private val counters = ConcurrentHashMap<Pair<String, String>, Counter>()
+    private val storeFailures = ConcurrentHashMap<String, Counter>()
 
     private class Series(val value: AtomicLong, val meter: Meter)
 
@@ -111,6 +112,14 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
 
     fun revisionRegression() {
         regressions.increment()
+    }
+
+    /**
+     * The store could not be reached for [operation], as the Store names it, such as `tryLock` or `apply`.
+     */
+    fun storeFailure(operation: String) {
+        storeFailures.computeIfAbsent(operation) { registry.counter("cosky_store_failures_total", "operation", it) }
+            .increment()
     }
 
     /**

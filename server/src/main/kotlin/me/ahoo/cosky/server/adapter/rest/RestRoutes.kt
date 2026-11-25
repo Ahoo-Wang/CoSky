@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactor.awaitSingleOrNull
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
@@ -63,15 +64,16 @@ import me.ahoo.cosky.server.watch.WatchService
 import me.ahoo.cosky.server.watch.WatchSession
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.StoreUnavailableException
+import org.springframework.core.io.buffer.DataBufferLimitException
+import org.springframework.core.io.buffer.DataBufferUtils
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
+import org.springframework.web.reactive.function.BodyExtractors
 import org.springframework.web.reactive.function.server.CoRouterFunctionDsl
 import org.springframework.web.reactive.function.server.RouterFunction
 import org.springframework.web.reactive.function.server.ServerRequest
 import org.springframework.web.reactive.function.server.ServerResponse
-import org.springframework.web.reactive.function.server.awaitBody
-import org.springframework.web.reactive.function.server.awaitBodyOrNull
 import org.springframework.web.reactive.function.server.bodyAndAwait
 import org.springframework.web.reactive.function.server.bodyValueAndAwait
 import org.springframework.web.reactive.function.server.coRouter
@@ -82,6 +84,10 @@ import kotlin.jvm.optionals.getOrNull
 /**
  * The REST API (design §4.5, `api/src/main/openapi/paths.yaml`), protocol mapping only: everything of substance lives
  * in the same services the gRPC adapter uses.
+ *
+ * A body is read as far as the largest valid request can need, and refused beyond, before more of it is held in memory:
+ * an archive of Configs to import as far as [maxArchiveBytes], any other as far as the largest resource can take in
+ * JSON, which may write each byte of a string as six (`\u001f`).
  *
  * @param access null where authentication is off.
  */
@@ -96,7 +102,10 @@ class RestRoutes(
     private val oidc: CoSkyProperties.Oidc = CoSkyProperties.Oidc(),
     private val metrics: CoSkyMetrics = CoSkyMetrics(),
     private val limits: Limits = Limits.DEFAULT,
+    private val maxArchiveBytes: Int = ConfigArchive.MAX_ARCHIVE_BYTES,
 ) {
+    private val maxBodyBytes: Int = limits.maxMessageBytes * JSON_BYTES_PER_BYTE
+
     fun routes(): RouterFunction<ServerResponse> = publicRoutes().and(signedInRoutes())
 
     /**
@@ -240,7 +249,7 @@ class RestRoutes(
 
     private suspend fun put(request: ServerRequest, key: ResourceKey): ServerResponse {
         val expected = expectedRevisionOf(request)
-        val resource = ProtoJson.parse(request.awaitBody<String>(), Resource.newBuilder(), RESOURCE, RESOURCE)
+        val resource = ProtoJson.parse(textOf(request, RESOURCE), Resource.newBuilder(), RESOURCE, RESOURCE)
         requireSamePlace(resource.meta, key)
         resource.metaBuilder.setNamespace(key.namespace).setName(key.name)
         if (resource.build().kind != key.kind) {
@@ -288,7 +297,7 @@ class RestRoutes(
     private suspend fun rollback(request: ServerRequest): ServerResponse {
         val expected = expectedRevisionOf(request)
         // The body is there for its revision alone: one that cannot be read is one without it.
-        val body = ProtoJson.objectOf(request.awaitBodyOrNull<String>().orEmpty(), TO_REVISION)
+        val body = ProtoJson.objectOf(textOf(request, TO_REVISION), TO_REVISION)
         ProtoJson.requireOnly(body, setOf("toRevision"))
         // An int64 is a number or a string in JSON; Gson would read a one-element array as its element.
         val toRevision = body["toRevision"]
@@ -308,7 +317,7 @@ class RestRoutes(
     private suspend fun importConfigs(request: ServerRequest): ServerResponse {
         val namespace = request.pathVariable(NAMESPACE)
         val caller = callerOf(request)
-        val archive = request.awaitBody<ByteArray>()
+        val archive = bytesOf(request, maxArchiveBytes, ProtoJson.BODY)
         // Everything that can be told before writing: an entry that cannot be read, a name, who may write it.
         ConfigArchive.read(archive, limits.maxConfigContentBytes) { entries ->
             entries.forEach { (name, _) -> resources.requireImportable(namespace, name, caller) }
@@ -457,7 +466,7 @@ class RestRoutes(
      */
     private suspend fun createToken(request: ServerRequest): ServerResponse {
         val expected = accountRevisionOf(request)
-        val body = request.awaitBodyOrNull<String>()?.takeIf { it.isNotBlank() }
+        val body = textOf(request, EXPIRES_AT).takeIf { it.isNotBlank() }
             ?.let { ProtoJson.parse(it, CreateTokenRequest.newBuilder(), EXPIRES_AT, "").build() }
         val expiresAt = body?.takeIf { it.hasExpiresAt() }?.expiresAt
             ?.let { Instant.ofEpochSecond(it.seconds, it.nanos.toLong()) }
@@ -507,6 +516,40 @@ class RestRoutes(
     }
 
     // --- mapping ---
+
+    /**
+     * A body that is not an archive, empty when there is none.
+     *
+     * @param field what the body sets in the request, which a violation names (design §4.4).
+     */
+    private suspend fun textOf(request: ServerRequest, field: String): String {
+        val charset = request.headers().contentType().getOrNull()?.charset ?: Charsets.UTF_8
+        return String(bytesOf(request, maxBodyBytes, field), charset)
+    }
+
+    /**
+     * The body as far as [maxBytes], refused beyond: by its length when it says one, otherwise once that much came in.
+     */
+    private suspend fun bytesOf(request: ServerRequest, maxBytes: Int, field: String): ByteArray {
+        val length = request.headers().contentLength()
+        if (length.isPresent && length.asLong > maxBytes) {
+            throw tooLarge(field, maxBytes)
+        }
+        val body = try {
+            DataBufferUtils.join(request.body(BodyExtractors.toDataBuffers()), maxBytes).awaitSingleOrNull()
+        } catch (@Suppress("SwallowedException") e: DataBufferLimitException) {
+            throw tooLarge(field, maxBytes)
+        } ?: return ByteArray(0)
+        return try {
+            ByteArray(body.readableByteCount()).also { body.read(it) }
+        } finally {
+            DataBufferUtils.release(body)
+        }
+    }
+
+    private fun tooLarge(field: String, maxBytes: Int): CoSkyException = CoSkyException.invalidArgument(
+        listOf(Violation(field, ViolationCode.VIOLATION_CODE_TOO_LONG, "The body exceeds $maxBytes bytes.")),
+    )
 
     private fun eTagOf(revision: Long): String = "\"$revision\""
 
@@ -601,6 +644,9 @@ class RestRoutes(
 
         const val UNKNOWN_SUBJECT = "unknown"
         const val CALLER = "cosky.caller"
+
+        /** The most bytes JSON writes a byte of a string as: a control character, or one a printer escapes for HTML. */
+        const val JSON_BYTES_PER_BYTE = 6
 
         /** Of the Configs an import wrote before it failed, how many the error names; it says how many there were. */
         const val IMPORTED_NAMED = 20

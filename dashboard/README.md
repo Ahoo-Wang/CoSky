@@ -10,6 +10,7 @@ pnpm dev
 ```
 
 The page expects the API on its own origin: `pnpm dev` proxies `/v1` to a server on `:8080` (or `$COSKY_API_URL`), such as `cosky-server --dev`.
+The API is resolved against the page's address and the assets are relative, so the same build works at `/` and under any path a reverse proxy serves it at (see the wiki's Dashboard guide, "Behind a reverse proxy").
 Set `VITE_ENVIRONMENT_NAME` to show an explicit environment or cluster name in the authenticated header.
 
 ## Verification
