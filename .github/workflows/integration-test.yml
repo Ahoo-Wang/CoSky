@@ -13,6 +13,8 @@
 
 # Builds and verifies every module: compilation, unit and integration tests against Redis, static analysis,
 # license headers and the coverage floor.
+# Every Gradle run goes through retry-on-network-error.sh: Maven Central answers 429 now and then, which Gradle's own
+# retries do not outlast, and a check that fails for it says nothing about the pull request.
 name: Integration Test
 on:
   push:
@@ -55,7 +57,7 @@ jobs:
 
       - name: Integration Test
         # The ABI Compatibility job checks the Kotlin API instead, without blocking, until 8.0.0-rc.1.
-        run: ./gradlew clean check -x checkKotlinAbi
+        run: .github/scripts/retry-on-network-error.sh ./gradlew clean check -x checkKotlinAbi
 
       # A test that times out leaves every thread's stack in its report.
       - name: Keep the test reports
@@ -93,7 +95,7 @@ jobs:
           cache: gradle
 
       - name: Kotlin API
-        run: ./gradlew checkKotlinAbi
+        run: .github/scripts/retry-on-network-error.sh ./gradlew checkKotlinAbi
 
       - name: The Kotlin API only grows
         if: github.event_name == 'pull_request'
@@ -172,7 +174,7 @@ jobs:
 
       - name: Breaking changes
         run: >-
-          ./gradlew :api:bufBreaking
+          .github/scripts/retry-on-network-error.sh ./gradlew :api:bufBreaking
           -PbufAgainst="$GITHUB_WORKSPACE/.base/api/src/main/proto" -PbufErrorFormat=github-actions
 
   # The versions design D31 promises, beyond the one every other test runs on.
@@ -199,6 +201,6 @@ jobs:
           cache: gradle
 
       - name: Store on ${{ matrix.image }}
-        run: ./gradlew :store-redis:test
+        run: .github/scripts/retry-on-network-error.sh ./gradlew :store-redis:test
         env:
           COSKY_REDIS_IMAGE: ${{ matrix.image }}
