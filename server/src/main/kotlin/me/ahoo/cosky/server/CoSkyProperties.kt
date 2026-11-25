@@ -14,11 +14,15 @@
 package me.ahoo.cosky.server
 
 import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.boot.convert.DurationUnit
 import org.springframework.util.unit.DataSize
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 
 /**
- * Server settings (design §7.6).
+ * Server settings (design §7.6). A duration without a unit, as an environment variable may well give one, is in
+ * seconds: `COSKY_LEASE_REAPER_GRACE=30` is 30 seconds. `META-INF/spring-configuration-metadata.json` describes each
+ * property for IDEs, as `wiki/guide/properties.md` does for people.
  */
 @Suppress("MagicNumber") // The defaults of design §7.6.
 @ConfigurationProperties("cosky")
@@ -30,7 +34,9 @@ data class CoSkyProperties(
     val auth: Auth = Auth(),
     val view: View = View(),
 ) {
-    data class View(val topologyFlushInterval: Duration = Duration.ofSeconds(30))
+    data class View(
+        @param:DurationUnit(ChronoUnit.SECONDS) val topologyFlushInterval: Duration = Duration.ofSeconds(30),
+    )
 
     /**
      * @param enabled off only for development: everyone may then do everything.
@@ -74,7 +80,7 @@ data class CoSkyProperties(
     data class Redis(
         val uri: String = "redis://localhost:6379",
         val cluster: Boolean = false,
-        val tailPollInterval: Duration = Duration.ofSeconds(1),
+        @param:DurationUnit(ChronoUnit.SECONDS) val tailPollInterval: Duration = Duration.ofSeconds(1),
     ) {
         /**
          * Leaves out the user and password a URI may hold.
@@ -83,7 +89,9 @@ data class CoSkyProperties(
             "tailPollInterval=$tailPollInterval)"
     }
 
-    data class Read(val minRevisionTimeout: Duration = Duration.ofSeconds(3))
+    data class Read(
+        @param:DurationUnit(ChronoUnit.SECONDS) val minRevisionTimeout: Duration = Duration.ofSeconds(3),
+    )
 
     /**
      * @param window changes kept in memory for resuming, per namespace, and in the store's log.
@@ -92,19 +100,19 @@ data class CoSkyProperties(
     data class Watch(
         val window: Int = 10_000,
         val windowBytes: DataSize = DataSize.ofMegabytes(64),
-        val progressInterval: Duration = Duration.ofSeconds(10),
+        @param:DurationUnit(ChronoUnit.SECONDS) val progressInterval: Duration = Duration.ofSeconds(10),
         val maxPerStream: Int = 1000,
-        val antiEntropyInterval: Duration = Duration.ofMinutes(5),
+        @param:DurationUnit(ChronoUnit.SECONDS) val antiEntropyInterval: Duration = Duration.ofMinutes(5),
     )
 
     data class Lease(
-        val reaperInterval: Duration = Duration.ofSeconds(1),
-        val reaperGrace: Duration = Duration.ofSeconds(30),
+        @param:DurationUnit(ChronoUnit.SECONDS) val reaperInterval: Duration = Duration.ofSeconds(1),
+        @param:DurationUnit(ChronoUnit.SECONDS) val reaperGrace: Duration = Duration.ofSeconds(30),
         val reaperMaxPerTick: Int = 100,
-        val lockTtl: Duration = Duration.ofSeconds(15),
+        @param:DurationUnit(ChronoUnit.SECONDS) val lockTtl: Duration = Duration.ofSeconds(15),
         val protectionThreshold: Double = 0.5,
         val protectionMinLeases: Int = 10,
-        val protectionMaxDuration: Duration = Duration.ofMinutes(5),
+        @param:DurationUnit(ChronoUnit.SECONDS) val protectionMaxDuration: Duration = Duration.ofMinutes(5),
     )
 
     companion object {

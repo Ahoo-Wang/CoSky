@@ -114,11 +114,13 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 | `cosky_watch_active` | 这个副本上的 watch 数 |
 | `cosky_watch_events_sent_total` | 发给 watcher 的事件数 |
 | `cosky_watch_gone_total{reason}` | 客户端不得不重新开始：`slow`、`compacted`、`epoch`、`regression` |
-| `cosky_lease_active{namespace}`、`cosky_lease_expired_total` | 已注册的进程和到期数 |
-| `cosky_lease_protection_active{namespace}` | 回收因大面积到期而暂停 |
+| `cosky_lease_active{namespace}`、`cosky_lease_expired_total{namespace}` | 已注册的进程和到期数。只有回收器的 Leader 上报，所以对各副本的 gauge 取 `max by (namespace)`，Leader 切换时也适用 |
+| `cosky_lease_protection_active{namespace}` | 回收因大面积到期而暂停，同样由回收器的 Leader 上报 |
 | `cosky_revision_regression_total` | Redis 丢失了写入 |
 | `cosky_anti_entropy_drift_total{namespace}` | 副本的视图与存储不一致，这本不该发生 |
-| `cosky_auth_failures_total{reason}` | 登录失败 |
+| `cosky_auth_failures_total{reason}` | 因 token 被拒绝的调用：`missing` 是没带 token；`invalid` 是 token 格式不对、未知、已吊销或已过期，或 ID token 没通过 OIDC 校验；`unavailable` 是无法判定，例如访问规则还在加载，或身份提供方不可达。告警看 `missing` 和 `invalid`，它们指向某个客户端；`unavailable` 伴随故障出现，由其他告警发现 |
+
+namespace 删除后，它的序列随之消失。
 
 **链路追踪**覆盖 gRPC 和 HTTP，采样率 10%。要导出，请设置 `management.opentelemetry.tracing.export.otlp.endpoint`，比如 `http://collector:4318/v1/traces`。
 

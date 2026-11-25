@@ -354,7 +354,7 @@ CoSky favours keeping a stale instance over dropping a live one, and callers are
 
 | Failure | What applications see |
 |---|---|
-| Server unreachable | Reads keep serving the last view, and the health indicator stays `UP` with `connection: DEGRADED`, because a restart would not help. |
+| Server unreachable | Reads keep serving the last view, and the health indicator `cosky` stays `UP` with `connection: DEGRADED`, because a restart would not help. |
 | Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
 | Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
 | More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |
@@ -433,6 +433,19 @@ registration.close()
 The client keeps the lease alive, and registers everything again if the lease is lost. Closing the last registration ends the lease.
 
 Registering a name again replaces its registration, and the new handle is the one that closes it. Closing a handle again, or one whose name was registered again since, does nothing. A close that fails, as when no server answers, leaves the instance registered and renewed, and can be tried again.
+
+## Errors
+
+Reads, such as `load`, throw a `CoSkyException`, whose `reason` says why. `register` and `close` are writes, and throw gRPC's `StatusException` with the status the server answered, such as `UNAUTHENTICATED` without a valid token or `PERMISSION_DENIED` without a role that may register the service. Registering does not fail while no server answers: it goes out once one does. `CoSkyException.from(e)` gives the reason, as a `CoSkyException`, when the server sent one, and `null` otherwise:
+
+```kotlin
+try {
+    prod.instances.register(service = "order-service", endpoint = endpoint)
+} catch (e: StatusException) {
+    if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_PERMISSION_DENIED) throw e
+    log.error("The token's account may not register order-service.")
+}
+```
 
 ## Closing
 
@@ -598,11 +611,13 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_watch_active` | Watches on this replica |
 | `cosky_watch_events_sent_total` | Events sent to watchers |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
-| `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
-| `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
+| `cosky_lease_active{namespace}`, `cosky_lease_expired_total{namespace}` | Registered processes and expiries. Only the reaper's leader reports them, so take `max by (namespace)` of the gauge over the replicas, which also covers a change of leader |
+| `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry, reported by the reaper's leader as well |
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
-| `cosky_auth_failures_total{reason}` | Failed sign-ins |
+| `cosky_auth_failures_total{reason}` | Calls refused for their token: `missing` came without one, `invalid` with one that is malformed, unknown, revoked or expired, or an ID token the OIDC checks refuse, and `unavailable` could not be decided, while the access rules load or the identity provider is out of reach. Alert on `missing` and `invalid`, which point at a client; `unavailable` comes with an outage that other alerts catch |
+
+A namespace's series go when it is deleted.
 
 **Traces** cover gRPC and HTTP at a 10% sample. To export them, set `management.opentelemetry.tracing.export.otlp.endpoint`, such as `http://collector:4318/v1/traces`.
 
@@ -964,6 +979,8 @@ Until you stop 6.x, going back is deploying the applications on 6.x again. Nothi
 <doc title="Configuration Properties" path="guide/properties.md">
 # Configuration Properties
 
+A duration takes a unit, such as `500ms`, `30s` or `5m`. Without one it is in seconds, on the server and in the starter alike, so `COSKY_LEASE_REAPER_GRACE=30` is 30 seconds. Both ship Spring Boot's configuration metadata, so an IDE completes and explains the `cosky.*` properties below.
+
 ## Server
 
 Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
@@ -1048,7 +1065,7 @@ These cannot be set in 8.0.
 |---|---|---|
 | `cosky.enabled` | `true` | Everything below |
 | `cosky.endpoints` | `localhost:9090` | Servers to try in turn |
-| `cosky.token` | — | Sent on every call |
+| `cosky.token` | — | Sent on every call. A blank one counts as none, so `${COSKY_TOKEN:}` can stand beside `cosky.token-file`. |
 | `cosky.token-file` | — | A file holding the token instead, such as a mounted secret. Read again once it changes, so a rotated token needs no restart. |
 | `cosky.namespace` | `default` | |
 | `cosky.tls.enabled` | `false` | Connect over TLS |
@@ -1063,8 +1080,11 @@ These cannot be set in 8.0.
 | `cosky.discovery.load-timeout` | `5s` | How long the first read of a service waits |
 | `cosky.config.load-timeout` | `5s` | How long importing a Config waits |
 | `cosky.config.refresh.enabled` | `true` | Publish `RefreshEvent` on changes |
+| `management.health.cosky.enabled` | `true` | The health indicator, `cosky` in `/actuator/health` |
 
 The service name is `spring.application.name`. `spring.cloud.service-registry.auto-registration.enabled: false` also stops registering.
+
+An application's own bean takes the place of the starter's: one named `coskyHealthIndicator`, or one of type `CoSkyDiscoveryClient`, `CoSkyReactiveDiscoveryClient`, `CoSkyServiceRegistry` or `CoSkyAutoServiceRegistration`.
 </doc>
 
 <doc title="REST API" path="guide/rest-api.md">

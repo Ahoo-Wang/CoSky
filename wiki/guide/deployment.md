@@ -114,11 +114,13 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_watch_active` | Watches on this replica |
 | `cosky_watch_events_sent_total` | Events sent to watchers |
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
-| `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
-| `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
+| `cosky_lease_active{namespace}`, `cosky_lease_expired_total{namespace}` | Registered processes and expiries. Only the reaper's leader reports them, so take `max by (namespace)` of the gauge over the replicas, which also covers a change of leader |
+| `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry, reported by the reaper's leader as well |
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
-| `cosky_auth_failures_total{reason}` | Failed sign-ins |
+| `cosky_auth_failures_total{reason}` | Calls refused for their token: `missing` came without one, `invalid` with one that is malformed, unknown, revoked or expired, or an ID token the OIDC checks refuse, and `unavailable` could not be decided, while the access rules load or the identity provider is out of reach. Alert on `missing` and `invalid`, which point at a client; `unavailable` comes with an outage that other alerts catch |
+
+A namespace's series go when it is deleted.
 
 **Traces** cover gRPC and HTTP at a 10% sample. To export them, set `management.opentelemetry.tracing.export.otlp.endpoint`, such as `http://collector:4318/v1/traces`.
 

@@ -40,7 +40,10 @@ import kotlin.time.Duration.Companion.seconds
  */
 class CoSkyClientOptions private constructor(builder: Builder) {
     val endpoints: List<String> = builder.endpoints.toList()
-    val token: String? = builder.token
+
+    /** Null when none was set, or a blank one, as `${COSKY_TOKEN:}` gives while the variable is not set. */
+    val token: String? = builder.token?.trim()?.takeIf { it.isNotEmpty() }
+
     val tokenFile: Path? = builder.tokenFile
     val clientName: String? = builder.clientName
     val snapshotDir: Path? = builder.snapshotDir
@@ -94,7 +97,10 @@ class CoSkyClientOptions private constructor(builder: Builder) {
      */
     @Suppress("MagicNumber") // The defaults of design §7.5.
     class Builder(internal val endpoints: List<String>) {
-        /** Sent as `Authorization: Bearer` when set. */
+        /**
+         * Sent as `Authorization: Bearer` when set. A blank one counts as none, so that `${COSKY_TOKEN:}` can stand
+         * for a token that may not be there, beside [tokenFile] too.
+         */
         var token: String? = null
 
         /**

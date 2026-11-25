@@ -5,6 +5,8 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 
 # 配置属性
 
+时长要带单位，例如 `500ms`、`30s` 或 `5m`。不带单位时按秒计算，server 和 starter 都是如此，所以 `COSKY_LEASE_REAPER_GRACE=30` 是 30 秒。两者都带有 Spring Boot 的配置元数据，IDE 能补全并解释下面的 `cosky.*` 属性。
+
 ## Server
 
 可以写在 `application.yaml` 中，也可以用参数或环境变量设置：`cosky.store.redis.uri` 对应 `COSKY_STORE_REDIS_URI`。
@@ -89,7 +91,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 |---|---|---|
 | `cosky.enabled` | `true` | 控制以下全部功能 |
 | `cosky.endpoints` | `localhost:9090` | 依次尝试的 server |
-| `cosky.token` | — | 每次调用都发送 |
+| `cosky.token` | — | 每次调用都发送。空白值视为未设置，所以 `${COSKY_TOKEN:}` 可以和 `cosky.token-file` 同时写。 |
 | `cosky.token-file` | — | 改从文件读 token，比如挂载的 Secret。文件变化后重新读取，轮换 token 不用重启。 |
 | `cosky.namespace` | `default` | |
 | `cosky.tls.enabled` | `false` | 通过 TLS 连接 |
@@ -104,5 +106,8 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | `cosky.discovery.load-timeout` | `5s` | 首次读取一个服务的等待时间 |
 | `cosky.config.load-timeout` | `5s` | 导入一个 Config 的等待时间 |
 | `cosky.config.refresh.enabled` | `true` | 变化时发布 `RefreshEvent` |
+| `management.health.cosky.enabled` | `true` | 健康指示器，在 `/actuator/health` 中名为 `cosky` |
 
 服务名是 `spring.application.name`。`spring.cloud.service-registry.auto-registration.enabled: false` 也会停止注册。
+
+应用自己定义的 bean 会取代 starter 的：名为 `coskyHealthIndicator` 的 bean，或类型为 `CoSkyDiscoveryClient`、`CoSkyReactiveDiscoveryClient`、`CoSkyServiceRegistry`、`CoSkyAutoServiceRegistration` 的 bean。

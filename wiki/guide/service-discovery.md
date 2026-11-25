@@ -75,7 +75,7 @@ CoSky favours keeping a stale instance over dropping a live one, and callers are
 
 | Failure | What applications see |
 |---|---|
-| Server unreachable | Reads keep serving the last view, and the health indicator stays `UP` with `connection: DEGRADED`, because a restart would not help. |
+| Server unreachable | Reads keep serving the last view, and the health indicator `cosky` stays `UP` with `connection: DEGRADED`, because a restart would not help. |
 | Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
 | Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
 | More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |

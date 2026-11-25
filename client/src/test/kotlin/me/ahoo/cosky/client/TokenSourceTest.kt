@@ -40,6 +40,20 @@ class TokenSourceTest {
     }
 
     @Test
+    fun `a blank token, as an unset variable gives, is none, and may stand beside a token file`() {
+        TokenSource(CoSkyClientOptions(listOf("a:1")) { token = " " }).current().assert().isNull()
+        CoSkyClientOptions(listOf("a:1")) { token = "cosky_id_secret\n" }.token.assert().isEqualTo("cosky_id_secret")
+
+        write("cosky_file_secret", at = 1_000_000)
+        val options = CoSkyClientOptions(listOf("a:1")) {
+            token = ""
+            tokenFile = file
+        }
+        options.token.assert().isNull()
+        TokenSource(options).current().assert().isEqualTo("cosky_file_secret")
+    }
+
+    @Test
     fun `a file's token is read without its line break, and again once it changes`() {
         val source = TokenSource(null, file)
         write("cosky_first_secret\n", at = 1_000_000)

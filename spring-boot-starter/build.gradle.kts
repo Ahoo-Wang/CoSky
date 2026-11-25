@@ -29,9 +29,17 @@ dependencies {
     testImplementation(project(":server"))
     testImplementation(project(":store"))
     testImplementation("io.grpc:grpc-netty-shaded")
+    testImplementation("com.google.code.gson:gson")
     testImplementation("org.springframework.boot:spring-boot-health")
     testImplementation("org.springframework.boot:spring-boot-starter-webflux")
     testImplementation("org.springframework.boot:spring-boot-test")
     testImplementation("org.springframework.cloud:spring-cloud-context")
     testImplementation("org.springframework.cloud:spring-cloud-loadbalancer")
+}
+
+// ConfigurationMetadataTest holds the configuration metadata to the properties reference, in both languages.
+tasks.withType<Test> {
+    inputs.files(rootProject.files("wiki/guide/properties.md", "wiki/zh/guide/properties.md"))
+        .withPropertyName("propertiesReference")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
 }

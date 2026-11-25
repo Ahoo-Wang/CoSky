@@ -3,40 +3,26 @@ public abstract interface annotation class me/ahoo/cosky/api/InternalCoSkyApi : 
 
 public final class me/ahoo/cosky/api/error/CoSkyException : java/lang/RuntimeException {
 	public static final field Companion Lme/ahoo/cosky/api/error/CoSkyException$Companion;
+	public fun <init> (Lme/ahoo/cosky/api/v1/ErrorDetail;Ljava/lang/String;)V
 	public fun <init> (Lme/ahoo/cosky/api/v1/ErrorDetail;Ljava/lang/String;Ljava/lang/Throwable;)V
 	public synthetic fun <init> (Lme/ahoo/cosky/api/v1/ErrorDetail;Ljava/lang/String;Ljava/lang/Throwable;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public static final fun from (Ljava/lang/Throwable;)Lme/ahoo/cosky/api/error/CoSkyException;
+	public static final fun from (Lme/ahoo/cosky/api/v1/WatchResponse$Canceled;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun getDetail ()Lme/ahoo/cosky/api/v1/ErrorDetail;
 	public final fun getErrorCode ()Lme/ahoo/cosky/api/error/ErrorCode;
 	public final fun getReason ()Lme/ahoo/cosky/api/v1/ErrorReason;
-	public final fun toRpcStatus ()Lcom/google/rpc/Status;
 	public final fun toStatusRuntimeException ()Lio/grpc/StatusRuntimeException;
-	public final fun toWatchCanceled ()Lme/ahoo/cosky/api/v1/WatchResponse$Canceled;
 }
 
 public final class me/ahoo/cosky/api/error/CoSkyException$Companion {
 	public final fun from (Ljava/lang/Throwable;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun from (Lme/ahoo/cosky/api/v1/WatchResponse$Canceled;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun leaseNotFound (Ljava/lang/String;J)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun minRevisionTimeout (Ljava/lang/String;J)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun namespaceNotEmpty (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun namespaceNotFound (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun permissionDenied (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun resourceNotFound (Lme/ahoo/cosky/api/v1/ResourceKey;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun revisionConflict (Lme/ahoo/cosky/api/v1/ResourceKey;JJ)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun revisionRegression (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun storeUnavailable (Ljava/lang/String;Ljava/lang/Throwable;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public static synthetic fun storeUnavailable$default (Lme/ahoo/cosky/api/error/CoSkyException$Companion;Ljava/lang/String;Ljava/lang/Throwable;ILjava/lang/Object;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun unauthenticated (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
-	public final fun watchQuotaExceeded (I)Lme/ahoo/cosky/api/error/CoSkyException;
 }
 
 public final class me/ahoo/cosky/api/error/ErrorCode {
-	public fun <init> (Lme/ahoo/cosky/api/v1/ErrorReason;Lio/grpc/Status$Code;I)V
 	public final fun component1 ()Lme/ahoo/cosky/api/v1/ErrorReason;
 	public final fun component2 ()Lio/grpc/Status$Code;
 	public final fun component3 ()I
-	public final fun copy (Lme/ahoo/cosky/api/v1/ErrorReason;Lio/grpc/Status$Code;I)Lme/ahoo/cosky/api/error/ErrorCode;
-	public static synthetic fun copy$default (Lme/ahoo/cosky/api/error/ErrorCode;Lme/ahoo/cosky/api/v1/ErrorReason;Lio/grpc/Status$Code;IILjava/lang/Object;)Lme/ahoo/cosky/api/error/ErrorCode;
 	public fun equals (Ljava/lang/Object;)Z
 	public final fun getGrpcCode ()Lio/grpc/Status$Code;
 	public final fun getHttpStatus ()I
@@ -46,10 +32,8 @@ public final class me/ahoo/cosky/api/error/ErrorCode {
 }
 
 public final class me/ahoo/cosky/api/error/ErrorCodes {
+	public static final field ALL Ljava/util/List;
 	public static final field INSTANCE Lme/ahoo/cosky/api/error/ErrorCodes;
-	public final fun getALL ()Ljava/util/List;
-	public final fun getHTTP_STATUS_BY_GRPC_CODE ()Ljava/util/Map;
-	public final fun httpStatusOf (Lio/grpc/Status$Code;)I
 	public final fun of (Lme/ahoo/cosky/api/v1/ErrorReason;)Lme/ahoo/cosky/api/error/ErrorCode;
 }
 
