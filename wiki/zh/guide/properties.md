@@ -62,6 +62,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | 属性 | 默认值 | 含义 |
 |---|---|---|
 | `server.port` | `8080` | REST、Dashboard 和 Actuator |
+| `management.server.port` | `server.port` | 让 Actuator 使用[单独的端口](./deployment.md#actuator-使用单独端口)，`k8s/base` 就是这样 |
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`、`spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | 关闭时留给已打开的流的时间 |

@@ -9,7 +9,7 @@ The server is one image, `ahoowang/cosky` (also `ghcr.io/ahoo-wang/cosky`), hold
 
 | Port | Serves |
 |---|---|
-| `8080` | REST API, Dashboard, Actuator |
+| `8080` | REST API, Dashboard, and Actuator unless it has [a port of its own](#actuator-on-its-own-port) |
 | `9090` | gRPC, for applications |
 
 ## Redis
@@ -70,6 +70,24 @@ Keep that token: it is the admin of a new installation, as [Security](./security
 
 Any [property](./properties.md) can be set as an environment variable or an argument. `--dev` runs in memory without sign-in, for trying things out only.
 
+## Actuator on its own port
+
+Actuator's health, info and metrics need no token, and the metrics name your namespaces. On port 8080 they are open to anyone who reaches the API, so in production give them a port that only the probes and Prometheus reach. `MANAGEMENT_SERVER_PORT` (`management.server.port`) moves all of Actuator there, and port 8080 then answers 404 for `/actuator`:
+
+```bash
+docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.1:8081:8081 \
+  -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
+  -e COSKY_BOOTSTRAP_TOKEN \
+  -e MANAGEMENT_SERVER_PORT=8081 \
+  ahoowang/cosky:8.0.0-beta.15
+```
+
+- **Kubernetes:** `k8s/base` does this. It probes the port named `management` (8081) and leaves it out of the Service, so nothing that reaches the API through the Service, such as an Ingress, reaches Actuator. Prometheus scrapes the pods directly, by the `prometheus.io/*` annotations or with a PodMonitor on the port `management`, and needs no Service for it.
+- **The image's health check** follows `MANAGEMENT_SERVER_PORT`. Set the port with that variable, or give the container a check of its own with `--health-cmd`.
+- **The default stays 8080** in 8.0, so probes and scrapers already pointed there keep working until you move them.
+- **The probes then ask the management server**, not port 8080 itself. To ask 8080 too, `management.endpoint.health.probes.add-additional-paths=true` serves liveness and readiness there, at `/livez` and `/readyz`, with the status alone.
+- **With TLS,** Actuator's port speaks HTTPS too, unless you turn it off there: see [Security](./security.md#tls).
+
 ## Kubernetes
 
 The repository holds [Kustomize](https://kustomize.io) manifests: a Deployment of three replicas, a Service and a PodDisruptionBudget.
@@ -88,7 +106,9 @@ kubectl apply -k k8s/base
 
 For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overlay of a few lines can set the namespace, the image tag or the resources: that one shows the shape.
 
-Probes use `/actuator/health/liveness` and `/actuator/health/readiness`. A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
+Each replica requests half a CPU, with no CPU limit, and 2 GiB of memory, which is also its memory limit, as [Sizing](#sizing) explains: change both memory values together. Replicas spread across nodes where they can, and the comments in the manifests say why each setting is there.
+
+Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
 
 A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it.
 
@@ -102,7 +122,7 @@ Draining a node stops its replica the same way. The PodDisruptionBudget lets one
 
 ## The Dashboard on its own
 
-The image serves the Dashboard at `/`. To host it elsewhere, put it behind a reverse proxy that also forwards `/v1` to the server: the page expects the API on its own origin, and the server has no CORS.
+The image serves the Dashboard at `/`. To serve it under a path of its own, such as `https://example.com/cosky/`, or to host its files elsewhere, put it behind a reverse proxy that also forwards `v1/` under the same path to the server's `/v1`: the page expects the API next to it, on its own origin, and the server has no CORS. [Dashboard](./dashboard.md#behind-a-reverse-proxy) has what the proxy needs, with an nginx example.
 
 ## Observability
 
@@ -132,7 +152,7 @@ A namespace's series go when it is deleted.
 
 ## Sizing
 
-[Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so give the container what the heap should be, plus a quarter.
+[Performance](./performance.md) has the measurements. As a starting point, 512 MB of heap holds a namespace of 10,000 objects with room to spare, and memory grows by about 1.5 KB per object. The image sets `-XX:MaxRAMPercentage=75` and compact object headers, so the heap is three quarters of the container's memory limit: give the container a third more than the heap should be, and request as much memory as the limit, as `k8s/base` does with 2 GiB for a heap of 1.5 GiB.
 
 Large Configs need their own thought, because what is kept for resuming includes their content:
 

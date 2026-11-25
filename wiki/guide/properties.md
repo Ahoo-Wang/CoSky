@@ -62,6 +62,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `server.port` | `8080` | REST, Dashboard and Actuator |
+| `management.server.port` | `server.port` | Actuator on [a port of its own](./deployment.md#actuator-on-its-own-port), as in `k8s/base` |
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |

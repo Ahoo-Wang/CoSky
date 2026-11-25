@@ -11,6 +11,7 @@
  * limitations under the License.
  */
 
+import {dashboardBase} from '@/lib/base';
 import {OIDC_SIGN_IN_KEY, session} from './session';
 
 const PENDING_KEY = 'cosky.oidc.pending';
@@ -98,7 +99,8 @@ export async function beginSignIn(client: OidcClient): Promise<void> {
         clientId: client.clientId,
         tokenEndpoint: provider.token_endpoint,
         endSessionEndpoint: provider.end_session_endpoint,
-        redirectUri: window.location.origin + window.location.pathname,
+        // The Dashboard's own address, under whatever prefix it is served, and the same from /index.html.
+        redirectUri: dashboardBase(),
     };
     const url = new URL(provider.authorization_endpoint);
     url.search = new URLSearchParams({
