@@ -99,6 +99,7 @@ export function NamespacePage() {
                     error={error}
                     onRetry={refresh}
                     getRowKey={namespace => namespace.name}
+                    pagination={{storageKey: 'namespaces'}}
                     search={{placeholder: 'Search namespaces...', getValue: namespace => namespace.name}}
                     emptyMessage="No namespaces found."
                 />

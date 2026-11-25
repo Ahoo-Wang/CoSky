@@ -126,6 +126,7 @@ export function RoleBindingPage() {
                     error={error}
                     onRetry={loadBindings}
                     getRowKey={binding => binding.name}
+                    pagination={{storageKey: 'role-bindings'}}
                     search={{placeholder: 'Search role bindings...', getValue: binding => binding.name}}
                     emptyMessage="No role bindings yet."
                 />
