@@ -40,7 +40,7 @@ jobs:
           cache: gradle
 
       - name: Build Code Coverage Report
-        run: ./gradlew codeCoverageReport --stacktrace
+        run: .github/scripts/retry-on-network-error.sh ./gradlew codeCoverageReport --stacktrace
 
       # A test that times out leaves every thread's stack in its report.
       - name: Keep the test reports

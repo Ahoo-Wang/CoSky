@@ -13,6 +13,8 @@
 
 # Builds and verifies every module: compilation, unit and integration tests against Redis, static analysis,
 # license headers and the coverage floor.
+# Every Gradle run goes through retry-on-network-error.sh: Maven Central answers 429 now and then, which Gradle's own
+# retries do not outlast, and a check that fails for it says nothing about the pull request.
 name: Integration Test
 on:
   push:
@@ -55,7 +57,7 @@ jobs:
 
       - name: Integration Test
         # The ABI Compatibility job checks the Kotlin API instead, without blocking, until 8.0.0-rc.1.
-        run: ./gradlew clean check -x checkKotlinAbi
+        run: .github/scripts/retry-on-network-error.sh ./gradlew clean check -x checkKotlinAbi
 
       # A test that times out leaves every thread's stack in its report.
       - name: Keep the test reports
@@ -67,13 +69,21 @@ jobs:
           retention-days: 7
 
   # The Kotlin API that 8.0.0-rc.1 freezes (CONTRIBUTING.md). A pull request that changes it updates the dumps
-  # (`./gradlew updateKotlinAbi`), so the change shows in review.
+  # (`./gradlew updateKotlinAbi`), so the change shows in review; and no line of the base's dumps may go, which updating
+  # them cannot get past. That warns until the base is a release candidate, and fails from then on.
   abi-compatibility:
     name: ABI Compatibility
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+
+      - name: Checkout the base
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
 
       - name: Set up JDK 21
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
@@ -85,7 +95,57 @@ jobs:
           cache: gradle
 
       - name: Kotlin API
-        run: ./gradlew checkKotlinAbi
+        run: .github/scripts/retry-on-network-error.sh ./gradlew checkKotlinAbi
+
+      - name: The Kotlin API only grows
+        if: github.event_name == 'pull_request'
+        run: .github/scripts/api-only-grows.sh .base
+
+  # REST, which 8.0.0-rc.1 freezes as well (CONTRIBUTING.md): oasdiff compares the OpenAPI documents of the base and of
+  # the pull request, routes, parameters, headers, status codes and schemas. buf guards the protos; this guards what
+  # only REST has. It warns until the base is a release candidate, and fails from then on.
+  rest-compatibility:
+    name: REST Compatibility
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+
+      - name: Checkout the base
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .base
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          java-version: |
+            25
+            21
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: OpenAPI documents
+        run: |
+          .github/scripts/retry-on-network-error.sh ./gradlew :api:generateOpenApi
+          cd .base && ../.github/scripts/retry-on-network-error.sh ./gradlew :api:generateOpenApi
+
+      - name: Install oasdiff
+        env:
+          OASDIFF_VERSION: 1.38.0
+          OASDIFF_SHA256: 613037fd6a1d3362a1b742d6d86c338c0eb5ab3511f4942ce3948e78720ea2da
+        run: |
+          archive="oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$archive" \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/$archive"
+          echo "$OASDIFF_SHA256  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" oasdiff
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+
+      - name: REST only grows
+        run: .github/scripts/rest-only-grows.sh .base
 
   # From 8.0.0-rc.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
   # pull request, by the rules in api/src/main/proto/buf.yaml.
@@ -114,7 +174,7 @@ jobs:
 
       - name: Breaking changes
         run: >-
-          ./gradlew :api:bufBreaking
+          .github/scripts/retry-on-network-error.sh ./gradlew :api:bufBreaking
           -PbufAgainst="$GITHUB_WORKSPACE/.base/api/src/main/proto" -PbufErrorFormat=github-actions
 
   # The versions design D31 promises, beyond the one every other test runs on.
@@ -141,6 +201,6 @@ jobs:
           cache: gradle
 
       - name: Store on ${{ matrix.image }}
-        run: ./gradlew :store-redis:test
+        run: .github/scripts/retry-on-network-error.sh ./gradlew :store-redis:test
         env:
           COSKY_REDIS_IMAGE: ${{ matrix.image }}
