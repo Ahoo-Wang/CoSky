@@ -88,7 +88,7 @@ jobs:
           cache: gradle
 
       - name: Build Dist
-        run: ./gradlew :server:installDist
+        run: .github/scripts/retry-on-network-error.sh ./gradlew :server:installDist
 
       - name: Smoke test the image
         run: |
