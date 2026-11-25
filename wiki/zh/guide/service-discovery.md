@@ -9,7 +9,7 @@ description: 把实例挂在租约上注册，通过 Spring Cloud 查找，并�
 
 ## 注册
 
-使用 starter 时，应用在 Web 服务器就绪后注册，关闭时自行移除。
+使用 starter 时，应用在 Web 服务器就绪后注册，关闭时自行移除。它最先离开：应用上下文一开始关闭就移除实例，早于 Web 服务器停止接收请求。消费者不再发来新请求，而优雅停机（`server.shutdown: graceful`，Spring Boot 的默认值）处理完在途的请求。之后客户端关闭并撤销租约。
 
 ```yaml
 spring:

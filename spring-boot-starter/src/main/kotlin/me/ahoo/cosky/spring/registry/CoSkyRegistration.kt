@@ -28,6 +28,8 @@ import org.springframework.cloud.client.serviceregistry.AutoServiceRegistrationP
 import org.springframework.cloud.client.serviceregistry.Registration
 import org.springframework.cloud.client.serviceregistry.ServiceRegistry
 import org.springframework.context.ApplicationContext
+import org.springframework.context.event.ContextClosedEvent
+import org.springframework.context.event.EventListener
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import me.ahoo.cosky.client.Registration as ClientRegistration
@@ -133,7 +135,8 @@ class CoSkyServiceRegistry(
 }
 
 /**
- * Registers once the web server is up, and deregisters on shutdown (design §7.7).
+ * Registers once the web server is up, and deregisters as the application context starts closing, before the web
+ * server stops taking requests (design §7.7).
  */
 class CoSkyAutoServiceRegistration(
     context: ApplicationContext,
@@ -160,8 +163,28 @@ class CoSkyAutoServiceRegistration(
     override fun getRegistration(): CoSkyRegistration = registration
 
     /**
-     * On shutdown, where a failure is worth a warning only: closing the client right after gives up the lease, which
-     * then expires.
+     * Leaves as soon as the context announces that it is closing, which it does before it stops anything: consumers
+     * stop sending requests while the web server, shutting down gracefully, finishes those under way, and only then
+     * stops. The parent leaves when it is destroyed, after all that, which would keep the instance listed while its
+     * server refuses connections. Spring Cloud's Eureka registry does the same.
+     *
+     * The parent still leaves on destruction when the context closes without announcing it, such as when it fails to
+     * start, and either way only once. Closing the client revokes the lease after both. A child context, such as a
+     * separate management server's, announces its own closing here too, which is not the application's.
+     *
+     * Private, which Spring calls all the same, so that it is no part of the starter's API.
+     */
+    @Suppress("UnusedPrivateMember") // Spring calls it.
+    @EventListener
+    private fun onContextClosed(event: ContextClosedEvent) {
+        if (event.applicationContext === context) {
+            stop()
+        }
+    }
+
+    /**
+     * On shutdown, where a failure is worth a warning only: closing the client, once the web server has stopped, gives
+     * up the lease, which then expires.
      */
     override fun deregister() {
         try {

@@ -9,7 +9,7 @@ An **Instance** is one running copy of a service: a service name, an endpoint, a
 
 ## Registering
 
-With the starter, an application registers once its web server is ready, and removes itself on shutdown.
+With the starter, an application registers once its web server is ready, and removes itself on shutdown. It leaves first, as soon as the application context starts closing and before the web server stops taking requests: consumers stop sending new ones, while a graceful shutdown (`server.shutdown: graceful`, Spring Boot's default) finishes those under way. Then the client closes and revokes its lease.
 
 ```yaml
 spring:
