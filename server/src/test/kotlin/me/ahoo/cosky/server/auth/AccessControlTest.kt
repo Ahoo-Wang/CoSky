@@ -17,12 +17,16 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ErrorReason
@@ -35,9 +39,11 @@ import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.key
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class AccessControlTest {
@@ -99,6 +105,49 @@ class AccessControlTest {
         }
     }
 
+    @Test
+    fun `streams go on being evaluated when the system namespace comes back under a new epoch`() = runBlocking<Unit> {
+        val store = MemoryStore()
+        val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+        try {
+            withTimeout(30.seconds) {
+                val token = Tokens.generate()
+                store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+                store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(account(token))), "test")
+                val caches = WatchCache(store, WINDOW, scope)
+                val access = AccessControl(caches)
+                val changes = Channel<Unit>(Channel.UNLIMITED)
+                // As a stream that is open does, from before the store loses its data until after.
+                scope.launch { access.changes.collect { changes.send(it) } }
+                changes.receive()
+
+                // The store lost its data, and the system namespace was set up again, as the reaper's leader does.
+                val lost = caches.of(NamingRules.SYSTEM_NAMESPACE)
+                val epoch = lost.awaitView().epoch
+                store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Delete(account(token).key)), "test")
+                store.terminateNamespace(NamingRules.SYSTEM_NAMESPACE, epoch)
+                store.dropNamespace(NamingRules.SYSTEM_NAMESPACE, epoch)
+                lost.views.first { it?.isClosed == true }
+                val again = store.createNamespace(NamingRules.SYSTEM_NAMESPACE).epoch
+                store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(account(token))), "test")
+                // A request, the readiness probe or the reaper starts following it again.
+                while (caches.of(NamingRules.SYSTEM_NAMESPACE).awaitView().epoch != again) {
+                    delay(10.milliseconds)
+                }
+                access.authenticate(token.plaintext).name.assert().isEqualTo(ACCOUNT)
+                // Whatever the loss and the new epoch made it emit, it has emitted by now.
+                while (withTimeoutOrNull(QUIET) { changes.receive() } != null) {
+                    continue
+                }
+
+                store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Delete(account(token).key)), "test")
+                withTimeoutOrNull(QUIET) { changes.receive() }.assert().isNotNull()
+            }
+        } finally {
+            scope.cancel()
+        }
+    }
+
     private fun account(token: ParsedToken) = resource {
         meta = objectMeta {
             namespace = NamingRules.SYSTEM_NAMESPACE
@@ -112,5 +161,8 @@ class AccessControlTest {
     private companion object {
         const val ACCOUNT = "a"
         const val WINDOW = 16
+
+        /** Longer than a namespace that is gone takes to be looked for again. */
+        val QUIET = 3.seconds
     }
 }

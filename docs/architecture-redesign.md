@@ -940,6 +940,7 @@ registration.close()                                                            
 - **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `position_gone`(`SLOW`)结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
 - **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`),仍有权限但可见范围变了的收到 `position_gone`(`UNSPECIFIED`)后重新开始。
+  store 丢失数据后 `_system` 以新 epoch 重建,由新的 `NamespaceCache` 跟随,存量流跟着它继续重新评估;`_system` 不存在期间没有人能写它,不算权限变化,重建后的规则加载完成时按它评估一次。
 - **配额**:单条流最多 1,000 个 watch,超出时该 Create 收到 `canceled`(`WATCH_QUOTA_EXCEEDED`;REST 侧为 429),流本身不中断。
 
 ### 7.4 Server 内部结构

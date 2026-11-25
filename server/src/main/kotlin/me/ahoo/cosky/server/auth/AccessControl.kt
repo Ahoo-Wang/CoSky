@@ -15,7 +15,6 @@ package me.ahoo.cosky.server.auth
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
@@ -50,8 +49,13 @@ class AccessControl(
     private val system: NamespaceCache
         get() = caches.of(NamingRules.SYSTEM_NAMESPACE)
 
+    /**
+     * Each revision of `_system`, in whichever epoch: when the store lost its data, the system namespace comes back
+     * under a new epoch, and the streams open meanwhile go on being evaluated by its rules. While it is gone, nothing
+     * changes: nobody can write to it, and the rules it comes back with are evaluated once they are loaded.
+     */
     override val changes: Flow<Unit>
-        get() = system.views.filterNotNull().distinctUntilChangedBy { it.epoch to it.revision }.map { }
+        get() = caches.follow(NamingRules.SYSTEM_NAMESPACE).distinctUntilChangedBy { it.epoch to it.revision }.map { }
 
     /**
      * @param plaintext a ServiceAccount token or, where OIDC is configured, an ID token.
