@@ -50,7 +50,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.lease.reaper-interval` | `1s` | How often expired leases are looked for |
-| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store |
+| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store; a failure in one namespace holds back that namespace only |
 | `cosky.lease.reaper-max-per-tick` | `100` | Leases reaped per namespace per round |
 | `cosky.lease.lock-ttl` | `15s` | How long the reaper's leadership lasts without renewal |
 | `cosky.lease.protection-threshold` | `0.5` | Reaping pauses when more than this share of a namespace's leases expire at once |
@@ -65,6 +65,8 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
+| `spring.grpc.server.keepalive.connection.max-age` | `30m` | A client connection is ended after this, give or take a tenth, so that clients [spread over the replicas again](./deployment.md#rolling-updates) |
+| `spring.grpc.server.keepalive.connection.grace-period` | `5s` | How long the streams of such a connection get |
 | `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
 | `springdoc.api-docs.enabled` | `true` | The REST API's document at `/v3/api-docs`, and Swagger UI on it at `/swagger-ui.html`; `springdoc.swagger-ui.enabled=false` keeps the document only |

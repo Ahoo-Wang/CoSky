@@ -795,6 +795,8 @@ client                         server                         Redis
 
 1. **恢复宽限**:成为 Leader 或访问存储失败后,`reaper-grace`(默认 30 秒)内不回收。这段时间足够客户端走完最长 10 秒的重连退避并立即续期;
    到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间,或一轮中途的一次访问,超过 5 个 `reaper-interval` 就重新开始宽限。
+   访问只在某个 namespace 失败时(如 Redis Cluster 的一个分片不可用),只有它进入自己的宽限,其他 namespace 照常回收,Reaper 也保持 Leader:它的进程同样无法续期,而别的分片上的不受影响。宽限期间每轮仍读一次它的租约统计,所以宽限从最后一次失败算起。连续失败只在第一次记 WARN,每次计入 `cosky_reaper_failures_total{namespace}`;reconciler 同样逐个 namespace 隔离失败,它失败也不妨碍回收。
+   获取锁或读取 namespace 列表失败,以及任何一次超过门槛的访问,包括超时后才报错的,仍让所有 namespace 重新开始宽限:回收器分不清挂起的是一个分片还是整个 store。Redis store 的命令超时(5 秒)与默认门槛相当,所以分片不可达、命令等到超时才失败时,仍然所有 namespace 一起宽限;只有很快报错的失败才局限于它的 namespace。
 2. **大比例到期暂停**:按 namespace 读取 `leaseStats`。租约数不少于 `protection-min-leases`(默认 10)且到期比例超过 `protection-threshold`(默认 50%)时暂停回收,
    记录 ERROR 日志并置位 `cosky_lease_protection_active`。这一层覆盖宽限检测不到的情况,例如客户端与 server 之间分区、Reaper 到 Redis 却正常。
    比例回落后重新开始恢复宽限,因为客户端是陆续回来的:比例跌破门槛时,还有很多正在重连。持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。
@@ -878,7 +880,7 @@ registration.close()                                                            
 
 - 同一 key 的多个 `watch` 调用共享一个底层 Watch,它存活到 client 关闭。热路径只读 `StateFlow.value`,不算订阅,所以订阅数无法判断何时可以取消;一个进程关心的 key 也是有限的。例外是 starter 的导入(§7.7),它随刷新增减:导入通过内部的 `configs.hold` 持有 Watch,最后一个持有者关闭、且没有 `watch`/`load` 用过这个 key 时,向 server 发 Cancel 结束它,不再占用单条流的配额(#1235)。
 - 热路径(`choose()`、`config.value`)只读 `StateFlow.value`,不挂起、不分配。
-- 一条 gRPC 连接承载全部 Watch 与 KeepAlive;多个 server 端点轮换重连,重连带 `from_revision` 和 `from_epoch`。
+- 一条 gRPC 连接承载全部 Watch 与 KeepAlive;重连新建连接,多个 server 端点时轮换,只有一个端点(如 Kubernetes Service)时新建到它的连接(§7.5),重连带 `from_revision` 和 `from_epoch`。
 - 快照落盘(§7.5):有快照时启动先加载,立即可用,连接成功后从快照位置续传。
 - 负载均衡:一个 `LoadBalancer` SPI,内置加权随机(前缀和 + 二分)与轮询。
 
@@ -979,6 +981,8 @@ me.ahoo.cosky.server
 - **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`,没有 POSIX 权限的文件系统(如 Windows)沿用所在目录的权限;`snapshot-include-config = false` 时 Config 不落盘。
 - **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
+  每次都新建 channel 并关闭旧的:多个端点时连下一个,只有一个端点时再连它一次。不能服务的副本(落后或读不到 store,D29)以结束整条流让客户端离开;复用原连接只会回到它,而到 Kubernetes Service 的新 TCP 连接可能落到另一个副本。channel 在锁外创建(工厂可能读 PEM 文件或做应用自己的事,会阻塞),同一次失败只换一次,关闭后创建的立即关闭;创建失败时保留当前 channel,下次失败再试下一个。
+  server 默认在连接约 30 分钟(±10%)后结束它(`spring.grpc.server.keepalive.connection.max-age`,流再有 5 秒),客户端经 Service 重连,滚动更新或扩容后连接因此重新分布。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新创建缺失的实例(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
   server 不可达时注册照常返回,同名替换也一样:客户端按名字记下 server 尚未确认的那次注册,续期恢复后重新 Put;不靠比较内容判断,因为它可能与之前确认的相同,而管理员已改过该实例(#1124)。这不从 `attached_count` 推断;这时才被拒绝的注册退回到它要替换的那一个。
@@ -1012,7 +1016,7 @@ me.ahoo.cosky.server
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
 | `cosky.lease.reaper-interval` | `1s` | |
-| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后的回收宽限(§6.2) |
+| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后的回收宽限;只在一个 namespace 失败时只宽限这个 namespace(§6.2) |
 | `cosky.lease.reaper-max-per-tick` | `100` | 每个 namespace 每轮最多回收的租约数 |
 | `cosky.lease.lock-ttl` | `15s` | 回收器 Leader 锁的有效期 |
 | `cosky.lease.protection-threshold` / `protection-min-leases` / `protection-max-duration` | `0.5` / `10` / `5m` | 大比例到期暂停(§6.2) |
@@ -1059,7 +1063,7 @@ cosky:
 | 配置刷新 | Config 变化时发布 Spring Cloud `RefreshEvent`(classpath 有 `spring-cloud-context` 时生效)。以加载时看到的内容为基准(丢写后 revision 可能重复),所以加载后、开始监听前的变化不会漏;启动时不存在的 `optional:` Config 出现后同样触发。刷新失败(如内容无法解析)只记日志,旧值不变,下次变化继续刷新。Spring Cloud 刷新时只添加或替换属性源,从不删除,所以 `optional` 的 Config 消失时用同名的空属性源替换旧值;必选的 Config 消失时保留旧值并告警。某个 Config 的 `spring.config.import` 去掉了另一个 Config 时,后者的加载器不再运行,无从替换:每次刷新把这一轮导入的结果写进 Environment 后(刷新发布的 `EnvironmentChangeEvent`,在清空刷新作用域之前;自动刷新、应用自己调用 `ContextRefresher.refresh` 或只调用 `refreshEnvironment` 都会发出),把这一轮没有任何导入加载过的 Config 的属性源从 Environment 中移除,结束它的 Watch,再为移除的键发布 `EnvironmentChangeEvent`,让 `@ConfigurationProperties` 重新绑定;仍被另一个导入引用的照常保留。一轮导入以加载器实例为界:Spring 每轮都新建加载器。一轮还以 `EnvironmentPostProcessor` 为界:导入之前的一个开始新的一轮,最后一个标记这一轮完整走完。刷新失败不发事件,Environment 不变,它加载过什么也不计入下一轮;此后别处发布的 `EnvironmentChangeEvent`(如通过 `env` 端点设置属性)遇到的是没有走完的一轮,同样不清理(#1263);一轮什么都没加载时不清理,以免误删(#1221)。 |
 | 服务发现 | `DiscoveryClient` 和 `ReactiveDiscoveryClient` 读本地视图;首次读取一个 service 时最多等待 `discovery.load-timeout`,避免把未知当成空。`getServices` 会 watch 整个 namespace 的 Instance,只在确实需要全量列表时才有这个开销 |
 | 负载均衡 | 提供 Spring Cloud LoadBalancer 的 `ServiceInstanceListSupplier`,LB 算法交给 Spring Cloud |
-| 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册,关闭时 Revoke;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |
+| 注册 | `ServiceRegistry` + `AbstractAutoServiceRegistration`,Web 服务器就绪后注册。关闭时先注销:应用上下文发布 `ContextClosedEvent` 时(早于停止任何 Lifecycle)删除实例,消费者不再发来新请求,随后 Web 服务器优雅停机,处理完在途请求才停止,最后关闭客户端、Revoke 租约。父类在销毁时才注销,那时 Web 服务器早已拒绝连接,实例却还在列表里;上下文没有发布这个事件就关闭时(如启动失败)仍由它注销,两者只注销一次。Spring Cloud 的 Eureka 注册同样监听这个事件;遵守 `spring.cloud.service-registry.auto-registration.enabled`;独立的管理端口不算服务实例,不注册 |
 | 健康检查 | `HealthIndicator` 映射 `ConnectionState`:只有 `CLOSED` 为 DOWN,`DEGRADED` 仍为 UP(应用靠本地视图继续工作,重启无益);状态写入 `connection` 明细。bean 名 `coskyHealthIndicator`,所以在 `/actuator/health` 中名为 `cosky`;`management.health.cosky.enabled=false` 关闭它 |
 
 每个应用有自己的客户端,以 `spring.application.name` 命名,关闭一个应用不影响同一 JVM 中的其他应用:第一个导入在 bootstrap 上下文中创建它,刷新沿用它;bootstrap 上下文关闭时交给应用上下文,随应用上下文关闭;启动时没有导入则由自动配置创建,并放进 Spring Cloud 为刷新保留的 bootstrap 上下文,刷新新增的导入同样沿用它;启动在应用上下文能关闭它之前失败(如必选 Config 不存在,或交接之后、上下文刷新之前失败)时立即关闭。
@@ -1117,6 +1121,7 @@ cosky:
 | `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active{namespace}` / `cosky_lease_expired_total{namespace}` | Gauge / Counter | 只由回收 Leader 上报:卸任时移除 gauge,不再管理的 namespace 也移除;跨副本对 gauge 取 `max`,Leader 切换的一刻也不会重复 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2),同样只由回收 Leader 上报 |
+| `cosky_reaper_failures_total{namespace}` | Counter | 回收 Leader 回收或巡检这个 namespace 时存储失败的次数,其他 namespace 照常进行(§6.2) |
 | `cosky_revision_regression_total` | Counter | §6.4 |
 | `cosky_anti_entropy_drift_total{namespace}` | Counter | 反熵发现不一致(§6.1) |
 | `cosky_auth_failures_total{reason}` | Counter | `missing`:没有 token(或为空);`invalid`:格式不对、未知、已吊销或已过期的 token,或 OIDC 校验不通过的 ID token;`unavailable`:无法判定,如访问规则加载中、身份提供方不可达。告警看 `missing` 和 `invalid`,不看 `unavailable`:它随故障出现,由其他指标发现 |

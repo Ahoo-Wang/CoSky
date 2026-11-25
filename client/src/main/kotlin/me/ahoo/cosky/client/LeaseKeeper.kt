@@ -222,20 +222,30 @@ internal class LeaseKeeper(
         val backoff = Backoff(options.reconnectMin, options.reconnectMax)
         while (true) {
             val channel = connection.channel()
+            var renewed = false
             try {
                 if (lease == 0L) {
                     restore()
                 }
-                renewOnStream(backoff)
+                renewOnStream(backoff) { renewed = true }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: StatusException) {
-                log.warn(
-                    "Renewing the lease of namespace {} at {} failed: {}",
-                    namespace,
-                    channel.authority(),
-                    describe(e),
-                )
+                if (isOrdinaryEnd(renewed, e)) {
+                    log.info(
+                        "The renewal stream of namespace {} at {} ended ({}); reconnecting.",
+                        namespace,
+                        channel.authority(),
+                        describe(e),
+                    )
+                } else {
+                    log.warn(
+                        "Renewing the lease of namespace {} at {} failed: {}",
+                        namespace,
+                        channel.authority(),
+                        describe(e),
+                    )
+                }
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                 // A call can fail without a status, as one does that starts just as an in-process server stops.
                 // Letting it end this loop would end the renewals for good, and every registration with its lease.
@@ -246,7 +256,10 @@ internal class LeaseKeeper(
         }
     }
 
-    private suspend fun renewOnStream(backoff: Backoff): Unit = coroutineScope {
+    /**
+     * @param renewed told of each renewal the server answered for the lease, which shows the stream working.
+     */
+    private suspend fun renewOnStream(backoff: Backoff, renewed: () -> Unit): Unit = coroutineScope {
         val renewals = flow {
             while (true) {
                 // The first renewal goes out right after connecting, without waiting for the next period (design §6.2).
@@ -268,7 +281,10 @@ internal class LeaseKeeper(
             when {
                 answered.lease != lease -> Unit
                 answered.ttlSeconds == 0 -> restore()
-                else -> catchUp(answered.attachedCount)
+                else -> {
+                    renewed()
+                    catchUp(answered.attachedCount)
+                }
             }
         }
     }

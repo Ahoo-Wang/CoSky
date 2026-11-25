@@ -126,6 +126,13 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
     }
 
     /**
+     * The store failed on one namespace while the reaper leader reaped or reconciled it; the others went on.
+     */
+    fun reaperFailure(namespace: String) {
+        counter("cosky_reaper_failures_total", namespace).increment()
+    }
+
+    /**
      * Reported by the reaper's leader only.
      */
     fun leases(namespace: String, active: Int) {

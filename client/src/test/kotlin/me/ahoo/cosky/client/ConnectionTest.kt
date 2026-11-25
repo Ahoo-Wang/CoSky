@@ -14,26 +14,30 @@
 package me.ahoo.cosky.client
 
 import io.grpc.CallOptions
+import io.grpc.Channel
 import io.grpc.ClientCall
 import io.grpc.ManagedChannel
+import io.grpc.Metadata
 import io.grpc.MethodDescriptor
+import me.ahoo.cosky.api.v1.LeaseServiceGrpc
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import java.io.IOException
+import java.io.UncheckedIOException
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 class ConnectionTest {
     private class CountingChannel(val endpoint: String) : ManagedChannel() {
-        var backoffResets = 0
         var shutDown = false
+
+        /** Calls started on it, which go nowhere. */
+        var calls = 0
 
         /**
          * Runs while the channel shuts down, which is when the connection has let go of its lock.
          */
         var onShutdown: () -> Unit = {}
-
-        override fun resetConnectBackoff() {
-            backoffResets += 1
-        }
 
         override fun shutdown(): ManagedChannel = apply {
             if (!shutDown) {
@@ -53,26 +57,120 @@ class ConnectionTest {
         override fun <Req : Any?, Resp : Any?> newCall(
             method: MethodDescriptor<Req, Resp>,
             options: CallOptions,
-        ): ClientCall<Req, Resp> = error("Not for calling.")
+        ): ClientCall<Req, Resp> {
+            calls += 1
+            return object : ClientCall<Req, Resp>() {
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) = Unit
+
+                override fun request(numMessages: Int) = Unit
+
+                override fun cancel(message: String?, cause: Throwable?) = Unit
+
+                override fun halfClose() = Unit
+
+                override fun sendMessage(message: Req) = Unit
+            }
+        }
 
         override fun authority(): String = endpoint
     }
 
     private val channels = mutableListOf<CountingChannel>()
 
+    /**
+     * Runs as each channel after the first is built, which is when a rotation has let go of its lock.
+     */
+    private var building: () -> Unit = {}
+
     private fun connection(vararg endpoints: String) = Connection(
         CoSkyClientOptions(endpoints.toList()) {
-            channelFactory = { endpoint -> CountingChannel(endpoint).also { channels += it } }
+            channelFactory = { endpoint ->
+                if (channels.isNotEmpty()) {
+                    building()
+                }
+                CountingChannel(endpoint).also { channels += it }
+            }
         },
     )
 
     @Test
-    fun `one endpoint tells its channel not to wait out its own backoff`() {
+    fun `one endpoint moves on to a new channel to it, which may reach another replica`() {
         val connection = connection("only")
         val channel = connection.channel()
         connection.rotate(channel)
-        channels.single().backoffResets.assert().isEqualTo(1)
-        connection.channel().assert().isSameAs(channel)
+        channels.map { it.endpoint }.assert().containsExactly("only", "only")
+        channels.map { it.isShutdown }.assert().containsExactly(true, false)
+        connection.channel().assert().isNotSameAs(channel)
+    }
+
+    @Test
+    fun `a call started on a channel that was moved on from goes to the one that took over`() {
+        val connection = connection("only")
+        // Taken for a registration, say, just before a stream failed.
+        val taken = connection.channel()
+        connection.rotate(taken)
+        taken.newCall(LeaseServiceGrpc.getRevokeMethod(), CallOptions.DEFAULT)
+        channels.map { it.calls }.assert().containsExactly(0, 1)
+    }
+
+    @Test
+    fun `a call on the current channel stays on it`() {
+        val connection = connection("only")
+        connection.channel().newCall(LeaseServiceGrpc.getRevokeMethod(), CallOptions.DEFAULT)
+        channels.single().calls.assert().isEqualTo(1)
+    }
+
+    @Test
+    fun `the next channel is built outside the lock, as a factory may block`() {
+        val connection = connection("first", "second")
+        val failed = connection.channel()
+        var seen: Channel? = null
+        building = {
+            seen = CompletableFuture.supplyAsync { connection.channel() }.get(2, TimeUnit.SECONDS)
+        }
+        connection.rotate(failed)
+        seen.assert().isSameAs(failed)
+        connection.channel().assert().isNotSameAs(failed)
+    }
+
+    @Test
+    fun `a failure noticed again while the next channel is built opens no other`() {
+        val connection = connection("only")
+        val failed = connection.channel()
+        // The keep-alive notices as well, while the failure of the watch stream is being handled.
+        building = {
+            building = {}
+            connection.rotate(failed)
+        }
+        connection.rotate(failed)
+        channels.size.assert().isEqualTo(2)
+        channels.first().isShutdown.assert().isTrue()
+    }
+
+    @Test
+    fun `closing while the next channel is built shuts that one down too`() {
+        val connection = connection("only")
+        val failed = connection.channel()
+        building = { connection.close() }
+        connection.rotate(failed)
+        channels.map { it.isShutdown }.assert().containsExactly(true, true)
+    }
+
+    @Test
+    fun `a channel that cannot be built leaves the current one, and the next failure tries the one after`() {
+        val connection = connection("first", "second", "third")
+        val failed = connection.channel()
+        building = {
+            building = {}
+            throw UncheckedIOException(IOException("/etc/cosky/ca.pem cannot be read."))
+        }
+        connection.rotate(failed)
+        connection.channel().assert().isSameAs(failed)
+        channels.single().isShutdown.assert().isFalse()
+
+        connection.rotate(failed)
+        channels.map { it.endpoint }.assert().containsExactly("first", "third")
+        connection.channel().assert().isNotSameAs(failed)
     }
 
     @Test

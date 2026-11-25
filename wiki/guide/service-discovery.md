@@ -9,7 +9,7 @@ An **Instance** is one running copy of a service: a service name, an endpoint, a
 
 ## Registering
 
-With the starter, an application registers once its web server is ready, and removes itself on shutdown.
+With the starter, an application registers once its web server is ready, and removes itself on shutdown. It leaves first, as soon as the application context starts closing and before the web server stops taking requests: consumers stop sending new ones, while a graceful shutdown (`server.shutdown: graceful`, Spring Boot's default) finishes those under way. Then the client closes and revokes its lease.
 
 ```yaml
 spring:
@@ -78,6 +78,7 @@ CoSky favours keeping a stale instance over dropping a live one, and callers are
 | Server unreachable | Reads keep serving the last view, and the health indicator `cosky` stays `UP` with `connection: DEGRADED`, because a restart would not help. |
 | Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
 | Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
+| A Redis Cluster shard fails while the others answer | Namespaces on the others are reaped as usual. Those on the failed shard are reaped 30 seconds after it last failed, once their clients could renew. A shard that does not answer at all, rather than failing at once, still holds up reaping everywhere, as the reaper cannot tell it from the whole store hanging. |
 | More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |
 | Redis fails over and loses recent writes | Every replica notices the revision going backwards, and clients start over from a fresh snapshot. Writes that were lost stay lost. |
 

@@ -96,6 +96,8 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 
 In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
+Clients keep their connection, so after a rolling update or a scale-out the replicas that started last have few of them. Each replica ends a connection after about 30 minutes, give or take a tenth, and gives its streams 5 seconds, so clients spread out again: they reconnect through the Service, which is all the endpoint an application needs, and resume where they were. `spring.grpc.server.keepalive.connection.max-age` sets this, and `grace-period` under it the 5 seconds.
+
 Draining a node stops its replica the same way. The PodDisruptionBudget lets one replica go at a time, so draining two nodes at once waits for the first replacement to be ready. On a k3s cluster of four nodes, draining each node in turn and then two at once failed no write, no read of a Config in an application and no registration.
 
 ## The Dashboard on its own
@@ -116,6 +118,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
 | `cosky_lease_active{namespace}`, `cosky_lease_expired_total{namespace}` | Registered processes and expiries. Only the reaper's leader reports them, so take `max by (namespace)` of the gauge over the replicas, which also covers a change of leader |
 | `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry, reported by the reaper's leader as well |
+| `cosky_reaper_failures_total{namespace}` | The store failing on one namespace, such as one on a Redis Cluster shard that is down, while the reaper goes on with the others |
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
 | `cosky_auth_failures_total{reason}` | Calls refused for their token: `missing` came without one, `invalid` with one that is malformed, unknown, revoked or expired, or an ID token the OIDC checks refuse, and `unavailable` could not be decided, while the access rules load or the identity provider is out of reach. Alert on `missing` and `invalid`, which point at a client; `unavailable` comes with an outage that other alerts catch |

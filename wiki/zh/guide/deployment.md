@@ -96,6 +96,8 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 在 Kubernetes 中，停止的副本先等 5 秒，让 Service 不再把连接发给它。然后最多再等 5 秒结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
 
+客户端一直保持连接，所以滚动更新或扩容后，最后启动的副本上客户端很少。每个副本在大约 30 分钟后（上下浮动十分之一）结束一个连接，给其中的流 5 秒，客户端就重新分布：它们经 Service 重连，并从原来的位置继续。应用只需要配置 Service 这一个端点。`spring.grpc.server.keepalive.connection.max-age` 设置这个时间，它下面的 `grace-period` 设置那 5 秒。
+
 腾空（drain）节点时，其上的副本也按同样的方式停止。PodDisruptionBudget 一次只让一个副本离开，所以同时腾空两个节点时，会等第一个替代副本就绪。在四个节点的 k3s 集群上，依次腾空每个节点、再同时腾空两个，写入、应用读取 Config 和注册都没有失败。
 
 ## 单独部署 Dashboard
@@ -116,6 +118,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 | `cosky_watch_gone_total{reason}` | 客户端不得不重新开始：`slow`、`compacted`、`epoch`、`regression` |
 | `cosky_lease_active{namespace}`、`cosky_lease_expired_total{namespace}` | 已注册的进程和到期数。只有回收器的 Leader 上报，所以对各副本的 gauge 取 `max by (namespace)`，Leader 切换时也适用 |
 | `cosky_lease_protection_active{namespace}` | 回收因大面积到期而暂停，同样由回收器的 Leader 上报 |
+| `cosky_reaper_failures_total{namespace}` | 存储在某个 namespace 上失败，比如它所在的 Redis Cluster 分片不可用，回收器照常处理其他 namespace |
 | `cosky_revision_regression_total` | Redis 丢失了写入 |
 | `cosky_anti_entropy_drift_total{namespace}` | 副本的视图与存储不一致，这本不该发生 |
 | `cosky_auth_failures_total{reason}` | 因 token 被拒绝的调用：`missing` 是没带 token；`invalid` 是 token 格式不对、未知、已吊销或已过期，或 ID token 没通过 OIDC 校验；`unavailable` 是无法判定，例如访问规则还在加载，或身份提供方不可达。告警看 `missing` 和 `invalid`，它们指向某个客户端；`unavailable` 伴随故障出现，由其他告警发现 |

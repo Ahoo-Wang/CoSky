@@ -50,7 +50,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | 属性 | 默认值 | 含义 |
 |---|---|---|
 | `cosky.lease.reaper-interval` | `1s` | 查找到期租约的间隔 |
-| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后，这段时间内不回收 |
+| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后，这段时间内不回收；只在一个 namespace 上失败时只影响这个 namespace |
 | `cosky.lease.reaper-max-per-tick` | `100` | 每个 namespace 每轮回收的租约数 |
 | `cosky.lease.lock-ttl` | `15s` | 回收器的 Leader 身份不续约时的有效期 |
 | `cosky.lease.protection-threshold` | `0.5` | namespace 中同时到期的租约超过这个比例时暂停回收 |
@@ -65,6 +65,8 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`、`spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | 关闭时留给已打开的流的时间 |
+| `spring.grpc.server.keepalive.connection.max-age` | `30m` | 客户端连接在这之后（上下浮动十分之一）结束，让客户端[重新分布到各副本](./deployment.md#滚动更新) |
+| `spring.grpc.server.keepalive.connection.grace-period` | `5s` | 留给这样一个连接中的流的时间 |
 | `management.tracing.sampling.probability` | `0.1` | 追踪的请求比例 |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | 链路数据发往何处 |
 | `springdoc.api-docs.enabled` | `true` | REST API 的文档（`/v3/api-docs`），以及基于它的 Swagger UI（`/swagger-ui.html`）；`springdoc.swagger-ui.enabled=false` 只保留文档 |

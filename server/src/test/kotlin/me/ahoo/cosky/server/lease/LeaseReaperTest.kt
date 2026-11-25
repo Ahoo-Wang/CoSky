@@ -23,6 +23,7 @@ import me.ahoo.cosky.store.GrantResult
 import me.ahoo.cosky.store.LeaseStats
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -46,15 +47,15 @@ class LeaseReaperTest {
     )
     private val reaper = LeaseReaper(store, { listOf(NAMESPACE) }, options, clock)
 
-    private suspend fun register(name: String, ttlSeconds: Long = TTL): Long {
-        val lease = (store.grantLease(NAMESPACE, ttlSeconds.seconds, "test") as GrantResult.Granted).lease.id
-        store.apply(NAMESPACE, listOf(Mutation.Put(instance(name, lease))), "test")
+    private suspend fun register(name: String, ttlSeconds: Long = TTL, namespace: String = NAMESPACE): Long {
+        val lease = (store.grantLease(namespace, ttlSeconds.seconds, "test") as GrantResult.Granted).lease.id
+        store.apply(namespace, listOf(Mutation.Put(instance(name, lease, namespace))), "test")
         return lease
     }
 
-    private fun instance(name: String, lease: Long) = resource {
+    private fun instance(name: String, lease: Long, namespace: String) = resource {
         meta = objectMeta {
-            namespace = NAMESPACE
+            this.namespace = namespace
             this.name = name
             this.lease = lease
         }
@@ -68,7 +69,8 @@ class LeaseReaperTest {
         }
     }
 
-    private suspend fun instances(): List<String> = store.readAll(NAMESPACE).toList().map { it.meta.name }
+    private suspend fun instances(namespace: String = NAMESPACE): List<String> =
+        store.readAll(namespace).toList().map { it.meta.name }
 
     private suspend fun tickEverySecond(seconds: Long) {
         repeat(seconds.toInt()) {
@@ -374,6 +376,180 @@ class LeaseReaperTest {
         hanging = true
         reaper.tick()
         instances().assert().containsExactly("a")
+    }
+
+    /**
+     * The store fails on [broken] while [failing] says so, in [method] only, as one does whose Redis Cluster shard is
+     * down while the others answer.
+     */
+    private fun shardDown(broken: String, method: String, failing: () -> Boolean): Store = object : Store by store {
+        override suspend fun leaseStats(namespace: String): LeaseStats {
+            failIfDown(namespace, "leaseStats")
+            return store.leaseStats(namespace)
+        }
+
+        override suspend fun expiredLeases(namespace: String, limit: Int): List<Long> {
+            failIfDown(namespace, "expiredLeases")
+            return store.expiredLeases(namespace, limit)
+        }
+
+        private fun failIfDown(namespace: String, called: String) {
+            if (namespace == broken && called == method && failing()) {
+                throw StoreUnavailableException("Redis: the shard of $namespace is down.")
+            }
+        }
+    }
+
+    private suspend fun othersReapedWhileOneFails(method: String) {
+        val broken = "broken"
+        store.createNamespace(broken)
+        var failing = false
+        // The broken namespace comes first, so that the others are reaped after it failed, in the same tick.
+        val reaper = LeaseReaper(shardDown(broken, method) { failing }, { listOf(broken, NAMESPACE) }, options, clock)
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        register("a", ttlSeconds = 2)
+        clock.advance(Duration.ofSeconds(3))
+        failing = true
+        reaper.tick()
+        instances().assert().isEmpty()
+
+        // Still the leader, with no grace begun again: what expires next goes as soon.
+        register("b", ttlSeconds = 2)
+        clock.advance(Duration.ofSeconds(3))
+        reaper.tick()
+        instances().assert().isEmpty()
+    }
+
+    @Test
+    fun `a namespace the store cannot count the leases of leaves the others to be reaped`() = scenario {
+        othersReapedWhileOneFails("leaseStats")
+    }
+
+    @Test
+    fun `a namespace the store cannot list the expired leases of leaves the others to be reaped`() = scenario {
+        othersReapedWhileOneFails("expiredLeases")
+    }
+
+    @Test
+    fun `a namespace the store failed on waits out a grace of its own, from its last failure`() = scenario {
+        val healthy = "healthy"
+        store.createNamespace(healthy)
+        var failing = false
+        val reaper = LeaseReaper(
+            shardDown(NAMESPACE, "leaseStats") { failing },
+            { listOf(NAMESPACE, healthy) },
+            options,
+            clock,
+        )
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        val lease = register("a")
+        failing = true
+        // Down for longer than the TTL, during which its process could not renew, while the other one is reaped.
+        repeat(45) {
+            if (it == 10) register("dead", ttlSeconds = 2, namespace = healthy)
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        instances(healthy).assert().isEmpty()
+        failing = false
+
+        // Its lease expired long enough ago to be reaped, but the grace runs from the last failure.
+        repeat(20) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        instances().assert().containsExactly("a")
+        store.keepAlive(NAMESPACE, listOf(lease))
+        repeat(15) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        instances().assert().containsExactly("a")
+
+        // Once the grace is over, one that did not come back goes.
+        register("gone", ttlSeconds = 2)
+        clock.advance(Duration.ofSeconds(3))
+        reaper.tick()
+        instances().assert().containsExactly("a")
+    }
+
+    @Test
+    fun `a store that fails on one namespace only after hanging gives every namespace the grace`() = scenario {
+        var hanging = false
+        val first = "first"
+        store.createNamespace(first)
+        val hangingStore = object : Store by store {
+            override suspend fun leaseStats(namespace: String): LeaseStats {
+                if (hanging && namespace == first) {
+                    clock.advance(Duration.ofSeconds(TTL + 20))
+                    hanging = false
+                    throw StoreUnavailableException("Redis: the command timed out.")
+                }
+                return store.leaseStats(namespace)
+            }
+        }
+        val reaper = LeaseReaper(hangingStore, { listOf(first, NAMESPACE) }, options, clock)
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        val lease = register("a")
+        hanging = true
+        reaper.tick()
+        instances().assert().containsExactly("a")
+
+        repeat(5) {
+            clock.advance(Duration.ofSeconds(1))
+            reaper.tick()
+        }
+        instances().assert().containsExactly("a")
+        store.keepAlive(NAMESPACE, listOf(lease))
+    }
+
+    @Test
+    fun `maintenance that fails does not hold up reaping`() = scenario {
+        val reaper = LeaseReaper(
+            store,
+            { listOf(NAMESPACE) },
+            options.copy(maintenanceInterval = Duration.ZERO),
+            clock,
+            maintenance = { throw StoreUnavailableException("Redis: the shard of the system namespace is down.") },
+        )
+        repeat(31) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        register("a", ttlSeconds = 2)
+        repeat(4) {
+            reaper.tick()
+            clock.advance(Duration.ofSeconds(1))
+        }
+        instances().assert().isEmpty()
+    }
+
+    @Test
+    fun `maintenance failing after hanging does not lead to reaping`() = scenario {
+        midTickHang { hang ->
+            LeaseReaper(
+                store,
+                { listOf(NAMESPACE) },
+                options.copy(maintenanceInterval = Duration.ZERO),
+                clock,
+                maintenance = {
+                    val before = clock.instant()
+                    hang()
+                    if (clock.instant() != before) {
+                        throw StoreUnavailableException("Redis: the command timed out.")
+                    }
+                },
+            )
+        }
     }
 
     @Test

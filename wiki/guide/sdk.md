@@ -97,7 +97,7 @@ try {
 | `DEGRADED` | Not connected: serving what is known, from memory or a snapshot. |
 | `CLOSED` | Closed. |
 
-Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn.
+Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn. Each time it opens a new connection, to the next endpoint or, with a single one such as a Kubernetes Service, to that one again: a replica that cannot serve, being behind or cut off from Redis, ends the stream for the client to go elsewhere, and only a new connection can reach another replica.
 
 ## Snapshots
 

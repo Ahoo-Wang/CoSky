@@ -288,7 +288,7 @@ An **Instance** is one running copy of a service: a service name, an endpoint, a
 
 ## Registering
 
-With the starter, an application registers once its web server is ready, and removes itself on shutdown.
+With the starter, an application registers once its web server is ready, and removes itself on shutdown. It leaves first, as soon as the application context starts closing and before the web server stops taking requests: consumers stop sending new ones, while a graceful shutdown (`server.shutdown: graceful`, Spring Boot's default) finishes those under way. Then the client closes and revokes its lease.
 
 ```yaml
 spring:
@@ -357,6 +357,7 @@ CoSky favours keeping a stale instance over dropping a live one, and callers are
 | Server unreachable | Reads keep serving the last view, and the health indicator `cosky` stays `UP` with `connection: DEGRADED`, because a restart would not help. |
 | Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
 | Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
+| A Redis Cluster shard fails while the others answer | Namespaces on the others are reaped as usual. Those on the failed shard are reaped 30 seconds after it last failed, once their clients could renew. A shard that does not answer at all, rather than failing at once, still holds up reaping everywhere, as the reaper cannot tell it from the whole store hanging. |
 | More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |
 | Redis fails over and loses recent writes | Every replica notices the revision going backwards, and clients start over from a fresh snapshot. Writes that were lost stay lost. |
 
@@ -462,7 +463,7 @@ try {
 | `DEGRADED` | Not connected: serving what is known, from memory or a snapshot. |
 | `CLOSED` | Closed. |
 
-Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn.
+Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn. Each time it opens a new connection, to the next endpoint or, with a single one such as a Kubernetes Service, to that one again: a replica that cannot serve, being behind or cut off from Redis, ends the stream for the client to go elsewhere, and only a new connection can reach another replica.
 
 ## Snapshots
 
@@ -593,6 +594,8 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 
 In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
+Clients keep their connection, so after a rolling update or a scale-out the replicas that started last have few of them. Each replica ends a connection after about 30 minutes, give or take a tenth, and gives its streams 5 seconds, so clients spread out again: they reconnect through the Service, which is all the endpoint an application needs, and resume where they were. `spring.grpc.server.keepalive.connection.max-age` sets this, and `grace-period` under it the 5 seconds.
+
 Draining a node stops its replica the same way. The PodDisruptionBudget lets one replica go at a time, so draining two nodes at once waits for the first replacement to be ready. On a k3s cluster of four nodes, draining each node in turn and then two at once failed no write, no read of a Config in an application and no registration.
 
 ## The Dashboard on its own
@@ -613,6 +616,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
 | `cosky_lease_active{namespace}`, `cosky_lease_expired_total{namespace}` | Registered processes and expiries. Only the reaper's leader reports them, so take `max by (namespace)` of the gauge over the replicas, which also covers a change of leader |
 | `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry, reported by the reaper's leader as well |
+| `cosky_reaper_failures_total{namespace}` | The store failing on one namespace, such as one on a Redis Cluster shard that is down, while the reaper goes on with the others |
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
 | `cosky_auth_failures_total{reason}` | Calls refused for their token: `missing` came without one, `invalid` with one that is malformed, unknown, revoked or expired, or an ID token the OIDC checks refuse, and `unavailable` could not be decided, while the access rules load or the identity provider is out of reach. Alert on `missing` and `invalid`, which point at a client; `unavailable` comes with an outage that other alerts catch |
@@ -1037,7 +1041,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.lease.reaper-interval` | `1s` | How often expired leases are looked for |
-| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store |
+| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store; a failure in one namespace holds back that namespace only |
 | `cosky.lease.reaper-max-per-tick` | `100` | Leases reaped per namespace per round |
 | `cosky.lease.lock-ttl` | `15s` | How long the reaper's leadership lasts without renewal |
 | `cosky.lease.protection-threshold` | `0.5` | Reaping pauses when more than this share of a namespace's leases expire at once |
@@ -1052,6 +1056,8 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
+| `spring.grpc.server.keepalive.connection.max-age` | `30m` | A client connection is ended after this, give or take a tenth, so that clients [spread over the replicas again](./deployment.md#rolling-updates) |
+| `spring.grpc.server.keepalive.connection.grace-period` | `5s` | How long the streams of such a connection get |
 | `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
 | `springdoc.api-docs.enabled` | `true` | The REST API's document at `/v3/api-docs`, and Swagger UI on it at `/swagger-ui.html`; `springdoc.swagger-ui.enabled=false` keeps the document only |
@@ -1357,7 +1363,7 @@ A process holds one lease per namespace, and attaches its instances to it, so re
 
 One replica at a time runs the **reaper**, under a lock in Redis. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
 
-1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped.
+1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped. When the store fails on one namespace only, such as one on a Redis Cluster shard that is down, only that namespace waits, counting from its last failure, and the others are reaped as usual.
 2. **Delay**: a lease is reaped a third of its TTL after expiry. Leases cut off by one partition expire over that span, since they renew at different moments. Reaping at once would remove them one by one, and the next step would never see them together.
 3. **Mass expiry**: when more than half of a namespace's leases have expired, and it has at least 10, reaping pauses and logs an error. This covers a partition between clients and servers, which the grace cannot detect. When the share falls, grace starts over. After 5 minutes, it reaps regardless.
 4. **Pace**: at most 100 leases per namespace per round.
