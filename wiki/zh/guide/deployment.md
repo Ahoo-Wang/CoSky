@@ -102,7 +102,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 ## 单独部署 Dashboard
 
-镜像在 `/` 提供 Dashboard。要托管在别处，请把它放在反向代理后面，并把 `/v1` 也转发给 server：页面要求 API 与它同源，server 不提供 CORS。
+镜像在 `/` 提供 Dashboard。要把它放在自己的路径下（例如 `https://example.com/cosky/`），或者把它的文件托管在别处，请把它放在反向代理后面，并把同一路径下的 `v1/` 也转发到 server 的 `/v1`：页面要求 API 就在它旁边、与它同源，server 不提供 CORS。代理需要做什么以及 nginx 示例，见[控制台](./dashboard.md#在反向代理后面)。
 
 ## 可观测性
 
