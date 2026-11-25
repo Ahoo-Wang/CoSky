@@ -22,13 +22,12 @@ import org.springframework.core.env.SystemEnvironmentPropertySource
 import java.time.Duration
 
 class CoSkyPropertiesTest {
-    /** As the environment variables of a process are bound. */
+    /** As the environment variables of a process are bound, to the defaults where none is set. */
     private fun bind(environment: Map<String, String>): CoSkyProperties {
         val variables =
             SystemEnvironmentPropertySource(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME, environment)
         return Binder(checkNotNull(ConfigurationPropertySource.from(variables)))
-            .bind("cosky", CoSkyProperties::class.java)
-            .get()
+            .bindOrCreate("cosky", CoSkyProperties::class.java)
     }
 
     @Test
@@ -56,6 +55,74 @@ class CoSkyPropertiesTest {
         properties.watch.antiEntropyInterval.assert().isEqualTo(Duration.ofMinutes(1))
         properties.read.minRevisionTimeout.assert().isEqualTo(Duration.ofSeconds(5))
         properties.view.topologyFlushInterval.assert().isEqualTo(Duration.ofSeconds(45))
+    }
+
+    @Test
+    fun `a value that cannot work stops the start, naming the property and the value`() {
+        val refused = mapOf(
+            mapOf("COSKY_LEASE_REAPER_INTERVAL" to "0") to "cosky.lease.reaper-interval is 0s",
+            mapOf("COSKY_LEASE_REAPER_INTERVAL" to "2", "COSKY_LEASE_LOCK_TTL" to "2") to "cosky.lease.lock-ttl is 2s",
+            mapOf("COSKY_LEASE_REAPER_GRACE" to "-1") to "cosky.lease.reaper-grace is -1s",
+            mapOf("COSKY_LEASE_REAPER_MAX_PER_TICK" to "0") to "cosky.lease.reaper-max-per-tick is 0",
+            mapOf("COSKY_LEASE_PROTECTION_THRESHOLD" to "1.5") to "cosky.lease.protection-threshold is 1.5",
+            mapOf("COSKY_LEASE_PROTECTION_MIN_LEASES" to "-1") to "cosky.lease.protection-min-leases is -1",
+            mapOf("COSKY_LEASE_PROTECTION_MAX_DURATION" to "-5") to "cosky.lease.protection-max-duration is -5s",
+            mapOf("COSKY_WATCH_WINDOW" to "0") to "cosky.watch.window is 0",
+            mapOf("COSKY_WATCH_WINDOW_BYTES" to "0") to "cosky.watch.window-bytes is 0B",
+            mapOf("COSKY_WATCH_PROGRESS_INTERVAL" to "0") to "cosky.watch.progress-interval is 0s",
+            mapOf("COSKY_WATCH_MAX_PER_STREAM" to "0") to "cosky.watch.max-per-stream is 0",
+            mapOf("COSKY_WATCH_ANTI_ENTROPY_INTERVAL" to "0") to "cosky.watch.anti-entropy-interval is 0s",
+            mapOf("COSKY_READ_MIN_REVISION_TIMEOUT" to "0") to "cosky.read.min-revision-timeout is 0s",
+            mapOf("COSKY_VIEW_TOPOLOGY_FLUSH_INTERVAL" to "0") to "cosky.view.topology-flush-interval is 0s",
+            mapOf("COSKY_STORE_REDIS_TAIL_POLL_INTERVAL" to "0ms") to "cosky.store.redis.tail-poll-interval is 0s",
+            mapOf("COSKY_STORE_TYPE" to "mongo") to "cosky.store.type is 'mongo'",
+        )
+        refused.forEach { (environment, description) ->
+            val failure = generateSequence(runCatching { bind(environment) }.exceptionOrNull()) { it.cause }
+                .filterIsInstance<StartupFailure>()
+                .firstOrNull()
+            failure.assert().describedAs("$environment").isNotNull()
+            checkNotNull(failure).message.assert().startsWith(description)
+            val property = description.substringBefore(" is ")
+            val variable = property.uppercase().replace('.', '_').replace('-', '_')
+            failure.action.assert().contains(property).contains(variable)
+        }
+    }
+
+    @Test
+    fun `zero turns the grace and the pause on mass expiry off, which is no mistake`() {
+        val properties = bind(
+            mapOf(
+                "COSKY_LEASE_REAPER_GRACE" to "0",
+                "COSKY_LEASE_PROTECTION_MAX_DURATION" to "0",
+                "COSKY_LEASE_PROTECTION_MIN_LEASES" to "0",
+                "COSKY_LEASE_PROTECTION_THRESHOLD" to "1",
+            ),
+        )
+
+        properties.lease.reaperGrace.assert().isEqualTo(Duration.ZERO)
+        properties.lease.protectionThreshold.assert().isEqualTo(1.0)
+    }
+
+    @Test
+    fun `what Kubernetes sets for a Service named cosky is no setting, and stops nothing`() {
+        val properties = bind(
+            mapOf(
+                "COSKY_SERVICE_HOST" to "10.0.0.1",
+                "COSKY_SERVICE_PORT" to "8080",
+                "COSKY_SERVICE_PORT_GRPC" to "9090",
+                "COSKY_PORT" to "tcp://10.0.0.1:8080",
+                "COSKY_PORT_8080_TCP" to "tcp://10.0.0.1:8080",
+                "COSKY_PORT_8080_TCP_ADDR" to "10.0.0.1",
+                "COSKY_PORT_8080_TCP_PORT" to "8080",
+                "COSKY_PORT_8080_TCP_PROTO" to "tcp",
+                // And for one named cosky-lease, under a prefix of settings.
+                "COSKY_LEASE_SERVICE_HOST" to "10.0.0.2",
+                "COSKY_LEASE_PORT" to "tcp://10.0.0.2:8080",
+            ),
+        )
+
+        properties.assert().isEqualTo(CoSkyProperties())
     }
 
     @Test

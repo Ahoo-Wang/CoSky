@@ -11,6 +11,14 @@ A duration takes a unit, such as `500ms`, `30s` or `5m`. Without one it is in se
 
 Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
 
+A value that cannot work stops the start, with a message that names the property and the value:
+
+- a duration, count or size of 0 or less. `reaper-grace` and `protection-max-duration` may be 0, which turns the grace or the pause off, as may `protection-min-leases`;
+- a `protection-threshold` outside 0 to 1;
+- a `lock-ttl` no longer than `reaper-interval`: the lock would lapse between two renewals, and leadership change hands.
+
+Keys the server does not know are ignored, such as `COSKY_SERVICE_HOST` and `COSKY_PORT`, which Kubernetes sets for a Service named `cosky`.
+
 ### Store
 
 | Property | Default | Meaning |

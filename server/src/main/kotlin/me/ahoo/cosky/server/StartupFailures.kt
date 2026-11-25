@@ -16,6 +16,8 @@ package me.ahoo.cosky.server
 import io.lettuce.core.RedisConnectionException
 import org.springframework.boot.diagnostics.AbstractFailureAnalyzer
 import org.springframework.boot.diagnostics.FailureAnalysis
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 
 /**
  * A start that cannot go on, with what an operator can do about it.
@@ -23,8 +25,10 @@ import org.springframework.boot.diagnostics.FailureAnalysis
 class StartupFailure(message: String, val action: String) : IllegalStateException(message)
 
 /**
- * Shows a [StartupFailure] as what went wrong and what to do, instead of a stack trace.
+ * Shows a [StartupFailure] as what went wrong and what to do, instead of a stack trace. Ahead of Spring's own, which
+ * would show one thrown while binding a setting as a failure to bind the settings around it.
  */
+@Order(Ordered.HIGHEST_PRECEDENCE)
 class StartupFailureAnalyzer : AbstractFailureAnalyzer<StartupFailure>() {
     override fun analyze(rootFailure: Throwable, cause: StartupFailure): FailureAnalysis =
         FailureAnalysis(cause.message, cause.action, cause)

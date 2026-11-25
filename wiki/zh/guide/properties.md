@@ -11,6 +11,14 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 
 可以写在 `application.yaml` 中，也可以用参数或环境变量设置：`cosky.store.redis.uri` 对应 `COSKY_STORE_REDIS_URI`。
 
+不能工作的值会让 server 拒绝启动，错误信息写明属性和它的值：
+
+- 小于等于 0 的时长、数量或大小。`reaper-grace` 和 `protection-max-duration` 可以为 0，表示关闭宽限或暂停，`protection-min-leases` 也可以为 0；
+- 不在 0 到 1 之间的 `protection-threshold`；
+- 不长于 `reaper-interval` 的 `lock-ttl`：锁会在两次续期之间失效，Leader 来回易手。
+
+server 不认识的键会被忽略，例如 Kubernetes 为名为 `cosky` 的 Service 设置的 `COSKY_SERVICE_HOST` 和 `COSKY_PORT`。
+
 ### 存储
 
 | 属性 | 默认值 | 含义 |

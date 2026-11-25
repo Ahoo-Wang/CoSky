@@ -1027,6 +1027,8 @@ me.ahoo.cosky.server
 
 单条消息上限(2 MiB,§4.6)、租约 TTL(默认 30 秒,范围 5–300 秒)和 Config 历史(20 个 revision)在 8.0 是固定值(`Limits`),不可配置。
 
+启动时校验取值,不能工作的值以 StartupFailure 拒绝启动,消息写明属性和值:时长、数量、大小必须大于 0,只有 `reaper-grace`、`protection-max-duration`、`protection-min-leases` 可以为 0(关闭对应的保护);`protection-threshold` 在 0 到 1 之间;`lock-ttl` 必须长于 `reaper-interval`,否则锁在两次续期之间失效。只校验已知属性的值,不拒绝未知的 `cosky.*` 键:Kubernetes 会给每个 pod 注入名为 `cosky` 的 Service 的 `COSKY_SERVICE_HOST`、`COSKY_PORT` 等变量。
+
 时长属性不带单位时按秒计算(`@DurationUnit(SECONDS)`),环境变量 `COSKY_LEASE_REAPER_GRACE=30` 即 30 秒;带单位(`500ms`、`5m`)时以单位为准。starter 的时长属性相同。server 和 starter 都随 jar 提供 `META-INF/spring-configuration-metadata.json`,描述与默认值同 wiki 的属性参考一致,测试对照两者和代码。
 
 ### 7.7 Spring Boot Starter
