@@ -24,8 +24,8 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 
 | 属性 | 默认值 | 含义 |
 |---|---|---|
-| `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事，只用于开发。 |
-| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | 首次启动时成为 `admin` ServiceAccount |
+| `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事，只用于开发：使用 Redis 时 server 启动会记录一条错误日志，`cosky_auth_enabled` 为 0。 |
+| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | 没有任何角色绑定时成为 `admin` ServiceAccount。secret 至少要有 22 个字母和数字，见[安全](./security.md#第一个-token) |
 | `cosky.auth.namespace-accounts` | `true` | 给每个 namespace 一个同名 ServiceAccount，在该 namespace 中绑定 `client`，它的应用共用这个账号的 token |
 | `cosky.auth.oidc.issuer` | — | 与 `client-id` 一起开启 OIDC |
 | `cosky.auth.oidc.client-id` | — | Dashboard 使用的客户端 |

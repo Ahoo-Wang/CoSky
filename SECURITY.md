@@ -26,6 +26,7 @@ fork and released as a patch version; the release notes credit the reporter unle
 ## Hardening the server
 
 - Turn on [TLS](wiki/guide/security.md#tls) on both ports, and in the clients: without it, tokens cross the network in the clear.
-- Revoke the bootstrap token once real accounts exist, and grant each subject only what it needs through roles.
+- Revoke the bootstrap token once real accounts exist, then set its variable or Secret to a new, unused token kept as a break-glass, or remove it: a Redis that loses its data is set up again from it. Grant each subject only what it needs through roles; nobody can grant more than they hold.
+- Keep a second way in as admin, such as an OIDC group bound to `admin`, so that a lost token does not leave you turning authentication off: see [a lost admin token](wiki/guide/security.md#a-lost-admin-token).
 - Keep Redis on a private network with authentication enabled, and TLS where others share the network: whoever reaches it can read and change everything. [Deployment](wiki/guide/deployment.md#credentials-and-tls) shows the URIs and an ACL user that is enough.
-- Never run with `cosky.auth.enabled: false` or `--dev` outside development.
+- Never run with `cosky.auth.enabled: false` or `--dev` outside development. On Redis, the server then logs an error at start and reports `cosky_auth_enabled 0`: alert on it.

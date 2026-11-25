@@ -108,6 +108,8 @@ class TokenServiceTest {
 
             override fun permission(principal: Principal, verb: Verb, kind: Kind, namespace: String): Permission =
                 Permission.None
+
+            override suspend fun requireHeld(principal: Principal, grant: Grant) = Unit
         }
         val tokens = TokenService(store, caches, denied)
         runCatching { tokens.create(ACCOUNT, null, Caller.ANONYMOUS) }.exceptionOrNull()

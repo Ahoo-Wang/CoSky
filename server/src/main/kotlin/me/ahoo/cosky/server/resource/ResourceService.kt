@@ -38,6 +38,7 @@ import me.ahoo.cosky.api.validation.requireValid
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.Grant
 import me.ahoo.cosky.server.auth.NamespaceAccounts
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
@@ -138,6 +139,8 @@ class ResourceService(
             } else {
                 val permission = permissionOf(caller.principal, Verb.VERB_PUT, key.kind, key.namespace)
                 requireAllowed(permission, request.resource.authorizedName)
+                // A Role or RoleBinding gives no more than its writer holds (design §7.8).
+                Grant.of(request.resource)?.let { authorizer.requireHeld(caller.principal, it) }
                 val write = withStoredTokens(withContentHash(namespaces.guard(request)))
                 apply(
                     key,

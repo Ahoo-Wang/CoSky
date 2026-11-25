@@ -26,9 +26,20 @@ On its first start, a server without any role binding turns `COSKY_BOOTSTRAP_TOK
 export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
 ```
 
-- The server reads it only while no role binding exists. After that another value does nothing, so removing it changes nothing either.
+- **Strong enough.** The secret, after the second `_`, takes at least 22 letters and digits, about 128 bits; the command above gives 32 hex digits. With auth on, the server checks the token at every start, used or not, and refuses to start with a shorter one or one of another shape, without printing it.
+- **Read only while no role binding exists:** on the first start, and again when Redis loses everything, as [Deployment](./deployment.md#redis) explains. Otherwise another value does nothing.
+- **After revoking it,** set the variable or Secret to a new token nobody has used, kept as a break-glass, or remove it. Left as it is, a Redis that loses its data makes the revoked token the admin again. Removed, nobody can sign in after such a loss until you set one and restart.
 - Without it, a server with no role binding starts and logs a warning, and nobody can sign in.
-- To replace a lost token, run one server on the same Redis with `--cosky.auth.enabled=false`, where nobody else can reach it. Create a token with `POST /v1/serviceaccounts/admin/tokens`, revoke the lost one, and stop that server.
+
+### A lost admin token
+
+A new bootstrap token does not help once anyone is bound, since the server no longer reads it. So keep a second way in, set up beforehand: an OIDC group bound to `admin`, or a second token of an admin account, kept offline. With it, create a token with `POST /v1/serviceaccounts/admin/tokens` and revoke the lost one with `DELETE /v1/serviceaccounts/admin/tokens/<id>`.
+
+With no admin left, the last resort is a server with authentication off, on which every caller is admin:
+
+1. Start one more server on the same Redis with `--cosky.auth.enabled=false`, where nobody else can reach it: outside the Service or load balancer, its ports bound to `localhost`. Leave the other replicas as they are.
+2. It logs an error saying that authentication is off. Create a token with `POST /v1/serviceaccounts/admin/tokens`, and revoke the lost one.
+3. Stop it at once.
 
 ### OIDC
 
@@ -133,14 +144,15 @@ Your own roles look like this:
 - A call is allowed when any rule of any bound role matches it. A rule applies only where its own namespaces and the binding's overlap.
 - `names` left empty matches everything. Otherwise it holds exact values, or prefixes ending in `*`, matched against the Config name, the Instance's **service**, or the object name.
 - Global kinds (Namespace, ServiceAccount, Role, RoleBinding) live in the namespace `_system`.
-- Whoever may write ServiceAccounts, and so create their tokens, or Roles or RoleBindings, can give themselves any role, `admin` included. Grant that only to admins.
+- Nobody gives more than they hold. Writing a Role takes holding each of its rules in every namespace the rule names, `*` only by holding it in `*`. Writing a RoleBinding takes holding what its role grants in the binding's namespaces: for `service`, the Instances of each subject's own service, or of any service for a group, and for a role that does not exist yet, everything there. Creating a token for a ServiceAccount takes holding everything that account may do. Otherwise the server answers `PERMISSION_DENIED`, saying what you do not hold. An admin holds everything, so this never stops one.
+- Writing Roles, RoleBindings and ServiceAccounts still lets someone take access away from others, and give anyone what they hold themselves: grant it to those who manage access.
 - `GET` includes lists, and only what the rule allows shows up in them.
 - A lease belongs to whoever took it, so one account cannot attach its instances to another's lease.
 - A change to a role reaches open Watch streams: one that lost permission is canceled.
 
 `GET /v1/me` shows who the server thinks you are, and your effective rules.
 
-With `cosky.auth.enabled: false` everyone may do everything. It is for development only.
+With `cosky.auth.enabled: false` everyone may do everything. It is for development only: on Redis, the server logs an error at every start, and reports `cosky_auth_enabled 0` (see [Deployment](./deployment.md#observability)).
 
 ## TLS
 

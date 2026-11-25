@@ -26,9 +26,20 @@ token 放在 `Authorization: Bearer` 中，gRPC 和 HTTP 相同。server 只保�
 export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
 ```
 
-- 只有在不存在任何角色绑定时，server 才会读取它。之后换一个值不起作用，删除它也没有影响。
+- **足够强。** secret（第二个 `_` 之后的部分）至少要有 22 个字母和数字，约 128 位；上面的命令生成 32 个十六进制字符。开启鉴权时，server 每次启动都检查它，不管用不用得到；更短或格式不对就拒绝启动，并且不会打印它。
+- **只在不存在任何角色绑定时读取：** 首次启动时，以及 Redis 丢失全部数据之后，见[部署](./deployment.md#redis)。其他时候换一个值不起作用。
+- **吊销之后，** 把环境变量或 Secret 换成一个没人用过的新 token，作为应急凭据保管，或者删除它。保持原样的话，Redis 丢失数据后，已吊销的 token 会重新成为管理员。删除的话，发生这种丢失后谁也无法登录，直到你设置一个并重启。
 - 没有设置时，没有角色绑定的 server 会正常启动并记录一条警告，但谁也无法登录。
-- 要替换丢失的 token，在同一个 Redis 上运行一个 `--cosky.auth.enabled=false` 的 server，并确保别人访问不到它。用 `POST /v1/serviceaccounts/admin/tokens` 创建 token，吊销丢失的那个，然后停掉这个 server。
+
+### 丢失管理员 token
+
+一旦有了角色绑定，server 就不再读取 bootstrap token，换一个新的也没用。所以请事先留好第二条路：绑定 `admin` 的 OIDC 组，或者离线保存的另一个管理员账号 token。用它通过 `POST /v1/serviceaccounts/admin/tokens` 创建新 token，再用 `DELETE /v1/serviceaccounts/admin/tokens/<id>` 吊销丢失的那个。
+
+如果已经没有任何管理员，最后的办法是运行一个关闭鉴权的 server，在它上面每个调用者都是管理员：
+
+1. 在同一个 Redis 上多运行一个 `--cosky.auth.enabled=false` 的 server，并确保别人访问不到它：不放在 Service 或负载均衡后面，端口只绑定到 `localhost`。其他副本保持原样。
+2. 它会记录一条错误日志，说明鉴权已关闭。用 `POST /v1/serviceaccounts/admin/tokens` 创建 token，吊销丢失的那个。
+3. 立即停掉它。
 
 ### OIDC
 
@@ -133,14 +144,15 @@ curl -X POST localhost:8080/v1/serviceaccounts/order/tokens \
 - 任一绑定角色的任一规则匹配，调用就被允许。规则只在它自己的 namespace 与绑定的 namespace 重叠的范围内生效。
 - `names` 留空匹配所有对象；否则是精确值，或以 `*` 结尾的前缀，匹配 Config 名称、Instance 的**服务名**或对象名。
 - 全局类型（Namespace、ServiceAccount、Role、RoleBinding）位于 namespace `_system`。
-- 能写 ServiceAccount（因而能为它创建 token）、Role 或 RoleBinding 的人，可以给自己任何角色，包括 `admin`。这些权限只授予管理员。
+- 谁都不能授予超出自己所持有的权限。写 Role 要求在规则列出的每个 namespace 中持有它的每条规则，`*` 只有在 `*` 上持有才算。写 RoleBinding 要求在绑定的 namespace 中持有它的角色所授予的权限：`service` 是每个主体自己服务的 Instance，主体是组时是任意服务的 Instance；还不存在的角色，要求持有那里的全部权限。为 ServiceAccount 创建 token 要求持有这个账号能做的一切。否则 server 返回 `PERMISSION_DENIED`，并说明你缺少哪一项。管理员持有全部权限，所以不受影响。
+- 能写 Role、RoleBinding 和 ServiceAccount 的人，仍然可以收回别人的权限，并把自己持有的权限授予任何人：只授予负责管理权限的人。
 - `GET` 包括列表，列表中只出现规则允许的对象。
 - 租约属于创建它的主体，所以一个账号不能把实例挂到别人的租约上。
 - 角色的变化会影响已打开的 Watch 流：失去权限的流会被取消。
 
 `GET /v1/me` 显示 server 认为你是谁，以及你的有效规则。
 
-`cosky.auth.enabled: false` 时任何人都可以做任何事，只用于开发。
+`cosky.auth.enabled: false` 时任何人都可以做任何事，只用于开发：使用 Redis 时，server 每次启动都会记录一条错误日志，并报告 `cosky_auth_enabled 0`（见[部署](./deployment.md#可观测性)）。
 
 ## TLS
 

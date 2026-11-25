@@ -85,6 +85,8 @@ Redis (只有 server 可访问)
 | D43 | Namespace 删除的代际 | **标记时在对象上记下 namespace 当前的 epoch(只读字段 `terminating_epoch`),终止与清理都在数据 slot 内原子校验它**;epoch 已不同返回 `SUPERSEDED` 并撤销标记;清理最后才删 epoch,中断后可按同一 epoch 继续;reconciler 删除对象按标记后的 revision CAS | 终止与清理只认名字时,迟到的删除或恢复会作用到重建后的新一代:删掉新对象,或清空新一代的历史(#1155)。复用 epoch 不增加新的存储概念;代价是删除恰好遇上反熵替换 epoch 时以冲突失败,重试即可(§7.2) |
 | D44 | REST 错误体 | **RFC 9457 problem details**,`code`、`reason` 与 ErrorDetail 的成员作为扩展成员;直接替换原先的 `{status, message, detail}`,不并存(维护者决定,2026-11-14) | 标准格式便于通用工具和客户端处理;原格式的 `status`(gRPC code 名)和 `detail`(对象)与 RFC 的类型冲突,无法兼容叠加;RC 之前不作兼容性承诺 |
 | D45 | 接入凭据 | **每个 namespace 自带一个默认 ServiceAccount**:与 namespace 同名,绑定内置 `client` 角色、只限这个 namespace,由 server 随 namespace 创建和删除;默认开启,`cosky.auth.namespace-accounts=false` 关闭。另加内置角色 `service`:只能写与自己同名的服务的 Instance(维护者决定,2026-11-22) | 每个服务一个账号、一个绑定、一个 token,接入成本太高;而 `client` 本来就允许写任意服务的 Instance,分账号换来的只有审计和单独吊销。一个环境一个 token 不依赖任何运行平台。默认账号只对创建它的那一代 namespace 有效,删除重建后旧 token 进不了新的一代;要隔离时给服务建同名账号、绑定 `service`,不必写自定义 Role(§6.3、§7.8) |
+| D46 | 授权不能越权 | **只能授予自己已持有的权限**(参照 Kubernetes RBAC 的 escalate / bind):写 Role 要持有它的每条规则,在规则列出的每个 namespace 中;写 RoleBinding 要在绑定的 namespace 中持有所绑角色的规则(角色不存在时按 `admin` 计);为 ServiceAccount 创建 token 要持有该账号的全部规则。按 `_system` 在存储最新写入时的规则判断,否则 `PERMISSION_DENIED` 并说明缺哪一项。admin 与 server 自己写入的默认账号不受影响(维护者决定,2026-11-25) | 此前能写 Role、RoleBinding 或 ServiceAccount 的账号可以给自己任何角色,包括 `admin`,这些权限实际上等于 admin,文档只能要求“只授予管理员”。RC 冻结的是用户依赖的行为,之后再收紧是可见的变化;按副本视图判断时,还没看到权限被收回的副本可以被用来越权(§7.8) |
+| D47 | 关闭鉴权与 bootstrap token 的强度 | **对 Redis 存储关闭鉴权时启动记 ERROR**,gauge `cosky_auth_enabled` 报告 1/0,但照常启动;**bootstrap token 的 secret 至少 22 个 base62 字符**(约 128 位),开启鉴权时每次启动都校验格式和长度,不合格以 StartupFailure 拒绝启动,不打印 token(维护者决定,2026-11-25) | 关闭鉴权后所有调用者都是 admin,此前不留任何痕迹;拒绝启动会堵死找回管理员 token 的最后一条路(§6.3)。store 丢失全部数据时 reconciler 在运行中按 bootstrap token 重建管理员(§7.2),那时没有人能看到它太弱,所以没用到时也要校验 |
 
 ---
 
@@ -771,6 +773,9 @@ client                         server                         Redis
   `sub` → `USER`、`groups` claim → `GROUP`。未配置 OIDC 时,Dashboard 使用 ServiceAccount token 登录。
 - **Bootstrap**:首次启动若 `_system` 中无任何 RoleBinding,读取环境变量 `COSKY_BOOTSTRAP_TOKEN`
   创建 `admin` ServiceAccount 并绑定内置 `admin` 角色(`namespaces = ["*"]`)。
+  - secret 至少 22 个 base62 字符(约 128 位,D47)。开启鉴权时每次启动都校验格式和长度,用不用得到都校验,不合格以 StartupFailure 拒绝启动,消息不含 token。
+  - 已有 RoleBinding 时不读取它,所以换一个值找不回丢失的管理员 token:要靠另一个管理员(绑定 `admin` 的 OIDC 组,或离线保存的另一个管理员 token),最后手段是在别人访问不到的地方临时运行一个关闭鉴权的 server。
+  - store 丢失全部数据时 reconciler 按它重建管理员(§7.2),所以吊销 bootstrap token 后,环境中(如 k8s Secret)应换成一个未用过的新 token 作为应急凭据,或者删除;保留已吊销的旧值,数据丢失后它会重新成为管理员。
 - **内置角色**:`admin`(全部)、`viewer`(GET/WATCH 全部)、`client`(Config GET/WATCH,Instance 全部)、`service`(同 `client`,但只能写 `spec.service` 与主体同名的 Instance)。Role 不能使用这些名称,否则写入成功却被内置角色覆盖。
   内置角色的规则对所有 namespace 生效,由 RoleBinding 的 `namespaces` 限定范围;按服务隔离时给服务建同名 ServiceAccount 并绑定 `service`,更细的范围用自定义 Role(§7.8)。
 - **Namespace 默认账号(D45)**:`cosky.auth.namespace-accounts`(默认 `true`)开启时,每个 namespace 都有一个同名 ServiceAccount 和同名 RoleBinding(内置 `client`,`namespaces` 只含这个 namespace),同一个环境的应用共用它的 token 即可接入。
@@ -952,8 +957,8 @@ me.ahoo.cosky.server
 | `cosky.store.redis.uri` | `redis://localhost:6379` | 支持 Sentinel / Cluster URI;Sentinel 下跟随 Sentinel 公布的主节点,主节点挂住时也随提升的副本切换;命令最多等 Redis 5 秒(URI 设了 `timeout` 时以它为准) |
 | `cosky.store.redis.cluster` | `false` | URI 是 Redis Cluster 的种子节点;拓扑读取同样最多等一个节点 5 秒,拓扑每 5 秒和出现变化迹象时重读,主节点故障后跟上副本 |
 | `cosky.store.redis.tail-poll-interval` | `1s` | 没有提示时每个 namespace 的兜底读取间隔(§6.1) |
-| `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发 |
-| `cosky.auth.bootstrap-token` | — | 首次启动创建 admin ServiceAccount;格式同普通 token |
+| `cosky.auth.enabled` | `true` | 关闭后任何人都可以做任何事,只用于开发;对 Redis 存储关闭时启动记 ERROR,`cosky_auth_enabled` 为 0(D47) |
+| `cosky.auth.bootstrap-token` | — | 没有 RoleBinding 时(首次启动、store 丢失全部数据后)创建 admin ServiceAccount;格式同普通 token,secret 至少 22 个 base62 字符(D47) |
 | `cosky.auth.namespace-accounts` | `true` | 每个 namespace 有一个同名 ServiceAccount,在该 namespace 绑定 `client`,它的应用共用这个账号的 token(D45) |
 | `cosky.auth.oidc.issuer` / `client-id` / `audience` / `groups-claim` / `scopes` | — / — / — / `groups` / `openid,profile` | 不配置则不启用 OIDC;`scopes` 是 Dashboard 登录时申请的范围,有些提供方要显式申请才返回分组 |
 | `cosky.watch.window` | `10000` | 事件窗口,按事件计数,同时是日志的条数上限;应不小于 峰值事件速率 × 最长重连间隙(D29) |
@@ -1026,6 +1031,13 @@ cosky:
 - **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);取不到密钥时返回 `UNAVAILABLE`,不算 token 无效;Dashboard 在浏览器内完成授权码 + PKCE,到期前用 refresh token 续期,退出时结束服务商的会话(D37)。server 首次用到时才连接服务商,连接和读取各限 5 秒。
 - **授权判定(D24)**:请求 `(subject, verb, kind, namespace, name)` 命中任一绑定角色的任一规则即放行。
   规则生效的 namespace 是 `Rule.namespaces` 与 `RoleBinding.namespaces` 的交集;全局对象的 namespace 为 `_system`。
+- **不能越权授予(D46)**:参照 Kubernetes RBAC 的 escalate / bind 规则,只能授予自己已持有的权限。
+  - 写 Role(Put):调用者必须已经持有新 Role 的每条规则,在规则列出的每个 namespace 中。`*` 表示所有 namespace,包括以后创建的,只有调用者在 `*` 上持有才算;规则的 `names` 必须被调用者在同一 verb、kind、namespace 上的权限覆盖(以 `*` 结尾的前缀覆盖它下面的名称和更长的前缀),为空时要求调用者也不受名称限制。修改调用者自己绑定的 Role 同样按新规则判断。
+  - 写 RoleBinding:调用者必须持有所绑角色在绑定 namespace 中授予的全部规则,即每条规则与绑定 namespace 的交集(D24)。内置角色同样按其规则判断;`service` 按每个主体展开,USER / SERVICE_ACCOUNT 主体只写同名服务的 Instance,GROUP 主体的成员名事先不知道,按不限名称计。所绑 Role 不存在时按 `admin` 计:以后创建的 Role 会通过这个绑定生效,只有在绑定 namespace 中持有全部权限才能预先绑定。
+  - 为 ServiceAccount 创建 token:调用者必须持有该账号绑定的全部规则(在各自生效的 namespace 中)。token 就是这个账号。
+  - 全局 kind 只存在于 `_system`,Config 和 Instance 只存在于业务 namespace:规则在其他 namespace 上不授予任何东西,不参与比较;全局 kind 的 `*` 按 `_system` 比较。
+  - 判断读取 `_system` 在存储最新写入时的访问模型(副本先追上,与 token 端点相同),还没看到权限被收回的副本不能被用来越权。不满足时返回 `PERMISSION_DENIED`,消息说明缺少哪一项(verb、kind、namespace 和名称)。
+  - admin 持有全部,不受影响;关闭鉴权时不检查;server 自己写入的 namespace 默认账号与 bootstrap 管理员直接写存储(actor `system`),不经过这项检查。删除 Role 或 RoleBinding 只会收回权限,不检查。
 - **`Rule.names`**:为空匹配全部;否则是精确值或以 `*` 结尾的前缀,比较 Config 名、Instance 的 `spec.service`、其他 kind 的对象名。
   Instance 按服务授权,否则账号可以冒充其他服务注册:Put 校验新对象的 `spec.service`,覆盖已有对象时还校验旧对象的;Delete 校验现有对象。校验的必须是写入实际作用的那个对象:请求带期望 revision 时按该 revision 读取,由存储的 CAS 保证;不带时按存储的最新写入读取,再用读到的 revision 做 CAS,中途有写入就重新读取判定,避免落后的副本把写入放到它还没看到的、别的服务的实例上;期望 revision 超出存储已到达的位置时不可能匹配,直接交给存储拒绝,返回对象当前的 revision,不等副本追上。
   List / Watch 整个 kind 时按规则过滤结果,不拒绝请求。
@@ -1062,12 +1074,14 @@ cosky:
 | `cosky_revision_regression_total` | Counter | §6.4 |
 | `cosky_anti_entropy_drift_total{namespace}` | Counter | 反熵发现不一致(§6.1) |
 | `cosky_auth_failures_total{reason}` | Counter | `missing`:没有 token(或为空);`invalid`:格式不对、未知、已吊销或已过期的 token,或 OIDC 校验不通过的 ID token;`unavailable`:无法判定,如访问规则加载中、身份提供方不可达。告警看 `missing` 和 `invalid`,不看 `unavailable`:它随故障出现,由其他指标发现 |
+| `cosky_auth_enabled` | Gauge | 1 开启鉴权,0 关闭:关闭时所有调用者都是 admin(D47) |
 
 namespace 删除(或本副本不再跟随它)时,它的 `cosky_cache_revision`、`cosky_cache_lag_seconds`、租约 gauge 和计数器随之移除,不留下停在最后一个值的序列。
 
 - 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠比较各副本的 `cosky_cache_revision` 发现。
 - 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。
 - 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
+- 关闭鉴权:对 Redis 存储关闭时,启动记一条 ERROR 日志,说明所有调用者都是 admin;内存存储(开发)记 WARN。不拒绝启动(D47)。
 - 客户端:`CoSkyClient.connectionState` 给出连接状态,starter 据此提供健康检查。watch 延迟、快照年龄等客户端指标留作后续:指标只增不改,RC 之后也可以加。
 
 ### 7.10 性能目标

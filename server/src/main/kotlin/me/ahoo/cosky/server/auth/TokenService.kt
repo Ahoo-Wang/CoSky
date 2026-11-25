@@ -58,6 +58,8 @@ class TokenService(
         expiresAt?.let { ref.setExpiresAt(Timestamps.fromMillis(it.toEpochMilli())) }
         audit.audited(caller, Verb.VERB_PUT, tokenKey(account, token.id), { it }) {
             requirePermission(account, caller)
+            // A token is the account: only for someone who holds whatever the account may do (design §7.8).
+            authorizer.requireHeld(caller.principal, Grant.OfAccount(account))
             update(account, caller) { current ->
                 // An expired token is dead weight: it should not stand in the way of rotation.
                 val valid = current.filterNot {

@@ -89,6 +89,8 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
     private val authFailures =
         AuthFailure.entries.associateWith { registry.counter("cosky_auth_failures_total", "reason", it.tag) }
 
+    private val authEnabled = AtomicLong()
+
     /** The series of a namespace, by meter name and namespace. */
     private val gauges = ConcurrentHashMap<Pair<String, String>, Series>()
     private val counters = ConcurrentHashMap<Pair<String, String>, Counter>()
@@ -147,6 +149,14 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
 
     fun leaseProtection(namespace: String, active: Boolean) {
         gauge(LEASE_PROTECTION, namespace).set(if (active) 1 else 0)
+    }
+
+    /**
+     * Registered once it is said, so that a server that never says reports nothing rather than authentication off.
+     */
+    fun authEnabled(enabled: Boolean) {
+        authEnabled.set(if (enabled) 1 else 0)
+        registry.gauge("cosky_auth_enabled", authEnabled)
     }
 
     /**

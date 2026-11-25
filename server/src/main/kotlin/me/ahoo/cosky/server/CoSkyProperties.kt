@@ -39,8 +39,9 @@ data class CoSkyProperties(
     )
 
     /**
-     * @param enabled off only for development: everyone may then do everything.
-     * @param bootstrapToken becomes the admin ServiceAccount on the first start (design §6.3).
+     * @param enabled off only for development: everyone may then do everything, which the server says at start.
+     * @param bootstrapToken becomes the admin ServiceAccount while no RoleBinding exists: on the first start, and when
+     * the store lost its data (design §6.3). Its secret takes at least 22 base62 characters.
      * @param oidc lets people sign in, when its issuer is set.
      * @param namespaceAccounts gives every namespace a ServiceAccount of its own name, bound to `client` there, whose
      * token its applications share (design D45).

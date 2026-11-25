@@ -30,17 +30,21 @@ import org.slf4j.LoggerFactory
 
 /**
  * The first start: with nothing bound yet, the bootstrap token becomes an `admin` ServiceAccount (design §6.3). Later
- * starts find a RoleBinding and ignore the token, so removing it from the environment changes nothing. The bindings the
- * server gives namespaces do not count (design D45): `default` would have one before anyone could sign in.
+ * starts find a RoleBinding and do not use the token. The bindings the server gives namespaces do not count (design
+ * D45): `default` would have one before anyone could sign in.
+ *
+ * A token that is set is checked at every start all the same, used or not: a store that lost its data is set up from it
+ * again while the server runs (design §7.2), when there is nobody to tell that it is weak.
  */
 class AuthBootstrap(private val store: Store) {
     suspend fun run(bootstrapToken: String?) {
+        val token = bootstrapToken?.takeIf { it.isNotEmpty() }?.let(::parse)
         val bound = store.readAll(NamingRules.SYSTEM_NAMESPACE)
             .firstOrNull { it.hasRoleBinding() && !NamespaceAccounts.isManaged(it) }
         if (bound != null) {
             return
         }
-        if (bootstrapToken.isNullOrEmpty()) {
+        if (token == null) {
             log.warn(
                 "No RoleBinding exists and no bootstrap token is set, so nobody can sign in. Set " +
                     "cosky.auth.bootstrap-token (COSKY_BOOTSTRAP_TOKEN), such as {}, and start again.",
@@ -48,11 +52,6 @@ class AuthBootstrap(private val store: Store) {
             )
             return
         }
-        val token = Tokens.parse(bootstrapToken) ?: throw StartupFailure(
-            "The bootstrap token must look like ${ParsedToken.PREFIX}<id>${ParsedToken.SEPARATOR}<secret>, " +
-                "both base62.",
-            "Set cosky.auth.bootstrap-token (COSKY_BOOTSTRAP_TOKEN) to one, such as $BOOTSTRAP_TOKEN_EXAMPLE.",
-        )
         val result = store.apply(
             NamingRules.SYSTEM_NAMESPACE,
             listOf(
@@ -67,6 +66,27 @@ class AuthBootstrap(private val store: Store) {
             is ApplyResult.Conflict -> log.info("ServiceAccount {} exists already; not using the token.", ADMIN)
             else -> error("Bootstrapping failed: $result.")
         }
+    }
+
+    /**
+     * Neither message shows the token, which goes to the log and the console.
+     */
+    private fun parse(plaintext: String): ParsedToken {
+        val token = Tokens.parse(plaintext) ?: throw StartupFailure(
+            "The bootstrap token must look like ${ParsedToken.PREFIX}<id>${ParsedToken.SEPARATOR}<secret>, " +
+                "both base62.",
+            "Set cosky.auth.bootstrap-token (COSKY_BOOTSTRAP_TOKEN) to one, such as $BOOTSTRAP_TOKEN_EXAMPLE.",
+        )
+        if (token.secret.length < MIN_SECRET_LENGTH) {
+            throw StartupFailure(
+                "The secret of the bootstrap token, after its second ${ParsedToken.SEPARATOR}, has " +
+                    "${token.secret.length} characters: it takes at least $MIN_SECRET_LENGTH base62 characters, " +
+                    "about 128 bits, so that nobody can guess the admin's token.",
+                "Set cosky.auth.bootstrap-token (COSKY_BOOTSTRAP_TOKEN) to a new one, such as " +
+                    "$BOOTSTRAP_TOKEN_EXAMPLE.",
+            )
+        }
+        return token
     }
 
     private fun account(token: ParsedToken) = resource {
@@ -91,10 +111,15 @@ class AuthBootstrap(private val store: Store) {
         }
     }
 
-    private companion object {
-        const val ADMIN = AccessModel.ADMIN_ROLE
-        const val BINDING = "admin-bootstrap"
-        const val ACTOR = "system"
-        val log = LoggerFactory.getLogger(AuthBootstrap::class.java)
+    companion object {
+        /**
+         * Each base62 character carries almost 6 bits, so 22 make about 128. What [Tokens.generate] makes has 43.
+         */
+        const val MIN_SECRET_LENGTH = 22
+
+        private const val ADMIN = AccessModel.ADMIN_ROLE
+        private const val BINDING = "admin-bootstrap"
+        private const val ACTOR = "system"
+        private val log = LoggerFactory.getLogger(AuthBootstrap::class.java)
     }
 }
