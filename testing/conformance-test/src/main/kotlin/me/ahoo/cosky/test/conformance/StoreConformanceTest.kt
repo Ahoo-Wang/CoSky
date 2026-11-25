@@ -849,6 +849,18 @@ abstract class StoreConformanceTest {
     }
 
     @Test
+    fun `a lease id is not given out again once the namespace is created again`() = scenario { store ->
+        val epoch = position(store).epoch
+        val old = store.grant()
+        store.terminateNamespace(namespace, epoch)
+        store.dropNamespace(namespace, epoch)
+        store.createNamespace(namespace)
+
+        // A client of the namespace deleted may still renew or revoke the one it holds, within the same second too.
+        store.grant().assert().isNotEqualTo(old)
+    }
+
+    @Test
     fun `dropping a namespace that was never created does nothing`() = scenario { store ->
         val absent = "absent-${UUID.randomUUID()}"
         store.dropNamespace(absent, "")
@@ -948,6 +960,22 @@ abstract class StoreConformanceTest {
         rotated.epoch.assert().isNotEqualTo(start.epoch)
         rotated.revision.assert().isEqualTo(start.revision)
         thrownBy<TimelineDivergedException> { store.changes(namespace, start).first() }
+    }
+
+    @Test
+    fun `a namespace being deleted keeps its epoch, so that its drop still removes it`() = scenario { store ->
+        val epoch = position(store).epoch
+        store.put(config())
+        val lease = store.grant()
+        store.apply(namespace, listOf(Mutation.Delete(configKey())), ACTOR)
+        store.terminateNamespace(namespace, epoch)
+
+        // A replica that found a fork just then.
+        store.rotateEpoch(namespace, epoch).epoch.assert().isEqualTo(epoch)
+
+        store.dropNamespace(namespace, epoch)
+        store.history(configKey(), 0).assert().isEmpty()
+        store.keepAlive(namespace, listOf(lease)).assert().isEqualTo(mapOf(lease to null))
     }
 
     @Test
