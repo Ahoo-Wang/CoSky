@@ -56,8 +56,7 @@ jobs:
           cache: gradle
 
       - name: Integration Test
-        # The ABI Compatibility job checks the Kotlin API instead, without blocking, until 8.0.0-rc.1.
-        run: .github/scripts/retry-on-network-error.sh ./gradlew clean check -x checkKotlinAbi
+        run: .github/scripts/retry-on-network-error.sh ./gradlew clean check
 
       # A test that times out leaves every thread's stack in its report.
       - name: Keep the test reports

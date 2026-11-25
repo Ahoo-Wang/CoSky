@@ -15,7 +15,7 @@
 > **[Documentation](https://cosky.ahoo.me/)** | [中文文档](https://cosky.ahoo.me/zh/) | [中文 README](README.zh-CN.md)
 
 > [!IMPORTANT]
-> **8.0 is in beta.** It is complete, but there is no compatibility promise before the release candidate: until `8.0.0-rc.1` freezes them, its API, wire format, configuration and Redis data may still change ([what the freeze keeps](CONTRIBUTING.md#releases-and-versioning)). It is still a preview, so don't run it for real yet, but do try it: [tell us](https://github.com/Ahoo-Wang/CoSky/issues/new/choose) what breaks or surprises you. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+> **8.0 is a release candidate.** From `8.0.0-rc.1` to `8.0.0`, its API, wire format, configuration, documented metrics and Redis data only grow ([what the freeze keeps](CONTRIBUTING.md#releases-and-versioning)). It becomes `8.0.0` once it has run in a real environment for two weeks without a serious problem: run it in one of yours before production, and [tell us](https://github.com/Ahoo-Wang/CoSky/issues/new/choose) what breaks or surprises you. The stable release is 6.x, and `ahoowang/cosky:latest` is still 6.x. It is maintained on the [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) branch, which takes bug fixes only, and its documentation is in that branch's [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 
 CoSky provides **configuration management** and **service discovery** for microservices. A small server sits in front of **Redis**, and applications talk only to that server.
 
@@ -39,7 +39,7 @@ CoSky provides **configuration management** and **service discovery** for micros
 Start a server. `--dev` needs no Redis and no sign-in, and keeps nothing:
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-beta.15 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-rc.1 --dev
 ```
 
 Add the starter to a Spring Boot 4 application:
@@ -48,7 +48,7 @@ Add the starter to a Spring Boot 4 application:
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.2.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2026.0.0"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-beta.15"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-rc.1"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context")
