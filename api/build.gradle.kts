@@ -26,6 +26,7 @@ dependencies {
     api("org.jetbrains.kotlinx:kotlinx-coroutines-core")
     testImplementation("org.junit.jupiter:junit-jupiter-params")
     testImplementation("io.grpc:grpc-inprocess")
+    testImplementation("io.grpc:grpc-netty-shaded")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
     testImplementation("org.yaml:snakeyaml")
 }

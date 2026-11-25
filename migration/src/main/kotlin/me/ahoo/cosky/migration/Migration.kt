@@ -14,6 +14,7 @@
 package me.ahoo.cosky.migration
 
 import me.ahoo.cosky.api.configFormatOf
+import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.objectMeta
@@ -67,11 +68,15 @@ internal class Migration(
         val steps = stepsOf(versions)
         return try {
             val existing = target.config(to, name)
-            when (val reached = existing?.let { reachedOf(to, name, steps, it) }) {
-                steps.lastIndex -> ConfigResult(name, ConfigStatus.UNCHANGED)
-                NOT_FOUND -> ConfigResult(name, ConfigStatus.CONFLICT, NOT_FROM_SIX)
-                AMBIGUOUS -> ConfigResult(name, ConfigStatus.CONFLICT, AMBIGUOUS_HISTORY)
-                else -> write(to, name, steps.drop((reached ?: NOT_FOUND) + 1), existing)
+            if (existing == null) {
+                write(to, name, steps, null)
+            } else {
+                when (val reached = reachedOf(to, name, steps, existing)) {
+                    steps.lastIndex -> reformat(to, name, steps.last(), existing)
+                    NOT_FOUND -> ConfigResult(name, ConfigStatus.CONFLICT, NOT_FROM_SIX)
+                    AMBIGUOUS -> ConfigResult(name, ConfigStatus.CONFLICT, AMBIGUOUS_HISTORY)
+                    else -> write(to, name, steps.drop(reached + 1), existing)
+                }
             }
         } catch (@Suppress("SwallowedException") e: RevisionConflictException) {
             ConfigResult(name, ConfigStatus.CONFLICT, CHANGED_DURING_RUN)
@@ -118,7 +123,10 @@ internal class Migration(
         val written = target.history(to, name)
         // The oldest version kept is the first one ever, unless 8.0 has dropped older ones meanwhile.
         val complete = written.firstOrNull()?.meta?.let { it.revision == it.createRevision } ?: false
-        val contents = written.map { it.config.content }
+        // A revision that changed only the format repeats the content before it, which no step does.
+        val contents = written.map { it.config.content }.filterIndexed { index, content ->
+            index == 0 || content != written[index - 1].config.content
+        }
         val fitting = candidates.filter { end ->
             val before = steps.take(end + 1).map { it.content }
             if (complete) before == contents else before.takeLast(contents.size) == contents
@@ -141,8 +149,30 @@ internal class Migration(
             name,
             if (existing == null) ConfigStatus.CREATED else ConfigStatus.UPDATED,
             if (refused > 0) "$refused old versions 8.0 refuses were left out" else "",
+            existing?.let { formatsOf(it, pending.last()) },
         )
     }
+
+    /**
+     * The Config on 8.0 is at the current version already, perhaps in another format than this run gives it: the
+     * format of a name without an extension is the run's choice (`--default-format`), and changes as asked, as long as
+     * nobody wrote the Config since it was read. The format of a name with an extension never changes from one run to
+     * the next, so a different one was set on 8.0, and stays.
+     */
+    private fun reformat(to: String, name: String, current: Step, existing: Resource): ConfigResult {
+        val formats = formatsOf(existing, current)
+        if (formats == null || hasExtension(name)) {
+            return ConfigResult(name, ConfigStatus.UNCHANGED)
+        }
+        if (!options.dryRun) {
+            target.putConfig(to, name, current.version, existing.meta.revision)
+        }
+        return ConfigResult(name, ConfigStatus.UPDATED, formats = formats)
+    }
+
+    /** The format on 8.0 and the one [current] has, when they differ. */
+    private fun formatsOf(existing: Resource, current: Step): Pair<ConfigFormat, ConfigFormat>? =
+        (existing.config.format to current.version.config.format).takeIf { it.first != it.second }
 
     private fun problemOf(config: Resource): String? =
         Validator.DEFAULT.validate(putRequest { resource = config }).takeIf { it.isNotEmpty() }
@@ -159,8 +189,9 @@ internal class Migration(
         }
     }
 
-    private fun formatOf(name: String) =
-        if ('.' in name.substringAfterLast('/')) configFormatOf(name) else options.defaultFormat
+    private fun formatOf(name: String) = if (hasExtension(name)) configFormatOf(name) else options.defaultFormat
+
+    private fun hasExtension(name: String) = '.' in name.substringAfterLast('/')
 
     /**
      * One version a run writes, and how many old versions 8.0 refuses were left out on the way to it from the step

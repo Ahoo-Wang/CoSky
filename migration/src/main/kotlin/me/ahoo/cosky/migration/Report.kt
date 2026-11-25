@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.migration
 
+import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.validation.NamingRules
 
 internal enum class ConfigStatus(val needsAttention: Boolean = false) {
@@ -24,7 +25,15 @@ internal enum class ConfigStatus(val needsAttention: Boolean = false) {
     REJECTED(true),
 }
 
-internal data class ConfigResult(val name: String, val status: ConfigStatus, val detail: String = "")
+/**
+ * @param formats the format the Config had on 8.0 and the one this run gave it, when they differ.
+ */
+internal data class ConfigResult(
+    val name: String,
+    val status: ConfigStatus,
+    val detail: String = "",
+    val formats: Pair<ConfigFormat, ConfigFormat>? = null,
+)
 
 /**
  * @param target null when the namespace was left out.
@@ -138,7 +147,25 @@ internal class MigrationReport(
                 partial.map { (namespace, config) -> listOf(code(namespace), code(config.name), config.detail) },
             )
         }
+        val reformatted = namespaces.flatMap { namespace ->
+            namespace.configs.mapNotNull { config -> config.formats?.let { Triple(namespace.source, config.name, it) } }
+        }
+        if (reformatted.isNotEmpty()) {
+            appendLine("### Formats changed")
+            appendLine()
+            appendLine("An application parses a Config by its format. These had another one on 8.0 before this run.")
+            appendLine()
+            table(
+                listOf("6.x namespace", "Config", "Format before", "Format now"),
+                reformatted.map { (namespace, name, formats) ->
+                    listOf(code(namespace), code(name), code(nameOf(formats.first)), code(nameOf(formats.second)))
+                },
+            )
+        }
     }
+
+    /** As `--default-format` names it. */
+    private fun nameOf(format: ConfigFormat): String = format.name.removePrefix("CONFIG_FORMAT_").lowercase()
 
     private fun StringBuilder.instances() {
         appendLine("## Instances")

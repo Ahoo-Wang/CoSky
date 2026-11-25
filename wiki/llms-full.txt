@@ -942,7 +942,7 @@ cosky:
 cosky-migrate --source redis://6x-redis:6379 --target http://cosky:8080 --history
 ```
 
-Exit code `0` means everything arrived, `1` that some Configs need attention, and `2` that it could not run or stopped early. Running it again continues an interrupted run, and changes nothing else.
+Exit code `0` means everything arrived, `1` that some Configs need attention, and `2` that it could not run or stopped early. Running it again continues an interrupted run, and changes nothing else, except the format of Configs named without an extension when `--default-format` is another than before: those it imported and nobody edited on 8.0 since, listed in the report.
 
 **6. Switch.** Deploy the applications on 8.0 and stop 6.x. Then create the fixed instances from the report: nothing renews them, so nothing registers them again.
 

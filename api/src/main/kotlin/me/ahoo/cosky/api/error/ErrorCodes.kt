@@ -27,7 +27,8 @@ data class ErrorCode(
 /**
  * The error model of design §4.4 as data: every [ErrorReason] with its gRPC code and HTTP status, plus the HTTP
  * status of gRPC codes that carry no CoSky reason. The HTTP status follows the reason, not the gRPC code:
- * `NAMESPACE_NOT_EMPTY` and `LEASE_NOT_FOUND` share FAILED_PRECONDITION but answer 409 and 412.
+ * `NAMESPACE_NOT_EMPTY` and `LEASE_NOT_FOUND` share FAILED_PRECONDITION but answer 409 and 412, where a
+ * FAILED_PRECONDITION without a reason answers 400.
  */
 object ErrorCodes {
     val ALL: List<ErrorCode> = listOf(
@@ -60,7 +61,7 @@ object ErrorCodes {
         Status.Code.ALREADY_EXISTS to 409,
         Status.Code.PERMISSION_DENIED to 403,
         Status.Code.RESOURCE_EXHAUSTED to 429,
-        Status.Code.FAILED_PRECONDITION to 412,
+        Status.Code.FAILED_PRECONDITION to 400,
         Status.Code.ABORTED to 409,
         Status.Code.OUT_OF_RANGE to 400,
         Status.Code.UNIMPLEMENTED to 501,
