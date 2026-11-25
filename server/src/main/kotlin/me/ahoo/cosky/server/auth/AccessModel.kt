@@ -75,8 +75,9 @@ internal class AccessModel(objects: Collection<Resource>) {
      */
     fun rulesOf(principal: Principal): List<Rule> = effectiveRulesOf(principal).map { it.toRule() }
 
+    // By what the rules go by: not when a person's token expires, or every token renewed would add one more.
     private fun effectiveRulesOf(principal: Principal): List<EffectiveRule> = rulesByPrincipal.computeIfAbsent(
-        principal
+        principal.copy(expiresAt = null)
     ) {
         bindings.filter { binding -> binding.subjectsList.any { matches(it, principal) } }
             .flatMap { binding ->

@@ -26,6 +26,7 @@ import me.ahoo.cosky.api.v1.roleSpec
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
+import java.time.Instant
 
 /**
  * The authorization matrix of design §7.8.
@@ -63,6 +64,17 @@ class AccessModelTest {
 
     private fun AccessModel.config(verb: Verb = Verb.VERB_GET, namespace: String = "prod"): Permission =
         permission(account, verb, Kind.KIND_CONFIG, namespace)
+
+    @Test
+    fun `the tokens a person renews share one entry of what they may do`() {
+        val model = AccessModel(listOf(binding("viewer", subject = subject(Subject.Type.TYPE_USER, "ann"))))
+        repeat(3) {
+            val renewed = Principal(Subject.Type.TYPE_USER, "ann", expiresAt = Instant.now().plusSeconds(60L + it))
+            model.rulesOf(renewed).assert().isNotEmpty()
+        }
+        val cache = AccessModel::class.java.getDeclaredField("rulesByPrincipal").apply { isAccessible = true }
+        (cache.get(model) as Map<*, *>).size.assert().isEqualTo(1)
+    }
 
     @Test
     fun `the names validation reserves are the roles that are built in`() {

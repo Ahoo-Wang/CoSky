@@ -813,6 +813,34 @@ test.describe('configuration', () => {
         expect(watches()).toBe(opened);
     });
 
+    test('a stream ended by an expired token is opened again, with the token renewed meanwhile', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const watches = () => api.requests.filter(request => request.path === '/v1/namespaces/default/watch').length;
+        await expect.poll(watches).toBeGreaterThan(0);
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        const opened = watches();
+
+        api.releaseWatch({canceled: {message: 'The token has expired.', detail: {reason: 'ERROR_REASON_UNAUTHENTICATED'}}});
+
+        await expect.poll(watches).toBeGreaterThan(opened);
+    });
+
+    test('a stream this subject may not watch is not opened again', async ({page}) => {
+        const api = await installApiMock(page);
+        api.failing = {method: 'GET', path: /\/watch$/, status: 403, message: 'Not for this subject.'};
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        const watches = () => api.requests.filter(request => request.path === '/v1/namespaces/default/watch').length;
+        await expect.poll(watches).toBe(1);
+
+        // Past two retries, had it gone on.
+        await page.waitForTimeout(3_500);
+
+        expect(watches()).toBe(1);
+    });
+
     test('reading again keeps what is on screen until the answer arrives', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);

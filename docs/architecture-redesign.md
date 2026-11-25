@@ -1034,7 +1034,7 @@ cosky:
     - { kinds: [INSTANCE], namespaces: ["*"], verbs: [GET, WATCH] }
     - { kinds: [CONFIG], namespaces: ["*"], verbs: [GET, WATCH], names: [order-service.yaml, "shared/*"] }
   ```
-- **吊销**:token 被吊销后,它打开的 Watch 和 KeepAlive 流以 `UNAUTHENTICATED` 结束。到期只在 `_system` 变化或下一次续期时才会发现,所以长期空闲的 Watch 可能略晚结束。
+- **吊销**:token 被吊销后,它打开的 Watch 和 KeepAlive 流以 `UNAUTHENTICATED` 结束。ServiceAccount token 到期只在 `_system` 变化或下一次续期时才会发现,所以长期空闲的 Watch 可能略晚结束。OIDC 的 ID token 到期时,它打开的流按时结束:server 不记录人员,被移出服务商某个组的人只能这样失去该组的权限;Dashboard 收到 `UNAUTHENTICATED` 的 `canceled` 后用续期后的 token 重新打开。
 - **`ServiceAccount.tokens` 只读**:Put 时保留已有 token,忽略请求中的值;token 只能通过 token 端点管理。
 - **TLS**:两个端口均支持 TLS,生产环境建议开启:server 用 Spring 的 `server.ssl.bundle` 和 `spring.grpc.server.ssl.bundle`,客户端用 `cosky.tls.enabled`,私有 CA 再加 `cosky.tls.trusted-certificates`。没有开启时 token 明文经过网络。mTLS 留作后续。
 - **审计日志**:logger `cosky.audit`,JSON 一行一事件:`time, subject, verb, kind, namespace, name, revision, result, remote`。

@@ -12,8 +12,9 @@
  */
 
 import {expect, test} from '@playwright/test';
-import {OIDC_SIGN_IN_KEY, session} from '../../src/security/session.ts';
-import {currentToken} from '../../src/security/renewal.ts';
+import {OIDC_SIGN_IN_KEY, RECEIVED_AT_KEY, session} from '../../src/security/session.ts';
+import {currentToken, localTimes, startRenewing} from '../../src/security/renewal.ts';
+import {canRenew, signInWithToken, signOut} from '../../src/security/oidc.ts';
 
 const SECOND = 1000;
 
@@ -26,8 +27,11 @@ function storage(): Storage {
     } as Storage;
 }
 
-function idToken(secondsLeft: number): string {
-    const now = Math.floor(Date.now() / SECOND);
+/**
+ * @param skew how far the provider's clock is behind this one, in seconds.
+ */
+function idToken(secondsLeft: number, skew = 0): string {
+    const now = Math.floor(Date.now() / SECOND) - skew;
     const payload = Buffer.from(JSON.stringify({iat: now - 60, exp: now + secondsLeft})).toString('base64url');
     return `header.${payload}.signature`;
 }
@@ -44,8 +48,10 @@ test.describe('a request after a sleep', () => {
         }) as typeof fetch;
     });
 
+    /** As a tab that got [token] when it was issued, a minute ago by its own clock. */
     const signedIn = (token: string, refreshToken?: string) => {
         session.signIn(token);
+        sessionStorage.setItem(RECEIVED_AT_KEY, String(Date.now() - 60 * SECOND));
         sessionStorage.setItem(OIDC_SIGN_IN_KEY, JSON.stringify({
             clientId: 'dashboard',
             tokenEndpoint: 'https://idp.example/token',
@@ -109,4 +115,78 @@ test.describe('a request after a sleep', () => {
         expect(tokens).toEqual(['the-new-one', 'the-new-one', 'the-new-one']);
         expect(requests).toHaveLength(1);
     });
+    test('a provider away for a moment leaves the refresh token for the next try', async () => {
+        const token = idToken(-5);
+        signedIn(token, 'refresh');
+        globalThis.fetch = (async () => new Response('Service Unavailable', {status: 503})) as typeof fetch;
+
+        expect(await currentToken()).toBe(token);
+        expect(canRenew()).toBe(true);
+        expect(sessionStorage.getItem(OIDC_SIGN_IN_KEY)).toContain('"refreshToken":"refresh"');
+    });
+
+    test('a refresh token the provider refuses for good is dropped', async () => {
+        signedIn(idToken(-5), 'refresh');
+        globalThis.fetch = (async () => new Response(JSON.stringify({error: 'invalid_grant'}), {status: 400})) as typeof fetch;
+
+        await currentToken();
+        expect(canRenew()).toBe(false);
+    });
+
+    test('a clock ahead of the provider\'s counts the token from when it arrived', async () => {
+        // Ten minutes ahead: by this clock, the five-minute token expired before it arrived.
+        const token = idToken(240, 600);
+        signedIn(token, 'refresh');
+
+        expect(await currentToken()).toBe(token);
+        const stop = startRenewing();
+        await new Promise(resolve => setTimeout(resolve, 200));
+        stop();
+        expect(requests).toHaveLength(0);
+    });
+
+    test('a token pasted in ends the OIDC sign-in, even one renewing', async () => {
+        signedIn(idToken(-5), 'refresh');
+        signInWithToken('cosky_id_secret');
+
+        expect(canRenew()).toBe(false);
+        expect(await currentToken()).toBe('cosky_id_secret');
+        expect(requests).toHaveLength(0);
+    });
+
+    test('signing out sends the provider only an ID token', () => {
+        const assigned: string[] = [];
+        const global = globalThis as {window?: unknown};
+        const previous = global.window;
+        global.window = {location: {assign: (url: URL) => assigned.push(String(url))}};
+        const endSession = (token: string) => {
+            session.signIn(token);
+            sessionStorage.setItem(OIDC_SIGN_IN_KEY, JSON.stringify({
+                clientId: 'dashboard',
+                tokenEndpoint: 'https://idp.example/token',
+                endSessionEndpoint: 'https://idp.example/logout',
+                redirectUri: 'https://cosky.example/',
+            }));
+            signOut();
+        };
+
+        try {
+            endSession('cosky_id_secret');
+            expect(assigned).toHaveLength(0);
+            endSession(idToken(120));
+            expect(assigned).toHaveLength(1);
+            expect(assigned[0]).toContain('id_token_hint=header.');
+        } finally {
+            global.window = previous;
+        }
+    });
+});
+
+test('renewing goes by this computer\'s clock, whichever way the provider\'s is off', () => {
+    const issuedAt = 1_000_000;
+    // The token arrived when this clock said 1,000 s later than the provider's: behind it, that is.
+    const times = localTimes(issuedAt, issuedAt + 300, (issuedAt - 1000) * SECOND);
+    expect(times.renewAt).toBe((issuedAt - 1000 + 240) * SECOND);
+    expect(times.expiresAt).toBe((issuedAt - 1000 + 300) * SECOND);
+    expect(localTimes(undefined, issuedAt + 300, null).expiresAt).toBe((issuedAt + 300) * SECOND);
 });

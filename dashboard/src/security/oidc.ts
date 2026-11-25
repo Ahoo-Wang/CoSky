@@ -183,6 +183,10 @@ export async function renewIdToken(): Promise<string | null> {
             client_id: signIn.clientId,
         }),
     });
+    if (!response.ok && !await refusedForGood(response)) {
+        // Such as a 503 while the provider restarts: the refresh token still holds, for the next try.
+        throw new Error(`The identity provider answered ${response.status}.`);
+    }
     const tokens = response.ok ? await response.json() as TokenResponse : null;
     // Whoever it was may have signed out while this was on its way, and then nothing of it should come back.
     if (!signInOfThisTab()) {
@@ -190,6 +194,25 @@ export async function renewIdToken(): Promise<string | null> {
     }
     remember({...signIn, refreshToken: tokens ? tokens.refresh_token ?? signIn.refreshToken : undefined});
     return tokens?.id_token ?? null;
+}
+
+/**
+ * Whether the provider will never honor the refresh token again: what RFC 6749 §5.2 calls `invalid_grant`, as when it
+ * expired or the session at the provider ended. Anything else may pass.
+ */
+async function refusedForGood(response: Response): Promise<boolean> {
+    const error = await response.json().then(body => (body as {error?: unknown})?.error, () => undefined);
+    return error === 'invalid_grant';
+}
+
+/**
+ * Signs in with a token pasted in rather than through the provider. That ends an OIDC sign-in of this tab, even one
+ * still renewing: its refresh token would put the person's ID token back in place of this one, and signing out would
+ * send this token to the provider.
+ */
+export function signInWithToken(token: string): void {
+    sessionStorage.removeItem(OIDC_SIGN_IN_KEY);
+    session.signIn(token);
 }
 
 /**
@@ -207,7 +230,8 @@ export function signOut(): void {
     const token = session.token();
     const signIn = signInOfThisTab();
     session.signOut();
-    if (token && signIn?.endSessionEndpoint) {
+    // Only an ID token is a hint the provider takes; anything else would only end up in its logs.
+    if (token && idTokenClaims(token) && signIn?.endSessionEndpoint) {
         const url = new URL(signIn.endSessionEndpoint);
         url.search = new URLSearchParams({
             id_token_hint: token,
