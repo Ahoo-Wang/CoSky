@@ -45,6 +45,7 @@ import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.GetRequest
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.GrantRequest
 import me.ahoo.cosky.api.v1.KeepAliveRequest
 import me.ahoo.cosky.api.v1.Kind
@@ -512,6 +513,22 @@ class AuthorizationTest {
             }
         }
         seen.last().canceled.detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_PERMISSION_DENIED)
+    }
+
+    @Test
+    fun `seeing other names starts a running watch over, for no reason a position is lost for`() = scenario {
+        system(customRole("reader", rule(Kind.KIND_CONFIG, listOf(Verb.VERB_WATCH), listOf("a"))))
+        val reader = account("narrow", "reader")
+        val seen = mutableListOf<WatchResponse>()
+        reader.watches.watch(watch(Kind.KIND_CONFIG)).take(2).collect { response ->
+            seen += response
+            if (response.hasSnapshot()) {
+                system(customRole("reader", rule(Kind.KIND_CONFIG, listOf(Verb.VERB_WATCH), listOf("a", "b"))))
+            }
+        }
+        val gone = seen.last().positionGone
+        gone.reason.assert().isEqualTo(GoneReason.GONE_REASON_UNSPECIFIED)
+        gone.epoch.assert().isEqualTo(seen.first().snapshot.epoch)
     }
 
     @Test

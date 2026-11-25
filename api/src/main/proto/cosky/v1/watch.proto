@@ -45,14 +45,17 @@ message WatchRequest {
 }
 
 message WatchResponse {
+  // gone was a bare int64, the earliest resumable revision; position_gone replaces it.
+  reserved 5;
+  reserved "gone";
+
   int64 watch_id = 1;
   oneof payload {
     Snapshot snapshot = 2; // initial state when from_revision = 0
     Events events = 3; // events of one revision, in one or more messages
     int64 progress = 4; // bookmark: the revision caught up to, sent periodically while idle
-    // (from_epoch, from_revision) cannot be resumed; the earliest resumable revision, the client must List again.
-    int64 gone = 5;
     Canceled canceled = 6; // the server ended this watch; the stream and its other watches go on
+    Gone position_gone = 7; // the watch cannot go on from its position: List again, or watch from a snapshot (§7.3)
   }
   message Snapshot {
     repeated Resource items = 1;
@@ -64,6 +67,13 @@ message WatchResponse {
     int64 revision = 1;
     repeated Event events = 2;
     bool more = 3; // more events of this revision follow; apply them together once the last arrives (§4.6)
+  }
+  // The position of the watch, (from_epoch, from_revision) or what it delivered since, is gone. The watch ends; the
+  // stream and its other watches go on.
+  message Gone {
+    int64 earliest_revision = 1; // the earliest revision the namespace can be resumed from now, in epoch
+    string epoch = 2; // the namespace's timeline now (§6.4)
+    GoneReason reason = 3;
   }
   // Ends one watch without closing the stream: the Create was rejected (e.g. WATCH_QUOTA_EXCEEDED), the namespace was
   // deleted (NAMESPACE_NOT_FOUND) or the subject lost permission (PERMISSION_DENIED), see §7.2 and §7.3.
@@ -80,4 +90,13 @@ message WatchResponse {
     Type type = 1;
     Resource resource = 2; // for DELETE: the spec before deletion; revision, updated_at, updated_by of the delete
   }
+}
+
+// Why a watch's position is gone; cosky_watch_gone_total counts each (§7.9).
+enum GoneReason {
+  GONE_REASON_UNSPECIFIED = 0; // none of the reasons below, e.g. what the subject may see changed (§7.3)
+  GONE_REASON_COMPACTED = 1; // from_revision was older than the window when it was created
+  GONE_REASON_SLOW = 2; // it fell out of the window while following
+  GONE_REASON_EPOCH = 3; // another epoch began: the namespace was created again, or its timeline replaced (§6.4)
+  GONE_REASON_REGRESSION = 4; // from_revision is beyond what the store holds: it came from a timeline that was lost
 }

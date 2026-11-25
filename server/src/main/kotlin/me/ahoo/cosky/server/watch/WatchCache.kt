@@ -72,7 +72,7 @@ class WatchCache(
         throw when {
             view != null -> CoSkyException.namespaceNotFound(namespace)
             cache.isDiverged -> CoSkyException.revisionRegression(namespace)
-            cache.views.value == null -> CoSkyException.storeUnavailable("Namespace $namespace is loading.")
+            cache.views.value == null -> CoSkyException.replicaNotReady(namespace, "Namespace $namespace is loading.")
             else -> CoSkyException.minRevisionTimeout(namespace, minRevision)
         }
     }

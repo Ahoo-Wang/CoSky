@@ -19,8 +19,11 @@ import io.grpc.inprocess.InProcessChannelBuilder
 import io.grpc.inprocess.InProcessServerBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
@@ -80,6 +83,10 @@ class ProtocolParityTest {
             }
             return memory.apply(namespace, mutations, actor)
         }
+
+        /** A replica never finishes loading [LOADING]. */
+        override fun readAll(namespace: String): Flow<Resource> =
+            if (namespace == LOADING) flow { awaitCancellation() } else memory.readAll(namespace)
     }
     private val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
     private val caches = WatchCache(store, 64, scope)
@@ -237,6 +244,51 @@ class ProtocolParityTest {
     }
 
     @Test
+    fun `a namespace this replica is still loading`() = scenario {
+        store.createNamespace(LOADING)
+        sameFailure(
+            ErrorReason.ERROR_REASON_REPLICA_NOT_READY,
+            { grpc.get(GetRequest.newBuilder().setKey(key(namespace = LOADING)).build()) },
+            { rest.get().uri("/v1/namespaces/$LOADING/configs/a").exchange() },
+        )
+    }
+
+    /**
+     * Both name the field of a violation by its proto path, whatever REST calls the parameter or header.
+     */
+    private suspend fun sameField(
+        field: String,
+        grpcCall: suspend () -> Unit,
+        restCall: () -> WebTestClient.ResponseSpec,
+    ) {
+        val failure = CoSkyException.from(runCatching { grpcCall() }.exceptionOrNull() as StatusException)
+        failure?.detail?.badRequest?.violationsList?.map { it.field }.assert().containsExactly(field)
+        val body = restCall().expectStatus().isBadRequest.expectBody(String::class.java).returnResult().responseBody
+        JsonParser.parseString(body).asJsonObject.getAsJsonObject("badRequest").getAsJsonArray("violations")
+            .map { it.asJsonObject["field"].asString }.assert().containsExactly(field)
+    }
+
+    @Test
+    fun `a violation names the same field`() = scenario {
+        val list = ListRequest.newBuilder().setNamespace(NAMESPACE).setKind(Kind.KIND_CONFIG)
+        sameField(
+            "page_size",
+            { grpc.list(list.setPageSize(2000).build()) },
+            { rest.get().uri("/v1/namespaces/$NAMESPACE/configs?pageSize=2000").exchange() },
+        )
+        sameField(
+            "label_selector[\"bad key\"]",
+            { grpc.list(list.clearPageSize().putLabelSelector("bad key", "x").build()) },
+            { rest.get().uri("/v1/namespaces/$NAMESPACE/configs?labelSelector={selector}", "bad key=x").exchange() },
+        )
+        sameField(
+            "expected_revision",
+            { grpc.delete(DeleteRequest.newBuilder().setKey(key()).setExpectedRevision(-5).build()) },
+            { rest.delete().uri("/v1/namespaces/$NAMESPACE/configs/a").header("If-Match", "\"-5\"").exchange() },
+        )
+    }
+
+    @Test
     fun `a bad page token`() = scenario {
         sameFailure(
             ErrorReason.ERROR_REASON_INVALID_ARGUMENT,
@@ -271,5 +323,6 @@ class ProtocolParityTest {
 
     private companion object {
         const val NAMESPACE = "parity"
+        const val LOADING = "loading"
     }
 }

@@ -27,11 +27,16 @@ service ViewService {
 
 message ServicesRequest {
   string namespace = 1;
+  // 0 = no limit: every service, in as few pages as the size cap allows; otherwise at most 1000. A page may hold fewer
+  // to stay within the size cap (§4.6).
+  int32 page_size = 2;
+  string page_token = 3; // next_page_token of the previous page; empty = the first page
 }
 
 message ServicesResponse {
   repeated ServiceSummary services = 1; // ordered by service name
-  int64 revision = 2; // namespace revision the view was computed at
+  int64 revision = 2; // namespace revision the first page was computed at, on every page; later pages are no older
+  string next_page_token = 3; // empty = the last page
 }
 
 // A service is the group of instances sharing InstanceSpec.service.
@@ -42,11 +47,17 @@ message ServiceSummary {
 
 message TopologyRequest {
   string namespace = 1;
+  // 0 = no limit: every edge, in as few pages as the size cap allows; otherwise at most 1000. A page may hold fewer
+  // to stay within the size cap (§4.6).
+  int32 page_size = 2;
+  string page_token = 3; // next_page_token of the previous page; empty = the first page
 }
 
-// Edges are recorded from live watches: a client watching the instances of one service consumes it (§6.3).
+// Edges are recorded from live watches: a client watching the instances of one service consumes it (§6.3). They are
+// soft state, read again for each page: an edge may come or go between pages.
 message TopologyResponse {
-  repeated TopologyEdge edges = 1;
+  repeated TopologyEdge edges = 1; // ordered by consumer, then producer
+  string next_page_token = 2; // empty = the last page
 }
 
 message TopologyEdge {

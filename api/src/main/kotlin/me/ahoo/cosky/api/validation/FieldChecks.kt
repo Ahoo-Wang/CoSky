@@ -215,12 +215,15 @@ internal class FieldChecks(private val limits: Limits) {
         }
     }
 
-    fun pageSize(field: String, pageSize: Int) {
+    /**
+     * @param zero what a page size of 0 means.
+     */
+    fun pageSize(field: String, pageSize: Int, zero: String = "default ${limits.defaultPageSize}") {
         if (pageSize !in 0..limits.maxPageSize) {
             add(
                 field,
                 ViolationCode.VIOLATION_CODE_OUT_OF_RANGE,
-                "The page size must be 0 (default ${limits.defaultPageSize}) or within [1, ${limits.maxPageSize}].",
+                "The page size must be 0 ($zero) or within [1, ${limits.maxPageSize}].",
             )
         }
     }

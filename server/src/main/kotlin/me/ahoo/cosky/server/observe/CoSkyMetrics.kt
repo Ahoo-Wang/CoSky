@@ -21,27 +21,11 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.api.v1.GoneReason
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
-/**
- * Why a watch had to start over (design §7.9).
- */
-enum class GoneReason(val tag: String) {
-    /** Its position was older than the window when it connected. */
-    COMPACTED("compacted"),
-
-    /** It fell out of the window while following. */
-    SLOW("slow"),
-
-    /** Its position came from a timeline the store no longer has. */
-    REGRESSION("regression"),
-
-    /** Another epoch began. */
-    EPOCH("epoch"),
-}
 
 /**
  * Why a call was not authenticated (design §7.9). Alerts belong on [MISSING] and [INVALID], which a caller can do
@@ -85,7 +69,9 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
     private val watchesActive = AtomicLong().also { registry.gauge("cosky_watch_active", it) }
     private val eventsSent = registry.counter("cosky_watch_events_sent_total")
     private val regressions = registry.counter("cosky_revision_regression_total")
-    private val gone = GoneReason.entries.associateWith { registry.counter("cosky_watch_gone_total", "reason", it.tag) }
+    private val gone = COUNTED_GONE.associateWith { reason ->
+        registry.counter("cosky_watch_gone_total", "reason", reason.name.removePrefix("GONE_REASON_").lowercase())
+    }
     private val authFailures =
         AuthFailure.entries.associateWith { registry.counter("cosky_auth_failures_total", "reason", it.tag) }
 
@@ -116,8 +102,11 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
         eventsSent.increment(count.toDouble())
     }
 
+    /**
+     * Why a watch had to start over (design §7.9); only the reasons of [COUNTED_GONE] are counted.
+     */
     fun gone(reason: GoneReason) {
-        gone.getValue(reason).increment()
+        gone[reason]?.increment()
     }
 
     fun revisionRegression() {
@@ -219,6 +208,14 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
         const val LEASE_PROTECTION = "cosky_lease_protection_active"
         val LEADER_GAUGES = setOf(LEASES_ACTIVE, LEASE_PROTECTION)
         val MILLIS_PER_SECOND = TimeUnit.SECONDS.toMillis(1)
+
+        /** The tags of `cosky_watch_gone_total`: `compacted`, `slow`, `epoch` and `regression`. */
+        val COUNTED_GONE = listOf(
+            GoneReason.GONE_REASON_COMPACTED,
+            GoneReason.GONE_REASON_SLOW,
+            GoneReason.GONE_REASON_EPOCH,
+            GoneReason.GONE_REASON_REGRESSION,
+        )
 
         /**
          * From a write on one Redis to one waiting out a failover.

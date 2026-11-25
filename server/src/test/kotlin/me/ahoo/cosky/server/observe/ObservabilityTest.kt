@@ -99,8 +99,11 @@ class ObservabilityTest {
             .setFromEpoch(fromEpoch)
             .build()
 
-    private fun goneCount(reason: GoneReason): Double =
-        registry.counter("cosky_watch_gone_total", "reason", reason.tag).count()
+    /**
+     * @param reason the tag, as design §7.9 documents it.
+     */
+    private fun goneCount(reason: String): Double =
+        registry.counter("cosky_watch_gone_total", "reason", reason).count()
 
     @Test
     fun `a write counts its time, and the cache reports how far it got`() = scenario {
@@ -149,11 +152,11 @@ class ObservabilityTest {
         val following = launch { cache.run() }
         val view = checkNotNull(cache.views.first { it != null })
         WatchSession(create(1, "another"), cache, 1024, 1.seconds, metrics = metrics) {}.run()
-        goneCount(GoneReason.EPOCH).assert().isEqualTo(1.0)
+        goneCount("epoch").assert().isEqualTo(1.0)
         WatchSession(create(1, view.epoch), cache, 1024, 1.seconds, metrics = metrics) {}.run()
-        goneCount(GoneReason.COMPACTED).assert().isEqualTo(1.0)
+        goneCount("compacted").assert().isEqualTo(1.0)
         WatchSession(create(view.revision + 5, view.epoch), cache, 1024, 10.milliseconds, metrics = metrics) {}.run()
-        goneCount(GoneReason.REGRESSION).assert().isEqualTo(1.0)
+        goneCount("regression").assert().isEqualTo(1.0)
         following.cancel()
     }
 

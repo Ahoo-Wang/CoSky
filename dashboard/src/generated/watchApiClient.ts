@@ -13,15 +13,21 @@ export class WatchApiClient implements ApiMetadataCapable {
   /**
    * Server-sent events, one `WatchResponse` (proto3 JSON) per `data:` line, `watchId` always 0. With
    * `fromRevision` 0 the stream starts with a `snapshot`, then `events`; `progress` bookmarks arrive while idle;
-   * `gone` means the client must list again; `canceled` ends the stream. A `snapshot` carries the `epoch` to resume
-   * with. Large snapshots and revisions span several messages, marked by `more`; apply them once the last arrives.
+   * `positionGone` says why the position cannot go on, and ends the stream: list again, or watch again without a
+   * position; `canceled` ends the stream. A `snapshot` carries the `epoch` to resume with. Large snapshots and
+   * revisions span several messages, marked by `more`; apply them once the last arrives.
+   *
+   * Namespaces, ServiceAccounts, Roles and RoleBindings live in the namespace `_system`, and are watched there, e.g.
+   * `/v1/namespaces/_system/watch?kind=KIND_ROLE`.
    *
    * - operationId: `watch`
    * - path: `/v1/namespaces/{namespace}/watch`
+   * @param namespace - A namespace, or `_system` for the kinds that live there (Namespaces, ServiceAccounts, Roles, RoleBindings).
+   * @param kind - The kind by its enum name, e.g. `KIND_CONFIG`; `KIND_NAMESPACE` and the other global kinds in `_system`.
    * @param name - Watch one object; empty watches every object of the kind.
    * @param service - Instances of this service only.
    * @param fromRevision - Resume after this revision; 0 sends the current snapshot first.
-   * @param fromEpoch - Epoch of `fromRevision`, required when it is positive; a different epoch gets `gone`.
+   * @param fromEpoch - Epoch of `fromRevision`, required when it is positive; a different epoch gets `positionGone`.
    */
   @get('/v1/namespaces/{namespace}/watch', {
     headers: { Accept: ContentTypeValues.TEXT_EVENT_STREAM },

@@ -166,7 +166,10 @@ internal class WatchMultiplexer(
     private fun handle(outgoing: RequestQueue<WatchRequest>, response: WatchResponse) {
         val watch = byId[response.watchId] ?: return
         when (response.payloadCase) {
-            WatchResponse.PayloadCase.GONE -> restart(outgoing, response.watchId, watch)
+            WatchResponse.PayloadCase.POSITION_GONE -> {
+                log.debug("Watch {} starts over: {}", watch.key, response.positionGone.reason)
+                restart(outgoing, response.watchId, watch)
+            }
             WatchResponse.PayloadCase.CANCELED -> retryLater(outgoing, response, watch)
             else -> if (watch.apply(response)) {
                 snapshots.schedule(watch.key, watch::toSnapshot)

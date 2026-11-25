@@ -160,6 +160,24 @@ class CoSkyException @JvmOverloads constructor(
         fun storeUnavailable(message: String, cause: Throwable? = null): CoSkyException =
             CoSkyException(detail(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE).build(), message, cause)
 
+        /**
+         * The OIDC provider, or its signing keys, cannot be reached: it says nothing of the token, which another try
+         * may well accept.
+         */
+        @InternalCoSkyApi
+        fun identityProviderUnavailable(message: String, cause: Throwable? = null): CoSkyException =
+            CoSkyException(detail(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE).build(), message, cause)
+
+        /**
+         * This replica is still loading [namespace], or is behind what was asked of it, where another replica may
+         * well serve it (design D29).
+         */
+        @InternalCoSkyApi
+        fun replicaNotReady(namespace: String, message: String): CoSkyException = CoSkyException(
+            detail(ErrorReason.ERROR_REASON_REPLICA_NOT_READY).setNamespace(namespaceRef(namespace)),
+            message,
+        )
+
         @InternalCoSkyApi
         fun revisionRegression(namespace: String): CoSkyException = CoSkyException(
             detail(ErrorReason.ERROR_REASON_REVISION_REGRESSION).setNamespace(namespaceRef(namespace)),

@@ -134,20 +134,10 @@ class ResourceService(
         requireValid(validator.validate(request))
         val key = request.resource.key
         return audit.audited(caller, Verb.VERB_PUT, key, PutResponse::getRevision) {
-            val applied = if (key.kind == Kind.KIND_INSTANCE) {
+            val written = if (key.kind == Kind.KIND_INSTANCE) {
                 putInstance(request, key, caller.principal)
             } else {
-                val permission = permissionOf(caller.principal, Verb.VERB_PUT, key.kind, key.namespace)
-                requireAllowed(permission, request.resource.authorizedName)
-                // A Role or RoleBinding gives no more than its writer holds (design §7.8).
-                Grant.of(request.resource)?.let { authorizer.requireHeld(caller.principal, it) }
-                val write = withStoredTokens(withContentHash(namespaces.guard(request)))
-                apply(
-                    key,
-                    Mutation.Put(write.resource, write.expectedRevision),
-                    write.expectedRevision,
-                    caller.principal.id,
-                )
+                putOther(request, key, caller.principal)
             }
             if (key.kind == Kind.KIND_NAMESPACE) {
                 // Once the directory has it: a write it rejects must leave no namespace behind, which the reconciler,
@@ -155,9 +145,47 @@ class ResourceService(
                 namespaces.create(key)
                 namespaces.latest(key)?.takeIf { !it.namespace.terminating }?.let { accounts?.tryEnsure(it) }
             }
-            PutResponse.newBuilder().setRevision(applied.revision).setChanged(applied.changed > 0).build()
+            PutResponse.newBuilder().setRevision(written.revision).setChanged(written.changed).build()
         }
     }
+
+    /**
+     * Every kind but Instance. A write without an expected revision that changed nothing is made again should the
+     * object change before its revision is read (see [writtenOrNull]), which places it after that change.
+     */
+    private suspend fun putOther(request: PutRequest, key: ResourceKey, principal: Principal): Written {
+        val permission = permissionOf(principal, Verb.VERB_PUT, key.kind, key.namespace)
+        requireAllowed(permission, request.resource.authorizedName)
+        // A Role or RoleBinding gives no more than its writer holds (design §7.8).
+        Grant.of(request.resource)?.let { authorizer.requireHeld(principal, it) }
+        repeat(JUDGE_ATTEMPTS) {
+            val write = withStoredTokens(withContentHash(namespaces.guard(request)))
+            val mutation = Mutation.Put(write.resource, write.expectedRevision)
+            val applied = apply(key, mutation, write.expectedRevision, principal.id)
+            writtenOrNull(key, applied, write.expectedRevision)?.let { return it }
+        }
+        throw CoSkyException.revisionConflict(key, request.expectedRevision, latestRevisionOf(key))
+    }
+
+    /**
+     * What a Put answers (design §4.5): the revision it created, or, when it changed nothing, the revision the object
+     * already has, so that either serves as the next expected revision. A compare-and-set that changed nothing found
+     * the object at the revision it expected. Without one, the object is read as of the store's answer, which is a
+     * revision of the namespace: null when it has changed since, and its revision then is no longer what was written.
+     *
+     * @param expected the revision the store compared with.
+     */
+    private suspend fun writtenOrNull(key: ResourceKey, applied: ApplyResult.Applied, expected: Long): Written? =
+        when {
+            applied.changed > 0 -> Written(applied.revision, changed = true)
+            expected > 0 -> Written(expected, changed = false)
+            else -> viewOf(key.namespace, applied.revision).objects[key]?.meta?.revision
+                ?.takeIf { it <= applied.revision }
+                ?.let { Written(it, changed = false) }
+        }
+
+    private suspend fun latestRevisionOf(key: ResourceKey): Long =
+        latestViewOf(key.namespace).objects[key]?.meta?.revision ?: 0
 
     suspend fun delete(request: DeleteRequest, caller: Caller): DeleteResponse {
         requireValid(validator.validate(request))
@@ -169,7 +197,7 @@ class ResourceService(
                     judgedAgainstStored(key, request.expectedRevision, caller.principal.id) { existing, expected ->
                         existing?.let { requireAllowed(permission, it.authorizedName) }
                         Mutation.Delete(key, expected)
-                    }
+                    }.applied
                 }
 
                 Kind.KIND_NAMESPACE -> {
@@ -192,13 +220,22 @@ class ResourceService(
     /**
      * Puts the content of an earlier revision again, which also recreates a deleted Config (design §4.5, §7.1).
      *
+     * @param toRevision a revision the history holds; any other is out of range, whether or not the Config exists.
      * @param expectedRevision as for a Put, of the current object.
      */
     suspend fun rollback(key: ResourceKey, toRevision: Long, expectedRevision: Long, caller: Caller): PutResponse {
-        requireValid(validator.validate(key))
+        requireValid(validator.validate(key).under("key"))
         requireAllowed(permissionOf(caller.principal, Verb.VERB_GET, key.kind, key.namespace), key.name)
         val earlier = store.history(key, 0).firstOrNull { it.meta.revision == toRevision }
-            ?: throw CoSkyException.resourceNotFound(key)
+            ?: throw CoSkyException.invalidArgument(
+                listOf(
+                    Violation(
+                        "to_revision",
+                        ViolationCode.VIOLATION_CODE_OUT_OF_RANGE,
+                        "The history of ${key.name} holds no revision $toRevision.",
+                    ),
+                ),
+            )
         val request = PutRequest.newBuilder().setResource(earlier).setExpectedRevision(expectedRevision).build()
         return put(request, caller)
     }
@@ -214,7 +251,8 @@ class ResourceService(
      */
     fun requireImportable(namespace: String, name: String, caller: Caller) {
         val key = ResourceKey.newBuilder().setNamespace(namespace).setKind(Kind.KIND_CONFIG).setName(name).build()
-        requireValid(validator.validate(key))
+        // As the Put of the entry would name them.
+        requireValid(validator.validate(key).under("resource.meta"))
         requireAllowed(permissionOf(caller.principal, Verb.VERB_PUT, Kind.KIND_CONFIG, namespace), name)
     }
 
@@ -280,11 +318,11 @@ class ResourceService(
      * lease is only for the lease's owner (design §7.8); keeping it on the lease it is on is not attaching, or an
      * operator could not drain an instance an application registered.
      */
-    private suspend fun putInstance(request: PutRequest, key: ResourceKey, principal: Principal): ApplyResult.Applied {
+    private suspend fun putInstance(request: PutRequest, key: ResourceKey, principal: Principal): Written {
         val resource = request.resource
         val permission = permissionOf(principal, Verb.VERB_PUT, key.kind, key.namespace)
         requireAllowed(permission, resource.authorizedName)
-        return judgedAgainstStored(key, request.expectedRevision, principal.id) { existing, expected ->
+        val judged = judgedAgainstStored(key, request.expectedRevision, principal.id) { existing, expected ->
             existing?.let { requireAllowed(permission, it.authorizedName) }
             if (existing != null && existing.instance.service != resource.instance.service) {
                 throw CoSkyException.invalidArgument(
@@ -303,6 +341,8 @@ class ResourceService(
             }
             Mutation.Put(resource, expected)
         }
+        // Always a compare-and-set, so one that changed nothing found the object at the revision it expected.
+        return checkNotNull(writtenOrNull(key, judged.applied, judged.expected))
     }
 
     /**
@@ -322,7 +362,7 @@ class ResourceService(
         expected: Long,
         actor: String,
         judge: suspend (existing: Resource?, expected: Long) -> Mutation,
-    ): ApplyResult.Applied {
+    ): Judged {
         var result: ApplyResult = ApplyResult.Conflict(0, null)
         repeat(JUDGE_ATTEMPTS) {
             val stored = store.position(key.namespace)?.revision ?: 0
@@ -342,10 +382,11 @@ class ResourceService(
             }
             result = store.apply(key.namespace, listOf(judge(existing, kept)), actor)
             if (result !is ApplyResult.Conflict || expected != Mutation.NO_CHECK) {
-                return result.requireApplied(key, expected)
+                return Judged(result.requireApplied(key, expected), kept)
             }
         }
-        return result.requireApplied(key, expected)
+        // A conflict each time: this throws.
+        return Judged(result.requireApplied(key, expected), expected)
     }
 
     /**
@@ -411,6 +452,16 @@ class ResourceService(
         actor: String,
     ): ApplyResult.Applied = store.apply(key.namespace, listOf(mutation), actor).requireApplied(key, expected)
 
+    /**
+     * @param revision the object's revision after a Put.
+     */
+    private data class Written(val revision: Long, val changed: Boolean)
+
+    /**
+     * @param expected the revision the store compared with.
+     */
+    private data class Judged(val applied: ApplyResult.Applied, val expected: Long)
+
     private companion object {
         /** Writes in between that a write without an expected revision outlasts, before it gives up as a conflict. */
         const val JUDGE_ATTEMPTS = 3
@@ -419,6 +470,11 @@ class ResourceService(
         const val UNMATCHABLE = Long.MAX_VALUE
     }
 }
+
+/**
+ * Violations of a message that is the field [parent] of the request.
+ */
+private fun List<Violation>.under(parent: String): List<Violation> = map { it.copy(field = "$parent.${it.field}") }
 
 /**
  * @throws CoSkyException saying why a write of [key] that expected revision [expected] did not apply.

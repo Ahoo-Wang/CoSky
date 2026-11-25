@@ -59,7 +59,7 @@ The Dashboard signs in through the authorization code flow with PKCE, so registe
 
 - **Staying signed in.** The Dashboard renews the ID token before it expires, using the refresh token. A provider that gives none leaves people to sign in again when the token expires, which takes 5 minutes on a default Keycloak. The refresh token stays in the tab, next to the ID token, and ends with it. A live view ends when the ID token it was opened with expires, and the Dashboard opens it again with the renewed one: someone removed from a group at the provider stops seeing what the group may within one token's lifetime.
 - **Signing out** also ends the session at the provider, so that the next sign-in asks for a password, if the provider has an `end_session_endpoint`.
-- **When the provider is away,** servers still start, and applications carry on with their tokens. People already signed in carry on until their ID token expires, and new sign-ins fail: the server answers `UNAVAILABLE` rather than calling the token invalid. Keep a ServiceAccount token to get in meanwhile.
+- **When the provider is away,** servers still start, and applications carry on with their tokens. People already signed in carry on until their ID token expires, and new sign-ins fail: the server answers `UNAVAILABLE` (`IDENTITY_PROVIDER_UNAVAILABLE`) rather than calling the token invalid. Keep a ServiceAccount token to get in meanwhile.
 
 ### Keycloak
 

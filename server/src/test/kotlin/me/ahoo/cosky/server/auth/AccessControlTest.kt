@@ -15,10 +15,12 @@ package me.ahoo.cosky.server.auth
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.VirtualThreads
@@ -74,6 +76,24 @@ class AccessControlTest {
                 val failure = runCatching { access.authenticate(token.plaintext) }.exceptionOrNull() as CoSkyException
                 failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_UNAUTHENTICATED)
             }
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `rules this replica is still loading send the caller to another replica`() = runBlocking<Unit> {
+        val memory = MemoryStore()
+        val never = object : Store by memory {
+            override fun readAll(namespace: String): Flow<Resource> = flow { awaitCancellation() }
+        }
+        val scope = CoroutineScope(SupervisorJob() + VirtualThreads.dispatcher)
+        try {
+            memory.createNamespace(NamingRules.SYSTEM_NAMESPACE)
+            val access = AccessControl(WatchCache(never, WINDOW, scope))
+            val failure = runCatching { access.authenticate(Tokens.generate().plaintext) }.exceptionOrNull()
+            (failure as CoSkyException).reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REPLICA_NOT_READY)
+            failure.detail.namespace.namespace.assert().isEqualTo(NamingRules.SYSTEM_NAMESPACE)
         } finally {
             scope.cancel()
         }

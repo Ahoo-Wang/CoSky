@@ -34,16 +34,22 @@ enum ErrorReason {
   ERROR_REASON_PERMISSION_DENIED = 7; // PERMISSION_DENIED / 403
   ERROR_REASON_INVALID_ARGUMENT = 8; // INVALID_ARGUMENT / 400
   ERROR_REASON_MIN_REVISION_TIMEOUT = 9; // DEADLINE_EXCEEDED / 504
-  ERROR_REASON_STORE_UNAVAILABLE = 10; // UNAVAILABLE / 503
+  ERROR_REASON_STORE_UNAVAILABLE = 10; // UNAVAILABLE / 503: the store cannot be reached, or did not answer in time
   ERROR_REASON_REVISION_REGRESSION = 11; // UNAVAILABLE / 503: the namespace diverged and is reloading (§6.4)
   ERROR_REASON_WATCH_QUOTA_EXCEEDED = 12; // RESOURCE_EXHAUSTED / 429: too many watches on one stream (§7.3)
+  // UNAVAILABLE / 503: the OIDC provider, or its signing keys, cannot be reached; says nothing of the token (§7.8)
+  ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE = 13;
+  // UNAVAILABLE / 503: this replica is still loading the namespace, or is behind the position asked for; another
+  // replica may serve it (§7.3, D29)
+  ERROR_REASON_REPLICA_NOT_READY = 14;
 }
 
 message ErrorDetail {
   ErrorReason reason = 1;
   oneof detail {
     ResourceNotFound resource_not_found = 10;
-    NamespaceRef namespace = 11; // NAMESPACE_NOT_FOUND, NAMESPACE_NOT_EMPTY, MIN_REVISION_TIMEOUT, REVISION_REGRESSION
+    // NAMESPACE_NOT_FOUND, NAMESPACE_NOT_EMPTY, MIN_REVISION_TIMEOUT, REVISION_REGRESSION, REPLICA_NOT_READY
+    NamespaceRef namespace = 11;
     RevisionConflict revision_conflict = 12;
     LeaseNotFound lease_not_found = 13;
     BadRequest bad_request = 14;
@@ -79,7 +85,10 @@ message BadRequest {
 }
 
 message FieldViolation {
-  string field = 1; // path in proto field names, e.g. "resource.meta.labels[\"team\"]"
+  // Path in proto field names from the request message, e.g. "resource.meta.labels[\"team\"]", on both protocols: REST
+  // names a query parameter or header after the request field it sets ("page_size" for pageSize, "expected_revision"
+  // for If-Match), and a body that cannot be read after the field it carries ("resource" for a Put).
+  string field = 1;
   ViolationCode code = 2;
   string description = 3;
 }

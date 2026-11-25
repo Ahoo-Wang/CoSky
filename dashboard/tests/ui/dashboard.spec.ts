@@ -822,6 +822,22 @@ test.describe('configuration', () => {
         await expect(row(page, 'missed.txt')).toBeVisible();
     });
 
+    test('a position the server says is gone has the list read again', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await expect(row(page, 'application.yaml')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/default/watch')).toBeTruthy();
+
+        api.put('/v1/namespaces/default/configs/after-gone.txt', {
+            meta: {},
+            config: {format: 'CONFIG_FORMAT_TEXT', content: 'x', sha256: 'y'},
+        });
+        api.releaseWatch({positionGone: {earliestRevision: '90', epoch: 'e', reason: 'GONE_REASON_SLOW'}});
+
+        await expect(row(page, 'after-gone.txt')).toBeVisible();
+    });
+
     test('a stream the server canceled stays closed', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -1008,6 +1024,23 @@ test.describe('services', () => {
 
         await row(page, 'database').getByRole('button', {name: /expand/i}).click();
         await expect(row(page, 'database-1')).toContainText('Fixed');
+    });
+
+    test('the services and the topology are read page by page, as a server may split a view', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        const pagesOf = (view: string) => api.requests
+            .filter(request => request.path === `/v1/namespaces/default/views/${view}`)
+            .map(request => request.query.get('pageToken'));
+
+        // The last edge, on the last page, is the only one with the database.
+        await expect(page.locator('.react-flow__node').filter({hasText: 'database'}).first()).toBeVisible();
+        expect(pagesOf('topology')).toEqual(expect.arrayContaining([null, '1', '2']));
+
+        await page.getByRole('link', {name: 'Service', exact: true}).click();
+        await expect(row(page, 'database')).toBeVisible();
+        await expect(row(page, 'order')).toBeVisible();
+        expect(pagesOf('services')).toEqual(expect.arrayContaining([null, '1']));
     });
 
     test('an instance added here names its service and has no lease', async ({page}) => {
@@ -1525,6 +1558,31 @@ test.describe('security', () => {
         const waited = api.requests.filter(request =>
             /^\/v1\/(roles|rolebindings)$/.test(request.path) && request.query.get('minRevision') === '500');
         expect(waited).toHaveLength(1);
+    });
+
+    test('a token changes its account: the read after it asks for its revision, as after a revocation', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        await expect(row(page, 'admin')).toContainText('Created at bootstrap');
+        const lists = () => api.requests.filter(request =>
+            request.path === '/v1/serviceaccounts' && !request.query.has('pageToken'));
+
+        const created = page.waitForResponse(response =>
+            response.request().method() === 'POST' && response.url().endsWith('/tokens'));
+        await row(page, 'admin').getByRole('button', {name: 'New token'}).click();
+        const {revision} = await (await created).json() as {revision: string};
+        await page.getByRole('button', {name: 'Done'}).click();
+        await expect.poll(() => lists().at(-1)?.query.get('minRevision')).toBe(revision);
+
+        await row(page, 'admin').getByRole('button', {name: /expand/i}).click();
+        const revoked = page.waitForResponse(response => response.request().method() === 'DELETE');
+        await confirm(page, page.getByRole('button', {name: 'Revoke'}).first());
+        const answer = await (await revoked).json() as {revision: string; deleted?: boolean};
+        expect(answer.deleted).toBe(true);
+        await expect(toast(page, 'Token revoked')).toBeVisible();
+        await expect.poll(() => lists().at(-1)?.query.get('minRevision')).toBe(answer.revision);
     });
 
     test('a failed token says why', async ({page}) => {

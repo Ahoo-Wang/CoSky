@@ -80,7 +80,7 @@ class OidcAuthenticatorTest {
     fun `a provider out of reach is not a bad token`() {
         val unreachable = OidcAuthenticator({ throw JwtException("Couldn't retrieve the keys.") }, "groups")
         val failure = runCatching { unreachable.authenticate(token()) }.exceptionOrNull() as CoSkyException
-        failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+        failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE)
     }
 
     @Test
@@ -88,7 +88,7 @@ class OidcAuthenticatorTest {
         val port = ServerSocket(0).use { it.localPort }
         val away = OidcAuthenticator.create("http://127.0.0.1:$port/realms/gone", AUDIENCE, "groups")
         val failure = runCatching { away.authenticate(token()) }.exceptionOrNull() as CoSkyException
-        failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+        failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE)
     }
 
     @Test
@@ -103,7 +103,7 @@ class OidcAuthenticatorTest {
             val failure = assertTimeoutPreemptively<CoSkyException>(Duration.ofSeconds(5)) {
                 runCatching { slow.authenticate(token()) }.exceptionOrNull() as CoSkyException
             }
-            failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+            failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE)
         }
     }
 

@@ -20,6 +20,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.ViolationCode
@@ -216,11 +217,20 @@ class WatchService(
                         if (!now.admits(watch.create)) {
                             WatchSession.canceled(id, denied(principal, watch.create))
                         } else {
-                            WatchSession.gone(id, 0)
+                            goneOf(id, watch.create.namespace)
                         },
                     )
                 }
             }
+        }
+
+        /**
+         * No position fails here, but what the watch delivered no longer is what it may see: it starts over from where
+         * the namespace stands, for none of the reasons a position is lost for.
+         */
+        private fun goneOf(id: Long, namespace: String): WatchResponse {
+            val view = caches.of(namespace).views.value
+            return WatchSession.gone(id, view?.earliest ?: 0, view?.epoch.orEmpty(), GoneReason.GONE_REASON_UNSPECIFIED)
         }
 
         /**

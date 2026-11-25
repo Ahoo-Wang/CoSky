@@ -19,6 +19,7 @@ import me.ahoo.cosky.api.v1.ErrorsProto
 import me.ahoo.cosky.api.v1.LeasesProto
 import me.ahoo.cosky.api.v1.ResourceProto
 import me.ahoo.cosky.api.v1.ResourcesProto
+import me.ahoo.cosky.api.v1.TokensProto
 import me.ahoo.cosky.api.v1.ViewsProto
 import me.ahoo.cosky.api.v1.WatchProto
 import me.ahoo.test.asserts.assert
@@ -46,6 +47,7 @@ class OpenApiDocumentTest {
         LeasesProto.getDescriptor(),
         ViewsProto.getDescriptor(),
         ErrorsProto.getDescriptor(),
+        TokensProto.getDescriptor(),
     )
 
     private fun messages(): List<Descriptor> {
@@ -157,5 +159,59 @@ class OpenApiDocumentTest {
             "#/components/parameters/ifMatch",
             "#/components/parameters/ifNoneMatch",
         )
+    }
+
+    private val parameters = (document["components"] as Map<String, Any>)["parameters"] as Map<String, Map<String, Any>>
+
+    private fun operation(path: String, method: String): Map<String, Any> =
+        paths.getValue(path)[method] as Map<String, Any>
+
+    private fun parameterRefs(path: String, method: String): List<Any?> =
+        (operation(path, method)["parameters"] as List<Map<String, Any>>?).orEmpty().map { it["\$ref"] }
+
+    @Test
+    fun `the watch takes _system for the global kinds, and kinds by their enum names`() {
+        val namespace = paths.getValue("/v1/namespaces/{namespace}/watch")["parameters"] as List<Map<String, Any>>
+        namespace.single()["\$ref"].assert().isEqualTo("#/components/parameters/watchNamespace")
+        val pattern = Regex((parameters.getValue("watchNamespace")["schema"] as Map<String, Any>)["pattern"] as String)
+        listOf("_system", "prod").forEach { pattern.matches(it).assert().isTrue() }
+        pattern.matches("_other").assert().isFalse()
+        val kind = (operation("/v1/namespaces/{namespace}/watch", "get")["parameters"] as List<Map<String, Any>>)
+            .first { it["name"] == "kind" }
+        (kind["description"] as String).assert().contains("KIND_CONFIG", "_system")
+    }
+
+    @Test
+    fun `a label selector repeats, one condition to each`() {
+        val selector = parameters.getValue("labelSelector")
+        selector["explode"].assert().isEqualTo(true)
+        (selector["schema"] as Map<String, Any>)["type"].assert().isEqualTo("array")
+    }
+
+    @Test
+    fun `token bodies come from the protos, and both token calls take the account's revision`() {
+        (schemas.getValue("CreateTokenResponse")["properties"] as Map<String, Any>).keys.assert()
+            .contains("token", "revision")
+        listOf(
+            "/v1/serviceaccounts/{name}/tokens" to "post",
+            "/v1/serviceaccounts/{name}/tokens/{tokenId}" to "delete",
+        ).forEach { (path, method) ->
+            parameterRefs(path, method).assert().containsExactly("#/components/parameters/accountIfMatch")
+        }
+        val responses = operation("/v1/serviceaccounts/{name}/tokens/{tokenId}", "delete")["responses"]
+            as Map<String, Map<String, Any>>
+        val revoked = responses.getValue("200")["content"] as Map<String, Map<String, Any>>
+        revoked.getValue("application/json")["schema"].assert()
+            .isEqualTo(mapOf("\$ref" to "#/components/schemas/RevokeTokenResponse"))
+    }
+
+    @Test
+    fun `services and the topology come in pages`() {
+        listOf("services", "topology").forEach { view ->
+            parameterRefs("/v1/namespaces/{namespace}/views/$view", "get").assert().containsExactly(
+                "#/components/parameters/viewPageSize",
+                "#/components/parameters/viewPageToken",
+            )
+        }
     }
 }

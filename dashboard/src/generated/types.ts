@@ -73,7 +73,7 @@ export interface ConfigSpec {
  */
 export interface CreateTokenRequest {
   /**
-   * Expiry; omitted means the token does not expire.
+   * unset = the token does not expire
    * - format: date-time
    */
   expiresAt: string;
@@ -85,10 +85,16 @@ export interface CreateTokenRequest {
  */
 export interface CreateTokenResponse {
   id: string;
-  /** Plaintext `cosky_<tokenId>_<secret>`, returned only once. */
+  /** the plaintext, cosky_<id>_<secret>: returned here only, never again */
   token: string;
   /** - format: date-time */
   expiresAt: string;
+  /**
+   * The ServiceAccount's revision, which holding the token created: usable as If-Match of the next token change, and
+   *  as min_revision of a read that must see the token.
+   * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
+   */
+  revision: string;
 }
 
 /**
@@ -106,8 +112,13 @@ export interface DeleteRequest {
  * - required: (none)
  */
 export interface DeleteResponse {
-  /** - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision) */
+  /**
+   * Usable as min_revision. Deleted: the revision of the deletion. Not deleted, as the object did not exist: the
+   *  namespace's revision as of the answer, at which it did not.
+   * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
+   */
   revision: string;
+  /** false when there was nothing to delete */
   deleted: boolean;
 }
 
@@ -131,7 +142,7 @@ export interface Endpoint {
 export interface ErrorDetail {
   reason: ErrorReason;
   resourceNotFound: ResourceNotFound;
-  /** NAMESPACE_NOT_FOUND, NAMESPACE_NOT_EMPTY, MIN_REVISION_TIMEOUT, REVISION_REGRESSION */
+  /** NAMESPACE_NOT_FOUND, NAMESPACE_NOT_EMPTY, MIN_REVISION_TIMEOUT, REVISION_REGRESSION, REPLICA_NOT_READY */
   namespace: NamespaceRef;
   revisionConflict: RevisionConflict;
   leaseNotFound: LeaseNotFound;
@@ -152,9 +163,12 @@ export interface ErrorDetail {
  * - `ERROR_REASON_PERMISSION_DENIED`: PERMISSION_DENIED / 403
  * - `ERROR_REASON_INVALID_ARGUMENT`: INVALID_ARGUMENT / 400
  * - `ERROR_REASON_MIN_REVISION_TIMEOUT`: DEADLINE_EXCEEDED / 504
- * - `ERROR_REASON_STORE_UNAVAILABLE`: UNAVAILABLE / 503
+ * - `ERROR_REASON_STORE_UNAVAILABLE`: UNAVAILABLE / 503: the store cannot be reached, or did not answer in time
  * - `ERROR_REASON_REVISION_REGRESSION`: UNAVAILABLE / 503: the namespace diverged and is reloading (§6.4)
  * - `ERROR_REASON_WATCH_QUOTA_EXCEEDED`: RESOURCE_EXHAUSTED / 429: too many watches on one stream (§7.3)
+ * - `ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE`: UNAVAILABLE / 503: the OIDC provider, or its signing keys, cannot be reached; says nothing of the token (§7.8)
+ * - `ERROR_REASON_REPLICA_NOT_READY`: UNAVAILABLE / 503: this replica is still loading the namespace, or is behind the position asked for; another
+ *  replica may serve it (§7.3, D29)
  * - key: ErrorReason
  */
 export enum ErrorReason {
@@ -170,7 +184,9 @@ export enum ErrorReason {
   ERROR_REASON_MIN_REVISION_TIMEOUT = 'ERROR_REASON_MIN_REVISION_TIMEOUT',
   ERROR_REASON_STORE_UNAVAILABLE = 'ERROR_REASON_STORE_UNAVAILABLE',
   ERROR_REASON_REVISION_REGRESSION = 'ERROR_REASON_REVISION_REGRESSION',
-  ERROR_REASON_WATCH_QUOTA_EXCEEDED = 'ERROR_REASON_WATCH_QUOTA_EXCEEDED'
+  ERROR_REASON_WATCH_QUOTA_EXCEEDED = 'ERROR_REASON_WATCH_QUOTA_EXCEEDED',
+  ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE = 'ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE',
+  ERROR_REASON_REPLICA_NOT_READY = 'ERROR_REASON_REPLICA_NOT_READY'
 }
 
 /**
@@ -178,7 +194,11 @@ export enum ErrorReason {
  * - required: (none)
  */
 export interface FieldViolation {
-  /** path in proto field names, e.g. "resource.meta.labels[\"team\"]" */
+  /**
+   * Path in proto field names from the request message, e.g. "resource.meta.labels[\"team\"]", on both protocols: REST
+   *  names a query parameter or header after the request field it sets ("page_size" for pageSize, "expected_revision"
+   *  for If-Match), and a body that cannot be read after the field it carries ("resource" for a Put).
+   */
   field: string;
   code: ViolationCode;
   description: string;
@@ -195,6 +215,24 @@ export interface GetRequest {
    * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
    */
   minRevision: string;
+}
+
+/**
+ * Why a watch's position is gone; cosky_watch_gone_total counts each (§7.9).
+ *
+ * - `GONE_REASON_UNSPECIFIED`
+ * - `GONE_REASON_COMPACTED`: from_revision was older than the window when it was created
+ * - `GONE_REASON_SLOW`: it fell out of the window while following
+ * - `GONE_REASON_EPOCH`: another epoch began: the namespace was created again, or its timeline replaced (§6.4)
+ * - `GONE_REASON_REGRESSION`: from_revision is beyond what the store holds: it came from a timeline that was lost
+ * - key: GoneReason
+ */
+export enum GoneReason {
+  GONE_REASON_UNSPECIFIED = 'GONE_REASON_UNSPECIFIED',
+  GONE_REASON_COMPACTED = 'GONE_REASON_COMPACTED',
+  GONE_REASON_SLOW = 'GONE_REASON_SLOW',
+  GONE_REASON_EPOCH = 'GONE_REASON_EPOCH',
+  GONE_REASON_REGRESSION = 'GONE_REASON_REGRESSION'
 }
 
 /**
@@ -458,6 +496,7 @@ export interface Problem {
   namespace: NamespaceRef;
   revisionConflict: RevisionConflict;
   leaseNotFound: LeaseNotFound;
+  /** The violations, each naming its field by the proto field path, as the description of the API says. */
   badRequest: BadRequest;
   watchQuotaExceeded: WatchQuotaExceeded;
 }
@@ -480,7 +519,11 @@ export interface PutRequest {
  * - required: (none)
  */
 export interface PutResponse {
-  /** - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision) */
+  /**
+   * The object's revision after the write, usable as expected_revision (REST: If-Match) and as min_revision. A write
+   *  that changed something: the revision it created. One that changed nothing: the revision the object already has.
+   * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
+   */
   revision: string;
   /** false when the content is unchanged: no new revision, no event */
   changed: boolean;
@@ -549,6 +592,21 @@ export interface RevokeRequest {
 export type RevokeResponse = globalThis.Record<string, any>;
 
 /**
+ * - key: RevokeTokenResponse
+ * - required: (none)
+ */
+export interface RevokeTokenResponse {
+  /**
+   * The ServiceAccount's revision, usable as If-Match and min_revision: the one the revocation created, or, when there
+   *  was no such token, the one the account has, unchanged.
+   * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
+   */
+  revision: string;
+  /** false when the account holds no token of that id: nothing changed */
+  deleted: boolean;
+}
+
+/**
  * - key: RoleBindingSpec
  * - required: (none)
  */
@@ -574,7 +632,7 @@ export interface RoleSpec {
  */
 export interface RollbackRequest {
   /**
-   * A revision from the Config's history.
+   * A revision from the Config's history. The body has no other member.
    * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
    */
   toRevision: string;
@@ -623,6 +681,14 @@ export interface ServiceSummary {
  */
 export interface ServicesRequest {
   namespace: string;
+  /**
+   * 0 = no limit: every service, in as few pages as the size cap allows; otherwise at most 1000. A page may hold fewer
+   *  to stay within the size cap (§4.6).
+   * - format: int32
+   */
+  pageSize: number;
+  /** next_page_token of the previous page; empty = the first page */
+  pageToken: string;
 }
 
 /**
@@ -633,10 +699,12 @@ export interface ServicesResponse {
   /** ordered by service name */
   services: ServiceSummary[];
   /**
-   * namespace revision the view was computed at
+   * namespace revision the first page was computed at, on every page; later pages are no older
    * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
    */
   revision: string;
+  /** empty = the last page */
+  nextPageToken: string;
 }
 
 /**
@@ -718,15 +786,27 @@ export interface TopologyEdge {
  */
 export interface TopologyRequest {
   namespace: string;
+  /**
+   * 0 = no limit: every edge, in as few pages as the size cap allows; otherwise at most 1000. A page may hold fewer
+   *  to stay within the size cap (§4.6).
+   * - format: int32
+   */
+  pageSize: number;
+  /** next_page_token of the previous page; empty = the first page */
+  pageToken: string;
 }
 
 /**
- * Edges are recorded from live watches: a client watching the instances of one service consumes it (§6.3).
+ * Edges are recorded from live watches: a client watching the instances of one service consumes it (§6.3). They are
+ *  soft state, read again for each page: an edge may come or go between pages.
  * - key: TopologyResponse
  * - required: (none)
  */
 export interface TopologyResponse {
+  /** ordered by consumer, then producer */
   edges: TopologyEdge[];
+  /** empty = the last page */
+  nextPageToken: string;
 }
 
 /**
@@ -824,7 +904,7 @@ export interface WatchRequestCreate {
 }
 
 /**
- * At most one of `snapshot`, `events`, `progress`, `gone`, `canceled` is set (oneof `payload`).
+ * At most one of `snapshot`, `events`, `progress`, `canceled`, `positionGone` is set (oneof `payload`).
  * - key: WatchResponse
  * - required: (none)
  */
@@ -840,13 +920,10 @@ export interface WatchResponse {
    * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
    */
   progress: string;
-  /**
-   * (from_epoch, from_revision) cannot be resumed; the earliest resumable revision, the client must List again.
-   * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
-   */
-  gone: string;
   /** the server ended this watch; the stream and its other watches go on */
   canceled: WatchResponseCanceled;
+  /** the watch cannot go on from its position: List again, or watch from a snapshot (§7.3) */
+  positionGone: WatchResponseGone;
 }
 
 /**
@@ -892,6 +969,23 @@ export interface WatchResponseEvents {
   events: WatchResponseEvent[];
   /** more events of this revision follow; apply them together once the last arrives (§4.6) */
   more: boolean;
+}
+
+/**
+ * The position of the watch, (from_epoch, from_revision) or what it delivered since, is gone. The watch ends; the
+ *  stream and its other watches go on.
+ * - key: WatchResponse.Gone
+ * - required: (none)
+ */
+export interface WatchResponseGone {
+  /**
+   * the earliest revision the namespace can be resumed from now, in epoch
+   * - format: int64 (a value beyond Number.MAX_SAFE_INTEGER loses precision)
+   */
+  earliestRevision: string;
+  /** the namespace's timeline now (§6.4) */
+  epoch: string;
+  reason: GoneReason;
 }
 
 /**

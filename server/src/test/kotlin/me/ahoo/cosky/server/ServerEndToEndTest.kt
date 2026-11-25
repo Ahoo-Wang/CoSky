@@ -305,7 +305,7 @@ class ServerEndToEndTest {
         val watcher = launch {
             server.watch(NAMESPACE, Kind.KIND_CONFIG, seen).collect {
                 if (it.hasSnapshot()) first.complete(Unit)
-                if (it.hasGone()) gone.complete(Unit)
+                if (it.hasPositionGone()) gone.complete(Unit)
             }
         }
         first.await()

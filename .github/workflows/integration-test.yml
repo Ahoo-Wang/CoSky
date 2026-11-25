@@ -148,7 +148,7 @@ jobs:
         run: .github/scripts/rest-only-grows.sh .base
 
   # From 8.0.0-rc.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
-  # pull request, by the rules in api/src/main/proto/buf.yaml.
+  # pull request, by the rules in api/src/main/proto/buf.yaml. Before the release candidate it only warns.
   proto-compatibility:
     name: Proto Compatibility
     if: github.event_name == 'pull_request'
@@ -173,9 +173,7 @@ jobs:
           cache: gradle
 
       - name: Breaking changes
-        run: >-
-          .github/scripts/retry-on-network-error.sh ./gradlew :api:bufBreaking
-          -PbufAgainst="$GITHUB_WORKSPACE/.base/api/src/main/proto" -PbufErrorFormat=github-actions
+        run: .github/scripts/proto-only-grows.sh .base
 
   # The versions design D31 promises, beyond the one every other test runs on.
   redis-compatibility:

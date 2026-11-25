@@ -84,7 +84,7 @@ class WatchStreamTest {
                     when {
                         // The old watch's last message, sent from its own coroutine, which ends right after it
                         // without suspending again: the client cancels it and creates another of the same id then.
-                        response.hasGone() && swapped.compareAndSet(false, true) -> {
+                        response.hasPositionGone() && swapped.compareAndSet(false, true) -> {
                             stream.cancel(1)
                             stream.start(create(NEW), Permission.All)
                         }

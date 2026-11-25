@@ -59,7 +59,7 @@ curl -X PUT localhost:8080/v1/namespaces/prod/configs/shared%2Fdatasource.yaml \
 | `If-None-Match: *` | Only if it does not exist. |
 | Neither | Write regardless. |
 
-The Dashboard always sends the first two, so nobody overwrites a change they did not see. Writing the same content changes nothing: there is no new revision and no event.
+The Dashboard always sends the first two, so nobody overwrites a change they did not see. Writing the same content changes nothing: there is no new revision and no event, and the answer carries the revision the Config already has.
 
 A `/` in a name is encoded as `%2F` in the path, because a name is one path segment.
 

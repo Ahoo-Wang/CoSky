@@ -46,6 +46,14 @@ class ErrorCodesTest {
     }
 
     @Test
+    fun `an identity provider or a replica out of service is unavailable, as a store is`() {
+        listOf(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE, ErrorReason.ERROR_REASON_REPLICA_NOT_READY)
+            .forEach { reason ->
+                ErrorCodes.of(reason).assert().isEqualTo(ErrorCode(reason, Status.Code.UNAVAILABLE, 503))
+            }
+    }
+
+    @Test
     fun `HTTP status follows the reason, not only the gRPC code`() {
         ErrorCodes.of(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY).assert().isEqualTo(
             ErrorCode(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY, Status.Code.FAILED_PRECONDITION, 409),

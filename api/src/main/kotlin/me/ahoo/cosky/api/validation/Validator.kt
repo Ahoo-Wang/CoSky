@@ -115,13 +115,24 @@ class Validator(private val limits: Limits = Limits.DEFAULT) {
         it.lease("lease", request.lease)
     }
 
-    fun validate(request: ServicesRequest): List<Violation> = namespaceOnly(request.namespace)
+    fun validate(request: ServicesRequest): List<Violation> =
+        viewPage(request.namespace, request.pageSize, request.pageToken)
 
-    fun validate(request: TopologyRequest): List<Violation> = namespaceOnly(request.namespace)
+    fun validate(request: TopologyRequest): List<Violation> =
+        viewPage(request.namespace, request.pageSize, request.pageToken)
 
     fun validate(request: StatsRequest): List<Violation> = namespaceOnly(request.namespace)
 
     private fun namespaceOnly(namespace: String): List<Violation> = collect { it.userNamespace("namespace", namespace) }
+
+    /**
+     * A view without a page size has no count limit, only the size cap (§4.6).
+     */
+    private fun viewPage(namespace: String, pageSize: Int, pageToken: String): List<Violation> = collect {
+        it.userNamespace("namespace", namespace)
+        it.pageSize("page_size", pageSize, zero = "no limit")
+        it.pageToken("page_token", pageToken)
+    }
 
     private fun resource(checks: FieldChecks, field: String, resource: Resource) {
         ResourceChecks(checks, limits).resource(field, resource)

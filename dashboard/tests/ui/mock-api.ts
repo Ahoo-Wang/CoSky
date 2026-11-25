@@ -81,11 +81,11 @@ async function json(route: Route, body: unknown, status = 200) {
 }
 
 /**
- * One object per page, so that everything that lists has to read every page, as a server's byte limit can demand.
+ * One entry per page, so that everything that lists has to read every page, as a server's byte limit can demand.
  *
  * @param at what the next page token carries besides where it goes on: a later page reads where the first one did.
  */
-function pageOf(items: Stored[], field: string, url: URL, at = ''): Json {
+function pageOf(items: unknown[], field: string, url: URL, at = ''): Json {
     const offset = Number.parseInt(url.searchParams.get('pageToken') ?? '0', 10);
     const next = offset + 1;
     return {
@@ -319,11 +319,11 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         const view = path.match(/^\/v1\/namespaces\/([^/]+)\/views\/(services|topology|stats)$/);
         if (view) {
             const [, namespace, name] = view;
+            // A page at a time, as a server's byte limit can split a view.
             if (name === 'services') {
-                const services = servicesIn(namespace);
-                await json(route, services.length ? {services} : {});
+                await json(route, {...pageOf(servicesIn(namespace), 'services', url), revision: String(revision)});
             } else if (name === 'topology') {
-                await json(route, mockApi.topology.length ? {edges: mockApi.topology} : {});
+                await json(route, pageOf(mockApi.topology, 'edges', url));
             } else {
                 const instances = collectionOf(`/v1/namespaces/${namespace}/instances`);
                 await json(route, {
@@ -356,17 +356,23 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             }
             return;
         }
+        // A token changes its account, whose revision both answers hold; revoking one it does not hold changes nothing.
         const tokens = path.match(/^(\/v1\/serviceaccounts\/[^/]+)\/tokens(?:\/(.+))?$/);
         if (tokens) {
             const account = objects.get(tokens[1]) as Stored;
+            const held: Json[] = account.serviceAccount.tokens ?? [];
             if (method === 'POST') {
-                const id = `token${objects.size}${account.serviceAccount.tokens?.length ?? 0}`;
+                const id = `token${objects.size}${held.length}`;
                 const plaintext = `cosky_${id}_plaintextsecret`;
-                account.serviceAccount.tokens = [...(account.serviceAccount.tokens ?? []), {id, sha256: 'hash'}];
-                await json(route, {tokenId: id, token: plaintext});
+                account.serviceAccount.tokens = [...held, {id, sha256: 'hash'}];
+                account.meta.revision = nextRevision();
+                await json(route, {id, token: plaintext, revision: account.meta.revision});
+            } else if (held.some(token => token.id === tokens[2])) {
+                account.serviceAccount.tokens = held.filter(token => token.id !== tokens[2]);
+                account.meta.revision = nextRevision();
+                await json(route, {revision: account.meta.revision, deleted: true});
             } else {
-                account.serviceAccount.tokens = account.serviceAccount.tokens.filter((token: Json) => token.id !== tokens[2]);
-                await json(route, {revision: nextRevision()});
+                await json(route, {revision: account.meta.revision});
             }
             return;
         }

@@ -56,6 +56,8 @@ message PutRequest {
 }
 
 message PutResponse {
+  // The object's revision after the write, usable as expected_revision (REST: If-Match) and as min_revision. A write
+  // that changed something: the revision it created. One that changed nothing: the revision the object already has.
   int64 revision = 1;
   bool changed = 2; // false when the content is unchanged: no new revision, no event
 }
@@ -66,8 +68,10 @@ message DeleteRequest {
 }
 
 message DeleteResponse {
+  // Usable as min_revision. Deleted: the revision of the deletion. Not deleted, as the object did not exist: the
+  // namespace's revision as of the answer, at which it did not.
   int64 revision = 1;
-  bool deleted = 2;
+  bool deleted = 2; // false when there was nothing to delete
 }
 
 message HistoryRequest {
