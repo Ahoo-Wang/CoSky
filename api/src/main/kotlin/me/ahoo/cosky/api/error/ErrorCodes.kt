@@ -13,12 +13,14 @@
 package me.ahoo.cosky.api.error
 
 import io.grpc.Status
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.v1.ErrorReason
 
 /**
- * How an [ErrorReason] surfaces on each protocol.
+ * How an [ErrorReason] surfaces on each protocol. Only [ErrorCodes] makes them, so that a later 8.x can add to it.
  */
-data class ErrorCode(
+@ConsistentCopyVisibility
+data class ErrorCode internal constructor(
     val reason: ErrorReason,
     val grpcCode: Status.Code,
     val httpStatus: Int,
@@ -31,6 +33,7 @@ data class ErrorCode(
  * FAILED_PRECONDITION without a reason answers 400.
  */
 object ErrorCodes {
+    @JvmField
     val ALL: List<ErrorCode> = listOf(
         ErrorCode(ErrorReason.ERROR_REASON_RESOURCE_NOT_FOUND, Status.Code.NOT_FOUND, 404),
         ErrorCode(ErrorReason.ERROR_REASON_NAMESPACE_NOT_FOUND, Status.Code.NOT_FOUND, 404),
@@ -51,6 +54,7 @@ object ErrorCodes {
     /**
      * HTTP status for gRPC codes without a CoSky reason, following the mapping of `google.rpc.Code`.
      */
+    @InternalCoSkyApi
     val HTTP_STATUS_BY_GRPC_CODE: Map<Status.Code, Int> = mapOf(
         Status.Code.OK to 200,
         Status.Code.CANCELLED to 499,
@@ -77,5 +81,6 @@ object ErrorCodes {
     fun of(reason: ErrorReason): ErrorCode =
         requireNotNull(byReason[reason]) { "No error code for reason $reason." }
 
+    @InternalCoSkyApi
     fun httpStatusOf(code: Status.Code): Int = HTTP_STATUS_BY_GRPC_CODE.getValue(code)
 }

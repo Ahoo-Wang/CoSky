@@ -1,0 +1,247 @@
+{
+  "groups": [
+    {
+      "name": "cosky",
+      "type": "me.ahoo.cosky.server.CoSkyProperties",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    },
+    {
+      "name": "cosky.store",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Store",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    },
+    {
+      "name": "cosky.store.redis",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Redis",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Store"
+    },
+    {
+      "name": "cosky.auth",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Auth",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    },
+    {
+      "name": "cosky.auth.oidc",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Oidc",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Auth"
+    },
+    {
+      "name": "cosky.watch",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Watch",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    },
+    {
+      "name": "cosky.read",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Read",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    },
+    {
+      "name": "cosky.view",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$View",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    },
+    {
+      "name": "cosky.lease",
+      "type": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties"
+    }
+  ],
+  "properties": [
+    {
+      "name": "cosky.store.type",
+      "type": "java.lang.String",
+      "description": "The store: redis, or memory for development, where nothing survives the process.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Store",
+      "defaultValue": "redis"
+    },
+    {
+      "name": "cosky.store.redis.uri",
+      "type": "java.lang.String",
+      "description": "Redis URI, also a Sentinel one such as redis-sentinel://s1:26379,s2:26379#mymaster. A command waits at most 5 seconds for Redis, unless the URI sets its own timeout.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Redis",
+      "defaultValue": "redis://localhost:6379"
+    },
+    {
+      "name": "cosky.store.redis.cluster",
+      "type": "java.lang.Boolean",
+      "description": "Whether the URI is a seed of a Redis Cluster.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Redis",
+      "defaultValue": false
+    },
+    {
+      "name": "cosky.store.redis.tail-poll-interval",
+      "type": "java.time.Duration",
+      "description": "How often each namespace is read when no hint arrives. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Redis",
+      "defaultValue": "1s"
+    },
+    {
+      "name": "cosky.auth.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether calls need a token. Off, everyone may do everything: only for development.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Auth",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.auth.bootstrap-token",
+      "type": "java.lang.String",
+      "description": "Token that becomes the admin ServiceAccount on the first start, COSKY_BOOTSTRAP_TOKEN by default.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Auth"
+    },
+    {
+      "name": "cosky.auth.namespace-accounts",
+      "type": "java.lang.Boolean",
+      "description": "Whether every namespace gets a ServiceAccount of its own name, bound to role client there, whose token its applications share.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Auth",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.auth.oidc.issuer",
+      "type": "java.lang.String",
+      "description": "Issuer of the OIDC provider. Turns OIDC on, together with client-id.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Oidc"
+    },
+    {
+      "name": "cosky.auth.oidc.client-id",
+      "type": "java.lang.String",
+      "description": "The Dashboard's OIDC client.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Oidc"
+    },
+    {
+      "name": "cosky.auth.oidc.audience",
+      "type": "java.lang.String",
+      "description": "What a token must be for; the client when not set.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Oidc"
+    },
+    {
+      "name": "cosky.auth.oidc.groups-claim",
+      "type": "java.lang.String",
+      "description": "The claim holding group names.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Oidc",
+      "defaultValue": "groups"
+    },
+    {
+      "name": "cosky.auth.oidc.scopes",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Scopes the Dashboard asks for. Some providers send groups only when asked.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Oidc",
+      "defaultValue": [
+        "openid",
+        "profile"
+      ]
+    },
+    {
+      "name": "cosky.watch.window",
+      "type": "java.lang.Integer",
+      "description": "Events kept for resuming, per namespace, and in the store's log. Should be at least the peak event rate times the longest reconnection gap.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Watch",
+      "defaultValue": 10000
+    },
+    {
+      "name": "cosky.watch.window-bytes",
+      "type": "org.springframework.util.unit.DataSize",
+      "description": "The same in bytes, per namespace, in memory and in the store's log.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Watch",
+      "defaultValue": "64MB"
+    },
+    {
+      "name": "cosky.watch.progress-interval",
+      "type": "java.time.Duration",
+      "description": "How often idle watches get a bookmark. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Watch",
+      "defaultValue": "10s"
+    },
+    {
+      "name": "cosky.watch.max-per-stream",
+      "type": "java.lang.Integer",
+      "description": "Watches allowed on one stream.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Watch",
+      "defaultValue": 1000
+    },
+    {
+      "name": "cosky.watch.anti-entropy-interval",
+      "type": "java.time.Duration",
+      "description": "How often a replica compares its view with the store. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Watch",
+      "defaultValue": "5m"
+    },
+    {
+      "name": "cosky.read.min-revision-timeout",
+      "type": "java.time.Duration",
+      "description": "How long a read or a resume waits for a replica to catch up. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Read",
+      "defaultValue": "3s"
+    },
+    {
+      "name": "cosky.view.topology-flush-interval",
+      "type": "java.time.Duration",
+      "description": "How often a replica records who watches whom. Edges expire after three times this. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$View",
+      "defaultValue": "30s"
+    },
+    {
+      "name": "cosky.lease.reaper-interval",
+      "type": "java.time.Duration",
+      "description": "How often expired leases are looked for. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": "1s"
+    },
+    {
+      "name": "cosky.lease.reaper-grace",
+      "type": "java.time.Duration",
+      "description": "No reaping for this long after becoming leader, or after failing to reach the store. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": "30s"
+    },
+    {
+      "name": "cosky.lease.reaper-max-per-tick",
+      "type": "java.lang.Integer",
+      "description": "Leases reaped per namespace per round.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": 100
+    },
+    {
+      "name": "cosky.lease.lock-ttl",
+      "type": "java.time.Duration",
+      "description": "How long the reaper's leadership lasts without renewal. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": "15s"
+    },
+    {
+      "name": "cosky.lease.protection-threshold",
+      "type": "java.lang.Double",
+      "description": "Reaping pauses when more than this share of a namespace's leases expire at once.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": 0.5
+    },
+    {
+      "name": "cosky.lease.protection-min-leases",
+      "type": "java.lang.Integer",
+      "description": "Namespaces with fewer leases have no such pause.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": 10
+    },
+    {
+      "name": "cosky.lease.protection-max-duration",
+      "type": "java.time.Duration",
+      "description": "How long such a pause lasts at most. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.server.CoSkyProperties$Lease",
+      "defaultValue": "5m"
+    }
+  ],
+  "hints": [
+    {
+      "name": "cosky.store.type",
+      "values": [
+        {
+          "value": "redis",
+          "description": "Redis 7.0 or later, or Valkey 8."
+        },
+        {
+          "value": "memory",
+          "description": "In memory, for development: nothing survives the process."
+        }
+      ]
+    }
+  ]
+}

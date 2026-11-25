@@ -25,6 +25,7 @@ import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.bearerCredentials
+import me.ahoo.cosky.server.observe.AuthFailure
 import me.ahoo.cosky.server.observe.CoSkyMetrics
 
 /**
@@ -54,11 +55,12 @@ class AuthInterceptor(
             return next.startCall(call, headers)
         }
         val remote = call.attributes[Grpc.TRANSPORT_ATTR_REMOTE_ADDR]?.toString()
+        val credentials = bearerCredentials(headers[AUTHORIZATION])
         val principal = try {
-            access.authenticate(bearerCredentials(headers[AUTHORIZATION]))
+            access.authenticate(credentials)
         } catch (e: CoSkyException) {
             val failure = e.toStatusRuntimeException()
-            metrics.authFailure(e.reason.name)
+            metrics.authFailure(AuthFailure.of(credentials, e))
             audit.record(
                 UNKNOWN_SUBJECT,
                 null,

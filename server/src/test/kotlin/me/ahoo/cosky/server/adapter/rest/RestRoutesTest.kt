@@ -15,6 +15,7 @@ package me.ahoo.cosky.server.adapter.rest
 
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -34,6 +35,7 @@ import me.ahoo.cosky.server.auth.AccessControl
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.TokenService
 import me.ahoo.cosky.server.auth.Tokens
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.server.resource.ResourceService
 import me.ahoo.cosky.server.view.ViewService
 import me.ahoo.cosky.server.watch.WatchCache
@@ -67,6 +69,7 @@ class RestRoutesTest {
         authenticated: Boolean = false,
         oidc: CoSkyProperties.Oidc = CoSkyProperties.Oidc(),
         resourceStore: Store = store,
+        metrics: CoSkyMetrics = CoSkyMetrics(),
     ): WebTestClient {
         val authorizer: Authorizer = if (authenticated) access else Authorizer.ALLOW_ALL
         val routes = RestRoutes(
@@ -77,6 +80,7 @@ class RestRoutesTest {
             access.takeIf { authenticated },
             AuditLogger(),
             oidc,
+            metrics,
         ).routes()
         return WebTestClient.bindToRouterFunction(routes).build()
     }
@@ -538,6 +542,23 @@ class RestRoutesTest {
         val me = client.get().uri("/v1/me").header("Authorization", bearer()).exchange().expectStatus().isOk.json()
         me.getAsJsonObject("subject")["name"].asString.assert().isEqualTo("root")
         me.getAsJsonArray("rules").size().assert().isGreaterThan(0)
+    }
+
+    @Test
+    fun `a failed sign-in counts by whether the token was missing or no good`() = runBlocking<Unit> {
+        bootstrapAdmin()
+        val registry = SimpleMeterRegistry()
+        val client = client(authenticated = true, metrics = CoSkyMetrics(registry))
+        client.get().uri("/v1/me").exchange().expectStatus().isUnauthorized
+        client.get().uri("/v1/me").header("Authorization", bearer(Tokens.generate().plaintext)).exchange()
+            .expectStatus().isUnauthorized
+        client.get().uri("/v1/me").header("Authorization", bearer("not-a-token")).exchange()
+            .expectStatus().isUnauthorized
+
+        fun failures(reason: String) = registry.get("cosky_auth_failures_total").tag("reason", reason).counter().count()
+        failures("missing").assert().isEqualTo(1.0)
+        failures("invalid").assert().isEqualTo(2.0)
+        failures("unavailable").assert().isEqualTo(0.0)
     }
 
     @Test

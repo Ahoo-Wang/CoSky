@@ -1,0 +1,170 @@
+{
+  "groups": [
+    {
+      "name": "cosky",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties"
+    },
+    {
+      "name": "cosky.tls",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties$Tls",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "sourceMethod": "getTls()"
+    },
+    {
+      "name": "cosky.snapshot",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties$Snapshot",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "sourceMethod": "getSnapshot()"
+    },
+    {
+      "name": "cosky.registry",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties$Registry",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "sourceMethod": "getRegistry()"
+    },
+    {
+      "name": "cosky.discovery",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties$Discovery",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "sourceMethod": "getDiscovery()"
+    },
+    {
+      "name": "cosky.config",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties$Config",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "sourceMethod": "getConfig()"
+    },
+    {
+      "name": "cosky.config.refresh",
+      "type": "me.ahoo.cosky.spring.CoSkyProperties$Config$Refresh",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Config",
+      "sourceMethod": "getRefresh()"
+    }
+  ],
+  "properties": [
+    {
+      "name": "cosky.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether CoSky is on at all: loading Configs, discovery, registration and the health indicator.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.endpoints",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Servers to try in turn, each host:port.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "defaultValue": [
+        "localhost:9090"
+      ]
+    },
+    {
+      "name": "cosky.token",
+      "type": "java.lang.String",
+      "description": "Token sent on every call. A blank one, as ${COSKY_TOKEN:} gives while the variable is not set, counts as none.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties"
+    },
+    {
+      "name": "cosky.token-file",
+      "type": "java.nio.file.Path",
+      "description": "A file holding the token instead, such as a mounted secret. Read again once it changes, so a rotated token needs no restart.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties"
+    },
+    {
+      "name": "cosky.namespace",
+      "type": "java.lang.String",
+      "description": "Namespace the application imports Configs from, discovers services in and registers in.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties",
+      "defaultValue": "default"
+    },
+    {
+      "name": "cosky.tls.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to connect over TLS. Without it the token crosses the network in the clear.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Tls",
+      "defaultValue": false
+    },
+    {
+      "name": "cosky.tls.trusted-certificates",
+      "type": "java.nio.file.Path",
+      "description": "A PEM file to trust, for a private CA. The JVM's trust store decides otherwise.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Tls"
+    },
+    {
+      "name": "cosky.snapshot.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to keep views on disk, which a restart starts from until it reaches a server.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Snapshot",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.snapshot.dir",
+      "type": "java.nio.file.Path",
+      "description": "Directory of the snapshots, ~/.cosky by default.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Snapshot"
+    },
+    {
+      "name": "cosky.snapshot.include-config",
+      "type": "java.lang.Boolean",
+      "description": "Whether snapshots hold Config contents. Snapshots are not encrypted, so false keeps Config contents off the disk.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Snapshot",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.registry.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to register this application, as service spring.application.name.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Registry",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.registry.weight",
+      "type": "java.lang.Integer",
+      "description": "Weight of this application's instance. 0 takes no traffic.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Registry",
+      "defaultValue": 1
+    },
+    {
+      "name": "cosky.registry.metadata",
+      "type": "java.util.Map<java.lang.String,java.lang.String>",
+      "description": "Metadata of this application's instance.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Registry"
+    },
+    {
+      "name": "cosky.discovery.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to provide DiscoveryClient, ReactiveDiscoveryClient and LoadBalancer's instances.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Discovery",
+      "defaultValue": true
+    },
+    {
+      "name": "cosky.discovery.load-timeout",
+      "type": "java.time.Duration",
+      "description": "How long the first read of a service waits. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Discovery",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "cosky.config.load-timeout",
+      "type": "java.time.Duration",
+      "description": "How long importing a Config waits. A number without a unit is in seconds.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Config",
+      "defaultValue": "5s"
+    },
+    {
+      "name": "cosky.config.refresh.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to publish a RefreshEvent when an imported Config changes.",
+      "sourceType": "me.ahoo.cosky.spring.CoSkyProperties$Config$Refresh",
+      "defaultValue": true
+    },
+    {
+      "name": "management.health.cosky.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to report the connection to the server as health indicator cosky.",
+      "defaultValue": true
+    }
+  ],
+  "hints": []
+}

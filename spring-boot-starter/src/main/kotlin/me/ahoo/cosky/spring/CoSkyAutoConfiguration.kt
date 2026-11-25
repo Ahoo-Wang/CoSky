@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.spring
 
+import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.spring.config.CoSkyConfigRefresher
 import me.ahoo.cosky.spring.config.CoSkyImportReconciler
@@ -30,6 +31,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 import org.springframework.boot.bootstrap.ConfigurableBootstrapContext
 import org.springframework.boot.context.properties.EnableConfigurationProperties
+import org.springframework.boot.health.autoconfigure.contributor.ConditionalOnEnabledHealthIndicator
 import org.springframework.boot.health.contributor.HealthIndicator
 import org.springframework.boot.web.server.context.WebServerApplicationContext
 import org.springframework.cloud.client.ConditionalOnBlockingDiscoveryEnabled
@@ -55,7 +57,8 @@ import org.springframework.core.env.Environment
 
 /**
  * Everything a Spring application gets from CoSky (design §7.7). Each part applies only when its framework is on the
- * classpath.
+ * classpath. Public so that an application can exclude it; the configurations within, like the beans' implementation,
+ * are not part of the API, while the beans' names and types are.
  */
 @AutoConfiguration(after = [UtilAutoConfiguration::class])
 @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["enabled"], matchIfMissing = true)
@@ -71,6 +74,7 @@ class CoSkyAutoConfiguration {
      */
     @Bean
     @ConditionalOnMissingBean
+    @InternalCoSkyApi
     fun coSkyApplicationClient(
         properties: CoSkyProperties,
         environment: Environment,
@@ -84,6 +88,7 @@ class CoSkyAutoConfiguration {
      */
     @Bean(destroyMethod = "")
     @ConditionalOnMissingBean
+    @InternalCoSkyApi
     fun coSkyClient(application: CoSkyApplicationClient): CoSkyClient = application.client
 
     @Configuration(proxyBeanMethods = false)
@@ -93,7 +98,7 @@ class CoSkyAutoConfiguration {
         name = ["config.refresh.enabled"],
         matchIfMissing = true,
     )
-    class Refresh {
+    internal class Refresh {
         @Bean
         fun coSkyConfigRefresher(
             application: CoSkyApplicationClient,
@@ -106,7 +111,7 @@ class CoSkyAutoConfiguration {
      */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(EnvironmentChangeEvent::class)
-    class Imports {
+    internal class Imports {
         @Bean
         fun coSkyImportReconciler(
             application: CoSkyApplicationClient,
@@ -120,19 +125,21 @@ class CoSkyAutoConfiguration {
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnDiscoveryEnabled
     @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["discovery.enabled"], matchIfMissing = true)
-    class Discovery {
+    internal class Discovery {
         @Configuration(proxyBeanMethods = false)
         @ConditionalOnBlockingDiscoveryEnabled
-        class Blocking {
+        internal class Blocking {
             @Bean
+            @ConditionalOnMissingBean
             fun coSkyDiscoveryClient(client: CoSkyClient, properties: CoSkyProperties): CoSkyDiscoveryClient =
                 CoSkyDiscoveryClient(client, properties)
         }
 
         @Configuration(proxyBeanMethods = false)
         @ConditionalOnReactiveDiscoveryEnabled
-        class Reactive {
+        internal class Reactive {
             @Bean
+            @ConditionalOnMissingBean
             fun coSkyReactiveDiscoveryClient(
                 client: CoSkyClient,
                 properties: CoSkyProperties,
@@ -145,13 +152,14 @@ class CoSkyAutoConfiguration {
     @ConditionalOnDiscoveryEnabled
     @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["discovery.enabled"], matchIfMissing = true)
     @LoadBalancerClients(defaultConfiguration = [CoSkyLoadBalancing::class])
-    class LoadBalancingImports
+    internal class LoadBalancingImports
 
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnProperty(prefix = CoSkyProperties.PREFIX, name = ["registry.enabled"], matchIfMissing = true)
     @Import(AutoServiceRegistrationConfiguration::class)
-    class Registry {
+    internal class Registry {
         @Bean
+        @ConditionalOnMissingBean
         fun coSkyServiceRegistry(client: CoSkyClient, properties: CoSkyProperties): CoSkyServiceRegistry =
             CoSkyServiceRegistry(client, properties)
 
@@ -166,8 +174,9 @@ class CoSkyAutoConfiguration {
             name = ["spring.cloud.service-registry.auto-registration.enabled"],
             matchIfMissing = true,
         )
-        class AutoRegistration {
+        internal class AutoRegistration {
             @Bean
+            @ConditionalOnMissingBean
             fun coSkyAutoServiceRegistration(
                 context: ApplicationContext,
                 registry: CoSkyServiceRegistry,
@@ -189,11 +198,22 @@ class CoSkyAutoConfiguration {
         }
     }
 
+    /**
+     * Reported as `cosky`, which is what the bean's name says: Spring takes the name without `HealthIndicator`. Only
+     * looked at with Spring Boot's health support on the classpath, which the condition on the bean comes from.
+     */
     @Configuration(proxyBeanMethods = false)
     @ConditionalOnClass(HealthIndicator::class)
-    class Health {
+    internal class Health {
         @Bean
-        fun coSkyHealthIndicator(client: CoSkyClient): CoSkyHealthIndicator = CoSkyHealthIndicator(client)
+        @ConditionalOnEnabledHealthIndicator(HEALTH)
+        @ConditionalOnMissingBean(name = ["${HEALTH}HealthIndicator", "${HEALTH}HealthContributor"])
+        fun coskyHealthIndicator(client: CoSkyClient): CoSkyHealthIndicator = CoSkyHealthIndicator(client)
+
+        private companion object {
+            /** What `/actuator/health` names it, and `management.health.cosky.enabled` switches. */
+            const val HEALTH = "cosky"
+        }
     }
 }
 
@@ -208,7 +228,7 @@ internal fun Environment.servesTls(): Boolean =
  * Runs in the child context Spring Cloud LoadBalancer creates per service, whose name it puts in the environment. It
  * is neither nested in a configuration nor annotated, or the application context would pick it up too, with no name.
  */
-class CoSkyLoadBalancing {
+internal class CoSkyLoadBalancing {
     @Bean
     fun coSkyServiceInstanceListSupplier(
         environment: Environment,

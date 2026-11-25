@@ -41,6 +41,8 @@ class WatchCache(
         NamespaceCache(namespace, store, windowSize, antiEntropyInterval, metrics, windowBytes).also { cache ->
             scope.launch {
                 cache.run()
+                // Before another cache of it can start, whose series would go too.
+                metrics.namespaceGone(namespace)
                 caches.remove(namespace, cache)
             }
         }

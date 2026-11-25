@@ -22,7 +22,7 @@ import org.springframework.boot.diagnostics.FailureAnalysis
  * The server would not take the application's registration for want of a token, or of a role that allows it, so the
  * application cannot start: which service and namespace, and what the server said.
  */
-class RegistrationRefusedException(
+class RegistrationRefusedException internal constructor(
     val service: String,
     val namespace: String,
     cause: StatusException,
