@@ -27,6 +27,7 @@ import me.ahoo.cosky.api.validation.Violation
 import me.ahoo.test.asserts.assert
 import me.ahoo.test.asserts.assertThrownBy
 import org.junit.jupiter.api.Test
+import java.lang.reflect.Modifier
 import com.google.rpc.Status as RpcStatus
 
 class CoSkyExceptionTest {
@@ -164,5 +165,26 @@ class CoSkyExceptionTest {
     @Test
     fun `a canceled watch without a known reason carries nothing`() {
         CoSkyException.from(WatchResponse.Canceled.getDefaultInstance()).assert().isNull()
+    }
+
+    @Test
+    fun `java reads an error back with a static call, and makes one without a cause`() {
+        val from = CoSkyException::class.java.getMethod("from", Throwable::class.java)
+        Modifier.isStatic(from.modifiers).assert().isTrue()
+        val status = CoSkyException.permissionDenied("not for you").toStatusRuntimeException()
+        val recovered = from.invoke(null, status) as CoSkyException
+        recovered.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_PERMISSION_DENIED)
+        val canceled = CoSkyException::class.java.getMethod("from", WatchResponse.Canceled::class.java)
+        Modifier.isStatic(canceled.modifiers).assert().isTrue()
+
+        val detail = ErrorDetail.newBuilder().setReason(ErrorReason.ERROR_REASON_UNAUTHENTICATED).build()
+        val made = CoSkyException::class.java.getConstructor(ErrorDetail::class.java, String::class.java)
+            .newInstance(detail, "sign in")
+        made.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_UNAUTHENTICATED)
+        made.cause.assert().isNull()
+
+        val all = ErrorCodes::class.java.getField("ALL")
+        Modifier.isStatic(all.modifiers).assert().isTrue()
+        all.get(null).assert().isEqualTo(ErrorCodes.ALL)
     }
 }

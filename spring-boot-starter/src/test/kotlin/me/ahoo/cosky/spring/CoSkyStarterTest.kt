@@ -668,7 +668,7 @@ class CoSkyStarterTest {
         server.put(TestCoSkyServer.config("order.yaml", "a: 1"))
         val context = application("--spring.config.import=cosky:order.yaml")
         val client = context.getBean(CoSkyClient::class.java)
-        val indicator = context.getBean("coSkyHealthIndicator", HealthIndicator::class.java)
+        val indicator = context.getBean("coskyHealthIndicator", HealthIndicator::class.java)
         eventually { client.connectionState.value == ConnectionState.SYNCED }
         checkNotNull(indicator.health()).status.assert().isEqualTo(Status.UP)
 

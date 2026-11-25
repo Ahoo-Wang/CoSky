@@ -5,6 +5,8 @@ description: Every setting of the server and the Spring Boot starter, with its d
 
 # Configuration Properties
 
+A duration takes a unit, such as `500ms`, `30s` or `5m`. Without one it is in seconds, on the server and in the starter alike, so `COSKY_LEASE_REAPER_GRACE=30` is 30 seconds. Both ship Spring Boot's configuration metadata, so an IDE completes and explains the `cosky.*` properties below.
+
 ## Server
 
 Set these in `application.yaml`, as arguments, or as environment variables: `cosky.store.redis.uri` is `COSKY_STORE_REDIS_URI`.
@@ -91,7 +93,7 @@ These cannot be set in 8.0.
 |---|---|---|
 | `cosky.enabled` | `true` | Everything below |
 | `cosky.endpoints` | `localhost:9090` | Servers to try in turn |
-| `cosky.token` | — | Sent on every call |
+| `cosky.token` | — | Sent on every call. A blank one counts as none, so `${COSKY_TOKEN:}` can stand beside `cosky.token-file`. |
 | `cosky.token-file` | — | A file holding the token instead, such as a mounted secret. Read again once it changes, so a rotated token needs no restart. |
 | `cosky.namespace` | `default` | |
 | `cosky.tls.enabled` | `false` | Connect over TLS |
@@ -106,5 +108,8 @@ These cannot be set in 8.0.
 | `cosky.discovery.load-timeout` | `5s` | How long the first read of a service waits |
 | `cosky.config.load-timeout` | `5s` | How long importing a Config waits |
 | `cosky.config.refresh.enabled` | `true` | Publish `RefreshEvent` on changes |
+| `management.health.cosky.enabled` | `true` | The health indicator, `cosky` in `/actuator/health` |
 
 The service name is `spring.application.name`. `spring.cloud.service-registry.auto-registration.enabled: false` also stops registering.
+
+An application's own bean takes the place of the starter's: one named `coskyHealthIndicator`, or one of type `CoSkyDiscoveryClient`, `CoSkyReactiveDiscoveryClient`, `CoSkyServiceRegistry` or `CoSkyAutoServiceRegistration`.

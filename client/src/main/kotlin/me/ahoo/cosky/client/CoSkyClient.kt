@@ -13,6 +13,7 @@
 
 package me.ahoo.cosky.client
 
+import io.grpc.StatusException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -26,6 +27,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.InternalCoSkyApi
 import me.ahoo.cosky.api.VirtualThreads
+import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Endpoint
 import me.ahoo.cosky.api.v1.InstanceSpec
 import me.ahoo.cosky.api.v1.Kind
@@ -153,7 +155,14 @@ class CoSkyClient(private val options: CoSkyClientOptions) : AutoCloseable {
             /**
              * Registers an instance on the namespace's lease, which keeps it alive until [Registration.close].
              *
+             * A server out of reach is no failure: the registration is remembered, and goes out once one answers.
+             * Reads fail with a [CoSkyException]; this, a write, fails with the gRPC status the server answered, and
+             * [CoSkyException.from] gives its reason when the server sent one.
+             *
              * @param instanceName defaults to one derived from the service and the endpoint.
+             * @throws StatusException when the server refuses the registration, such as `UNAUTHENTICATED` without a
+             * valid token, `PERMISSION_DENIED` without a role that may register the service, or `INVALID_ARGUMENT`.
+             * The client then holds what it held before.
              */
             suspend fun register(
                 service: String,
@@ -221,8 +230,9 @@ class Registration internal constructor(
      * Removes the instance. Once it is closed, or the name registered again, which the new handle closes, this does
      * nothing.
      *
-     * @throws StatusException when the instance cannot be removed now: it stays registered and renewed, and closing
-     * can be tried again.
+     * @throws StatusException when the instance cannot be removed now, such as when no server answers or the server
+     * refuses; [CoSkyException.from] gives the reason when the server sent one. The instance stays registered and
+     * renewed, and closing can be tried again.
      */
     suspend fun close() {
         leases.deregister(this)

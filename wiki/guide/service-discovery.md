@@ -75,7 +75,7 @@ CoSky favours keeping a stale instance over dropping a live one, and callers are
 
 | Failure | What applications see |
 |---|---|
-| Server unreachable | Reads keep serving the last view, and the health indicator stays `UP` with `connection: DEGRADED`, because a restart would not help. |
+| Server unreachable | Reads keep serving the last view, and the health indicator `cosky` stays `UP` with `connection: DEGRADED`, because a restart would not help. |
 | Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
 | Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
 | A Redis Cluster shard fails while the others answer | Namespaces on the others are reaped as usual. Those on the failed shard are reaped 30 seconds after it last failed, once their clients could renew. A shard that does not answer at all, rather than failing at once, still holds up reaping everywhere, as the reaper cannot tell it from the whole store hanging. |

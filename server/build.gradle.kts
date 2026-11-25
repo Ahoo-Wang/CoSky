@@ -93,6 +93,10 @@ tasks.withType<Test> {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(25)
     }
+    // ConfigurationMetadataTest holds the configuration metadata to the properties reference, in both languages.
+    inputs.files(rootProject.files("wiki/guide/properties.md", "wiki/zh/guide/properties.md"))
+        .withPropertyName("propertiesReference")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // ServerMeasurement reports numbers rather than asserting them, so it only runs when asked for.
     environment("COSKY_MEASURE", System.getenv("COSKY_MEASURE").orEmpty())
     System.getenv("COSKY_MEASURE_JVM_ARGS")?.let { jvmArgs(it.split(" ")) }

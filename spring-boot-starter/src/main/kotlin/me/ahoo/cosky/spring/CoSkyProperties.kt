@@ -15,15 +15,19 @@ package me.ahoo.cosky.spring
 
 import me.ahoo.cosky.client.CoSkyClientOptions
 import org.springframework.boot.context.properties.ConfigurationProperties
+import org.springframework.boot.convert.DurationUnit
 import java.nio.file.Path
 import java.time.Duration
+import java.time.temporal.ChronoUnit
 import kotlin.time.toKotlinDuration
 
 /**
  * Client settings (design §7.7). Bound before the context exists as well, since configuration loading needs them.
  *
  * Bound through its setters, as Spring Boot's own settings are, so that a setting added later is one more property
- * rather than another constructor. Every class here can be made empty and then set.
+ * rather than another constructor. Every class here can be made empty and then set. A duration without a unit, as an
+ * environment variable may well give one, is in seconds. `META-INF/spring-configuration-metadata.json` describes each
+ * property for IDEs, as `wiki/guide/properties.md` does for people.
  */
 @Suppress("MagicNumber") // The defaults of design §7.5 and §7.7.
 @ConfigurationProperties(CoSkyProperties.PREFIX)
@@ -62,11 +66,15 @@ class CoSkyProperties {
 
     class Discovery {
         var enabled: Boolean = true
+
+        @field:DurationUnit(ChronoUnit.SECONDS)
         var loadTimeout: Duration = Duration.ofSeconds(5)
     }
 
     class Config {
         var refresh: Refresh = Refresh()
+
+        @field:DurationUnit(ChronoUnit.SECONDS)
         var loadTimeout: Duration = Duration.ofSeconds(5)
 
         class Refresh {
@@ -74,7 +82,7 @@ class CoSkyProperties {
         }
     }
 
-    fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(endpoints) {
+    internal fun toOptions(applicationName: String? = null): CoSkyClientOptions = CoSkyClientOptions(endpoints) {
         token = this@CoSkyProperties.token
         tokenFile = this@CoSkyProperties.tokenFile
         clientName = applicationName
@@ -84,10 +92,10 @@ class CoSkyProperties {
         tlsTrustedCertificates = this@CoSkyProperties.tls.trustedCertificates
     }
 
-    val configLoadTimeout: kotlin.time.Duration
+    internal val configLoadTimeout: kotlin.time.Duration
         get() = config.loadTimeout.toKotlinDuration()
 
-    val discoveryLoadTimeout: kotlin.time.Duration
+    internal val discoveryLoadTimeout: kotlin.time.Duration
         get() = discovery.loadTimeout.toKotlinDuration()
 
     /**

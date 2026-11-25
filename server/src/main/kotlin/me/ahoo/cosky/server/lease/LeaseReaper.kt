@@ -116,6 +116,7 @@ class LeaseReaper(
             return
         }
         val namespaces = namespaces()
+        metrics.leasesOf(namespaces)
         // This is also what finds the store having hung during the maintenance.
         if (hung(now)) {
             return
@@ -132,11 +133,11 @@ class LeaseReaper(
 
     /**
      * What it knew as leader says nothing later on: an old pause would count against the next mass expiry, whose time
-     * limit it would seem to have used up already (design D20).
+     * limit it would seem to have used up already (design D20). Nor do its lease gauges, which the leader reports.
      */
     private fun stepDown() {
         leaderSince = null
-        pausedSince.keys.forEach { metrics.leaseProtection(it, false) }
+        metrics.leadershipLost()
         pausedSince.clear()
     }
 
@@ -202,7 +203,7 @@ class LeaseReaper(
             expired.forEach { lease ->
                 started = clock.instant()
                 if (store.expireLease(namespace, lease, ACTOR, force = false)) {
-                    metrics.leaseExpired()
+                    metrics.leaseExpired(namespace)
                 }
                 if (hung(started)) {
                     return

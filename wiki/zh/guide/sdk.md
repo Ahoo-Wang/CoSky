@@ -69,6 +69,19 @@ registration.close()
 
 同一个名字再次注册会替换原来的注册，由新的句柄关闭它。再次关闭一个句柄，或关闭名字已被再次注册的旧句柄，都不做任何事。关闭失败时（例如没有 server 应答），实例仍然注册并续约，可以再试一次。
 
+## 错误
+
+读取（如 `load`）抛出 `CoSkyException`，`reason` 说明原因。`register` 和 `close` 是写入，抛出 gRPC 的 `StatusException`，带着 server 返回的状态，例如没有有效 token 时是 `UNAUTHENTICATED`，没有允许注册该服务的角色时是 `PERMISSION_DENIED`。没有 server 应答时注册不会失败：等有 server 应答后再发出。server 给出了原因时，`CoSkyException.from(e)` 把它作为 `CoSkyException` 返回，否则返回 `null`：
+
+```kotlin
+try {
+    prod.instances.register(service = "order-service", endpoint = endpoint)
+} catch (e: StatusException) {
+    if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_PERMISSION_DENIED) throw e
+    log.error("The token's account may not register order-service.")
+}
+```
+
 ## 关闭
 
 `client.close()` 在 3 秒内撤销租约，超时后由 server 让它们到期。

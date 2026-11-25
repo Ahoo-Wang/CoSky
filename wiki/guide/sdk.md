@@ -69,6 +69,19 @@ The client keeps the lease alive, and registers everything again if the lease is
 
 Registering a name again replaces its registration, and the new handle is the one that closes it. Closing a handle again, or one whose name was registered again since, does nothing. A close that fails, as when no server answers, leaves the instance registered and renewed, and can be tried again.
 
+## Errors
+
+Reads, such as `load`, throw a `CoSkyException`, whose `reason` says why. `register` and `close` are writes, and throw gRPC's `StatusException` with the status the server answered, such as `UNAUTHENTICATED` without a valid token or `PERMISSION_DENIED` without a role that may register the service. Registering does not fail while no server answers: it goes out once one does. `CoSkyException.from(e)` gives the reason, as a `CoSkyException`, when the server sent one, and `null` otherwise:
+
+```kotlin
+try {
+    prod.instances.register(service = "order-service", endpoint = endpoint)
+} catch (e: StatusException) {
+    if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_PERMISSION_DENIED) throw e
+    log.error("The token's account may not register order-service.")
+}
+```
+
 ## Closing
 
 `client.close()` revokes its leases within 3 seconds. After that the server expires them.

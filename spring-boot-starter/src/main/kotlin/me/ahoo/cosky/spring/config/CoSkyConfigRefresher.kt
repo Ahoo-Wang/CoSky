@@ -43,7 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * comes just before this one. What differs from the load then counts as a change. By the whole Config and not its
  * revision, which a Redis that lost writes hands out a second time.
  */
-class CoSkyConfigRefresher(
+class CoSkyConfigRefresher internal constructor(
     private val application: CoSkyApplicationClient,
     private val publisher: ApplicationEventPublisher,
 ) : ApplicationListener<AvailabilityChangeEvent<ReadinessState>>, DisposableBean {
