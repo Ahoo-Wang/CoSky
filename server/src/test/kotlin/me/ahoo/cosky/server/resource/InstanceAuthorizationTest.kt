@@ -38,6 +38,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Caller
+import me.ahoo.cosky.server.auth.Grant
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.Principal
 import me.ahoo.cosky.server.watch.WatchCache
@@ -86,6 +87,8 @@ class InstanceAuthorizationTest {
     private val orderOnly = object : Authorizer {
         override fun permission(principal: Principal, verb: Verb, kind: Kind, namespace: String): Permission =
             if (kind == Kind.KIND_INSTANCE) Permission.Names(setOf("order")) else Permission.None
+
+        override suspend fun requireHeld(principal: Principal, grant: Grant) = Unit
 
         override fun isValid(principal: Principal): Boolean = true
 

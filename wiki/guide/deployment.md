@@ -18,7 +18,7 @@ CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noevicti
 
 Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
 
-If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token, so leave that token set. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
+If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token. So once you have revoked the bootstrap token, as [Security](./security.md#the-first-token) advises, set the variable or Secret to a new token nobody has used and keep that as a break-glass, or remove it: the revoked one would otherwise become the admin again. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
 
 ### Credentials and TLS
 
@@ -66,7 +66,7 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   ahoowang/cosky:8.0.0-beta.15
 ```
 
-Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
+Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. Its secret takes at least 22 letters and digits, and the server refuses to start with a shorter one. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
 
 Any [property](./properties.md) can be set as an environment variable or an argument. `--dev` runs in memory without sign-in, for trying things out only.
 
@@ -119,6 +119,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
 | `cosky_auth_failures_total{reason}` | Failed sign-ins |
+| `cosky_auth_enabled` | `0`: authentication is off, and every caller is admin. The server also logs an error at start when it runs on Redis this way |
 
 **Traces** cover gRPC and HTTP at a 10% sample. To export them, set `management.opentelemetry.tracing.export.otlp.endpoint`, such as `http://collector:4318/v1/traces`.
 

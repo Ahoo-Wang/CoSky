@@ -14,8 +14,12 @@
 package me.ahoo.cosky.server
 
 import io.lettuce.core.RedisConnectionException
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
+import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.auth.AuthBootstrap
+import me.ahoo.cosky.server.auth.ParsedToken
+import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -41,4 +45,35 @@ class StartupFailuresTest {
         analysis.description.assert().contains("cosky_<id>_<secret>")
         analysis.action.assert().contains("COSKY_BOOTSTRAP_TOKEN").contains("openssl rand")
     }
+
+    private fun bootstrapToken(secretLength: Int): String {
+        val generated = Tokens.generate()
+        return ParsedToken(generated.id, generated.secret.take(secretLength)).plaintext
+    }
+
+    @Test
+    fun `a bootstrap token with a short secret stops the start, without showing it`() {
+        val weak = bootstrapToken(AuthBootstrap.MIN_SECRET_LENGTH - 1)
+        val failure = runCatching { runBlocking { AuthBootstrap(MemoryStore()).run(weak) } }.exceptionOrNull()
+
+        failure.assert().isInstanceOf(StartupFailure::class.java)
+        val analysis = StartupFailureAnalyzer().analyze(BeanCreationException("bootstrap", failure!!))!!
+        analysis.description.assert().contains("at least 22 base62 characters")
+        analysis.action.assert().contains("COSKY_BOOTSTRAP_TOKEN").contains("openssl rand")
+        val secret = checkNotNull(Tokens.parse(weak)).secret
+        listOf(analysis.description, analysis.action).forEach { it.assert().doesNotContain(secret) }
+    }
+
+    @Test
+    fun `a weak bootstrap token stops every start, used or not, since a store that lost its data takes it`() =
+        runBlocking<Unit> {
+            val store = MemoryStore().apply { createNamespace(NamingRules.SYSTEM_NAMESPACE) }
+            AuthBootstrap(store).run(bootstrapToken(AuthBootstrap.MIN_SECRET_LENGTH))
+            store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().filter { it.hasRoleBinding() }.assert().hasSize(1)
+
+            listOf("cosky_abc_def", "mysecret").forEach { weak ->
+                runCatching { AuthBootstrap(store).run(weak) }.exceptionOrNull()
+                    .assert().isInstanceOf(StartupFailure::class.java)
+            }
+        }
 }

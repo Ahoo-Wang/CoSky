@@ -502,7 +502,7 @@ CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noevicti
 
 Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
 
-If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token, so leave that token set. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
+If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token. So once you have revoked the bootstrap token, as [Security](./security.md#the-first-token) advises, set the variable or Secret to a new token nobody has used and keep that as a break-glass, or remove it: the revoked one would otherwise become the admin again. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
 
 ### Credentials and TLS
 
@@ -550,7 +550,7 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   ahoowang/cosky:8.0.0-beta.15
 ```
 
-Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
+Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. Its secret takes at least 22 letters and digits, and the server refuses to start with a shorter one. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
 
 Any [property](./properties.md) can be set as an environment variable or an argument. `--dev` runs in memory without sign-in, for trying things out only.
 
@@ -603,6 +603,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
 | `cosky_auth_failures_total{reason}` | Failed sign-ins |
+| `cosky_auth_enabled` | `0`: authentication is off, and every caller is admin. The server also logs an error at start when it runs on Redis this way |
 
 **Traces** cover gRPC and HTTP at a 10% sample. To export them, set `management.opentelemetry.tracing.export.otlp.endpoint`, such as `http://collector:4318/v1/traces`.
 
@@ -642,9 +643,20 @@ On its first start, a server without any role binding turns `COSKY_BOOTSTRAP_TOK
 export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)"
 ```
 
-- The server reads it only while no role binding exists. After that another value does nothing, so removing it changes nothing either.
+- **Strong enough.** The secret, after the second `_`, takes at least 22 letters and digits, about 128 bits; the command above gives 32 hex digits. With auth on, the server checks the token at every start, used or not, and refuses to start with a shorter one or one of another shape, without printing it.
+- **Read only while no role binding exists:** on the first start, and again when Redis loses everything, as [Deployment](./deployment.md#redis) explains. Otherwise another value does nothing.
+- **After revoking it,** set the variable or Secret to a new token nobody has used, kept as a break-glass, or remove it. Left as it is, a Redis that loses its data makes the revoked token the admin again. Removed, nobody can sign in after such a loss until you set one and restart.
 - Without it, a server with no role binding starts and logs a warning, and nobody can sign in.
-- To replace a lost token, run one server on the same Redis with `--cosky.auth.enabled=false`, where nobody else can reach it. Create a token with `POST /v1/serviceaccounts/admin/tokens`, revoke the lost one, and stop that server.
+
+### A lost admin token
+
+A new bootstrap token does not help once anyone is bound, since the server no longer reads it. So keep a second way in, set up beforehand: an OIDC group bound to `admin`, or a second token of an admin account, kept offline. With it, create a token with `POST /v1/serviceaccounts/admin/tokens` and revoke the lost one with `DELETE /v1/serviceaccounts/admin/tokens/<id>`.
+
+With no admin left, the last resort is a server with authentication off, on which every caller is admin:
+
+1. Start one more server on the same Redis with `--cosky.auth.enabled=false`, where nobody else can reach it: outside the Service or load balancer, its ports bound to `localhost`. Leave the other replicas as they are.
+2. It logs an error saying that authentication is off. Create a token with `POST /v1/serviceaccounts/admin/tokens`, and revoke the lost one.
+3. Stop it at once.
 
 ### OIDC
 
@@ -749,14 +761,15 @@ Your own roles look like this:
 - A call is allowed when any rule of any bound role matches it. A rule applies only where its own namespaces and the binding's overlap.
 - `names` left empty matches everything. Otherwise it holds exact values, or prefixes ending in `*`, matched against the Config name, the Instance's **service**, or the object name.
 - Global kinds (Namespace, ServiceAccount, Role, RoleBinding) live in the namespace `_system`.
-- Whoever may write ServiceAccounts, and so create their tokens, or Roles or RoleBindings, can give themselves any role, `admin` included. Grant that only to admins.
+- Nobody gives more than they hold. Writing a Role takes holding each of its rules in every namespace the rule names, `*` only by holding it in `*`. Writing a RoleBinding takes holding what its role grants in the binding's namespaces: for `service`, the Instances of each subject's own service, or of any service for a group, and for a role that does not exist yet, everything there. Creating a token for a ServiceAccount takes holding everything that account may do. Otherwise the server answers `PERMISSION_DENIED`, saying what you do not hold. An admin holds everything, so this never stops one.
+- Writing Roles, RoleBindings and ServiceAccounts still lets someone take access away from others, and give anyone what they hold themselves: grant it to those who manage access.
 - `GET` includes lists, and only what the rule allows shows up in them.
 - A lease belongs to whoever took it, so one account cannot attach its instances to another's lease.
 - A change to a role reaches open Watch streams: one that lost permission is canceled.
 
 `GET /v1/me` shows who the server thinks you are, and your effective rules.
 
-With `cosky.auth.enabled: false` everyone may do everything. It is for development only.
+With `cosky.auth.enabled: false` everyone may do everything. It is for development only: on Redis, the server logs an error at every start, and reports `cosky_auth_enabled 0` (see [Deployment](./deployment.md#observability)).
 
 ## TLS
 
@@ -981,8 +994,8 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 
 | Property | Default | Meaning |
 |---|---|---|
-| `cosky.auth.enabled` | `true` | Off, everyone may do everything. Only for development. |
-| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | Becomes the `admin` ServiceAccount on the first start |
+| `cosky.auth.enabled` | `true` | Off, everyone may do everything. Only for development: on Redis the server logs an error at start, and `cosky_auth_enabled` is 0. |
+| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | Becomes the `admin` ServiceAccount while no role binding exists. Its secret takes at least 22 letters and digits, see [Security](./security.md#the-first-token) |
 | `cosky.auth.namespace-accounts` | `true` | Gives every namespace a ServiceAccount of its own name, bound to `client` there, whose token its applications share |
 | `cosky.auth.oidc.issuer` | — | Turns OIDC on, together with `client-id` |
 | `cosky.auth.oidc.client-id` | — | The Dashboard's client |

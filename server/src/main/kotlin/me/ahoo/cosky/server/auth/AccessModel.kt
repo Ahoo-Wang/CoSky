@@ -13,12 +13,15 @@
 
 package me.ahoo.cosky.server.auth
 
+import me.ahoo.cosky.api.isGlobal
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
+import me.ahoo.cosky.api.v1.RoleBindingSpec
 import me.ahoo.cosky.api.v1.Rule
 import me.ahoo.cosky.api.v1.Subject
 import me.ahoo.cosky.api.v1.TokenRef
 import me.ahoo.cosky.api.v1.Verb
+import me.ahoo.cosky.api.validation.NamingRules
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -89,13 +92,84 @@ internal class AccessModel(objects: Collection<Resource>) {
      * `service` is the one role whose rules depend on who holds it: Instances only of the service its own name names.
      */
     private fun rulesOf(role: String, principal: Principal): List<Rule> = when (role) {
-        SERVICE_ROLE -> listOf(
-            rule(listOf(Kind.KIND_CONFIG), READ),
-            rule(listOf(Kind.KIND_INSTANCE), READ),
-            rule(listOf(Kind.KIND_INSTANCE), WRITE).toBuilder().addNames(principal.name).build(),
-        )
-
+        SERVICE_ROLE -> serviceRules(principal.name)
         else -> roles[role].orEmpty()
+    }
+
+    /**
+     * Why [principal] may not make [grant], or null where it holds all of it already: nobody gives more than they have,
+     * as in the escalate and bind rules of Kubernetes (design §7.8).
+     */
+    fun escalationOf(principal: Principal, grant: Grant): String? = when (grant) {
+        is Grant.OfRole -> unheld(principal, grant.rules)?.let {
+            "${principal.id} may not grant $it, which it does not hold itself."
+        }
+
+        is Grant.OfBinding -> escalationOf(principal, grant.binding)
+
+        is Grant.OfAccount -> {
+            val account = Principal(Subject.Type.TYPE_SERVICE_ACCOUNT, grant.account)
+            unheld(principal, rulesOf(account))?.let {
+                "${principal.id} may not create a token of ${account.id}, which may $it: " +
+                    "${principal.id} does not hold that itself."
+            }
+        }
+    }
+
+    /**
+     * A role that does not exist yet grants whatever it will hold, which a binding limits to its namespaces alone: so
+     * it takes holding everything there, as `admin` does. `service` grants each subject its own service, and the
+     * members of a group whatever their names are.
+     */
+    private fun escalationOf(principal: Principal, binding: RoleBindingSpec): String? {
+        val role = binding.role
+        val known = role == SERVICE_ROLE || role in roles
+        val rules = when (role) {
+            SERVICE_ROLE -> binding.subjectsList.flatMap { subject ->
+                serviceRules(subject.name.takeIf { subject.isNamed })
+            }
+
+            else -> roles[role] ?: BUILT_IN_ROLES.getValue(ADMIN_ROLE)
+        }
+        val boundTo = binding.namespacesList.toSet()
+        val unheld = unheld(principal, rules.distinct().map { EffectiveRule(it, boundTo).toRule() }) ?: return null
+        return if (known) {
+            "${principal.id} may not bind role $role, which grants $unheld: it does not hold that itself."
+        } else {
+            "Role $role does not exist, so binding it takes holding everything where it is bound, as admin does: " +
+                "${principal.id} does not hold $unheld."
+        }
+    }
+
+    /**
+     * The first of what [rules] grant that [principal] does not hold; null if it holds all of it.
+     */
+    private fun unheld(principal: Principal, rules: List<Rule>): Access? = rules.asSequence()
+        .flatMap(::accessesOf)
+        .firstNotNullOfOrNull { access ->
+            val permission = permission(principal, access.verb, access.kind, access.namespace)
+            when {
+                access.names.isEmpty() -> access.takeIf { permission != Permission.All }
+                else -> access.names.filterNot(permission::allows).takeIf { it.isNotEmpty() }
+                    ?.let { access.copy(names = it) }
+            }
+        }
+
+    private fun accessesOf(rule: Rule): Sequence<Access> = rule.kindsList.asSequence().flatMap { kind ->
+        scopesOf(kind, rule.namespacesList).flatMap { namespace ->
+            rule.verbsList.map { verb -> Access(verb, kind, namespace, rule.namesList) }
+        }
+    }
+
+    /**
+     * One verb on one kind in one namespace, for [names] or, with none, for every name.
+     */
+    private data class Access(val verb: Verb, val kind: Kind, val namespace: String, val names: List<String>) {
+        override fun toString(): String {
+            val where = if (namespace == Permission.WILDCARD) "every namespace" else "namespace $namespace"
+            val which = if (names.isEmpty()) "" else " for ${names.joinToString()}"
+            return "${verb.name.removePrefix("VERB_")} ${kind.name.removePrefix("KIND_")} in $where$which"
+        }
     }
 
     private fun matches(subject: Subject, principal: Principal): Boolean = when (subject.type) {
@@ -140,6 +214,35 @@ internal class AccessModel(objects: Collection<Resource>) {
             .addNamespaces(Permission.WILDCARD)
             .addAllVerbs(verbs)
             .build()
+
+        /**
+         * @param service whose Instances it writes; null for any, as for the members of a group, whose names a binding
+         * does not tell.
+         */
+        private fun serviceRules(service: String?): List<Rule> = listOf(
+            rule(listOf(Kind.KIND_CONFIG), READ),
+            rule(listOf(Kind.KIND_INSTANCE), READ),
+            rule(listOf(Kind.KIND_INSTANCE), WRITE).toBuilder().apply { service?.let { addNames(it) } }.build(),
+        )
+
+        /** A group stands for members of other names. */
+        private val Subject.isNamed: Boolean
+            get() = type != Subject.Type.TYPE_GROUP
+
+        /**
+         * Where [namespaces] give anything on [kind]: the global kinds live in `_system` alone, and the others never
+         * there, so the rest grants nothing to hold. A star means every namespace, which only a star holds.
+         */
+        private fun scopesOf(kind: Kind, namespaces: List<String>): Sequence<String> {
+            val any = Permission.WILDCARD in namespaces
+            return when {
+                kind.isGlobal -> sequenceOf(NamingRules.SYSTEM_NAMESPACE)
+                    .filter { any || it in namespaces }
+
+                any -> sequenceOf(Permission.WILDCARD)
+                else -> namespaces.asSequence().filter { it != NamingRules.SYSTEM_NAMESPACE }.distinct()
+            }
+        }
 
         /**
          * They hold in every namespace, and a RoleBinding narrows that (design §6.3). A Role of the same name does not

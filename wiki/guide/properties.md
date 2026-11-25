@@ -22,8 +22,8 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 
 | Property | Default | Meaning |
 |---|---|---|
-| `cosky.auth.enabled` | `true` | Off, everyone may do everything. Only for development. |
-| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | Becomes the `admin` ServiceAccount on the first start |
+| `cosky.auth.enabled` | `true` | Off, everyone may do everything. Only for development: on Redis the server logs an error at start, and `cosky_auth_enabled` is 0. |
+| `cosky.auth.bootstrap-token` | `$COSKY_BOOTSTRAP_TOKEN` | Becomes the `admin` ServiceAccount while no role binding exists. Its secret takes at least 22 letters and digits, see [Security](./security.md#the-first-token) |
 | `cosky.auth.namespace-accounts` | `true` | Gives every namespace a ServiceAccount of its own name, bound to `client` there, whose token its applications share |
 | `cosky.auth.oidc.issuer` | — | Turns OIDC on, together with `client-id` |
 | `cosky.auth.oidc.client-id` | — | The Dashboard's client |

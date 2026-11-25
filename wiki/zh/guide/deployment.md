@@ -18,7 +18,7 @@ CoSky 需要 **Redis 7.0 或更高版本，或 Valkey 8**，并且 `maxmemory-po
 
 Redis 复制是异步的，故障切换可能丢失最后的写入。为了缩小这个窗口，请在主节点上设置 `min-replicas-to-write 1`。CoSky 能发现丢失的时间线并恢复，详见[架构](./architecture.md#redis-丢失写入时)，客户端也会重新注册。但故障切换前刚写入的 Config 可能已经丢失。
 
-如果 Redis 丢失了全部数据，server 会在大约 30 秒内自行按首次启动的方式重建：系统 namespace、`default`，以及由 bootstrap token 生成的管理员，所以不要移除这个 token。其余内容都已丢失：其他 namespace、Config、Role、RoleBinding，以及 ServiceAccount 和它们的 token。需要重新创建，或者导入你保存的 Config [zip 导出](./configuration.md#导入与导出)。开启鉴权时，应用会继续提供已知的数据，但在拿到新 token 之前都不会重新注册。关闭鉴权时，等它的 namespace 重新存在后，应用会跟随其中的内容，并重新注册自己。
+如果 Redis 丢失了全部数据，server 会在大约 30 秒内自行按首次启动的方式重建：系统 namespace、`default`，以及由 bootstrap token 生成的管理员。所以按[安全](./security.md#第一个-token)的建议吊销 bootstrap token 之后，请把环境变量或 Secret 换成一个没人用过的新 token，作为应急凭据保管，或者删除它：否则已吊销的那个会重新成为管理员。其余内容都已丢失：其他 namespace、Config、Role、RoleBinding，以及 ServiceAccount 和它们的 token。需要重新创建，或者导入你保存的 Config [zip 导出](./configuration.md#导入与导出)。开启鉴权时，应用会继续提供已知的数据，但在拿到新 token 之前都不会重新注册。关闭鉴权时，等它的 namespace 重新存在后，应用会跟随其中的内容，并重新注册自己。
 
 ### 凭据与 TLS
 
@@ -66,7 +66,7 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   ahoowang/cosky:8.0.0-beta.15
 ```
 
-请保存这个 token，它是新安装实例的管理员，详见[安全](./security.md#第一个-token)。使用 Redis Cluster 时，加上 `-e COSKY_STORE_REDIS_CLUSTER=true`。
+请保存这个 token，它是新安装实例的管理员，详见[安全](./security.md#第一个-token)。它的 secret 至少要有 22 个字母和数字，更短的话 server 拒绝启动。使用 Redis Cluster 时，加上 `-e COSKY_STORE_REDIS_CLUSTER=true`。
 
 所有[属性](./properties.md)都可以用环境变量或参数设置。`--dev` 在内存中运行，不需要登录，只用于试用。
 
@@ -119,6 +119,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 | `cosky_revision_regression_total` | Redis 丢失了写入 |
 | `cosky_anti_entropy_drift_total{namespace}` | 副本的视图与存储不一致，这本不该发生 |
 | `cosky_auth_failures_total{reason}` | 登录失败 |
+| `cosky_auth_enabled` | `0`：鉴权已关闭，每个调用者都是管理员。在 Redis 上这样运行时，server 启动时还会记录一条错误日志 |
 
 **链路追踪**覆盖 gRPC 和 HTTP，采样率 10%。要导出，请设置 `management.opentelemetry.tracing.export.otlp.endpoint`，比如 `http://collector:4318/v1/traces`。
 

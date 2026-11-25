@@ -31,6 +31,7 @@ import me.ahoo.cosky.server.adapter.rest.OpenApiDocument
 import me.ahoo.cosky.server.adapter.rest.RestRoutes
 import me.ahoo.cosky.server.audit.AuditLogger
 import me.ahoo.cosky.server.auth.AccessControl
+import me.ahoo.cosky.server.auth.AuthenticationStatus
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.NamespaceAccounts
 import me.ahoo.cosky.server.auth.OidcAuthenticator
@@ -82,8 +83,12 @@ class CoSkyServerApplication : DisposableBean {
         builder.executor(VirtualThreads.executor)
     }
 
+    /**
+     * Says whether authentication is on as soon as there are meters to say it with, before anything else starts.
+     */
     @Bean
-    fun metrics(registry: MeterRegistry): CoSkyMetrics = CoSkyMetrics(registry)
+    fun metrics(registry: MeterRegistry, properties: CoSkyProperties): CoSkyMetrics =
+        CoSkyMetrics(registry).also { AuthenticationStatus.report(properties, it) }
 
     @Bean
     fun store(
@@ -151,7 +156,11 @@ class CoSkyServerApplication : DisposableBean {
             }
             OidcAuthenticator.create(issuer, audience, oidc.groupsClaim)
         }
-        return AccessControl(caches, oidc = authenticator)
+        return AccessControl(
+            caches,
+            oidc = authenticator,
+            timeout = properties.read.minRevisionTimeout.toKotlinDuration(),
+        )
     }
 
     @Bean
