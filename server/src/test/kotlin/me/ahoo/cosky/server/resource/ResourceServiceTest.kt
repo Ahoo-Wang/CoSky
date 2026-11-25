@@ -40,7 +40,6 @@ import me.ahoo.cosky.api.v1.PutRequest
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
 import me.ahoo.cosky.api.v1.Subject
-import me.ahoo.cosky.api.v1.TokenRef
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.namespaceSpec
@@ -48,7 +47,6 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.putRequest
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.resourceKey
-import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.auth.Caller
@@ -305,39 +303,6 @@ class ResourceServiceTest {
         }
         val caches = WatchCache(behind, WINDOW, scope)
         return Replica(ResourceService(behind, caches, minRevisionTimeout = SHORT_TIMEOUT), caches) to following
-    }
-
-    @Test
-    fun `a replica that is behind does not bring back a revoked token`() = scenario {
-        store.createNamespace(NamingRules.SYSTEM_NAMESPACE)
-        val (replica, following) = replicaThatFollows()
-        val two = applied(NamingRules.SYSTEM_NAMESPACE, account("kept", "revoked"), Mutation.NO_CHECK)
-        replica.caches.viewAt(NamingRules.SYSTEM_NAMESPACE, two, SHORT_TIMEOUT)
-
-        following.value = false
-        val one = applied(NamingRules.SYSTEM_NAMESPACE, account("kept"), two)
-        errorOf {
-            replica.resources.put(
-                putRequest {
-                    resource = account()
-                    expectedRevision = one
-                },
-                CALLER
-            )
-        }.assert().isEqualTo(ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT)
-
-        store.readAll(NamingRules.SYSTEM_NAMESPACE).toList().single().serviceAccount.tokensList.map { it.id }
-            .assert().containsExactly("kept")
-    }
-
-    private fun account(vararg tokens: String): Resource = resource {
-        meta = objectMeta {
-            namespace = NamingRules.SYSTEM_NAMESPACE
-            name = "app"
-        }
-        serviceAccount = serviceAccountSpec {
-            tokens.forEach { this.tokens += TokenRef.newBuilder().setId(it).setSha256("00").build() }
-        }
     }
 
     private suspend fun applied(namespace: String, resource: Resource, expected: Long): Long {

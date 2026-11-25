@@ -292,12 +292,12 @@ internal class LeaseKeeper(
      */
     private suspend fun restore() {
         delay(options.reRegisterJitter * Random.nextDouble())
-        mutex.withLock {
+        val restored = mutex.withLock {
             lease = grant()
             // One refused gives way to the registration it would have replaced, which the next renewal finds missing.
-            registrations.toList().forEach { (name, resource) -> send(name, resource) }
+            registrations.toList().count { (name, resource) -> send(name, resource) }
         }
-        log.info("Restored {} registrations in namespace {} with lease {}.", registrations.size, namespace, lease)
+        log.info("Restored {} registrations in namespace {} with lease {}.", restored, namespace, lease)
     }
 
     /**
@@ -319,17 +319,26 @@ internal class LeaseKeeper(
      * Puts a registration and remembers that the server has it. One the server refuses, having never accepted it, gives
      * way to the registration it would have replaced, as in [register], rather than being sent again and again. Where
      * there was none, its handle closes nothing: whatever holds the name now is not this client's.
+     *
+     * One it accepted before and refuses now, as when its service may no longer be written, stays, and goes again with
+     * the next renewal: the refusal may pass, and what is pending still has to go out. It must not hold up the others:
+     * they are what this is restoring.
+     *
+     * @return whether the server took it.
      */
-    private suspend fun send(name: String, resource: Resource) {
-        try {
-            put(resource)
-            confirmed[name] = resource
-            pending.remove(name)
-        } catch (e: StatusException) {
-            val previous = confirmed[name]
-            if (e.status.code in OUT_OF_REACH || previous == resource) {
-                throw e
-            }
+    private suspend fun send(name: String, resource: Resource): Boolean = try {
+        put(resource)
+        confirmed[name] = resource
+        pending.remove(name)
+        true
+    } catch (e: StatusException) {
+        if (e.status.code in OUT_OF_REACH) {
+            throw e
+        }
+        val previous = confirmed[name]
+        if (previous == resource) {
+            log.warn("The server refused {}, which it had accepted before: {}", name, describe(e))
+        } else {
             log.error("The server refused {}, registered while it was out of reach: {}", name, e.status)
             giveWay(name, previous)
             pending.remove(name)
@@ -337,6 +346,7 @@ internal class LeaseKeeper(
                 owners.remove(name)
             }
         }
+        false
     }
 
     /**
@@ -452,16 +462,23 @@ internal class LeaseKeeper(
     }
 
     /**
-     * @return false if the Instance is there already, whatever it holds.
+     * @return false if the Instance is there already, whatever it holds, or the server refuses it now: the others are
+     * put back all the same, and it is tried again with the next renewal that finds it missing. Not every Instance of
+     * the name comes back as a conflict: one of another service, or of a service this one may no longer write, is
+     * refused before the store is asked.
      */
     private suspend fun createIfMissing(resource: Resource): Boolean = try {
         put(resource, Validator.MUST_NOT_EXIST)
         true
     } catch (e: StatusException) {
-        if (CoSkyException.from(e)?.reason != ErrorReason.ERROR_REASON_REVISION_CONFLICT) {
-            throw e
+        when {
+            CoSkyException.from(e)?.reason == ErrorReason.ERROR_REASON_REVISION_CONFLICT -> false
+            e.status.code in OUT_OF_REACH -> throw e
+            else -> {
+                log.warn("The server refused to put back {}: {}", resource.meta.name, describe(e))
+                false
+            }
         }
-        false
     }
 
     private suspend fun grant(channel: GrpcChannel = connection.channel()): Long = leases(channel).timed().grant(

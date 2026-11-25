@@ -480,7 +480,7 @@ REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射
 ### 4.6 消息大小与分页(D23)
 
 gRPC 默认单条消息上限 4 MiB,而一个 namespace 的全量可达 50 MB。所有可能变大的响应都按字节分开:
-单条消息的资源总量不超过 `max-message-bytes`(默认 2 MiB)。单个资源最大约 1 MiB,所以每条消息至少放得下一个。
+单条消息的资源总量不超过 `max-message-bytes`(默认 2 MiB)。单个资源最大约 1 MiB;写入时校验序列化后的资源不超过 `max-message-bytes`(没有单独上限的字段,如 scheme、Role 的规则,也由它约束),所以每条消息至少放得下一个。
 
 | 响应 | 方式 | 一致性 |
 |---|---|---|

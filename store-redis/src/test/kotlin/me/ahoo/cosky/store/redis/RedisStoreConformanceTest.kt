@@ -154,6 +154,24 @@ class RedisStoreConformanceTest : StoreConformanceTest() {
         CONNECTION.async().xlen(keys.log).await().assert().isEqualTo(10)
     }
 
+    @Test
+    fun `large writes taking the place of small entries keep the log within its byte limit`() = runBlocking<Unit> {
+        val namespace = "mixed-${UUID.randomUUID()}"
+        val keys = RedisKeys(namespace)
+        val maxBytes = 300_000L
+        val store = newStore(StoreOptions(logSize = 2_000, logBytes = maxBytes))
+        store.createNamespace(namespace)
+        repeat(20) { batch ->
+            val small = (0 until 100).map { Mutation.Put(config(namespace, "small-$batch-$it", "x")) }
+            store.apply(namespace, small, "test")
+        }
+
+        repeat(20) {
+            store.apply(namespace, listOf(Mutation.Put(config(namespace, "large", "$it".padEnd(50_000)))), "test")
+            CONNECTION.async().get(keys.logBytes).await().toLong().assert().isLessThanOrEqualTo(maxBytes)
+        }
+    }
+
     private fun config(namespace: String, name: String, content: String): Resource = resource {
         meta = objectMeta {
             this.namespace = namespace
