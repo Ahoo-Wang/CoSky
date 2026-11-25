@@ -837,7 +837,7 @@ registration.close()                                                            
 
 - 同一 key 的多个 `watch` 调用共享一个底层 Watch,它存活到 client 关闭。热路径只读 `StateFlow.value`,不算订阅,所以订阅数无法判断何时可以取消;一个进程关心的 key 也是有限的。例外是 starter 的导入(§7.7),它随刷新增减:导入通过内部的 `configs.hold` 持有 Watch,最后一个持有者关闭、且没有 `watch`/`load` 用过这个 key 时,向 server 发 Cancel 结束它,不再占用单条流的配额(#1235)。
 - 热路径(`choose()`、`config.value`)只读 `StateFlow.value`,不挂起、不分配。
-- 一条 gRPC 连接承载全部 Watch 与 KeepAlive;多个 server 端点轮换重连,重连带 `from_revision` 和 `from_epoch`。
+- 一条 gRPC 连接承载全部 Watch 与 KeepAlive;重连新建连接,多个 server 端点时轮换,只有一个端点(如 Kubernetes Service)时新建到它的连接(§7.5),重连带 `from_revision` 和 `from_epoch`。
 - 快照落盘(§7.5):有快照时启动先加载,立即可用,连接成功后从快照位置续传。
 - 负载均衡:一个 `LoadBalancer` SPI,内置加权随机(前缀和 + 二分)与轮询。
 
@@ -935,6 +935,8 @@ me.ahoo.cosky.server
 - **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`,没有 POSIX 权限的文件系统(如 Windows)沿用所在目录的权限;`snapshot-include-config = false` 时 Config 不落盘。
 - **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
+  每次都新建 channel 并关闭旧的:多个端点时连下一个,只有一个端点时再连它一次。不能服务的副本(落后或读不到 store,D29)以结束整条流让客户端离开;复用原连接只会回到它,而到 Kubernetes Service 的新 TCP 连接可能落到另一个副本。channel 在锁外创建(工厂可能读 PEM 文件或做应用自己的事,会阻塞),同一次失败只换一次,关闭后创建的立即关闭;创建失败时保留当前 channel,下次失败再试下一个。
+  server 默认在连接约 30 分钟(±10%)后结束它(`spring.grpc.server.keepalive.connection.max-age`,流再有 5 秒),客户端经 Service 重连,滚动更新或扩容后连接因此重新分布。
 - **注册**:客户端本地记住全部注册;租约丢失(KeepAlive 返回 0 或 `LEASE_NOT_FOUND`)时等待 0–5 秒随机抖动,再重新 Grant 并重新 Put 全部实例;`attached_count` 少于本地注册数时只重新创建缺失的实例(D31)。
   KeepAlive 流因 `UNAVAILABLE` 等错误中断不算租约丢失。
   server 不可达时注册照常返回,同名替换也一样:客户端按名字记下 server 尚未确认的那次注册,续期恢复后重新 Put;不靠比较内容判断,因为它可能与之前确认的相同,而管理员已改过该实例(#1124)。这不从 `attached_count` 推断;这时才被拒绝的注册退回到它要替换的那一个。

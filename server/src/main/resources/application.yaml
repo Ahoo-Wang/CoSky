@@ -24,6 +24,13 @@ spring:
           # Clients ping every 15 seconds to notice a server that is silently gone. gRPC ends the connections of those
           # it finds pinging more often than this, 5 minutes by default.
           time: 10s
+        connection:
+          # A client keeps its one connection for good, so after a rolling update or a scale-out the replicas that
+          # started last have few clients. Ending each connection after about half an hour, give or take a tenth,
+          # spreads them again: a client reconnects through the Service and resumes where it was.
+          max-age: 30m
+          # Watches and keep-alives never finish by themselves, as on shutdown.
+          grace-period: 5s
   webflux:
     # Failures that are not CoSky's own, such as a path that does not exist, are problem details (RFC 9457) as well.
     problemdetails:

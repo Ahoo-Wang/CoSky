@@ -96,6 +96,8 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 
 In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
+Clients keep their connection, so after a rolling update or a scale-out the replicas that started last have few of them. Each replica ends a connection after about 30 minutes, give or take a tenth, and gives its streams 5 seconds, so clients spread out again: they reconnect through the Service, which is all the endpoint an application needs, and resume where they were. `spring.grpc.server.keepalive.connection.max-age` sets this, and `grace-period` under it the 5 seconds.
+
 Draining a node stops its replica the same way. The PodDisruptionBudget lets one replica go at a time, so draining two nodes at once waits for the first replacement to be ready. On a k3s cluster of four nodes, draining each node in turn and then two at once failed no write, no read of a Config in an application and no registration.
 
 ## The Dashboard on its own

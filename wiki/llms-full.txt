@@ -449,7 +449,7 @@ Registering a name again replaces its registration, and the new handle is the on
 | `DEGRADED` | Not connected: serving what is known, from memory or a snapshot. |
 | `CLOSED` | Closed. |
 
-Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn.
+Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the endpoints in turn. Each time it opens a new connection, to the next endpoint or, with a single one such as a Kubernetes Service, to that one again: a replica that cannot serve, being behind or cut off from Redis, ends the stream for the client to go elsewhere, and only a new connection can reach another replica.
 
 ## Snapshots
 
@@ -579,6 +579,8 @@ A replica stays ready while Redis is away, on purpose. Redis is shared, so a fai
 ## Rolling updates
 
 In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
+
+Clients keep their connection, so after a rolling update or a scale-out the replicas that started last have few of them. Each replica ends a connection after about 30 minutes, give or take a tenth, and gives its streams 5 seconds, so clients spread out again: they reconnect through the Service, which is all the endpoint an application needs, and resume where they were. `spring.grpc.server.keepalive.connection.max-age` sets this, and `grace-period` under it the 5 seconds.
 
 Draining a node stops its replica the same way. The PodDisruptionBudget lets one replica go at a time, so draining two nodes at once waits for the first replacement to be ready. On a k3s cluster of four nodes, draining each node in turn and then two at once failed no write, no read of a Config in an application and no registration.
 
@@ -1035,6 +1037,8 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | `spring.grpc.server.port` | `9090` | gRPC |
 | `server.ssl.bundle`, `spring.grpc.server.ssl.bundle` | — | [TLS](./security.md#tls) |
 | `spring.grpc.server.shutdown.grace-period` | `5s` | How long open streams get on shutdown |
+| `spring.grpc.server.keepalive.connection.max-age` | `30m` | A client connection is ended after this, give or take a tenth, so that clients [spread over the replicas again](./deployment.md#rolling-updates) |
+| `spring.grpc.server.keepalive.connection.grace-period` | `5s` | How long the streams of such a connection get |
 | `management.tracing.sampling.probability` | `0.1` | Share of requests traced |
 | `management.opentelemetry.tracing.export.otlp.endpoint` | — | Where traces go |
 | `springdoc.api-docs.enabled` | `true` | The REST API's document at `/v3/api-docs`, and Swagger UI on it at `/swagger-ui.html`; `springdoc.swagger-ui.enabled=false` keeps the document only |
