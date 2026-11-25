@@ -85,7 +85,8 @@ In `cosky-api` that API is the generated types, `CoSkyException` and `ErrorCodes
 `@InternalCoSkyApi` is shared by CoSky's own modules and may change in any release, as may the Kotlin API of
 `cosky-server`, `cosky-store`, `cosky-store-redis`, `cosky-migration`, `cosky-test` and `cosky-conformance-test`.
 
-Three CI jobs watch that API. During the betas they report, and from the release candidate they are required checks:
+Four CI jobs watch what only grows. During the betas they report, and from the release candidate they are required
+checks:
 
 - **Proto Compatibility** checks the protos against a pull request's base with `./gradlew :api:bufBreaking`, by the
   rules in `api/src/main/proto/buf.yaml`.
@@ -95,9 +96,13 @@ Three CI jobs watch that API. During the betas they report, and from the release
   base's dumps is gone (`.github/scripts/api-only-grows.sh`), which updating them cannot get past.
 - **REST Compatibility** compares the OpenAPI documents generated from the base and from the pull request with
   `oasdiff breaking` (`.github/scripts/rest-only-grows.sh`): routes, parameters, headers, status codes and schemas.
+- **Properties and Metrics Compatibility** fails when a property of the configuration metadata the server and the
+  starter ship, or a metric of the table in `wiki/guide/deployment.md` with its labels, is gone
+  (`.github/scripts/names-only-grow.sh`). `ConfigurationMetadataTest` holds the metadata to the code and
+  `MetricsReferenceTest` holds that table to the server, so a pull request that adds one adds it there too.
 
-The last two decide by the base's version: they only warn while it is an alpha or a beta, or when the pull request
-raises the major version, and fail from the release candidate on.
+All four decide by the base's version: they only warn while it is an alpha or a beta, or when the pull request raises
+the major version, and fail from the release candidate on.
 
 To release:
 

@@ -97,6 +97,10 @@ tasks.withType<Test> {
     inputs.files(rootProject.files("wiki/guide/properties.md", "wiki/zh/guide/properties.md"))
         .withPropertyName("propertiesReference")
         .withPathSensitivity(PathSensitivity.RELATIVE)
+    // MetricsReferenceTest holds the metrics to the deployment guide's table, in both languages.
+    inputs.files(rootProject.files("wiki/guide/deployment.md", "wiki/zh/guide/deployment.md"))
+        .withPropertyName("metricsReference")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     // ServerMeasurement reports numbers rather than asserting them, so it only runs when asked for.
     environment("COSKY_MEASURE", System.getenv("COSKY_MEASURE").orEmpty())
     System.getenv("COSKY_MEASURE_JVM_ARGS")?.let { jvmArgs(it.split(" ")) }
