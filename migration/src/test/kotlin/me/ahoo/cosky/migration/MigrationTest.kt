@@ -14,22 +14,16 @@
 package me.ahoo.cosky.migration
 
 import com.google.gson.JsonParser
-import io.lettuce.core.RedisClient
-import io.lettuce.core.RedisURI
 import io.lettuce.core.api.sync.RedisCommands
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.resource
-import me.ahoo.cosky.server.CoSkyServerApplication
-import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.api.io.TempDir
-import org.springframework.boot.builder.SpringApplicationBuilder
-import org.testcontainers.containers.GenericContainer
 import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import java.net.ServerSocket
@@ -482,44 +476,14 @@ class MigrationTest {
             .assert().isEqualTo(EXIT_DONE)
     }
 
-    private class Redis : GenericContainer<Redis>("redis:7.4-alpine")
-
     private companion object {
-        const val REDIS_PORT = 6379
         const val ONE_MIB = 1024 * 1024
 
         /** How many versions of a Config the server keeps, by default. */
         const val HISTORY_KEPT = 20
-        const val READY_ATTEMPTS = 100
-        const val READY_DELAY = 100L
-        val TOKEN = Tokens.generate().plaintext
-
-        val CONTAINER: Redis = Redis().withExposedPorts(REDIS_PORT).also { it.start() }
-        val REDIS_URI = "redis://${CONTAINER.host}:${CONTAINER.getMappedPort(REDIS_PORT)}"
-        val REDIS: RedisCommands<String, String> = RedisClient.create(RedisURI.create(REDIS_URI)).connect().sync()
-
-        val URL: String = startServer()
-
-        private fun startServer(): String {
-            // Port 0: the system picks free ports as the server binds them, where one found free beforehand could be
-            // taken by another process in between.
-            val server = SpringApplicationBuilder(CoSkyServerApplication::class.java).run(
-                "--server.port=0",
-                "--spring.grpc.server.port=0",
-                "--cosky.store.type=memory",
-                "--cosky.auth.enabled=true",
-                "--cosky.auth.bootstrap-token=$TOKEN",
-            )
-            val url = "http://localhost:${server.environment.getRequiredProperty("local.server.port")}"
-            // A server just started refuses requests until its access rules have loaded.
-            val target = RestTarget(url, TOKEN)
-            repeat(READY_ATTEMPTS) {
-                if (runCatching { target.namespaceExists("default") }.getOrDefault(false)) {
-                    return url
-                }
-                Thread.sleep(READY_DELAY)
-            }
-            error("The server did not become ready.")
-        }
+        val TOKEN = MigrationEnvironment.TOKEN
+        val REDIS_URI = MigrationEnvironment.REDIS_URI
+        val REDIS: RedisCommands<String, String> = MigrationEnvironment.REDIS
+        val URL: String = MigrationEnvironment.URL
     }
 }

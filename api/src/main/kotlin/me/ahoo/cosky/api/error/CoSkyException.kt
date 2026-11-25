@@ -107,15 +107,28 @@ class CoSkyException(
             "Lease $lease not found in namespace $namespace.",
         )
 
+        /**
+         * The violations travel twice in the gRPC trailers, in `grpc-message` and in `grpc-status-details-bin`, and a
+         * grpc-java client refuses more than 8 KiB of them by default: it would see a transport error, not this
+         * status. So the error lists the first violations while those two trailers stay within [MAX_TRAILER_BYTES],
+         * each field and description cut to [MAX_VIOLATION_TEXT] characters, and its message counts the rest.
+         */
         @InternalCoSkyApi
-        fun invalidArgument(violations: List<Violation>): CoSkyException = CoSkyException(
-            detail(ErrorReason.ERROR_REASON_INVALID_ARGUMENT).setBadRequest(
-                BadRequest.newBuilder().addAllViolations(violations.map { it.toProto() }),
-            ),
-            violations.joinToString(separator = "; ", prefix = "Invalid argument: ") {
-                "${it.field}: ${it.description}"
-            },
-        )
+        fun invalidArgument(violations: List<Violation>): CoSkyException {
+            var listed = emptyList<Violation>()
+            var error = badRequest(listed, violations.size)
+            for (violation in violations) {
+                val more = listed + violation.shortened()
+                val candidate = badRequest(more, violations.size)
+                // The first one is always listed: shortened, it fits on its own.
+                if (listed.isNotEmpty() && candidate.trailerBytes() > MAX_TRAILER_BYTES) {
+                    break
+                }
+                listed = more
+                error = candidate
+            }
+            return error
+        }
 
         fun unauthenticated(message: String): CoSkyException =
             CoSkyException(detail(ErrorReason.ERROR_REASON_UNAUTHENTICATED).build(), message)
@@ -170,6 +183,61 @@ class CoSkyException(
         } catch (_: IllegalArgumentException) {
             null
         }
+
+        /**
+         * Bytes that `grpc-message` and `grpc-status-details-bin` of an INVALID_ARGUMENT stay within, leaving room in
+         * grpc-java's default 8 KiB for the other headers and trailers of the response.
+         */
+        internal const val MAX_TRAILER_BYTES = 6 * 1024
+
+        /** Characters an INVALID_ARGUMENT keeps of one violation's field or description. */
+        internal const val MAX_VIOLATION_TEXT = 128
+
+        private const val SHORTENED = "..."
+
+        private fun badRequest(listed: List<Violation>, total: Int): CoSkyException {
+            val omitted = total - listed.size
+            val message = listed.joinToString(separator = "; ", prefix = "Invalid argument: ") {
+                "${it.field}: ${it.description}"
+            }
+            return CoSkyException(
+                detail(ErrorReason.ERROR_REASON_INVALID_ARGUMENT).setBadRequest(
+                    BadRequest.newBuilder().addAllViolations(listed.map { it.toProto() }),
+                ),
+                if (omitted > 0) "$message; and $omitted more." else message,
+            )
+        }
+
+        private fun Violation.shortened(): Violation =
+            copy(field = field.shortened(), description = description.shortened())
+
+        private fun String.shortened(): String {
+            if (length <= MAX_VIOLATION_TEXT) {
+                return this
+            }
+            val end = MAX_VIOLATION_TEXT - SHORTENED.length
+            // Never half of a surrogate pair.
+            return take(if (this[end - 1].isHighSurrogate()) end - 1 else end) + SHORTENED
+        }
+
+        /**
+         * What `grpc-message` and `grpc-status-details-bin` take on the wire: gRPC percent-encodes the message's
+         * UTF-8 bytes but printable ASCII other than `%` and `~`, and sends the status in base64 without padding.
+         */
+        private fun CoSkyException.trailerBytes(): Int {
+            val status = toRpcStatus()
+            val message = status.message.encodeToByteArray().sumOf { byte ->
+                if (byte < PRINTABLE_FIRST || byte >= PRINTABLE_END || byte == PERCENT) PERCENT_ENCODED else 1
+            }
+            return message + (status.serializedSize * BASE64_CHARS + BASE64_BYTES - 1) / BASE64_BYTES
+        }
+
+        private const val PRINTABLE_FIRST: Byte = 0x20
+        private const val PRINTABLE_END: Byte = 0x7E
+        private const val PERCENT: Byte = 0x25
+        private const val PERCENT_ENCODED = 3
+        private const val BASE64_BYTES = 3
+        private const val BASE64_CHARS = 4
 
         private fun detail(reason: ErrorReason): ErrorDetail.Builder = ErrorDetail.newBuilder().setReason(reason)
 

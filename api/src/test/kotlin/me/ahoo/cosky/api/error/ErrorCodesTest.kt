@@ -53,12 +53,38 @@ class ErrorCodesTest {
         ErrorCodes.of(ErrorReason.ERROR_REASON_WATCH_QUOTA_EXCEEDED).assert().isEqualTo(
             ErrorCode(ErrorReason.ERROR_REASON_WATCH_QUOTA_EXCEEDED, Status.Code.RESOURCE_EXHAUSTED, 429),
         )
-        ErrorCodes.httpStatusOf(Status.Code.FAILED_PRECONDITION).assert().isEqualTo(412)
+        ErrorCodes.of(ErrorReason.ERROR_REASON_LEASE_NOT_FOUND).httpStatus.assert().isEqualTo(412)
+    }
+
+    @Test
+    fun `a gRPC code without a reason answers as google_rpc_Code maps it`() {
+        // The "HTTP Mapping" of each code in google/rpc/code.proto.
+        val standard = mapOf(
+            Status.Code.OK to 200,
+            Status.Code.CANCELLED to 499,
+            Status.Code.UNKNOWN to 500,
+            Status.Code.INVALID_ARGUMENT to 400,
+            Status.Code.DEADLINE_EXCEEDED to 504,
+            Status.Code.NOT_FOUND to 404,
+            Status.Code.ALREADY_EXISTS to 409,
+            Status.Code.PERMISSION_DENIED to 403,
+            Status.Code.UNAUTHENTICATED to 401,
+            Status.Code.RESOURCE_EXHAUSTED to 429,
+            Status.Code.FAILED_PRECONDITION to 400,
+            Status.Code.ABORTED to 409,
+            Status.Code.OUT_OF_RANGE to 400,
+            Status.Code.UNIMPLEMENTED to 501,
+            Status.Code.INTERNAL to 500,
+            Status.Code.UNAVAILABLE to 503,
+            Status.Code.DATA_LOSS to 500,
+        )
+        standard.forEach { (code, status) -> ErrorCodes.httpStatusOf(code).assert().isEqualTo(status) }
     }
 
     @Test
     fun `other reasons agree with the generic gRPC to HTTP mapping`() {
-        (ErrorCodes.ALL.filter { it.reason != ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY }).forEach {
+        val ownStatus = setOf(ErrorReason.ERROR_REASON_NAMESPACE_NOT_EMPTY, ErrorReason.ERROR_REASON_LEASE_NOT_FOUND)
+        ErrorCodes.ALL.filter { it.reason !in ownStatus }.forEach {
             ErrorCodes.httpStatusOf(it.grpcCode).assert().isEqualTo(it.httpStatus)
         }
     }

@@ -14,6 +14,7 @@
 package me.ahoo.cosky.migration
 
 import com.google.gson.JsonParser
+import com.google.protobuf.InvalidProtocolBufferException
 import com.google.protobuf.Message
 import com.google.protobuf.util.JsonFormat
 import me.ahoo.cosky.api.v1.HistoryResponse
@@ -29,10 +30,10 @@ import java.net.http.HttpResponse
 import java.time.Duration
 
 /**
- * Nothing else can succeed either: the server is away, or refuses this token. Nothing retries, because running the
- * tool again continues from here.
+ * Nothing else can succeed either: the server is away, refuses this token, or is not what answers. Nothing retries,
+ * because running the tool again continues from here.
  */
-internal class TargetStoppedException(message: String) : RuntimeException(message)
+internal class TargetStoppedException(message: String, cause: Throwable? = null) : RuntimeException(message, cause)
 
 /**
  * The server refused this one object.
@@ -84,7 +85,7 @@ internal class RestTarget(private val baseUrl: String, private val token: String
         if (!isSuccess(response)) {
             throw TargetRejectedException(messageOf(response))
         }
-        return Resource.newBuilder().also { parser.merge(response.body(), it) }.build()
+        return read(response, Resource.newBuilder()).build()
     }
 
     /**
@@ -98,7 +99,7 @@ internal class RestTarget(private val baseUrl: String, private val token: String
             if (!isSuccess(response)) {
                 throw TargetRejectedException(messageOf(response))
             }
-            val page = HistoryResponse.newBuilder().also { parser.merge(response.body(), it) }
+            val page = read(response, HistoryResponse.newBuilder())
             newestFirst += page.revisionsList
             pageToken = page.nextPageToken
         } while (pageToken.isNotEmpty())
@@ -123,7 +124,7 @@ internal class RestTarget(private val baseUrl: String, private val token: String
         if (!isSuccess(response)) {
             throw TargetRejectedException(messageOf(response))
         }
-        return PutResponse.newBuilder().also { parser.merge(response.body(), it) }.revision
+        return read(response, PutResponse.newBuilder()).revision
     }
 
     private fun namespacePath(name: String) = "/v1/namespaces/$name"
@@ -158,6 +159,36 @@ internal class RestTarget(private val baseUrl: String, private val token: String
 
     private fun isSuccess(response: HttpResponse<String>) = response.statusCode() in FIRST_SUCCESS..LAST_SUCCESS
 
+    /**
+     * A successful answer that is not the JSON of a CoSky message, such as the sign-in page of a gateway in front of
+     * the server, means that nothing else will work either.
+     */
+    private fun <B : Message.Builder> read(response: HttpResponse<String>, builder: B): B {
+        try {
+            parser.merge(response.body(), builder)
+        } catch (e: InvalidProtocolBufferException) {
+            throw TargetStoppedException(
+                "$baseUrl answered ${response.request().method()} ${response.uri().rawPath} with HTTP " +
+                    "${response.statusCode()}, but not as CoSky does: ${bodyOf(response)}",
+                e,
+            )
+        }
+        return builder
+    }
+
+    /** What a body is and how it begins, never a page of it. */
+    private fun bodyOf(response: HttpResponse<String>): String {
+        val body = response.body()
+        val type = response.headers().firstValue("Content-Type").orElse("no Content-Type")
+        if (body.isBlank()) {
+            return "an empty body, $type"
+        }
+        // A code span, so that the report shows markup as it came; its own backticks would end the span.
+        val beginning = body.take(EXCERPT_LENGTH).replace(WHITESPACE, " ").filterNot { it == '`' || it.isISOControl() }
+        val more = if (body.length > EXCERPT_LENGTH) "..." else ""
+        return "$type, ${body.length} characters beginning `${beginning.trim()}$more`"
+    }
+
     /** What the problem details (RFC 9457) say happened, else their title. */
     private fun messageOf(response: HttpResponse<String>): String =
         runCatching {
@@ -178,5 +209,7 @@ internal class RestTarget(private val baseUrl: String, private val token: String
         const val NOT_FOUND = 404
         const val CONFLICT = 409
         const val SERVER_ERROR = 500
+        const val EXCERPT_LENGTH = 80
+        val WHITESPACE = Regex("\\s+")
     }
 }
