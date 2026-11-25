@@ -1,16 +1,16 @@
 {
   "version": 1,
   "files": {
-    "configsApiClient.ts": "b391854d29c8a4b2251eb9a99e8f6536f4a036baeba944d473f5149eb5457d9f",
+    "configsApiClient.ts": "2bd4faedc33d5a7eb7cfab0eafb4fe46f296f5da82bab959c61e2f5fec29c328",
     "identityApiClient.ts": "908ce89df558e0d16644dfc22187608a6f10e4123b4deb915fbf95711a2b8685",
     "index.ts": "50546eb9d770d2357a69fb1cff56af62ad4a3b60626d40b54bb8e18ebf9841fe",
-    "instancesApiClient.ts": "10ba4258b5972a4f1567a036a18e953352b0cf0d4f462ba1b7fc7a6e032d9930",
-    "namespacesApiClient.ts": "1b677cb9340b870087342629e651f92ce8ec7544c136a6a1a90a8355648ee2b5",
-    "roleBindingsApiClient.ts": "e5bf8b0c62802db3103b428bef8914d406b8b96d5d23cae91f7683810523eff4",
-    "rolesApiClient.ts": "d990e3b65543a4716982d6cfaf0c1e194e78124dc899d9bff8d174c49c55b6c7",
-    "serviceAccountsApiClient.ts": "b9f0c291e7f5b7af270730bbb21e57394750b6ad4132e20c6333aabe2deac865",
-    "types.ts": "3a8860410349b7d5ebae570d7e1f243c2cf8290a2e1aff94924c7db087638f00",
-    "viewsApiClient.ts": "42dafd8951181441cc61e4a6e29669af0a5e7029dcbc7955a20c2dfe1657246f",
-    "watchApiClient.ts": "4d0d78da0c3a3b1c0cce1933122656b1f8b655ba1543f12e6917427bdf353d81"
+    "instancesApiClient.ts": "07f0b2dcba13ab674eda7d0c6b6eb6b4ec80017dde0807585db42ffd33edc36c",
+    "namespacesApiClient.ts": "999e833cc771dbcb88bf6edd0f30d9e0f9e806766b7141c1776270179db0d529",
+    "roleBindingsApiClient.ts": "487b4b9aeb04714997af550941fa9d9cc6acc9078ed6a6114b58807cbac0b533",
+    "rolesApiClient.ts": "1ec507b0fe1aebb9f1ce9ede8704b10795f5433629ba7630afd3cce5fd0399ca",
+    "serviceAccountsApiClient.ts": "083db28c7d1791d13a758fd5c8a193226611ed99cc8d619d9d8b32ceb470046e",
+    "types.ts": "ce5c95127a1cf0cd28f5eef069e7459e3216966cbc445b3ee0749c3087acf463",
+    "viewsApiClient.ts": "ab866dcb9f749936b864c07c252894d904e5a369ceba6dfe34ee530472a233d1",
+    "watchApiClient.ts": "f15e6945bfa4d79636f80e205908ffe289dc73e44b254cc43951dea35bd7beb8"
   }
 }

@@ -53,7 +53,7 @@ class OidcAuthenticator(private val decoder: JwtDecoder, private val groupsClaim
         throw CoSkyException.unauthenticated("The token is not valid: ${e.message}")
     } catch (e: JwtException) {
         // The provider's keys could not be fetched, which says nothing about the token.
-        throw CoSkyException.storeUnavailable("The identity provider cannot be reached.", e)
+        throw CoSkyException.identityProviderUnavailable("The identity provider cannot be reached.", e)
     }
 
     companion object {

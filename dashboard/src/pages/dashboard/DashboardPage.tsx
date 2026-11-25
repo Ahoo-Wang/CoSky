@@ -18,7 +18,7 @@ import {useQuery} from '@ahoo-wang/fetcher-react';
 import type {StatsResponse} from '@/generated';
 import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceContext';
 import {useNamespacesContext} from '@/contexts/namespace/NamespacesContext';
-import {viewsClient} from '@/services/clients';
+import {views} from '@/services/resources';
 import {Topology} from '@/components/topology/Topology';
 import {toConsumers} from '@/components/topology/topologies';
 import {Button} from '@/components/ui/button';
@@ -39,15 +39,14 @@ export function DashboardPage() {
     const [lastUpdated, setLastUpdated] = useState<{namespace: string; at: Date}>();
     const {result: stats, error, execute: loadStats} = useQuery<string, Partial<StatsResponse>>({
         query: currentNamespace,
-        execute: (namespace, abortController) =>
-            viewsClient.viewStats(namespace, {abortController}),
+        execute: (namespace, abortController) => views.stats(namespace, abortController),
         onSuccess: () => setLastUpdated({namespace: currentNamespace, at: new Date()}),
     });
     const {result: topology, error: topologyError, execute: loadTopology} = useQuery<string, TopologyReading>({
         query: currentNamespace,
         execute: async (namespace, abortController) => {
-            const view = await viewsClient.viewTopology(namespace, {abortController});
-            return {namespace, consumers: toConsumers(view.edges ?? [])};
+            const edges = await views.topology(namespace, abortController);
+            return {namespace, consumers: toConsumers(edges)};
         },
     });
 

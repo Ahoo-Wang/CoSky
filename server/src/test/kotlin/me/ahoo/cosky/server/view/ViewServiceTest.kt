@@ -35,6 +35,7 @@ import me.ahoo.cosky.api.v1.configSpec
 import me.ahoo.cosky.api.v1.instanceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
+import me.ahoo.cosky.api.validation.Limits
 import me.ahoo.cosky.server.auth.Authorizer
 import me.ahoo.cosky.server.auth.Caller
 import me.ahoo.cosky.server.auth.Permission
@@ -117,6 +118,76 @@ class ViewServiceTest {
                 edge("cart", "payment"),
                 edge("order", "payment")
             )
+    }
+
+    private fun services(pageSize: Int = 0, token: String = ""): ServicesRequest = ServicesRequest.newBuilder()
+        .setNamespace(NAMESPACE)
+        .setPageSize(pageSize)
+        .setPageToken(token)
+        .build()
+
+    @Test
+    fun `services page by count, each page with the first page's revision`() = runBlocking<Unit> {
+        fill()
+        val first = views.services(services(pageSize = 1), Caller.ANONYMOUS)
+        first.servicesList.map { it.service }.assert().containsExactly("order")
+        store.apply(NAMESPACE, listOf(Mutation.Put(instance("a1", "audit"))), "test")
+        caches.of(NAMESPACE).views.first { it != null && it.revision >= 2 }
+
+        val second = views.services(services(pageSize = 1, token = first.nextPageToken), Caller.ANONYMOUS)
+        second.servicesList.map { it.service }.assert().containsExactly("payment")
+        second.revision.assert().isEqualTo(first.revision)
+        second.nextPageToken.assert().isEmpty()
+    }
+
+    @Test
+    fun `without a page size every service comes at once, unless the size cap splits them`() = runBlocking<Unit> {
+        fill()
+        views.services(services(), Caller.ANONYMOUS).nextPageToken.assert().isEmpty()
+        val capped = ViewService(store, caches, limits = Limits(maxConfigContentBytes = 4, maxMessageBytes = 12))
+        val pages = generateSequence(capped.services(services(), Caller.ANONYMOUS)) { page ->
+            page.nextPageToken.takeIf { it.isNotEmpty() }
+                ?.let { runBlocking { capped.services(services(token = it), Caller.ANONYMOUS) } }
+        }.toList()
+        pages.size.assert().isEqualTo(2)
+        pages.flatMap { page -> page.servicesList.map { it.service } }.assert().containsExactly("order", "payment")
+    }
+
+    @Test
+    fun `a services token from another timeline, or of another kind, is refused`() = runBlocking<Unit> {
+        fill()
+        val token = views.services(services(pageSize = 1), Caller.ANONYMOUS).nextPageToken
+        val epoch = checkNotNull(store.position(NAMESPACE)).epoch
+        store.rotateEpoch(NAMESPACE, epoch)
+        caches.of(NAMESPACE).views.first { it != null && it.epoch != epoch }
+        val topologyToken = run {
+            store.recordTopology(NAMESPACE, listOf(edge("a", "b"), edge("c", "d")), 1.minutes)
+            val request = TopologyRequest.newBuilder().setNamespace(NAMESPACE).setPageSize(1).build()
+            views.topology(request, Caller.ANONYMOUS).nextPageToken
+        }
+        listOf(token, topologyToken, "nonsense").forEach { stale ->
+            val failure = runCatching { views.services(services(token = stale), Caller.ANONYMOUS) }
+                .exceptionOrNull() as CoSkyException
+            failure.detail.badRequest.violationsList.single().field.assert().isEqualTo("page_token")
+        }
+    }
+
+    @Test
+    fun `the topology pages after the last edge of the page before`() = runBlocking<Unit> {
+        store.createNamespace(NAMESPACE)
+        // A consumer is whatever a client calls itself.
+        val edges = listOf(edge("cart\nb", "order"), edge("cart", "payment"), edge("order", "payment"))
+        store.recordTopology(NAMESPACE, edges, 1.minutes)
+        val seen = mutableListOf<TopologyEdge>()
+        var token = ""
+        do {
+            val request = TopologyRequest.newBuilder().setNamespace(NAMESPACE).setPageSize(1).setPageToken(token)
+            val page = views.topology(request.build(), Caller.ANONYMOUS)
+            page.edgesCount.assert().isEqualTo(1)
+            seen += page.edgesList
+            token = page.nextPageToken
+        } while (token.isNotEmpty())
+        seen.assert().containsExactly(edge("cart", "payment"), edge("cart\nb", "order"), edge("order", "payment"))
     }
 
     @Test

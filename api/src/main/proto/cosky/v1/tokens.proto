@@ -1,0 +1,43 @@
+// Copyright [2021-present] [ahoo wang <ahoowang@qq.com> (https://github.com/Ahoo-Wang)].
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//      http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// ServiceAccount tokens (design §7.8), the only way to change ServiceAccountSpec.tokens. REST only: these are the
+// bodies of POST /v1/serviceaccounts/{name}/tokens and DELETE /v1/serviceaccounts/{name}/tokens/{tokenId}, which both
+// take If-Match on the ServiceAccount's revision.
+package cosky.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "me.ahoo.cosky.api.v1";
+option java_outer_classname = "TokensProto";
+
+message CreateTokenRequest {
+  google.protobuf.Timestamp expires_at = 1; // unset = the token does not expire
+}
+
+message CreateTokenResponse {
+  string id = 1;
+  string token = 2; // the plaintext, cosky_<id>_<secret>: returned here only, never again
+  google.protobuf.Timestamp expires_at = 3;
+  // The ServiceAccount's revision, which holding the token created: usable as If-Match of the next token change, and
+  // as min_revision of a read that must see the token.
+  int64 revision = 4;
+}
+
+message RevokeTokenResponse {
+  // The ServiceAccount's revision, usable as If-Match and min_revision: the one the revocation created, or, when there
+  // was no such token, the one the account has, unchanged.
+  int64 revision = 1;
+  bool deleted = 2; // false when the account holds no token of that id: nothing changed
+}

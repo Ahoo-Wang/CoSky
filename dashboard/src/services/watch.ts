@@ -92,7 +92,8 @@ export async function followChanges({namespace, kind, service, signal, onChange}
                 if (message.snapshot) {
                     epoch = message.snapshot.epoch;
                 }
-                if (message.snapshot || message.events || message.gone !== undefined) {
+                // A position that is gone ends the stream, and the next one starts from a snapshot.
+                if (message.snapshot || message.events || message.positionGone) {
                     watchedUpTo(
                         namespace,
                         message.snapshot?.revision ?? message.events?.revision,

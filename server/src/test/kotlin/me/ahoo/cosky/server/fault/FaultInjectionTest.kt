@@ -403,7 +403,7 @@ class FaultInjectionTest {
         }
         delay(SETTLE)
         deletions(seen).assert().isEmpty()
-        seen.none { it.hasGone() }.assert().isTrue()
+        seen.none { it.hasPositionGone() }.assert().isTrue()
         instances().single().meta.lease.assert().isEqualTo(before.meta.lease)
         resumed.cancel()
     }

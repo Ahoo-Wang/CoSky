@@ -16,11 +16,14 @@ public final class me/ahoo/cosky/api/error/CoSkyException : java/lang/RuntimeExc
 public final class me/ahoo/cosky/api/error/CoSkyException$Companion {
 	public final fun from (Ljava/lang/Throwable;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun from (Lme/ahoo/cosky/api/v1/WatchResponse$Canceled;)Lme/ahoo/cosky/api/error/CoSkyException;
+	public final fun identityProviderUnavailable (Ljava/lang/String;Ljava/lang/Throwable;)Lme/ahoo/cosky/api/error/CoSkyException;
+	public static synthetic fun identityProviderUnavailable$default (Lme/ahoo/cosky/api/error/CoSkyException$Companion;Ljava/lang/String;Ljava/lang/Throwable;ILjava/lang/Object;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun leaseNotFound (Ljava/lang/String;J)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun minRevisionTimeout (Ljava/lang/String;J)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun namespaceNotEmpty (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun namespaceNotFound (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun permissionDenied (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
+	public final fun replicaNotReady (Ljava/lang/String;Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun resourceNotFound (Lme/ahoo/cosky/api/v1/ResourceKey;)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun revisionConflict (Lme/ahoo/cosky/api/v1/ResourceKey;JJ)Lme/ahoo/cosky/api/error/CoSkyException;
 	public final fun revisionRegression (Ljava/lang/String;)Lme/ahoo/cosky/api/error/CoSkyException;

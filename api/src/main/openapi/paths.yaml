@@ -22,7 +22,21 @@ info:
     Management plane of CoSky. Every resource is a `Resource`: shared metadata plus one kind-specific spec.
 
     Revisions double as entity tags: `GET` and `PUT` return `ETag: "<revision>"`, and writes take it back in
-    `If-Match` (compare-and-set) or `If-None-Match: *` (create only).
+    `If-Match` (compare-and-set) or `If-None-Match: *` (create only). A write whose condition fails answers 409
+    `REVISION_CONFLICT`, as Kubernetes does, rather than the 412 of RFC 9110: the conflict is one of revisions, with the
+    same reason and detail as over gRPC.
+
+    Requests are read strictly: a body member the message does not have, a `meta.namespace` or `meta.name` other than
+    the path's, an `If-None-Match` other than `*`, or `If-Match` together with `If-None-Match` answers 400
+    `INVALID_ARGUMENT`.
+
+    A violation in `badRequest` names its field as over gRPC, by the proto field path in the request message: a query
+    parameter or a header by the field it sets (`pageSize` as `page_size`, `pageToken` as `page_token`, `minRevision`
+    as `min_revision`, `labelSelector` as `label_selector`, `If-Match` and `If-None-Match` as `expected_revision`,
+    `toRevision` as `to_revision`, `expiresAt` as `expires_at`, the parameters of the watch as `create.kind`,
+    `create.from_revision` and so on), the path by the key or resource it names (`key.name`, `resource.meta.name`), and
+    a body by the field it carries: `resource` for a Put, with the path in it for a member it does not have
+    (`resource.meta.lables`).
 
     Lists are paginated: `nextPageToken` is empty on the last page, and `revision` is that of the first page on every
     page. Watching from it converges on the current state.
@@ -118,9 +132,12 @@ paths:
     post:
       tags: [Configs]
       operationId: rollbackConfig
-      description: Puts the content of an earlier revision from the history again; also recreates a deleted Config.
+      description: |
+        Puts the content of an earlier revision from the history again; also recreates a deleted Config. A revision the
+        history does not hold is refused with 400 (`to_revision`, `VIOLATION_CODE_OUT_OF_RANGE`).
       parameters:
         - $ref: '#/components/parameters/ifMatch'
+        - $ref: '#/components/parameters/ifNoneMatch'
       requestBody:
         required: true
         content:
@@ -214,19 +231,24 @@ paths:
   # --- Watch ---
   /v1/namespaces/{namespace}/watch:
     parameters:
-      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/watchNamespace'
     get:
       tags: [Watch]
       operationId: watch
       description: |
         Server-sent events, one `WatchResponse` (proto3 JSON) per `data:` line, `watchId` always 0. With
         `fromRevision` 0 the stream starts with a `snapshot`, then `events`; `progress` bookmarks arrive while idle;
-        `gone` means the client must list again; `canceled` ends the stream. A `snapshot` carries the `epoch` to resume
-        with. Large snapshots and revisions span several messages, marked by `more`; apply them once the last arrives.
+        `positionGone` says why the position cannot go on, and ends the stream: list again, or watch again without a
+        position; `canceled` ends the stream. A `snapshot` carries the `epoch` to resume with. Large snapshots and
+        revisions span several messages, marked by `more`; apply them once the last arrives.
+
+        Namespaces, ServiceAccounts, Roles and RoleBindings live in the namespace `_system`, and are watched there, e.g.
+        `/v1/namespaces/_system/watch?kind=KIND_ROLE`.
       parameters:
         - name: kind
           in: query
           required: true
+          description: The kind by its enum name, e.g. `KIND_CONFIG`; `KIND_NAMESPACE` and the other global kinds in `_system`.
           schema: { $ref: '#/components/schemas/Kind' }
         - name: name
           in: query
@@ -239,7 +261,7 @@ paths:
           schema: { type: string, format: int64 }
         - name: fromEpoch
           in: query
-          description: Epoch of `fromRevision`, required when it is positive; a different epoch gets `gone`.
+          description: Epoch of `fromRevision`, required when it is positive; a different epoch gets `positionGone`.
           schema: { type: string }
       responses:
         '200':
@@ -257,9 +279,12 @@ paths:
     get:
       tags: [Views]
       operationId: viewServices
+      parameters:
+        - $ref: '#/components/parameters/viewPageSize'
+        - $ref: '#/components/parameters/viewPageToken'
       responses:
         '200':
-          description: Services with their instance counts.
+          description: Services with their instance counts, ordered by name.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ServicesResponse' }
@@ -270,9 +295,12 @@ paths:
     get:
       tags: [Views]
       operationId: viewTopology
+      parameters:
+        - $ref: '#/components/parameters/viewPageSize'
+        - $ref: '#/components/parameters/viewPageToken'
       responses:
         '200':
-          description: Consumer to producer edges.
+          description: Consumer to producer edges, ordered by consumer, then producer.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/TopologyResponse' }
@@ -382,7 +410,11 @@ paths:
     post:
       tags: [ServiceAccounts]
       operationId: createToken
-      description: Creates a token and returns its plaintext once. An account holds at most 2 valid tokens (§7.8).
+      description: |
+        Creates a token and returns its plaintext once, with the ServiceAccount's new revision. An account holds at
+        most 2 valid tokens (§7.8). The body may be left out.
+      parameters:
+        - $ref: '#/components/parameters/accountIfMatch'
       requestBody:
         content:
           application/json:
@@ -404,9 +436,15 @@ paths:
     delete:
       tags: [ServiceAccounts]
       operationId: revokeToken
+      description: Revokes a token. A token id the account does not hold answers `deleted` false, and changes nothing.
+      parameters:
+        - $ref: '#/components/parameters/accountIfMatch'
       responses:
-        '204':
-          description: The token is revoked.
+        '200':
+          description: The ServiceAccount's revision, and whether a token was revoked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RevokeTokenResponse' }
         default: { $ref: '#/components/responses/Error' }
   /v1/roles:
     get:
@@ -529,6 +567,12 @@ components:
       in: path
       required: true
       schema: { type: string, pattern: '^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$' }
+    watchNamespace:
+      name: namespace
+      in: path
+      required: true
+      description: A namespace, or `_system` for the kinds that live there (Namespaces, ServiceAccounts, Roles, RoleBindings).
+      schema: { type: string, pattern: '^(_system|[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?)$' }
     name:
       name: name
       in: path
@@ -543,9 +587,15 @@ components:
     labelSelector:
       name: labelSelector
       in: query
-      description: Equality conditions `key=value`, comma-separated, all of which must match.
-      schema: { type: string }
-      example: team=order,zone=az1
+      description: |
+        One equality condition `key=value` per parameter: everything after the first `=` is the value, commas included.
+        Repeat the parameter for several conditions, all of which must match; each label at most once.
+      style: form
+      explode: true
+      schema:
+        type: array
+        items: { type: string, pattern: '^[^=]+=.*$' }
+      example: [team=order, zone=az1]
     service:
       name: service
       in: query
@@ -568,17 +618,41 @@ components:
         `nextPageToken` of the previous page. A token stops being valid when the namespace epoch changes (400); list
         again from the first page.
       schema: { type: string, maxLength: 1024 }
+    viewPageSize:
+      name: pageSize
+      in: query
+      description: |
+        Entries per page, at most 1000; 0 or none means no limit, every entry in as few pages as the size cap allows. A
+        page may hold fewer to stay within the size cap.
+      schema: { type: integer, format: int32, minimum: 0, maximum: 1000 }
+    viewPageToken:
+      name: pageToken
+      in: query
+      description: '`nextPageToken` of the previous page; a token stops being valid when the namespace epoch changes (400).'
+      schema: { type: string, maxLength: 1024 }
     ifMatch:
       name: If-Match
       in: header
-      description: '`"<revision>"` (the ETag); the write applies only if the current revision matches, else 409.'
+      description: |
+        `"<revision>"` (the ETag); the write applies only if the current revision matches, else 409 `REVISION_CONFLICT`
+        (not 412, see the description of the API). Not together with `If-None-Match`.
       schema: { type: string }
       example: '"42"'
     ifNoneMatch:
       name: If-None-Match
       in: header
-      description: '`*`: create only; 409 if the object already exists.'
+      description: |
+        `*`: create only; 409 `REVISION_CONFLICT` if the object already exists. Any other value, or `If-Match` as well,
+        is refused with 400.
       schema: { type: string, enum: ['*'] }
+    accountIfMatch:
+      name: If-Match
+      in: header
+      description: |
+        `"<revision>"` of the ServiceAccount; the change applies only if the account is still at that revision, else
+        409 `REVISION_CONFLICT`.
+      schema: { type: string }
+      example: '"42"'
   headers:
     ETag:
       description: '`"<revision>"` of the object, usable in `If-Match`.'
@@ -586,7 +660,9 @@ components:
   requestBodies:
     Resource:
       required: true
-      description: The whole object (Put replaces it); read-only fields are ignored.
+      description: |
+        The whole object (Put replaces it); read-only fields are ignored. A member the message does not have is refused,
+        as is a `meta.namespace` or `meta.name` other than the path's; both may be left out.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Resource' }
@@ -604,14 +680,19 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/ListResponse' }
     Put:
-      description: The resulting revision; `changed` is false when the content was unchanged, and then no `ETag` is sent.
+      description: |
+        The object's revision, also sent as `ETag`: the one the write created, or, when the content was unchanged
+        (`changed` false), the one the object already has. Either is good for the next `If-Match`, and for
+        `minRevision`.
       headers:
         ETag: { $ref: '#/components/headers/ETag' }
       content:
         application/json:
           schema: { $ref: '#/components/schemas/PutResponse' }
     Delete:
-      description: The revision of the deletion.
+      description: |
+        The revision of the deletion; when there was nothing to delete (`deleted` false), the namespace's revision as of
+        the answer. Either is good for `minRevision`.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/DeleteResponse' }
@@ -660,6 +741,7 @@ components:
           $ref: '#/components/schemas/LeaseNotFound'
         badRequest:
           $ref: '#/components/schemas/BadRequest'
+          description: The violations, each naming its field by the proto field path, as the description of the API says.
         watchQuotaExceeded:
           $ref: '#/components/schemas/WatchQuotaExceeded'
     RollbackRequest:
@@ -669,7 +751,7 @@ components:
         toRevision:
           type: string
           format: int64
-          description: A revision from the Config's history.
+          description: A revision from the Config's history. The body has no other member.
     ConfigImportResponse:
       type: object
       properties:
@@ -681,21 +763,6 @@ components:
               name: { type: string }
               revision: { type: string, format: int64 }
               changed: { type: boolean }
-    CreateTokenRequest:
-      type: object
-      properties:
-        expiresAt:
-          type: string
-          format: date-time
-          description: Expiry; omitted means the token does not expire.
-    CreateTokenResponse:
-      type: object
-      properties:
-        id: { type: string }
-        token:
-          type: string
-          description: Plaintext `cosky_<tokenId>_<secret>`, returned only once.
-        expiresAt: { type: string, format: date-time }
     AuthConfigResponse:
       type: object
       properties:

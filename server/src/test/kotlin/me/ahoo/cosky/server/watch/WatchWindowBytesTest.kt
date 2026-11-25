@@ -16,6 +16,7 @@ package me.ahoo.cosky.server.watch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListRequest
 import me.ahoo.cosky.server.RunningServer
@@ -44,7 +45,7 @@ class WatchWindowBytesTest {
                     .build()
                 val epoch = server.resources.list(request).epoch
                 val first = server.watch(NAMESPACE, Kind.KIND_CONFIG, fromRevision = 1, fromEpoch = epoch).first()
-                first.hasGone().assert().isTrue()
+                first.positionGone.reason.assert().isEqualTo(GoneReason.GONE_REASON_COMPACTED)
                 // The store's log holds to the same limit.
                 server.bean(Store::class.java).recentChanges(NAMESPACE, 3, 100).map { it.revision }
                     .assert().containsExactly(3L)

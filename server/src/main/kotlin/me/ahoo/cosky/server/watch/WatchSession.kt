@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.kind
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
@@ -25,7 +26,6 @@ import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.server.auth.Permission
 import me.ahoo.cosky.server.auth.authorizedName
 import me.ahoo.cosky.server.observe.CoSkyMetrics
-import me.ahoo.cosky.server.observe.GoneReason
 import me.ahoo.cosky.store.Change
 import me.ahoo.cosky.store.ChangeBatch
 import me.ahoo.cosky.store.ChangeType
@@ -76,9 +76,9 @@ class WatchSession(
                 follow(start.epoch)
             }
 
-            create.fromEpoch != start.epoch -> sendGone(start.earliest, GoneReason.EPOCH)
+            create.fromEpoch != start.epoch -> sendGone(start, GoneReason.GONE_REASON_EPOCH)
 
-            create.fromRevision < start.earliest -> sendGone(start.earliest, GoneReason.COMPACTED)
+            create.fromRevision < start.earliest -> sendGone(start, GoneReason.GONE_REASON_COMPACTED)
 
             create.fromRevision <= start.revision || catchUp(start) -> follow(start.epoch)
         }
@@ -96,10 +96,15 @@ class WatchSession(
      */
     private suspend fun firstViewToResumeOn(): NamespaceView =
         withTimeoutOrNull(catchUpTimeout) { cache.awaitLoaded() ?: throw cannotLoad() }
-            ?: throw CoSkyException.storeUnavailable("This replica has not loaded namespace ${create.namespace} yet.")
+            ?: throw CoSkyException.replicaNotReady(
+                create.namespace,
+                "This replica has not loaded namespace ${create.namespace} yet.",
+            )
 
-    private fun cannotLoad(): CoSkyException =
-        CoSkyException.storeUnavailable("This replica cannot load namespace ${create.namespace} from its store.")
+    private fun cannotLoad(): CoSkyException = CoSkyException.replicaNotReady(
+        create.namespace,
+        "This replica cannot load namespace ${create.namespace} from its store.",
+    )
 
     /**
      * Waits for this replica to reach the position of the client, which came from another replica.
@@ -115,13 +120,14 @@ class WatchSession(
         }
         val stored = cache.storePosition()
         if (stored?.epoch == start.epoch && stored.revision >= create.fromRevision) {
-            throw CoSkyException.storeUnavailable(
+            throw CoSkyException.replicaNotReady(
+                create.namespace,
                 "This replica is behind revision ${create.fromRevision} of namespace ${create.namespace}.",
             )
         }
         // The store does not have it either: it comes from a timeline that was lost without anyone noticing (§6.4).
         // Waiting for another replica would not help, and the client would reconnect forever.
-        sendGone(start.earliest, GoneReason.REGRESSION)
+        sendGone(start, GoneReason.GONE_REASON_REGRESSION)
         return false
     }
 
@@ -136,12 +142,12 @@ class WatchSession(
                 }
 
                 view.epoch != epoch -> {
-                    sendGone(view.earliest, GoneReason.EPOCH)
+                    sendGone(view, GoneReason.GONE_REASON_EPOCH)
                     true
                 }
 
                 cursor.get() < view.earliest -> {
-                    sendGone(view.earliest, GoneReason.SLOW)
+                    sendGone(view, GoneReason.GONE_REASON_SLOW)
                     true
                 }
 
@@ -232,9 +238,9 @@ class WatchSession(
     private fun isInstanceOf(resource: Resource, service: String): Boolean =
         create.kind == Kind.KIND_INSTANCE && resource.instance.service == service
 
-    private suspend fun sendGone(earliest: Long, reason: GoneReason) {
+    private suspend fun sendGone(view: NamespaceView, reason: GoneReason) {
         metrics.gone(reason)
-        send(gone(create.watchId, earliest))
+        send(gone(create.watchId, view.earliest, view.epoch, reason))
     }
 
     private inline fun response(block: WatchResponse.Builder.() -> Unit): WatchResponse =
@@ -246,10 +252,19 @@ class WatchSession(
             .setCanceled(error.toWatchCanceled())
             .build()
 
-        fun gone(watchId: Long, earliest: Long): WatchResponse = WatchResponse.newBuilder()
-            .setWatchId(watchId)
-            .setGone(earliest)
-            .build()
+        /**
+         * @param earliest the earliest revision [epoch] can be resumed from.
+         */
+        fun gone(watchId: Long, earliest: Long, epoch: String, reason: GoneReason): WatchResponse =
+            WatchResponse.newBuilder()
+                .setWatchId(watchId)
+                .setPositionGone(
+                    WatchResponse.Gone.newBuilder()
+                        .setEarliestRevision(earliest)
+                        .setEpoch(epoch)
+                        .setReason(reason),
+                )
+                .build()
 
         fun progress(watchId: Long, revision: Long): WatchResponse = WatchResponse.newBuilder()
             .setWatchId(watchId)

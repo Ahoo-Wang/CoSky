@@ -59,7 +59,7 @@ curl -X PUT localhost:8080/v1/namespaces/prod/configs/shared%2Fdatasource.yaml \
 | `If-None-Match: *` | 仅当它不存在。 |
 | 都不带 | 直接写入。 |
 
-Dashboard 总是发送前两者之一，所以不会覆盖别人的修改。写入相同的内容不会有任何变化：没有新 revision，也没有事件。
+Dashboard 总是发送前两者之一，所以不会覆盖别人的修改。写入相同的内容不会有任何变化：没有新 revision，也没有事件，返回的是 Config 已有的 revision。
 
 名称中的 `/` 在路径里要编码成 `%2F`，因为名称是一个路径段。
 

@@ -46,6 +46,8 @@ class CoSkyExceptionTest {
         CoSkyException.storeUnavailable("Redis down.", IllegalStateException("io")),
         CoSkyException.revisionRegression("prod"),
         CoSkyException.watchQuotaExceeded(1000),
+        CoSkyException.identityProviderUnavailable("No keys.", IllegalStateException("io")),
+        CoSkyException.replicaNotReady("prod", "Namespace prod is loading."),
     )
 
     @Test
@@ -148,6 +150,13 @@ class CoSkyExceptionTest {
         error.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
         error.cause.assert().isSameAs(cause)
         CoSkyException.storeUnavailable("The store is unavailable.").cause.assert().isNull()
+    }
+
+    @Test
+    fun `a replica that is not ready names the namespace, and a provider out of reach keeps its cause`() {
+        CoSkyException.replicaNotReady("prod", "Loading.").detail.namespace.namespace.assert().isEqualTo("prod")
+        val cause = IllegalStateException("connection refused")
+        CoSkyException.identityProviderUnavailable("No keys.", cause).cause.assert().isSameAs(cause)
     }
 
     private fun statusWith(detail: Any) = StatusProto.toStatusRuntimeException(

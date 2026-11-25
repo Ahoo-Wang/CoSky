@@ -100,6 +100,48 @@ class TokenServiceTest {
     }
 
     @Test
+    fun `a token change answers the account's revision, which a later change can expect`() = runBlocking<Unit> {
+        val tokens = TokenService(store, caches)
+        val created = tokens.create(ACCOUNT, null, Caller.ANONYMOUS)
+        created.revision.assert().isEqualTo(checkNotNull(store.position(NamingRules.SYSTEM_NAMESPACE)).revision)
+
+        val stale = runCatching { tokens.create(ACCOUNT, null, Caller.ANONYMOUS, expectedRevision = 1) }
+            .exceptionOrNull() as CoSkyException
+        stale.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+        stale.detail.revisionConflict.currentRevision.assert().isEqualTo(created.revision)
+
+        val revoked = tokens.revoke(ACCOUNT, created.token.id, Caller.ANONYMOUS, expectedRevision = created.revision)
+        revoked.deleted.assert().isTrue()
+        revoked.revision.assert().isGreaterThan(created.revision)
+    }
+
+    @Test
+    fun `revoking a token the account does not hold changes nothing, and says so`() = runBlocking<Unit> {
+        val tokens = TokenService(store, caches)
+        val before = checkNotNull(store.position(NamingRules.SYSTEM_NAMESPACE)).revision
+        val revoked = tokens.revoke(ACCOUNT, "unknown", Caller.ANONYMOUS)
+        revoked.deleted.assert().isFalse()
+        revoked.revision.assert().isEqualTo(before)
+        checkNotNull(store.position(NamingRules.SYSTEM_NAMESPACE)).revision.assert().isEqualTo(before)
+
+        val stale = runCatching { tokens.revoke(ACCOUNT, "unknown", Caller.ANONYMOUS, expectedRevision = before + 1) }
+            .exceptionOrNull() as CoSkyException
+        stale.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+    }
+
+    @Test
+    fun `an expected revision the account loses to a write in between is a conflict, not tried again`() =
+        runBlocking<Unit> {
+            val revision = checkNotNull(store.position(NamingRules.SYSTEM_NAMESPACE)).revision
+            val failure = runCatching {
+                TokenService(racing(listOf(changed(1))), caches)
+                    .create(ACCOUNT, null, Caller.ANONYMOUS, expectedRevision = revision)
+            }.exceptionOrNull() as CoSkyException
+            failure.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REVISION_CONFLICT)
+            failure.detail.revisionConflict.expectedRevision.assert().isEqualTo(revision)
+        }
+
+    @Test
     fun `an attempt that is refused leaves an audit line too`() = runBlocking<Unit> {
         val denied = object : Authorizer {
             override val changes: Flow<Unit> = emptyFlow()

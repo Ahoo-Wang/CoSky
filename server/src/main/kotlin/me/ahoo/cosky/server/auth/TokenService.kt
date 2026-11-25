@@ -18,6 +18,7 @@ import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.ResourceKey
+import me.ahoo.cosky.api.v1.RevokeTokenResponse
 import me.ahoo.cosky.api.v1.TokenRef
 import me.ahoo.cosky.api.v1.Verb
 import me.ahoo.cosky.api.v1.ViolationCode
@@ -36,7 +37,8 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Creates and revokes ServiceAccount tokens (design §7.8), the only way to change them. Each change is a
- * compare-and-set on the account, so two at once cannot lose one another.
+ * compare-and-set on the account, so two at once cannot lose one another; a caller may name the revision the account
+ * must still be at, as for any write.
  */
 class TokenService(
     private val store: Store,
@@ -49,18 +51,27 @@ class TokenService(
 ) {
     /**
      * @param token its plaintext, which is never available again.
+     * @param revision of the account, which holding the token created.
      */
-    data class CreatedToken(val token: ParsedToken, val expiresAt: Instant?)
+    data class CreatedToken(val token: ParsedToken, val expiresAt: Instant?, val revision: Long)
 
-    suspend fun create(account: String, expiresAt: Instant?, caller: Caller): CreatedToken {
+    /**
+     * @param expectedRevision of the account; [Mutation.NO_CHECK] for none.
+     */
+    suspend fun create(
+        account: String,
+        expiresAt: Instant?,
+        caller: Caller,
+        expectedRevision: Long = Mutation.NO_CHECK,
+    ): CreatedToken {
         val token = Tokens.generate()
         val ref = TokenRef.newBuilder().setId(token.id).setSha256(Tokens.sha256Hex(token.secret))
         expiresAt?.let { ref.setExpiresAt(Timestamps.fromMillis(it.toEpochMilli())) }
-        audit.audited(caller, Verb.VERB_PUT, tokenKey(account, token.id), { it }) {
+        val written = audit.audited(caller, Verb.VERB_PUT, tokenKey(account, token.id), Written::revision) {
             requirePermission(account, caller)
             // A token is the account: only for someone who holds whatever the account may do (design §7.8).
             authorizer.requireHeld(caller.principal, Grant.OfAccount(account))
-            update(account, caller) { current ->
+            update(account, caller, expectedRevision) { current ->
                 // An expired token is dead weight: it should not stand in the way of rotation.
                 val valid = current.filterNot {
                     it.hasExpiresAt() && clock.instant().epochSecond >= it.expiresAt.seconds
@@ -79,15 +90,32 @@ class TokenService(
                 valid + ref.build()
             }
         }
-        return CreatedToken(token, expiresAt)
+        return CreatedToken(token, expiresAt, written.revision)
     }
 
-    suspend fun revoke(account: String, tokenId: String, caller: Caller) {
-        audit.audited(caller, Verb.VERB_DELETE, tokenKey(account, tokenId), { it }) {
+    /**
+     * A token the account does not hold is not an error: there is nothing to revoke, and the answer says so.
+     *
+     * @param expectedRevision of the account; [Mutation.NO_CHECK] for none.
+     */
+    suspend fun revoke(
+        account: String,
+        tokenId: String,
+        caller: Caller,
+        expectedRevision: Long = Mutation.NO_CHECK,
+    ): RevokeTokenResponse {
+        val written = audit.audited(caller, Verb.VERB_DELETE, tokenKey(account, tokenId), Written::revision) {
             requirePermission(account, caller)
-            update(account, caller) { current -> current.filterNot { it.id == tokenId } }
+            update(account, caller, expectedRevision) { current -> current.filterNot { it.id == tokenId } }
         }
+        return RevokeTokenResponse.newBuilder().setRevision(written.revision).setDeleted(written.changed).build()
     }
+
+    /**
+     * @param revision of the account after the change: the one it wrote, or the one the account has when there was
+     * nothing to change.
+     */
+    private data class Written(val revision: Long, val changed: Boolean)
 
     /**
      * What the audit log names: the id of a token says which one it was, and only the secret is secret.
@@ -114,22 +142,49 @@ class TokenService(
     }
 
     /**
-     * @return the revision it wrote.
+     * Without an expected revision, a write in between has the change made again on the account as it is then; with
+     * one, it is a conflict, as the account is no longer at that revision. A change that leaves the tokens as they are
+     * writes nothing.
      */
-    private suspend fun update(account: String, caller: Caller, change: (List<TokenRef>) -> List<TokenRef>): Long {
+    private suspend fun update(
+        account: String,
+        caller: Caller,
+        expectedRevision: Long,
+        change: (List<TokenRef>) -> List<TokenRef>,
+    ): Written {
         val key = accountKey(account)
+        val expected = expectedRevision.takeIf { it > 0 }
         var minRevision: Long? = null
         repeat(ATTEMPTS) {
             val current = currentOf(key, minRevision)
-            val updated = withTokens(current, change(current.serviceAccount.tokensList))
-            val mutation = Mutation.Put(updated, current.meta.revision)
+            requireAt(key, expected, current.meta.revision)
+            val tokens = current.serviceAccount.tokensList
+            val changed = change(tokens)
+            if (changed == tokens) {
+                return Written(current.meta.revision, changed = false)
+            }
+            val mutation = Mutation.Put(withTokens(current, changed), current.meta.revision)
             when (val result = store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(mutation), caller.principal.id)) {
-                is ApplyResult.Applied -> return result.revision
-                is ApplyResult.Conflict -> minRevision = result.currentRevision
+                is ApplyResult.Applied -> return Written(result.revision, changed = true)
+                is ApplyResult.Conflict -> {
+                    // With an expected revision, which the write compared with, this throws.
+                    requireAt(key, expected, result.currentRevision ?: 0)
+                    minRevision = result.currentRevision
+                }
+
                 else -> throw failureOf(account, result)
             }
         }
         throw CoSkyException.revisionConflict(key, 0, minRevision ?: 0)
+    }
+
+    /**
+     * @throws CoSkyException with `REVISION_CONFLICT` unless the account is at [expected], when there is one.
+     */
+    private fun requireAt(key: ResourceKey, expected: Long?, current: Long) {
+        if (expected != null && current != expected) {
+            throw CoSkyException.revisionConflict(key, expected, current)
+        }
     }
 
     private fun failureOf(account: String, result: ApplyResult): Exception = when (result) {
@@ -139,7 +194,8 @@ class TokenService(
 
     /**
      * The account as of [minRevision], or, with none to go by, as of the store's latest write: an account written a
-     * moment ago, perhaps through another replica, is there to take a token.
+     * moment ago, perhaps through another replica, is there to take a token, and an expected revision is compared with
+     * the latest one, rather than waited for.
      */
     private suspend fun currentOf(key: ResourceKey, minRevision: Long?): Resource {
         val view = if (minRevision == null) {

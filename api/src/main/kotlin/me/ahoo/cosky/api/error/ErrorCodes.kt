@@ -44,6 +44,8 @@ object ErrorCodes {
         ErrorCode(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE, Status.Code.UNAVAILABLE, 503),
         ErrorCode(ErrorReason.ERROR_REASON_REVISION_REGRESSION, Status.Code.UNAVAILABLE, 503),
         ErrorCode(ErrorReason.ERROR_REASON_WATCH_QUOTA_EXCEEDED, Status.Code.RESOURCE_EXHAUSTED, 429),
+        ErrorCode(ErrorReason.ERROR_REASON_IDENTITY_PROVIDER_UNAVAILABLE, Status.Code.UNAVAILABLE, 503),
+        ErrorCode(ErrorReason.ERROR_REASON_REPLICA_NOT_READY, Status.Code.UNAVAILABLE, 503),
     )
 
     private val byReason: Map<ErrorReason, ErrorCode> = ALL.associateBy { it.reason }

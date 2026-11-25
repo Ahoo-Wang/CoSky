@@ -17,12 +17,15 @@ import {ConfigFormat, ErrorReason, Kind, SubjectType, Verb} from '@/generated';
 import type {
     ConfigImportResponse,
     CreateTokenResponse,
-    DeleteResponse,
     HistoryResponse,
     ListResponse,
     Problem,
-    PutResponse,
     Resource,
+    ServiceSummary,
+    ServicesResponse,
+    StatsResponse,
+    TopologyEdge,
+    TopologyResponse,
 } from '@/generated';
 import {
     configsClient,
@@ -31,6 +34,7 @@ import {
     roleBindingsClient,
     rolesClient,
     serviceAccountsClient,
+    viewsClient,
 } from '@/services/clients';
 import {minRevisionOf, readUpTo, timedOutOn, wroteUpTo} from '@/services/revisions';
 
@@ -258,9 +262,10 @@ const writeGuard = (revision?: string): [string | undefined, '*' | undefined] =>
 
 /**
  * A write to [namespace]: what this page reads there from now on asks for no less than its revision, so that a replica
- * that is behind cannot answer with what was there before.
+ * that is behind cannot answer with what was there before. A write that changed nothing answers a revision too, the
+ * object's own, or the namespace's for a delete that found nothing.
  */
-async function wrote<T extends PutResponse | DeleteResponse>(namespace: string, write: Promise<T>): Promise<T> {
+async function wrote<T extends {revision?: string}>(namespace: string, write: Promise<T>): Promise<T> {
     const answer = await write;
     wroteUpTo(namespace, answer.revision);
     return answer;
@@ -408,13 +413,60 @@ export const serviceAccounts = {
     delete: (name: string, revision?: string) =>
         wrote(SYSTEM_NAMESPACE, serviceAccountsClient.deleteServiceAccount(name, ifMatch(revision))),
     /**
+     * A token changes its account, whose revision the answer holds.
+     *
      * @return the plaintext, which the server never shows again.
      */
     async createToken(name: string): Promise<string> {
-        const created = await serviceAccountsClient.createToken(name, {}) as Wire<CreateTokenResponse>;
+        const created = await wrote(
+            SYSTEM_NAMESPACE,
+            serviceAccountsClient.createToken(name, undefined, {}) as Promise<Wire<CreateTokenResponse>>,
+        );
         return created.token ?? '';
     },
-    revokeToken: (name: string, tokenId: string) => serviceAccountsClient.revokeToken(name, tokenId),
+    /**
+     * A token the account no longer holds is not an error: the answer says it was not there.
+     */
+    revokeToken: (name: string, tokenId: string) =>
+        wrote(SYSTEM_NAMESPACE, serviceAccountsClient.revokeToken(name, tokenId)),
+};
+
+/**
+ * Every page of a view. A view comes in one page unless the server's byte limit splits it (design D23).
+ */
+async function allPages<T extends {nextPageToken?: string}>(read: (pageToken?: string) => Promise<T>): Promise<T[]> {
+    const pages: T[] = [];
+    let pageToken: string | undefined;
+    do {
+        const page = await read(pageToken);
+        pages.push(page);
+        pageToken = page.nextPageToken || undefined;
+    } while (pageToken);
+    return pages;
+}
+
+export interface ServicesView {
+    services: ServiceSummary[];
+    /** The revision of the namespace the first page was computed at. */
+    revision?: string;
+}
+
+export const views = {
+    async services(namespace: string, abortController?: AbortController): Promise<ServicesView> {
+        const pages = await allPages(async pageToken =>
+            await viewsClient.viewServices(namespace, undefined, pageToken, {abortController}) as Wire<ServicesResponse>);
+        return {
+            services: pages.flatMap(page => (page.services ?? []) as ServiceSummary[]),
+            revision: pages[0].revision,
+        };
+    },
+    async topology(namespace: string, abortController?: AbortController): Promise<TopologyEdge[]> {
+        const pages = await allPages(async pageToken =>
+            await viewsClient.viewTopology(namespace, undefined, pageToken, {abortController}) as Wire<TopologyResponse>);
+        return pages.flatMap(page => (page.edges ?? []) as TopologyEdge[]);
+    },
+    stats: async (namespace: string, abortController?: AbortController): Promise<Partial<StatsResponse>> =>
+        await viewsClient.viewStats(namespace, {abortController}),
 };
 
 export const roles = {

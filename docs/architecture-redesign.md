@@ -364,12 +364,12 @@ message PutRequest {
   int64 expected_revision = 2;   // 0 = 不校验;-1 = 必须不存在;>0 = CAS
 }
 message PutResponse {
-  int64 revision = 1;
+  int64 revision = 1;            // 对象写入后的 revision:有变化时是新 revision,无变化时是对象已有的 revision(§4.5)
   bool changed = 2;              // 内容未变时 false,不产生新 revision、不发事件
 }
 
 message DeleteRequest  { ResourceKey key = 1; int64 expected_revision = 2; }
-message DeleteResponse { int64 revision = 1; bool deleted = 2; }
+message DeleteResponse { int64 revision = 1; bool deleted = 2; }   // deleted = false:对象不存在,revision 是应答时 namespace 的 revision
 
 message HistoryRequest  { ResourceKey key = 1; int32 limit = 2; string page_token = 3; }   // limit 为 0 或超过 history-size 时按 history-size 截断
 message HistoryResponse { repeated Resource revisions = 1; string next_page_token = 2; }  // 新 → 旧
@@ -396,16 +396,18 @@ message WatchRequest {
 }
 
 message WatchResponse {
+  reserved 5; reserved "gone";          // 原 int64 gone,由 position_gone 取代
   int64 watch_id = 1;
   oneof payload {
     Snapshot snapshot = 2;              // from_revision = 0 时的初始全量
     Events events = 3;                  // 同一 revision 的事件,可能分多条消息
     int64 progress = 4;                 // 进度书签:当前已追到的 revision,空闲时周期发送
-    int64 gone = 5;                     // (from_epoch, from_revision) 无法续传;值为最早可续传 revision,客户端需重新 List
     Canceled canceled = 6;              // server 结束单个 watch,流与其他 watch 不受影响
+    Gone position_gone = 7;             // 位置无法续传,该 watch 结束;客户端重新 List 或不带位置重新 Watch(§7.3)
   }
   // Create 被拒(WATCH_QUOTA_EXCEEDED)、namespace 被删除(NAMESPACE_NOT_FOUND)或失去权限(PERMISSION_DENIED),§7.2 / §7.3
   message Canceled { string message = 1; ErrorDetail detail = 2; }
+  message Gone { int64 earliest_revision = 1; string epoch = 2; GoneReason reason = 3; }   // 现在最早可续传的 revision 及其 epoch
   message Snapshot { repeated Resource items = 1; int64 revision = 2; string epoch = 3; bool more = 4; }   // more:还有分块(§4.6)
   message Events { int64 revision = 1; repeated Event events = 2; bool more = 3; }                       // more:同一 revision 还有事件
   message Event {
@@ -413,6 +415,14 @@ message WatchResponse {
     Type type = 1;
     Resource resource = 2;              // DELETE 时 spec 为删除前的最后状态,revision / updated_at / updated_by 为删除操作
   }
+}
+
+enum GoneReason {                       // cosky_watch_gone_total 的 reason(§7.9)
+  GONE_REASON_UNSPECIFIED = 0;          // 不属于以下任何一种,如可见范围随权限变化(§7.3)
+  GONE_REASON_COMPACTED = 1;            // 创建时 from_revision 早于窗口
+  GONE_REASON_SLOW = 2;                 // 跟随过程中掉出窗口
+  GONE_REASON_EPOCH = 3;                // epoch 已更换
+  GONE_REASON_REGRESSION = 4;           // 位置来自已丢失的时间线(D29)
 }
 
 service LeaseService {                                                // 授权见 §7.8
@@ -433,6 +443,12 @@ service ViewService {                                                 // 派生�
   rpc Topology(TopologyRequest) returns (TopologyResponse);        // consumer → producer 边
   rpc Stats(StatsRequest) returns (StatsResponse);
 }
+// Services / Topology 的请求带 page_size(0 = 不限条数,只按字节分页)和 page_token,响应带 next_page_token(§4.6)
+
+// ServiceAccount token 端点的请求体与响应体(仅 REST,§4.5、§7.8)
+message CreateTokenRequest  { google.protobuf.Timestamp expires_at = 1; }
+message CreateTokenResponse { string id = 1; string token = 2; google.protobuf.Timestamp expires_at = 3; int64 revision = 4; }
+message RevokeTokenResponse { int64 revision = 1; bool deleted = 2; }
 ```
 
 ### 4.4 错误码(gRPC status ↔ HTTP)
@@ -447,9 +463,21 @@ service ViewService {                                                 // 派生�
 | 未认证 / 无权限 | `UNAUTHENTICATED` / `PERMISSION_DENIED` | 401 / 403 |
 | 参数非法 | `INVALID_ARGUMENT` | 400 |
 | `min_revision` 等待超时 | `DEADLINE_EXCEEDED` | 504 |
-| 存储不可用 / revision 回退 | `UNAVAILABLE` | 503 |
+| 存储不可用 | `UNAVAILABLE`(detail `STORE_UNAVAILABLE`) | 503 |
+| OIDC 提供方或其密钥连不上 | `UNAVAILABLE`(detail `IDENTITY_PROVIDER_UNAVAILABLE`) | 503 |
+| 本副本仍在加载该 namespace,或落后于请求的位置 | `UNAVAILABLE`(detail `REPLICA_NOT_READY`,带 namespace) | 503 |
+| revision 回退 | `UNAVAILABLE`(detail `REVISION_REGRESSION`) | 503 |
 
 HTTP 状态按**错误原因**映射,而不是按 gRPC code 一刀切;未带 CoSky 原因的 gRPC code 按 `google.rpc.Code` 的标准映射。
+四个 `UNAVAILABLE` 原因对客户端的含义相同:换一个端点或稍后重试;分开是为了让运维看出该查存储、身份提供方还是这个副本。
+
+**条件请求返回 409**:`If-Match` / `If-None-Match` 不满足时返回 409 `REVISION_CONFLICT`,而不是 RFC 9110 规定的 412。这是有意的偏离,与 Kubernetes 一致:
+冲突在 revision 上,原因和 detail 与 gRPC 相同,客户端只需认一种状态。412 只留给 `LEASE_NOT_FOUND`。
+
+**违规字段**:`FieldViolation.field` 在两种协议上都是请求消息中的 proto 字段路径。REST 适配层把自己的参数名映射过去:查询参数和请求头用它设置的字段
+(`pageSize` → `page_size`、`pageToken` → `page_token`、`minRevision` → `min_revision`、`labelSelector` → `label_selector`、
+`If-Match` / `If-None-Match` → `expected_revision`、`toRevision` → `to_revision`、`expiresAt` → `expires_at`、Watch 的参数 → `create.kind` 等),
+请求体用它承载的字段(Put 为 `resource`,请求体中不存在的成员给出完整路径,如 `resource.meta.lables`)。
 
 REST 的错误体是 RFC 9457 problem details(`application/problem+json`,D44):`type` 每个原因一个,指向 REST API 文档中该原因的行;`title` 是原因的文字,`status` 是 HTTP 状态,`detail` 是这一次的说明,`instance` 是请求路径;扩展成员 `code` 是 gRPC code,`reason` 是原因,ErrorDetail 中该原因带的成员(如 `revisionConflict`)与它们并列。不是 CoSky 原因的错误(如路径不存在)同样是 problem details,类型为 `about:blank`。
 
@@ -457,19 +485,29 @@ REST 的错误体是 RFC 9457 problem details(`application/problem+json`,D44):`t
 
 | 方法 | 路径 | 对应 |
 |---|---|---|
-| GET | `/v1/namespaces/{ns}/{kind}` | List(`?labelSelector=&service=&minRevision=&pageSize=&pageToken=`) |
+| GET | `/v1/namespaces/{ns}/{kind}` | List(`?labelSelector=&service=&minRevision=&pageSize=&pageToken=`;每个 `labelSelector` 参数恰好一个 `key=value`,多个条件重复该参数,不按逗号拆分) |
 | GET | `/v1/namespaces/{ns}/{kind}/{name}` | Get |
 | PUT | `/v1/namespaces/{ns}/{kind}/{name}` | Put;`If-Match: <revision>`、`If-None-Match: *` |
 | DELETE | `/v1/namespaces/{ns}/{kind}/{name}` | Delete;`If-Match` |
 | GET | `/v1/namespaces/{ns}/configs/{name}/history` | History(`?limit=&pageToken=`) |
-| POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{ "toRevision": n }`,server 读历史后 Put |
-| GET | `/v1/namespaces/{ns}/watch?kind=&fromRevision=&fromEpoch=` | Watch,SSE,供 Dashboard 实时刷新 |
-| GET | `/v1/namespaces/{ns}/views/{services\|topology\|stats}` | Views |
+| POST | `/v1/namespaces/{ns}/configs/{name}:rollback` | `{ "toRevision": n }`,server 读历史后 Put;历史中没有该 revision 时返回 `INVALID_ARGUMENT`(`to_revision`,`OUT_OF_RANGE`) |
+| GET | `/v1/namespaces/{ns}/watch?kind=&fromRevision=&fromEpoch=` | Watch,SSE,供 Dashboard 实时刷新;`kind` 取 `KIND_*` 枚举名,全局 kind 的 `{ns}` 为 `_system` |
+| GET | `/v1/namespaces/{ns}/views/{services\|topology\|stats}` | Views;services、topology 带 `?pageSize=&pageToken=` |
+| POST / DELETE | `/v1/serviceaccounts/{name}/tokens`、`…/tokens/{tokenId}` | 创建 / 吊销 token(§7.8);`If-Match` 为 ServiceAccount 的 revision |
 | POST / GET | `/v1/namespaces/{ns}/configs:import` / `:export` | zip 批量导入导出(保留现有能力) |
 | GET | `/v1/auth/config` | 登录页需要的公开参数,不需要登录(D34) |
 | GET | `/v1/me` | 当前身份与有效权限 |
 
-Put 的响应带 `ETag: "<revision>"`;内容未变化时没有新 revision,也就不带 `ETag`。Watch 的 SSE 流只承载一个 watch,权限变化时发出 `gone` 或 `canceled` 后结束,客户端重新连接。
+Put 的响应带 `ETag: "<revision>"`,`revision` 始终是对象自己的 revision:有变化时是新 revision;内容未变化(`changed = false`)时没有新 revision,
+返回对象已有的 revision,`ETag` 照样带上,两者都可以直接用作下一次的 `expected_revision` / `If-Match`。Delete 的 `revision` 在 `deleted = true` 时是删除操作的 revision;
+`deleted = false`(对象不存在)时是应答时 namespace 的 revision,对象在这个 revision 上不存在。两种响应的 `revision` 都可用作 `min_revision`。
+Watch 的 SSE 流只承载一个 watch,权限变化时发出 `position_gone` 或 `canceled` 后结束,客户端重新连接。
+
+REST 请求严格解析,以下情况返回 400 `INVALID_ARGUMENT`(带违规字段)而不是悄悄接受:请求体中有消息没有的成员(否则拼错的 `lables` 会在 Put 时清空标签);
+请求体的 `meta.namespace` / `meta.name` 不为空且与路径不同;`If-None-Match` 不是 `*`;`If-Match` 与 `If-None-Match` 同时出现。
+
+token 端点的请求体和响应体是 proto 消息(`CreateTokenRequest` / `CreateTokenResponse` / `RevokeTokenResponse`):创建返回明文和 ServiceAccount 的新 revision;
+吊销返回 200 和 `{revision, deleted}`,账号没有这个 token 时 `deleted = false`,`revision` 是账号未变的 revision,不算错误。
 
 `{kind}` 取 `configs` / `instances`;全局对象走 `/v1/{namespaces|serviceaccounts|roles|rolebindings}/{name}`。
 REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射。
@@ -477,7 +515,8 @@ REST 与 gRPC 由同一 server 进程提供,JSON 编码使用 proto3 JSON 映射
 
 **OpenAPI**(`api/` 构建产物 `cosky.yaml`)采用混合生成:`components.schemas` 由 proto 描述符按 proto3 JSON 映射自动生成,
 保证与 proto 同步;`paths` 在 `api/src/main/openapi/paths.yaml` 中手写(本节路由无法从 RPC 自动推导:
-`{kind}` 复数段、`If-Match` 头、SSE、`:rollback`、导入导出、token 端点);构建时合并并校验引用完整。
+`{kind}` 复数段、`If-Match` 头、SSE、`:rollback`、导入导出、token 端点);构建时合并并校验引用完整。token 端点的请求体与响应体
+由 proto 生成 schema,和其他消息一样受 `buf breaking` 约束。
 
 ### 4.6 消息大小与分页(D23)
 
@@ -487,6 +526,7 @@ gRPC 默认单条消息上限 4 MiB,而一个 namespace 的全量可达 50 MB。
 | 响应 | 方式 | 一致性 |
 |---|---|---|
 | List | `page_size` + `page_token`;一页可能因字节上限少于 `page_size` | 见下 |
+| Views: Services / Topology | `page_size` + `page_token`;`page_size = 0` 不限条数,只按字节分页,通常一页返回全部 | Services 同 List:每页报告第一页的 revision,token 携带 epoch;Topology 是软状态,每页重新读取,token 携带上一页最后一条边 |
 | History | `page_token`;`limit` 仍是总条数 | 按 revision 倒序;token 携带游标(上一页最后一个 revision)和 `limit` 剩下的条数,翻页期间写入的新版本不占名额 |
 | Watch `Snapshot` | `more = true` 表示还有分块,最后一块之前不发事件 | 所有分块来自同一个不可变快照 |
 | Watch `Events` | `more = true` 表示同一 revision 还有事件,客户端收齐后原子应用 | 同一 revision |
@@ -699,9 +739,10 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 
 - 所有 Get/List/Watch 由 Watch Cache 服务,只有写操作打到 Redis。
 - `min_revision`:缓存 revision 未达到时挂起等待(默认最多 3 秒),实现跨副本的"读己之写"。
-- 客户端 `from_epoch` 不一致或 `from_revision` 早于窗口 → 返回 `gone`,客户端重新 List 后从新位置 Watch。
-- `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `gone`。超过 `read.min-revision-timeout` 后读一次 Store:Store 有这个位置,说明只是本副本落后,以 `UNAVAILABLE` 结束整条流,客户端换端点重连;Store 也没有,说明这个位置来自无人发现的被丢弃时间线(§6.4 的残余风险),发 `gone`,否则客户端会一直重连。
-- `from_revision = 0` 的 watch 等副本首次加载完成,加载多久都等;但本副本加载失败(如连不上 Store)时以 `UNAVAILABLE` 结束整条流,客户端换端点,而不是停在一个只发 `progress` 的副本上(#1264)。带位置的 watch 同样不再等满超时。
+- 客户端 `from_epoch` 不一致或 `from_revision` 早于窗口 → 返回 `position_gone`(`EPOCH` / `COMPACTED`),客户端重新 List 后从新位置 Watch。
+- `from_revision` 大于副本 revision(D29):副本落后于客户端,位置仍然有效。该 watch 挂起等副本追上,不影响同一条流上的其他 watch;其间 epoch 变化则发 `position_gone`(`EPOCH`)。超过 `read.min-revision-timeout` 后读一次 Store:Store 有这个位置,说明只是本副本落后,以 `UNAVAILABLE`(`REPLICA_NOT_READY`)结束整条流,客户端换端点重连;Store 也没有,说明这个位置来自无人发现的被丢弃时间线(§6.4 的残余风险),发 `position_gone`(`REGRESSION`),否则客户端会一直重连。
+- `from_revision = 0` 的 watch 等副本首次加载完成,加载多久都等;但本副本加载失败(如连不上 Store)时以 `UNAVAILABLE`(`REPLICA_NOT_READY`)结束整条流,客户端换端点,而不是停在一个只发 `progress` 的副本上(#1264)。带位置的 watch 同样不再等满超时。
+- 读请求遇到本副本尚未加载完的 namespace 同样返回 `REPLICA_NOT_READY`,鉴权遇到尚未加载完的 `_system` 也是(namespace 为 `_system`)。
 - 重新加载期间 watcher 只是等待,不会被结束。新视图的 epoch 不变且位置仍在窗口内就继续,所以一次 Store 读取失败不会让所有客户端重新 List。namespace 不再是 active 时,watcher 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - 裁剪可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
 - 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。
@@ -890,10 +931,13 @@ registration.close()                                                            
 - **顺序**:同一 namespace 内按 revision 全序;同一 revision 的事件作为一个整体应用,过大时分成多条 `Events`,以 `more` 标记(过滤后为空则不发送)。
 - **投递**:单条流内恰好一次;跨重连至少一次,客户端丢弃 `revision ≤ 已应用 revision` 的批次即可去重。
 - **起点**:`from_revision = 0` 先发 `Snapshot` 再发增量,`Snapshot` 携带 epoch;`from_revision = r` 必须携带 `from_epoch`(否则 `INVALID_ARGUMENT`),发送 `revision > r` 的事件;
-  `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `gone`;`r` 大于当前 revision → 等副本追上,超时后 Store 有这个位置则以 `UNAVAILABLE` 结束流,否则 `gone`(D29)。
-- **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `gone` 结束该 watch,客户端重新 List。
+  `from_epoch` 与当前 epoch 不同或 `r` 早于窗口 → `position_gone`;`r` 大于当前 revision → 等副本追上,超时后 Store 有这个位置则以 `UNAVAILABLE`(`REPLICA_NOT_READY`)结束流,否则 `position_gone`(D29)。
+- **位置失效**:`position_gone` 是一条 `Gone` 消息,带现在最早可续传的 revision、当前 epoch 和原因 `GoneReason`:`COMPACTED`(创建时早于窗口)、`SLOW`(跟随中掉出窗口)、
+  `EPOCH`(epoch 已更换)、`REGRESSION`(位置来自已丢失的时间线);可见范围随权限变化而重新开始的 watch 原因为 `UNSPECIFIED`。该 watch 随之结束,客户端重新 List 或不带位置重新 Watch。
+  原字段 `int64 gone = 5` 已删除,字段号和名称保留(`reserved`)。
+- **慢消费者**:跟不上的 watcher 只是错过中间视图,再从事件窗口补齐,不占额外内存,也不阻塞其他 watcher;掉出窗口时以 `position_gone`(`SLOW`)结束该 watch,客户端重新 List。
 - **进度书签**:空闲 watch 每 10 秒收到 `progress`。
-- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`)。
+- **权限**:创建时校验;`_system` 中的 Role / RoleBinding 变化后重新评估存量 watch,失去权限的收到 `canceled`(`PERMISSION_DENIED`),仍有权限但可见范围变了的收到 `position_gone`(`UNSPECIFIED`)后重新开始。
 - **配额**:单条流最多 1,000 个 watch,超出时该 Create 收到 `canceled`(`WATCH_QUOTA_EXCEEDED`;REST 侧为 429),流本身不中断。
 
 ### 7.4 Server 内部结构
@@ -1019,8 +1063,10 @@ cosky:
 ### 7.8 鉴权细则
 
 - **Token 格式**:`cosky_<tokenId>_<secret>`,`secret` 为 32 字节随机数的 base62。按 `tokenId` 查找,常量时间比较 `sha256(secret)`。
-- **Token 管理**:`POST /v1/serviceaccounts/{name}/tokens` 创建并**只返回一次明文**;`DELETE …/tokens/{id}` 吊销。每个账号最多 2 个有效 token,用于轮换。
-- **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);取不到密钥时返回 `UNAVAILABLE`,不算 token 无效;Dashboard 在浏览器内完成授权码 + PKCE,到期前用 refresh token 续期,退出时结束服务商的会话(D37)。server 首次用到时才连接服务商,连接和读取各限 5 秒。
+- **Token 管理**:`POST /v1/serviceaccounts/{name}/tokens` 创建并**只返回一次明文**,同时返回 ServiceAccount 的新 revision;`DELETE …/tokens/{id}` 吊销,返回 `{revision, deleted}`,
+  账号没有这个 token 时 `deleted = false`,不算错误。两者都接受 `If-Match`(ServiceAccount 的 revision),与最新写入比较,不一致返回 `REVISION_CONFLICT`;
+  不带时以 CAS 写入,中途有写入就在最新的账号上重做。每个账号最多 2 个有效 token,用于轮换。
+- **OIDC**:server 作为资源服务器,校验 Bearer JWT(JWKS 缓存,`iss` / `aud` / `exp`);取不到密钥时返回 `UNAVAILABLE`(`IDENTITY_PROVIDER_UNAVAILABLE`),不算 token 无效;Dashboard 在浏览器内完成授权码 + PKCE,到期前用 refresh token 续期,退出时结束服务商的会话(D37)。server 首次用到时才连接服务商,连接和读取各限 5 秒。
 - **授权判定(D24)**:请求 `(subject, verb, kind, namespace, name)` 命中任一绑定角色的任一规则即放行。
   规则生效的 namespace 是 `Rule.namespaces` 与 `RoleBinding.namespaces` 的交集;全局对象的 namespace 为 `_system`。
 - **不能越权授予(D46)**:参照 Kubernetes RBAC 的 escalate / bind 规则,只能授予自己已持有的权限。
@@ -1060,7 +1106,7 @@ cosky:
 | `cosky_cache_lag_seconds{namespace}` | Gauge | 写入 → 进入缓存的延迟 |
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
 | `cosky_watch_events_sent_total` | Counter | 发给 watcher 的事件数 |
-| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`;滚动重启后看这个指标判断窗口是否够大(D29) |
+| `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`,即 `GoneReason` 去掉前缀的小写;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active{namespace}` / `cosky_lease_expired_total` | Gauge / Counter | 由回收 Leader 上报 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2) |
 | `cosky_revision_regression_total` | Counter | §6.4 |

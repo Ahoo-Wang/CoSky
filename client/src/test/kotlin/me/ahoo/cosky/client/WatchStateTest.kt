@@ -15,6 +15,7 @@ package me.ahoo.cosky.client
 
 import kotlinx.coroutines.runBlocking
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import me.ahoo.cosky.api.v1.Resource
@@ -293,7 +294,8 @@ class WatchStateTest {
 
     @Test
     fun `other responses change nothing`() {
-        state.apply(WatchResponse.newBuilder().setGone(1).build()).assert().isFalse()
+        val gone = WatchResponse.Gone.newBuilder().setEarliestRevision(1).setReason(GoneReason.GONE_REASON_SLOW)
+        state.apply(WatchResponse.newBuilder().setPositionGone(gone).build()).assert().isFalse()
     }
 
     @Test

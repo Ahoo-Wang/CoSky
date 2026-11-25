@@ -106,6 +106,12 @@ class RestRoutesTest {
     private fun WebTestClient.ResponseSpec.reason(): String =
         json()["reason"].asString
 
+    /** The fields of a 400's violations, with their codes. */
+    private fun WebTestClient.ResponseSpec.violations(): List<Pair<String, String>> =
+        expectStatus().isBadRequest.json().getAsJsonObject("badRequest").getAsJsonArray("violations").map {
+            it.asJsonObject["field"].asString to it.asJsonObject["code"].asString
+        }
+
     private fun revisionOf(put: WebTestClient.ResponseSpec): Long = put.expectStatus().isOk.json()["revision"].asLong
 
     private fun get(client: WebTestClient, name: String, revision: Long) =
@@ -132,18 +138,6 @@ class RestRoutesTest {
     }
 
     @Test
-    fun `the path decides what a body means`() {
-        val client = client()
-        client.putConfig(
-            "a",
-            """{"meta":{"namespace":"elsewhere","name":"b"},"config":{"format":"CONFIG_FORMAT_TEXT","content":"a"}}"""
-        )
-            .expectStatus().isOk
-        val instance = """{"instance":{"service":"order"}}"""
-        client.putConfig("c", instance).expectStatus().isBadRequest
-    }
-
-    @Test
     fun `if-none-match creates only, and if-match compares`() {
         val client = client()
         val uri = "/v1/namespaces/$NAMESPACE/configs/a"
@@ -154,16 +148,8 @@ class RestRoutesTest {
         put("If-None-Match", "*").expectStatus().isEqualTo(409).reason().assert()
             .isEqualTo("ERROR_REASON_REVISION_CONFLICT")
         put("If-Match", "\"${revision + 1}\"").expectStatus().isEqualTo(409)
-        put("If-Match", "nonsense").expectStatus().isBadRequest
+        put("If-Match", "nonsense").violations().assert().containsExactly("expected_revision" to INVALID_FORMAT)
         client.delete().uri(uri).header("If-Match", "\"$revision\"").exchange().expectStatus().isOk
-    }
-
-    @Test
-    fun `writing the same content reports no new entity tag`() {
-        val client = client()
-        client.putConfig("a").expectStatus().isOk.expectHeader().exists("ETag")
-        val same = client.putConfig("a").expectStatus().isOk.expectHeader().doesNotExist("ETag")
-        same.json()["changed"].let { it == null || !it.asBoolean }.assert().isTrue()
     }
 
     @Test
@@ -183,8 +169,12 @@ class RestRoutesTest {
             .assert().isEqualTo("b")
         client.get().uri("$uri&labelSelector=team=x").exchange().expectStatus().isOk.json()
             .getAsJsonArray("items").size().assert().isEqualTo(1)
-        client.get().uri("$uri&labelSelector=nonsense").exchange().expectStatus().isBadRequest
-        client.get().uri("$uri&pageSize=lots").exchange().expectStatus().isBadRequest
+        client.get().uri("$uri&labelSelector=nonsense").exchange()
+            .violations().assert().containsExactly("label_selector" to INVALID_FORMAT)
+        client.get().uri("$uri&pageSize=lots").exchange()
+            .violations().assert().containsExactly("page_size" to INVALID_FORMAT)
+        client.get().uri("/v1/namespaces/$NAMESPACE/configs/a?minRevision=lots").exchange()
+            .violations().assert().containsExactly("min_revision" to INVALID_FORMAT)
     }
 
     @Test
@@ -192,12 +182,14 @@ class RestRoutesTest {
         val client = client()
         client.putConfig("a")
         listOf(
-            "configs?pageSize=4294967297",
-            "configs?pageSize=-4294967295",
-            "configs/a/history?limit=4294967297",
-            "configs/a/history?limit=-4294967295",
-        ).forEach { path ->
-            client.get().uri("/v1/namespaces/$NAMESPACE/$path").exchange().expectStatus().isBadRequest
+            "configs?pageSize=4294967297" to "page_size",
+            "configs?pageSize=-4294967295" to "page_size",
+            "configs/a/history?limit=4294967297" to "limit",
+            "configs/a/history?limit=-4294967295" to "limit",
+            "views/services?pageSize=4294967297" to "page_size",
+        ).forEach { (path, field) ->
+            client.get().uri("/v1/namespaces/$NAMESPACE/$path").exchange()
+                .violations().assert().containsExactly(field to OUT_OF_RANGE)
         }
     }
 
@@ -235,7 +227,8 @@ class RestRoutesTest {
         restored.expectHeader().valueEquals("ETag", "\"$revision\"")
         get(client, "a", revision).expectStatus().isOk.json().getAsJsonObject("config")["content"].asString
             .assert().isEqualTo("a")
-        client.rollback("a", 12345).expectStatus().isNotFound
+        client.rollback("a", 12345).violations().assert().containsExactly("to_revision" to OUT_OF_RANGE)
+        client.rollback("missing", first).violations().assert().containsExactly("to_revision" to OUT_OF_RANGE)
     }
 
     @Test
@@ -248,12 +241,19 @@ class RestRoutesTest {
             .bodyValue("""{"toRevision":$value}""")
             .exchange()
         listOf("null", "{}", "[$first, $first]", "[$first]", "true", "1.5", "\"x\"", "\"99999999999999999999\"")
-            .forEach { value -> rollback(value).expectStatus().isBadRequest }
+            .forEach { value -> rollback(value).violations().assert().containsExactly("to_revision" to INVALID_FORMAT) }
+        listOf("{}", "[]", "nonsense").forEach { body ->
+            client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(body)
+                .exchange()
+                .violations().assert().containsExactly("to_revision" to INVALID_FORMAT)
+        }
         client.post().uri("/v1/namespaces/$NAMESPACE/configs/a:rollback")
             .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue("{}")
+            .bodyValue("""{"toRevision":"$first","force":true}""")
             .exchange()
-            .expectStatus().isBadRequest
+            .violations().assert().containsExactly("force" to NOT_ALLOWED)
         get(client, "a", 0).expectStatus().isOk.json().getAsJsonObject("config")["content"].asString
             .assert().isEqualTo("after")
         revisionOf(rollback("$first"))
@@ -261,11 +261,11 @@ class RestRoutesTest {
     }
 
     @Test
-    fun `a rollback to what a config holds reports no entity tag, though the namespace has moved on`() {
+    fun `a rollback to what a config holds reports its own entity tag, though the namespace has moved on`() {
         val client = client()
         val first = revisionOf(client.putConfig("a"))
         client.putConfig("unrelated").expectStatus().isOk
-        val unchanged = client.rollback("a", first).expectStatus().isOk.expectHeader().doesNotExist("ETag")
+        val unchanged = client.rollback("a", first).expectStatus().isOk.expectHeader().valueEquals("ETag", "\"$first\"")
         unchanged.json()["changed"].let { it == null || !it.asBoolean }.assert().isTrue()
     }
 
@@ -464,9 +464,12 @@ class RestRoutesTest {
         val first = result.responseBody.blockFirst()
         JsonParser.parseString(first).asJsonObject.getAsJsonObject("snapshot").getAsJsonArray("items").size()
             .assert().isEqualTo(1)
-        client.get().uri("/v1/namespaces/$NAMESPACE/watch").exchange().expectStatus().isBadRequest
+        client.get().uri("/v1/namespaces/$NAMESPACE/watch").exchange()
+            .violations().assert().containsExactly("create.kind" to INVALID_FORMAT)
         client.get().uri("/v1/namespaces/$NAMESPACE/watch?kind=KIND_CONFIG&fromRevision=1").exchange()
-            .expectStatus().isBadRequest
+            .violations().assert().containsExactly("create.from_epoch" to "VIOLATION_CODE_REQUIRED")
+        client.get().uri("/v1/namespaces/$NAMESPACE/watch?kind=KIND_CONFIG&fromRevision=x").exchange()
+            .violations().assert().containsExactly("create.from_revision" to INVALID_FORMAT)
     }
 
     // --- authentication ---
@@ -553,9 +556,10 @@ class RestRoutesTest {
         caches.of(NamingRules.SYSTEM_NAMESPACE).views.first { it != null && it.revision >= 2 }
         client.get().uri("/v1/me").header("Authorization", bearer(token)).exchange().expectStatus().isOk
 
-        client.delete().uri(
-            "/v1/serviceaccounts/root/tokens/$id"
-        ).header("Authorization", bearer()).exchange().expectStatus().isNoContent
+        val revoked = client.delete().uri("/v1/serviceaccounts/root/tokens/$id").header("Authorization", bearer())
+            .exchange().expectStatus().isOk.json()
+        revoked["deleted"].asBoolean.assert().isTrue()
+        revoked["revision"].asLong.assert().isGreaterThan(created["revision"].asLong)
         caches.of(NamingRules.SYSTEM_NAMESPACE).views.first { it != null && it.revision >= 3 }
         client.get().uri("/v1/me").header("Authorization", bearer(token)).exchange().expectStatus().isUnauthorized
     }
@@ -573,8 +577,11 @@ class RestRoutesTest {
         )
         notText.forEach { body ->
             client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(body).exchange().expectStatus().isBadRequest
+                .bodyValue(body).exchange().violations().assert().containsExactly("expires_at" to INVALID_FORMAT)
         }
+        client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
+            .bodyValue("""{"expiresAt":null,"expiry":"never"}""").exchange()
+            .violations().assert().containsExactly("expiry" to NOT_ALLOWED)
         client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
             .bodyValue("""{"expiresAt":null}""").exchange().expectStatus().isOk
             .json().has("expiresAt").assert().isFalse()
@@ -609,7 +616,8 @@ class RestRoutesTest {
         val client = client(authenticated = true)
         val uri = "/v1/serviceaccounts/root/tokens"
         client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
-            .bodyValue("""{"expiresAt":"soon"}""").exchange().expectStatus().isBadRequest
+            .bodyValue("""{"expiresAt":"soon"}""").exchange()
+            .violations().assert().containsExactly("expires_at" to INVALID_FORMAT)
         val created = client.post().uri(uri).header("Authorization", bearer()).contentType(MediaType.APPLICATION_JSON)
             .bodyValue("""{"expiresAt":"2000-01-01T00:00:00Z"}""").exchange().expectStatus().isOk.json()
         caches.of(NamingRules.SYSTEM_NAMESPACE).views.first { it != null && it.revision >= 2 }
@@ -621,6 +629,9 @@ class RestRoutesTest {
 
     private companion object {
         const val NAMESPACE = "prod"
+        const val INVALID_FORMAT = "VIOLATION_CODE_INVALID_FORMAT"
+        const val NOT_ALLOWED = "VIOLATION_CODE_NOT_ALLOWED"
+        const val OUT_OF_RANGE = "VIOLATION_CODE_OUT_OF_RANGE"
 
         /** How a zip archive's central directory begins. */
         val CEN = byteArrayOf('P'.code.toByte(), 'K'.code.toByte(), 1, 2)

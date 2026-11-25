@@ -38,6 +38,7 @@ import me.ahoo.cosky.api.VirtualThreads
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.ErrorReason
+import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.WatchRequest
@@ -212,8 +213,10 @@ class WatchSessionTest {
     @Test
     fun `another epoch cannot resume`() = scenario {
         put("a")
-        caughtUpTo(1)
-        watch(create(1, "another")) { it.hasGone() }.single().hasGone().assert().isTrue()
+        val view = caughtUpTo(1)
+        val gone = watch(create(1, "another")) { it.hasPositionGone() }.single().positionGone
+        gone.reason.assert().isEqualTo(GoneReason.GONE_REASON_EPOCH)
+        gone.epoch.assert().isEqualTo(view.epoch)
     }
 
     @Test
@@ -241,7 +244,8 @@ class WatchSessionTest {
             put("b")
             val session = WatchSession(create(2, view.epoch), behind, 1024, SETTLE) {}
             val error = runCatching { session.run() }.exceptionOrNull() as CoSkyException
-            error.detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+            error.detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REPLICA_NOT_READY)
+            error.detail.namespace.namespace.assert().isEqualTo(NAMESPACE)
         }
     }
 
@@ -267,10 +271,10 @@ class WatchSessionTest {
         scenario(cold) {
             put("a")
             val error = runCatching { WatchSession(create(), cold, 1024, SETTLE) {}.run() }.exceptionOrNull()
-            (error as CoSkyException).detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+            (error as CoSkyException).detail.reason.assert().isEqualTo(ErrorReason.ERROR_REASON_REPLICA_NOT_READY)
             val resuming = runCatching { WatchSession(create(1, "any"), cold, 1024, 5.seconds) {}.run() }
             (resuming.exceptionOrNull() as CoSkyException).detail.reason.assert()
-                .isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+                .isEqualTo(ErrorReason.ERROR_REASON_REPLICA_NOT_READY)
 
             unreachable.reachable = true
             cold.awaitView()
@@ -296,7 +300,7 @@ class WatchSessionTest {
             put("a")
             val resuming = runCatching { WatchSession(create(1, "any"), slow, 1024, SETTLE) {}.run() }
             (resuming.exceptionOrNull() as CoSkyException).detail.reason.assert()
-                .isEqualTo(ErrorReason.ERROR_REASON_STORE_UNAVAILABLE)
+                .isEqualTo(ErrorReason.ERROR_REASON_REPLICA_NOT_READY)
 
             val sent = watch(create(), cache = slow, whileRunning = {
                 delay(SETTLE)
@@ -310,8 +314,8 @@ class WatchSessionTest {
     @Test
     fun `a position the store does not have either is gone`() = scenario {
         val view = cache.awaitView()
-        val sent = watch(create(5, view.epoch), catchUpTimeout = SETTLE) { it.hasGone() }
-        sent.single().hasGone().assert().isTrue()
+        val sent = watch(create(5, view.epoch), catchUpTimeout = SETTLE) { it.hasPositionGone() }
+        sent.single().positionGone.reason.assert().isEqualTo(GoneReason.GONE_REASON_REGRESSION)
     }
 
     @Test
@@ -321,8 +325,8 @@ class WatchSessionTest {
         val sent = watch(create(5, view.epoch), whileRunning = {
             delay(SETTLE)
             store.loseWritesAfter(NAMESPACE, 0)
-        }) { it.hasGone() }
-        sent.single().hasGone().assert().isTrue()
+        }) { it.hasPositionGone() }
+        sent.single().hasPositionGone().assert().isTrue()
     }
 
     @Test
@@ -380,7 +384,10 @@ class WatchSessionTest {
     fun `a position outside the window cannot resume`() = scenario {
         repeat(WINDOW + 2) { put("c", "$it") }
         val view = caughtUpTo(WINDOW + 2L)
-        watch(create(1, view.epoch)) { it.hasGone() }.single().gone.assert().isEqualTo(view.earliest)
+        val gone = watch(create(1, view.epoch)) { it.hasPositionGone() }.single().positionGone
+        gone.earliestRevision.assert().isEqualTo(view.earliest)
+        gone.epoch.assert().isEqualTo(view.epoch)
+        gone.reason.assert().isEqualTo(GoneReason.GONE_REASON_COMPACTED)
     }
 
     @Test
@@ -391,9 +398,10 @@ class WatchSessionTest {
         val sent = watch(create(2, view.epoch), whileRunning = {
             delay(SETTLE)
             store.loseWritesAfter(NAMESPACE, 1)
-        }) { it.hasGone() }
-        sent.single().hasGone().assert().isTrue()
+        }) { it.hasPositionGone() }
         val reloaded = checkNotNull(cache.views.first { it != null && it.epoch != view.epoch })
+        sent.single().positionGone.reason.assert().isEqualTo(GoneReason.GONE_REASON_EPOCH)
+        sent.single().positionGone.epoch.assert().isEqualTo(reloaded.epoch)
         reloaded.revision.assert().isEqualTo(1)
         reloaded.objects.values.single().meta.name.assert().isEqualTo("a")
     }
@@ -564,8 +572,8 @@ class WatchSessionTest {
             val sent = watch(create(1, view.epoch), cache = comparing, whileRunning = {
                 delay(SETTLE)
                 comparing.checkAgainstStore().assert().isTrue()
-            }) { it.hasGone() }
-            sent.single().hasGone().assert().isTrue()
+            }) { it.hasPositionGone() }
+            sent.single().hasPositionGone().assert().isTrue()
             store.position(NAMESPACE)?.epoch.assert().isNotEqualTo(view.epoch)
         }
     }

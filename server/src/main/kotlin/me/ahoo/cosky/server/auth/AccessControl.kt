@@ -99,7 +99,8 @@ class AccessControl(
         ref.hasExpiresAt() && clock.instant().epochSecond >= ref.expiresAt.seconds
 
     private fun model(): AccessModel {
-        val view = system.views.value ?: throw CoSkyException.storeUnavailable("Access rules are loading.")
+        val view = system.views.value
+            ?: throw CoSkyException.replicaNotReady(NamingRules.SYSTEM_NAMESPACE, "Access rules are loading.")
         return modelOf(view)
     }
 

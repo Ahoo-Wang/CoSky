@@ -18,27 +18,11 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tags
 import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import me.ahoo.cosky.api.v1.GoneReason
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-
-/**
- * Why a watch had to start over (design §7.9).
- */
-enum class GoneReason(val tag: String) {
-    /** Its position was older than the window when it connected. */
-    COMPACTED("compacted"),
-
-    /** It fell out of the window while following. */
-    SLOW("slow"),
-
-    /** Its position came from a timeline the store no longer has. */
-    REGRESSION("regression"),
-
-    /** Another epoch began. */
-    EPOCH("epoch"),
-}
 
 /**
  * The meters of design §7.9. They count on hot paths, so each is looked up once.
@@ -49,7 +33,9 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
     private val eventsSent = registry.counter("cosky_watch_events_sent_total")
     private val regressions = registry.counter("cosky_revision_regression_total")
     private val leasesExpired = registry.counter("cosky_lease_expired_total")
-    private val gone = GoneReason.entries.associateWith { registry.counter("cosky_watch_gone_total", "reason", it.tag) }
+    private val gone = COUNTED_GONE.associateWith { reason ->
+        registry.counter("cosky_watch_gone_total", "reason", reason.name.removePrefix("GONE_REASON_").lowercase())
+    }
     private val authEnabled = AtomicLong()
     private val gauges = ConcurrentHashMap<Pair<String, String>, AtomicLong>()
     private val counters = ConcurrentHashMap<Pair<String, String>, Counter>()
@@ -73,8 +59,11 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
         eventsSent.increment(count.toDouble())
     }
 
+    /**
+     * Why a watch had to start over (design §7.9); only the reasons of [COUNTED_GONE] are counted.
+     */
     fun gone(reason: GoneReason) {
-        gone.getValue(reason).increment()
+        gone[reason]?.increment()
     }
 
     fun revisionRegression() {
@@ -139,6 +128,14 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
 
     private companion object {
         const val NAMESPACE = "namespace"
+
+        /** The tags of `cosky_watch_gone_total`: `compacted`, `slow`, `epoch` and `regression`. */
+        val COUNTED_GONE = listOf(
+            GoneReason.GONE_REASON_COMPACTED,
+            GoneReason.GONE_REASON_SLOW,
+            GoneReason.GONE_REASON_EPOCH,
+            GoneReason.GONE_REASON_REGRESSION,
+        )
 
         /**
          * From a write on one Redis to one waiting out a failover.

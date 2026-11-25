@@ -477,6 +477,35 @@ class RequestValidationTest {
             .assert().containsExactly("namespace" to ViolationCode.VIOLATION_CODE_TOO_LONG)
     }
 
+    @Test
+    fun `views page like a list, but without a page size have no count limit`() {
+        validator.validate(
+            servicesRequest {
+                namespace = Fixtures.NAMESPACE
+                pageSize = 1000
+                pageToken = "t"
+            },
+        ).assert().isEmpty()
+        val tooMany = validator.validate(
+            topologyRequest {
+                namespace = Fixtures.NAMESPACE
+                pageSize = 1001
+                pageToken = "t".repeat(1025)
+            },
+        )
+        tooMany.codes().assert().containsExactly(
+            "page_size" to ViolationCode.VIOLATION_CODE_OUT_OF_RANGE,
+            "page_token" to ViolationCode.VIOLATION_CODE_TOO_LONG,
+        )
+        tooMany.first().description.assert().contains("0 (no limit)")
+        val negative = servicesRequest {
+            namespace = Fixtures.NAMESPACE
+            pageSize = -1
+        }
+        validator.validate(negative).codes()
+            .assert().containsExactly("page_size" to ViolationCode.VIOLATION_CODE_OUT_OF_RANGE)
+    }
+
     private fun key(namespace: String, kind: Kind, name: String): ResourceKey = resourceKey {
         this.namespace = namespace
         this.kind = kind

@@ -19,8 +19,7 @@ import {useCurrentNamespaceContext} from '@/contexts/namespace/CurrentNamespaceC
 import {useDrawer} from '@/contexts/DrawerContext';
 import {useRowReads} from '@/hooks/useRowReads';
 import {useWatchRefresh} from '@/hooks/useWatchRefresh';
-import {viewsClient} from '@/services/clients';
-import {Kind} from '@/services/resources';
+import {Kind, views} from '@/services/resources';
 import {ServiceInstanceEditor} from '@/pages/service/ServiceInstanceEditor';
 import {ServiceInstanceTable} from '@/pages/service/ServiceInstanceTable';
 import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
@@ -36,9 +35,9 @@ export function ServicePage() {
     const {result, loading, error, execute: loadServices} = useQuery<string, ServiceSummary[]>({
         query: currentNamespace,
         execute: async (namespace, abortController) => {
-            const view = await viewsClient.viewServices(namespace, {abortController});
+            const view = await views.services(namespace, abortController);
             readUpTo(namespace, view.revision);
-            return view.services ?? [];
+            return view.services;
         },
     });
     // One stream per page, whatever is expanded: browsers allow few connections per server over HTTP/1.1.
