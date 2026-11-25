@@ -5,7 +5,7 @@ public final class me/ahoo/cosky/spring/CoSkyApplicationClient : org/springframe
 
 public class me/ahoo/cosky/spring/CoSkyAutoConfiguration {
 	public fun <init> ()V
-	public fun coSkyApplicationClient (Lme/ahoo/cosky/spring/CoSkyProperties;Lorg/springframework/core/env/Environment;)Lme/ahoo/cosky/spring/CoSkyApplicationClient;
+	public fun coSkyApplicationClient (Lme/ahoo/cosky/spring/CoSkyProperties;Lorg/springframework/core/env/Environment;Lorg/springframework/beans/factory/ObjectProvider;)Lme/ahoo/cosky/spring/CoSkyApplicationClient;
 	public fun coSkyClient (Lme/ahoo/cosky/spring/CoSkyApplicationClient;)Lme/ahoo/cosky/client/CoSkyClient;
 }
 

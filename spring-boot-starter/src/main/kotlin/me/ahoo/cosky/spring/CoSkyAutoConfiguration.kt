@@ -22,11 +22,13 @@ import me.ahoo.cosky.spring.discovery.CoSkyServiceInstanceListSupplier
 import me.ahoo.cosky.spring.registry.CoSkyAutoServiceRegistration
 import me.ahoo.cosky.spring.registry.CoSkyRegistration
 import me.ahoo.cosky.spring.registry.CoSkyServiceRegistry
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
+import org.springframework.boot.bootstrap.ConfigurableBootstrapContext
 import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.health.contributor.HealthIndicator
 import org.springframework.boot.web.server.context.WebServerApplicationContext
@@ -64,12 +66,17 @@ class CoSkyAutoConfiguration {
     }
 
     /**
-     * Unless an import created it already, and handed it over to this context.
+     * Unless an import created it already, and handed it over to this context. The bootstrap context is the one Spring
+     * Cloud keeps in this context for its refreshes, where imports a refresh adds look for the client.
      */
     @Bean
     @ConditionalOnMissingBean
-    fun coSkyApplicationClient(properties: CoSkyProperties, environment: Environment): CoSkyApplicationClient =
-        CoSkyApplicationClient(properties, environment.getProperty(APPLICATION_NAME))
+    fun coSkyApplicationClient(
+        properties: CoSkyProperties,
+        environment: Environment,
+        bootstrap: ObjectProvider<ConfigurableBootstrapContext>,
+    ): CoSkyApplicationClient =
+        CoSkyApplicationClient.ofContext(bootstrap.ifAvailable, properties, environment.getProperty(APPLICATION_NAME))
 
     /**
      * Closed by the application client, which Spring destroys after what depends on it, and so after everything that

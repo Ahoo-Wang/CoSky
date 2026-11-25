@@ -33,25 +33,35 @@ class WatchStateTest {
 
     private fun config(name: String): Resource = resource { meta = objectMeta { this.name = name } }
 
-    private fun snapshot(vararg names: String, revision: Long = 1, epoch: String = "e", more: Boolean = false) =
-        WatchResponse.newBuilder().setSnapshot(
-            WatchResponse.Snapshot.newBuilder()
-                .addAllItems(names.map { config(it) })
-                .setRevision(revision)
-                .setEpoch(epoch)
-                .setMore(more),
-        ).build()
+    private fun snapshot(
+        vararg names: String,
+        revision: Long = 1,
+        epoch: String = "e",
+        more: Boolean = false,
+        id: Long = 0,
+    ) = WatchResponse.newBuilder().setWatchId(id).setSnapshot(
+        WatchResponse.Snapshot.newBuilder()
+            .addAllItems(names.map { config(it) })
+            .setRevision(revision)
+            .setEpoch(epoch)
+            .setMore(more),
+    ).build()
 
-    private fun events(revision: Long, type: WatchResponse.Event.Type, name: String, more: Boolean = false) =
-        WatchResponse.newBuilder().setEvents(
-            WatchResponse.Events.newBuilder()
-                .setRevision(revision)
-                .setMore(more)
-                .addEvents(WatchResponse.Event.newBuilder().setType(type).setResource(config(name))),
-        ).build()
+    private fun events(
+        revision: Long,
+        type: WatchResponse.Event.Type,
+        name: String,
+        more: Boolean = false,
+        id: Long = 0,
+    ) = WatchResponse.newBuilder().setWatchId(id).setEvents(
+        WatchResponse.Events.newBuilder()
+            .setRevision(revision)
+            .setMore(more)
+            .addEvents(WatchResponse.Event.newBuilder().setType(type).setResource(config(name))),
+    ).build()
 
-    private fun put(revision: Long, name: String, more: Boolean = false) =
-        events(revision, WatchResponse.Event.Type.TYPE_PUT, name, more)
+    private fun put(revision: Long, name: String, more: Boolean = false, id: Long = 0) =
+        events(revision, WatchResponse.Event.Type.TYPE_PUT, name, more, id)
 
     private fun names(): Set<String> = state.view.value.keys
 
@@ -149,9 +159,34 @@ class WatchStateTest {
     @Test
     fun `what a broken stream left of a snapshot does not reach the next one`() {
         state.apply(snapshot("deleted since", more = true)).assert().isFalse()
-        state.discardPartial()
-        state.apply(snapshot("kept")).assert().isTrue()
+        // Created on the next stream.
+        state.createdAs(1)
+        state.apply(snapshot("kept", id = 1)).assert().isTrue()
         names().assert().containsExactly("kept")
+    }
+
+    @Test
+    fun `the rest of a snapshot to an id the watch had before does not reach the next one`() {
+        state.createdAs(1)
+        state.apply(snapshot("deleted since", more = true, id = 1)).assert().isFalse()
+        state.startOver(2)
+        state.apply(snapshot("ghost", more = true, id = 1)).assert().isFalse()
+        state.apply(snapshot("stale", revision = 1, id = 1)).assert().isFalse()
+        state.hasPosition.assert().isFalse()
+        state.apply(snapshot("kept", revision = 2, id = 2)).assert().isTrue()
+        names().assert().containsExactly("kept")
+    }
+
+    @Test
+    fun `the rest of a revision to an id the watch had before is not applied under a later one`() {
+        state.createdAs(1)
+        state.apply(snapshot("a", revision = 1, id = 1))
+        state.startOver(2)
+        state.apply(put(2, "ghost", more = true, id = 1)).assert().isFalse()
+        state.apply(snapshot("a", revision = 2, id = 2)).assert().isTrue()
+        state.apply(put(3, "b", id = 2)).assert().isTrue()
+        names().assert().containsExactlyInAnyOrder("a", "b")
+        state.revision.assert().isEqualTo(3)
     }
 
     @Test
@@ -265,23 +300,23 @@ class WatchStateTest {
     fun `starting over forgets the position and keeps the view`() {
         state.apply(snapshot("a"))
         state.apply(put(2, "half", more = true))
-        state.startOver()
+        state.startOver(1)
         state.hasPosition.assert().isFalse()
         state.revision.assert().isEqualTo(0)
         names().assert().containsExactly("a")
-        state.apply(put(1, "ignored", more = false))
-        state.apply(snapshot("b", revision = 3))
+        state.apply(put(1, "ignored", more = false, id = 1))
+        state.apply(snapshot("b", revision = 3, id = 1))
         names().assert().containsExactly("b")
     }
 
     @Test
     fun `a fresh snapshot that disagrees at the same position counts as drift`() {
         state.apply(snapshot("a", revision = 5))
-        state.startOver()
-        state.apply(snapshot("a", revision = 5))
+        state.startOver(1)
+        state.apply(snapshot("a", revision = 5, id = 1))
         state.drift.get().assert().isEqualTo(0)
-        state.startOver()
-        state.apply(snapshot("missed", revision = 5))
+        state.startOver(2)
+        state.apply(snapshot("missed", revision = 5, id = 2))
         state.drift.get().assert().isEqualTo(1)
         names().assert().containsExactly("missed")
     }
@@ -289,8 +324,8 @@ class WatchStateTest {
     @Test
     fun `a fresh snapshot at another position is not drift`() {
         state.apply(snapshot("a", revision = 5))
-        state.startOver()
-        state.apply(snapshot("b", revision = 6))
+        state.startOver(1)
+        state.apply(snapshot("b", revision = 6, id = 1))
         state.drift.get().assert().isEqualTo(0)
     }
 

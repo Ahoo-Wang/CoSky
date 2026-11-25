@@ -26,6 +26,7 @@ import org.springframework.context.ConfigurableApplicationContext
 import org.springframework.core.env.ConfigurableEnvironment
 import org.springframework.core.env.EnumerablePropertySource
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * The client of one Spring application (design §7.7), and what its imports loaded through it. Each application has its
@@ -34,17 +35,29 @@ import java.util.concurrent.ConcurrentHashMap
  * Configuration loads before the context exists and again on every refresh, so the first import creates it in the
  * bootstrap context, which Spring Cloud keeps in the application context to run every refresh in. When the bootstrap
  * context closes, the application context takes the client over and closes it after everything that uses it; an
- * application that fails to start before then has it closed by [CoSkyClientRunListener]. An application that imports
- * nothing gets it from the auto-configuration.
+ * application that fails to start before its context could close it has it closed by [CoSkyClientRunListener]. An
+ * application that imports nothing at startup gets it from the auto-configuration, which puts it in that bootstrap
+ * context too, so that a refresh adding the first import loads through it rather than creating another.
  */
-class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, applicationName: String?) :
-    DisposableBean {
+class CoSkyApplicationClient internal constructor(
+    properties: CoSkyProperties,
+    applicationName: String?,
+    handedOver: Boolean = false,
+) : DisposableBean {
     /**
      * Named by `spring.application.name` in the server's topology view.
      */
     val client = CoSkyClient(properties.toOptions(applicationName))
     private val imports = ConcurrentHashMap<Pair<String, String>, Import>()
-    private var handedOver = false
+
+    /**
+     * Whether the application context has it: from the start for the one the auto-configuration creates, otherwise
+     * once the bootstrap context hands it over. Imports load before that only at startup, so after it in a refresh.
+     */
+    @Volatile
+    internal var handedOver = handedOver
+        private set
+    private val closed = AtomicBoolean()
 
     /** Held while imports, the run below and the listeners change. */
     private val lock = Any()
@@ -66,10 +79,11 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
 
     /**
      * What this application keeps of a Config its imports load: the hold its loads and its refreshes read through,
-     * what the last load saw, and every property source it has made up.
+     * what the last load saw, what property sources were last made up from, and every property source it has made up.
      */
     private class Import(val hold: ConfigHold) {
         var seen: Resource? = null
+        var loaded: Resource? = null
         var sources: Set<String> = emptySet()
     }
 
@@ -100,6 +114,11 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
             importListeners.forEach { it(namespace, config, seen.orNone(), import.hold.changes) }
         }
     }
+
+    /**
+     * What the Config held when its property sources were last made up from it, until [reconcile] drops the Config.
+     */
+    internal fun lastLoaded(namespace: String, config: String): Resource? = imports[namespace to config]?.loaded
 
     internal fun importedBy(namespace: String): Map<String, Resource> = imports.entries
         .mapNotNull { (key, import) -> import.seen?.takeIf { key.first == namespace }?.let { key.second to it } }
@@ -181,17 +200,19 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
     }
 
     /**
-     * Remembers the property sources a Config makes up now, along with all it made up before. None is forgotten until
-     * [reconcile]: a refresh that fails keeps the Environment as it was, old sources included, and a load cannot tell
-     * whether its refresh will.
+     * Remembers the property sources a Config makes up now, from [loaded] if anything, along with all it made up
+     * before. None is forgotten until [reconcile]: a refresh that fails keeps the Environment as it was, old sources
+     * included, and a load cannot tell whether its refresh will.
      *
      * @return every property source the Config has made up.
      */
-    internal fun addSources(namespace: String, config: String, names: Set<String>): Set<String> = synchronized(lock) {
-        val import = importOf(namespace to config)
-        import.sources += names
-        import.sources
-    }
+    internal fun addSources(namespace: String, config: String, names: Set<String>, loaded: Resource?): Set<String> =
+        synchronized(lock) {
+            val import = importOf(namespace to config)
+            import.sources += names
+            loaded?.let { import.loaded = it }
+            import.sources
+        }
 
     /**
      * A singleton registered as it is gets no destruction callback, so this asks for one as well.
@@ -204,15 +225,13 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
     }
 
     /**
-     * Once handed over, the context closes it, also when the application fails to start.
+     * Closes the client, once: the context and [CoSkyClientRunListener] may both get to it.
      */
-    internal fun closeUnlessHandedOver() {
-        if (!handedOver) {
+    override fun destroy() {
+        if (closed.compareAndSet(false, true)) {
             client.close()
         }
     }
-
-    override fun destroy() = client.close()
 
     internal companion object {
         private const val BEAN_NAME = "coSkyApplicationClient"
@@ -229,13 +248,29 @@ class CoSkyApplicationClient internal constructor(properties: CoSkyProperties, a
                 bootstrap.register(CoSkyApplicationClient::class.java, InstanceSupplier.of(created))
                 bootstrap.addCloseListener { created.handOver(it.applicationContext) }
             }
+
+        /**
+         * The client the auto-configuration creates for an application that imported nothing at startup. It goes into
+         * the bootstrap context Spring Cloud keeps for refreshes, if any, where an import would have created it: a
+         * refresh adding the first import would otherwise create a second client there, which nothing closes and
+         * nothing refreshes for (design D41).
+         */
+        fun ofContext(
+            bootstrap: ConfigurableBootstrapContext?,
+            properties: CoSkyProperties,
+            applicationName: String?,
+        ): CoSkyApplicationClient = CoSkyApplicationClient(properties, applicationName, handedOver = true).also {
+            bootstrap?.registerIfAbsent(CoSkyApplicationClient::class.java, InstanceSupplier.of(it))
+        }
     }
 }
 
 /**
- * Closes the client an import created for an application that fails to start before its context takes the client over:
- * Spring Boot closes the bootstrap context only once the application context is prepared, so a failed import, say,
- * never gets that far.
+ * Closes the client of an application that fails to start before its context could. Spring Boot closes the bootstrap
+ * context only once the application context is prepared, so a failed import, say, never gets that far; and a context
+ * closes nothing unless refreshing made it active, which loading its sources or an `ApplicationPreparedEvent` listener
+ * can still fail before. One that refreshing failed has closed it already, and an active one closes it after
+ * everything that uses it.
  */
 internal class CoSkyClientRunListener : SpringApplicationRunListener {
     private var bootstrap: ConfigurableBootstrapContext? = null
@@ -245,7 +280,9 @@ internal class CoSkyClientRunListener : SpringApplicationRunListener {
     }
 
     override fun failed(context: ConfigurableApplicationContext?, exception: Throwable) {
-        bootstrap?.getOrElse(CoSkyApplicationClient::class.java, null)?.closeUnlessHandedOver()
+        if (context?.isActive != true) {
+            bootstrap?.getOrElse(CoSkyApplicationClient::class.java, null)?.destroy()
+        }
     }
 }
 

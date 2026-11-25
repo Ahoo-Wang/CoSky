@@ -37,6 +37,9 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     private var pendingEvents = mutableListOf<WatchResponse.Event>()
     private var resyncEpoch = ""
     private var resyncRevision = -1L
+
+    /** The id the watch was last created with on the stream; until then 0, which the stream never hands out. */
+    private var watchId = 0L
     private val knownState = MutableStateFlow(snapshot != null)
     private val refusal = MutableStateFlow<CoSkyException?>(null)
 
@@ -102,34 +105,52 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     }
 
     /**
-     * Forgets the position, so that the next watch starts from a snapshot; the view stays until that arrives.
+     * Takes the responses to [id] from now on, and only those, and forgets what arrived only in part before. The
+     * stream's coroutine may have found this watch by an id it had before just as it is created anew, and responses
+     * to that id are still on their way: a chunk of the snapshot it was starting over from would end up in the next
+     * one, and part of a revision under a later one.
      */
     @Synchronized
-    fun startOver() {
+    fun createdAs(id: Long) {
+        watchId = id
+        discardPartial()
+    }
+
+    /**
+     * Forgets the position, so that the next watch, created as [id], starts from a snapshot; the view stays until that
+     * arrives. In one step, so that nothing the watch had before slips in once its position is gone.
+     */
+    @Synchronized
+    fun startOver(id: Long) {
         resyncEpoch = epoch
         resyncRevision = revision
         epoch = ""
         revision = 0
-        discardPartial()
+        createdAs(id)
     }
 
     /**
      * Forgets what a broken stream delivered only part of. The next stream sends it whole, and an object in an old part
      * may have been deleted since: nothing would remove it again.
      */
-    @Synchronized
-    fun discardPartial() {
+    private fun discardPartial() {
         pendingSnapshot = mutableListOf()
         pendingEvents = mutableListOf()
     }
 
     /**
-     * Applies one response.
+     * Applies one response, unless it is to an id the watch had before [createdAs].
      *
      * @return whether the view or the position changed.
      */
     @Synchronized
-    fun apply(response: WatchResponse): Boolean = when (response.payloadCase) {
+    fun apply(response: WatchResponse): Boolean = if (response.watchId != watchId) {
+        false
+    } else {
+        applyCurrent(response)
+    }
+
+    private fun applyCurrent(response: WatchResponse): Boolean = when (response.payloadCase) {
         WatchResponse.PayloadCase.SNAPSHOT -> applySnapshot(response.snapshot)
         WatchResponse.PayloadCase.EVENTS -> applyEvents(response.events)
         WatchResponse.PayloadCase.PROGRESS -> applyProgress(response.progress)
