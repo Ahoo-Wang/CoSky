@@ -15,7 +15,7 @@ description: The versions CoSky needs and is tested with.
 | Spring Cloud | 2026.0 | Declares Spring Boot 4.2, so its compatibility verifier can stay on |
 | Redis | 7.0 or later, with `maxmemory-policy noeviction` | The server checks both at start, and refuses to run otherwise |
 | Valkey | 8 | |
-| Kubernetes | Anything with Kustomize | The manifests were checked with `kubectl kustomize`, and have not run on a real cluster yet |
+| Kubernetes | Anything with Kustomize | CI deploys the manifests to a k3s cluster for every pull request; they meet Pod Security's "restricted" level |
 | Browser | A current Chrome, Edge, Firefox or Safari | Only Chrome is tested |
 
 Every pull request runs against Redis 7.0, Redis 7.4 and Valkey 8, on a single node and a Redis Cluster.

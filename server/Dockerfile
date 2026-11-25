@@ -10,7 +10,9 @@
 ARG APP_NAME=cosky-server
 ARG WORK_HOME=/opt/${APP_NAME}
 
-FROM dragonwell-registry.cn-hangzhou.cr.aliyuncs.com/dragonwell/dragonwell:25-ubuntu AS base
+# Eclipse Temurin's JRE on Ubuntu 24.04 LTS, pinned by digest so that a build is reproducible; Renovate proposes the
+# next digest. A JRE: the server needs no compiler, and a smaller image has fewer packages to patch.
+FROM eclipse-temurin:25-jre-noble@sha256:f3dd0838e69b881cc382237d5901e74ae3705b1056ad964b2e0e523b174fef99 AS base
 
 FROM base AS build
 ARG WORK_HOME
@@ -25,7 +27,12 @@ ARG APP_NAME
 
 LABEL maintainer="ahoowang@qq.com"
 
-RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+# curl for the health check below. The user and group are 999, as the Kubernetes manifests run it.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -r -g 999 appgroup \
+    && useradd -r -u 999 -g appgroup -M -s /usr/sbin/nologin appuser
 
 COPY --from=build --chown=appuser:appgroup ${WORK_HOME} ${WORK_HOME}
 
@@ -35,12 +42,9 @@ EXPOSE 8080 9090
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
   CMD curl -f http://localhost:8080/actuator/health/liveness || exit 1
 
-# Compact object headers save about 9% of memory on the Watch Cache (design 7.10). Netty loads its epoll transport,
-# which sets the TCP user timeout, through a restricted method that a later JDK refuses unless native access is enabled.
-# Protobuf still reads arrays through sun.misc.Unsafe, which JDK 25 warns about at every start.
-ENV JAVA_OPTS="-XX:+UseCompactObjectHeaders -XX:MaxRAMPercentage=75 --enable-native-access=ALL-UNNAMED --sun-misc-unsafe-memory-access=allow"
-
-USER appuser
+# The JVM's flags come with the start script (server/build.gradle.kts), so that JAVA_OPTS adds to them rather than
+# replacing them.
+USER 999:999
 STOPSIGNAL SIGTERM
 
 ENTRYPOINT ["bin/cosky-server"]

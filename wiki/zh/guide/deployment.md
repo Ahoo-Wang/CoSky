@@ -34,6 +34,8 @@ Redis 复制是异步的，故障切换可能丢失最后的写入。为了缩�
 
 使用 TLS 时，server 按 JVM 信任的证书机构校验 Redis 的证书。私有证书机构需要给镜像一个信任库：`JAVA_OPTS="-Djavax.net.ssl.trustStore=/tls/trust.p12 -Djavax.net.ssl.trustStorePassword=..."`。不受信任的证书会让 server 启动失败。`?verifyPeer=NONE` 跳过校验，只用于测试。
 
+`JAVA_OPTS` 是在镜像自带的 JVM 参数（堆为容器内存的 75%、内存耗尽时退出、JDK 25 需要的参数）之后追加，不会替换它们。镜像基于 Ubuntu 24.04 LTS 上的 Eclipse Temurin JRE 25，以用户和组 999 运行。
+
 ACL 用户需要 CoSky 的键和频道（都以 `cosky:` 开头），危险命令中只需要 `INFO`：
 
 ```

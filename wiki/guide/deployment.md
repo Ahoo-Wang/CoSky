@@ -34,6 +34,8 @@ They go in `cosky.store.redis.uri`:
 
 Over TLS, the server checks Redis's certificate against the JVM's trusted authorities. For a private one, give the image a trust store: `JAVA_OPTS="-Djavax.net.ssl.trustStore=/tls/trust.p12 -Djavax.net.ssl.trustStorePassword=..."`. A certificate the server does not trust stops it at start. `?verifyPeer=NONE` skips the check, for a test only.
 
+`JAVA_OPTS` adds to the JVM flags the image comes with (heap at 75% of the container's memory, exit on out-of-memory, and what JDK 25 needs), rather than replacing them. The image is Eclipse Temurin's JRE 25 on Ubuntu 24.04 LTS, and runs as user and group 999.
+
 An ACL user needs CoSky's keys and channel, which all begin with `cosky:`, and no dangerous command but `INFO`:
 
 ```

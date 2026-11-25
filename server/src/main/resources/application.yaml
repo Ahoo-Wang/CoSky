@@ -4,6 +4,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  lifecycle:
+    # REST watches, as the Dashboard keeps open, never finish by themselves either: the web server's graceful shutdown
+    # would wait the 30 seconds of the default, past the 25 seconds Kubernetes gives a pod. Clients open them again
+    # on another replica.
+    timeout-per-shutdown-phase: 5s
   grpc:
     server:
       port: 9090
