@@ -13,7 +13,17 @@
 
 import {ExchangeError} from '@ahoo-wang/fetcher';
 import {toast} from 'sonner';
+import {ErrorReason} from '@/generated';
 import type {Problem} from '@/generated';
+
+/**
+ * Whether an edit or a delete was refused because the object, still there, is no longer at the revision it was read at
+ * (`If-Match`): the server's own words for that only compare revision numbers.
+ */
+const changedSinceRead = ({reason, revisionConflict}: Partial<Problem>) =>
+    reason === ErrorReason.ERROR_REASON_REVISION_CONFLICT
+    && Number(revisionConflict?.expectedRevision ?? 0) > 0
+    && Number(revisionConflict?.currentRevision ?? 0) > 0;
 
 /**
  * The reason the REST API gave for a failed request, when there is one: what its problem details (RFC 9457) say
@@ -23,6 +33,7 @@ export async function errorReason(error: unknown): Promise<string | undefined> {
     if (!(error instanceof ExchangeError)) return error instanceof Error ? error.message : undefined;
     try {
         const problem = await error.exchange.requiredResponse.clone().json() as Partial<Problem>;
+        if (changedSinceRead(problem)) return 'It changed since it was read. Look at it again before trying again.';
         return problem.detail || problem.title || undefined;
     } catch {
         return undefined;

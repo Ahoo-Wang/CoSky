@@ -12,19 +12,24 @@
  */
 
 /**
- * How far this page has seen each namespace, by its watch and by its reads (design §6.1), on the timeline of one epoch
- * (design §6.4): revisions compare only within an epoch, and a new one may start lower.
+ * How far this page has seen each namespace, by its watch, by its reads and by its own writes (design §6.1), on the
+ * timeline of one epoch (design §6.4): revisions compare only within an epoch, and a new one may start lower.
  *
- * - A read asks for no less than the watch has seen, so that a replica that is behind cannot answer with less than the
- *   page knows has changed.
+ * - A read asks for no less than the watch has seen and the page has written, so that a replica that is behind cannot
+ *   answer with less than the page knows has changed.
  * - A bookmark has the page read again while any read since the watch last reported a change is behind it: one read
  *   that reached a replica further on must not vouch for another that did not.
- * - A snapshot of another epoch starts over from its revision, and forgets the reads of the old timeline. A read or an
- *   event that says it belongs to another epoch than the latest snapshot counts for nothing.
+ * - A snapshot of another epoch starts over from its revision, and forgets the reads and writes of the old timeline. A
+ *   read or an event that says it belongs to another epoch than the latest snapshot counts for nothing. Before any
+ *   snapshot, the first read that says its epoch tells the timeline.
+ * - A read that timed out waiting for a revision it asked for forgets that revision when one that did not ask was
+ *   answered on another timeline, or on one it cannot tell (see [timedOutOn]).
  */
 interface Position {
     epoch?: string;
     watched?: bigint;
+    /** The latest of this page's own writes. */
+    written?: bigint;
     /** The lowest revision the reads since the last reported change were answered at. */
     read?: bigint;
 }
@@ -72,14 +77,48 @@ export const readUpTo = (namespace: string, revision: string | undefined, epoch?
     if (!revision || ofAnotherEpoch(position, epoch)) {
         return;
     }
+    if (position.epoch === undefined) {
+        position.epoch = epoch;
+    }
     const answered = BigInt(revision);
     if (position.read === undefined || answered < position.read) {
         position.read = answered;
     }
 };
 
-/** The least revision a read of the namespace asks for, once a watch has seen one. */
-export const minRevisionOf = (namespace: string): string | undefined => positions.get(namespace)?.watched?.toString();
+/** This page wrote to the namespace, as of this revision: what it reads there from now on must not be older. */
+export const wroteUpTo = (namespace: string, revision: string | undefined) => {
+    if (!revision) {
+        return;
+    }
+    const position = positionOf(namespace);
+    if ((position.written ?? -1n) < BigInt(revision)) {
+        position.written = BigInt(revision);
+    }
+};
+
+/**
+ * A read that asked for the least revision of the namespace timed out waiting for it (MIN_REVISION_TIMEOUT), and one
+ * that asked for none was answered on [epoch], if it says so. On the timeline the page saw that revision on, it is
+ * only late, and is still asked for. On another, or when that cannot be told, it may not come for long, as after a
+ * failover started a new timeline lower: it is forgotten, with all else the page knew of the old timeline.
+ *
+ * @return whether it was forgotten, so that the answer counts.
+ */
+export const timedOutOn = (namespace: string, epoch: string | undefined): boolean => {
+    if (epoch !== undefined && positions.get(namespace)?.epoch === epoch) {
+        return false;
+    }
+    positions.set(namespace, {epoch});
+    return true;
+};
+
+/** The least revision a read of the namespace asks for, once a watch has seen one or the page has written one. */
+export const minRevisionOf = (namespace: string): string | undefined => {
+    const {watched, written} = positions.get(namespace) ?? {};
+    const least = watched === undefined || (written !== undefined && written > watched) ? written : watched;
+    return least?.toString();
+};
 
 /** Whether a read since the last reported change is behind the revision, or none has been answered yet. */
 export const readsBehind = (namespace: string, revision: string): boolean =>

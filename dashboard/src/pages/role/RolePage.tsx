@@ -48,14 +48,13 @@ export function RolePage() {
         );
     };
 
-    const handleDelete = async (name: string) => {
-        const deleted = await runAction(
-            () => roles.delete(name),
+    const handleDelete = async (role: RoleResource) => {
+        await runAction(
+            () => roles.delete(role.name, role.revision),
             {success: 'Role deleted', failure: 'Failed to delete role'},
         );
-        if (deleted) {
-            loadRoles();
-        }
+        // Deleted, or refused because it changed since it was read: either way, the page shows what is there now.
+        loadRoles();
     };
 
     const columns: DataTableColumn<RoleResource>[] = [
@@ -77,7 +76,7 @@ export function RolePage() {
                     <ConfirmButton
                         title="Are you sure to delete this role?"
                         description={`Role “${role.name}” will be deleted. Its bindings stop granting anything.`}
-                        onConfirm={() => handleDelete(role.name)}
+                        onConfirm={() => handleDelete(role)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"

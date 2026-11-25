@@ -11,9 +11,19 @@
  * limitations under the License.
  */
 
+import {ExchangeError} from '@ahoo-wang/fetcher';
 import type {ParameterRequest} from '@ahoo-wang/fetcher-decorator';
-import {ConfigFormat, Kind, SubjectType, Verb} from '@/generated';
-import type {CreateTokenResponse, HistoryResponse, ListResponse, Resource} from '@/generated';
+import {ConfigFormat, ErrorReason, Kind, SubjectType, Verb} from '@/generated';
+import type {
+    ConfigImportResponse,
+    CreateTokenResponse,
+    DeleteResponse,
+    HistoryResponse,
+    ListResponse,
+    Problem,
+    PutResponse,
+    Resource,
+} from '@/generated';
 import {
     configsClient,
     instancesClient,
@@ -22,7 +32,7 @@ import {
     rolesClient,
     serviceAccountsClient,
 } from '@/services/clients';
-import {minRevisionOf, readUpTo} from '@/services/revisions';
+import {minRevisionOf, readUpTo, timedOutOn, wroteUpTo} from '@/services/revisions';
 
 /**
  * A resource as it arrives. proto3 JSON leaves out whatever is empty, and only one spec of a resource is ever set,
@@ -162,6 +172,49 @@ const roleBindingOf = (resource: WireResource): RoleBindingResource => ({
     namespaces: (resource.roleBinding?.namespaces ?? []) as string[],
 });
 
+const GATEWAY_TIMEOUT = 504;
+
+/** Whether the server says the namespace did not reach the revision a read asked for in time. */
+async function minRevisionTimedOut(error: unknown): Promise<boolean> {
+    const response = error instanceof ExchangeError ? error.exchange.response : undefined;
+    if (response?.status !== GATEWAY_TIMEOUT) {
+        return false;
+    }
+    try {
+        const problem = await response.clone().json() as Partial<Problem>;
+        return problem.reason === ErrorReason.ERROR_REASON_MIN_REVISION_TIMEOUT;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Reads [namespace] no older than this page has seen it, by its watch and by its own writes. Should that revision not
+ * come in time, the read is made again without it: on another timeline than the page saw it on, as after a failover,
+ * it is forgotten and that answer counts; on the same one it is only late, and the read fails as it did.
+ *
+ * @param epochOf the timeline of an answer, if it says.
+ */
+async function readAtLeast<T>(
+    namespace: string,
+    read: (minRevision: string | undefined) => Promise<T>,
+    epochOf: (answer: T) => string | undefined,
+): Promise<T> {
+    const minRevision = minRevisionOf(namespace);
+    try {
+        return await read(minRevision);
+    } catch (error) {
+        if (!minRevision || !await minRevisionTimedOut(error)) {
+            throw error;
+        }
+        const answer = await read(undefined);
+        if (!timedOutOn(namespace, epochOf(answer))) {
+            throw error;
+        }
+        return answer;
+    }
+}
+
 /** One page of a list: `minRevision` for the first, `pageToken` for the others. */
 type ListPage = (
     minRevision: string | undefined,
@@ -178,28 +231,40 @@ async function listAll<T>(
     toResource: (resource: WireResource) => T,
     abortController?: AbortController,
 ): Promise<T[]> {
-    // No less than this page's watch has seen; later pages read where the first one did.
-    const minRevision = minRevisionOf(namespace) || undefined;
+    const listPage = async (minRevision: string | undefined, pageToken: string | undefined) =>
+        await list(minRevision, pageToken, {abortController}) as Wire<ListResponse>;
+    // Later pages read where the first one did.
+    let page = await readAtLeast(namespace, minRevision => listPage(minRevision, undefined), first => first.epoch);
+    readUpTo(namespace, page.revision, page.epoch);
     const items: T[] = [];
-    let pageToken = '';
-    do {
-        const page = await list(pageToken ? undefined : minRevision, pageToken || undefined, {abortController}) as
-            Wire<ListResponse>;
-        if (!pageToken) {
-            readUpTo(namespace, page.revision, page.epoch);
-        }
+    for (;;) {
         items.push(...(page.items ?? []).map(item => toResource(item as WireResource)));
-        pageToken = page.nextPageToken ?? '';
-    } while (pageToken);
-    return items;
+        if (!page.nextPageToken) {
+            return items;
+        }
+        page = await listPage(undefined, page.nextPageToken);
+    }
 }
+
+/** The revision a write or a delete started from, as `If-Match` takes it: someone else's change since fails it. */
+const ifMatch = (revision?: string): string | undefined => revision ? `"${revision}"` : undefined;
 
 /**
  * Compare-and-set against the revision an edit started from, or create-only without one: `If-Match` and
  * `If-None-Match`, as the generated clients take them.
  */
 const writeGuard = (revision?: string): [string | undefined, '*' | undefined] =>
-    revision ? [`"${revision}"`, undefined] : [undefined, '*'];
+    revision ? [ifMatch(revision), undefined] : [undefined, '*'];
+
+/**
+ * A write to [namespace]: what this page reads there from now on asks for no less than its revision, so that a replica
+ * that is behind cannot answer with what was there before.
+ */
+async function wrote<T extends PutResponse | DeleteResponse>(namespace: string, write: Promise<T>): Promise<T> {
+    const answer = await write;
+    wroteUpTo(namespace, answer.revision);
+    return answer;
+}
 
 /** proto3 JSON leaves out what is empty, which the generated types do not know. */
 const body = (resource: WireResource) => resource as Resource;
@@ -216,8 +281,12 @@ export const namespaces = {
         abortController,
     ),
     create: (name: string, description: string) =>
-        namespacesClient.putNamespace(name, body({namespace: {description}}), ...writeGuard()),
-    delete: (name: string) => namespacesClient.deleteNamespace(name),
+        wrote(SYSTEM_NAMESPACE, namespacesClient.putNamespace(name, body({namespace: {description}}), ...writeGuard())),
+    /**
+     * @param revision of what the user chose to delete: a change since then must not be deleted unseen.
+     */
+    delete: (name: string, revision?: string) =>
+        wrote(SYSTEM_NAMESPACE, namespacesClient.deleteNamespace(name, ifMatch(revision))),
 };
 
 export const configs = {
@@ -229,15 +298,27 @@ export const configs = {
         abortController,
     ),
     async get(namespace: string, name: string, abortController?: AbortController): Promise<ConfigResource> {
-        return configOf(await configsClient.getConfig(namespace, name, undefined, {abortController}) as WireResource);
+        return configOf(await readAtLeast(
+            namespace,
+            async minRevision =>
+                await configsClient.getConfig(namespace, name, minRevision, {abortController}) as WireResource,
+            // An object does not say which timeline it was read on.
+            () => undefined,
+        ));
     },
     /**
      * @param revision the revision the edit started from; a new Config has none.
      */
     put: (namespace: string, name: string, spec: {format: ConfigFormat; content: string}, revision?: string,
-          labels?: Record<string, string>) =>
+          labels?: Record<string, string>) => wrote(
+        namespace,
         configsClient.putConfig(namespace, name, body({meta: {labels}, config: spec}), ...writeGuard(revision)),
-    delete: (namespace: string, name: string) => configsClient.deleteConfig(namespace, name),
+    ),
+    /**
+     * @param revision of what the user chose to delete: a change since then must not be deleted unseen.
+     */
+    delete: (namespace: string, name: string, revision?: string) =>
+        wrote(namespace, configsClient.deleteConfig(namespace, name, ifMatch(revision))),
     /**
      * Newest first; the first one is the current version.
      */
@@ -261,8 +342,12 @@ export const configs = {
      * @param currentRevision what the user compared it with, so that a later change is not overwritten unseen.
      */
     rollback: (namespace: string, name: string, toRevision: string, currentRevision?: string) =>
-        configsClient.rollbackConfig(namespace, name, {toRevision}, currentRevision && `"${currentRevision}"`),
-    importArchive: (namespace: string, archive: File) => configsClient.importConfigs(namespace, archive),
+        wrote(namespace, configsClient.rollbackConfig(namespace, name, {toRevision}, ifMatch(currentRevision))),
+    async importArchive(namespace: string, archive: File): Promise<ConfigImportResponse> {
+        const imported = await configsClient.importConfigs(namespace, archive);
+        (imported as Wire<ConfigImportResponse>).items?.forEach(item => wroteUpTo(namespace, item?.revision));
+        return imported;
+    },
     async exportArchive(namespace: string): Promise<Blob> {
         const response = await configsClient.exportConfigs(namespace);
         return response.blob();
@@ -280,7 +365,8 @@ export const instances = {
     /**
      * @param existing what it replaces, whose revision, labels and lease carry over.
      */
-    put: (namespace: string, name: string, spec: InstanceSpec, existing?: InstanceResource) =>
+    put: (namespace: string, name: string, spec: InstanceSpec, existing?: InstanceResource) => wrote(
+        namespace,
         instancesClient.putInstance(
             namespace,
             name,
@@ -295,7 +381,12 @@ export const instances = {
             }),
             ...writeGuard(existing?.revision),
         ),
-    delete: (namespace: string, name: string) => instancesClient.deleteInstance(namespace, name),
+    ),
+    /**
+     * @param revision of what the user chose to delete: a change since then must not be deleted unseen.
+     */
+    delete: (namespace: string, name: string, revision?: string) =>
+        wrote(namespace, instancesClient.deleteInstance(namespace, name, ifMatch(revision))),
 };
 
 export const serviceAccounts = {
@@ -306,9 +397,16 @@ export const serviceAccounts = {
         serviceAccountOf,
         abortController,
     ),
-    create: (name: string, description: string) =>
+    create: (name: string, description: string) => wrote(
+        SYSTEM_NAMESPACE,
         serviceAccountsClient.putServiceAccount(name, body({serviceAccount: {description}}), ...writeGuard()),
-    delete: (name: string) => serviceAccountsClient.deleteServiceAccount(name),
+    ),
+    /**
+     * @param revision of what the user chose to delete: tokens added since then may be in use, and must not be deleted
+     * unseen.
+     */
+    delete: (name: string, revision?: string) =>
+        wrote(SYSTEM_NAMESPACE, serviceAccountsClient.deleteServiceAccount(name, ifMatch(revision))),
     /**
      * @return the plaintext, which the server never shows again.
      */
@@ -329,9 +427,14 @@ export const roles = {
     /**
      * @param existing what it replaces, whose revision and labels carry over.
      */
-    put: (name: string, spec: {description: string; rules: RoleRule[]}, existing?: RoleResource) =>
+    put: (name: string, spec: {description: string; rules: RoleRule[]}, existing?: RoleResource) => wrote(
+        SYSTEM_NAMESPACE,
         rolesClient.putRole(name, body({meta: {labels: existing?.labels}, role: spec}), ...writeGuard(existing?.revision)),
-    delete: (name: string) => rolesClient.deleteRole(name),
+    ),
+    /**
+     * @param revision of what the user chose to delete: a change since then must not be deleted unseen.
+     */
+    delete: (name: string, revision?: string) => wrote(SYSTEM_NAMESPACE, rolesClient.deleteRole(name, ifMatch(revision))),
 };
 
 export const roleBindings = {
@@ -349,10 +452,14 @@ export const roleBindings = {
         name: string,
         spec: {role: string; subjects: RoleBindingSubject[]; namespaces: string[]},
         existing?: RoleBindingResource,
-    ) => roleBindingsClient.putRoleBinding(
+    ) => wrote(SYSTEM_NAMESPACE, roleBindingsClient.putRoleBinding(
         name,
         body({meta: {labels: existing?.labels}, roleBinding: spec}),
         ...writeGuard(existing?.revision),
-    ),
-    delete: (name: string) => roleBindingsClient.deleteRoleBinding(name),
+    )),
+    /**
+     * @param revision of what the user chose to delete: a change since then must not be deleted unseen.
+     */
+    delete: (name: string, revision?: string) =>
+        wrote(SYSTEM_NAMESPACE, roleBindingsClient.deleteRoleBinding(name, ifMatch(revision))),
 };
