@@ -31,6 +31,9 @@ import java.util.zip.ZipOutputStream
 internal object ConfigArchive {
     const val MAX_ENTRIES = 10_000
 
+    /** What an archive to import may take, compressed: far more than any other request, and less than all it holds. */
+    const val MAX_ARCHIVE_BYTES = 64 * 1024 * 1024
+
     /** How a zip archive's first entry begins, and how the record that ends every zip archive does. */
     private val LOCAL_HEADER = byteArrayOf('P'.code.toByte(), 'K'.code.toByte(), 3, 4)
     private val END_RECORD = byteArrayOf('P'.code.toByte(), 'K'.code.toByte(), 5, 6)

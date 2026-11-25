@@ -94,6 +94,7 @@ server 不认识的键会被忽略，例如 Kubernetes 为名为 `cosky` 的 Ser
 | 每个 ServiceAccount 的 token 数 | 2 |
 | 单条消息 | 2 MiB；更大的结果分页或分块返回 |
 | 列表的一页 | 默认 500，最大 1000 |
+| REST 请求体 | 12 MiB，即最大的对象在 JSON 中每个字符都转义时的大小；导入的压缩包 64 MiB |
 
 ## Spring Boot starter
 

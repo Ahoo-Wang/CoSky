@@ -46,6 +46,8 @@ A write whose condition fails answers `409` `REVISION_CONFLICT`, not the `412` o
 
 **Violations** in a `400` name the field as gRPC does, by its proto path in the request: a parameter or header by the field it sets (`pageSize` is `page_size`, `labelSelector` is `label_selector`, `minRevision` is `min_revision`, `If-Match` and `If-None-Match` are `expected_revision`, `toRevision` is `to_revision`, `expiresAt` is `expires_at`, the Watch's `kind` is `create.kind`), and a body by the field it carries: `resource` for a `PUT`, and the path of a member it does not have, such as `resource.meta.lables`.
 
+**A body** may take 12 MiB, what the largest object takes in JSON with every character escaped, and an archive to import 64 MiB. A larger one is refused with `400`, a `VIOLATION_CODE_TOO_LONG` on the field the body carries, before the server reads the rest of it.
+
 **Errors** are problem details ([RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)), as `application/problem+json`. Beside `type`, `title`, `status`, `detail` and `instance`, `code` is the gRPC status, and `reason` the reason, which does not change between versions. Some reasons add a member that says more. `type` leads to the reason's row below.
 
 ```json

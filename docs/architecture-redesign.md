@@ -504,6 +504,9 @@ Put 的响应带 `ETag: "<revision>"`,`revision` 始终是对象自己的 revisi
 `deleted = false`(对象不存在)时是应答时 namespace 的 revision,对象在这个 revision 上不存在。两种响应的 `revision` 都可用作 `min_revision`。
 Watch 的 SSE 流只承载一个 watch,权限变化时发出 `position_gone` 或 `canceled` 后结束,客户端重新连接。
 
+**请求体大小**:普通请求体最多读 12 MiB,即最大资源(序列化 2 MiB,§4.6)在 JSON 中的上限:字符串的每个字节最多写成 6 个(`\u001f`,或为 HTML 转义的 `\u003c`);导入的 zip 最多 64 MiB。
+`Content-Length` 超限时不读请求体,没有长度时读到上限即停止,都返回 400 `INVALID_ARGUMENT`(请求体承载的字段,`TOO_LONG`),与资源本身超过 `max-message-bytes` 时相同。
+
 REST 请求严格解析,以下情况返回 400 `INVALID_ARGUMENT`(带违规字段)而不是悄悄接受:请求体中有消息没有的成员(否则拼错的 `lables` 会在 Put 时清空标签);
 请求体的 `meta.namespace` / `meta.name` 不为空且与路径不同;`If-None-Match` 不是 `*`;`If-Match` 与 `If-None-Match` 同时出现。
 

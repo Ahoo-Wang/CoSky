@@ -94,6 +94,7 @@ These cannot be set in 8.0.
 | Tokens per ServiceAccount | 2 |
 | One message | 2 MiB; larger results come in pages or parts |
 | One page of a list | 500 by default, 1000 at most |
+| A REST request's body | 12 MiB, what the largest object takes in JSON with every character escaped; an archive to import 64 MiB |
 
 ## Spring Boot starter
 

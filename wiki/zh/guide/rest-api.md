@@ -46,6 +46,8 @@ description: REST API 的接口及其共同约定。
 
 `400` 中的**违规项**与 gRPC 一样，按请求中的 proto 字段路径指明字段：参数和请求头用它设置的字段（`pageSize` 是 `page_size`，`labelSelector` 是 `label_selector`，`minRevision` 是 `min_revision`，`If-Match` 和 `If-None-Match` 是 `expected_revision`，`toRevision` 是 `to_revision`，`expiresAt` 是 `expires_at`，Watch 的 `kind` 是 `create.kind`），请求体用它承载的字段：`PUT` 是 `resource`，对象没有的成员则给出它的路径，例如 `resource.meta.lables`。
 
+**请求体**最大 12 MiB，即最大的对象在 JSON 中每个字符都转义时的大小；导入的压缩包最大 64 MiB。更大的请求体返回 `400`，违规项为请求体承载的字段上的 `VIOLATION_CODE_TOO_LONG`，server 不再读取剩下的部分。
+
 **错误**是 problem details（[RFC 9457](https://www.rfc-editor.org/rfc/rfc9457)），以 `application/problem+json` 返回。除了 `type`、`title`、`status`、`detail` 和 `instance`，`code` 是 gRPC 状态，`reason` 是不随版本变化的原因。有些原因还带一个成员，说明更多信息。`type` 指向下表中该原因所在的行。
 
 ```json
