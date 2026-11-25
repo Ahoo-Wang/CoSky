@@ -53,11 +53,14 @@ jobs:
           if gh release view "$tag" --repo "$REPO" > /dev/null 2>&1; then
             echo "Release $tag exists."
           else
-            # The newest release of this major version, pre-releases included; gh release view only knows the latest
-            # stable one, which would be 6.x for all of 8.0.
-            major="${version%%.*}"
-            previous="$(gh release list --repo "$REPO" --limit 100 --json tagName -q '.[].tagName' 2> /dev/null \
-              | grep -m1 "^v${major}\." || gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null || true)"
+            # A pre-release's notes start from the newest release of its major version, a stable release's from the
+            # stable release before it, so that 8.0.0 lists all of 8.0 and not only what came after the last rc
+            # (previous-release.sh says why). The latest stable release is a fallback, should the list fail.
+            previous="$(gh release list --repo "$REPO" --exclude-drafts --limit 100 --json tagName -q '.[].tagName' \
+              2> /dev/null | .github/scripts/previous-release.sh "$version" || true)"
+            if [[ -z "$previous" ]]; then
+              previous="$(gh release view --repo "$REPO" --json tagName -q .tagName 2> /dev/null || true)"
+            fi
             args=(-f tag_name="$tag" -f target_commitish="$GITHUB_SHA")
             if [[ -n "$previous" ]]; then
               args+=(-f previous_tag_name="$previous")

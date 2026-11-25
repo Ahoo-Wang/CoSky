@@ -111,7 +111,10 @@ To release:
    `.github/release-notes/vX.Y.Z.md` with highlights and upgrade notes.
 2. When it is merged, the [Release workflow](.github/workflows/release.yml) creates the GitHub release `vX.Y.Z` on
    the merge commit: the optional introduction followed by notes generated from the merged pull requests, grouped by
-   their labels ([.github/release.yml](.github/release.yml)).
+   their labels ([.github/release.yml](.github/release.yml)). A pre-release's notes start from the newest release of
+   its major version, a stable release's from the stable release before it
+   ([previous-release.sh](.github/scripts/previous-release.sh)): 8.0.0 lists everything since 6.2.0, not only what
+   came after its last release candidate.
 3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, attaches the `cosky-migrate` zip to
    the release, and publishes the Docker images.
 

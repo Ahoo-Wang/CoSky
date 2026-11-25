@@ -4,6 +4,9 @@ metadata:
   name: cosky
 spec:
   maxUnavailable: 1
+  # A replica that runs without being ready serves nothing, so a drain may evict it even while the budget is spent;
+  # by default, two replicas stuck that way would hold up every drain.
+  unhealthyPodEvictionPolicy: AlwaysAllow
   selector:
     matchLabels:
       app: cosky
