@@ -72,7 +72,7 @@ Each [release](https://github.com/Ahoo-Wang/CoSky/releases) carries `cosky-migra
    cosky-migrate --target http://cosky:8080 --history
    ```
 
-   Exit `0`: everything arrived. `1`: some Configs need attention, listed in the report. `2`: it could not run or stopped early. Running it again continues an interrupted run and changes nothing else. It never overwrites a Config edited on 8.0, and never writes to the old Redis.
+   Exit `0`: everything arrived. `1`: some Configs need attention, listed in the report. `2`: it could not run or stopped early. Running it again continues an interrupted run and changes nothing else, except the format of Configs named without an extension when `--default-format` differs from the last run (listed in the report). It never overwrites a Config edited on 8.0, and never writes to the old Redis.
 
 ## The cutover
 
