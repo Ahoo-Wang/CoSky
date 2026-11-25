@@ -63,7 +63,7 @@ echo "$COSKY_BOOTSTRAP_TOKEN"
 docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
   -e COSKY_BOOTSTRAP_TOKEN \
-  ahoowang/cosky:8.0.0-beta.15
+  ahoowang/cosky:8.0.0-rc.1
 ```
 
 Keep that token: it is the admin of a new installation, as [Security](./security.md#the-first-token) explains. Its secret takes at least 22 letters and digits, and the server refuses to start with a shorter one. For a Redis Cluster, add `-e COSKY_STORE_REDIS_CLUSTER=true`.
