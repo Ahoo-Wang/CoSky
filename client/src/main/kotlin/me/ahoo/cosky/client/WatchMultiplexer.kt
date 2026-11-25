@@ -153,10 +153,8 @@ internal class WatchMultiplexer(
         synchronized(lock) {
             requests = outgoing
             byId.clear()
-            watches.values.forEach {
-                it.discardPartial()
-                create(outgoing, it)
-            }
+            // Each forgets what the broken stream delivered only part of as it is created anew.
+            watches.values.forEach { create(outgoing, it) }
         }
         WatchServiceGrpcKt.WatchServiceCoroutineStub(channel).watch(outgoing.receiveAsFlow()).collect { response ->
             backoff.reset()
@@ -201,13 +199,16 @@ internal class WatchMultiplexer(
         }
     }
 
-    private fun recreate(outgoing: RequestQueue<WatchRequest>, watch: WatchState) {
-        watch.startOver()
-        create(outgoing, watch)
-    }
+    private fun recreate(outgoing: RequestQueue<WatchRequest>, watch: WatchState) =
+        create(outgoing, watch, startOver = true)
 
-    private fun create(outgoing: RequestQueue<WatchRequest>, watch: WatchState) {
+    /**
+     * Creates [watch] under a new id, the only one it takes responses to from then on: those to an id it had before can
+     * still be on their way, and the stream's coroutine may have found the watch by one just before it changed.
+     */
+    private fun create(outgoing: RequestQueue<WatchRequest>, watch: WatchState, startOver: Boolean = false) {
         val id = ids.incrementAndGet()
+        if (startOver) watch.startOver(id) else watch.createdAs(id)
         byId[id] = watch
         val create = WatchRequest.Create.newBuilder()
             .setWatchId(id)

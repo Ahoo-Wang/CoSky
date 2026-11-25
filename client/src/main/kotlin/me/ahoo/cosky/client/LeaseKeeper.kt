@@ -46,6 +46,7 @@ import org.slf4j.LoggerFactory
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.random.Random
+import kotlin.time.Duration
 import kotlin.time.TimeSource
 import io.grpc.Channel as GrpcChannel
 
@@ -258,9 +259,7 @@ internal class LeaseKeeper(
             leases().keepAlive(renewals).collect { responses.send(it) }
             responses.close()
         }
-        // Every renewal is answered, so a stream that answers none for a period and a call's time is gone, whatever its
-        // transport says: waiting on would let the lease run out unnoticed. Only the wait counts, not handling one.
-        val silence = options.leaseTtl / RENEWALS_PER_TTL + options.callTimeout
+        val silence = silenceOf(options.leaseTtl, options.callTimeout)
         while (true) {
             val response = withTimeoutOrNull(silence) { responses.receiveCatching() }
                 ?: throw StatusException(Status.DEADLINE_EXCEEDED.withDescription("No renewal answered in $silence."))
@@ -551,16 +550,31 @@ internal class LeaseKeeper(
     private fun <S : AbstractStub<S>> S.timed(): S =
         withDeadlineAfter(options.callTimeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
 
-    private companion object {
-        val log = LoggerFactory.getLogger(LeaseKeeper::class.java)
-        const val RENEWALS_PER_TTL = 3
+    internal companion object {
+        private val log = LoggerFactory.getLogger(LeaseKeeper::class.java)
+        private const val RENEWALS_PER_TTL = 3
+
+        /**
+         * How long a renewal stream may answer nothing before it counts as gone, whatever its transport says: every
+         * renewal is answered, and waiting on would let the lease run out unnoticed. Only the wait counts, not handling
+         * an answer.
+         *
+         * A period and a call's time, but never more than two periods. The server keeps a lease nobody renews for 4/3
+         * of its TTL, and removes it with its Instances then (design D32); it renews one that has expired until then.
+         * Giving up two periods after the last answer leaves a whole period, a third of the TTL and 5/3 s at the
+         * least, to reconnect and renew before the lease even expires, and two before the reaper comes. An answer is
+         * still waited for a period after it was due. The default TTL of 30 s and call timeout of 10 s give 20 s
+         * either way; a short TTL would otherwise outwait the reaper, as 6 s does with 2 + 10.
+         */
+        fun silenceOf(leaseTtl: Duration, callTimeout: Duration): Duration =
+            minOf(leaseTtl / RENEWALS_PER_TTL + callTimeout, leaseTtl * (RENEWALS_PER_TTL - 1) / RENEWALS_PER_TTL)
 
         /** `expected_revision` meaning no check at all. */
-        const val NO_CHECK = 0L
+        private const val NO_CHECK = 0L
 
         /** An `expected_revision` beyond any a namespace reaches. */
-        const val UNMATCHABLE = Long.MAX_VALUE
-        val OUT_OF_REACH = setOf(Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED)
+        private const val UNMATCHABLE = Long.MAX_VALUE
+        private val OUT_OF_REACH = setOf(Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED)
     }
 }
 

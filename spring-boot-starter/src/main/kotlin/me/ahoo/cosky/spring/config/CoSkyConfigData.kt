@@ -21,6 +21,7 @@ import me.ahoo.cosky.api.v1.ConfigFormat
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.spring.CoSkyApplicationClient
 import me.ahoo.cosky.spring.CoSkyProperties
+import org.slf4j.LoggerFactory
 import org.springframework.boot.context.config.ConfigData
 import org.springframework.boot.context.config.ConfigDataLoader
 import org.springframework.boot.context.config.ConfigDataLoaderContext
@@ -79,7 +80,7 @@ class CoSkyConfigDataLocationResolver : ConfigDataLocationResolver<CoSkyConfigDa
 
 /**
  * Loading blocks startup, so it runs on a virtual thread and gives up after a timeout. A Config that is not there, or
- * cannot be known without a server and a snapshot, is an error unless the location is `optional:` (design §7.5).
+ * cannot be known without a server and a snapshot, fails startup unless the location is `optional:` (design §7.5).
  */
 class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
     override fun load(context: ConfigDataLoaderContext, resource: CoSkyConfigDataResource): ConfigData {
@@ -100,19 +101,37 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
         }
         // Also when there is nothing: an optional Config that appears later is a change too.
         application.markImported(this, properties.namespace, resource.config, config)
-        // A required Config that goes away leaves what it held so far: there is nothing to fall back on.
-        if (config == null && !resource.optional) {
-            throw ConfigDataResourceNotFoundException(resource, refusal)
-        }
-        val current = config?.let { parse(resource.config, it) }.orEmpty()
+        val loaded = config ?: if (resource.optional) null else kept(application, resource, refusal)
+        val current = loaded?.let { parse(resource.config, it) }.orEmpty()
         val names = current.mapTo(HashSet()) { it.name }
-        val gone = application.addSources(properties.namespace, resource.config, names) - names
-        if (config == null && gone.isEmpty()) {
+        val gone = application.addSources(properties.namespace, resource.config, names, loaded) - names
+        if (loaded == null && gone.isEmpty() && resource.optional) {
             throw ConfigDataResourceNotFoundException(resource, refusal)
         }
         // A refresh only adds and replaces property sources, so what no longer exists has to be replaced by nothing.
         // Every time, since a refresh that failed kept what it should have replaced.
         return ConfigData(current + gone.map { MapPropertySource(it, emptyMap()) })
+    }
+
+    /**
+     * What a required Config that is not there leaves. At startup there is nothing to fall back on, so it fails. In a
+     * refresh it keeps what it was last loaded from, if anything (design §7.7): failing would also keep every other
+     * import from refreshing for as long as it stays away.
+     */
+    private fun kept(
+        application: CoSkyApplicationClient,
+        resource: CoSkyConfigDataResource,
+        refusal: CoSkyException?,
+    ): Resource? {
+        if (!application.handedOver) {
+            throw ConfigDataResourceNotFoundException(resource, refusal)
+        }
+        log.warn(
+            "Config {} is required, and {}: the application keeps what it held until it is back.",
+            resource,
+            refusal?.let { "refused: ${it.message}" } ?: "not there",
+        )
+        return application.lastLoaded(resource.properties.namespace, resource.config)
     }
 
     private fun parse(name: String, config: Resource): List<PropertySource<*>> {
@@ -141,5 +160,6 @@ class CoSkyConfigDataLoader : ConfigDataLoader<CoSkyConfigDataResource> {
 
     private companion object {
         const val FIRST_NON_ASCII = 128
+        val log = LoggerFactory.getLogger(CoSkyConfigDataLoader::class.java)
     }
 }
