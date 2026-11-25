@@ -41,7 +41,10 @@ data class Limits(
     val defaultPageSize: Int = 500,
     val maxPageSize: Int = 1000,
     val maxPageTokenLength: Int = 1024,
-    /** Resources in one List page, Snapshot chunk or Events message (§4.6); enforced by the server. */
+    /**
+     * Resources in one List page, Snapshot chunk or Events message (§4.6); enforced by the server. It also bounds one
+     * resource, serialized, so that every message holds at least one.
+     */
     val maxMessageBytes: Int = 2 * MIB,
     /** Enforced by the store's batch apply, not by request validation. */
     val maxBatchOperations: Int = 100,

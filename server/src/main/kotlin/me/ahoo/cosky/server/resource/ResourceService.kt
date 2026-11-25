@@ -352,14 +352,20 @@ class ResourceService(
     /**
      * Tokens are not for writing: a ServiceAccount keeps the ones it has, whatever the request says (design §7.8). The
      * compare-and-set keeps a token created meanwhile from being lost, and reading at the revision it expects keeps a
-     * replica that is behind from bringing back a token revoked since.
+     * replica that is behind from bringing back a token revoked since. One that must not exist has none to keep: a
+     * replica that has not yet seen it deleted would otherwise hand the new account the tokens of the old.
      */
     private suspend fun withStoredTokens(request: PutRequest): PutRequest {
         val resource = request.resource
         if (!resource.hasServiceAccount()) {
             return request
         }
-        val stored = viewOf(resource.key.namespace, request.expectedRevision.coerceAtLeast(0)).objects[resource.key]
+        val namespace = resource.key.namespace
+        val stored = when (val expected = request.expectedRevision) {
+            Mutation.MUST_NOT_EXIST -> null
+            Mutation.NO_CHECK -> latestViewOf(namespace).objects[resource.key]
+            else -> viewOf(namespace, expected).objects[resource.key]
+        }
         val tokens = stored?.serviceAccount?.tokensList.orEmpty()
         return request.toBuilder()
             .setResource(resource.toBuilder().apply { serviceAccountBuilder.clearTokens().addAllTokens(tokens) })

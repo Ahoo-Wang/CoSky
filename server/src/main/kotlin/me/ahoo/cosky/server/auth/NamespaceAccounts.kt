@@ -86,8 +86,14 @@ class NamespaceAccounts(
         val namespaces = view.objects.values.filter { it.kind == Kind.KIND_NAMESPACE }
         namespaces.filter { !it.namespace.terminating }.forEach { ensure(it, view) }
         val names = namespaces.mapTo(mutableSetOf()) { it.meta.name }
-        delete(view.objects.values.filter { isManaged(it) && namespaceOf(it) !in names })
+        // Only what [ensure] makes: anyone who may write an object here may also give it the labels, and a Namespace
+        // or Role carrying them is not to be deleted behind the back of the namespace lifecycle (design D13, D39).
+        delete(view.objects.values.filter { isAccountOrBinding(it) && namespaceOf(it) !in names })
     }
+
+    private fun isAccountOrBinding(resource: Resource): Boolean = isManaged(resource) &&
+        resource.kind in MANAGED_KINDS &&
+        resource.meta.name == namespaceOf(resource)
 
     private suspend fun ensure(namespace: Resource, view: NamespaceView) {
         val name = namespace.meta.name
@@ -159,6 +165,7 @@ class NamespaceAccounts(
         const val NAMESPACE_LABEL = "cosky.namespace"
         const val GENERATION_LABEL = "cosky.generation"
         private const val ACTOR = "system"
+        private val MANAGED_KINDS = setOf(Kind.KIND_SERVICE_ACCOUNT, Kind.KIND_ROLE_BINDING)
         private val log = LoggerFactory.getLogger(NamespaceAccounts::class.java)
 
         /** Whether the server made [resource] as a namespace's own account or binding. */

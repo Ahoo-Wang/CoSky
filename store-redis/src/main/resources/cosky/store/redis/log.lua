@@ -15,25 +15,53 @@ local function logEntrySize(fields)
   return size
 end
 
+-- What this script has added to the log, for [logTrim] to take out again.
+local logAddedBytes = 0
+
 local function logAdd(log, bytes, id, ...)
   redis.call('XADD', log, id, ...)
-  redis.call('INCRBY', bytes, logEntrySize({...}))
+  local size = logEntrySize({...})
+  redis.call('INCRBY', bytes, size)
+  logAddedBytes = logAddedBytes + size
 end
 
--- Removes the oldest entries while over a limit; what was just written stays however large it is. A log far over, as
--- after lowering a limit, goes down over several writes rather than holding up Redis in one: this removes a little more
--- than was added, so it gets there.
+-- Removes the oldest entries while over a limit; what was just written stays however large it is. It removes at least
+-- as many bytes as were written, so that a write that found the log within its limits leaves it there whatever the
+-- sizes of what it takes out: small entries going for a large one must not let the log grow past its byte limit. A log
+-- far over, as after lowering a limit, goes down over several writes rather than holding up Redis in one: this removes
+-- a few more entries than were added, so it gets there.
 local function logTrim(log, bytes, maxEntries, maxBytes, revision, added)
+  local entries = redis.call('XLEN', log)
+  local size = tonumber(redis.call('GET', bytes) or '0')
   local budget = added * 2 + 64
-  while budget > 0 and (redis.call('XLEN', log) > maxEntries or tonumber(redis.call('GET', bytes) or '0') > maxBytes) do
-    local oldest = redis.call('XRANGE', log, '-', '+', 'COUNT', 1)[1]
-    if not oldest or string.match(oldest[1], '^(%d+)-') == revision then
-      return
+  local owed = logAddedBytes
+  local removed = 0
+  local function going()
+    return (entries > maxEntries or size > maxBytes) and (budget > 0 or owed > 0)
+  end
+  while going() do
+    local batch = redis.call('XRANGE', log, '-', '+', 'COUNT', 128)
+    local ids = {}
+    for _, entry in ipairs(batch) do
+      if not going() or string.match(entry[1], '^(%d+)-') == revision then
+        break
+      end
+      local entrySize = logEntrySize(entry[2])
+      ids[#ids + 1] = entry[1]
+      entries = entries - 1
+      size = size - entrySize
+      removed = removed + entrySize
+      owed = owed - entrySize
+      budget = budget - 1
     end
-    redis.call('XDEL', log, oldest[1])
-    if redis.call('DECRBY', bytes, logEntrySize(oldest[2])) < 0 then
-      redis.call('SET', bytes, '0')
+    if #ids > 0 then
+      redis.call('XDEL', log, unpack(ids))
     end
-    budget = budget - 1
+    if #ids < #batch or #batch == 0 then
+      break
+    end
+  end
+  if removed > 0 and redis.call('DECRBY', bytes, removed) < 0 then
+    redis.call('SET', bytes, '0')
   end
 end

@@ -41,6 +41,7 @@ import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
@@ -325,6 +326,72 @@ class LeaseTransitionsTest {
     }
 
     @Test
+    fun `a registration the server no longer takes does not keep the others from being restored with the lease`() =
+        scenario {
+            val refusing = AtomicBoolean()
+            val refused = firstOf(NAMES)
+            val instances = instances(refusingPutOf(refused, refusing))
+            NAMES.forEach { instances.register("order", ENDPOINT, instanceName = it) }
+            val lost = instancesOnServer().first().meta.lease
+            refusing.set(true)
+
+            server.store.expireLease(NAMESPACE, lost, "test", force = true)
+
+            withTimeout(RENEWAL_AND_SOME * 2) { eventually { instancesOnServer().size == NAMES.size - 1 } }
+            instancesOnServer().map { it.meta.name }.assert().doesNotContain(refused)
+        }
+
+    @Test
+    fun `a registration the server no longer takes does not keep the others from being put back`() = scenario {
+        val refusing = AtomicBoolean()
+        val refused = firstOf(NAMES)
+        val instances = instances(refusingPutOf(refused, refusing))
+        NAMES.forEach { instances.register("order", ENDPOINT, instanceName = it) }
+        val registered = instancesOnServer()
+        refusing.set(true)
+
+        // What a failover leaves behind: the lease is there, and the Instances on it are not.
+        server.store.apply(NAMESPACE, registered.map { Mutation.Delete(it.key) }, "test")
+
+        withTimeout(RENEWAL_AND_SOME * 2) { eventually { instancesOnServer().size == NAMES.size - 1 } }
+        instancesOnServer().map { it.meta.lease }.toSet().assert().containsExactly(registered.first().meta.lease)
+    }
+
+    @Test
+    fun `a registration still to go out goes out after a refusal that passes`() = scenario {
+        val unreachable = AtomicBoolean()
+        val refusing = AtomicBoolean()
+        val refusals = AtomicInteger()
+        val instances = instances(
+            failingPutOf("a", unreachable),
+            refusingPutOf("a", refusing, Status.INTERNAL, refusals),
+        )
+        instances.register("order", ENDPOINT, instanceName = "a", weight = 5)
+        val registered = instancesOnServer().single()
+        // An operator drains it meanwhile, which the registration made again replaces once it goes out.
+        server.store.apply(
+            NAMESPACE,
+            listOf(Mutation.Put(registered.toBuilder().apply { instanceBuilder.weight = 0 }.build())),
+            "operator",
+        )
+        unreachable.set(true)
+        instances.register("order", ENDPOINT, instanceName = "a", weight = 5)
+        refusing.set(true)
+        unreachable.set(false)
+
+        withTimeout(RENEWAL_AND_SOME * 2) { eventually { refusals.get() > 0 } }
+        refusing.set(false)
+
+        withTimeout(RENEWAL_AND_SOME * 2) { eventually { instancesOnServer().single().instance.weight == 5 } }
+    }
+
+    /**
+     * The name the client goes to first, of [names] registered in that order: a refusal stopped everything after it.
+     */
+    private fun firstOf(names: List<String>): String =
+        ConcurrentHashMap<String, Unit>().apply { names.forEach { put(it, Unit) } }.keys.first()
+
+    @Test
     fun `closing a registration no server has taken yet leaves the name to whoever holds it`() = scenario {
         val payment = Resource.newBuilder().apply {
             metaBuilder.setNamespace(NAMESPACE).setName("taken")
@@ -447,6 +514,63 @@ class LeaseTransitionsTest {
         }
     }
 
+    /**
+     * Puts of [name] are refused with [status] while [refusing] is set, as when its service may no longer be written;
+     * [refusals] counts them.
+     */
+    private fun refusingPutOf(
+        name: String,
+        refusing: AtomicBoolean,
+        status: Status = Status.PERMISSION_DENIED,
+        refusals: AtomicInteger = AtomicInteger(),
+    ): ClientInterceptor = object : ClientInterceptor {
+        override fun <Req, Resp> interceptCall(
+            descriptor: MethodDescriptor<Req, Resp>,
+            options: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            val call = next.newCall(descriptor, options)
+            if (descriptor.bareMethodName != "Put") {
+                return call
+            }
+            return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                private var listener: Listener<Resp>? = null
+
+                @Volatile
+                private var refused = false
+
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) {
+                    listener = responseListener
+                    // Only the refusal closes the call: not the cancellation that comes after it.
+                    val unlessRefused =
+                        object : ForwardingClientCallListener.SimpleForwardingClientCallListener<Resp>(
+                            responseListener
+                        ) {
+                            override fun onClose(status: Status, trailers: Metadata) {
+                                if (!refused) super.onClose(status, trailers)
+                            }
+                        }
+                    super.start(unlessRefused, headers)
+                }
+
+                override fun sendMessage(message: Req) {
+                    if (refusing.get() && (message as PutRequest).resource.meta.name == name) {
+                        refused = true
+                        cancel("Refused on purpose.", null)
+                        listener?.onClose(status.withDescription("Refused on purpose."), Metadata())
+                        refusals.incrementAndGet()
+                        return
+                    }
+                    super.sendMessage(message)
+                }
+
+                override fun halfClose() {
+                    if (!refused) super.halfClose()
+                }
+            }
+        }
+    }
+
     /** Calls of [method] fail with UNAVAILABLE while [failing] is set, as when the server is out of reach. */
     /**
      * Fails the calls of [method] while [failing]: one started then is refused, and on a stream started before, what is
@@ -533,6 +657,7 @@ class LeaseTransitionsTest {
         const val NAMESPACE = "prod"
         val ENDPOINT: Endpoint = Endpoint.newBuilder().setScheme("http").setHost("10.0.0.1").setPort(8080).build()
         val SETTLE = 300.milliseconds
+        val NAMES = listOf("a", "b", "c", "d")
 
         /** A third of the lease's TTL, at which it is renewed, and some. */
         val RENEWAL_AND_SOME = 3.seconds

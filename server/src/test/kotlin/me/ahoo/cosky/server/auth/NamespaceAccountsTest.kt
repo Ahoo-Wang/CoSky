@@ -32,6 +32,7 @@ import me.ahoo.cosky.api.v1.namespaceSpec
 import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.api.v1.roleBindingSpec
+import me.ahoo.cosky.api.v1.roleSpec
 import me.ahoo.cosky.api.v1.serviceAccountSpec
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.resource.ResourceService
@@ -205,6 +206,40 @@ class NamespaceAccountsTest {
         NamespaceAccounts.isManaged(account("legacy")!!).assert().isTrue()
         NamespaceAccounts.isManaged(binding("legacy")!!).assert().isTrue()
         binding("gone").assert().isNull()
+    }
+
+    @Test
+    fun `the reconciler deletes no Namespace or Role that carries the labels`() = scenario {
+        fun labeled(resource: Resource): Resource = resource.toBuilder().apply {
+            metaBuilder.putLabels(NamespaceAccounts.NAMESPACE_LABEL, "gone")
+            metaBuilder.putLabels(NamespaceAccounts.GENERATION_LABEL, "1")
+        }.build()
+        create("team")
+        val team = labeled(stored(Kind.KIND_NAMESPACE, "team")!!)
+        resources.put(PutRequest.newBuilder().setResource(team).build(), Caller.ANONYMOUS)
+        val role = resource {
+            meta = objectMeta {
+                namespace = NamingRules.SYSTEM_NAMESPACE
+                name = "readers"
+            }
+            role = roleSpec {}
+        }
+        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(labeled(role))), "test")
+        val someoneElses = resource {
+            meta = objectMeta {
+                namespace = NamingRules.SYSTEM_NAMESPACE
+                name = "ci"
+            }
+            serviceAccount = serviceAccountSpec {}
+        }
+        store.apply(NamingRules.SYSTEM_NAMESPACE, listOf(Mutation.Put(labeled(someoneElses))), "test")
+
+        accounts.reconcile()
+
+        stored(Kind.KIND_NAMESPACE, "team").assert().isNotNull()
+        stored(Kind.KIND_ROLE, "readers").assert().isNotNull()
+        account("ci").assert().isNotNull()
+        account("team").assert().isNotNull()
     }
 
     @Test

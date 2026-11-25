@@ -639,6 +639,25 @@ class ResourceValidationTest {
     }
 
     @Test
+    fun `one resource fits in one message, whatever field makes it large`() {
+        Fixtures.instance.withEndpoint { scheme = "a".repeat(3 * 1024 * 1024) }.violations()
+            .assert().containsExactly("spec" to ViolationCode.VIOLATION_CODE_TOO_LONG)
+
+        val small = Validator(Limits(maxConfigContentBytes = 10, maxMessageBytes = 200))
+        val manyRules = Fixtures.role.copy {
+            role = role.toBuilder().apply { repeat(20) { addRules(role.getRules(0)) } }.build()
+        }
+        small.validate(manyRules).codes().assert().containsExactly("spec" to ViolationCode.VIOLATION_CODE_TOO_LONG)
+    }
+
+    @Test
+    fun `the largest Config still fits in one message`() {
+        Fixtures.config.withContent("x".repeat(Limits.DEFAULT.maxConfigContentBytes))
+            .withMeta { labels.putAll(entries(Limits.DEFAULT.maxLabels)) }
+            .violations().assert().isEmpty()
+    }
+
+    @Test
     fun `violations carry a description`() {
         validator.validate(Fixtures.config.withMeta { name = "" }).single().description.assert().isNotBlank()
     }

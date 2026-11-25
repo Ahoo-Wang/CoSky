@@ -64,6 +64,15 @@ internal class ResourceChecks(private val checks: FieldChecks, private val limit
             Kind.KIND_ROLE_BINDING -> roleBinding(path(field, "role_binding"), resource.roleBinding)
             else -> Unit
         }
+        // Not every field has a limit of its own, such as a scheme or the rules of a Role. One resource larger than a
+        // message would reach every watcher as a message larger than gRPC takes by default, and end their streams.
+        if (resource.serializedSize > limits.maxMessageBytes) {
+            checks.add(
+                path(field, "spec"),
+                ViolationCode.VIOLATION_CODE_TOO_LONG,
+                "The resource exceeds ${limits.maxMessageBytes} bytes, the most one message holds (§4.6).",
+            )
+        }
     }
 
     private fun meta(field: String, kind: Kind, meta: ObjectMeta) {
