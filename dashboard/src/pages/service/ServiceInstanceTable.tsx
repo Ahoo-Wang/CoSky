@@ -65,14 +65,13 @@ export function ServiceInstanceTable({namespace, service, follow, onChange}: Ser
         );
     };
 
-    const handleDelete = async (name: string) => {
-        const deleted = await runAction(
-            () => instances.delete(namespace, name),
+    const handleDelete = async (instance: InstanceResource) => {
+        await runAction(
+            () => instances.delete(namespace, instance.name, instance.revision),
             {success: 'Instance deleted', failure: 'Failed to delete instance'},
         );
-        if (deleted) {
-            onChange();
-        }
+        // Deleted, or refused because it changed since it was read: either way, the page shows what is there now.
+        onChange();
     };
 
     const columns: DataTableColumn<InstanceResource>[] = [
@@ -117,7 +116,7 @@ export function ServiceInstanceTable({namespace, service, follow, onChange}: Ser
                     <ConfirmButton
                         title="Are you sure to delete this instance?"
                         description={`Instance “${instance.name}” will be removed. If its application is still running, it registers again.`}
-                        onConfirm={() => handleDelete(instance.name)}
+                        onConfirm={() => handleDelete(instance)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"

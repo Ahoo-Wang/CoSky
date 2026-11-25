@@ -15,12 +15,16 @@ import {Copy} from 'lucide-react';
 import {useQuery} from '@ahoo-wang/fetcher-react';
 import dayjs from 'dayjs';
 import {toast} from 'sonner';
+import {useDrawer} from '@/contexts/DrawerContext';
+import {session} from '@/security/session';
 import {serviceAccounts} from '@/services/resources';
 import type {ServiceAccountResource} from '@/services/resources';
+import {NewToken} from '@/components/security/NewToken';
 import {Button} from '@/components/ui/button';
 import {Input} from '@/components/ui/input';
 import {failureMessage} from '@/lib/actions';
 import {copyWithFeedback} from '@/lib/clipboard';
+import {offerToken} from '@/lib/tokens';
 
 /** The label of the account the server gives each namespace (design D45). */
 const NAMESPACE_LABEL = 'cosky.namespace';
@@ -58,6 +62,7 @@ function Snippet({label, text}: {label: string; text: string}) {
  * is made only when asked for, since an account holds two at most.
  */
 export function ConnectApplication({namespace, onClose}: {namespace: string; onClose: () => void}) {
+    const {holdDrawer, reserveDrawer} = useDrawer();
     const endpoint = `${window.location.hostname}:9090`;
     const [token, setToken] = useState<string>();
     const [creating, setCreating] = useState(false);
@@ -70,8 +75,19 @@ export function ConnectApplication({namespace, onClose}: {namespace: string; onC
 
     const handleCreate = async () => {
         setCreating(true);
+        // The token is shown only once, and takes one of the account's places: should this drawer be closed before it
+        // arrives, it is shown in another, or offered, rather than lost.
+        const stillOpen = holdDrawer();
+        const showToken = reserveDrawer();
+        const signIns = session.signIns();
         try {
-            setToken(await serviceAccounts.createToken(namespace));
+            const created = await serviceAccounts.createToken(namespace);
+            const title = `New token of ${namespace}`;
+            if (stillOpen()) {
+                setToken(created);
+            } else if (!showToken(close => <NewToken token={created} onClose={close}/>, {title})) {
+                offerToken(title, created, signIns);
+            }
             reload();
         } catch (failure) {
             toast.error(await failureMessage('Failed to create token', failure));

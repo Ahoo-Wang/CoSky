@@ -523,6 +523,29 @@ test.describe('configuration', () => {
         expect(JSON.parse(put?.body ?? '').meta.labels).toEqual({team: 'core'});
     });
 
+    test('what is read after a save is no older than the save, though no watch has seen it yet', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('9090');
+        await typeInMonaco(page, 'server:\n  port: 1');
+
+        const saved = page.waitForResponse(response => response.request().method() === 'PUT');
+        await page.getByRole('button', {name: 'Submit'}).click();
+        const {revision} = await (await saved).json() as {revision: string};
+        await expect(toast(page, 'Config saved')).toBeVisible();
+        await row(page, 'application.yaml').getByRole('button', {name: 'Edit'}).click();
+        await expect(monacoLines(page)).toContainText('port: 1');
+
+        // A replica that is behind would show the version before, whose revision the next save would send.
+        expect(lastRequest(api, 'GET', '/v1/namespaces/default/configs/application.yaml')?.query.get('minRevision'))
+            .toBe(revision);
+        const lists = api.requests.filter(request =>
+            request.path === '/v1/namespaces/default/configs' && !request.query.has('pageToken'));
+        expect(lists.at(-1)?.query.get('minRevision')).toBe(revision);
+    });
+
     test('a Config that cannot be read offers to try again, and changes nothing', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -545,7 +568,8 @@ test.describe('configuration', () => {
 
         await expect(toast(page, 'Config deleted')).toBeVisible();
         await expect(page.getByRole('row').filter({hasText: 'shared/datasource.json'})).toHaveCount(0);
-        expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/configs/shared/datasource.json')).toBeTruthy();
+        expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/configs/shared/datasource.json')?.headers['if-match'])
+            .toMatch(/^"\d+"$/);
     });
 
     test('the history compares with the current version, and rolls back to an old one', async ({page}) => {
@@ -1038,7 +1062,8 @@ test.describe('services', () => {
 
         await confirm(page, row(page, 'order-1').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Instance deleted')).toBeVisible();
-        expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')).toBeTruthy();
+        expect(lastRequest(api, 'DELETE', '/v1/namespaces/default/instances/order-1')?.headers['if-match'])
+            .toMatch(/^"\d+"$/);
     });
 
     test('a delete counts the service again, and its last instance removes it, though the Watch is down', async ({page}) => {
@@ -1165,6 +1190,7 @@ test.describe('namespaces', () => {
         await confirm(page, row(page, 'staging').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Namespace deleted')).toBeVisible();
         await expect(page.getByRole('row').filter({hasText: 'staging'})).toHaveCount(0);
+        expect(lastRequest(api, 'DELETE', '/v1/namespaces/staging')?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
     test('a namespace shows how to connect an application, and makes its shared token when asked', async ({page}) => {
@@ -1203,6 +1229,39 @@ test.describe('namespaces', () => {
         await row(page, 'prod').getByRole('button', {name: 'Connect'}).click();
         await expect(page.getByText('Namespace prod has no account of its own.')).toBeVisible();
         await expect(page.getByRole('button', {name: 'Create token'})).toHaveCount(0);
+    });
+
+    test('a shared token that arrives after its drawer was closed is shown anyway, or offered once the page moved on', async ({page}) => {
+        const api = await installApiMock(page);
+        api.put('/v1/serviceaccounts/default', {
+            meta: {labels: {'cosky.namespace': 'default', 'cosky.generation': '1'}},
+            serviceAccount: {description: 'The applications of namespace default', tokens: []},
+        });
+        await login(page);
+        await page.getByRole('link', {name: 'Namespace'}).click();
+
+        await row(page, 'default').getByRole('button', {name: 'Connect'}).click();
+        let answer = api.hold('POST', /tokens$/);
+        await page.getByRole('button', {name: 'Create token'}).click();
+        await page.getByRole('button', {name: 'Done'}).click();
+        await expect(page.getByRole('dialog')).toHaveCount(0);
+        answer();
+        await expect(page.getByRole('textbox', {name: 'New token'})).toHaveValue(/^cosky_.*_plaintextsecret$/);
+        await page.getByRole('button', {name: 'Done'}).click();
+
+        await row(page, 'default').getByRole('button', {name: 'Connect'}).click();
+        await expect(page.getByText('It holds 1 of at most 2 tokens')).toBeVisible();
+        answer = api.hold('POST', /tokens$/);
+        await page.getByRole('button', {name: 'Create token'}).click();
+        await page.keyboard.press('Escape');
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await page.getByRole('button', {name: 'Add', exact: true}).click();
+        await page.getByLabel('Name', {exact: true}).fill('draft.yaml');
+        answer();
+
+        await expect(toast(page, 'New token of default')).toBeVisible();
+        await expect(page.getByLabel('Name', {exact: true})).toHaveValue('draft.yaml');
+        await expect(page.getByRole('textbox', {name: 'New token'})).toHaveCount(0);
     });
 
     test('copying works without the Clipboard API, as over plain HTTP', async ({page}) => {
@@ -1333,6 +1392,141 @@ test.describe('security', () => {
         await expect(page.getByRole('textbox', {name: 'New token'})).toHaveCount(0);
     });
 
+    test('a token that arrives while the next page loads is offered, not shown on the page being left', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        // The router shows the next page once its code is there, and the page being left closes its drawer then.
+        let loaded = () => {};
+        const loading = new Promise<void>(resolve => {
+            loaded = resolve;
+        });
+        await page.route('**/assets/ConfigPage-*.js', async route => {
+            await loading;
+            await route.continue();
+        });
+        const answer = api.hold('POST', /tokens$/);
+        await row(page, 'admin').getByRole('button', {name: 'New token'}).click();
+        await page.getByRole('link', {name: 'Configuration'}).click();
+        await page.waitForURL('**/#/config');
+
+        answer();
+
+        await expect(page.getByRole('button', {name: 'Copy token'})).toBeVisible();
+        await expect(page.getByRole('textbox', {name: 'New token'})).toHaveCount(0);
+        loaded();
+        await expect(page.getByRole('heading', {name: 'Configuration'})).toBeVisible();
+    });
+
+    test('a token offered in a toast is gone once whoever asked for it signs out', async ({page}) => {
+        const api = await installApiMock(page);
+        const signOut = async () => {
+            // The toast can lie over the account menu, which the keyboard reaches all the same.
+            await page.locator('[data-slot="account-menu-trigger"]').press('Enter');
+            await page.getByRole('menuitem', {name: 'Sign out'}).press('Enter');
+            await page.waitForURL('**/#/login');
+        };
+        const tokenOffered = async () => {
+            await page.getByRole('button', {name: 'Security'}).click();
+            await page.getByRole('link', {name: 'Service Account'}).click();
+            const answer = api.hold('POST', /tokens$/);
+            await row(page, 'admin').getByRole('button', {name: 'New token'}).click();
+            await page.getByRole('link', {name: 'Configuration'}).click();
+            await expect(page.getByRole('heading', {name: 'Configuration'})).toBeVisible();
+            return answer;
+        };
+        await login(page);
+        (await tokenOffered())();
+        await expect(page.getByRole('button', {name: 'Copy token'})).toBeVisible();
+
+        // A ServiceAccount token signs out without leaving the page, which the toasts outlive.
+        await signOut();
+
+        await expect(page.getByRole('button', {name: 'Copy token'})).toHaveCount(0);
+
+        // Nor is one offered that arrives after its asker has gone.
+        await login(page);
+        const answer = await tokenOffered();
+        await signOut();
+        const created = page.waitForResponse(response => response.url().endsWith('/tokens'));
+        answer();
+        await created;
+        await page.waitForTimeout(500);
+        await expect(page.getByRole('button', {name: 'Copy token'})).toHaveCount(0);
+    });
+
+    test('a delete guards the revision it was confirmed at, and says when that changed meanwhile', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        const tokens = (count: string) => row(page, 'admin').getByRole('cell', {name: count, exact: true});
+        await expect(tokens('1')).toBeVisible();
+
+        // Another admin gave it a token since, which applications may use by now.
+        api.put('/v1/serviceaccounts/admin', {
+            meta: {},
+            serviceAccount: {
+                description: 'Created at bootstrap',
+                tokens: [{id: 'first', sha256: 'hash'}, {id: 'second', sha256: 'hash'}],
+            },
+        });
+        await confirm(page, row(page, 'admin').getByRole('button', {name: 'Delete'}));
+
+        await expect(toast(page, 'Failed to delete service account: It changed since it was read.')).toBeVisible();
+        expect(lastRequest(api, 'DELETE', '/v1/serviceaccounts/admin')?.headers['if-match']).toMatch(/^"\d+"$/);
+        // This page has no watch: it reads again, so that what is confirmed next is what it shows.
+        await expect(tokens('2')).toBeVisible();
+        await confirm(page, row(page, 'admin').getByRole('button', {name: 'Delete'}));
+        await expect(toast(page, 'Service account deleted')).toBeVisible();
+    });
+
+    test('the read after a write asks for that write, which a replica that is behind does not show yet', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Service Account'}).click();
+        await expect(row(page, 'admin')).toContainText('Created at bootstrap');
+        api.lag();
+
+        await page.getByLabel('Service account name').fill('deployer');
+        await page.getByLabel('Service account description').fill('The pipeline');
+        const created = page.waitForResponse(response => response.request().method() === 'PUT');
+        await page.getByRole('button', {name: 'Add Service Account'}).click();
+        const {revision} = await (await created).json() as {revision: string};
+
+        await expect(row(page, 'deployer')).toContainText('The pipeline');
+        const lists = api.requests.filter(request =>
+            request.path === '/v1/serviceaccounts' && !request.query.has('pageToken'));
+        expect(lists.at(-1)?.query.get('minRevision')).toBe(revision);
+    });
+
+    test('after a failover, a page without a watch stops waiting for a revision of the old timeline', async ({page}) => {
+        const api = await installApiMock(page);
+        await login(page);
+        await page.getByRole('link', {name: 'Namespace'}).click();
+        await expect(row(page, 'prod')).toBeVisible();
+        await expect.poll(() => lastRequest(api, 'GET', '/v1/namespaces/_system/watch')).toBeTruthy();
+        api.releaseWatch({snapshot: {epoch: 'e', revision: '500'}});
+        await expect.poll(() => api.requests
+            .filter(request => request.path === '/v1/namespaces' && !request.query.has('pageToken'))
+            .at(-1)?.query.get('minRevision')).toBe('500');
+
+        // Redis lost the last writes: the new timeline is at 498, and 500 will not come on it for a while.
+        api.failover(498, 'after');
+        await page.getByRole('button', {name: 'Security'}).click();
+        await page.getByRole('link', {name: 'Role', exact: true}).click();
+
+        await expect(row(page, 'admin')).toContainText('Everything');
+        // Once was enough: nothing read since waits for 500.
+        await page.getByRole('link', {name: 'Role Binding'}).click();
+        await expect(row(page, 'admin')).toContainText('Service Account: admin');
+        const waited = api.requests.filter(request =>
+            /^\/v1\/(roles|rolebindings)$/.test(request.path) && request.query.get('minRevision') === '500');
+        expect(waited).toHaveLength(1);
+    });
+
     test('a failed token says why', async ({page}) => {
         const api = await installApiMock(page);
         await login(page);
@@ -1426,6 +1620,7 @@ test.describe('security', () => {
 
         await confirm(page, row(page, 'reader').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Role deleted')).toBeVisible();
+        expect(lastRequest(api, 'DELETE', '/v1/roles/reader')?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
     test('a role binding gives a role to subjects, in namespaces', async ({page}) => {
@@ -1462,6 +1657,7 @@ test.describe('security', () => {
 
         await confirm(page, row(page, 'people').getByRole('button', {name: 'Delete'}));
         await expect(toast(page, 'Role binding deleted')).toBeVisible();
+        expect(lastRequest(api, 'DELETE', '/v1/rolebindings/people')?.headers['if-match']).toMatch(/^"\d+"$/);
     });
 
     test('pages say when there is nothing yet', async ({page}) => {

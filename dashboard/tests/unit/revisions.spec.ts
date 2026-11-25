@@ -12,7 +12,15 @@
  */
 
 import {expect, test} from '@playwright/test';
-import {minRevisionOf, readingAgain, readsBehind, readUpTo, watchedUpTo} from '../../src/services/revisions.ts';
+import {
+    minRevisionOf,
+    readingAgain,
+    readsBehind,
+    readUpTo,
+    timedOutOn,
+    watchedUpTo,
+    wroteUpTo,
+} from '../../src/services/revisions.ts';
 
 // Each test has a namespace of its own: the positions are the module's.
 
@@ -67,4 +75,57 @@ test('within an epoch, the watch only moves forward', () => {
 test('a namespace nothing has read yet is behind', () => {
     expect(readsBehind('unread', '1')).toBe(true);
     expect(minRevisionOf('unread')).toBeUndefined();
+});
+
+test('a read asks for no less than the page wrote, though no watch has seen it', () => {
+    wroteUpTo('written', '120');
+    expect(minRevisionOf('written')).toBe('120');
+
+    watchedUpTo('written', '130', 'one', true);
+    wroteUpTo('written', '125');
+    expect(minRevisionOf('written')).toBe('130');
+    wroteUpTo('written', '140');
+    expect(minRevisionOf('written')).toBe('140');
+});
+
+test('a snapshot of another epoch forgets the writes of the old timeline, and one of the same epoch keeps them', () => {
+    readUpTo('rewritten', '100', 'one');
+    wroteUpTo('rewritten', '101');
+    watchedUpTo('rewritten', '100', 'one', true);
+    expect(minRevisionOf('rewritten')).toBe('101');
+
+    watchedUpTo('rewritten', '90', 'two', true);
+
+    expect(minRevisionOf('rewritten')).toBe('90');
+});
+
+test('before any snapshot, the first read that says its epoch tells the timeline', () => {
+    readUpTo('first', '10', 'one');
+    readUpTo('first', '5', 'two');
+
+    expect(readsBehind('first', '10')).toBe(false);
+});
+
+test('a revision that timed out is forgotten when the answer is on another timeline', () => {
+    // The watch of another page saw 500; then a failover started a new timeline at 498.
+    watchedUpTo('stuck', '500', 'before', true);
+    wroteUpTo('stuck', '501');
+
+    expect(timedOutOn('stuck', 'after')).toBe(true);
+
+    expect(minRevisionOf('stuck')).toBeUndefined();
+    readUpTo('stuck', '498', 'after');
+    expect(readsBehind('stuck', '498')).toBe(false);
+});
+
+test('a write that timed out on its own timeline is only late, and is still asked for', () => {
+    readUpTo('slow', '100', 'one');
+    wroteUpTo('slow', '101');
+
+    expect(timedOutOn('slow', 'one')).toBe(false);
+    expect(minRevisionOf('slow')).toBe('101');
+
+    // An answer that does not say its timeline cannot tell: the read must not wait for it again.
+    expect(timedOutOn('slow', undefined)).toBe(true);
+    expect(minRevisionOf('slow')).toBeUndefined();
 });

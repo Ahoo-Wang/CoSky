@@ -17,30 +17,19 @@ import {useQuery} from '@ahoo-wang/fetcher-react';
 import dayjs from 'dayjs';
 import {toast} from 'sonner';
 import {useDrawer} from '@/contexts/DrawerContext';
+import {session} from '@/security/session';
 import {serviceAccounts} from '@/services/resources';
 import type {ServiceAccountResource, TokenInfo} from '@/services/resources';
 import {DataTableWrapper} from '@/components/layout/DataTableWrapper';
 import {PageHeader} from '@/components/layout/PageHeader';
+import {NewToken} from '@/components/security/NewToken';
 import {Button} from '@/components/ui/button';
 import {ConfirmButton} from '@/components/ui/confirm-button';
 import {DataTable} from '@/components/ui/data-table';
 import type {DataTableColumn} from '@/components/ui/data-table';
 import {Input} from '@/components/ui/input';
 import {failureMessage, runAction} from '@/lib/actions';
-import {copyWithFeedback} from '@/lib/clipboard';
-
-/**
- * The only time anyone sees the plaintext of a token.
- */
-function NewToken({token, onClose}: {token: string; onClose: () => void}) {
-    return (
-        <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Copy this token now. The server keeps only its hash, and cannot show it again.</p>
-            <Input readOnly aria-label="New token" value={token} onFocus={event => event.target.select()}/>
-            <Button onClick={onClose}>Done</Button>
-        </div>
-    );
-}
+import {offerToken} from '@/lib/tokens';
 
 export function ServiceAccountPage() {
     const {reserveDrawer} = useDrawer();
@@ -66,31 +55,23 @@ export function ServiceAccountPage() {
         }
     };
 
-    const handleDelete = async (accountName: string) => {
-        const deleted = await runAction(
-            () => serviceAccounts.delete(accountName),
+    const handleDelete = async (account: ServiceAccountResource) => {
+        await runAction(
+            () => serviceAccounts.delete(account.name, account.revision),
             {success: 'Service account deleted', failure: 'Failed to delete service account'},
         );
-        if (deleted) {
-            loadAccounts();
-        }
+        // Deleted, or refused because it changed since it was read: either way, the page shows what is there now.
+        loadAccounts();
     };
 
     const handleCreateToken = async (accountName: string) => {
         const showToken = reserveDrawer();
+        const signIns = session.signIns();
         try {
             const token = await serviceAccounts.createToken(accountName);
-            const shown = showToken(close => <NewToken token={token} onClose={close}/>, {
-                title: `New token of ${accountName}`,
-            });
-            if (!shown) {
-                // Something else is on screen now. The token is shown only once, so it is offered rather than lost.
-                toast.success(`New token of ${accountName}`, {
-                    description: 'It is shown only once: copy it now.',
-                    duration: Infinity,
-                    closeButton: true,
-                    action: {label: 'Copy token', onClick: () => void copyWithFeedback(token, 'the token')},
-                });
+            const title = `New token of ${accountName}`;
+            if (!showToken(close => <NewToken token={token} onClose={close}/>, {title})) {
+                offerToken(title, token, signIns);
             }
             loadAccounts();
         } catch (failure) {
@@ -155,7 +136,7 @@ export function ServiceAccountPage() {
                     <ConfirmButton
                         title="Are you sure to delete this service account?"
                         description={`Service account “${account.name}” and its tokens will be deleted.`}
-                        onConfirm={() => handleDelete(account.name)}
+                        onConfirm={() => handleDelete(account)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"

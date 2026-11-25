@@ -57,10 +57,19 @@ export interface MockApi {
     slow?: {path: RegExp; milliseconds: number};
     /** Keeps the next such request from being answered until the function it returns is called. */
     hold: (method: string, path: RegExp) => () => void;
-    /** Lets every open Watch stream say this, and end. */
+    /** Lets every open Watch stream say this, and end. The server has reached any revision it says. */
     releaseWatch: (message?: Json) => void;
     put: (path: string, resource: Stored) => void;
     remove: (path: string) => void;
+    /** The timeline the revisions are on (design §6.4). */
+    epoch: string;
+    /** Redis lost the writes after [revision]: the server goes on from there, on a new timeline. */
+    failover: (revision: number, epoch: string) => void;
+    /**
+     * From now on, a list that asks for no later revision is answered by a replica that stays where the server is now:
+     * without what is written later.
+     */
+    lag: () => void;
 }
 
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -73,30 +82,52 @@ async function json(route: Route, body: unknown, status = 200) {
 
 /**
  * One object per page, so that everything that lists has to read every page, as a server's byte limit can demand.
+ *
+ * @param at what the next page token carries besides where it goes on: a later page reads where the first one did.
  */
-function pageOf(items: Stored[], field: string, url: URL): Json {
-    const offset = Number(url.searchParams.get('pageToken') ?? 0);
+function pageOf(items: Stored[], field: string, url: URL, at = ''): Json {
+    const offset = Number.parseInt(url.searchParams.get('pageToken') ?? '0', 10);
     const next = offset + 1;
     return {
         ...(items.length ? {[field]: items.slice(offset, next)} : {}),
-        ...(next < items.length ? {nextPageToken: String(next)} : {}),
+        ...(next < items.length ? {nextPageToken: `${next}${at}`} : {}),
     };
 }
 
-/** Problem details (RFC 9457), as the server sends them. */
-const failure = (route: Route, status: number, detail: string) => route.fulfill({
+const REASONS = {
+    ERROR_REASON_STORE_UNAVAILABLE: {title: 'Store unavailable', code: 'UNAVAILABLE'},
+    ERROR_REASON_REVISION_CONFLICT: {title: 'Revision conflict', code: 'ABORTED'},
+    ERROR_REASON_MIN_REVISION_TIMEOUT: {title: 'Min revision timeout', code: 'DEADLINE_EXCEEDED'},
+};
+
+/** Problem details (RFC 9457), as the server sends them, with the members of the reason's detail. */
+const failure = (
+    route: Route,
+    status: number,
+    detail: string,
+    reason: keyof typeof REASONS = 'ERROR_REASON_STORE_UNAVAILABLE',
+    members: Json = {},
+) => route.fulfill({
     status,
     contentType: 'application/problem+json',
     body: JSON.stringify({
-        type: 'https://cosky.ahoo.me/guide/rest-api#store-unavailable',
-        title: 'Store unavailable',
+        type: `https://cosky.ahoo.me/guide/rest-api#${REASONS[reason].title.toLowerCase().replaceAll(' ', '-')}`,
+        title: REASONS[reason].title,
         status,
         detail,
         instance: new URL(route.request().url()).pathname,
-        code: 'UNAVAILABLE',
-        reason: 'ERROR_REASON_STORE_UNAVAILABLE',
+        code: REASONS[reason].code,
+        reason,
+        ...members,
     }),
 });
+
+/** An `If-Match` or `If-None-Match` the object does not meet; proto3 JSON leaves out a current revision of 0. */
+const conflict = (route: Route, path: string, expected: string, existing: Stored | undefined) =>
+    failure(route, 409, `${path}: expected revision ${expected}, current revision ${existing?.meta.revision ?? 0}.`,
+        'ERROR_REASON_REVISION_CONFLICT', {
+            revisionConflict: {expectedRevision: expected, ...(existing ? {currentRevision: existing.meta.revision} : {})},
+        });
 
 function challengeOf(verifier: string): string {
     return createHash('sha256').update(verifier).digest('base64url');
@@ -109,6 +140,8 @@ function challengeOf(verifier: string): string {
 export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 'auth' | 'oidc' | 'empty'>> = {}) {
     let revision = 100;
     const nextRevision = () => String(++revision);
+    // Where a replica that is behind stays, for the lists that ask for no more.
+    let lagging: number | undefined;
     const objects = new Map<string, Stored>();
     const history = new Map<string, Stored[]>();
     const issued = new Set<string>([TOKEN]);
@@ -147,10 +180,21 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             holds.push({method, path, released});
             return release;
         },
-        releaseWatch: (message = {events: {revision: nextRevision(), events: []}}) =>
-            pendingWatches.splice(0).forEach(release => release(message)),
+        releaseWatch: (message = {events: {revision: nextRevision(), events: []}}) => {
+            const said = Number(message.snapshot?.revision ?? message.events?.revision ?? message.progress ?? 0);
+            revision = Math.max(revision, said);
+            pendingWatches.splice(0).forEach(release => release(message));
+        },
         put: store,
         remove: path => objects.delete(path),
+        epoch: 'e',
+        failover: (lastKept, epoch) => {
+            revision = lastKept;
+            mockApi.epoch = epoch;
+        },
+        lag: () => {
+            lagging = revision;
+        },
     };
 
     if (!mockApi.empty) {
@@ -328,12 +372,24 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
         }
 
         const existing = objects.get(path);
+        const ifMatch = headers['if-match']?.replaceAll('"', '');
         if (method === 'GET') {
+            // A revision the server has not reached does not come in time, as on a new timeline that starts lower.
+            const minRevision = Number(url.searchParams.get('minRevision') ?? 0);
+            if (minRevision > revision) {
+                const namespace = path.match(/^\/v1\/namespaces\/([^/]+)\//)?.[1] ?? '_system';
+                await failure(route, 504, `Namespace ${namespace} did not reach revision ${minRevision} in time.`,
+                    'ERROR_REASON_MIN_REVISION_TIMEOUT', {namespace: {name: namespace}});
+                return;
+            }
             const isList = /\/(configs|instances)$/.test(path) || /^\/v1\/(namespaces|serviceaccounts|roles|rolebindings)$/.test(path);
             if (isList) {
                 const service = url.searchParams.get('service');
-                const items = collectionOf(path).filter(item => !service || serviceOf(item) === service);
-                await json(route, {...pageOf(items, 'items', url), revision: String(revision), epoch: 'e'});
+                const pinned = url.searchParams.get('pageToken')?.split('@')[1];
+                const at = pinned ? Number(pinned) : lagging !== undefined && minRevision <= lagging ? lagging : revision;
+                const items = collectionOf(path)
+                    .filter(item => Number(item.meta.revision) <= at && (!service || serviceOf(item) === service));
+                await json(route, {...pageOf(items, 'items', url, `@${at}`), revision: String(at), epoch: mockApi.epoch});
             } else if (existing) {
                 await json(route, existing);
             } else {
@@ -342,13 +398,12 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             return;
         }
         if (method === 'PUT') {
-            const ifMatch = headers['if-match']?.replaceAll('"', '');
             if (ifMatch && existing?.meta.revision !== ifMatch) {
-                await failure(route, 409, 'It changed since it was read.');
+                await conflict(route, path, ifMatch, existing);
                 return;
             }
             if (headers['if-none-match'] === '*' && existing) {
-                await failure(route, 409, 'It exists already.');
+                await conflict(route, path, '-1', existing);
                 return;
             }
             const stored = store(path, request.postDataJSON() as Stored);
@@ -356,8 +411,12 @@ export async function installApiMock(page: Page, options: Partial<Pick<MockApi, 
             return;
         }
         if (method === 'DELETE') {
+            if (ifMatch && existing?.meta.revision !== ifMatch) {
+                await conflict(route, path, ifMatch, existing);
+                return;
+            }
             objects.delete(path);
-            await json(route, {revision: nextRevision()});
+            await json(route, {revision: nextRevision(), deleted: true});
             return;
         }
         await failure(route, 404, `No mock for ${method} ${path}.`);

@@ -35,14 +35,13 @@ export function NamespacePage() {
     const {openDrawer} = useDrawer();
     useWatchRefresh(SYSTEM_NAMESPACE, Kind.KIND_NAMESPACE, refresh);
 
-    const handleDelete = async (name: string) => {
-        const deleted = await runAction(
-            () => namespacesApi.delete(name),
+    const handleDelete = async (namespace: NamespaceResource) => {
+        await runAction(
+            () => namespacesApi.delete(namespace.name, namespace.revision),
             {success: 'Namespace deleted', failure: 'Failed to delete namespace'},
         );
-        if (deleted) {
-            refresh();
-        }
+        // Deleted, or refused because it changed since it was read: either way, the page shows what is there now.
+        refresh();
     };
 
     const columns: DataTableColumn<NamespaceResource>[] = [
@@ -72,7 +71,7 @@ export function NamespacePage() {
                     <ConfirmButton
                         title="Are you sure to delete this namespace?"
                         description={`Namespace “${namespace.name}” will be deleted. Only an empty namespace can be.`}
-                        onConfirm={() => handleDelete(namespace.name)}
+                        onConfirm={() => handleDelete(namespace)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"

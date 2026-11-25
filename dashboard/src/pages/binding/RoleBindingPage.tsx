@@ -58,14 +58,13 @@ export function RoleBindingPage() {
         );
     };
 
-    const handleDelete = async (name: string) => {
-        const deleted = await runAction(
-            () => roleBindings.delete(name),
+    const handleDelete = async (binding: RoleBindingResource) => {
+        await runAction(
+            () => roleBindings.delete(binding.name, binding.revision),
             {success: 'Role binding deleted', failure: 'Failed to delete role binding'},
         );
-        if (deleted) {
-            loadBindings();
-        }
+        // Deleted, or refused because it changed since it was read: either way, the page shows what is there now.
+        loadBindings();
     };
 
     const columns: DataTableColumn<RoleBindingResource>[] = [
@@ -100,7 +99,7 @@ export function RoleBindingPage() {
                     <ConfirmButton
                         title="Are you sure to delete this role binding?"
                         description={`Its subjects lose what role “${binding.role}” gave them through “${binding.name}”.`}
-                        onConfirm={() => handleDelete(binding.name)}
+                        onConfirm={() => handleDelete(binding)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"

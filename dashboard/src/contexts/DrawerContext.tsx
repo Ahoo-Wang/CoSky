@@ -34,6 +34,13 @@ interface DrawerContextType {
      * @return opens the drawer as [openDrawer] does, and says whether it did.
      */
     reserveDrawer: () => (render: (close: () => void) => ReactNode, options?: DrawerOptions) => boolean;
+    /**
+     * For what an operation started in the open drawer shows in it when it ends: a closed drawer, even one still
+     * fading out, shows nobody what arrives late, so that has to go somewhere else.
+     *
+     * @return says whether the drawer open now is still open, neither closed nor replaced nor left with its page.
+     */
+    holdDrawer: () => () => boolean;
 }
 
 export const DrawerContext = createContext<DrawerContextType | undefined>(undefined);

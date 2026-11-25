@@ -28,13 +28,20 @@ interface Shown {
 export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) => {
     const [shown, setShown] = useState<Shown>({id: 0, open: false, content: null, options: {}});
     const openings = useRef(0);
+    // The opening on screen, until it is closed; 0 when there is none.
+    const showing = useRef(0);
     const {key: location} = useLocation();
     const [shownAt, setShownAt] = useState(location);
     // Where an operation that ends now finds the page, which its closure saw only as it was when it began.
     const currentLocation = useRef(location);
     useEffect(() => {
         currentLocation.current = location;
+        // A new page closes what the last one showed, as below.
+        showing.current = 0;
     }, [location]);
+    // The router shows the next page in a transition, once whatever it loads is there: until then, the page left
+    // behind is still the location here, but the address has changed at once.
+    const pageNow = () => `${currentLocation.current} ${window.location.href}`;
 
     // What it shows belongs to the page it was opened on, which going back or following a link leaves.
     if (shownAt !== location) {
@@ -43,27 +50,37 @@ export const DrawerProvider: React.FC<{ children: ReactNode }> = ({children}) =>
     }
 
     const close = (id: number) => {
+        if (showing.current === id) {
+            showing.current = 0;
+        }
         setShown(current => current.id === id ? {...current, open: false} : current);
     };
 
     const openDrawer = (render: (close: () => void) => ReactNode, options: DrawerOptions = {}) => {
         const id = ++openings.current;
+        showing.current = id;
         setShown({id, open: true, content: render(() => close(id)), options});
     };
 
     const reserveDrawer = () => {
         const since = openings.current;
-        const startedAt = currentLocation.current;
+        const startedAt = pageNow();
         return (render: (close: () => void) => ReactNode, options: DrawerOptions = {}) => {
-            if (openings.current !== since || currentLocation.current !== startedAt) {
+            if (openings.current !== since || pageNow() !== startedAt) {
                 return false;
             }
             openDrawer(render, options);
             return true;
         };
     };
+
+    const holdDrawer = () => {
+        const held = showing.current;
+        const startedAt = pageNow();
+        return () => held !== 0 && showing.current === held && pageNow() === startedAt;
+    };
     return (
-        <DrawerContext.Provider value={{openDrawer, reserveDrawer}}>
+        <DrawerContext.Provider value={{openDrawer, reserveDrawer, holdDrawer}}>
             {children}
             <Sheet open={shown.open} onOpenChange={(nextOpen) => !nextOpen && close(shown.id)}>
                 <SheetContent

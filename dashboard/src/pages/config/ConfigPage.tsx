@@ -90,14 +90,13 @@ export function ConfigPage() {
         );
     };
 
-    const handleDelete = async (name: string) => {
-        const deleted = await runAction(
-            () => configs.delete(currentNamespace, name),
+    const handleDelete = async (config: ConfigResource) => {
+        await runAction(
+            () => configs.delete(currentNamespace, config.name, config.revision),
             {success: 'Config deleted', failure: 'Failed to delete config'},
         );
-        if (deleted) {
-            loadConfigs();
-        }
+        // Deleted, or refused because it changed since it was read: either way, the page shows what is there now.
+        loadConfigs();
     };
 
     const columns: DataTableColumn<ConfigResource>[] = [
@@ -130,7 +129,7 @@ export function ConfigPage() {
                     <ConfirmButton
                         title="Are you sure to delete this config?"
                         description={`Configuration “${config.name}” will be deleted. Its history stays until it is created again, and can bring it back.`}
-                        onConfirm={() => handleDelete(config.name)}
+                        onConfirm={() => handleDelete(config)}
                         variant="ghost"
                         size="sm"
                         className="text-destructive"
