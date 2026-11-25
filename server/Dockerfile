@@ -37,10 +37,11 @@ RUN apt-get update \
 COPY --from=build --chown=appuser:appgroup ${WORK_HOME} ${WORK_HOME}
 
 WORKDIR ${WORK_HOME}
-# 8080: REST, Dashboard and Actuator. 9090: gRPC.
+# 8080: REST, Dashboard and Actuator. 9090: gRPC. MANAGEMENT_SERVER_PORT moves Actuator to a port of its own, and the
+# health check follows it.
 EXPOSE 8080 9090
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-  CMD curl -f http://localhost:8080/actuator/health/liveness || exit 1
+  CMD curl -f "http://localhost:${MANAGEMENT_SERVER_PORT:-8080}/actuator/health/liveness" || exit 1
 
 # The JVM's flags come with the start script (server/build.gradle.kts), so that JAVA_OPTS adds to them rather than
 # replacing them.

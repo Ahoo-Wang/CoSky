@@ -188,7 +188,7 @@ cosky:
 
 Mutual TLS is not supported yet: a client proves who it is with its token.
 
-With TLS on, port 8080 speaks only HTTPS, while the image's health check and the probes in `k8s/base` use HTTP. Give them a plain port of their own:
+With TLS on, port 8080 speaks only HTTPS, and so does [Actuator's own port](./deployment.md#actuator-on-its-own-port), which takes the same settings, while the image's health check and the probes in `k8s/base` use HTTP. Keep Actuator's port plain:
 
 ```yaml
 management:
@@ -198,7 +198,7 @@ management:
       enabled: false
 ```
 
-Then point the probes at it, and the container's check too: `docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`.
+`k8s/base` already probes port 8081: add `MANAGEMENT_SERVER_SSL_ENABLED=false` to its environment. The image's health check follows `MANAGEMENT_SERVER_PORT`, so set the port that way, or give the container a check of its own: `docker run --health-cmd 'curl -f http://localhost:8081/actuator/health/liveness || exit 1'`.
 
 ## Audit
 
@@ -210,5 +210,5 @@ Each write and each failed sign-in is one JSON line in the log, with the time, s
 - Anyone who can reach Redis can read and change everything, past all of the above. Give the server a Redis user of its own, over TLS where others share the network: see [Deployment](./deployment.md#credentials-and-tls).
 - Instance metadata is visible to anyone allowed to read the instance.
 - The REST API's document, `/v3/api-docs`, and Swagger UI, `/swagger-ui.html`, need no token; calls made from it do. `springdoc.api-docs.enabled=false` turns both off.
-- `/actuator/health`, `/actuator/info` and `/actuator/prometheus` on port 8080 need no token, and the metrics name your namespaces. Keep them off public networks, or move them with `management.server.port`.
+- `/actuator/health`, `/actuator/info` and `/actuator/prometheus` need no token, and the metrics name your namespaces. They are on port 8080 unless moved: give them [a port of their own](./deployment.md#actuator-on-its-own-port) that only the probes and Prometheus reach, as `k8s/base` does.
 - gRPC health on port 9090 needs no token. gRPC reflection is off, and `spring.grpc.server.reflection.enabled` turns it on.
