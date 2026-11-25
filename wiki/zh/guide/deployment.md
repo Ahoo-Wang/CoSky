@@ -118,6 +118,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 | `cosky_watch_gone_total{reason}` | 客户端不得不重新开始：`slow`、`compacted`、`epoch`、`regression` |
 | `cosky_lease_active{namespace}`、`cosky_lease_expired_total` | 已注册的进程和到期数 |
 | `cosky_lease_protection_active{namespace}` | 回收因大面积到期而暂停 |
+| `cosky_reaper_failures_total{namespace}` | 存储在某个 namespace 上失败，比如它所在的 Redis Cluster 分片不可用，回收器照常处理其他 namespace |
 | `cosky_revision_regression_total` | Redis 丢失了写入 |
 | `cosky_anti_entropy_drift_total{namespace}` | 副本的视图与存储不一致，这本不该发生 |
 | `cosky_auth_failures_total{reason}` | 登录失败 |

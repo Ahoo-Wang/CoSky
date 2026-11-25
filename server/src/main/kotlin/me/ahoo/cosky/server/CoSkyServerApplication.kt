@@ -293,6 +293,7 @@ class CoSkyServerApplication : DisposableBean {
                 bootstrap,
                 namespaces = namespaces,
                 accounts = accounts,
+                metrics = metrics,
             )::reconcile,
             metrics = metrics,
         )

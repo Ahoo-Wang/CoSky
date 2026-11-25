@@ -48,7 +48,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.lease.reaper-interval` | `1s` | How often expired leases are looked for |
-| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store |
+| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store; a failure in one namespace holds back that namespace only |
 | `cosky.lease.reaper-max-per-tick` | `100` | Leases reaped per namespace per round |
 | `cosky.lease.lock-ttl` | `15s` | How long the reaper's leadership lasts without renewal |
 | `cosky.lease.protection-threshold` | `0.5` | Reaping pauses when more than this share of a namespace's leases expire at once |

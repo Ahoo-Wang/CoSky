@@ -118,6 +118,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
 | `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
 | `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
+| `cosky_reaper_failures_total{namespace}` | The store failing on one namespace, such as one on a Redis Cluster shard that is down, while the reaper goes on with the others |
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
 | `cosky_auth_failures_total{reason}` | Failed sign-ins |

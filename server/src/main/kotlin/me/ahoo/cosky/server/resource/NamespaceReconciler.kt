@@ -13,11 +13,13 @@
 
 package me.ahoo.cosky.server.resource
 
+import kotlinx.coroutines.CancellationException
 import me.ahoo.cosky.api.kind
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.validation.NamingRules
 import me.ahoo.cosky.server.auth.NamespaceAccounts
+import me.ahoo.cosky.server.observe.CoSkyMetrics
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.Store
@@ -45,6 +47,7 @@ class NamespaceReconciler(
     private val markedGrace: Duration = Duration.ofMinutes(1),
     private val namespaces: NamespaceLifecycle = NamespaceLifecycle(store, caches),
     private val accounts: NamespaceAccounts? = null,
+    private val metrics: CoSkyMetrics = CoSkyMetrics(),
 ) {
     suspend fun reconcile() {
         if (store.namespaceState(NamingRules.SYSTEM_NAMESPACE) == null) {
@@ -55,26 +58,35 @@ class NamespaceReconciler(
         caches.of(NamingRules.SYSTEM_NAMESPACE).awaitView().objects.values
             .filter { it.kind == Kind.KIND_NAMESPACE }
             .forEach { namespace ->
-                val name = namespace.meta.name
-                val terminating = namespace.namespace.terminating
-                when (store.namespaceState(name)) {
-                    NamespaceState.ACTIVE -> if (terminating && isLeftBehind(namespace)) finishOrUndo(namespace)
-
-                    NamespaceState.TERMINATING -> if (terminating) finish(namespace) else createdAgain(namespace)
-
-                    // Whatever a namespace on its way out lost, it is deleted all the same.
-                    null -> if (terminating) {
-                        namespaces.deleteObject(namespace)
-                    } else {
-                        log.error(
-                            "Namespace {} has no state: its creation stopped, or its shard lost data. Creating it.",
-                            name,
-                        )
-                        namespaces.create(namespace.key)
-                    }
+                try {
+                    reconcile(namespace)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    // Such as a Redis Cluster shard that is down: it holds up its own namespaces, not the others.
+                    metrics.reaperFailure(namespace.meta.name)
+                    log.warn("Could not reconcile namespace {}; going on with the others.", namespace.meta.name, e)
                 }
             }
         accounts?.reconcile()
+    }
+
+    private suspend fun reconcile(namespace: Resource) {
+        val name = namespace.meta.name
+        val terminating = namespace.namespace.terminating
+        when (store.namespaceState(name)) {
+            NamespaceState.ACTIVE -> if (terminating && isLeftBehind(namespace)) finishOrUndo(namespace)
+
+            NamespaceState.TERMINATING -> if (terminating) finish(namespace) else createdAgain(namespace)
+
+            // Whatever a namespace on its way out lost, it is deleted all the same.
+            null -> if (terminating) {
+                namespaces.deleteObject(namespace)
+            } else {
+                log.error("Namespace {} has no state: its creation stopped, or its shard lost data. Creating it.", name)
+                namespaces.create(namespace.key)
+            }
+        }
     }
 
     private fun isLeftBehind(namespace: Resource): Boolean {

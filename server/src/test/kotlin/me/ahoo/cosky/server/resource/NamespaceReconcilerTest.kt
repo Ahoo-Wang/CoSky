@@ -36,6 +36,8 @@ import me.ahoo.cosky.server.auth.Tokens
 import me.ahoo.cosky.server.watch.WatchCache
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.NamespaceState
+import me.ahoo.cosky.store.Store
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.memory.MemoryStore
 import me.ahoo.test.asserts.assert
@@ -124,6 +126,31 @@ class NamespaceReconcilerTest {
         store.namespaceState(NAME).assert().isNull()
         reconciler.reconcile()
         store.namespaceState(NAME).assert().isEqualTo(NamespaceState.ACTIVE)
+    }
+
+    @Test
+    fun `a namespace the store fails on leaves the others to be reconciled`() = runBlocking<Unit> {
+        objectOf("first")
+        objectOf("second")
+        var broken: String? = null
+        // Fails on whichever comes first, as on a Redis Cluster shard that is down, while the others answer.
+        val shardDown = object : Store by store {
+            override suspend fun namespaceState(namespace: String): NamespaceState? {
+                if (namespace != NamingRules.SYSTEM_NAMESPACE) {
+                    val down = broken ?: namespace.also { broken = it }
+                    if (namespace == down) {
+                        throw StoreUnavailableException("Redis: the shard of $namespace is down.")
+                    }
+                }
+                return store.namespaceState(namespace)
+            }
+        }
+
+        NamespaceReconciler(shardDown, caches, StoreBootstrap(store, auth)).reconcile()
+
+        store.namespaceState(listOf("first", "second").single { it != broken }).assert()
+            .isEqualTo(NamespaceState.ACTIVE)
+        store.namespaceState(checkNotNull(broken)).assert().isNull()
     }
 
     @Test

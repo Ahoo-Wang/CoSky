@@ -357,6 +357,7 @@ CoSky favours keeping a stale instance over dropping a live one, and callers are
 | Server unreachable | Reads keep serving the last view, and the health indicator stays `UP` with `connection: DEGRADED`, because a restart would not help. |
 | Restart while the server is away | The view comes back from the [snapshot](./sdk.md#snapshots) on disk. |
 | Server or network was down for longer than the TTL | The reaper waits 30 seconds after recovering, so that live clients can renew rather than be removed. |
+| A Redis Cluster shard fails while the others answer | Namespaces on the others are reaped as usual. Those on the failed shard are reaped 30 seconds after it last failed, once their clients could renew. A shard that does not answer at all, rather than failing at once, still holds up reaping everywhere, as the reaper cannot tell it from the whole store hanging. |
 | More than half of a namespace's leases expire at once | Reaping pauses, as this looks like a partition. It resumes when the share falls, or after 5 minutes regardless. |
 | Redis fails over and loses recent writes | Every replica notices the revision going backwards, and clients start over from a fresh snapshot. Writes that were lost stay lost. |
 
@@ -602,6 +603,7 @@ Metrics are at `/actuator/prometheus`:
 | `cosky_watch_gone_total{reason}` | Clients having to start over: `slow`, `compacted`, `epoch`, `regression` |
 | `cosky_lease_active{namespace}`, `cosky_lease_expired_total` | Registered processes and expiries |
 | `cosky_lease_protection_active{namespace}` | Reaping paused by a mass expiry |
+| `cosky_reaper_failures_total{namespace}` | The store failing on one namespace, such as one on a Redis Cluster shard that is down, while the reaper goes on with the others |
 | `cosky_revision_regression_total` | Redis lost writes |
 | `cosky_anti_entropy_drift_total{namespace}` | A replica's view differed from the store, which should never happen |
 | `cosky_auth_failures_total{reason}` | Failed sign-ins |
@@ -1022,7 +1024,7 @@ Set these in `application.yaml`, as arguments, or as environment variables: `cos
 | Property | Default | Meaning |
 |---|---|---|
 | `cosky.lease.reaper-interval` | `1s` | How often expired leases are looked for |
-| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store |
+| `cosky.lease.reaper-grace` | `30s` | No reaping for this long after becoming leader, or after failing to reach the store; a failure in one namespace holds back that namespace only |
 | `cosky.lease.reaper-max-per-tick` | `100` | Leases reaped per namespace per round |
 | `cosky.lease.lock-ttl` | `15s` | How long the reaper's leadership lasts without renewal |
 | `cosky.lease.protection-threshold` | `0.5` | Reaping pauses when more than this share of a namespace's leases expire at once |
@@ -1333,7 +1335,7 @@ A process holds one lease per namespace, and attaches its instances to it, so re
 
 One replica at a time runs the **reaper**, under a lock in Redis. It removes the instances of expired leases, with these protections, because removing live instances is worse than keeping dead ones:
 
-1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped.
+1. **Grace**: after becoming leader, or failing to reach the store, it reaps nothing for 30 seconds. Clients have time to reconnect, and an expired lease can still be renewed until it is reaped. When the store fails on one namespace only, such as one on a Redis Cluster shard that is down, only that namespace waits, counting from its last failure, and the others are reaped as usual.
 2. **Delay**: a lease is reaped a third of its TTL after expiry. Leases cut off by one partition expire over that span, since they renew at different moments. Reaping at once would remove them one by one, and the next step would never see them together.
 3. **Mass expiry**: when more than half of a namespace's leases have expired, and it has at least 10, reaping pauses and logs an error. This covers a partition between clients and servers, which the grace cannot detect. When the share falls, grace starts over. After 5 minutes, it reaps regardless.
 4. **Pace**: at most 100 leases per namespace per round.

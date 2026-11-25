@@ -754,6 +754,8 @@ client                         server                         Redis
 
 1. **恢复宽限**:成为 Leader 或访问存储失败后,`reaper-grace`(默认 30 秒)内不回收。这段时间足够客户端走完最长 10 秒的重连退避并立即续期;
    到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间,或一轮中途的一次访问,超过 5 个 `reaper-interval` 就重新开始宽限。
+   访问只在某个 namespace 失败时(如 Redis Cluster 的一个分片不可用),只有它进入自己的宽限,其他 namespace 照常回收,Reaper 也保持 Leader:它的进程同样无法续期,而别的分片上的不受影响。宽限期间每轮仍读一次它的租约统计,所以宽限从最后一次失败算起。连续失败只在第一次记 WARN,每次计入 `cosky_reaper_failures_total{namespace}`;reconciler 同样逐个 namespace 隔离失败,它失败也不妨碍回收。
+   获取锁或读取 namespace 列表失败,以及任何一次超过门槛的访问,包括超时后才报错的,仍让所有 namespace 重新开始宽限:回收器分不清挂起的是一个分片还是整个 store。Redis store 的命令超时(5 秒)与默认门槛相当,所以分片不可达、命令等到超时才失败时,仍然所有 namespace 一起宽限;只有很快报错的失败才局限于它的 namespace。
 2. **大比例到期暂停**:按 namespace 读取 `leaseStats`。租约数不少于 `protection-min-leases`(默认 10)且到期比例超过 `protection-threshold`(默认 50%)时暂停回收,
    记录 ERROR 日志并置位 `cosky_lease_protection_active`。这一层覆盖宽限检测不到的情况,例如客户端与 server 之间分区、Reaper 到 Redis 却正常。
    比例回落后重新开始恢复宽限,因为客户端是陆续回来的:比例跌破门槛时,还有很多正在重连。持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。
@@ -967,7 +969,7 @@ me.ahoo.cosky.server
 | `cosky.watch.max-per-stream` | `1000` | |
 | `cosky.watch.anti-entropy-interval` | `5m` | server 反熵周期(§6.1) |
 | `cosky.lease.reaper-interval` | `1s` | |
-| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后的回收宽限(§6.2) |
+| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后的回收宽限;只在一个 namespace 失败时只宽限这个 namespace(§6.2) |
 | `cosky.lease.reaper-max-per-tick` | `100` | 每个 namespace 每轮最多回收的租约数 |
 | `cosky.lease.lock-ttl` | `15s` | 回收器 Leader 锁的有效期 |
 | `cosky.lease.protection-threshold` / `protection-min-leases` / `protection-max-duration` | `0.5` / `10` / `5m` | 大比例到期暂停(§6.2) |
@@ -1065,6 +1067,7 @@ cosky:
 | `cosky_watch_gone_total{reason}` | Counter | `compacted` / `slow` / `regression` / `epoch`;滚动重启后看这个指标判断窗口是否够大(D29) |
 | `cosky_lease_active{namespace}` / `cosky_lease_expired_total` | Gauge / Counter | 由回收 Leader 上报 |
 | `cosky_lease_protection_active{namespace}` | Gauge | 大比例到期暂停中(§6.2) |
+| `cosky_reaper_failures_total{namespace}` | Counter | 回收 Leader 回收或巡检这个 namespace 时存储失败的次数,其他 namespace 照常进行(§6.2) |
 | `cosky_revision_regression_total` | Counter | §6.4 |
 | `cosky_anti_entropy_drift_total{namespace}` | Counter | 反熵发现不一致(§6.1) |
 | `cosky_auth_failures_total{reason}` | Counter | |

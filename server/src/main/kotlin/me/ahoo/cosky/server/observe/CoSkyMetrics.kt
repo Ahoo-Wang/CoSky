@@ -93,6 +93,13 @@ class CoSkyMetrics(private val registry: MeterRegistry = SimpleMeterRegistry()) 
         counter("cosky_anti_entropy_drift_total", NAMESPACE, namespace).increment()
     }
 
+    /**
+     * The store failed on one namespace while the reaper leader reaped or reconciled it; the others went on.
+     */
+    fun reaperFailure(namespace: String) {
+        counter("cosky_reaper_failures_total", NAMESPACE, namespace).increment()
+    }
+
     fun leases(namespace: String, active: Int) {
         gauge("cosky_lease_active", NAMESPACE, namespace).set(active.toLong())
     }

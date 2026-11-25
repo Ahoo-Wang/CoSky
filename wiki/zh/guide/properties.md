@@ -48,7 +48,7 @@ description: server 和 Spring Boot starter 的所有配置项及其默认值。
 | 属性 | 默认值 | 含义 |
 |---|---|---|
 | `cosky.lease.reaper-interval` | `1s` | 查找到期租约的间隔 |
-| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后，这段时间内不回收 |
+| `cosky.lease.reaper-grace` | `30s` | 成为 Leader 或访问存储失败后，这段时间内不回收；只在一个 namespace 上失败时只影响这个 namespace |
 | `cosky.lease.reaper-max-per-tick` | `100` | 每个 namespace 每轮回收的租约数 |
 | `cosky.lease.lock-ttl` | `15s` | 回收器的 Leader 身份不续约时的有效期 |
 | `cosky.lease.protection-threshold` | `0.5` | namespace 中同时到期的租约超过这个比例时暂停回收 |
