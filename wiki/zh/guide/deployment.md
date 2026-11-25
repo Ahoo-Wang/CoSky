@@ -113,6 +113,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 | `cosky_cache_lag_seconds{namespace}` | 写入到达副本的耗时 |
 | `cosky_cache_revision{namespace}` | 副本之间长时间不一致：其中一个和 Redis 断开了 |
 | `cosky_store_apply_seconds` | 写入延迟，直方图：`histogram_quantile(0.99, sum by (le) (rate(cosky_store_apply_seconds_bucket[5m])))` 是所有副本合起来的 p99 |
+| `cosky_store_failures_total{operation}` | 这个副本访问存储失败的次数，按存储操作区分，如 `tryLock`、`apply`。其间副本仍然就绪，而每个副本的回收器每秒都向存储申请锁，所以与 Redis 断开的副本空闲时也会计数：告警可设为 `rate(cosky_store_failures_total[1m]) > 0` 持续几分钟 |
 | `cosky_watch_active` | 这个副本上的 watch 数 |
 | `cosky_watch_events_sent_total` | 发给 watcher 的事件数 |
 | `cosky_watch_gone_total{reason}` | 客户端不得不重新开始：`slow`、`compacted`、`epoch`、`regression` |

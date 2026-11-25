@@ -51,6 +51,7 @@ class MetricsReferenceTest {
             eventsSent(1)
             gone(GoneReason.GONE_REASON_SLOW)
             revisionRegression()
+            storeFailure("tryLock")
             cacheApplied(NAMESPACE, 1, 1)
             antiEntropyDrift(NAMESPACE)
             reaperFailure(NAMESPACE)

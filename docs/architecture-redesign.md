@@ -1123,6 +1123,7 @@ cosky:
 | 指标 | 类型 | 说明 |
 |---|---|---|
 | `cosky_store_apply_seconds` | Timer(直方图,1 ms 到 10 s 的固定桶) | 写入耗时;各副本的桶可以相加后取分位数 |
+| `cosky_store_failures_total{operation}` | Counter | 本副本访问存储失败(`StoreUnavailableException`)的次数,`operation` 是 Store SPI 的方法名,如 `tryLock`、`apply`;每个副本的 Reaper 每个间隔都申请锁,所以断开的副本空闲时也计数。Redis store 跟随 namespace 的 tail 自己重试,不计入 |
 | `cosky_cache_revision{namespace}` | Gauge | 已应用 revision |
 | `cosky_cache_lag_seconds{namespace}` | Gauge | 写入 → 进入缓存的延迟 |
 | `cosky_watch_active` | Gauge | 活跃 watch 数 |
@@ -1138,7 +1139,7 @@ cosky:
 
 namespace 删除(或本副本不再跟随它)时,它的 `cosky_cache_revision`、`cosky_cache_lag_seconds`、租约 gauge 和计数器随之移除,不留下停在最后一个值的序列。
 
-- 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠比较各副本的 `cosky_cache_revision` 发现。
+- 就绪探针:全部 namespace 完成初始加载后才就绪。不探测 Redis:它是共享依赖,否则一次故障切换会让所有副本同时退出 Service,而它们还能提供已知的数据。代价是单个副本与 Redis 断开时继续提供旧数据,靠 `cosky_store_failures_total` 或比较各副本的 `cosky_cache_revision` 发现。
 - 链路追踪:Micrometer Tracing(OpenTelemetry)覆盖 gRPC 与 HTTP,默认采样 10%(`management.tracing.sampling.probability`)。设置 `management.opentelemetry.tracing.export.otlp.endpoint`(如 `http://collector:4318/v1/traces`)后通过 OTLP 导出,否则不发送。
 - 开发模式:`--dev` 等价于 `cosky.store.type=memory` 加 `cosky.auth.enabled=false`,不需要 Redis,数据不落盘。
 - 关闭鉴权:对 Redis 存储关闭时,启动记一条 ERROR 日志,说明所有调用者都是 admin;内存存储(开发)记 WARN。不拒绝启动(D47)。
