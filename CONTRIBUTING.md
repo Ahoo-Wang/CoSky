@@ -101,11 +101,15 @@ To release:
 2. When it is merged, the [Release workflow](.github/workflows/release.yml) creates the GitHub release `vX.Y.Z` on
    the merge commit: the optional introduction followed by notes generated from the merged pull requests, grouped by
    their labels ([.github/release.yml](.github/release.yml)).
-3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, and the Docker images.
+3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, attaches the `cosky-migrate` zip to
+   the release, and publishes the Docker images.
 
 If the Release workflow stops partway, run it again: it creates the release if it is missing, and starts each
 publishing workflow that has not run on the tag. A publishing workflow that failed is not started again, since part of
-the release may already be out; the Release workflow fails and names the run whose failed jobs to re-run.
+the release may already be out; the Release workflow fails and names the run whose failed jobs to re-run. Re-running
+the failed jobs of the [Packages Deploy workflow](.github/workflows/package-deploy.yml) finishes the release: GitHub
+Packages receives only the files it does not have yet, the `cosky-migrate` zip is attached again, and Maven Central
+receives the whole release in a new staging repository.
 
 A 6.x bug-fix release works the same way, with the pull request against `v6`.
 

@@ -11,6 +11,9 @@
 # limitations under the License.
 #
 
+# A job that failed can run again (gh run rerun <run> --failed). github-deploy then finishes the release without failing
+# on what an earlier attempt already published; central-deploy publishes through a Sonatype staging repository, which
+# is released whole or not at all.
 name: Packages Deploy
 on:
   release:
@@ -39,20 +42,33 @@ jobs:
           # should not depend on services.gradle.org answering at that moment.
           cache: gradle
 
-      - name: Publish package
-        run: ./gradlew publishAllPublicationsToGitHubPackagesRepository
+      # Everything that needs Maven Central happens here, before anything is published: the jars, their signatures and
+      # cosky-migrate are built, and each module's publication is staged in its build/repos. A rate limit or another
+      # transient network error is retried; any other failure fails the step.
+      - name: Build and sign
+        id: build
+        run: .github/scripts/retry-on-network-error.sh ./gradlew publishAllPublicationsToProjectBuildRepoRepository :migration:distZip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SIGNING_KEYID: ${{ secrets.SIGNING_KEYID }}
           SIGNING_SECRETKEY: ${{ secrets.SIGNING_SECRETKEY }}
           SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
 
+      # Before the packages and whatever becomes of them: the release notes promise cosky-migrate with every release.
+      # --clobber replaces the zip an earlier attempt attached.
       - name: Attach cosky-migrate to the release
-        run: |
-          ./gradlew :migration:distZip
-          gh release upload "$GITHUB_REF_NAME" migration/build/distributions/*.zip --clobber --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$GITHUB_REF_NAME" migration/build/distributions/*.zip --clobber --repo "$GITHUB_REPOSITORY"
         env:
           GH_TOKEN: ${{ github.token }}
+
+      # One file at a time, so that a re-run uploads what is missing and keeps what is there: GitHub Packages answers
+      # 409 to any file it has already, and Gradle can only publish a module whole (see the script).
+      - name: Publish to GitHub Packages
+        if: ${{ !cancelled() && steps.build.conclusion == 'success' }}
+        run: |
+          .github/scripts/publish-to-github-packages.py "https://maven.pkg.github.com/$GITHUB_REPOSITORY" \
+            "$(sed -n 's/^group=//p' gradle.properties)" "$(sed -n 's/^version=//p' gradle.properties)"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   central-deploy:
     runs-on: ubuntu-latest
     steps:
@@ -69,6 +85,16 @@ jobs:
           # The Gradle distribution and dependencies from the cache, as the other workflows have them: a release
           # should not depend on services.gradle.org answering at that moment.
           cache: gradle
+
+      # As for GitHub Packages, Maven Central is done with before anything is published, and a rate limit retried.
+      # An upload to Sonatype needs no such care: it goes to a staging repository that is released only once all of it
+      # is there, and a re-run opens a new one.
+      - name: Build and sign
+        run: .github/scripts/retry-on-network-error.sh ./gradlew publishAllPublicationsToProjectBuildRepoRepository
+        env:
+          SIGNING_KEYID: ${{ secrets.SIGNING_KEYID }}
+          SIGNING_SECRETKEY: ${{ secrets.SIGNING_SECRETKEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
 
       - name: Publish package
         run: ./gradlew publishToSonatype closeAndReleaseSonatypeStagingRepository
