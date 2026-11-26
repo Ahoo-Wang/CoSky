@@ -1,0 +1,73 @@
+{
+  "realm": "cosky",
+  "enabled": true,
+  "groups": [
+    { "name": "cosky-admins" },
+    { "name": "cosky-viewers" }
+  ],
+  "users": [
+    {
+      "username": "ann",
+      "enabled": true,
+      "email": "ann@example.com",
+      "emailVerified": true,
+      "firstName": "Ann",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "ann-password", "temporary": false }],
+      "groups": ["/cosky-admins"]
+    },
+    {
+      "username": "bob",
+      "enabled": true,
+      "email": "bob@example.com",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Viewer",
+      "credentials": [{ "type": "password", "value": "bob-password", "temporary": false }],
+      "groups": ["/cosky-viewers"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "cosky-dashboard",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "redirectUris": ["http://localhost/*"],
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "other-app",
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "config": {
+            "claim.name": "groups",
+            "full.path": "false",
+            "id.token.claim": "true",
+            "access.token.claim": "false",
+            "userinfo.token.claim": "false"
+          }
+        }
+      ]
+    }
+  ]
+}

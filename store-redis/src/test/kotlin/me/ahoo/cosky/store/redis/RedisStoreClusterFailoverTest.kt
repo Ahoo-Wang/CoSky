@@ -154,9 +154,7 @@ class RedisStoreClusterFailoverTest {
                 "sh",
                 "-c",
                 PORTS.joinToString(" ") { port ->
-                    "redis-server --port $port --cluster-enabled yes --cluster-config-file n$port.conf " +
-                        "--cluster-node-timeout 2000 --enable-debug-command yes --daemonize yes --save '' " +
-                        "--appendonly no &&"
+                    "${clusterNode(port, "--cluster-node-timeout 2000 --enable-debug-command yes")} &&"
                 } + " sleep 1 && redis-cli --cluster create " + PORTS.joinToString(" ") { "127.0.0.1:$it" } +
                     " --cluster-replicas 1 --cluster-yes && echo CLUSTER_READY && tail -f /dev/null",
             )

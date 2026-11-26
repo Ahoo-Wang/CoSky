@@ -14,6 +14,8 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
     testImplementation("me.ahoo.test:fluent-assert-core")
     testImplementation("com.google.code.gson:gson")
+    // The Redis the server runs on in production, for the end-to-end test with sign-in on.
+    testImplementation("org.testcontainers:testcontainers")
 }
 
 tasks.withType<Test> {

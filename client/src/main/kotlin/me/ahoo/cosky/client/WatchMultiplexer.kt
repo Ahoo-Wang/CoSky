@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import me.ahoo.cosky.api.error.CoSkyException
+import me.ahoo.cosky.api.v1.ErrorReason
 import me.ahoo.cosky.api.v1.WatchRequest
 import me.ahoo.cosky.api.v1.WatchResponse
 import me.ahoo.cosky.api.v1.WatchServiceGrpcKt
@@ -138,6 +139,7 @@ internal class WatchMultiplexer(
             } catch (e: CancellationException) {
                 throw e
             } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                refuseAll(e)
                 // Only a response on this stream makes the client synced: each failure leaves it degraded.
                 if (isOrdinaryEnd(connectionState.value == ConnectionState.SYNCED, e)) {
                     log.info("The watch stream to {} ended ({}); reconnecting.", channel.authority(), describe(e))
@@ -151,6 +153,16 @@ internal class WatchMultiplexer(
             connection.rotate(channel)
             delay(backoff.next())
         }
+    }
+
+    /**
+     * A stream the server refuses as a whole, for want of a valid token, refuses every watch on it: one not yet known
+     * then gets the reason rather than a timeout, as when the server cancels a watch. The stream is tried again all
+     * the same, since a token file may be given a valid token.
+     */
+    private fun refuseAll(failure: Exception) {
+        val refusal = CoSkyException.from(failure)?.takeIf { it.reason == ErrorReason.ERROR_REASON_UNAUTHENTICATED }
+        refusal?.let { watches.values.forEach { watch -> watch.refused(it) } }
     }
 
     private suspend fun followStream(channel: Channel, backoff: Backoff) {

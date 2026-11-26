@@ -203,6 +203,7 @@ jobs:
       matrix:
         image:
           - redis:7.0-alpine
+          - redis:8.12-alpine
           - valkey/valkey:8-alpine
     steps:
       - name: Checkout

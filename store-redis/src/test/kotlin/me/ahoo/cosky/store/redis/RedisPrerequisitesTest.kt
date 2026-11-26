@@ -62,7 +62,9 @@ class RedisPrerequisitesTest {
 
     @Test
     fun `info being forbidden only warns`() {
-        check(REDIS_IMAGE, "--rename-command", "INFO", "").isSuccess.assert().isTrue()
+        // By an ACL, as a managed Redis may forbid it. Renamed away, it would crash the modules Redis 8 loads.
+        val forbidden = check(REDIS_IMAGE, "--user", "default", "on", "nopass", "~*", "&*", "+@all", "-info")
+        forbidden.isSuccess.assert().isTrue()
     }
 
     @Test
