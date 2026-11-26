@@ -14,8 +14,8 @@
 
 > **[文档](https://cosky.ahoo.me/zh/)** | [English Documentation](https://cosky.ahoo.me/) | [English README](README.md)
 
-> [!IMPORTANT]
-> **8.0 处于候选版本阶段。** 从 `8.0.0-rc.1` 到 `8.0.0`，API、协议、配置、文档列出的指标和 Redis 中的数据只增不改（[冻结的范围](CONTRIBUTING.md#releases-and-versioning)）。它在真实环境中运行两周、没有严重问题后成为 `8.0.0`：请先在你自己的非生产环境中运行它，遇到问题或意外，请[告诉我们](https://github.com/Ahoo-Wang/CoSky/issues/new/choose)。稳定版本是 6.x，`ahoowang/cosky:latest` 目前仍是 6.x。它由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG，文档在该分支的 [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide) 中。
+> [!NOTE]
+> **8.0 是稳定版本。** 在 8.x 之内，API、协议、配置、文档列出的指标和 Redis 中的数据只增不改（[保持的范围](CONTRIBUTING.md#releases-and-versioning)）。`ahoowang/cosky:latest` 指向 8.0；6.x 的部署请写明版本，比如 `ahoowang/cosky:6.2.0`。6.x 由 [`v6`](https://github.com/Ahoo-Wang/CoSky/tree/v6) 分支维护，该分支只修复 BUG，文档在该分支的 [`wiki/`](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide) 中。
 
 CoSky 为微服务提供**配置管理**和**服务发现**。一个小型 server 位于 **Redis** 前面，应用只和这个 server 通信。
 
@@ -39,7 +39,7 @@ CoSky 为微服务提供**配置管理**和**服务发现**。一个小型 serve
 启动 server。`--dev` 不需要 Redis 和登录，也不保留任何数据：
 
 ```bash
-docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-rc.3 --dev
+docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0 --dev
 ```
 
 在 Spring Boot 4 应用中添加 starter：
@@ -48,7 +48,7 @@ docker run -p 8080:8080 -p 9090:9090 ahoowang/cosky:8.0.0-rc.3 --dev
 dependencies {
     implementation(platform("org.springframework.boot:spring-boot-dependencies:4.2.0"))
     implementation(platform("org.springframework.cloud:spring-cloud-dependencies:2026.0.0"))
-    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0-rc.3"))
+    implementation(platform("me.ahoo.cosky:cosky-bom:8.0.0"))
     implementation("me.ahoo.cosky:cosky-spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     implementation("org.springframework.cloud:spring-cloud-context")
