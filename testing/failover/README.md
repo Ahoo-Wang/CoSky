@@ -44,3 +44,18 @@ testing/failover/sentinel/down.sh
 ```
 
 As for the cluster, start a fresh one for each run.
+
+## In an environment of your own
+
+`measure.py` stops a Docker container, so it reaches only the Redis that `up.sh` starts. Where Redis runs elsewhere,
+`probe.py` does the writing alone: it writes a Config every 100 ms through a server's REST API and prints each kind of
+failure once, when writes succeed again, and how long they failed. Fail Redis over, or restart servers, by your own
+means while it runs, and stop it with Ctrl-C for a summary. Its times are this host's clock, to be read beside the logs
+of Redis and of the servers.
+
+```bash
+COSKY_TOKEN=<token> testing/failover/probe.py http://cosky.example:8080   # namespace ga-trial, Config probe
+```
+
+The namespace must exist, and the token must be allowed `VERB_PUT` on the Config. The
+[GA trial runbook](../../docs/ga-trial.md) (in Chinese) sets one up and lists the drills.

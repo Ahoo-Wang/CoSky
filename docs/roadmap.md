@@ -23,7 +23,7 @@
 | **M2 语义** | Store SPI + 内存实现 + conformance 套件;client 在假服务上跑通;真实 Redis 贯通验证 | W2 全部合并 |
 | **M3 组件完成** | server、store-redis 完成并通过 conformance;client 对接真实 server | W3 全部合并 |
 | **M4 可发布** | 端到端与故障注入通过、Dashboard 切换、迁移工具、文档、性能目标(§7.10)达成 | W4 全部合并 |
-| **8.0.0 GA** | RC 在至少一个真实环境试运行两周无 P0/P1 问题 | GitHub Release |
+| **8.0.0 GA** | RC 在至少一个真实环境试运行两周无 P0/P1 问题,做法见[试运行手册](ga-trial.md) | GitHub Release |
 
 ## 3. 任务波次
 
