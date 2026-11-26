@@ -74,10 +74,11 @@ class RedisStoreClusterNodeFailureTest {
                 "sh",
                 "-c",
                 PORTS.joinToString(" ") { port ->
-                    "redis-server --port $port --cluster-enabled yes --cluster-config-file n$port.conf " +
+                    clusterNode(
+                        port,
                         "--cluster-node-timeout ${nodeTimeout.inWholeMilliseconds} " +
-                        "--cluster-require-full-coverage no --enable-debug-command yes " +
-                        "--daemonize yes --save '' --appendonly no &&"
+                            "--cluster-require-full-coverage no --enable-debug-command yes",
+                    ) + " &&"
                 } + " sleep 1 && redis-cli --cluster create " + PORTS.joinToString(" ") { "127.0.0.1:$it" } +
                     " --cluster-yes && echo CLUSTER_READY && tail -f /dev/null",
             )
