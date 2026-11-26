@@ -221,3 +221,45 @@ jobs:
         run: .github/scripts/retry-on-network-error.sh ./gradlew :store-redis:test
         env:
           COSKY_REDIS_IMAGE: ${{ matrix.image }}
+
+  # The last release beside this tree (CONTRIBUTING.md, "Releases and versioning"): servers of both versions on one
+  # Redis, the release's client, starter and protocol suite against this server, and this client against the release's
+  # server. A required check only if the repository's settings make it one.
+  cross-version-compatibility:
+    name: Cross-Version Compatibility
+    runs-on: ubuntu-latest
+    # A run takes about 5 minutes.
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@61b9e3751b92087fd0b06925ba6dd6314e06f089 # master
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          # This tree's server runs on 25, the clients on 21; the last one listed runs Gradle.
+          java-version: |
+            25
+            21
+          distribution: 'temurin'
+          cache: gradle
+
+      # What comes from Maven Central, the release's artifacts included, comes here, where a network error is retried.
+      # The tests are not retried: servers stopping on purpose can print what looks like one.
+      - name: Build
+        run: >-
+          .github/scripts/retry-on-network-error.sh ./gradlew :server:installDist
+          :cross-version-test:releaseTestClasses :cross-version-test:currentTestClasses
+
+      - name: Beside the last release
+        run: ./gradlew :cross-version-test:crossVersionTest
+
+      - name: Keep the test reports and the servers' logs
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cross-version-test-results
+          path: |
+            testing/cross-version-test/build/test-results/*/*.xml
+            testing/cross-version-test/build/cross-version/
+          retention-days: 7

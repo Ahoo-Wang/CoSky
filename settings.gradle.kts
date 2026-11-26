@@ -31,6 +31,7 @@ mapOf(
     ":dependencies" to "platform/dependencies",
     ":test" to "testing/test",
     ":conformance-test" to "testing/conformance-test",
+    ":cross-version-test" to "testing/cross-version-test",
     ":code-coverage-report" to "testing/code-coverage-report",
 ).forEach { (path, dir) ->
     include(path)

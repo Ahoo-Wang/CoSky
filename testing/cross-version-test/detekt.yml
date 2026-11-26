@@ -1,0 +1,12 @@
+# Builds upon config/detekt/detekt.yml. The suites are tests, which detekt tells only by a folder named `test`: the rules
+# it leaves tests out of leave these out too.
+comments:
+  AbsentOrWrongFileLicense:
+    # Read from beside the last configuration, this one.
+    licenseTemplateFile: '../../config/detekt/license.template'
+naming:
+  FunctionNaming:
+    excludes: ['**/src/releaseTest/**', '**/src/currentTest/**']
+style:
+  MagicNumber:
+    excludes: ['**/src/releaseTest/**', '**/src/currentTest/**']
