@@ -130,12 +130,17 @@ class ObservabilityTest {
         val following = launch { cache.run() }
         cache.views.first { it != null }
         val active = registry.get("cosky_watch_active").gauge()
+        val snapshotSent = CompletableDeferred<Unit>()
         val watching = launch {
-            WatchSession(create(), cache, 1024, 1.seconds, metrics = metrics) {}.run()
+            WatchSession(create(), cache, 1024, 1.seconds, metrics = metrics) {
+                if (it.hasSnapshot()) {
+                    snapshotSent.complete(Unit)
+                }
+            }.run()
         }
-        while (active.value() != 1.0) {
-            delay(10.milliseconds)
-        }
+        // Past its snapshot, or the write could land in the snapshot rather than be sent as an event.
+        snapshotSent.await()
+        active.value().assert().isEqualTo(1.0)
         store.apply(NAMESPACE, listOf(Mutation.Put(config("a"))), "test")
         while (registry.counter("cosky_watch_events_sent_total").count() != 1.0) {
             delay(10.milliseconds)
