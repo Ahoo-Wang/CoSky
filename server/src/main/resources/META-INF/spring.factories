@@ -1,3 +1,4 @@
 org.springframework.boot.diagnostics.FailureAnalyzer=\
 me.ahoo.cosky.server.StartupFailureAnalyzer,\
-me.ahoo.cosky.server.RedisUnreachableFailureAnalyzer
+me.ahoo.cosky.server.RedisUnreachableFailureAnalyzer,\
+me.ahoo.cosky.server.RedisPrerequisitesFailureAnalyzer

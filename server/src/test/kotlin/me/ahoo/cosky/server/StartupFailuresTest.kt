@@ -59,6 +59,24 @@ class StartupFailuresTest {
     }
 
     @Test
+    fun `a Redis that would evict data stops the start, saying what to change on it`(output: CapturedOutput) {
+        val redis = RedisContainer("redis-server", "--maxmemory-policy", "allkeys-lru").apply { start() }
+        try {
+            val uri = "redis://${redis.host}:${redis.getMappedPort(RedisContainer.REDIS_PORT)}"
+            val failure = runCatching {
+                RunningServer(mapOf("cosky.store.redis.uri" to uri, "cosky.auth.enabled" to "false")).close()
+            }.exceptionOrNull()
+
+            failure.assert().isNotNull()
+            val report = output.out.substringAfter("APPLICATION FAILED TO START")
+            report.assert().contains("This Redis cannot back CoSky: maxmemory_policy is allkeys-lru")
+                .contains("with maxmemory-policy noeviction")
+        } finally {
+            redis.stop()
+        }
+    }
+
+    @Test
     fun `a malformed bootstrap token stops the start, with one to use instead`() {
         val failure = runCatching { runBlocking { AuthBootstrap(MemoryStore()).run("mysecret") } }.exceptionOrNull()
 
