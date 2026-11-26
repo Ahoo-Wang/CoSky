@@ -109,6 +109,12 @@ token 被拒绝的应用无法启动，它以 `CoSky refused to register service
 
 快照按端点和 token 区分。所以与上一个开发 server 地址相同的新 server，比如 `localhost:9090`，会看到应用从上一个 server 提供过的内容开始，尽管它自己什么也没保留。要从头开始，删除 `~/.cosky`，或者设置 `cosky.snapshot.enabled=false`。
 
+## 应用写不了快照
+
+应用只记录一次警告 `Could not write the snapshot <path>: ...`，附带原因，比如 `AccessDeniedException: /home/appuser`。客户端把快照写在 `~/.cosky` 下，而容器里的用户常常没有可写的家目录。除此之外一切正常：应用用内存中的数据提供服务，重启后重新从 server 读取。
+
+要么用 `cosky.snapshot.dir`（`COSKY_SNAPSHOT_DIR`）给它一个可写的目录，比如挂载的卷；要么用 `cosky.snapshot.enabled=false`（`COSKY_SNAPSHOT_ENABLED=false`）关掉快照。在 Kubernetes 中，快照只有放在持久卷上才能在重启后保留，所以没有持久卷的 Pod 关掉快照不会损失什么。目录可写之后，客户端会记录 `Writes snapshots under ... again`，不需要重启。
+
 ## cosky_watch_gone_total 上升
 
 不能从原来位置续传的客户端会读取它 watch 的内容的一份新快照。这需要一次读取，但不会丢失任何东西。原因说明了为什么：
