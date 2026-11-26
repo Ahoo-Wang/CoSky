@@ -71,29 +71,62 @@ class HelloController(@Value("\${example.greeting:Hello}") private val greeting:
 }
 ```
 
-## 5. 从另一个应用找到它
-
-在第二个应用中加入 `spring-cloud-starter-loadbalancer`，使用相同的配置和自己的名称、端口，然后按服务名调用 provider：
-
-```kotlin
-@Bean
-@LoadBalanced
-fun webClientBuilder(): WebClient.Builder = WebClient.builder()
-
-// ...
-builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
+```bash
+curl localhost:8081/hello/World
 ```
 
-在 Apple 芯片的 Mac 上，这个应用启动时会记录一条错误：Netty 无法加载 `MacOSDnsServerAddressStreamProvider`。Reactor Netty 只带了 Intel 版的这个库，加上另一个就不会再报：
+它返回 `Bonjour, World`。换一个问候语再写一次这个 Config，下一次调用就返回新的问候语。
+
+## 5. 从另一个应用找到它
+
+第二个应用按服务名调用 provider。它使用相同的依赖，再加上 `spring-cloud-starter-loadbalancer`：
+
+```kotlin
+implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+```
+
+```yaml
+# application.yaml
+server:
+  port: 8082
+spring:
+  application:
+    name: consumer
+cosky:
+  endpoints: localhost:9090
+  namespace: default
+```
+
+`@LoadBalanced` 让 `WebClient` 把 URL 的主机名当作服务名，从 CoSky 已知的实例中选一个：
+
+```kotlin
+@SpringBootApplication
+class ConsumerApplication {
+    @Bean
+    @LoadBalanced
+    fun webClientBuilder(): WebClient.Builder = WebClient.builder()
+}
+
+@RestController
+class CallController(builder: WebClient.Builder) {
+    private val provider = builder.baseUrl("http://provider").build()
+
+    @GetMapping("/call/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
+    suspend fun call(@PathVariable name: String): String =
+        provider.get().uri("/hello/{name}", name).retrieve().awaitBody()
+}
+```
+
+```bash
+curl localhost:8082/call/World
+```
+
+它返回来自 provider 的 `Bonjour, World`。
+
+在 Apple 芯片的 Mac 上，Netty 可能记录一条错误：无法加载 `MacOSDnsServerAddressStreamProvider`，因为 Reactor Netty 只带了 Intel 版的这个库。加上另一个就不会再报：
 
 ```kotlin
 runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
-```
-
-在设置了系统代理的 Mac 上，这次调用会失败，常见的是代理返回 503。macOS 上的 JDK 会把系统代理读作 `http.proxyHost`，Spring Boot 4.2 的 `WebClient` 会跟随它，于是调用 provider 的请求经过代理，而代理连不上 provider 注册的地址。启动这个应用时让它不走代理：
-
-```bash
--Dhttp.nonProxyHosts='*'
 ```
 
 ## 6. 看一看

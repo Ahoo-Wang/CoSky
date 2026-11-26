@@ -54,7 +54,9 @@ graph LR
 | Serve Spring properties | [Configuration](./configuration.md) |
 | Register and find services | [Service Discovery](./service-discovery.md) |
 | Use it without Spring | [Using the SDK](./sdk.md) |
-| Run it in production | [Deployment](./deployment.md), [Security](./security.md) |
+| Run it in production | [Deployment](./deployment.md), [Security](./security.md), [Backup and Restore](./backup.md) |
+| Find out what is wrong | [Troubleshooting](./troubleshooting.md) |
+| Move to a later 8.x release | [Upgrading](./upgrading.md) |
 | Move from CoSky 6.x | [Moving from 6.x](./upgrade-8.md) |
 | Look up a property or an endpoint | [Configuration Properties](./properties.md), [REST API](./rest-api.md) |
 </doc>
@@ -128,29 +130,62 @@ class HelloController(@Value("\${example.greeting:Hello}") private val greeting:
 }
 ```
 
-## 5. Find it from another application
-
-Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name and port, and call the provider by its service name:
-
-```kotlin
-@Bean
-@LoadBalanced
-fun webClientBuilder(): WebClient.Builder = WebClient.builder()
-
-// ...
-builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
+```bash
+curl localhost:8081/hello/World
 ```
 
-On a Mac with Apple silicon, this application logs an error at start that Netty cannot load `MacOSDnsServerAddressStreamProvider`. Reactor Netty brings the Intel build of that library only. Add the other to quiet it:
+It answers `Bonjour, World`. Write the Config again with another greeting, and the next call answers with that one.
+
+## 5. Find it from another application
+
+A second application calls the provider by its service name. It takes the same dependencies, and `spring-cloud-starter-loadbalancer`:
+
+```kotlin
+implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+```
+
+```yaml
+# application.yaml
+server:
+  port: 8082
+spring:
+  application:
+    name: consumer
+cosky:
+  endpoints: localhost:9090
+  namespace: default
+```
+
+`@LoadBalanced` makes a `WebClient` take the host of a URL as a service name, and pick one of the instances CoSky knows:
+
+```kotlin
+@SpringBootApplication
+class ConsumerApplication {
+    @Bean
+    @LoadBalanced
+    fun webClientBuilder(): WebClient.Builder = WebClient.builder()
+}
+
+@RestController
+class CallController(builder: WebClient.Builder) {
+    private val provider = builder.baseUrl("http://provider").build()
+
+    @GetMapping("/call/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
+    suspend fun call(@PathVariable name: String): String =
+        provider.get().uri("/hello/{name}", name).retrieve().awaitBody()
+}
+```
+
+```bash
+curl localhost:8082/call/World
+```
+
+It answers `Bonjour, World`, from the provider.
+
+On a Mac with Apple silicon, Netty may log an error that it cannot load `MacOSDnsServerAddressStreamProvider`, as Reactor Netty brings the Intel build of that library only. The other one quiets it:
 
 ```kotlin
 runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
-```
-
-On a Mac with a system proxy, the call fails, often with a 503 from the proxy. The JDK on macOS takes the system's proxy as `http.proxyHost`, and Spring Boot 4.2's `WebClient` follows it, so the call to the provider goes through the proxy, which cannot reach the address the provider registered. Start this application with the proxy left out:
-
-```bash
--Dhttp.nonProxyHosts='*'
 ```
 
 ## 6. Look around
@@ -514,9 +549,7 @@ The server is one image, `ahoowang/cosky` (also `ghcr.io/ahoo-wang/cosky`), hold
 
 CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noeviction`. The server checks both at start and refuses to run otherwise, because an eviction would silently lose objects and Watch history. It works on a single node, Sentinel or a Cluster, and each namespace stays in one slot.
 
-Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
-
-If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token. So once you have revoked the bootstrap token, as [Security](./security.md#the-first-token) advises, set the variable or Secret to a new token nobody has used and keep that as a break-glass, or remove it: the revoked one would otherwise become the admin again. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
+Everything that lasts is in Redis. Turn its AOF on, keep its data on a disk that outlives the container, and set `min-replicas-to-write 1` on a primary with replicas. [Backup and Restore](./backup.md) says why, how to back it up, and what happens when Redis loses writes or everything.
 
 ### Credentials and TLS
 
@@ -549,7 +582,7 @@ docker network create cosky
 ```
 
 ```bash
-docker run -d --name redis --network cosky redis:7.4
+docker run -d --name redis --network cosky -v cosky-redis:/data redis:7.4 --appendonly yes
 ```
 
 ```bash
@@ -608,11 +641,11 @@ Each replica requests half a CPU, with no CPU limit, and 2 GiB of memory, which 
 
 Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
 
-A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it.
+A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it. [Troubleshooting](./troubleshooting.md#a-replica-cut-off-from-redis) has the other signs.
 
 ## Rolling updates
 
-In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
+[Upgrading](./upgrading.md) says in what order to upgrade servers and applications. In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
 Clients keep their connection, so after a rolling update or a scale-out the replicas that started last have few of them. Each replica ends a connection after about 30 minutes, give or take a tenth, and gives its streams 5 seconds, so clients spread out again: they reconnect through the Service, which is all the endpoint an application needs, and resume where they were. `spring.grpc.server.keepalive.connection.max-age` sets this, and `grace-period` under it the 5 seconds.
 
@@ -624,7 +657,7 @@ The image serves the Dashboard at `/`. To serve it under a path of its own, such
 
 ## Observability
 
-Metrics are at `/actuator/prometheus`:
+Metrics are at `/actuator/prometheus`. [Troubleshooting](./troubleshooting.md) says what to do when one of them moves.
 
 | Metric | Watch for |
 |---|---|
@@ -684,7 +717,7 @@ export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 1
 ```
 
 - **Strong enough.** The secret, after the second `_`, takes at least 22 letters and digits, about 128 bits; the command above gives 32 hex digits. With auth on, the server checks the token at every start, used or not, and refuses to start with a shorter one or one of another shape, without printing it.
-- **Read only while no role binding exists:** on the first start, and again when Redis loses everything, as [Deployment](./deployment.md#redis) explains. Otherwise another value does nothing.
+- **Read only while no role binding exists:** on the first start, and again when Redis loses everything, as [Backup and Restore](./backup.md#when-redis-loses-everything) explains. Otherwise another value does nothing.
 - **After revoking it,** set the variable or Secret to a new token nobody has used, kept as a break-glass, or remove it. Left as it is, a Redis that loses its data makes the revoked token the admin again. Removed, nobody can sign in after such a loss until you set one and restart.
 - Without it, a server with no role binding starts and logs a warning, and nobody can sign in.
 
@@ -931,6 +964,330 @@ location /cosky/ {
 ```
 
 To serve the files of `dashboard/dist` from somewhere else instead, serve them at the path, and pass on only `/cosky/v1/` to the server's `/v1/`, unbuffered: the page expects the API next to it, on its own origin, since the server has no CORS.
+</doc>
+
+<doc title="Backup and Restore" path="guide/backup.md">
+# Backup and Restore
+
+This page is for operators. The server keeps nothing on disk: everything that lasts is in Redis. Here is what is there, how to make Redis keep it, and how to get it back.
+
+## What is in Redis
+
+All of CoSky's keys begin with `cosky:`, and each namespace's keys share the hash tag `cosky:{<namespace>}:`, so that a namespace stays in one slot. The design document has [the layout](https://github.com/Ahoo-Wang/CoSky/blob/main/docs/architecture-redesign.md).
+
+| What | Notes |
+|---|---|
+| Every object, with its revision, its times and who last changed it | Configs and Instances in their namespace. Namespaces, ServiceAccounts, Roles and RoleBindings in `_system`. |
+| The last 20 revisions of each Config | Its history, for rollback |
+| Each namespace's change log | Up to `cosky.watch.window` entries and `cosky.watch.window-bytes`. Clients resume from it. |
+| Each namespace's revision and epoch | What a client's position means, as [Architecture](./architecture.md#when-redis-loses-writes) explains |
+| Leases, with their expiry, TTL and owner | The instances attached to one go when it expires |
+| The topology | Written again by every replica every 30 seconds |
+| The reaper's lock | Held for seconds |
+
+Tokens are kept as their SHA-256 only, so a backup holds none that could be used. It does hold Config contents as they are, unencrypted: protect backups as you protect Redis.
+
+Three things are not in Redis: the [audit log](./security.md#audit), which is in the server's log; the bootstrap token, which is in your environment or Secret; and the clients' [snapshots](./sdk.md#snapshots), on their own disks.
+
+## What Redis must do
+
+- **`maxmemory-policy noeviction`.** The server refuses to start without it, as [Deployment](./deployment.md#redis) says.
+- **AOF: `appendonly yes`.** Its default `appendfsync everysec` loses at most about the last second of writes when Redis crashes. Without AOF, a restart takes Redis back to its last RDB snapshot, which with the default save points can be an hour old, and loses everything written since.
+- **A disk that outlives the container**, for Redis's data directory.
+- **`min-replicas-to-write 1`**, with `min-replicas-max-lag 10`, on a primary with replicas. Replication is asynchronous, so a failover can lose the writes that had not reached the replica. These narrow that window. The cost is that the primary refuses writes while no replica is connected and caught up: CoSky then answers `STORE_UNAVAILABLE`, while reads and running applications go on.
+
+Redis starts with `noeviction` by default. In Docker, a volume and one flag give the rest:
+
+```bash
+docker run -d --name redis --network cosky -v cosky-redis:/data redis:7.4 --appendonly yes
+```
+
+A managed Redis has these as settings of its own. Check that persistence is on and that the eviction policy is `noeviction`.
+
+## When Redis loses data
+
+### When a failover loses the last writes
+
+A Config written just before a failover may be gone, and so may a token revocation or a change of a role. CoSky notices that the revision went back: `cosky_revision_regression_total` rises, and a replica logs an error that names the namespace and the revision it went back to. Every replica then loads the namespace again, every client starts over from what Redis has, and applications register again what is missing, as [Architecture](./architecture.md#when-redis-loses-writes) explains.
+
+What was lost stays lost, and the Config's history lost it too. The audit log still has each acknowledged write, with its namespace, name and revision: the writes to that namespace above the revision it went back to are the ones to make again.
+
+### When Redis loses everything
+
+If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token. It logs the error `The system namespace has no state: the store lost its data.`
+
+So once you have revoked the bootstrap token, as [Security](./security.md#the-first-token) advises, set the variable or Secret to a new token nobody has used and keep that as a break-glass, or remove it: the revoked one would otherwise become the admin again.
+
+The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Restore a backup, or create them again and import a [zip export](#configs-as-a-zip-file) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
+
+## Backing up
+
+### Everything, as an RDB snapshot
+
+An RDB snapshot is everything in Redis at one moment. Have Redis write one, check that it is done, and copy `dump.rdb` from its data directory:
+
+```bash
+redis-cli BGSAVE
+redis-cli LASTSAVE   # changes once the snapshot is written
+```
+
+A Redis Cluster has one per master: back up every master. A managed Redis takes snapshots of its own.
+
+### Configs as a zip file
+
+The [export](./configuration.md#import-and-export) of a namespace holds each Config's name and content. It holds neither its format, labels nor history, nor anything but Configs. It moves between installations and versions, and is readable:
+
+```bash
+curl -o prod.zip -H "Authorization: Bearer $TOKEN" https://cosky.example.com/v1/namespaces/prod/configs:export
+```
+
+It holds the Configs the token may read, so use one that may read them all. Imported where it does not exist yet, a Config takes the format its extension says: `.yaml` or `.yml`, `.properties`, `.json`, and text for any other. One that exists keeps its format and labels, and takes the new content.
+
+## Restoring
+
+### From an RDB snapshot
+
+Keep at least one server running while you restore. It remembers where each namespace was, and notices that the revision went back.
+
+With AOF on, Redis loads its AOF at start and ignores `dump.rdb`, and with AOF on but no AOF yet, it starts empty. So:
+
+1. Stop Redis.
+2. Move its `appendonlydir` aside, and put the snapshot in the data directory as `dump.rdb`.
+3. Start Redis with `appendonly no`. It loads the snapshot.
+4. Run `redis-cli CONFIG SET appendonly yes`, which writes a new AOF from what Redis holds, and wait for `INFO persistence` to show `aof_rewrite_in_progress:0`.
+5. Set `appendonly yes` again where Redis takes its configuration, for its next start.
+
+This was tried on Redis 7.4, with the server running and an application connected. The server logged `Namespace default diverged`, and replaced the epoch. The application took the restored content of its Config at once, and registered its instance again within a renewal, as the instance was newer than the snapshot.
+
+### What a restore means for applications
+
+A restore is Redis losing every write since the snapshot, so it plays out [as above](#when-a-failover-loses-the-last-writes), on every namespace:
+
+- **Configs** go back to what they were, and applications refresh with those values.
+- **Instances** registered since are gone, and their processes register them again. Those removed since are back: a leased one goes once its lease expires, a fixed one stays until you remove it again.
+- **Leases** in the snapshot have expired by then. Live processes renew theirs, as after any outage, while the reaper's grace and its [mass expiry protection](./architecture.md#leases) keep it from reaping them first.
+- **Tokens** created since are gone, and the applications that use them are refused. **A token revoked since is valid again: revoke it again.** Roles and RoleBindings go back too.
+
+If every server restarts along with Redis, none remembers where a namespace was. An application that comes back from a revision beyond the snapshot's is told that its position is gone, and starts over. But one whose revision new writes have already reached may resume on the wrong timeline, and stay there until its periodic fresh snapshot, every 30 minutes or so. That is why a server should keep running through a restore.
+
+### From a zip file
+
+Import it into a namespace that exists:
+
+```bash
+curl -X POST -H "Authorization: Bearer $TOKEN" https://cosky.example.com/v1/namespaces/prod/configs:import --data-binary @prod.zip
+```
+
+It overwrites Configs of the same name, and leaves the others as they are. Each import is an ordinary write, which applications follow.
+</doc>
+
+<doc title="Troubleshooting" path="guide/troubleshooting.md">
+# Troubleshooting
+
+This page is for operators of the server. Each entry starts from what you see, a log line, a metric or an error reason, and says what causes it and what to do. [Deployment](./deployment.md#observability) lists the metrics, and [REST API](./rest-api.md#conventions) the error reasons.
+
+## The server does not start
+
+The server says why at the end of its log, under `APPLICATION FAILED TO START`, with a description and an action:
+
+| The description begins | Do |
+|---|---|
+| `The secret of the bootstrap token, after its second _, has ... characters` | Set `COSKY_BOOTSTRAP_TOKEN` to a new token, such as `cosky_$(openssl rand -hex 8)_$(openssl rand -hex 16)`, or remove it. With authentication on, the server checks it at every start, even once it no longer reads it. |
+| `The bootstrap token must look like cosky_<id>_<secret>` | The same. |
+| `cosky.lease.reaper-interval is 0s: it must be longer than 0.` | A setting that cannot work. The action names the property, its environment variable and its default. A duration without a unit is in seconds. |
+| `CoSky cannot reach Redis` | Check `COSKY_STORE_REDIS_URI`: the host, the port, the password, and `rediss://` for TLS. |
+
+Two failures end in a stack trace instead. Look for its last cause:
+
+- **`This Redis cannot back CoSky:`**, followed by what is wrong, such as `maxmemory_policy is allkeys-lru, and eviction silently deletes data; it must be noeviction.` or a version older than 7.0. Change Redis, as [Deployment](./deployment.md#redis) says. A managed Redis may need its parameter group changed.
+- **`With an OIDC issuer set, cosky.auth.oidc.audience or client-id is required.`** Set `cosky.auth.oidc.client-id`.
+
+A Redis certificate the JVM does not trust also stops the start: see [Credentials and TLS](./deployment.md#credentials-and-tls).
+
+Three messages come at start without stopping it:
+
+- **`Cannot check the Redis prerequisites, since INFO failed`**: the Redis user may not run `INFO`, so nothing was checked. Give it `+info`.
+- **`No RoleBinding exists and no bootstrap token is set, so nobody can sign in.`** Set a [bootstrap token](./security.md#the-first-token) and restart.
+- **`Authentication is off (cosky.auth.enabled=false)`**, an error: every caller is admin, and `cosky_auth_enabled` is 0. Turn it on.
+
+An unknown `cosky.*` key stops nothing, so a misspelt property is silently ignored: check the spelling against [Configuration Properties](./properties.md).
+
+## A replica is not ready
+
+The readiness probe, `/actuator/health/readiness`, answers `OUT_OF_SERVICE` with status 503 until the replica has loaded the system namespace, `_system`, and then every namespace it lists. That takes seconds: 50,000 instances and 10,000 Configs [took 2 to 3.5](./performance.md). Meanwhile a request for a namespace still loading is refused with `REPLICA_NOT_READY`, and clients go to another replica.
+
+To see what it waits for, set `management.endpoint.health.show-details=always`. The `coSkyReadiness` component of the readiness group then lists those namespaces under `loading`. `_system` alone means the replica has not read the access rules yet, so every call with a token is refused with `REPLICA_NOT_READY` too.
+
+If it stays that way, the replica cannot read Redis. Its log repeats `Following namespace <name> failed; loading it again.` with the cause, and its `cosky_store_failures_total` rises. Check its network path to Redis, and Redis itself.
+
+A replica that is ready stays ready when Redis goes away. That is the next entry.
+
+## A replica cut off from Redis
+
+A replica stays ready while Redis is away, on purpose: Redis is shared, and a failover would otherwise take every replica out of the Service at once. So a replica cut off on its own keeps serving what it last knew. Its reads answer from that, and its writes fail with `STORE_UNAVAILABLE`.
+
+It shows as:
+
+- `rate(cosky_store_failures_total[1m]) > 0` on that replica, even when it is idle, since its reaper asks Redis for a lock every second;
+- its `cosky_cache_revision{namespace}` staying behind the other replicas';
+- `Reading the log of namespace <name> failed; trying again` in its log.
+
+If one replica shows it, its own path to Redis is broken: restart it, or move it to another node. If every replica shows it, Redis itself is down or failing over, which is the next entry.
+
+## Writes fail with STORE_UNAVAILABLE
+
+`STORE_UNAVAILABLE` (503) means that the server could not reach Redis, or that Redis did not answer within 5 seconds. Reads go on from the replicas' memory. Applications keep their registrations, and renew them once Redis answers again. The reaper then waits 30 seconds before it removes anything, so that they can.
+
+`cosky_store_failures_total{operation}` says what failed: `apply` for writes, `tryLock` for the reaper's lock. The usual causes:
+
+- **Redis is down, or failing over.** A failover of a Cluster or Sentinel took [10 to 16 seconds](./performance.md#a-redis-cluster-failover) when measured.
+- **`min-replicas-to-write` on a primary without its replicas.** Redis refuses writes until one is back, as it should: see [Backup and Restore](./backup.md#what-redis-must-do). `INFO replication` on the primary shows the replicas it has.
+- **Redis at `maxmemory`.** With `noeviction`, Redis refuses writes rather than drop anything. Give it more memory, or see [Sizing](./deployment.md#sizing) for what takes it.
+
+## Errors that answer 503 or 504
+
+| Reason | Means | Do |
+|---|---|---|
+| `STORE_UNAVAILABLE` | Redis cannot be reached, or did not answer within 5 seconds | See [the entry above](#writes-fail-with-store-unavailable). |
+| `REPLICA_NOT_READY` | This replica is still loading the namespace the error names, or is behind the position a client asked for. `_system` stands for the access rules. | Nothing, if it passes: clients go to another replica. If one replica keeps answering it, see [A replica is not ready](#a-replica-is-not-ready). |
+| `IDENTITY_PROVIDER_UNAVAILABLE` | The OIDC provider, or its keys, cannot be reached. The token may be fine. | Check the provider, and the server's way to the issuer. Applications with ServiceAccount tokens go on; sign in with such a token meanwhile. |
+| `REVISION_REGRESSION` | Redis lost writes, and the replica is loading the namespace again | It passes in moments. See [Redis lost writes](#redis-lost-writes). |
+| `MIN_REVISION_TIMEOUT` (504) | A read with `minRevision` waited 3 seconds for this replica to reach that revision | The replica is behind: check its `cosky_cache_lag_seconds`, and whether it is [cut off from Redis](#a-replica-cut-off-from-redis). |
+
+The four reasons of 503 mean the same to a client: try another replica, or try later. They differ to tell you whether to look at Redis, the identity provider or the replica.
+
+## Calls refused for their token
+
+`cosky_auth_failures_total{reason}` counts them. Each is also a line in the [audit log](./security.md#audit), with the result `UNAUTHENTICATED` and the caller's address in `remote`.
+
+| Reason | Means | Do |
+|---|---|---|
+| `missing` | No token | Find the caller by `remote`: an application without `cosky.token`, or a script. |
+| `invalid` | A token that is malformed, unknown, revoked or expired, or an ID token the OIDC checks refuse | Usually a token revoked or rotated while still in use. |
+| `unavailable` | It could not be decided: the access rules are loading, or the identity provider is out of reach | It comes with an outage, which `REPLICA_NOT_READY` on `_system` or `IDENTITY_PROVIDER_UNAVAILABLE` shows. |
+
+An application whose token is refused does not start. It ends with `CoSky refused to register service <name> in namespace <namespace>: UNAUTHENTICATED`. One whose token is revoked while it runs loses its streams, and stays `DEGRADED`.
+
+`PERMISSION_DENIED` (403) is not counted there: the token is valid, and its roles do not allow the call. `GET /v1/me` with that token shows the rules it has.
+
+## Applications stay DEGRADED
+
+The starter's health indicator `cosky` stays `UP`, with `connection: DEGRADED`, while the client is not connected to a server, because a restart would not help. The application serves what it knows meanwhile. Its log says why at each attempt: `The watch stream to <endpoint> failed:`, followed by the status.
+
+| The status | Cause |
+|---|---|
+| `UNAVAILABLE: io exception (Connection refused ...)` | Nothing listens at `cosky.endpoints`. The port is the gRPC one, 9090, not 8080. |
+| `UNAUTHENTICATED` | The token was revoked or has expired: see [the entry above](#calls-refused-for-their-token). |
+| `UNAVAILABLE: This replica cannot load namespace <namespace> from its store.`, or one that `has not loaded` it or `is behind` | The replica is [not ready](#a-replica-is-not-ready), or behind. The client opens a new connection, which a Kubernetes Service may route to another replica. |
+
+The client backs off up to 10 seconds between attempts. A server with [TLS](./security.md#tls) needs `cosky.tls.enabled` in the application.
+
+## An application starts with old values
+
+The client keeps a [snapshot](./sdk.md#snapshots) of what it watches in `~/.cosky`, and starts from it, `DEGRADED`, until it reaches a server. Until then it serves what its last run saw: a Config's old content, or an old list of instances. An empty list fails a call by that service's name. Once connected, it follows the server, and a refresh replaces the old values.
+
+Snapshots are kept per set of endpoints and token. So a development server at the same address as the one before, such as `localhost:9090`, finds the applications starting from what the earlier one served, though it kept nothing. To start clean, delete `~/.cosky`, or set `cosky.snapshot.enabled=false`.
+
+## Clients start over: cosky_watch_gone_total rises
+
+A client that cannot resume where it was reads a fresh snapshot of what it watches. That costs a read, and loses nothing. The reason says why:
+
+- **`slow`**: it fell out of the window while following, because delivery could not keep up.
+- **`compacted`**: it came back from a revision older than the window, as after a reconnection during a rolling update.
+- **`epoch`**: the namespace's timeline was replaced, because Redis lost writes or data, or the namespace was deleted and created again.
+- **`regression`**: it came back from a position Redis no longer has.
+
+For `slow` and `compacted`, the window is too small for your rate of writes and your reconnection gaps. Raise `cosky.watch.window`, 10,000 events by default, to at least the peak events per second times the longest reconnection gap in seconds, and `cosky.watch.window-bytes` too if your Configs are large. Both also bound the log in Redis, so Redis and each replica keep more: see [Sizing](./deployment.md#sizing). [Performance](./performance.md#the-event-window) shows when it happens.
+
+For `epoch` and `regression`, the window is not the cause: see [Redis lost writes](#redis-lost-writes).
+
+## Reaping is paused
+
+`cosky_lease_protection_active{namespace}` is 1, and the log has, as an error, `<n> of <m> leases expired in namespace <namespace>; pausing the reaper.` More than half of the namespace's leases (`cosky.lease.protection-threshold`) expired at once, out of at least 10 (`protection-min-leases`). That looks like a partition between applications and servers, so the reaper keeps their instances rather than remove live ones. Only the reaper's leader reports the gauge: take `max by (namespace)` over the replicas.
+
+Check whether the applications reach the servers: their logs say `Renewing the lease of namespace <namespace> at <endpoint> failed`, and the network or load balancer in front of port 9090 may be the cause. Once they renew, the share falls, and reaping starts again after a grace of 30 seconds.
+
+If the processes really are gone, as on nodes that failed, reaping starts again by itself after `cosky.lease.protection-max-duration`, 5 minutes. Until then their instances stay listed, and callers need retries.
+
+## cosky_reaper_failures_total rises
+
+The store failed on that namespace while the reaper was reaping or checking it. The reaper goes on with the other namespaces, and this one waits out a grace of its own. The log says `The store failed on namespace <namespace>; it waits out a grace, and the others go on.`, and later `The store answers on namespace <namespace> again`.
+
+On a Redis Cluster, look at the shard that holds the namespace, and its failover. [Service Discovery](./service-discovery.md#when-things-fail) says how a shard's failure affects reaping. When the store fails as a whole, the log says `A reaper tick failed.` instead.
+
+## Redis lost writes
+
+`cosky_revision_regression_total` rises, and a replica logs as an error `Namespace <namespace> went back from ...; replacing the epoch.` or `Namespace <namespace> diverged, now at ...; loading it again.` Redis lost writes it had acknowledged, in a failover or because an older snapshot was restored.
+
+CoSky replaces the namespace's epoch. Every replica loads the namespace again, every watcher starts over, `cosky_watch_gone_total{reason="epoch"}` rises, and applications register again what is missing. What Redis lost stays lost: [Backup and Restore](./backup.md#when-redis-loses-data) says how to find it.
+
+`The system namespace has no state: the store lost its data.`, as an error, means that Redis lost everything. The server sets it up again as on a first start: see [Backup and Restore](./backup.md#when-redis-loses-everything).
+
+`cosky_anti_entropy_drift_total` rising, with `<n> objects of namespace <namespace> differ from the store; replacing the epoch.`, means that a replica's view differed from Redis. It should never happen, and recovers as above. Please [report it](https://github.com/Ahoo-Wang/CoSky/issues/new/choose) with the log.
+
+## The Dashboard behind a reverse proxy
+
+[Dashboard](./dashboard.md#behind-a-reverse-proxy) says what the proxy needs. Each missing piece has its own symptom:
+
+| You see | The proxy |
+|---|---|
+| A blank page, or its files not found, at `/cosky` | Does not redirect `/cosky` to `/cosky/`, so the browser resolves the page's addresses against `/` |
+| The page, but every call fails with 404 | Does not pass `/cosky/v1/` on to the server's `/v1/` |
+| Changes only after a reload | Buffers responses, which holds back the stream of changes. In nginx, `proxy_buffering off`. |
+| Calls blocked by CORS, with the files served from elsewhere | Serves the API from another origin than the page. The server has no CORS, so serve `v1/` next to the page. |
+
+After signing in with OIDC, the provider returns to the address it was given. Register the Dashboard's address with its trailing slash, such as `https://example.com/cosky/`.
+</doc>
+
+<doc title="Upgrading" path="guide/upgrading.md">
+# Upgrading
+
+This page is for those who run CoSky 8.x and move to a later 8.x release. To move from 6.x, which shares nothing with 8.0, see [Moving from 6.x](./upgrade-8.md).
+
+## What stays compatible
+
+From `8.0.0-rc.1` on, these only grow:
+
+- the gRPC API, error reasons included;
+- REST;
+- the Kotlin API of `cosky-api`, `cosky-client` and `cosky-spring-boot-starter`;
+- the properties of the server and the starter;
+- the metrics in [Deployment](./deployment.md#observability), with their labels;
+- the data in Redis.
+
+A field, call, property or metric may be added, but none is removed, renumbered, renamed or given another meaning. On every pull request, CI holds the protos, the Kotlin API, REST, the properties and the metrics to this. What `cosky-api` marks `@InternalCoSkyApi`, and the Kotlin API of the other modules, may change in any release. A new major version, such as 9.0, may change anything, and comes with an upgrade guide. [`CONTRIBUTING.md`](https://github.com/Ahoo-Wang/CoSky/blob/main/CONTRIBUTING.md#releases-and-versioning) has the whole rule.
+
+The alphas and betas made no such promise. Each one's notes say how to upgrade from the one before.
+
+The promise runs one way: a later server reads what an earlier one wrote, and serves earlier applications. Going back to an earlier release is not part of it, so read the notes of the release you leave first.
+
+## In what order
+
+1. **Read the release notes** of each release from yours to the new one, on the [releases page](https://github.com/Ahoo-Wang/CoSky/releases). Their section "Upgrading from …" says what to do, and "Known limits" what to expect.
+2. **Upgrade the servers**, one replica at a time. The Dashboard comes with them.
+3. **Then the applications**, at their own pace: raise `cosky-bom`, build and deploy them as usual.
+
+During a rolling update, replicas of both releases share Redis and serve clients side by side. In Kubernetes, set the new tag, as `newTag` in your overlay's `kustomization.yaml`, and apply it: the Deployment replaces one pod at a time, and clients reconnect to the others and resume where they were, as [Rolling updates](./deployment.md#rolling-updates) explains. With Docker, replace one container at a time, and wait for the new one to be ready before the next.
+
+While it runs, `cosky_watch_gone_total` shows clients that had to read a fresh snapshot instead of resuming, and [Troubleshooting](./troubleshooting.md#clients-start-over-cosky-watch-gone-total-rises) says what to do if it rises.
+
+## From an 8.0 beta to rc.1
+
+rc.1 settled what the promise keeps, so it changed more than a beta did. The data in Redis is unchanged: upgrade the servers in place, then the applications, in one window. A beta application and an rc.1 server, or the reverse, end a watch whose position is gone in ways the other does not know, and such a watch only starts again when the application restarts.
+
+What to check, in short:
+
+- **The bootstrap token**: the server refuses to start with one that is malformed, or whose secret has fewer than 22 characters.
+- **Settings**: the server refuses to start with one that cannot work, and a duration without a unit is now in seconds, not milliseconds.
+- **Access**: an account that writes Roles, RoleBindings or tokens must hold what it grants.
+- **The starter's health indicator** is now `cosky`, switched off by `management.health.cosky.enabled`.
+- **Alerts and dashboards**: new values of `cosky_auth_failures_total{reason}`, `max by (namespace)` for `cosky_lease_active`, and a `namespace` label on `cosky_lease_expired_total`.
+- **The Kubernetes manifests** put Actuator on port 8081, so scrape the pods there, and request 2Gi of memory.
+- **The image** runs as `999:999`, and `JAVA_OPTS` adds to its JVM flags instead of replacing them.
+- **REST and gRPC clients of your own**: stricter requests, paged views and a new way a watch ends.
+- **OIDC**: register the Dashboard's address with a trailing slash.
+
+The [release notes of rc.1](https://github.com/Ahoo-Wang/CoSky/releases/tag/v8.0.0-rc.1) give the details of each. From an earlier beta, read the notes of each release in turn: the data in Redis carries over from beta.1 on.
 </doc>
 
 <doc title="Moving from 6.x" path="guide/upgrade-8.md">
@@ -1341,7 +1698,7 @@ Computed from the server's memory, read-only. Services and the topology come in 
 | Spring Cloud | 2026.0 | Declares Spring Boot 4.2, so its compatibility verifier can stay on |
 | Redis | 7.0 or later, with `maxmemory-policy noeviction` | The server checks both at start, and refuses to run otherwise |
 | Valkey | 8 | |
-| Kubernetes | Anything with Kustomize | CI deploys the manifests to a k3s cluster for every pull request; they meet Pod Security's "restricted" level |
+| Kubernetes | 1.27 or later, with Kustomize | The manifests use `matchLabelKeys` and `unhealthyPodEvictionPolicy`, on by default from 1.27, and meet Pod Security's "restricted" level. CI deploys them to k3s 1.31 for every pull request. |
 | Browser | A current Chrome, Edge, Firefox or Safari | Only Chrome is tested |
 
 Every pull request runs against Redis 7.0, Redis 7.4 and Valkey 8, on a single node and a Redis Cluster.
@@ -1457,7 +1814,7 @@ Redis stays because it is what CoSky is for: for those who already run it, there
 <doc title="Performance" path="guide/performance.md">
 # Performance
 
-Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one 10-core laptop, over loopback**, so there was no real network unless [one was emulated](#over-an-emulated-network), and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware.
+Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one 10-core laptop, over loopback**, so there was no real network unless [one was emulated](#over-an-emulated-network), and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware. The failovers name the release they were measured on; the other figures come from 8.0.0-alpha.1 to 8.0.0-beta.1, and were not measured again for rc.1.
 
 ## Results
 

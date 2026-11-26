@@ -45,7 +45,7 @@ Pages are organized by what the reader wants to do, not by code module. Each pag
 |---|---|---|
 | Introduction | `index`, `getting-started` | Evaluators, newcomers |
 | Guides | `configuration`, `service-discovery`, `sdk` | Application developers |
-| Operations | `deployment`, `security`, `dashboard`, `upgrade-*` | Operators of the server |
+| Operations | `deployment`, `security`, `dashboard`, `backup`, `troubleshooting`, `upgrading`, `upgrade-*` | Operators of the server |
 | Reference | `properties`, `rest-api`, `requirements` | Anyone looking up a fact |
 | Concepts | `architecture`, `performance` | Engineers evaluating or operating at scale |
 | Contributing | `internals` | Contributors |

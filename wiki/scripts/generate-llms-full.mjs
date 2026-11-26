@@ -12,7 +12,15 @@ const sections = [
   { title: "Guides", pages: ["guide/configuration.md", "guide/service-discovery.md", "guide/sdk.md"] },
   {
     title: "Operations",
-    pages: ["guide/deployment.md", "guide/security.md", "guide/dashboard.md", "guide/upgrade-8.md"],
+    pages: [
+      "guide/deployment.md",
+      "guide/security.md",
+      "guide/dashboard.md",
+      "guide/backup.md",
+      "guide/troubleshooting.md",
+      "guide/upgrading.md",
+      "guide/upgrade-8.md",
+    ],
   },
   { title: "Reference", pages: ["guide/properties.md", "guide/rest-api.md", "guide/requirements.md"] },
   { title: "Concepts", pages: ["guide/architecture.md", "guide/performance.md"] },

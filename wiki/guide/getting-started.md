@@ -71,29 +71,62 @@ class HelloController(@Value("\${example.greeting:Hello}") private val greeting:
 }
 ```
 
-## 5. Find it from another application
-
-Add `spring-cloud-starter-loadbalancer` to a second application with the same settings and its own name and port, and call the provider by its service name:
-
-```kotlin
-@Bean
-@LoadBalanced
-fun webClientBuilder(): WebClient.Builder = WebClient.builder()
-
-// ...
-builder.baseUrl("http://provider").build().get().uri("/hello/World").retrieve().awaitBody<String>()
+```bash
+curl localhost:8081/hello/World
 ```
 
-On a Mac with Apple silicon, this application logs an error at start that Netty cannot load `MacOSDnsServerAddressStreamProvider`. Reactor Netty brings the Intel build of that library only. Add the other to quiet it:
+It answers `Bonjour, World`. Write the Config again with another greeting, and the next call answers with that one.
+
+## 5. Find it from another application
+
+A second application calls the provider by its service name. It takes the same dependencies, and `spring-cloud-starter-loadbalancer`:
+
+```kotlin
+implementation("org.springframework.cloud:spring-cloud-starter-loadbalancer")
+```
+
+```yaml
+# application.yaml
+server:
+  port: 8082
+spring:
+  application:
+    name: consumer
+cosky:
+  endpoints: localhost:9090
+  namespace: default
+```
+
+`@LoadBalanced` makes a `WebClient` take the host of a URL as a service name, and pick one of the instances CoSky knows:
+
+```kotlin
+@SpringBootApplication
+class ConsumerApplication {
+    @Bean
+    @LoadBalanced
+    fun webClientBuilder(): WebClient.Builder = WebClient.builder()
+}
+
+@RestController
+class CallController(builder: WebClient.Builder) {
+    private val provider = builder.baseUrl("http://provider").build()
+
+    @GetMapping("/call/{name}", produces = [MediaType.TEXT_PLAIN_VALUE])
+    suspend fun call(@PathVariable name: String): String =
+        provider.get().uri("/hello/{name}", name).retrieve().awaitBody()
+}
+```
+
+```bash
+curl localhost:8082/call/World
+```
+
+It answers `Bonjour, World`, from the provider.
+
+On a Mac with Apple silicon, Netty may log an error that it cannot load `MacOSDnsServerAddressStreamProvider`, as Reactor Netty brings the Intel build of that library only. The other one quiets it:
 
 ```kotlin
 runtimeOnly("io.netty:netty-resolver-dns-native-macos::osx-aarch_64")
-```
-
-On a Mac with a system proxy, the call fails, often with a 503 from the proxy. The JDK on macOS takes the system's proxy as `http.proxyHost`, and Spring Boot 4.2's `WebClient` follows it, so the call to the provider goes through the proxy, which cannot reach the address the provider registered. Start this application with the proxy left out:
-
-```bash
--Dhttp.nonProxyHosts='*'
 ```
 
 ## 6. Look around
