@@ -6,7 +6,7 @@ description: 运行一个 CoSky server，把 Config 提供给 Spring Boot 应用
 # 快速开始
 
 ::: warning 8.0 处于候选版本阶段
-从 `8.0.0-rc.1` 到 `8.0.0`，API、协议、配置和 Redis 中的数据只增不改。它在真实环境中运行两周、没有严重问题后成为 `8.0.0`，请先在你自己的非生产环境中试用。`ahoowang/cosky:latest` 目前仍是 6.x，它的文档在 [`v6` 分支](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide)中。
+从 `8.0.0-rc.1` 到 `8.0.0`，API、协议、配置和 Redis 中的数据只增不改。它在真实环境中运行两周、没有严重问题后成为 `8.0.0`，请先在你自己的非生产环境中试用。`ahoowang/cosky:latest` 目前仍是 6.x，`8.0.0` 发布后会指向 8.0，所以 6.x 的部署请写明版本，比如 `6.2.0`。6.x 的文档在 [`v6` 分支](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/zh/guide)中。
 :::
 
 你需要一个开发模式的 server 和一个 Spring Boot 4 应用。版本要求见[需求](./requirements.md)。

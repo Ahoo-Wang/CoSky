@@ -65,7 +65,7 @@ graph LR
 # Getting Started
 
 ::: warning 8.0 is a release candidate
-From `8.0.0-rc.1` to `8.0.0`, its API, wire format, configuration and Redis data only grow. It becomes `8.0.0` once it has run in a real environment for two weeks without a serious problem, so try it in one of yours before production. `ahoowang/cosky:latest` is still 6.x, whose documentation is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
+From `8.0.0-rc.1` to `8.0.0`, its API, wire format, configuration and Redis data only grow. It becomes `8.0.0` once it has run in a real environment for two weeks without a serious problem, so try it in one of yours before production. `ahoowang/cosky:latest` is still 6.x until `8.0.0`, when it moves to 8.0: a 6.x deployment should name its version, such as `6.2.0`. The documentation of 6.x is in the [`v6` branch](https://github.com/Ahoo-Wang/CoSky/tree/v6/wiki/guide).
 :::
 
 This takes a server in development mode and a Spring Boot 4 application. [Requirements](./requirements.md) lists the versions.
