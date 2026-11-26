@@ -39,11 +39,21 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Snapshots are not encrypted, since a client has nowhere safe to keep a key: directories are `0700`, files `0600`, and
  * Config contents can stay off the disk altogether. A file system without POSIX permissions, as on Windows, gives them
  * those of the directory they are in, which in the user's home are the user's own. Failing to write one is never
- * fatal: the client goes on from memory, and says so once rather than at every write, since a directory it cannot
- * write to, such as the home of a container user that has none, fails every one.
+ * fatal: the client goes on from memory, and says so once rather than at every write.
+ *
+ * The default directory, `~/.cosky`, is left out where it cannot be written, as for a container user without a home
+ * of its own: snapshots are then off, which a container without a persistent volume loses nothing by, and that is said
+ * once at info level. A directory set on purpose that cannot be written is warned about instead.
+ *
+ * @param defaultDir the default directory, for tests to stand in for a home.
  */
-internal class SnapshotStore(private val options: CoSkyClientOptions, private val scope: CoroutineScope) {
-    private val root: Path? = options.snapshotDir?.resolve(serverKey(options))
+internal class SnapshotStore(
+    private val options: CoSkyClientOptions,
+    private val scope: CoroutineScope,
+    defaultDir: Path = defaultSnapshotDir(),
+) {
+    private val root: Path? = options.snapshotDir?.takeIf { it != defaultDir || isWritable(it) }
+        ?.resolve(serverKey(options))
     private val pending = ConcurrentHashMap<WatchKey, Job>()
     private val writing = ConcurrentHashMap<WatchKey, Mutex>()
 
@@ -147,6 +157,31 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
 
     private companion object {
         val log = LoggerFactory.getLogger(SnapshotStore::class.java)
+
+        /** What both the client and the starter default to. */
+        fun defaultSnapshotDir(): Path = Path.of(System.getProperty("user.home"), ".cosky")
+
+        /**
+         * Whether [dir], or where it would be made, may be written. Says so at info level when not, since snapshots
+         * are then off.
+         */
+        fun isWritable(dir: Path): Boolean {
+            val writable = if (Files.exists(dir)) {
+                Files.isDirectory(dir) && Files.isWritable(dir)
+            } else {
+                dir.parent?.let { Files.isDirectory(it) && Files.isWritable(it) } == true
+            }
+            if (!writable) {
+                log.info(
+                    "Snapshots are off: the default directory {} cannot be written, as for a user without a home of " +
+                        "its own. The client serves from memory, and reads the server again after a restart. To keep " +
+                        "snapshots, set snapshotDir (cosky.snapshot.dir, COSKY_SNAPSHOT_DIR) to a directory it may " +
+                        "write, such as a mounted volume.",
+                    dir,
+                )
+            }
+            return writable
+        }
         const val POSIX = "posix"
         val OWNER_ONLY_DIRECTORY = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwx------"))
         val OWNER_ONLY_FILE = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------"))

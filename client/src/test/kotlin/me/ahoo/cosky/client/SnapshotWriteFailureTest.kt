@@ -38,8 +38,9 @@ import java.nio.file.Path
 import kotlin.time.Duration
 
 /**
- * A directory the client cannot write to, such as the home of a container user that has none, fails every snapshot.
- * That is said once, with what to do, rather than at every write; and once more when writes work again.
+ * A directory the client cannot write to fails every snapshot. Set on purpose, that is warned about once, with what to
+ * do, rather than at every write, and its return said once. The default, under a home that a container user often does
+ * not have, turns snapshots off instead, said once at info level.
  */
 class SnapshotWriteFailureTest {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -87,9 +88,44 @@ class SnapshotWriteFailureTest {
         logs.list.count { it.level == Level.WARN }.assert().isEqualTo(1)
     }
 
+    @Test
+    fun `the default directory under a home that is not there turns snapshots off, said once at info level`() =
+        runBlocking<Unit> {
+            val default = directory.resolve("missing-home").resolve(".cosky")
+            val store = storeOf(default, default)
+            repeat(WRITES) { save(store, instances("service-$it")) }
+
+            Files.exists(default).assert().isFalse()
+            logs.list.count { it.level == Level.WARN }.assert().isEqualTo(0)
+            logs.list.filter { it.level == Level.INFO }.map { it.formattedMessage }.assert()
+                .singleElement().asString().contains("Snapshots are off").contains("cosky.snapshot.dir")
+        }
+
+    @Test
+    fun `the default directory under a home that may be written keeps snapshots`() = runBlocking<Unit> {
+        val default = directory.resolve("home").resolve(".cosky")
+        Files.createDirectory(default.parent)
+        val store = storeOf(default, default)
+        save(store, instances("service-0"))
+
+        store.load(instances("service-0")).assert().isNotNull()
+        logs.list.assert().isEmpty()
+    }
+
+    private fun storeOf(snapshots: Path, default: Path) = SnapshotStore(
+        CoSkyClientOptions(listOf("only")) {
+            snapshotDir = snapshots
+            snapshotDebounce = Duration.ZERO
+        },
+        scope,
+        default,
+    )
+
     private fun instances(service: String) = WatchKey("prod", Kind.KIND_INSTANCE, service = service)
 
-    private suspend fun save(key: WatchKey) {
+    private suspend fun save(key: WatchKey) = save(store, key)
+
+    private suspend fun save(store: SnapshotStore, key: WatchKey) {
         store.schedule(key) { viewOf(key) }
         scope.coroutineContext.job.children.toList().joinAll()
     }

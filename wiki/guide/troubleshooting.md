@@ -111,9 +111,9 @@ Snapshots are kept per set of endpoints and token. So a development server at th
 
 ## An application cannot write its snapshots
 
-An application logs, once, the warning `Could not write the snapshot <path>: ...` with the reason, such as `AccessDeniedException: /home/appuser`. The client writes its snapshots under `~/.cosky`, and a container user often has no home it may write to. Nothing else is wrong: the application serves from memory, and reads the server again after a restart.
+The client writes its snapshots under `~/.cosky`, and a container user often has no home it may write to. Where that default directory cannot be written, snapshots are off: the application logs once, at info level, `Snapshots are off: the default directory ... cannot be written`, and nothing else is wrong. It serves from memory, and reads the server again after a restart. A directory set with `cosky.snapshot.dir` that cannot be written is warned about instead, once: `Could not write the snapshot <path>: ...`, with the reason, such as `AccessDeniedException`.
 
-Either give it a directory it may write, such as a mounted volume, with `cosky.snapshot.dir` (`COSKY_SNAPSHOT_DIR`), or turn snapshots off with `cosky.snapshot.enabled=false` (`COSKY_SNAPSHOT_ENABLED=false`). In Kubernetes a snapshot outlives a restart only on a persistent volume, so a pod without one loses nothing by turning them off. Once the directory can be written, the client says `Writes snapshots under ... again`, with no restart.
+To keep snapshots, give it a directory it may write, such as a mounted volume, with `cosky.snapshot.dir` (`COSKY_SNAPSHOT_DIR`). To be rid of the warning about a directory set on purpose, turn snapshots off with `cosky.snapshot.enabled=false` (`COSKY_SNAPSHOT_ENABLED=false`). In Kubernetes a snapshot outlives a restart only on a persistent volume, so a pod without one loses nothing without them. Once a directory set on purpose can be written, the client says `Writes snapshots under ... again`, with no restart.
 
 ## Clients start over: cosky_watch_gone_total rises
 
