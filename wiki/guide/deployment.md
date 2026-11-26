@@ -16,9 +16,7 @@ The server is one image, `ahoowang/cosky` (also `ghcr.io/ahoo-wang/cosky`), hold
 
 CoSky needs **Redis 7.0 or later, or Valkey 8**, with `maxmemory-policy noeviction`. The server checks both at start and refuses to run otherwise, because an eviction would silently lose objects and Watch history. It works on a single node, Sentinel or a Cluster, and each namespace stays in one slot.
 
-Redis replication is asynchronous, so a failover can lose the last writes. To narrow that window, set `min-replicas-to-write 1` on the primary. CoSky notices a lost timeline and recovers, as [Architecture](./architecture.md#when-redis-loses-writes) explains, and clients register again. A Config written just before the failover may be gone.
-
-If Redis loses everything, the server sets it up again by itself within about 30 seconds, as on a first start: the system namespace, `default`, and the admin from the bootstrap token. So once you have revoked the bootstrap token, as [Security](./security.md#the-first-token) advises, set the variable or Secret to a new token nobody has used and keep that as a break-glass, or remove it: the revoked one would otherwise become the admin again. The rest is gone: other namespaces, Configs, Roles, RoleBindings, and ServiceAccounts with their tokens. Create them again, or import a [zip export](./configuration.md#import-and-export) of your Configs. With auth on, applications keep serving what they know and stay unregistered until they have a new token. With auth off, they follow what is there once their namespace exists, and register themselves.
+Everything that lasts is in Redis. Turn its AOF on, keep its data on a disk that outlives the container, and set `min-replicas-to-write 1` on a primary with replicas. [Backup and Restore](./backup.md) says why, how to back it up, and what happens when Redis loses writes or everything.
 
 ### Credentials and TLS
 
@@ -51,7 +49,7 @@ docker network create cosky
 ```
 
 ```bash
-docker run -d --name redis --network cosky redis:7.4
+docker run -d --name redis --network cosky -v cosky-redis:/data redis:7.4 --appendonly yes
 ```
 
 ```bash
@@ -110,11 +108,11 @@ Each replica requests half a CPU, with no CPU limit, and 2 GiB of memory, which 
 
 Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
 
-A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it.
+A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it. [Troubleshooting](./troubleshooting.md#a-replica-cut-off-from-redis) has the other signs.
 
 ## Rolling updates
 
-In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
+[Upgrading](./upgrading.md) says in what order to upgrade servers and applications. In Kubernetes a stopping replica first waits 5 seconds, for the Service to stop sending it connections. Then it ends its streams, after up to 5 seconds, and clients reconnect to another one and resume where they were. If they fell out of the Watch window meanwhile, they read a fresh snapshot, which costs a little more and loses nothing. `cosky_watch_gone_total` shows whether this happens, and `cosky.watch.window` is the setting to raise if it does, along with `cosky.watch.window-bytes` if your Configs are large.
 
 Clients keep their connection, so after a rolling update or a scale-out the replicas that started last have few of them. Each replica ends a connection after about 30 minutes, give or take a tenth, and gives its streams 5 seconds, so clients spread out again: they reconnect through the Service, which is all the endpoint an application needs, and resume where they were. `spring.grpc.server.keepalive.connection.max-age` sets this, and `grace-period` under it the 5 seconds.
 
@@ -126,7 +124,7 @@ The image serves the Dashboard at `/`. To serve it under a path of its own, such
 
 ## Observability
 
-Metrics are at `/actuator/prometheus`:
+Metrics are at `/actuator/prometheus`. [Troubleshooting](./troubleshooting.md) says what to do when one of them moves.
 
 | Metric | Watch for |
 |---|---|

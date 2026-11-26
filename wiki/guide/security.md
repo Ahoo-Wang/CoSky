@@ -27,7 +27,7 @@ export COSKY_BOOTSTRAP_TOKEN="cosky_$(openssl rand -hex 8)_$(openssl rand -hex 1
 ```
 
 - **Strong enough.** The secret, after the second `_`, takes at least 22 letters and digits, about 128 bits; the command above gives 32 hex digits. With auth on, the server checks the token at every start, used or not, and refuses to start with a shorter one or one of another shape, without printing it.
-- **Read only while no role binding exists:** on the first start, and again when Redis loses everything, as [Deployment](./deployment.md#redis) explains. Otherwise another value does nothing.
+- **Read only while no role binding exists:** on the first start, and again when Redis loses everything, as [Backup and Restore](./backup.md#when-redis-loses-everything) explains. Otherwise another value does nothing.
 - **After revoking it,** set the variable or Secret to a new token nobody has used, kept as a break-glass, or remove it. Left as it is, a Redis that loses its data makes the revoked token the admin again. Removed, nobody can sign in after such a loss until you set one and restart.
 - Without it, a server with no role binding starts and logs a warning, and nobody can sign in.
 

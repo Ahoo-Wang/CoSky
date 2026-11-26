@@ -18,6 +18,9 @@
 - [Deployment](guide/deployment.md): Run the CoSky server in production on Docker or Kubernetes, with what it asks of Redis.
 - [Security](guide/security.md): Sign in with tokens or OIDC, say who may do what with roles, encrypt the connections, and read the audit log.
 - [Dashboard](guide/dashboard.md): What the web console does, how to sign in, how it stays current, and how to serve it under a path behind a reverse proxy.
+- [Backup and Restore](guide/backup.md): What CoSky keeps in Redis, how to set Redis up to keep it, how to back it up and restore it, and what a restore means for applications.
+- [Troubleshooting](guide/troubleshooting.md): What an operator of the server sees when something goes wrong, what causes it, and what to do.
+- [Upgrading](guide/upgrading.md): Move from one CoSky 8.x release to another, what stays compatible, and in what order to upgrade servers and applications.
 - [Moving from 6.x](guide/upgrade-8.md): Move a CoSky 6.x installation to 8.0 in one cutover, with cosky-migrate.
 
 ## Reference

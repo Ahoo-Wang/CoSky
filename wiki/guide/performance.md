@@ -5,7 +5,7 @@ description: The targets of CoSky 8.0, what was measured, and what was not.
 
 # Performance
 
-Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one 10-core laptop, over loopback**, so there was no real network unless [one was emulated](#over-an-emulated-network), and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware.
+Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one 10-core laptop, over loopback**, so there was no real network unless [one was emulated](#over-an-emulated-network), and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware. The failovers name the release they were measured on; the other figures come from 8.0.0-alpha.1 to 8.0.0-beta.1, and were not measured again for rc.1.
 
 ## Results
 

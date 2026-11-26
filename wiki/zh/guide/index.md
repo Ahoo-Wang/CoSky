@@ -58,6 +58,8 @@ graph LR
 | 提供 Spring 属性 | [配置管理](./configuration.md) |
 | 注册和查找服务 | [服务发现](./service-discovery.md) |
 | 不用 Spring | [使用 SDK](./sdk.md) |
-| 用于生产环境 | [部署](./deployment.md)、[安全](./security.md) |
+| 用于生产环境 | [部署](./deployment.md)、[安全](./security.md)、[备份与恢复](./backup.md) |
+| 找出哪里出了问题 | [故障排查](./troubleshooting.md) |
+| 升级到更新的 8.x 版本 | [升级](./upgrading.md) |
 | 从 CoSky 6.x 迁移 | [从 6.x 迁移](./upgrade-8.md) |
 | 查属性或接口 | [配置属性](./properties.md)、[REST API](./rest-api.md) |

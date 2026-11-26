@@ -15,7 +15,7 @@ description: CoSky 需要并经过测试的版本。
 | Spring Cloud | 2026.0 | 声明的是 Spring Boot 4.2，兼容性检查无需关闭 |
 | Redis | 7.0 或更高，`maxmemory-policy noeviction` | server 启动时检查这两项，不满足就拒绝运行 |
 | Valkey | 8 | |
-| Kubernetes | 支持 Kustomize 即可 | CI 在每个 PR 上把清单部署到 k3s 集群；清单满足 Pod Security 的 "restricted" 级别 |
+| Kubernetes | 1.27 或更高，支持 Kustomize | 清单用到 `matchLabelKeys` 和 `unhealthyPodEvictionPolicy`，二者从 1.27 起默认开启；清单满足 Pod Security 的 "restricted" 级别。CI 在每个 PR 上把它们部署到 k3s 1.31。 |
 | 浏览器 | 当前版本的 Chrome、Edge、Firefox 或 Safari | 只测试过 Chrome |
 
 每个 PR 都在 Redis 7.0、Redis 7.4 和 Valkey 8 上运行，包括单节点和 Redis Cluster。

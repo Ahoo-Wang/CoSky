@@ -16,9 +16,7 @@ server 是一个镜像，`ahoowang/cosky`（也可用 `ghcr.io/ahoo-wang/cosky`�
 
 CoSky 需要 **Redis 7.0 或更高版本，或 Valkey 8**，并且 `maxmemory-policy noeviction`。server 启动时检查这两项，不满足就拒绝运行，因为淘汰会悄悄丢失对象和 Watch 历史。支持单节点、Sentinel 和 Cluster，每个 namespace 都位于一个 slot 中。
 
-Redis 复制是异步的，故障切换可能丢失最后的写入。为了缩小这个窗口，请在主节点上设置 `min-replicas-to-write 1`。CoSky 能发现丢失的时间线并恢复，详见[架构](./architecture.md#redis-丢失写入时)，客户端也会重新注册。但故障切换前刚写入的 Config 可能已经丢失。
-
-如果 Redis 丢失了全部数据，server 会在大约 30 秒内自行按首次启动的方式重建：系统 namespace、`default`，以及由 bootstrap token 生成的管理员。所以按[安全](./security.md#第一个-token)的建议吊销 bootstrap token 之后，请把环境变量或 Secret 换成一个没人用过的新 token，作为应急凭据保管，或者删除它：否则已吊销的那个会重新成为管理员。其余内容都已丢失：其他 namespace、Config、Role、RoleBinding，以及 ServiceAccount 和它们的 token。需要重新创建，或者导入你保存的 Config [zip 导出](./configuration.md#导入与导出)。开启鉴权时，应用会继续提供已知的数据，但在拿到新 token 之前都不会重新注册。关闭鉴权时，等它的 namespace 重新存在后，应用会跟随其中的内容，并重新注册自己。
+所有需要持久保存的内容都在 Redis 中。请开启它的 AOF，把它的数据放在比容器活得更久的磁盘上，并在有副本的主节点上设置 `min-replicas-to-write 1`。原因、怎样备份，以及 Redis 丢失写入或全部数据时会发生什么，见[备份与恢复](./backup.md)。
 
 ### 凭据与 TLS
 
@@ -51,7 +49,7 @@ docker network create cosky
 ```
 
 ```bash
-docker run -d --name redis --network cosky redis:7.4
+docker run -d --name redis --network cosky -v cosky-redis:/data redis:7.4 --appendonly yes
 ```
 
 ```bash
@@ -110,11 +108,11 @@ kubectl apply -k k8s/base
 
 探针在 [Actuator 的单独端口](#actuator-使用单独端口)上使用 `/actuator/health/liveness` 和 `/actuator/health/readiness`。副本加载完 namespace 后才报告就绪，50,000 个实例和 10,000 个 Config [用时 2 到 3.5 秒](./performance.md)。
 
-Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共享依赖，否则一次故障切换就会让所有副本同时退出 Service，而它们其实还能提供已知的数据。代价是：单独和 Redis 断开的副本会继续提供它最后知道的数据。各副本的 `cosky_cache_revision{namespace}` 超过一分钟不一致就说明出现了这种情况，重启该副本即可。
+Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共享依赖，否则一次故障切换就会让所有副本同时退出 Service，而它们其实还能提供已知的数据。代价是：单独和 Redis 断开的副本会继续提供它最后知道的数据。各副本的 `cosky_cache_revision{namespace}` 超过一分钟不一致就说明出现了这种情况，重启该副本即可。其他迹象见[故障排查](./troubleshooting.md#副本与-redis-断开)。
 
 ## 滚动更新
 
-在 Kubernetes 中，停止的副本先等 5 秒，让 Service 不再把连接发给它。然后最多再等 5 秒结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
+按什么顺序升级 server 和应用，见[升级](./upgrading.md)。在 Kubernetes 中，停止的副本先等 5 秒，让 Service 不再把连接发给它。然后最多再等 5 秒结束它的流，客户端重连到另一个副本并从原来的位置继续。如果它们在此期间掉出了 Watch 窗口，就读取一份新的快照，代价稍高但不会丢失任何东西。`cosky_watch_gone_total` 显示是否发生了这种情况，如果发生了，可以调大 `cosky.watch.window`，Config 较大时还要调大 `cosky.watch.window-bytes`。
 
 客户端一直保持连接，所以滚动更新或扩容后，最后启动的副本上客户端很少。每个副本在大约 30 分钟后（上下浮动十分之一）结束一个连接，给其中的流 5 秒，客户端就重新分布：它们经 Service 重连，并从原来的位置继续。应用只需要配置 Service 这一个端点。`spring.grpc.server.keepalive.connection.max-age` 设置这个时间，它下面的 `grace-period` 设置那 5 秒。
 
@@ -126,7 +124,7 @@ Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共�
 
 ## 可观测性
 
-指标在 `/actuator/prometheus`：
+指标在 `/actuator/prometheus`。其中某个指标变化时怎么办，见[故障排查](./troubleshooting.md)。
 
 | 指标 | 关注什么 |
 |---|---|

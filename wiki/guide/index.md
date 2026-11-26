@@ -58,6 +58,8 @@ graph LR
 | Serve Spring properties | [Configuration](./configuration.md) |
 | Register and find services | [Service Discovery](./service-discovery.md) |
 | Use it without Spring | [Using the SDK](./sdk.md) |
-| Run it in production | [Deployment](./deployment.md), [Security](./security.md) |
+| Run it in production | [Deployment](./deployment.md), [Security](./security.md), [Backup and Restore](./backup.md) |
+| Find out what is wrong | [Troubleshooting](./troubleshooting.md) |
+| Move to a later 8.x release | [Upgrading](./upgrading.md) |
 | Move from CoSky 6.x | [Moving from 6.x](./upgrade-8.md) |
 | Look up a property or an endpoint | [Configuration Properties](./properties.md), [REST API](./rest-api.md) |
