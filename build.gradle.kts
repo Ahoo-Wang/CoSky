@@ -33,12 +33,15 @@ val bomProjects = setOf(
     dependenciesProject,
 )
 val codeCoverageReportProject = project(":code-coverage-report")
+// Runs the last release beside this tree, in a CI job of its own: it is not published either.
+val crossVersionTestProject = project(":cross-version-test")
 val exampleProjects = setOf(
     project(":examples:provider"),
     project(":examples:consumer"),
     project(":examples:e2e"),
 )
-val publishProjects = subprojects - codeCoverageReportProject - exampleProjects - project(":examples")
+val publishProjects =
+    subprojects - codeCoverageReportProject - crossVersionTestProject - exampleProjects - project(":examples")
 val libraryProjects = publishProjects - bomProjects
 
 ext.set("libraryProjects", libraryProjects)

@@ -54,6 +54,7 @@ Directories have no `cosky-` prefix; published artifacts do (`cosky-${project.na
 | `examples` | A provider and a consumer on the starter; `e2e` runs them with the server as separate processes | ✅ |
 | `testing/test` | Shared test utilities | ✅ |
 | `testing/code-coverage-report` | Jacoco report over every module | ✅ |
+| `testing/cross-version-test` | The last release beside this tree, in its own CI job (CONTRIBUTING.md); not in `check`, not published | ✅ |
 | `buildSrc` | Build logic (OpenAPI generation) | ✅ |
 | `dashboard/` | React 19 frontend (separate build — see dashboard/CLAUDE.md); the server image bundles it | ✅ |
 | `wiki/` | VitePress documentation site, see wiki/AGENTS.md | ✅ |

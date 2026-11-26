@@ -104,6 +104,28 @@ checks:
 All four decide by the base's version: they only warn while it is an alpha or a beta, or when the pull request raises
 the major version, and fail from the release candidate on.
 
+They compare files. **Cross-Version Compatibility** runs the last release beside the pull request
+(`./gradlew :cross-version-test:crossVersionTest`, [testing/cross-version-test](testing/cross-version-test), with
+Docker; `check` leaves it out). It is not a required check unless the repository's settings make it one:
+
+- **Two server versions on one Redis**, as during a rolling update: the release's image and this tree's server, with
+  auth on and one bootstrap token. What either writes, over gRPC or REST, the other reads, watches and returns
+  identically, history included; the accounts, Roles, bindings and tokens one writes, the other enforces; a namespace
+  one deletes is gone from the other, which creates it again; a lease one grants, the other renews, and the other's
+  reaper reaps; a client registered through one replica keeps its lease while each version is restarted in turn; and
+  neither server's anti-entropy finds the data the other wrote differs from what it watched.
+- **The release's client against this server**: the release's own protocol suite (`ProtocolConformanceTest` from its
+  `cosky-conformance-test`) on its `cosky-client`, restarts and a lost timeline included, and an application on its
+  `cosky-spring-boot-starter` that imports and refreshes a Config, registers, discovers and outlives a server restart.
+- **This client against the release's server**: reading and following a Config, registering and discovering, across a
+  server restart.
+
+The release's artifacts come from Maven Central, on a classpath of their own, and its server from its image on
+Docker Hub; this tree's server runs from `:server:installDist`. The release is `baseline` in
+[testing/cross-version-test/build.gradle.kts](testing/cross-version-test/build.gradle.kts) (`-PbaselineVersion=`
+tries another): it moves forward with each release, once that release is published. A failure means a change
+breaks what the release relies on, unless the test is wrong about the release.
+
 To release:
 
 1. Open a pull request titled `Bump version to X.Y.Z` that updates `version` in `gradle.properties`,
@@ -117,6 +139,9 @@ To release:
    came after its last release candidate.
 3. The workflow then publishes the artifacts to Maven Central and GitHub Packages, attaches the `cosky-migrate` zip to
    the release, and publishes the Docker images.
+4. Once Maven Central and Docker Hub serve them, a pull request moves `baseline` in
+   [testing/cross-version-test/build.gradle.kts](testing/cross-version-test/build.gradle.kts) to `X.Y.Z`, so that
+   Cross-Version Compatibility runs beside the new release.
 
 If the Release workflow stops partway, run it again: it creates the release if it is missing, and starts each
 publishing workflow that has not run on the tag. A publishing workflow that failed is not started again, since part of
