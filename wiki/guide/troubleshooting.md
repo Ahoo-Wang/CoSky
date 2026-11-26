@@ -109,6 +109,12 @@ The client keeps a [snapshot](./sdk.md#snapshots) of what it watches in `~/.cosk
 
 Snapshots are kept per set of endpoints and token. So a development server at the same address as the one before, such as `localhost:9090`, finds the applications starting from what the earlier one served, though it kept nothing. To start clean, delete `~/.cosky`, or set `cosky.snapshot.enabled=false`.
 
+## An application cannot write its snapshots
+
+An application logs, once, the warning `Could not write the snapshot <path>: ...` with the reason, such as `AccessDeniedException: /home/appuser`. The client writes its snapshots under `~/.cosky`, and a container user often has no home it may write to. Nothing else is wrong: the application serves from memory, and reads the server again after a restart.
+
+Either give it a directory it may write, such as a mounted volume, with `cosky.snapshot.dir` (`COSKY_SNAPSHOT_DIR`), or turn snapshots off with `cosky.snapshot.enabled=false` (`COSKY_SNAPSHOT_ENABLED=false`). In Kubernetes a snapshot outlives a restart only on a persistent volume, so a pod without one loses nothing by turning them off. Once the directory can be written, the client says `Writes snapshots under ... again`, with no restart.
+
 ## Clients start over: cosky_watch_gone_total rises
 
 A client that cannot resume where it was reads a fresh snapshot of what it watches. That costs a read, and loses nothing. The reason says why:

@@ -31,6 +31,7 @@ import java.nio.file.attribute.FileAttribute
 import java.nio.file.attribute.PosixFilePermissions
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Views on disk, so that a process restarting on the same disk can serve before it reaches a server (design §7.5).
@@ -38,12 +39,16 @@ import java.util.concurrent.ConcurrentHashMap
  * Snapshots are not encrypted, since a client has nowhere safe to keep a key: directories are `0700`, files `0600`, and
  * Config contents can stay off the disk altogether. A file system without POSIX permissions, as on Windows, gives them
  * those of the directory they are in, which in the user's home are the user's own. Failing to write one is never
- * fatal.
+ * fatal: the client goes on from memory, and says so once rather than at every write, since a directory it cannot
+ * write to, such as the home of a container user that has none, fails every one.
  */
 internal class SnapshotStore(private val options: CoSkyClientOptions, private val scope: CoroutineScope) {
     private val root: Path? = options.snapshotDir?.resolve(serverKey(options))
     private val pending = ConcurrentHashMap<WatchKey, Job>()
     private val writing = ConcurrentHashMap<WatchKey, Mutex>()
+
+    /** Whether the last write failed: a run of failures is logged once, and its end once. */
+    private val failing = AtomicBoolean()
 
     fun load(key: WatchKey): ListResponse? {
         val path = pathOf(key) ?: return null
@@ -85,8 +90,30 @@ internal class SnapshotStore(private val options: CoSkyClientOptions, private va
                 Files.createTempFile(path.parent, path.fileName.toString(), ".tmp", *ownerOnly(posix, OWNER_ONLY_FILE))
             Files.newOutputStream(temporary).use { snapshot.writeTo(it) }
             move(temporary, path)
+            if (failing.compareAndSet(true, false)) {
+                log.info("Writes snapshots under {} again.", root)
+            }
         } catch (e: IOException) {
-            log.warn("Could not write the snapshot {}.", path, e)
+            failed(path, e)
+        }
+    }
+
+    /**
+     * Says what to do the first time, and leaves the rest of a run of failures to the debug log; writes go on being
+     * tried, so that a directory made writable later takes them without a restart.
+     */
+    private fun failed(path: Path, e: IOException) {
+        if (failing.compareAndSet(false, true)) {
+            log.warn(
+                "Could not write the snapshot {}: {}. The client goes on without snapshots, from memory, and reads " +
+                    "the server again after a restart. Set snapshotDir (cosky.snapshot.dir, COSKY_SNAPSHOT_DIR) to " +
+                    "a directory it may write, such as a mounted volume, or turn snapshots off " +
+                    "(cosky.snapshot.enabled=false). Later failures are logged at debug level.",
+                path,
+                e.toString(),
+            )
+        } else {
+            log.debug("Could not write the snapshot {}.", path, e)
         }
     }
 
