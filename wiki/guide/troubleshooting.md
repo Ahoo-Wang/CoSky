@@ -105,7 +105,7 @@ The client backs off up to 10 seconds between attempts. A server with [TLS](./se
 
 ## An application starts with old values
 
-The client keeps a [snapshot](./sdk.md#snapshots) of what it watches in `~/.cosky`, and starts from it, `DEGRADED`, until it reaches a server. Until then it serves what its last run saw: a Config's old content, or an old list of instances. An empty list fails a call by that service's name. Once connected, it follows the server, and a refresh replaces the old values.
+The client keeps a [snapshot](./sdk.md#snapshots) of what it watches in `~/.cosky`, and starts from it, `DEGRADED`, until it reaches a server. A read waits up to a second for the server to answer, so it serves what its last run saw only while no server answers, or one answers slower than that: a Config's old content, or an old list of instances. An empty list fails a call by that service's name. Once connected, it follows the server, and a refresh replaces the old values.
 
 Snapshots are kept per set of endpoints and token. So a development server at the same address as the one before, such as `localhost:9090`, finds the applications starting from what the earlier one served, though it kept nothing. To start clean, delete `~/.cosky`, or set `cosky.snapshot.enabled=false`.
 

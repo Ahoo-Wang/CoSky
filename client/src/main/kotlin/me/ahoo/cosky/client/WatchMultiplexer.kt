@@ -20,6 +20,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.ErrorReason
@@ -55,6 +56,9 @@ internal class WatchMultiplexer(
     private val ids = AtomicLong()
     private val started = AtomicBoolean()
     private val connectionState = MutableStateFlow(ConnectionState.CONNECTING)
+
+    /** Times the stream ended, for a view known only from a snapshot to stop waiting on (see [WatchState]). */
+    private val streamEnds = MutableStateFlow(0L)
 
     /**
      * Held whenever the stream's queue and the routes from watch ids change, so that both belong to one stream: while
@@ -106,7 +110,7 @@ internal class WatchMultiplexer(
                 if (snapshot != null) {
                     connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
                 }
-                WatchState(key, snapshot).also { created -> requests?.let { create(it, created) } }
+                WatchState(key, snapshot, streamEnds).also { created -> requests?.let { create(it, created) } }
             }.also { mark() }
         }
         if (started.compareAndSet(false, true)) {
@@ -148,6 +152,7 @@ internal class WatchMultiplexer(
                 }
             }
             synchronized(lock) { requests = null }
+            streamEnds.update { it + 1 }
             connectionState.compareAndSet(ConnectionState.SYNCED, ConnectionState.DEGRADED)
             connectionState.compareAndSet(ConnectionState.CONNECTING, ConnectionState.DEGRADED)
             connection.rotate(channel)

@@ -143,6 +143,9 @@ class WatchSessionTest {
         }
     }
 
+    /** What a session sent but the bookmark a resumed watch gets once it has caught up. */
+    private fun List<WatchResponse>.withoutBookmarks(): List<WatchResponse> = filterNot { it.hasProgress() }
+
     /**
      * Runs a session until it has sent what [done] waits for, and returns everything it sent.
      */
@@ -207,7 +210,16 @@ class WatchSessionTest {
         put("b")
         val view = caughtUpTo(2)
         val sent = watch(create(1, view.epoch)) { it.hasEvents() }
-        sent.single().events.revision.assert().isEqualTo(2)
+        sent.filter { it.hasEvents() }.single().events.revision.assert().isEqualTo(2)
+    }
+
+    @Test
+    fun `a watch that resumes where the namespace is says so at once, rather than at the next bookmark`() = scenario {
+        put("a")
+        val view = caughtUpTo(1)
+        // A client resuming from its snapshot learns that what it holds is current.
+        val sent = watch(create(1, view.epoch)) { it.hasProgress() }
+        sent.single().progress.assert().isEqualTo(1)
     }
 
     @Test
@@ -231,7 +243,7 @@ class WatchSessionTest {
                 delay(SETTLE)
                 stalled.released.complete(Unit)
             }) { it.hasEvents() }
-            sent.single().events.revision.assert().isEqualTo(3)
+            sent.withoutBookmarks().single().events.revision.assert().isEqualTo(3)
         }
     }
 
@@ -337,7 +349,7 @@ class WatchSessionTest {
             val view = cache.awaitView()
             view.earliest.assert().isEqualTo(0)
             val sent = watch(create(1, view.epoch)) { it.events.revision == 3L }
-            sent.map { it.events.revision }.assert().containsExactly(2L, 3L)
+            sent.withoutBookmarks().map { it.events.revision }.assert().containsExactly(2L, 3L)
         }
     }
 
@@ -357,7 +369,7 @@ class WatchSessionTest {
                 failing.follows.first { it >= 2 }
                 put("b")
             }) { it.hasEvents() }
-            sent.single().events.revision.assert().isEqualTo(view.revision + 1)
+            sent.withoutBookmarks().single().events.revision.assert().isEqualTo(view.revision + 1)
         }
     }
 
@@ -400,8 +412,8 @@ class WatchSessionTest {
             store.loseWritesAfter(NAMESPACE, 1)
         }) { it.hasPositionGone() }
         val reloaded = checkNotNull(cache.views.first { it != null && it.epoch != view.epoch })
-        sent.single().positionGone.reason.assert().isEqualTo(GoneReason.GONE_REASON_EPOCH)
-        sent.single().positionGone.epoch.assert().isEqualTo(reloaded.epoch)
+        sent.withoutBookmarks().single().positionGone.reason.assert().isEqualTo(GoneReason.GONE_REASON_EPOCH)
+        sent.withoutBookmarks().single().positionGone.epoch.assert().isEqualTo(reloaded.epoch)
         reloaded.revision.assert().isEqualTo(1)
         reloaded.objects.values.single().meta.name.assert().isEqualTo("a")
     }
@@ -573,7 +585,7 @@ class WatchSessionTest {
                 delay(SETTLE)
                 comparing.checkAgainstStore().assert().isTrue()
             }) { it.hasPositionGone() }
-            sent.single().hasPositionGone().assert().isTrue()
+            sent.withoutBookmarks().single().hasPositionGone().assert().isTrue()
             store.position(NAMESPACE)?.epoch.assert().isNotEqualTo(view.epoch)
         }
     }

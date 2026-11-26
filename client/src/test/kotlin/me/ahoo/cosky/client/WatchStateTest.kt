@@ -13,7 +13,11 @@
 
 package me.ahoo.cosky.client
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.GoneReason
 import me.ahoo.cosky.api.v1.Kind
@@ -28,6 +32,8 @@ import me.ahoo.cosky.api.v1.resource
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
 import kotlin.concurrent.thread
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class WatchStateTest {
     private val state = WatchState(WatchKey("prod", Kind.KIND_CONFIG), null)
@@ -128,6 +134,41 @@ class WatchStateTest {
         val restored = WatchState(WatchKey("prod", Kind.KIND_CONFIG), ListResponse.getDefaultInstance())
         restored.refused(CoSkyException.permissionDenied("not for you"))
         restored.awaitKnown()
+    }
+
+    private fun restored(ends: MutableStateFlow<Long>): WatchState = WatchState(
+        WatchKey("prod", Kind.KIND_CONFIG),
+        ListResponse.newBuilder().addItems(config("saved")).setEpoch("e").setRevision(1).build(),
+        ends,
+    ).also { it.createdAs(1) }
+
+    @Test
+    fun `a view known only from a snapshot waits for the server to answer`() = runBlocking<Unit> {
+        val restored = restored(MutableStateFlow(0L))
+        val loading = async { restored.awaitKnown() }
+        delay(100.milliseconds)
+        loading.isCompleted.assert().isFalse()
+        restored.apply(WatchResponse.newBuilder().setWatchId(1).setProgress(1).build())
+        withTimeout(500.milliseconds) { loading.await() }
+    }
+
+    @Test
+    fun `a view known only from a snapshot stops waiting once the stream ends, as with no server`() =
+        runBlocking<Unit> {
+            val ends = MutableStateFlow(0L)
+            val restored = restored(ends)
+            val loading = async { restored.awaitKnown() }
+            delay(100.milliseconds)
+            ends.value = 1
+            withTimeout(500.milliseconds) { loading.await() }
+            restored.view.value.keys.assert().containsExactly("saved")
+        }
+
+    @Test
+    fun `a view known only from a snapshot waits no longer than a moment`() = runBlocking<Unit> {
+        val restored = restored(MutableStateFlow(0L))
+        withTimeout(3.seconds) { restored.awaitKnown() }
+        restored.view.value.keys.assert().containsExactly("saved")
     }
 
     @Test

@@ -80,7 +80,7 @@ class WatchSession(
 
             create.fromRevision < start.earliest -> sendGone(start, GoneReason.GONE_REASON_COMPACTED)
 
-            create.fromRevision <= start.revision || catchUp(start) -> follow(start.epoch)
+            create.fromRevision <= start.revision || catchUp(start) -> follow(start.epoch, announce = true)
         }
     }
 
@@ -131,7 +131,12 @@ class WatchSession(
         return false
     }
 
-    private suspend fun follow(epoch: String) {
+    /**
+     * @param announce whether to send the position once caught up, as a watch resumed from a client's snapshot has
+     * nothing else to tell it that what it holds is current; it would otherwise wait for the next bookmark (§7.3).
+     */
+    private suspend fun follow(epoch: String, announce: Boolean = false) {
+        var unannounced = announce
         cache.views.first { view ->
             when {
                 view == null -> false
@@ -153,6 +158,10 @@ class WatchSession(
 
                 else -> {
                     deliver(view)
+                    if (unannounced) {
+                        unannounced = false
+                        send(progress(create.watchId, cursor.get()))
+                    }
                     false
                 }
             }
