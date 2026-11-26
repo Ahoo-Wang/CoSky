@@ -146,9 +146,9 @@ jobs:
       - name: REST only grows
         run: .github/scripts/rest-only-grows.sh .base
 
-  # From 8.0.0-rc.1 to 8.0.0 the properties and the documented metrics only grow too (CONTRIBUTING.md): the
-  # configuration metadata and the deployment guide's table of metrics, compared with those of the base. Before the
-  # release candidate it only warns.
+  # From 8.0.0-rc.1 on, within 8.x, the properties and the documented metrics only grow too (CONTRIBUTING.md):
+  # the configuration metadata and the deployment guide's table of metrics, compared with those of the base. Before
+  # the release candidate it only warns.
   names-compatibility:
     name: Properties and Metrics Compatibility
     if: github.event_name == 'pull_request'
@@ -166,8 +166,8 @@ jobs:
       - name: Properties and metrics only grow
         run: .github/scripts/names-only-grow.sh .base
 
-  # From 8.0.0-rc.1 to 8.0.0 the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base of the
-  # pull request, by the rules in api/src/main/proto/buf.yaml. Before the release candidate it only warns.
+  # From 8.0.0-rc.1 on, within 8.x, the gRPC API only grows (CONTRIBUTING.md): buf compares the protos with the base
+  # of the pull request, by the rules in api/src/main/proto/buf.yaml. Before the release candidate it only warns.
   proto-compatibility:
     name: Proto Compatibility
     if: github.event_name == 'pull_request'

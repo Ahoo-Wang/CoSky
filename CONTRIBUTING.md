@@ -76,7 +76,7 @@ CoSky follows [Semantic Versioning](https://semver.org):
 - **MINOR** for backward-compatible features.
 - **PATCH** for backward-compatible fixes.
 
-From `8.0.0-rc.1` to `8.0.0`, these only grow: the gRPC API, REST, the client's and the starter's API and properties,
+From `8.0.0-rc.1` on, through every 8.x release, these only grow: the gRPC API, REST, the client's and the starter's API and properties,
 the server's properties, the documented metrics and the data in Redis. A field, call or property may be added; none is
 removed, renumbered, renamed or given another meaning. Before the release candidate there is no compatibility promise:
 an alpha or a beta may change any of them, and its release notes say how to upgrade.
