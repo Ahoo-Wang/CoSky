@@ -17,10 +17,10 @@ server 在日志末尾的 `APPLICATION FAILED TO START` 下说明原因，包括
 | `The bootstrap token must look like cosky_<id>_<secret>` | 同上。 |
 | `cosky.lease.reaper-interval is 0s: it must be longer than 0.` | 一个不能工作的设置。处理办法中写明了属性、对应的环境变量和默认值。不带单位的时长按秒计算。 |
 | `CoSky cannot reach Redis` | 检查 `COSKY_STORE_REDIS_URI`：主机、端口、密码，TLS 要用 `rediss://`。 |
+| `This Redis cannot back CoSky:` | 后面是哪里不对，比如 `maxmemory_policy is allkeys-lru, and eviction silently deletes data; it must be noeviction.`，或者版本低于 7.0。按[部署](./deployment.md#redis)的要求修改 Redis。托管 Redis 可能需要修改它的参数组。 |
 
-有两种失败以堆栈结束，请看它最后的 cause：
+有一种失败以堆栈结束，请看它最后的 cause：
 
-- **`This Redis cannot back CoSky:`**，后面是哪里不对，比如 `maxmemory_policy is allkeys-lru, and eviction silently deletes data; it must be noeviction.`，或者版本低于 7.0。按[部署](./deployment.md#redis)的要求修改 Redis。托管 Redis 可能需要修改它的参数组。
 - **`With an OIDC issuer set, cosky.auth.oidc.audience or client-id is required.`** 设置 `cosky.auth.oidc.client-id`。
 
 JVM 不信任的 Redis 证书同样会让启动失败，见[凭据与 TLS](./deployment.md#凭据与-tls)。

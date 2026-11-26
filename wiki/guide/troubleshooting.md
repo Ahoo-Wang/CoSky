@@ -17,10 +17,10 @@ The server says why at the end of its log, under `APPLICATION FAILED TO START`, 
 | `The bootstrap token must look like cosky_<id>_<secret>` | The same. |
 | `cosky.lease.reaper-interval is 0s: it must be longer than 0.` | A setting that cannot work. The action names the property, its environment variable and its default. A duration without a unit is in seconds. |
 | `CoSky cannot reach Redis` | Check `COSKY_STORE_REDIS_URI`: the host, the port, the password, and `rediss://` for TLS. |
+| `This Redis cannot back CoSky:` | What is wrong follows, such as `maxmemory_policy is allkeys-lru, and eviction silently deletes data; it must be noeviction.` or a version older than 7.0. Change Redis, as [Deployment](./deployment.md#redis) says. A managed Redis may need its parameter group changed. |
 
-Two failures end in a stack trace instead. Look for its last cause:
+One failure ends in a stack trace instead. Look for its last cause:
 
-- **`This Redis cannot back CoSky:`**, followed by what is wrong, such as `maxmemory_policy is allkeys-lru, and eviction silently deletes data; it must be noeviction.` or a version older than 7.0. Change Redis, as [Deployment](./deployment.md#redis) says. A managed Redis may need its parameter group changed.
 - **`With an OIDC issuer set, cosky.auth.oidc.audience or client-id is required.`** Set `cosky.auth.oidc.client-id`.
 
 A Redis certificate the JVM does not trust also stops the start: see [Credentials and TLS](./deployment.md#credentials-and-tls).

@@ -444,7 +444,7 @@ class RedisStore(
      * Refuses a Redis that would lose data without anyone noticing, or that the scripts were not tested on (design
      * D31). Call it once before serving. Where `INFO` is not allowed it can only warn.
      *
-     * @throws IllegalStateException when a prerequisite is not met.
+     * @throws RedisPrerequisitesException when a prerequisite is not met.
      */
     internal suspend fun checkPrerequisites() {
         val reports = try {
@@ -461,7 +461,9 @@ class RedisStore(
             log.warn("Cannot check the Redis prerequisites, since INFO does not report {}.", it)
         }
         val problems = checks.flatMap { it.problems }.distinct()
-        check(problems.isEmpty()) { "This Redis cannot back CoSky: ${problems.joinToString(" ")}" }
+        if (problems.isNotEmpty()) {
+            throw RedisPrerequisitesException(problems)
+        }
     }
 
     override suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean {

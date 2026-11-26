@@ -14,6 +14,7 @@
 package me.ahoo.cosky.server
 
 import io.lettuce.core.RedisConnectionException
+import me.ahoo.cosky.store.redis.RedisPrerequisitesException
 import org.springframework.boot.diagnostics.AbstractFailureAnalyzer
 import org.springframework.boot.diagnostics.FailureAnalysis
 import org.springframework.core.Ordered
@@ -44,6 +45,21 @@ class RedisUnreachableFailureAnalyzer : AbstractFailureAnalyzer<RedisConnectionE
             "rediss:// for TLS. To try CoSky without Redis, start it with --dev.",
         cause,
     )
+}
+
+/**
+ * A Redis that would lose data without anyone noticing, or that is older than the scripts were tested on: what to
+ * change on it, as the server can do nothing about either.
+ */
+class RedisPrerequisitesFailureAnalyzer : AbstractFailureAnalyzer<RedisPrerequisitesException>() {
+    override fun analyze(rootFailure: Throwable, cause: RedisPrerequisitesException): FailureAnalysis =
+        FailureAnalysis(
+            cause.message,
+            "Change Redis, then start again: it must be Redis 7.0 or later, or Valkey 8, with maxmemory-policy " +
+                "noeviction (CONFIG SET maxmemory-policy noeviction, and in redis.conf so that a restart keeps it). " +
+                "To try CoSky without Redis, start it with --dev.",
+            cause,
+        )
 }
 
 /** What to set a bootstrap token to, for those who have none yet. */
