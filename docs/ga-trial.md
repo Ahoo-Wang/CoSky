@@ -212,7 +212,7 @@ COSKY_TOKEN=<token> testing/failover/probe.py "$COSKY"
 |---|---|---|
 | **D1 滚动重启 server** | `kubectl rollout restart deployment/cosky` | 探针最多零星失败,几秒内恢复;应用不会停在 `DEGRADED`;实例数和 Config 不变;回收器的 Leader 换手后等 30 秒宽限,不会误删实例 |
 | **D2 Redis 主动切换** | Sentinel:在一个 Sentinel 上执行 `SENTINEL FAILOVER <master>`;Cluster:在从节点上执行 `CLUSTER FAILOVER`;托管 Redis:控制台的主备切换 | 秒级。本机的 Sentinel 主动交接没有一次写入失败 |
-| **D3 Redis 主节点故障** | 杀掉主节点的进程,或关掉它的主机;再做一次冻结:`kill -STOP <redis 进程>`,等 Redis 完成切换后 `kill -CONT` | 不可用的时间约为判定下线的时间(Sentinel 的 `down-after-milliseconds`、Cluster 的 `cluster-node-timeout`)加选举,Cluster 上再加最多 10 秒的拓扑读取。本机 5 秒超时实测 10–16 秒。期间写入 5 秒后以 `STORE_UNAVAILABLE` 失败,读取不受影响,应用保留注册;丢掉了租约的应用在 5 秒内重新注册。之后可能出现 `CoSkyRevisionRegression`:异步复制丢掉了最后的写入。Cluster 上冻结主节点时,在 node timeout 内所有 namespace 暂停回收(已知限制) |
+| **D3 Redis 主节点故障** | 杀掉主节点的进程,或关掉它的主机;再做一次冻结:`kill -STOP <redis 进程>`,等 Redis 完成切换后 `kill -CONT` | 不可用的时间约为判定下线的时间(Sentinel 的 `down-after-milliseconds`、Cluster 的 `cluster-node-timeout`)加选举,Cluster 上再加最多 10 秒的拓扑读取。本机 5 秒超时下 rc.3 实测 9–16 秒。主节点被杀掉时写入立即以 `STORE_UNAVAILABLE` 失败,被冻结时 5 秒后失败;读取不受影响,应用保留注册;丢掉了租约的应用在 5 秒内重新注册。之后可能出现 `CoSkyRevisionRegression`:异步复制丢掉了最后的写入。Cluster 上冻结主节点时,在 node timeout 内所有 namespace 暂停回收(已知限制) |
 | **D4 单个副本与 Redis 断开** | 给一个 server Pod 打上 `cosky-drill=isolated` 标签,应用下面的 NetworkPolicy;结束后删除它 | 这个副本仍然就绪(已知限制),它的客户端换到其他副本;3 分钟内 `CoSkyStoreFailing` 和 `CoSkyReplicaBehind` 触发;恢复后它追上,告警消失。其他副本不受影响 |
 | **D5 应用退出与崩溃** | 正常退出:`kubectl delete pod <应用的 Pod>`;崩溃:`kubectl delete pod <应用的 Pod> --grace-period=0 --force` | 正常退出 3 秒内实例消失;崩溃时默认约 40 秒后消失(TTL 加三分之一)。调用方随之更新 |
 | **D6 token 轮换**(用 `cosky.token-file` 时) | 为应用的账号创建新 token,写进 token 文件,再吊销旧 token | 应用不重启,`cosky_auth_failures_total{reason="invalid"}` 不涨 |
@@ -258,7 +258,7 @@ spec:
 | 资源 | 每个副本的堆、CPU 和 GC 停顿;Redis 的 CPU、内存和网络 |
 | 网络 | server 到 Redis 的延迟(`redis-cli --latency`),应用到 server 的往返时间 |
 
-与[性能](https://cosky.ahoo.me/zh/guide/performance#结果)一页的目标和本机数字对比:写入 p99 低于 20 ms,传播 p99 低于 500 ms;单个 Redis 上 5,000 个 namespace、三个副本时空闲 CPU 约 30%。结束后把结果补进路线图的验证表和性能页。
+与[性能](https://cosky.ahoo.me/zh/guide/performance#结果)一页的目标和本机数字对比:写入 p99 低于 20 ms,传播 p99 低于 500 ms;单个 Redis 上 5,000 个 namespace、三个副本时空闲 CPU 约 35%。结束后把结果补进路线图的验证表和性能页。
 
 ## 8. 记录与报告
 

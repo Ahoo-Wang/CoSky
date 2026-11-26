@@ -106,7 +106,7 @@ For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overla
 
 Each replica requests half a CPU, with no CPU limit, and 2 GiB of memory, which is also its memory limit, as [Sizing](#sizing) explains: change both memory values together. Replicas spread across nodes where they can, and the comments in the manifests say why each setting is there.
 
-Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
+Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 3.5 to 4.2 seconds](./performance.md).
 
 A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it. [Troubleshooting](./troubleshooting.md#a-replica-cut-off-from-redis) has the other signs.
 

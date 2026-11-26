@@ -106,7 +106,7 @@ kubectl apply -k k8s/base
 
 每个副本请求半个 CPU，不限制 CPU；请求 2 GiB 内存，这也是它的内存上限，原因见[容量规划](#容量规划)：两个内存值要一起修改。节点足够时副本分散在不同节点上，清单中的注释说明了每项设置的原因。
 
-探针在 [Actuator 的单独端口](#actuator-使用单独端口)上使用 `/actuator/health/liveness` 和 `/actuator/health/readiness`。副本加载完 namespace 后才报告就绪，50,000 个实例和 10,000 个 Config [用时 2 到 3.5 秒](./performance.md)。
+探针在 [Actuator 的单独端口](#actuator-使用单独端口)上使用 `/actuator/health/liveness` 和 `/actuator/health/readiness`。副本加载完 namespace 后才报告就绪，50,000 个实例和 10,000 个 Config [用时 3.5 到 4.2 秒](./performance.md)。
 
 Redis 不可用时，副本仍然报告就绪，这是有意的。Redis 是共享依赖，否则一次故障切换就会让所有副本同时退出 Service，而它们其实还能提供已知的数据。代价是：单独和 Redis 断开的副本会继续提供它最后知道的数据。各副本的 `cosky_cache_revision{namespace}` 超过一分钟不一致就说明出现了这种情况，重启该副本即可。其他迹象见[故障排查](./troubleshooting.md#副本与-redis-断开)。
 
