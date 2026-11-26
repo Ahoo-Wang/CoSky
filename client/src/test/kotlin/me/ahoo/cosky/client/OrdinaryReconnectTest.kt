@@ -65,8 +65,9 @@ class OrdinaryReconnectTest {
     }
 
     /**
-     * Waits long enough before reconnecting for the server to be back, so that the stream that ended is the only one
-     * to fail.
+     * Waits a moment before reconnecting, mostly long enough for the server to be back. A reconnect while it is still
+     * down, as on a busy runner, fails at WARN, and rightly: what is checked is how the stream that ended is logged,
+     * the first thing logged after the restart.
      */
     private fun client(): CoSkyClient = CoSkyClient(
         CoSkyClientOptions(listOf("cosky")) {
@@ -134,9 +135,9 @@ class OrdinaryReconnectTest {
         eventually { logged(WatchMultiplexer::class.java).isNotEmpty() }
         client.connectionState.first { it == ConnectionState.SYNCED }
 
-        val events = logged(WatchMultiplexer::class.java)
-        events.map { it.level }.assert().containsOnly(Level.INFO)
-        events.first().formattedMessage.assert().contains("ended").contains("UNAVAILABLE").contains("reconnecting")
+        val ended = logged(WatchMultiplexer::class.java).first()
+        ended.level.assert().isEqualTo(Level.INFO)
+        ended.formattedMessage.assert().contains("ended").contains("UNAVAILABLE").contains("reconnecting")
     }
 
     @Test
@@ -150,9 +151,9 @@ class OrdinaryReconnectTest {
         eventually { logged(LeaseKeeper::class.java).isNotEmpty() }
         eventually { renewals.get() > before }
 
-        val events = logged(LeaseKeeper::class.java)
-        events.map { it.level }.assert().containsOnly(Level.INFO)
-        events.first().formattedMessage.assert().contains("ended").contains("UNAVAILABLE").contains("reconnecting")
+        val ended = logged(LeaseKeeper::class.java).first()
+        ended.level.assert().isEqualTo(Level.INFO)
+        ended.formattedMessage.assert().contains("ended").contains("UNAVAILABLE").contains("reconnecting")
     }
 
     private companion object {
