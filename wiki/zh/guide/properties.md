@@ -109,7 +109,7 @@ server 不认识的键会被忽略，例如 Kubernetes 为名为 `cosky` 的 Ser
 | `cosky.tls.enabled` | `false` | 通过 TLS 连接 |
 | `cosky.tls.trusted-certificates` | — | 要信任的 PEM 文件，用于私有 CA。否则由 JVM 的信任库决定。 |
 | `cosky.snapshot.enabled` | `true` | 把视图保存到磁盘 |
-| `cosky.snapshot.dir` | `~/.cosky` | |
+| `cosky.snapshot.dir` | `~/.cosky` | 保持默认且不可写时（比如容器里没有家目录的用户），快照关闭 |
 | `cosky.snapshot.include-config` | `true` | 快照没有加密，设为 false 可让 Config 内容不落盘 |
 | `cosky.registry.enabled` | `true` | 注册这个应用 |
 | `cosky.registry.weight` | `1` | `0` 表示不接收流量 |

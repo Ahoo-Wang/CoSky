@@ -109,7 +109,7 @@ These cannot be set in 8.0.
 | `cosky.tls.enabled` | `false` | Connect over TLS |
 | `cosky.tls.trusted-certificates` | — | A PEM file to trust, for a private CA. The JVM's trust store decides otherwise. |
 | `cosky.snapshot.enabled` | `true` | Keep views on disk |
-| `cosky.snapshot.dir` | `~/.cosky` | |
+| `cosky.snapshot.dir` | `~/.cosky` | Left as is and not writable, as for a container user without a home, snapshots are off |
 | `cosky.snapshot.include-config` | `true` | Snapshots are not encrypted, so false keeps Config contents off the disk |
 | `cosky.registry.enabled` | `true` | Register this application |
 | `cosky.registry.weight` | `1` | `0` takes no traffic |
