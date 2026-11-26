@@ -801,7 +801,12 @@ client                         server                         Redis
 1. **恢复宽限**:成为 Leader 或访问存储失败后,`reaper-grace`(默认 30 秒)内不回收。这段时间足够客户端走完最长 10 秒的重连退避并立即续期;
    到期但未回收的租约仍可续期,所以存活进程不需要重新注册。存储挂起而不报错时同样算访问失败:两轮之间,或一轮中途的一次访问,超过 5 个 `reaper-interval` 就重新开始宽限。
    访问只在某个 namespace 失败时(如 Redis Cluster 的一个分片不可用),只有它进入自己的宽限,其他 namespace 照常回收,Reaper 也保持 Leader:它的进程同样无法续期,而别的分片上的不受影响。宽限期间每轮仍读一次它的租约统计,所以宽限从最后一次失败算起。连续失败只在第一次记 WARN,每次计入 `cosky_reaper_failures_total{namespace}`;reconciler 同样逐个 namespace 隔离失败,它失败也不妨碍回收。
-   获取锁或读取 namespace 列表失败,以及任何一次超过门槛的访问,包括超时后才报错的,仍让所有 namespace 重新开始宽限:回收器分不清挂起的是一个分片还是整个 store。Redis store 的命令超时(5 秒)与默认门槛相当,所以分片不可达、命令等到超时才失败时,仍然所有 namespace 一起宽限;只有很快报错的失败才局限于它的 namespace。
+   获取锁或读取 namespace 列表失败,以及任何一次超过门槛的访问,包括超时后才报错的,仍让所有 namespace 重新开始宽限:回收器分不清挂起的是一个分片还是整个 store。Redis store 的命令超时(5 秒)与默认门槛相当,所以到不了的节点上的命令要立即失败,失败才局限于它的 namespace,写入也立即得到 `UNAVAILABLE` 由调用方重试。Lettuce 默认把连接断开期间的命令留在缓冲区等它恢复,直到超时:
+   - 单机与 Sentinel 下连接断开期间命令立即失败(`REJECT_COMMANDS`),断开时正在途中的命令也随之失败,不在重连后重发(它可能已经执行过)。提示订阅因此在 store 创建时就完成:断开期间的订阅请求同样立即失败,而 Lettuce 重连后只恢复 Redis 确认过的订阅。
+   - Cluster 下不用 `REJECT_COMMANDS`:Lettuce 会连正在建立的节点连接上的命令一起拒绝,包括计划内故障切换时 MOVED 重定向到刚提升的副本的命令。store 在发出命令前自己检查:命令所在槽位的节点连接已建立而处于断开状态时立即失败,正在建立的连接照旧等待。断开那一刻正在途中的命令仍等到超时。
+   - Cluster 下集群判定下线(`fail`)的节点不参与路由和拓扑读取,它的槽位在副本接管或它恢复之前没有节点,命令立即失败;只是一个节点怀疑(`fail?`)不算。
+
+   仍要等满超时的,只有挂起而连接未断的节点(进程卡住、主机消失)在集群判定它下线之前,即 `cluster-node-timeout`(默认 15 秒)再加一次拓扑读取:这期间所有 namespace 一起宽限,之后只有它的 namespace 等待。
 2. **大比例到期暂停**:按 namespace 读取 `leaseStats`。租约数不少于 `protection-min-leases`(默认 10)且到期比例超过 `protection-threshold`(默认 50%)时暂停回收,
    记录 ERROR 日志并置位 `cosky_lease_protection_active`。这一层覆盖宽限检测不到的情况,例如客户端与 server 之间分区、Reaper 到 Redis 却正常。
    比例回落后重新开始恢复宽限,因为客户端是陆续回来的:比例跌破门槛时,还有很多正在重连。持续超过 `protection-max-duration`(默认 5 分钟)后不再暂停,避免死实例一直留存。

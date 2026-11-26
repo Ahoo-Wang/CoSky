@@ -35,6 +35,7 @@ import me.ahoo.cosky.api.v1.objectMeta
 import me.ahoo.cosky.api.v1.resource
 import me.ahoo.cosky.store.Mutation
 import me.ahoo.cosky.store.Position
+import me.ahoo.cosky.store.StoreUnavailableException
 import me.ahoo.cosky.store.TimelineDivergedException
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
@@ -42,10 +43,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.Network
+import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /**
  * Real lost writes (design §6.4): a replica falls behind and takes over, as after a failover, and the store's
@@ -99,6 +102,19 @@ class RedisStoreFailoverTest {
 
     private suspend fun put(value: String) {
         store.apply(NAMESPACE, listOf(Mutation.Put(config(value))), "test")
+    }
+
+    /**
+     * As a caller does: a write that finds the connection down, as while it moves to another node, is tried again.
+     */
+    private suspend fun putOnceServed(value: String) {
+        while (true) {
+            try {
+                return put(value)
+            } catch (_: StoreUnavailableException) {
+                delay(SETTLE)
+            }
+        }
     }
 
     /**
@@ -169,7 +185,7 @@ class RedisStoreFailoverTest {
                 put("lost")
                 caughtUp.await()
             }
-            put("written after the failover")
+            putOnceServed("written after the failover")
             val failure = follower.await() as TimelineDivergedException
             failure.current.epoch.assert().isNotEqualTo(start.epoch)
             failure.current.revision.assert().isGreaterThanOrEqualTo(1)
@@ -220,6 +236,31 @@ class RedisStoreFailoverTest {
         }
     }
 
+    /**
+     * A write gets UNAVAILABLE at once while the store cannot reach Redis, rather than waiting out the command timeout
+     * for the connection to come back, and goes through once it is.
+     */
+    @Test
+    fun `a write while the connection is down fails at once, and goes through once it is back`() = runBlocking<Unit> {
+        withTimeout(TIMEOUT) {
+            store.createNamespace(NAMESPACE)
+            val live = port.get()
+            port.set(ServerSocket(0).use { it.localPort })
+            // The store's command connection; the hint connection is subscribed.
+            primary.execInContainer("redis-cli", "CLIENT", "KILL", "TYPE", "normal")
+            delay(SETTLE)
+
+            val started = TimeSource.Monotonic.markNow()
+            runCatching { put("while down") }.exceptionOrNull()
+                .assert().isInstanceOf(StoreUnavailableException::class.java)
+            started.elapsedNow().inWholeMilliseconds.assert().isLessThan(AT_ONCE.inWholeMilliseconds)
+
+            port.set(live)
+            putOnceServed("once back")
+            store.readAll(NAMESPACE).toList().single().config.content.assert().isEqualTo("once back")
+        }
+    }
+
     private class RedisContainer : GenericContainer<RedisContainer>(REDIS_IMAGE) {
         init {
             withExposedPorts(REDIS_PORT)
@@ -231,5 +272,9 @@ class RedisStoreFailoverTest {
         const val PRIMARY_ALIAS = "primary"
         const val NAMESPACE = "failover"
         val TIMEOUT = 60.seconds
+        val SETTLE = 200.milliseconds
+
+        /** Well short of the command timeout, which a write would otherwise wait out. */
+        val AT_ONCE = 1.seconds
     }
 }
