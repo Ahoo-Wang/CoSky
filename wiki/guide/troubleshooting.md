@@ -35,7 +35,7 @@ An unknown `cosky.*` key stops nothing, so a misspelt property is silently ignor
 
 ## A replica is not ready
 
-The readiness probe, `/actuator/health/readiness`, answers `OUT_OF_SERVICE` with status 503 until the replica has loaded the system namespace, `_system`, and then every namespace it lists. That takes seconds: 50,000 instances and 10,000 Configs [took 2 to 3.5](./performance.md). Meanwhile a request for a namespace still loading is refused with `REPLICA_NOT_READY`, and clients go to another replica.
+The readiness probe, `/actuator/health/readiness`, answers `OUT_OF_SERVICE` with status 503 until the replica has loaded the system namespace, `_system`, and then every namespace it lists. That takes seconds: 50,000 instances and 10,000 Configs [took 3.5 to 4.2](./performance.md). Meanwhile a request for a namespace still loading is refused with `REPLICA_NOT_READY`, and clients go to another replica.
 
 To see what it waits for, set `management.endpoint.health.show-details=always`. The `coSkyReadiness` component of the readiness group then lists those namespaces under `loading`. `_system` alone means the replica has not read the access rules yet, so every call with a token is refused with `REPLICA_NOT_READY` too.
 
@@ -61,7 +61,7 @@ If one replica shows it, its own path to Redis is broken: restart it, or move it
 
 `cosky_store_failures_total{operation}` says what failed: `apply` for writes, `tryLock` for the reaper's lock. The usual causes:
 
-- **Redis is down, or failing over.** A failover of a Cluster or Sentinel took [10 to 16 seconds](./performance.md#a-redis-cluster-failover) when measured.
+- **Redis is down, or failing over.** A failover of a Cluster or Sentinel took [9 to 16 seconds](./performance.md#a-redis-cluster-failover) when measured.
 - **`min-replicas-to-write` on a primary without its replicas.** Redis refuses writes until one is back, as it should: see [Backup and Restore](./backup.md#what-redis-must-do). `INFO replication` on the primary shows the replicas it has.
 - **Redis at `maxmemory`.** With `noeviction`, Redis refuses writes rather than drop anything. Give it more memory, or see [Sizing](./deployment.md#sizing) for what takes it.
 

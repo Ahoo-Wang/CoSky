@@ -13,6 +13,8 @@
 
 package me.ahoo.cosky.server
 
+import ch.qos.logback.classic.Level
+import ch.qos.logback.classic.Logger
 import com.github.dockerjava.api.model.Capability
 import eu.rekawek.toxiproxy.ToxiproxyClient
 import io.grpc.ManagedChannel
@@ -53,6 +55,7 @@ import me.ahoo.cosky.client.CoSkyClient
 import me.ahoo.cosky.client.CoSkyClientOptions
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable
+import org.slf4j.LoggerFactory
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.Network
 import org.testcontainers.images.builder.ImageFromDockerfile
@@ -784,6 +787,12 @@ class LoadMeasurement {
     private data class Delivery(val write: Int, val millis: Long, val at: Long)
 
     private companion object {
+        init {
+            // At logback's default, DEBUG, the load generator would log each frame of each connection: a million lines
+            // for 5,000 connections, written while the server is being timed, by a process that shares its cores.
+            (LoggerFactory.getLogger(org.slf4j.Logger.ROOT_LOGGER_NAME) as Logger).level = Level.WARN
+        }
+
         const val NAMESPACE = "load"
         const val SERVICES_PER_NAMESPACE = 10
         const val WATCHED_NAMESPACES = 100

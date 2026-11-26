@@ -35,7 +35,7 @@ JVM 不信任的 Redis 证书同样会让启动失败，见[凭据与 TLS](./dep
 
 ## 副本没有就绪
 
-就绪探针 `/actuator/health/readiness` 返回 `OUT_OF_SERVICE`、状态码 503，直到副本加载完系统 namespace `_system`，以及其中列出的每个 namespace。这需要几秒：50,000 个实例和 10,000 个 Config [用时 2 到 3.5 秒](./performance.md)。在此期间，访问仍在加载的 namespace 的请求被拒绝，原因是 `REPLICA_NOT_READY`，客户端会去另一个副本。
+就绪探针 `/actuator/health/readiness` 返回 `OUT_OF_SERVICE`、状态码 503，直到副本加载完系统 namespace `_system`，以及其中列出的每个 namespace。这需要几秒：50,000 个实例和 10,000 个 Config [用时 3.5 到 4.2 秒](./performance.md)。在此期间，访问仍在加载的 namespace 的请求被拒绝，原因是 `REPLICA_NOT_READY`，客户端会去另一个副本。
 
 要看它在等什么，设置 `management.endpoint.health.show-details=always`。就绪组中的 `coSkyReadiness` 组件会在 `loading` 下列出这些 namespace。只有 `_system` 说明副本还没读到访问规则，所以每个带 token 的调用也会以 `REPLICA_NOT_READY` 被拒绝。
 
@@ -61,7 +61,7 @@ Redis 不可用时副本仍然就绪，这是有意的：Redis 是共享依赖�
 
 `cosky_store_failures_total{operation}` 说明失败的是什么：`apply` 是写入，`tryLock` 是回收器的锁。常见原因：
 
-- **Redis 宕机，或正在故障切换。** 实测 Cluster 或 Sentinel 的一次故障切换用了 [10 到 16 秒](./performance.md#redis-cluster-故障切换)。
+- **Redis 宕机，或正在故障切换。** 实测 Cluster 或 Sentinel 的一次故障切换用了 [9 到 16 秒](./performance.md#redis-cluster-故障切换)。
 - **主节点设置了 `min-replicas-to-write`，却没有副本。** Redis 会拒绝写入，直到有副本回来，这正是它的作用，见[备份与恢复](./backup.md#redis-必须做到的)。在主节点上执行 `INFO replication` 可以看到它有哪些副本。
 - **Redis 达到 `maxmemory`。** 在 `noeviction` 下，Redis 拒绝写入，而不是丢弃任何数据。给它更多内存，或者看[容量规划](./deployment.md#容量规划)中是什么占用了它。
 

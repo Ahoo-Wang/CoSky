@@ -177,7 +177,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 
 | 验证项 | 现状 | 环境 |
 |---|---|---|
-| Redis Cluster 故障切换 | 本机 Docker 集群(3 主 3 从,节点超时 5 秒)上停掉一个主节点:alpha.5 上该主节点所在槽位的 namespace 在 `docker kill` 后 53 秒不可用,主节点挂住时则一直不可用,而 Redis 约 5 秒就提升了副本。原因是 Cluster 客户端没开拓扑刷新,Lettuce 读拓扑又用起始 URI 的超时(默认 60 秒)等挂住的节点。#1177 打开拓扑刷新(变化迹象触发,另每 5 秒一次),Cluster 超时降到 5 秒:`docker kill` 和 `docker pause` 都降到约 16 秒,期间请求 5 秒后返回 `STORE_UNAVAILABLE`;`RedisStoreClusterFailoverTest` 在 CI 上覆盖 | 本机 Docker 模拟;维护者环境再验 |
+| Redis Cluster 故障切换 | 本机 Docker 集群(3 主 3 从,节点超时 5 秒)上停掉一个主节点:alpha.5 上该主节点所在槽位的 namespace 在 `docker kill` 后 53 秒不可用,主节点挂住时则一直不可用,而 Redis 约 5 秒就提升了副本。原因是 Cluster 客户端没开拓扑刷新,Lettuce 读拓扑又用起始 URI 的超时(默认 60 秒)等挂住的节点。#1177 打开拓扑刷新(变化迹象触发,另每 5 秒一次),Cluster 超时降到 5 秒:`docker kill` 和 `docker pause` 都降到约 16 秒,期间请求 5 秒后返回 `STORE_UNAVAILABLE`;`RedisStoreClusterFailoverTest` 在 CI 上覆盖。rc.3 重测(2026-11-26,换了一台 14 核笔记本):kill 9.7–14.6 秒、冻结 9.2–9.6 秒;#1319 之后访问已断开的节点立即失败,被标记下线的节点移出拓扑,所以冻结也和 kill 相近 | 本机 Docker 模拟;维护者环境再验 |
 | Redis Cluster 大规模 | 本机模拟(2026-11-14):三个 server 副本跟随 1,000 和 5,000 个 namespace,连单个 Redis 和三主三从 Cluster 对比。Cluster 把空闲轮询和写入的负载均摊到各主节点(5,000 个 namespace 时单个 Redis 空闲 CPU 30%,Cluster 每个主节点 11%);写入吞吐受笔记本限制,两者相近;单 namespace 的 §7.10 目标在 Cluster 上与单个 Redis 一致。顺带发现跟随者每次写入多读一次日志,#1178 去掉后每次写入的 Redis 命令少约 35%。数字见 wiki 性能页 | 本机 Docker 模拟;维护者环境再验 |
 | 真实网络 | 本机模拟(2026-11-14):在 Docker 虚拟机里的 Linux 容器中,用 Toxiproxy 中继加 netem 给 server 到 Redis、客户端到 server 两段链路加延迟、抖动和丢包,5,000 个连接 watch。Redis 和客户端各相距 6 ms 时单个写入者 p99 15 ms,传播 p99 127 ms;丢包 0.1% 时传播 p99 254 ms,各段丢包 1% 时单个写入者 p99 232 ms(TCP 重发超时),传播 p99 361 ms;客户端相距 58 ms、丢包 0.5% 时传播 p99 348 ms。100 个客户端经往返约 200 ms、丢包 5% 的链路 300 秒,看到的 Instance 始终 100 个。§7.10 的目标除丢包 1% 时的写入外都达到。macOS 经虚拟机端口转发会自己丢包,所以必须在 Linux 里跑。数字见 wiki 性能页 | 本机模拟;维护者环境再验 |
 
@@ -185,7 +185,7 @@ M0–M4 已完成,没有未决的设计问题。维护者决定先在本机模�
 
 | 验证项 | 现状 | 环境 |
 |---|---|---|
-| Redis Sentinel 故障切换 | 本机 Docker(一主一从、三个 Sentinel,5 秒判下线)上停掉主节点:beta.1 在主节点被冻结时一直不可用(240 秒内未恢复),每个请求 60 秒后失败,因为普通连接只在建立时向 Sentinel 问主节点。改为跟随 Sentinel 公布的切换(Lettuce MasterReplica),命令超时统一默认 5 秒:冻结约 16 秒、被杀约 15 秒恢复,主动交接立即;Lettuce 关闭旧连接时取消的命令不再冒充协程取消。`RedisStoreSentinelFailoverTest` 和 Sentinel 上的 Store 一致性套件在 CI 上覆盖 | 本机 Docker 模拟;维护者环境再验 |
+| Redis Sentinel 故障切换 | 本机 Docker(一主一从、三个 Sentinel,5 秒判下线)上停掉主节点:beta.1 在主节点被冻结时一直不可用(240 秒内未恢复),每个请求 60 秒后失败,因为普通连接只在建立时向 Sentinel 问主节点。改为跟随 Sentinel 公布的切换(Lettuce MasterReplica),命令超时统一默认 5 秒:冻结约 16 秒、被杀约 15 秒恢复,主动交接立即;Lettuce 关闭旧连接时取消的命令不再冒充协程取消。`RedisStoreSentinelFailoverTest` 和 Sentinel 上的 Store 一致性套件在 CI 上覆盖。rc.3 重测(2026-11-26):被杀 15.4–15.5 秒、冻结 16.0–16.1 秒、主动交接无失败,与 beta.7 相同 | 本机 Docker 模拟;维护者环境再验 |
 
 **发版**
 

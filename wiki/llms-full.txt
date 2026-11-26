@@ -639,7 +639,7 @@ For a Redis Cluster, apply `k8s/overlays/redis-cluster` instead. Your own overla
 
 Each replica requests half a CPU, with no CPU limit, and 2 GiB of memory, which is also its memory limit, as [Sizing](#sizing) explains: change both memory values together. Replicas spread across nodes where they can, and the comments in the manifests say why each setting is there.
 
-Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 2 to 3.5 seconds](./performance.md).
+Probes use `/actuator/health/liveness` and `/actuator/health/readiness`, on [Actuator's own port](#actuator-on-its-own-port). A replica reports ready once it has loaded the namespaces, which for 50,000 instances and 10,000 Configs [took 3.5 to 4.2 seconds](./performance.md).
 
 A replica stays ready while Redis is away, on purpose. Redis is shared, so a failover would otherwise take every replica out of the Service at once, while they can still serve what they know. The cost is that a replica cut off from Redis on its own goes on serving what it last knew. Replicas that disagree on `cosky_cache_revision{namespace}` for more than a minute show this, and restarting that one ends it. [Troubleshooting](./troubleshooting.md#a-replica-cut-off-from-redis) has the other signs.
 
@@ -1114,7 +1114,7 @@ An unknown `cosky.*` key stops nothing, so a misspelt property is silently ignor
 
 ## A replica is not ready
 
-The readiness probe, `/actuator/health/readiness`, answers `OUT_OF_SERVICE` with status 503 until the replica has loaded the system namespace, `_system`, and then every namespace it lists. That takes seconds: 50,000 instances and 10,000 Configs [took 2 to 3.5](./performance.md). Meanwhile a request for a namespace still loading is refused with `REPLICA_NOT_READY`, and clients go to another replica.
+The readiness probe, `/actuator/health/readiness`, answers `OUT_OF_SERVICE` with status 503 until the replica has loaded the system namespace, `_system`, and then every namespace it lists. That takes seconds: 50,000 instances and 10,000 Configs [took 3.5 to 4.2](./performance.md). Meanwhile a request for a namespace still loading is refused with `REPLICA_NOT_READY`, and clients go to another replica.
 
 To see what it waits for, set `management.endpoint.health.show-details=always`. The `coSkyReadiness` component of the readiness group then lists those namespaces under `loading`. `_system` alone means the replica has not read the access rules yet, so every call with a token is refused with `REPLICA_NOT_READY` too.
 
@@ -1140,7 +1140,7 @@ If one replica shows it, its own path to Redis is broken: restart it, or move it
 
 `cosky_store_failures_total{operation}` says what failed: `apply` for writes, `tryLock` for the reaper's lock. The usual causes:
 
-- **Redis is down, or failing over.** A failover of a Cluster or Sentinel took [10 to 16 seconds](./performance.md#a-redis-cluster-failover) when measured.
+- **Redis is down, or failing over.** A failover of a Cluster or Sentinel took [9 to 16 seconds](./performance.md#a-redis-cluster-failover) when measured.
 - **`min-replicas-to-write` on a primary without its replicas.** Redis refuses writes until one is back, as it should: see [Backup and Restore](./backup.md#what-redis-must-do). `INFO replication` on the primary shows the replicas it has.
 - **Redis at `maxmemory`.** With `noeviction`, Redis refuses writes rather than drop anything. Give it more memory, or see [Sizing](./deployment.md#sizing) for what takes it.
 
@@ -1820,24 +1820,28 @@ Redis stays because it is what CoSky is for: for those who already run it, there
 <doc title="Performance" path="guide/performance.md">
 # Performance
 
-Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one 10-core laptop, over loopback**, so there was no real network unless [one was emulated](#over-an-emulated-network), and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware. The failovers name the release they were measured on; the other figures come from 8.0.0-alpha.1 to 8.0.0-beta.1, and were not measured again for rc.1.
+Measured through real gRPC and serialization, with the server in a JVM of its own on JDK 25 with compact object headers, against a Redis 7.4 container. **Load generator and server shared one laptop, over loopback**, so there was no real network unless [one was emulated](#over-an-emulated-network), and the generator competed with the server for CPU. Treat these as an indication, and measure on your own hardware.
+
+The results, the event window, many namespaces, the failovers and the client's benchmarks were measured again on 8.0.0-rc.3, on a 14-core laptop (Apple M4 Pro) whose Docker runs in OrbStack's Linux VM. On the same laptop, 8.0.0-rc.1 met the targets with the same figures, within the noise. [Large Configs](#large-configs) and [the emulated network](#over-an-emulated-network) come from 8.0.0-alpha.1 to 8.0.0-beta.1, on a 10-core laptop, and were not measured again.
 
 ## Results
 
 | Target | Result | Verdict |
 |---|---|---|
-| 50,000 instances and 10,000 Configs in a namespace | Written in 7 seconds at 64 concurrent writers. A second replica loaded them and was ready in 2 to 3.5 seconds. | Met |
-| About 1 KB per instance | 86 MB for 60,000 objects, about 1.5 KB each, with the index by service and the event window | Slightly over |
-| Write p99 under 20 ms | 2 ms at about 12,000 writes per second with 16 writers; 8 ms at most. Over an emulated network with Redis and clients each 6 ms away, 15 ms with one writer. | Met, but not where 1% of packets are lost |
-| 20,000 connections and 100,000 watches on a replica | All succeeded, in 7 seconds, and the heap grew by about 370 MB. | Met |
-| Propagation p99 under 500 ms | With every write going to every connection: 89 ms to 5,000 connections, 135 ms to 10,000, and 154 to 189 ms to 20,000 in 4 runs, 400 ms at most. Over an emulated network, 348 ms to 5,000 clients 58 ms away that lose 0.5% of packets. | Met |
-| `choose()` and reading a Config allocate nothing | `choose()` 24 to 58 million operations per second, reading a Config about 1,500 million, at about 0 bytes each | Met |
+| 50,000 instances and 10,000 Configs in a namespace | Written in 10 to 12 seconds at 64 concurrent writers. A second replica loaded them and was ready in 3.5 to 4.2 seconds. | Met |
+| About 1 KB per instance | 89 MB for 60,000 objects, about 1.5 KB each, with the index by service and the event window | Slightly over |
+| Write p99 under 20 ms | 3 ms at about 21,000 writes per second with 16 writers; 5 ms at most. Over an emulated network with Redis and clients each 6 ms away, 15 ms with one writer. | Met, but not where 1% of packets are lost |
+| 20,000 connections and 100,000 watches on a replica | All succeeded, in 20 to 24 seconds, and the heap grew by about 380 MB. | Met |
+| Propagation p99 under 500 ms | With every write going to every connection: 75 and 93 ms to 5,000 connections, and 344 and 393 ms to 20,000, 685 ms at most. Over an emulated network, 348 ms to 5,000 clients 58 ms away that lose 0.5% of packets. | Met |
+| `choose()` and reading a Config allocate nothing | `choose()` 23 to 55 million operations per second, reading a Config about 1,400 million, at about 0 bytes each | Met |
 
 Propagation is measured in the worst case: every connection watches the same service, and the generator receives every copy on the same machine. In real traffic, an event goes only to those who depend on that service.
 
 Earlier runs at 20,000 connections sometimes had a tail of 1 to 10 seconds. It came from the generator: its gRPC client ran callbacks on a thread for each busy stream, and some 900 threads competed with the server for the 10 cores, while the server had no GC pause and Redis no slow command. With the callbacks on the transport's threads, the tail went away.
 
-The connection figures come from a Linux container on the same laptop, because on macOS a client runs out of ports at about 16,000 connections. That is what stopped earlier runs at about 15,000. The load generator and the server still share 10 cores.
+The figures for 20,000 connections come from a Linux container in the laptop's Docker VM, because on macOS a client runs out of ports at about 16,000 connections. That is what stopped earlier runs at about 15,000. There the server, Redis and the load generator, which receives every one of the 2 million deliveries, share the VM's cores.
+
+Loading the namespace, and propagation to 20,000 connections, took longer than on the earlier laptop: 7 seconds, and 154 to 189 ms. 8.0.0-rc.1, run the same way here, took as long: 11 seconds, and 406 ms. Until rc.3, the load generator logged each frame it received at DEBUG: a million lines a run, on the cores it shares with the server. It now logs warnings only, and 16 writers reached about 21,000 writes a second instead of 15,000.
 
 ## The event window
 
@@ -1847,8 +1851,8 @@ A replica was killed under load, and 100 clients reconnected to another one, all
 |---|---|---|---|---|
 | About 160 | 10,000 | 100 | About 16,000 | 0 |
 | About 1,600 | 10,000 | 5 / 20 | About 8,000 / 32,000 | 0 |
-| About 1,600 | 10,000 | 100 | About 160,000 | 97 to 100 |
-| About 1,500 | 50,000 | 100 | About 150,000 | 0 |
+| About 1,600 | 10,000 | 100 | About 160,000 | 72: 40 fell behind (`slow`), 32 came back too late (`compacted`) |
+| About 1,600 | 50,000 | 100 | About 160,000 | 0 |
 
 So `gone` appears only when delivery cannot keep up, around 160,000 per second. The default stays at 10,000, and `cosky_watch_gone_total` after a rolling update shows whether yours should be larger.
 
@@ -1868,24 +1872,24 @@ It restarted on that log in 4 seconds, and took 50 more writes. Trimming the log
 
 On a cluster of three masters and three replicas in Docker, with a node timeout of 5 seconds, one server wrote a Config every 100 ms to a namespace while its master was stopped:
 
-| The master | The namespace unavailable, 8.0.0-beta.7 |
-|---|---|
-| Killed (`docker kill`) | 10.5 to 15.8 seconds, in three runs |
-| Frozen (`docker pause`) | 15.6 seconds |
+| The master | The namespace unavailable, 8.0.0-beta.7 | 8.0.0-rc.3 |
+|---|---|---|
+| Killed (`docker kill`) | 10.5 to 15.8 seconds, in three runs | 9.7 to 14.6 seconds, in four runs |
+| Frozen (`docker pause`) | 15.6 seconds | 9.2 and 9.6 seconds |
 
-That is the node timeout, the replica's election, and then up to 10 seconds: the server reads the topology every 5 seconds, and each read waits up to 5 seconds for the stopped node. How much of those 10 seconds a run takes depends on when the reads fall: of three kills, two were over after 10.5 and 10.6 seconds, one after 15.8. Meanwhile each request on that namespace failed with `STORE_UNAVAILABLE` after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
+That is the node timeout, the replica's election, and then the server's next read of the topology, every 5 seconds: of four kills on rc.3, three were over after 9.7 to 10.5 seconds, one after 14.6. Since rc.2, a request to a node that is down fails with `STORE_UNAVAILABLE` at once, and a node that the cluster marks failed is dropped from the topology, so that a read no longer waits for it. A frozen master now costs about as much as a killed one, though each request waits out the 5-second command timeout until the cluster marks it failed. On beta.7, each read of the topology waited up to 5 seconds for the stopped node, and each request failed after 5 seconds. 8.0.0-alpha.5 left it unavailable for 53 seconds after a kill, and after a freeze until the master answered again, as it never read the topology again.
 
 ## A Redis Sentinel failover
 
 On a master with one replica and three Sentinels in Docker, which take a master that does not answer for 5 seconds as down, one server wrote a Config every 100 ms while the master was stopped:
 
-| The master | 8.0.0-beta.1 | 8.0.0-beta.2 | 8.0.0-beta.7 |
-|---|---|---|---|
-| Killed (`docker kill`) | 10.2 seconds | 15.5 seconds | 15.5 seconds |
-| Frozen (`docker pause`) | Until it answered again: not within 240 seconds | 16.2 seconds | 16.2 seconds |
-| Handed over (`SENTINEL FAILOVER`) | At once | At once | At once: no write failed while the Sentinels handed over, 1.1 seconds after |
+| The master | 8.0.0-beta.1 | 8.0.0-beta.2 | 8.0.0-beta.7 | 8.0.0-rc.3 |
+|---|---|---|---|---|
+| Killed (`docker kill`) | 10.2 seconds | 15.5 seconds | 15.5 seconds | 15.4 and 15.5 seconds |
+| Frozen (`docker pause`) | Until it answered again: not within 240 seconds | 16.2 seconds | 16.2 seconds | 16.0 and 16.1 seconds |
+| Handed over (`SENTINEL FAILOVER`) | At once | At once | At once: no write failed while the Sentinels handed over, 1.1 seconds after | At once: no write failed, handed over 1.2 seconds after |
 
-A plain connection asks the Sentinels for the master only when it connects. A master that hangs keeps its connections open, so beta.1 went on sending to it, and each request failed after a minute. The server now follows what the Sentinels announce, and a request fails with `STORE_UNAVAILABLE` after 5 seconds instead. After a kill, beta.1's first request waited 10.2 seconds and then succeeded, longer than a client waits for a call, 10 seconds; now requests fail after 5 seconds each until the server has followed. A Sentinel that hands the master over closes its clients' connections itself, so both follow at once.
+A plain connection asks the Sentinels for the master only when it connects. A master that hangs keeps its connections open, so beta.1 went on sending to it, and each request failed after a minute. The server now follows what the Sentinels announce, and a request fails with `STORE_UNAVAILABLE` after 5 seconds instead. After a kill, beta.1's first request waited 10.2 seconds and then succeeded, longer than a client waits for a call, 10 seconds; beta.2 to beta.7 failed each request after 5 seconds until the server had followed, and since rc.2 each fails at once, as the connection is gone. A Sentinel that hands the master over closes its clients' connections itself, so both follow at once.
 
 ## Many namespaces, and a Redis Cluster
 
@@ -1893,17 +1897,17 @@ Three replicas followed many namespaces of 50 Instances each, on Redis 7.4 alone
 
 | | 1,000 namespaces, one Redis | 1,000 namespaces, Cluster | 5,000 namespaces, one Redis | 5,000 namespaces, Cluster |
 |---|---|---|---|---|
-| The second and third replicas ready | 3.3 and 4.0 s | 3.4 and 4.1 s | 4.7 and 6.7 s | 5.2 and 7.5 s |
-| Redis at rest | 21,000 commands/s, 11% CPU | 6,700 commands/s and 4% CPU on each master | 129,000 commands/s, 30% CPU | 42,000 commands/s and 11% CPU on each master |
-| Writes | 8,354/s, p99 5 ms | 7,809/s, p99 7 ms | 6,739/s, p99 9 ms | 6,240/s, p99 9 ms |
-| Redis while writing | 77% CPU | 39 to 43% CPU on each master | 84% CPU | 48 to 55% CPU on each master |
-| A write reaching the watcher on another replica, p99 | 14 ms | 23 ms | 8 ms | 16 ms |
+| The second and third replicas ready | 4.4 and 5.1 s | 4.1 and 4.7 s | 5.5 and 7.4 s | 5.5 and 7.1 s |
+| Redis at rest | 21,000 commands/s, 16% CPU | 6,700 to 7,100 commands/s and 6 to 7% CPU on each master | 116,000 commands/s, 35% CPU | 41,000 to 42,000 commands/s and 15 to 16% CPU on each master |
+| Writes | 6,202/s, p99 9 ms | 7,910/s, p99 8 ms | 6,196/s, p99 8 ms | 6,755/s, p99 7 ms |
+| Redis while writing | 70% CPU | 30 to 37% CPU on each master | 76% CPU | 35 to 36% CPU on each master |
+| A write reaching the watcher on another replica, p99 | 10 ms | 22 ms | 25 ms | 12 ms |
 
-At rest, each replica reads each namespace once a second, should a hint have been lost: about seven Redis commands a read. That load grows with the namespaces times the replicas, and not with clients. On one Redis it reached 30% of its CPU at 5,000 namespaces and three replicas; a Cluster spreads it over its masters, and a longer `cosky.store.redis.tail-poll-interval` lowers it, at the cost of a slower recovery from a lost hint.
+At rest, each replica reads each namespace once a second, should a hint have been lost: about seven Redis commands a read. That load grows with the namespaces times the replicas, and not with clients. On one Redis it reached 35% of its CPU at 5,000 namespaces and three replicas; a Cluster spreads it over its masters, and a longer `cosky.store.redis.tail-poll-interval` lowers it, at the cost of a slower recovery from a lost hint.
 
-A write cost about 35 Redis commands with three replicas: the write itself, and one read of the namespace by each replica. In a Cluster, the hint that a write publishes reaches every node, which showed as 4,000 to 5,000 messages a second received by each master, at no visible cost. Here the laptop, not Redis, limited the writes: one Redis was close to saturated, while the masters of the Cluster had half their CPU left.
+A write cost about 35 Redis commands with three replicas: the write itself, and one read of the namespace by each replica. In a Cluster, the hint that a write publishes reaches every node, which showed as 4,000 to 5,000 messages a second received by each master, at no visible cost. Here the laptop, not Redis, limited the writes: one Redis was close to saturated, while the masters of the Cluster had most of their CPU left.
 
-The targets above, measured again on a Cluster, matched one Redis: one namespace of 50,000 Instances and 10,000 Configs, 17,500 writes per second with 16 writers at p99 2 ms, 5,000 connections watching, propagation p99 103 ms, and a second replica ready in 2.9 seconds.
+The targets above, measured again on a Cluster, matched one Redis: one namespace of 50,000 Instances and 10,000 Configs, 18,600 writes per second with 16 writers at p99 3 ms, 5,000 connections watching, propagation p99 76 ms, and a second replica ready in 4.2 seconds.
 
 ## Over an emulated network
 
