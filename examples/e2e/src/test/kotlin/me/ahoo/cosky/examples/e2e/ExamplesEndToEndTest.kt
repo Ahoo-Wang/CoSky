@@ -14,120 +14,71 @@
 package me.ahoo.cosky.examples.e2e
 
 import com.google.gson.JsonParser
+import me.ahoo.cosky.examples.e2e.Processes.Companion.CONSUMER
+import me.ahoo.cosky.examples.e2e.Processes.Companion.HTTP_OK
+import me.ahoo.cosky.examples.e2e.Processes.Companion.PROVIDER
+import me.ahoo.cosky.examples.e2e.Processes.Companion.SERVER
+import me.ahoo.cosky.examples.e2e.Processes.Companion.TERMINATION_SECONDS
+import me.ahoo.cosky.examples.e2e.Processes.Companion.freePort
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import java.io.File
-import java.net.ServerSocket
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpRequest.BodyPublishers
 import java.net.http.HttpResponse
-import java.net.http.HttpResponse.BodyHandlers
-import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 /**
  * What `examples/README.md` says, with each part as a process of its own.
  */
 class ExamplesEndToEndTest {
-    private val http = HttpClient.newHttpClient()
-    private val processes = mutableListOf<Process>()
+    private val processes = Processes()
     private val serverPort = freePort()
     private val grpcPort = freePort()
     private val consumerPort = freePort()
 
-    private fun freePort(): Int = ServerSocket(0).use { it.localPort }
-
-    private fun start(name: String, mainClass: String, vararg arguments: String): Process {
-        val logs = File(System.getProperty("cosky.logs")).apply { mkdirs() }
-        val java = File(System.getProperty("java.home"), "bin/java").path
-        // They call each other on this machine. Spring Boot 4.2 has WebClient follow the proxy system properties, which
-        // the JDK on macOS sets from the system's proxy, whose exceptions it may name in a form Reactor Netty does not
-        // read: that proxy would carry the calls elsewhere.
-        return ProcessBuilder(
-            listOf(java, "-Dhttp.nonProxyHosts=*", "-cp", System.getProperty("cosky.classpath.$name"), mainClass) +
-                arguments,
-        )
-            .redirectErrorStream(true)
-            .redirectOutput(File(logs, "$name.log"))
-            .start()
-            .also { processes += it }
-    }
-
-    private fun startExample(name: String, mainClass: String, vararg arguments: String): Process = start(
+    private fun startExample(name: String, mainClass: String, vararg arguments: String): Process = processes.start(
+        name,
         name,
         mainClass,
-        "--cosky.endpoints=localhost:$grpcPort",
-        "--cosky.snapshot.enabled=false",
-        *arguments,
+        listOf("--cosky.endpoints=localhost:$grpcPort", "--cosky.snapshot.enabled=false", *arguments),
     )
 
     @AfterEach
     fun stop() {
-        processes.forEach { it.destroy() }
-        processes.forEach {
-            if (!it.waitFor(TERMINATION_SECONDS, TimeUnit.SECONDS)) {
-                it.destroyForcibly()
-            }
-        }
+        processes.close()
     }
 
-    private fun get(url: String): HttpResponse<String> = http.send(
-        HttpRequest.newBuilder(URI(url)).timeout(Duration.ofSeconds(REQUEST_SECONDS)).build(),
-        BodyHandlers.ofString(),
-    )
+    private fun get(url: String): HttpResponse<String> = processes.get(url)
 
     private fun putConfig(content: String) {
         val body = """{"config":{"format":"CONFIG_FORMAT_YAML","content":"$content"}}"""
-        val response = http.send(
-            HttpRequest.newBuilder(URI("http://localhost:$serverPort/v1/namespaces/default/configs/provider.yaml"))
-                .header("Content-Type", "application/json")
-                .PUT(BodyPublishers.ofString(body))
-                .build(),
-            BodyHandlers.ofString(),
-        )
+        val response = processes.put("http://localhost:$serverPort/v1/namespaces/default/configs/provider.yaml", body)
         response.statusCode().assert().isEqualTo(HTTP_OK)
     }
 
-    private fun eventually(what: String, condition: () -> Boolean) {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS)
-        while (!runCatching(condition).getOrDefault(false)) {
-            check(System.nanoTime() < deadline) {
-                "Timed out waiting for $what. The logs are in ${System.getProperty("cosky.logs")}."
-            }
-            Thread.sleep(POLL_MILLIS)
-        }
-    }
+    private fun eventually(what: String, condition: () -> Boolean) = processes.eventually(what, condition)
 
     private fun call(): HttpResponse<String> = get("http://localhost:$consumerPort/call/World")
 
     @Test
     fun `the readme is true`() {
-        start(
+        processes.start(
             "server",
-            "me.ahoo.cosky.server.CoSkyServerApplicationKt",
-            "--dev",
-            "--server.port=$serverPort",
-            "--spring.grpc.server.port=$grpcPort",
-            "--cosky.view.topology-flush-interval=1s",
+            "server",
+            SERVER,
+            listOf(
+                "--dev",
+                "--server.port=$serverPort",
+                "--spring.grpc.server.port=$grpcPort",
+                "--cosky.view.topology-flush-interval=1s",
+            ),
         )
         eventually("the server to be ready") {
             get("http://localhost:$serverPort/actuator/health/readiness").statusCode() == HTTP_OK
         }
         putConfig("example:\\n  greeting: Bonjour")
 
-        val provider = startExample(
-            "provider",
-            "me.ahoo.cosky.examples.provider.ProviderApplicationKt",
-            "--server.port=0",
-        )
-        startExample(
-            "consumer",
-            "me.ahoo.cosky.examples.consumer.ConsumerApplicationKt",
-            "--server.port=$consumerPort",
-        )
+        val provider = startExample("provider", PROVIDER, "--server.port=0")
+        startExample("consumer", CONSUMER, "--server.port=$consumerPort")
         eventually("the consumer to reach the provider") { call().body() == "Bonjour, World" }
 
         putConfig("example:\\n  greeting: Hi")
@@ -149,13 +100,5 @@ class ExamplesEndToEndTest {
             JsonParser.parseString(body).asJsonObject.getAsJsonArray("items").let { it == null || it.isEmpty }
         }
         eventually("the consumer to find no provider") { call().statusCode() != HTTP_OK }
-    }
-
-    private companion object {
-        const val HTTP_OK = 200
-        const val TERMINATION_SECONDS = 15L
-        const val REQUEST_SECONDS = 5L
-        const val WAIT_SECONDS = 60L
-        const val POLL_MILLIS = 200L
     }
 }
