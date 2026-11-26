@@ -142,6 +142,8 @@ internal class SixServer(network: Network) : AutoCloseable {
         // Its JWT key, at least 256 bits as HMAC-SHA256 takes.
         private const val SECURITY_KEY = "c2l4LWtleS1mb3ItdGhlLW1pZ3JhdGlvbi10ZXN0LTEyMzQ1Ng=="
         private val SUPER_USER = Regex("""init super user:\[cosky] password:\[([^]]+)]""")
-        private val REQUEST_TIMEOUT = Duration.ofSeconds(10)
+
+        /** Generous: 6.x answers slowly while a busy CI runner warms it up. */
+        private val REQUEST_TIMEOUT = Duration.ofSeconds(60)
     }
 }
