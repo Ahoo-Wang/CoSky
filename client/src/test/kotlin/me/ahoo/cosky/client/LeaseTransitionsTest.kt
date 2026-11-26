@@ -19,6 +19,7 @@ import io.grpc.ClientCall
 import io.grpc.ClientInterceptor
 import io.grpc.ForwardingClientCall
 import io.grpc.ForwardingClientCallListener
+import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener
 import io.grpc.Metadata
 import io.grpc.MethodDescriptor
 import io.grpc.Status
@@ -310,16 +311,16 @@ class LeaseTransitionsTest {
         }.build()
         server.store.apply(NAMESPACE, listOf(Mutation.Put(payment)), "operator")
         val putsFail = AtomicBoolean(true)
-        val puts = AtomicInteger()
-        val instances = instances(failingPutOf("taken", putsFail), counting("Put", puts))
+        val refused = CompletableDeferred<Unit>()
+        val instances = instances(failingPutOf("taken", putsFail), refusalSignal(refused))
         // Taken while no server answers: it goes out once one does.
         val registration = instances.register("order", ENDPOINT, instanceName = "taken")
 
         putsFail.set(false)
-        // A Put started before that fails as the first did: wait for one that reaches the server.
-        val failed = puts.get()
-        // An Instance stays in its service, so the server refuses it, and the client gives the name up.
-        eventually { puts.get() > failed }
+        // An Instance stays in its service, so the server refuses it, and the client gives the name up. Waiting for
+        // the refusal itself, rather than counting Puts, cannot miss one that lands as the failing stops. Closing
+        // waits for the client to have taken it in, under the same lock.
+        refused.await()
         registration.close()
 
         instancesOnServer().single().instance.service.assert().isEqualTo("payment")
@@ -455,6 +456,33 @@ class LeaseTransitionsTest {
                 calls.incrementAndGet()
             }
             return next.newCall(descriptor, options)
+        }
+    }
+
+    /** [refused] completes once the server refuses a Put as an invalid argument. */
+    private fun refusalSignal(refused: CompletableDeferred<Unit>): ClientInterceptor = object : ClientInterceptor {
+        override fun <Req, Resp> interceptCall(
+            descriptor: MethodDescriptor<Req, Resp>,
+            options: CallOptions,
+            next: Channel,
+        ): ClientCall<Req, Resp> {
+            val call = next.newCall(descriptor, options)
+            if (descriptor.bareMethodName != "Put") {
+                return call
+            }
+            return object : ForwardingClientCall.SimpleForwardingClientCall<Req, Resp>(call) {
+                override fun start(responseListener: Listener<Resp>, headers: Metadata) {
+                    val signalling = object : SimpleForwardingClientCallListener<Resp>(responseListener) {
+                        override fun onClose(status: Status, trailers: Metadata) {
+                            if (status.code == Status.Code.INVALID_ARGUMENT) {
+                                refused.complete(Unit)
+                            }
+                            super.onClose(status, trailers)
+                        }
+                    }
+                    super.start(signalling, headers)
+                }
+            }
         }
     }
 
