@@ -15,6 +15,7 @@ package me.ahoo.cosky.store.redis
 
 import io.lettuce.core.AbstractRedisClient
 import io.lettuce.core.ClientOptions
+import io.lettuce.core.ClientOptions.DisconnectedBehavior
 import io.lettuce.core.Limit
 import io.lettuce.core.MapScanCursor
 import io.lettuce.core.Range
@@ -31,12 +32,16 @@ import io.lettuce.core.StreamMessage
 import io.lettuce.core.cluster.ClusterClientOptions
 import io.lettuce.core.cluster.ClusterTopologyRefreshOptions
 import io.lettuce.core.cluster.RedisClusterClient
+import io.lettuce.core.cluster.SlotHash
+import io.lettuce.core.cluster.api.StatefulRedisClusterConnection
 import io.lettuce.core.cluster.api.async.RedisAdvancedClusterAsyncCommands
 import io.lettuce.core.cluster.api.async.RedisClusterAsyncCommands
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode
 import io.lettuce.core.codec.ByteArrayCodec
 import io.lettuce.core.codec.RedisCodec
 import io.lettuce.core.codec.StringCodec
 import io.lettuce.core.masterreplica.MasterReplica
+import io.lettuce.core.protocol.ConnectionIntent
 import io.lettuce.core.pubsub.RedisPubSubAdapter
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
 import io.lettuce.core.resource.ClientResources
@@ -77,7 +82,6 @@ import me.ahoo.cosky.store.requireWellFormed
 import org.slf4j.LoggerFactory
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -97,13 +101,52 @@ class RedisStore(
     private val commandConnection: AutoCloseable? = null,
 ) : Store {
     private val hints = ConcurrentHashMap<String, MutableStateFlow<Long>>()
-    private val subscribed = AtomicBoolean()
+
+    init {
+        // Now, while the connection is known to be up. Lettuce subscribes again as it reconnects, but only to what
+        // Redis confirmed, and on Standalone and Sentinel a subscription first asked for while it is down is refused
+        // (see clientOptions): every hint would be lost for good.
+        hintConnection.addListener(HintListener(hints))
+        try {
+            hintConnection.sync().subscribe(RedisKeys.HINT_CHANNEL)
+        } catch (e: RedisException) {
+            close()
+            throw e
+        }
+    }
+
+    /** The cluster's connection, whose node connections [requireReachable] looks at; none on Standalone or Sentinel. */
+    private val cluster: StatefulRedisClusterConnection<String, ByteArray>? =
+        (commands as? RedisAdvancedClusterAsyncCommands<String, ByteArray>)?.statefulConnection
+
+    /**
+     * Fails at once while the connection to the node of a cluster that holds [key] is down, where a command would wait
+     * for it to come back up to [COMMAND_TIMEOUT]: the reaper takes a wait that long for the store hanging as a whole,
+     * and pauses every namespace, where a failure that comes at once pauses only those on that node (design §6.2). A
+     * connection still being made is waited for, as before (see [clusterClientOptions]).
+     */
+    private fun requireReachable(key: String) {
+        val cluster = cluster ?: return
+        val node = cluster.partitions.getMasterBySlot(SlotHash.getSlot(key)) ?: return
+        val connection = try {
+            cluster.getConnectionAsync(node.uri.host, node.uri.port, ConnectionIntent.WRITE)
+        } catch (_: RedisException) {
+            // Gone from the topology in the meantime: the command finds out for itself.
+            return
+        }
+        if (connection.isDone && !connection.isCompletedExceptionally && !connection.join().isOpen) {
+            throw StoreUnavailableException("Redis: the connection to ${node.uri.host}:${node.uri.port} is down")
+        }
+    }
+
+    private fun requireReachableNamespace(namespace: String) = requireReachable(RedisKeys(namespace).state)
 
     override suspend fun apply(namespace: String, mutations: List<Mutation>, actor: String): ApplyResult {
         requireWellFormed(namespace, mutations)
         if (mutations.exceeds(options.limits)) {
             return ApplyResult.BatchTooLarge
         }
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val scriptKeys = mutableListOf(
             keys.state,
@@ -167,6 +210,7 @@ class RedisStore(
     }
 
     override suspend fun position(namespace: String): Position? {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val values = commands.mget(keys.state, keys.epoch, keys.revision).reply()
         val byKey = values.filter { it.hasValue() }.associate { it.key to it.value.decodeToString() }
@@ -177,6 +221,7 @@ class RedisStore(
     }
 
     override fun readAll(namespace: String): Flow<Resource> = flow {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         RedisKeys.KINDS.forEach { kind ->
             var cursor = SCAN_START
@@ -199,6 +244,7 @@ class RedisStore(
     }
 
     override fun versions(namespace: String): Flow<ObjectVersion> = flow {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         RedisKeys.KINDS.forEach { kind ->
             var cursor: ScanCursor = ScanCursor.INITIAL
@@ -227,6 +273,7 @@ class RedisStore(
             // A failover shows up as reads that fail. They must not end this: the position kept here is what finds the
             // writes it lost (design §6.4).
             val reply = try {
+                requireReachableNamespace(namespace)
                 TAIL.run<List<Any?>>(
                     commands,
                     ScriptOutputType.MULTI,
@@ -275,6 +322,7 @@ class RedisStore(
         limit: Int,
         maxBytes: Long,
     ): List<ChangeBatch> {
+        requireReachableNamespace(namespace)
         val log = RedisKeys(namespace).log
         val newestFirst = mutableListOf<StreamMessage<String, ByteArray>>()
         var upper = Range.Boundary.including(until.toString())
@@ -302,6 +350,7 @@ class RedisStore(
     }
 
     override suspend fun recordTopology(namespace: String, edges: Collection<TopologyEdge>, retention: Duration) {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         TOPOLOGY_RECORD.run<Long>(
             commands,
@@ -314,6 +363,7 @@ class RedisStore(
     private fun edgeMember(edge: TopologyEdge): String = "${edge.consumer}$EDGE_SEPARATOR${edge.producer}"
 
     override suspend fun topology(namespace: String): Set<TopologyEdge> {
+        requireReachableNamespace(namespace)
         val members = TOPOLOGY_READ.run<List<Any?>>(
             commands,
             ScriptOutputType.MULTI,
@@ -327,6 +377,7 @@ class RedisStore(
     }
 
     override suspend fun rotateEpoch(namespace: String, expected: String): Position {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val reply = EPOCH_ROTATE.run<List<Any?>>(
             commands,
@@ -338,6 +389,7 @@ class RedisStore(
     }
 
     override suspend fun history(key: ResourceKey, limit: Int): List<Resource> {
+        requireReachableNamespace(key.namespace)
         val stop = if (limit == 0) TO_THE_END else limit.toLong() - 1
         return commands.zrevrange(RedisKeys(key.namespace).history(key.name), 0, stop).reply().map { member ->
             val separator = member.indexOf(0)
@@ -347,6 +399,7 @@ class RedisStore(
     }
 
     override suspend fun grantLease(namespace: String, ttl: Duration, owner: String): GrantResult {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val reply = LEASE_GRANT.run<List<Any?>>(
             commands,
@@ -361,6 +414,7 @@ class RedisStore(
     }
 
     override suspend fun leaseOwners(namespace: String, leases: Collection<Long>): Map<Long, String?> {
+        requireReachableNamespace(namespace)
         val ids = leases.map { it.toString() }
         val owners = commands.hmget(RedisKeys(namespace).leaseOwner, *ids.toTypedArray()).reply()
             .associate { it.key to it.getValueOrElse(null)?.decodeToString() }
@@ -371,6 +425,7 @@ class RedisStore(
         if (leases.isEmpty()) {
             return emptyMap()
         }
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val ids = leases.toList()
         val reply = LEASE_KEEPALIVE.run<List<Any?>>(
@@ -410,6 +465,7 @@ class RedisStore(
     }
 
     override suspend fun expireLease(namespace: String, lease: Long, actor: String, force: Boolean): Boolean {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val reply = LEASE_EXPIRE.run<List<Any?>>(
             commands,
@@ -446,6 +502,7 @@ class RedisStore(
     }
 
     private suspend fun leaseQuery(namespace: String, limit: Int): List<Any?> {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         return LEASE_QUERY.run(commands, ScriptOutputType.MULTI, listOf(keys.lease, keys.leaseTtl), listOf(limit.arg()))
     }
@@ -465,14 +522,17 @@ class RedisStore(
         return Position(reply[0].asText(), reply[1].asText().toLong())
     }
 
-    override suspend fun namespaceState(namespace: String): NamespaceState? =
-        when (commands.get(RedisKeys(namespace).state).reply()?.decodeToString()) {
+    override suspend fun namespaceState(namespace: String): NamespaceState? {
+        requireReachableNamespace(namespace)
+        return when (commands.get(RedisKeys(namespace).state).reply()?.decodeToString()) {
             STATE_ACTIVE -> NamespaceState.ACTIVE
             null -> null
             else -> NamespaceState.TERMINATING
         }
+    }
 
     override suspend fun terminateNamespace(namespace: String, epoch: String): TerminateResult {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val reply = NAMESPACE_TERMINATE.run<ByteArray>(
             commands,
@@ -484,6 +544,7 @@ class RedisStore(
     }
 
     override suspend fun dropNamespace(namespace: String, epoch: String) {
+        requireReachableNamespace(namespace)
         val keys = RedisKeys(namespace)
         val (state, current) = commands.mget(
             keys.state,
@@ -515,6 +576,7 @@ class RedisStore(
     }
 
     override suspend fun tryLock(name: String, owner: String, ttl: Duration): Boolean {
+        requireReachable(RedisKeys.lock(name))
         val acquired = LOCK_ACQUIRE.run<Long>(
             commands,
             ScriptOutputType.INTEGER,
@@ -525,6 +587,7 @@ class RedisStore(
     }
 
     override suspend fun unlock(name: String, owner: String) {
+        requireReachable(RedisKeys.lock(name))
         LOCK_RELEASE.run<Long>(commands, ScriptOutputType.INTEGER, listOf(RedisKeys.lock(name)), listOf(owner.arg()))
     }
 
@@ -533,13 +596,8 @@ class RedisStore(
         commandConnection?.close()
     }
 
-    private fun hintsOf(namespace: String): MutableStateFlow<Long> {
-        if (subscribed.compareAndSet(false, true)) {
-            hintConnection.addListener(HintListener(hints))
-            hintConnection.async().subscribe(RedisKeys.HINT_CHANNEL)
-        }
-        return hints.computeIfAbsent(namespace) { MutableStateFlow(0) }
-    }
+    private fun hintsOf(namespace: String): MutableStateFlow<Long> =
+        hints.computeIfAbsent(namespace) { MutableStateFlow(0) }
 
     /**
      * A full read may cut a revision in two; the rest of it comes with the next read, so batches stay whole.
@@ -629,6 +687,7 @@ class RedisStore(
         private const val RECONNECTS_BEFORE_REFRESH = 2
         private val ADAPTIVE_REFRESH_INTERVAL = 2.seconds
         private val PERIODIC_REFRESH = 5.seconds
+        private val UNREACHABLE = setOf(RedisClusterNode.NodeFlag.FAIL, RedisClusterNode.NodeFlag.NOADDR)
 
         /**
          * How long a command, or a read of a cluster's topology, waits for Redis, rather than Lettuce's minute: the
@@ -763,11 +822,33 @@ class RedisStore(
             }
             .build()
 
-        internal fun clientOptions(): ClientOptions = ClientOptions.builder().socketOptions(socketOptions()).build()
+        /**
+         * On Standalone and Sentinel, while the connection is down, a command on it fails at once. By default Lettuce
+         * keeps it until the connection is back: a command waits out [COMMAND_TIMEOUT] while Redis is out of reach, as
+         * does one on its way when the connection dropped, which would then be sent again, though it may have run. A
+         * write gets UNAVAILABLE at once instead, to try again, and the reaper finds the store failing rather than
+         * hanging (design §6.2). A failover is followed as before: the connection still reconnects, and the Sentinels
+         * still name the master. The hint subscription is made with the store, and renewed by Lettuce as it reconnects.
+         */
+        internal fun clientOptions(): ClientOptions = ClientOptions.builder()
+            .socketOptions(socketOptions())
+            .disconnectedBehavior(DisconnectedBehavior.REJECT_COMMANDS)
+            .build()
 
+        /**
+         * A node the cluster takes as failed, or one without an address, is left out of its topology: its slots then
+         * have no node until a replica takes them over or it is back, and a command for them fails at once, where it
+         * would wait out [COMMAND_TIMEOUT] on a node that hangs, its connection still open. Nor does reading the
+         * topology wait for it then. One node suspecting another (`fail?`) is not enough.
+         *
+         * Commands are not refused while a connection is down, as [clientOptions] has them: Lettuce would then refuse a
+         * command on a connection still being made too, as the first to a node, or one redirected to the replica that a
+         * planned failover promotes. The store fails a command on a connection that is down by itself instead.
+         */
         internal fun clusterClientOptions(): ClusterClientOptions = ClusterClientOptions.builder()
             .socketOptions(socketOptions())
             .topologyRefreshOptions(topologyRefreshOptions())
+            .nodeFilter { node -> node.flags.none { it in UNREACHABLE } }
             .build()
 
         /**

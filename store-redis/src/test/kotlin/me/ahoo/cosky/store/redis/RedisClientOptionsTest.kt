@@ -13,6 +13,9 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.ClientOptions.DisconnectedBehavior
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode
+import io.lettuce.core.cluster.models.partitions.RedisClusterNode.NodeFlag
 import io.lettuce.core.resource.EpollProvider
 import me.ahoo.test.asserts.assert
 import org.junit.jupiter.api.Test
@@ -33,6 +36,27 @@ class RedisClientOptionsTest {
         val refresh = RedisStore.clusterClientOptions().topologyRefreshOptions
         refresh.adaptiveRefreshTriggers.assert().isNotEmpty()
         refresh.isPeriodicRefreshEnabled.assert().isTrue()
+    }
+
+    @Test
+    fun `a command on a connection that is down fails at once, which on a cluster the store sees to`() {
+        RedisStore.clientOptions().disconnectedBehavior.assert().isEqualTo(DisconnectedBehavior.REJECT_COMMANDS)
+        // The driver would refuse a command on a connection still being made too.
+        RedisStore.clusterClientOptions().disconnectedBehavior.assert().isEqualTo(DisconnectedBehavior.DEFAULT)
+    }
+
+    @Test
+    fun `a cluster node taken as failed, or without an address, is left out of the topology`() {
+        val filter = RedisStore.clusterClientOptions().nodeFilter
+        fun node(vararg flags: NodeFlag) = RedisClusterNode().apply { setFlags(flags.toSet()) }
+
+        filter.test(node(NodeFlag.UPSTREAM)).assert().isTrue()
+        filter.test(node(NodeFlag.REPLICA)).assert().isTrue()
+        // One node's suspicion, which the others may not share.
+        filter.test(node(NodeFlag.UPSTREAM, NodeFlag.EVENTUAL_FAIL)).assert().isTrue()
+        filter.test(node(NodeFlag.UPSTREAM, NodeFlag.FAIL)).assert().isFalse()
+        filter.test(node(NodeFlag.REPLICA, NodeFlag.FAIL)).assert().isFalse()
+        filter.test(node(NodeFlag.UPSTREAM, NodeFlag.NOADDR)).assert().isFalse()
     }
 
     @Test

@@ -13,10 +13,12 @@
 
 package me.ahoo.cosky.store.redis
 
+import io.lettuce.core.RedisClient
 import io.lettuce.core.RedisURI
 import io.lettuce.core.cluster.RedisClusterClient
 import io.lettuce.core.cluster.SlotHash
 import io.lettuce.core.internal.HostAndPort
+import io.lettuce.core.pubsub.RedisPubSubAdapter
 import io.lettuce.core.resource.ClientResources
 import io.lettuce.core.resource.DnsResolvers
 import io.lettuce.core.resource.MappingSocketAddressResolver
@@ -24,6 +26,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.future.await
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import me.ahoo.cosky.api.v1.configSpec
@@ -37,10 +40,12 @@ import me.ahoo.cosky.store.NamespaceState
 import me.ahoo.cosky.store.TerminateResult
 import me.ahoo.cosky.store.key
 import me.ahoo.test.asserts.assert
+import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Test
 import org.testcontainers.containers.GenericContainer
 import org.testcontainers.containers.wait.strategy.Wait
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -90,8 +95,45 @@ class RedisStoreClusterTest {
         }
     }
 
+    /**
+     * Until a message published on any node reaches a subscriber on every node. A cluster just created can lose one,
+     * which then never arrives: Valkey 8 closes a cluster bus link, and drops the message, when the first message on it
+     * is a PUBLISH, sent as a lightweight message before the receiving node has learnt whom the link comes from. A
+     * store loses only a hint that way, and polls; this test, which polls once an hour, would wait for it.
+     */
+    private suspend fun awaitPubSubAcrossNodes() {
+        val clients = PORTS.map { RedisClient.create(RESOURCES, RedisURI.create("127.0.0.1", it)) }
+        try {
+            // Which node's subscriber received a message published on which node.
+            val received = ConcurrentHashMap.newKeySet<Pair<Int, String>>()
+            PORTS.zip(clients) { port, client ->
+                client.connectPubSub().apply {
+                    addListener(
+                        object : RedisPubSubAdapter<String, String>() {
+                            override fun message(channel: String, message: String) {
+                                received += port to message
+                            }
+                        },
+                    )
+                    async().subscribe(PROBE_CHANNEL).await()
+                }
+            }
+            val publishers = clients.map { it.connect().async() }
+            withTimeout(SETTLE_TIMEOUT) {
+                while (received.size < PORTS.size * PORTS.size) {
+                    PORTS.zip(publishers) { port, publisher -> publisher.publish(PROBE_CHANNEL, "$port") }
+                        .forEach { it.await() }
+                    delay(PROBE_INTERVAL)
+                }
+            }
+        } finally {
+            clients.forEach { it.shutdown() }
+        }
+    }
+
     @Test
     fun `hints reach followers of every node, without waiting for a poll`() = runBlocking<Unit> {
+        awaitPubSubAcrossNodes()
         val (first, second) = namespaces()
         val store = RedisStore.cluster(CLIENT, tailPollInterval = 1.hours)
         store.use {
@@ -138,6 +180,9 @@ class RedisStoreClusterTest {
         const val NODES = 3
         const val SLOTS = SlotHash.SLOT_COUNT
         val POLL_SETTLE = 500.milliseconds
+        val SETTLE_TIMEOUT = 30.seconds
+        val PROBE_INTERVAL = 100.milliseconds
+        const val PROBE_CHANNEL = "cosky-test:probe"
         val PORTS = listOf(7000, 7001, 7002)
 
         val CLUSTER: ClusterContainer = ClusterContainer()
@@ -165,5 +210,14 @@ class RedisStoreClusterTest {
             RESOURCES,
             RedisURI.create("127.0.0.1", PORTS.first()),
         )
+
+        /** Left running, the client would go on reading the topology, and starting threads, in the tests after. */
+        @JvmStatic
+        @AfterAll
+        fun stop() {
+            CLIENT.shutdown()
+            RESOURCES.shutdown()
+            CLUSTER.stop()
+        }
     }
 }
