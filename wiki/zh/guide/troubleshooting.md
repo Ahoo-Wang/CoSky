@@ -111,9 +111,9 @@ token 被拒绝的应用无法启动，它以 `CoSky refused to register service
 
 ## 应用写不了快照
 
-应用只记录一次警告 `Could not write the snapshot <path>: ...`，附带原因，比如 `AccessDeniedException: /home/appuser`。客户端把快照写在 `~/.cosky` 下，而容器里的用户常常没有可写的家目录。除此之外一切正常：应用用内存中的数据提供服务，重启后重新从 server 读取。
+客户端把快照写在 `~/.cosky` 下，而容器里的用户常常没有可写的家目录。这个默认目录不可写时，快照会关闭：应用只在 info 级别记录一次 `Snapshots are off: the default directory ... cannot be written`，除此之外一切正常。它用内存中的数据提供服务，重启后重新从 server 读取。如果用 `cosky.snapshot.dir` 设置的目录不可写，则改为记录一次警告 `Could not write the snapshot <path>: ...`，附带原因，比如 `AccessDeniedException`。
 
-要么用 `cosky.snapshot.dir`（`COSKY_SNAPSHOT_DIR`）给它一个可写的目录，比如挂载的卷；要么用 `cosky.snapshot.enabled=false`（`COSKY_SNAPSHOT_ENABLED=false`）关掉快照。在 Kubernetes 中，快照只有放在持久卷上才能在重启后保留，所以没有持久卷的 Pod 关掉快照不会损失什么。目录可写之后，客户端会记录 `Writes snapshots under ... again`，不需要重启。
+要保留快照，就用 `cosky.snapshot.dir`（`COSKY_SNAPSHOT_DIR`）给它一个可写的目录，比如挂载的卷。如果是设置的目录不可写而出现警告，也可以用 `cosky.snapshot.enabled=false`（`COSKY_SNAPSHOT_ENABLED=false`）关掉快照。在 Kubernetes 中，快照只有放在持久卷上才能在重启后保留，所以没有持久卷的 Pod 不用快照也不会损失什么。设置的目录变得可写之后，客户端会记录 `Writes snapshots under ... again`，不需要重启。
 
 ## cosky_watch_gone_total 上升
 

@@ -101,7 +101,7 @@ Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the
 
 ## Snapshots
 
-The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. A `load` from a snapshot waits up to a second for the server to answer, so that a server that is there wins over a snapshot that is out of date, or from another server at the same address; where no server answers, it reads the snapshot at once. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume.
+The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. A `load` from a snapshot waits up to a second for the server to answer, so that a server that is there wins over a snapshot that is out of date, or from another server at the same address; where no server answers, it reads the snapshot at once. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume. Where the default directory cannot be written, as for a container user without a home, snapshots are off, which the client says once at info level.
 
 Snapshots are not encrypted. The directory is `0700` and the files `0600`; a file system without POSIX permissions, as on Windows, gives them those of the directory they are in, which in the user's home are the user's own. `snapshotIncludeConfig = false` keeps Config contents off the disk, and `snapshotDir = null` turns snapshots off.
 
