@@ -31,7 +31,7 @@ plugins {
 /**
  * The release, moved forward once each one is published. `-PbaselineVersion=` tries another.
  */
-val baseline: String = providers.gradleProperty("baselineVersion").getOrElse("8.0.0-rc.1")
+val baseline: String = providers.gradleProperty("baselineVersion").getOrElse("8.0.0-rc.2")
 
 repositories {
     // From Maven Central, as an application gets it: never from a mavenLocal() that holds this tree, whose version may
