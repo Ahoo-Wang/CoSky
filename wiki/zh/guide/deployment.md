@@ -61,7 +61,7 @@ echo "$COSKY_BOOTSTRAP_TOKEN"
 docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 \
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
   -e COSKY_BOOTSTRAP_TOKEN \
-  ahoowang/cosky:8.0.0-rc.1
+  ahoowang/cosky:8.0.0-rc.2
 ```
 
 请保存这个 token，它是新安装实例的管理员，详见[安全](./security.md#第一个-token)。它的 secret 至少要有 22 个字母和数字，更短的话 server 拒绝启动。使用 Redis Cluster 时，加上 `-e COSKY_STORE_REDIS_CLUSTER=true`。
@@ -77,7 +77,7 @@ docker run -d --name cosky --network cosky -p 8080:8080 -p 9090:9090 -p 127.0.0.
   -e COSKY_STORE_REDIS_URI=redis://redis:6379 \
   -e COSKY_BOOTSTRAP_TOKEN \
   -e MANAGEMENT_SERVER_PORT=8081 \
-  ahoowang/cosky:8.0.0-rc.1
+  ahoowang/cosky:8.0.0-rc.2
 ```
 
 - **Kubernetes：**`k8s/base` 就是这样做的。它的探针访问名为 `management` 的端口（8081），Service 中不包含这个端口，所以经 Service 访问 API 的一方，比如 Ingress，访问不到 Actuator。Prometheus 直接抓取 Pod：按 `prometheus.io/*` 注解，或者用一个指向 `management` 端口的 PodMonitor，不需要为此建 Service。
