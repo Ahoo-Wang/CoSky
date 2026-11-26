@@ -17,12 +17,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import me.ahoo.cosky.api.error.CoSkyException
 import me.ahoo.cosky.api.v1.Kind
 import me.ahoo.cosky.api.v1.ListResponse
 import me.ahoo.cosky.api.v1.Resource
 import me.ahoo.cosky.api.v1.WatchResponse
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration.Companion.seconds
 
 internal data class WatchKey(val namespace: String, val kind: Kind, val name: String = "", val service: String = "")
 
@@ -30,8 +32,15 @@ internal data class WatchKey(val namespace: String, val kind: Kind, val name: St
  * The local view of one watch. It applies whole revisions only, and keeps serving the old view while a new one arrives
  * (design §7.5). Responses arrive on the stream's coroutine while a periodic resync can start the watch over from
  * another, hence the synchronization.
+ *
+ * @param streamFailures how many times the stream that carries it has ended so far, which a view known only from a
+ * snapshot stops waiting for the server's answer on; none for a view that is not waited on.
  */
-internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
+internal class WatchState(
+    val key: WatchKey,
+    snapshot: ListResponse?,
+    private val streamFailures: StateFlow<Long>? = null,
+) {
     private val objects = MutableStateFlow(snapshot?.itemsList.orEmpty().associateBy { it.meta.name })
     private var pendingSnapshot = mutableListOf<Resource>()
     private var pendingEvents = mutableListOf<WatchResponse.Event>()
@@ -41,6 +50,9 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
     /** The id the watch was last created with on the stream; until then 0, which the stream never hands out. */
     private var watchId = 0L
     private val knownState = MutableStateFlow(snapshot != null)
+
+    /** Whether the server has answered for this watch, with a snapshot, events or a bookmark. */
+    private val answered = MutableStateFlow(false)
     private val refusal = MutableStateFlow<CoSkyException?>(null)
 
     /**
@@ -60,6 +72,22 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         knownState.combine(refusal) { known, refused -> known || refused != null }.first { it }
         if (!knownState.value) {
             refusal.value?.let { throw it }
+        }
+        awaitServer()
+    }
+
+    /**
+     * A view known only from a snapshot waits a moment for the server to answer: a snapshot that is out of date, or
+     * from another server at the same address, would otherwise be read as the truth, such as no instances where there
+     * are some. It stops waiting once the stream ends, as when no server answers: the snapshot is what there is then.
+     */
+    private suspend fun awaitServer() {
+        val failures = streamFailures ?: return
+        val before = failures.value
+        withTimeoutOrNull(SERVER_WAIT) {
+            combine(answered, failures, refusal) { answered, now, refused ->
+                answered || now != before || refused != null
+            }.first { it }
         }
     }
 
@@ -150,10 +178,24 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         applyCurrent(response)
     }
 
-    private fun applyCurrent(response: WatchResponse): Boolean = when (response.payloadCase) {
-        WatchResponse.PayloadCase.SNAPSHOT -> applySnapshot(response.snapshot)
-        WatchResponse.PayloadCase.EVENTS -> applyEvents(response.events)
-        WatchResponse.PayloadCase.PROGRESS -> applyProgress(response.progress)
+    private fun applyCurrent(response: WatchResponse): Boolean {
+        val changed = when (response.payloadCase) {
+            WatchResponse.PayloadCase.SNAPSHOT -> applySnapshot(response.snapshot)
+            WatchResponse.PayloadCase.EVENTS -> applyEvents(response.events)
+            WatchResponse.PayloadCase.PROGRESS -> applyProgress(response.progress)
+            else -> false
+        }
+        if (isWhole(response)) {
+            answered.value = true
+        }
+        return changed
+    }
+
+    /** The last message of a snapshot or of a revision's events, or a bookmark: what makes the view current. */
+    private fun isWhole(response: WatchResponse): Boolean = when (response.payloadCase) {
+        WatchResponse.PayloadCase.SNAPSHOT -> !response.snapshot.more
+        WatchResponse.PayloadCase.EVENTS -> !response.events.more
+        WatchResponse.PayloadCase.PROGRESS -> true
         else -> false
     }
 
@@ -209,5 +251,10 @@ internal class WatchState(val key: WatchKey, snapshot: ListResponse?) {
         }
         revision = progress
         return true
+    }
+
+    private companion object {
+        /** How long a view known only from a snapshot waits for the server; a server that is there answers in less. */
+        val SERVER_WAIT = 1.seconds
     }
 }

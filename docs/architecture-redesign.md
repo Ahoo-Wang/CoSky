@@ -749,7 +749,7 @@ return {"OK", GET rev, XRANGE log (applied+1)-0 + COUNT count}      -- COUNT 截
 - 读请求遇到本副本尚未加载完的 namespace 同样返回 `REPLICA_NOT_READY`,鉴权遇到尚未加载完的 `_system` 也是(namespace 为 `_system`)。
 - 重新加载期间 watcher 只是等待,不会被结束。新视图的 epoch 不变且位置仍在窗口内就继续,所以一次 Store 读取失败不会让所有客户端重新 List。namespace 不再是 active 时,watcher 收到 `canceled`(`NAMESPACE_NOT_FOUND`)。
 - 裁剪可能截断最旧 revision 的批次,这个 revision 就不完整,不能从它之前续传。可续传下限由最旧条目决定:序号为 0 时是该 revision 减 1,否则是该 revision 本身。
-- 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。
+- 空闲 watcher 每 10 秒收到一次 `progress`,保证其记录的 revision 持续前进,重连时不易落出窗口。从某个位置续传的 watch 追上后立即收到一次 `progress`,客户端据此知道手里的快照已是最新(§7.5)。
 
 **追尾(D21)**:不使用 `XREAD`。Cluster 下跨 slot 的多键 `XREAD` 直接报 `CROSSSLOT`,每 namespace 一条阻塞连接又会让连接数随 namespace 增长。
 
@@ -993,7 +993,7 @@ me.ahoo.cosky.server
   `<filter>` 是 Config 名或服务名的 SHA-256:253 字符的 Config 名加上前后缀会超过文件名上限,不区分大小写的文件系统上只差大小写的名字也会共用一个文件。
   `serverKey` 是端点列表和 token ID 的哈希,不需要新增 RPC,还能隔离同一主机上不同身份的进程。`snapshotDir` 默认 `~/.cosky`,可关闭。
 - **快照安全**:不加密,客户端没有地方安全存放密钥。目录权限 `0700`、文件权限 `0600`,没有 POSIX 权限的文件系统(如 Windows)沿用所在目录的权限;`snapshot-include-config = false` 时 Config 不落盘。
-- **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。
+- **启动**:有快照则立即以快照初始化 `StateFlow`(状态 `Degraded`),连接成功后从快照位置续传。`load()` 遇到只来自快照的视图时,最多等 1 秒等 server 的回应(快照、事件或进度书签),以免把过时的快照、或同一地址上另一个 server 的快照当作事实(例如快照里没有实例而 server 上有);流一结束(没有 server 应答)就立即用快照。server 对从快照位置续传的 watch,追上后立即发一次 `progress`,所以快照本就是最新的时候不必等满。
 - **重连**:指数退避 100 ms → 10 s,带抖动,端点轮换;连接成功后立即发送 KeepAlive,不等下一周期。
   每次都新建 channel 并关闭旧的:多个端点时连下一个,只有一个端点时再连它一次。不能服务的副本(落后或读不到 store,D29)以结束整条流让客户端离开;复用原连接只会回到它,而到 Kubernetes Service 的新 TCP 连接可能落到另一个副本。channel 在锁外创建(工厂可能读 PEM 文件或做应用自己的事,会阻塞),同一次失败只换一次,关闭后创建的立即关闭;创建失败时保留当前 channel,下次失败再试下一个。
   server 默认在连接约 30 分钟(±10%)后结束它(`spring.grpc.server.keepalive.connection.max-age`,流再有 5 秒),客户端经 Service 重连,滚动更新或扩容后连接因此重新分布。

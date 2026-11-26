@@ -105,7 +105,7 @@ token 被拒绝的应用无法启动，它以 `CoSky refused to register service
 
 ## 应用启动时使用旧值
 
-客户端把它 watch 的内容的[快照](./sdk.md#快照)保存在 `~/.cosky`，启动时从它开始，处于 `DEGRADED`，直到连上 server。在此之前，它提供上一次运行看到的内容：Config 的旧内容，或者旧的实例列表。空列表会让按这个服务名的调用失败。连上之后，它跟随 server，一次刷新就会替换旧值。
+客户端把它 watch 的内容的[快照](./sdk.md#快照)保存在 `~/.cosky`，启动时从它开始，处于 `DEGRADED`，直到连上 server。读取时最多等 1 秒等 server 回应，所以只有在没有 server 应答、或应答慢于 1 秒时，它才提供上一次运行看到的内容：Config 的旧内容，或者旧的实例列表。空列表会让按这个服务名的调用失败。连上之后，它跟随 server，一次刷新就会替换旧值。
 
 快照按端点和 token 区分。所以与上一个开发 server 地址相同的新 server，比如 `localhost:9090`，会看到应用从上一个 server 提供过的内容开始，尽管它自己什么也没保留。要从头开始，删除 `~/.cosky`，或者设置 `cosky.snapshot.enabled=false`。
 

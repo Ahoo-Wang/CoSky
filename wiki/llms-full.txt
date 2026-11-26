@@ -502,7 +502,7 @@ Reconnecting backs off from 100 ms to 10 seconds with jitter, moving through the
 
 ## Snapshots
 
-The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume.
+The client writes its views to `~/.cosky` (`snapshotDir`, or `cosky.snapshot.dir` with the starter) and starts from them after a restart, in `DEGRADED`, until it reaches a server. A `load` from a snapshot waits up to a second for the server to answer, so that a server that is there wins over a snapshot that is out of date, or from another server at the same address; where no server answers, it reads the snapshot at once. This helps a process restarting on the same disk. In Kubernetes it takes a persistent volume.
 
 Snapshots are not encrypted. The directory is `0700` and the files `0600`; a file system without POSIX permissions, as on Windows, gives them those of the directory they are in, which in the user's home are the user's own. `snapshotIncludeConfig = false` keeps Config contents off the disk, and `snapshotDir = null` turns snapshots off.
 
@@ -1184,7 +1184,7 @@ The client backs off up to 10 seconds between attempts. A server with [TLS](./se
 
 ## An application starts with old values
 
-The client keeps a [snapshot](./sdk.md#snapshots) of what it watches in `~/.cosky`, and starts from it, `DEGRADED`, until it reaches a server. Until then it serves what its last run saw: a Config's old content, or an old list of instances. An empty list fails a call by that service's name. Once connected, it follows the server, and a refresh replaces the old values.
+The client keeps a [snapshot](./sdk.md#snapshots) of what it watches in `~/.cosky`, and starts from it, `DEGRADED`, until it reaches a server. A read waits up to a second for the server to answer, so it serves what its last run saw only while no server answers, or one answers slower than that: a Config's old content, or an old list of instances. An empty list fails a call by that service's name. Once connected, it follows the server, and a refresh replaces the old values.
 
 Snapshots are kept per set of endpoints and token. So a development server at the same address as the one before, such as `localhost:9090`, finds the applications starting from what the earlier one served, though it kept nothing. To start clean, delete `~/.cosky`, or set `cosky.snapshot.enabled=false`.
 
