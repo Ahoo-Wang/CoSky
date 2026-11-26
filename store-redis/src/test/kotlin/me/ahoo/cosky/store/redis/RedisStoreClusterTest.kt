@@ -145,10 +145,8 @@ class RedisStoreClusterTest {
             .withCommand(
                 "sh",
                 "-c",
-                PORTS.joinToString(" ") { port ->
-                    "redis-server --port $port --cluster-enabled yes --cluster-config-file n$port.conf " +
-                        "--daemonize yes --save '' --appendonly no &&"
-                } + " sleep 1 && redis-cli --cluster create " + PORTS.joinToString(" ") { "127.0.0.1:$it" } +
+                PORTS.joinToString(" ") { port -> "${clusterNode(port)} &&" } +
+                    " sleep 1 && redis-cli --cluster create " + PORTS.joinToString(" ") { "127.0.0.1:$it" } +
                     " --cluster-yes && echo CLUSTER_READY && tail -f /dev/null",
             )
             .waitingFor(Wait.forLogMessage(".*CLUSTER_READY.*", 1))
