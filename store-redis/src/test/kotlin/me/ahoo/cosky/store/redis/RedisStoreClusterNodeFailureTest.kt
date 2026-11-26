@@ -79,8 +79,7 @@ class RedisStoreClusterNodeFailureTest {
                         "--cluster-node-timeout ${nodeTimeout.inWholeMilliseconds} " +
                             "--cluster-require-full-coverage no --enable-debug-command yes",
                     ) + " &&"
-                } + " sleep 1 && redis-cli --cluster create " + PORTS.joinToString(" ") { "127.0.0.1:$it" } +
-                    " --cluster-yes && echo CLUSTER_READY && tail -f /dev/null",
+                } + " sleep 1 && ${clusterCreate(PORTS)} && tail -f /dev/null",
             )
             .waitingFor(Wait.forLogMessage(".*CLUSTER_READY.*", 1))
             .also { it.start() }

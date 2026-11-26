@@ -26,6 +26,18 @@ internal fun clusterNode(port: Int, settings: String = ""): String =
         "--appendonly no $settings $TRUSTED_CLUSTER_BUS"
 
 /**
+ * A shell command that makes a cluster of the nodes at [ports], with [options] besides, and says `CLUSTER_READY` once
+ * every node takes the cluster as up. `redis-cli --cluster create` returns when the nodes agree on the slots, which can
+ * be before a node has marked the cluster up: a master waits up to two seconds after it starts, and until then a
+ * command it is sent fails with CLUSTERDOWN.
+ */
+internal fun clusterCreate(ports: List<Int>, options: String = ""): String =
+    "redis-cli --cluster create ${ports.joinToString(" ") { "127.0.0.1:$it" }} $options --cluster-yes && " +
+        "for p in ${ports.joinToString(" ")}; do " +
+        "until redis-cli -p \$p cluster info | grep -q cluster_state:ok; do sleep 0.1; done; done && " +
+        "echo CLUSTER_READY"
+
+/**
  * Redis 8.12 refuses to run a cluster bus without TLS unless told that only trusted hosts reach it. Redis before 8.10
  * and Valkey refuse that setting, Redis 8.0 only once it has gone to the background, so the shell asks the version.
  */
